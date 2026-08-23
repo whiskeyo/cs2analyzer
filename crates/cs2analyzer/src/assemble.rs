@@ -3,7 +3,7 @@
 use crate::analysis::{compute_stats, starting_team_scores};
 use crate::constants::{
     DEFAULT_TICK_RATE, FLASH_POP_SECONDS, HE_DECOY_SECONDS, KNIFE_ROUND_MAX_EQUIPMENT,
-    MOLOTOV_SECONDS, SMOKE_SECONDS,
+    KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_SECONDS, SMOKE_SECONDS,
 };
 use crate::observer::Collector;
 use crate::types::*;
@@ -11,19 +11,22 @@ use crate::{FLAG_PRESENT, MAX_PLAYERS};
 use std::collections::HashMap;
 
 pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f32) -> Match {
-    let player_count = c.meta_order.len().min(MAX_PLAYERS);
     let mut steam_to_idx: HashMap<u64, u8> = HashMap::new();
-    let mut players = Vec::with_capacity(player_count);
-    for (i, steam) in c.meta_order.iter().take(player_count).enumerate() {
-        steam_to_idx.insert(*steam, i as u8);
-        let meta = &c.meta[steam];
+    let mut players = Vec::with_capacity(c.meta_order.len().min(MAX_PLAYERS));
+    for steam in c.meta_order.iter().take(MAX_PLAYERS) {
+        let Some(meta) = c.meta.get(steam) else {
+            continue;
+        };
+        let i = players.len() as u8;
+        steam_to_idx.insert(*steam, i);
         players.push(Player {
-            index: i as u8,
+            index: i,
             steam_id: meta.steam_id,
             name: meta.name.clone(),
             start_side: meta.start_side,
         });
     }
+    let player_count = players.len();
 
     let idx_of = |steam: Option<u64>| -> i8 {
         steam
@@ -289,7 +292,7 @@ fn build_rounds(c: &Collector) -> Vec<Round> {
                 .get(&rounds[i].freeze_end_tick)
                 .copied()
                 .unwrap_or(0);
-            if ev < 1000 {
+            if ev < KNIFE_ROUND_RESET_MAX_EQUIPMENT {
                 rounds[i].is_knife = true;
             }
         }
@@ -363,13 +366,13 @@ fn build_grenades(
     for (entity, mut points) in by_entity {
         points.sort_by_key(|p| p.0);
         for seg in split_proj_track(points, gap) {
-            if seg.is_empty() {
+            let Some((first, rest)) = seg.split_first() else {
                 continue;
-            }
-            let kind = seg[0].1;
+            };
+            let kind = first.1;
             let thrower = seg.iter().find_map(|p| p.5);
-            let start_tick = seg[0].0;
-            let last = *seg.last().unwrap();
+            let start_tick = first.0;
+            let last = rest.last().copied().unwrap_or(*first);
 
             let mut detonate_tick = last.0;
             let mut land = (last.2, last.3, last.4);

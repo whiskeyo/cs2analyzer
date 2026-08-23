@@ -14,3 +14,6 @@ source2-demo = { workspace = true }
 [features]
 default = ["mimalloc"]
 mimalloc = ["source2-demo/mimalloc"]
+
+[lints]
+workspace = true

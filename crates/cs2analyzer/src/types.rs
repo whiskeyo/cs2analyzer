@@ -121,13 +121,13 @@ impl TickBuffer {
         }
         let i = frame * pc + player;
         Some(TickPlayer {
-            x: self.x[i],
-            y: self.y[i],
-            z: self.z[i],
-            yaw: self.yaw[i],
-            health: self.health[i],
-            armor: self.armor[i],
-            flags: self.flags[i],
+            x: *self.x.get(i)?,
+            y: *self.y.get(i)?,
+            z: *self.z.get(i)?,
+            yaw: *self.yaw.get(i)?,
+            health: *self.health.get(i)?,
+            armor: *self.armor.get(i)?,
+            flags: *self.flags.get(i)?,
             money: self.money.get(i).copied().unwrap_or(0),
             equip: self.equip.get(i).copied().unwrap_or(0),
             gear: self.gear.get(i).copied().unwrap_or(0),

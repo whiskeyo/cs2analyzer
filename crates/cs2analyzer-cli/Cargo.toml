@@ -13,3 +13,6 @@ path = "src/main.rs"
 cs2analyzer = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 serde_json = { workspace = true }
+
+[lints]
+workspace = true

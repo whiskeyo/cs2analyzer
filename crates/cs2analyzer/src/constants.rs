@@ -12,6 +12,9 @@ pub const FULL_HEALTH: i32 = 100;
 /// FACEIT knife round: max freeze equipment and no gun kill.
 pub const KNIFE_ROUND_MAX_EQUIPMENT: i32 = 200;
 
+/// Fallback when the next freeze is still 0–0 (FACEIT knife reset). Kevlar is 650.
+pub const KNIFE_ROUND_RESET_MAX_EQUIPMENT: i32 = 1000;
+
 /// MR12: rounds in one half of regulation.
 pub const REGULATION_ROUNDS_PER_HALF: u32 = 12;
 

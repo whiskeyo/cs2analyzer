@@ -49,6 +49,10 @@ pub fn parse_demo_with_progress(
     opts: ParseOptions,
     progress: Option<Box<dyn FnMut(u32, u32)>>,
 ) -> Result<Match, ParseError> {
+    let opts = ParseOptions {
+        tick_stride: opts.tick_stride.max(1),
+        skip_warmup: opts.skip_warmup,
+    };
     let mut parser = Parser::new(bytes).map_err(|e| ParseError::Demo(e.to_string()))?;
     let mut collector = Collector::new(opts);
     collector.progress = progress;
