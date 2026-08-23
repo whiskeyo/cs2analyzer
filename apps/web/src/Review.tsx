@@ -12,7 +12,8 @@ export function Review({ replay, tick, selected, onJump }: Props) {
   if (selected == null) {
     return (
       <p className="muted tab-hint">
-        Select a player on the map or scoreboard to see what went wrong for them through this tick.
+        Select a player on the map or scoreboard to see openings, clutches, and mistakes through
+        this tick.
       </p>
     );
   }
@@ -21,14 +22,15 @@ export function Review({ replay, tick, selected, onJump }: Props) {
   if (review.headlines.length === 0 && review.notes.length === 0) {
     return (
       <p className="muted tab-hint">
-        No deaths for {name} yet in this demo. Play or skip further in, then check again.
+        No review notes for {name} yet. Play or skip further in, then check again.
       </p>
     );
   }
   return (
     <div className="review">
       <p className="tab-hint">
-        <strong>{name}</strong> — event-based review through this tick. Click a line to jump there.
+        <strong>{name}</strong> — openings, clutches, and mistakes through this tick. Click a line
+        to jump there.
       </p>
       {review.headlines.length > 0 && (
         <ul className="review-heads">

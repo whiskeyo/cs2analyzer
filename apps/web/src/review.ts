@@ -1,5 +1,5 @@
 import { samplePlayers } from "./sample";
-import { currentSide } from "./stats";
+import { currentSide, isEnemyKill } from "./stats";
 import type { Kill, Replay, Round } from "./types";
 import { GEAR_DECOY, GEAR_FLASH, GEAR_FLASH2, GEAR_HE, GEAR_MOLLY, GEAR_SMOKE } from "./types";
 import { prettyWeapon } from "./weapons";
@@ -7,7 +7,7 @@ import { prettyWeapon } from "./weapons";
 const TRADE_SECONDS = 5;
 const NADE_GEAR = GEAR_HE | GEAR_FLASH | GEAR_FLASH2 | GEAR_SMOKE | GEAR_MOLLY | GEAR_DECOY;
 
-export type ReviewSeverity = "high" | "mid" | "low";
+export type ReviewSeverity = "good" | "high" | "mid" | "low";
 
 export interface ReviewHeadline {
   text: string;
@@ -103,25 +103,66 @@ function nadeCount(gear: number): number {
   return n;
 }
 
+/** Largest 1vX the player was in this round, or 0 if they were never last alive. */
+function clutchVs(
+  replay: Replay,
+  round: Round,
+  roundKills: Kill[],
+  player: number,
+  side: "T" | "CT",
+): number {
+  const snap = samplePlayers(replay, round.freeze_end_tick || round.start_tick);
+  if (snap.length === 0) return 0;
+  const alive = new Set<number>();
+  const sides = new Map<number, "T" | "CT">();
+  for (const p of snap) {
+    if (!p.present || !p.alive) continue;
+    alive.add(p.index);
+    sides.set(p.index, p.ct ? "CT" : "T");
+  }
+  let maxVs = 0;
+  const count = (want: "T" | "CT") => {
+    let n = 0;
+    for (const i of alive) if (sides.get(i) === want) n += 1;
+    return n;
+  };
+  const note = () => {
+    if (!alive.has(player) || sides.get(player) !== side) return;
+    const us = count(side);
+    const them = count(side === "CT" ? "T" : "CT");
+    if (us === 1 && them >= 1) maxVs = Math.max(maxVs, them);
+  };
+  note();
+  for (const k of roundKills) {
+    if (k.victim >= 0) alive.delete(k.victim);
+    note();
+  }
+  return maxVs;
+}
+
 export function playerReview(replay: Replay, player: number, untilTick: number): PlayerReview {
   const notes: ReviewNote[] = [];
   const name = (i: number) => (i < 0 ? "World" : (replay.players[i]?.name ?? "?"));
   let opening = 0;
+  let openingWin = 0;
   let openingLoss = 0;
   let untraded = 0;
   let flashed = 0;
   let utilDeaths = 0;
   let clutchLoss = 0;
+  let clutchWin = 0;
   let fedMulti = 0;
   let noReturn = 0;
   let nadesLeft = 0;
+  let multi = 0;
+  let ecoWins = 0;
 
   for (const r of replay.rounds) {
     if (r.is_knife) continue;
     const end = Math.min(r.end_tick, untilTick);
     if (r.freeze_end_tick > untilTick) continue;
     const roundKills = replay.kills.filter((k) => k.tick >= r.freeze_end_tick && k.tick <= end);
-    const first = roundKills[0];
+    const first = roundKills.find((k) => isEnemyKill(replay, k));
     const myDeaths = roundKills.filter((k) => k.victim === player);
     const side = currentSide(replay, player, r.freeze_end_tick || r.start_tick);
     const teamLost = r.end_tick <= untilTick && r.winner != null && r.winner !== side;
@@ -210,12 +251,67 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
         severity,
       });
     }
+
+    if (first && first.attacker === player && r.end_tick <= untilTick) {
+      openingWin += 1;
+      notes.push({
+        tick: first.tick,
+        roundLabel: roundLabel(r),
+        title: `Won the opening vs ${name(first.victim)}`,
+        detail: prettyWeapon(first.weapon) + (first.headshot ? " HS" : ""),
+        severity: "good",
+      });
+    }
+
+    const myFrags = roundKills.filter((k) => isEnemyKill(replay, k) && k.attacker === player);
+    if (myFrags.length >= 4) {
+      multi += 1;
+      const last = myFrags[myFrags.length - 1];
+      notes.push({
+        tick: last.tick,
+        roundLabel: roundLabel(r),
+        title: myFrags.length >= 5 ? "Ace" : `${myFrags.length}k this round`,
+        detail: myFrags.map((k) => prettyWeapon(k.weapon)).join(", "),
+        severity: "good",
+      });
+    }
+
+    const freeze = r.freeze_end_tick || r.start_tick;
+    const me = samplePlayers(replay, freeze).find((p) => p.index === player);
+    if (me && me.equip < 2000 && r.end_tick <= untilTick && r.winner === side) {
+      ecoWins += 1;
+      notes.push({
+        tick: freeze,
+        roundLabel: roundLabel(r),
+        title: "Won the round on an eco",
+        detail: `eq $${me.equip}`,
+        severity: "good",
+      });
+    }
+
+    if (r.end_tick <= untilTick && r.winner === side) {
+      const vs = clutchVs(replay, r, roundKills, player, side);
+      if (vs >= 1) {
+        clutchWin += 1;
+        notes.push({
+          tick: r.freeze_end_tick || r.start_tick,
+          roundLabel: roundLabel(r),
+          title: `Won a 1v${vs}`,
+          detail: "clutch",
+          severity: "good",
+        });
+      }
+    }
   }
 
   const headlines: ReviewHeadline[] = [];
   const push = (count: number, severity: ReviewSeverity, text: string) => {
     if (count > 0) headlines.push({ count, severity, text });
   };
+  push(openingWin, "good", `Won ${openingWin} opening duel${openingWin === 1 ? "" : "s"}`);
+  push(clutchWin, "good", `Won ${clutchWin} clutch${clutchWin === 1 ? "" : "es"}`);
+  push(multi, "good", `${multi} round${multi === 1 ? "" : "s"} with 4k+`);
+  push(ecoWins, "good", `Won ${ecoWins} eco round${ecoWins === 1 ? "" : "s"}`);
   push(
     opening,
     "high",
@@ -240,11 +336,11 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
   );
 
   headlines.sort((a, b) => {
-    const rank = { high: 0, mid: 1, low: 2 };
+    const rank = { good: 0, high: 1, mid: 2, low: 3 };
     return rank[a.severity] - rank[b.severity] || b.count - a.count;
   });
   notes.sort((a, b) => {
-    const rank = { high: 0, mid: 1, low: 2 };
+    const rank = { good: 0, high: 1, mid: 2, low: 3 };
     return rank[a.severity] - rank[b.severity] || a.tick - b.tick;
   });
 

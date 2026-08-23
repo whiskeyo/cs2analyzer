@@ -322,6 +322,9 @@ button.link {
 .review-head.low {
   border-left: 3px solid #6aa4d8;
 }
+.review-head.good {
+  border-left: 3px solid #3dba6a;
+}
 .review-notes {
   list-style: none;
   margin: 0;
@@ -345,6 +348,9 @@ button.link {
 }
 .review-note.high .review-title {
   color: #ff8a8a;
+}
+.review-note.good .review-title {
+  color: #7dcea0;
 }
 .review-copy {
   display: flex;
