@@ -1,4 +1,4 @@
-import type { Blind, Hurt } from "./types";
+import type { Blind, FireCell, Hurt } from "./types";
 
 /** How long a hit ring stays on the victim. */
 export const HIT_SECONDS = 0.45;
@@ -49,4 +49,10 @@ export function lingerRemaining(detonateTick: number, endTick: number, tick: num
   const span = endTick - detonateTick;
   if (span <= 0) return 0;
   return Math.min(1, Math.max(0, (endTick - tick) / span));
+}
+
+/** Inferno cells still burning at `tick`. */
+export function firesAt(fires: FireCell[] | undefined, tick: number): FireCell[] {
+  if (!fires || fires.length === 0) return [];
+  return fires.filter((c) => tick >= c.start_tick && tick <= c.end_tick);
 }

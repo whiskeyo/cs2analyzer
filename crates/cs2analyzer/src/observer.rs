@@ -8,7 +8,7 @@ use crate::{
 };
 use source2_demo::prelude::*;
 use source2_demo::proto::CSvcMsgServerInfo;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub(crate) struct PlayerMeta {
     pub steam_id: u64,
@@ -75,6 +75,24 @@ pub(crate) struct Collector {
     pub total_ticks: u32,
     pub last_progress_tick: u32,
     pub progress: Option<Box<dyn FnMut(u32, u32)>>,
+    pub fire_spans: Vec<FireSpan>,
+    inferno_live: HashMap<u32, [Option<LiveFlame>; 64]>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct FireSpan {
+    pub ent: u32,
+    pub x: f32,
+    pub y: f32,
+    pub start_tick: u32,
+    pub end_tick: u32,
+}
+
+#[derive(Clone, Copy)]
+struct LiveFlame {
+    x: f32,
+    y: f32,
+    start: u32,
 }
 
 pub(crate) struct RawKill {
@@ -125,8 +143,115 @@ impl Collector {
             total_ticks: 0,
             last_progress_tick: 0,
             progress: None,
+            fire_spans: Vec::new(),
+            inferno_live: HashMap::new(),
         }
     }
+
+    pub(crate) fn finish_infernos(&mut self, tick: u32) {
+        let ents: Vec<u32> = self.inferno_live.keys().copied().collect();
+        for ent in ents {
+            self.close_inferno(ent, tick);
+        }
+    }
+
+    fn sample_infernos(&mut self, ctx: &Context, tick: u32) {
+        let mut seen = HashSet::new();
+        for e in ctx.entities().iter() {
+            if !is_inferno_class(e.class().name()) {
+                continue;
+            }
+            let ent = e.index();
+            seen.insert(ent);
+            self.track_inferno(e, tick);
+        }
+        let stale: Vec<u32> = self
+            .inferno_live
+            .keys()
+            .copied()
+            .filter(|k| !seen.contains(k))
+            .collect();
+        for ent in stale {
+            self.close_inferno(ent, tick.saturating_sub(1));
+        }
+    }
+
+    fn track_inferno(&mut self, e: &Entity, tick: u32) {
+        let ent = e.index();
+        let slots = self.inferno_live.entry(ent).or_insert([None; 64]);
+        for (i, slot) in slots.iter_mut().enumerate() {
+            let burning = fire_burning(e, i);
+            if burning {
+                let Some((x, y)) = fire_pos(e, i) else {
+                    continue;
+                };
+                match *slot {
+                    Some(live) if (live.x - x).hypot(live.y - y) < 80.0 => {
+                        *slot = Some(LiveFlame {
+                            x,
+                            y,
+                            start: live.start,
+                        });
+                    }
+                    Some(live) => {
+                        self.fire_spans.push(FireSpan {
+                            ent,
+                            x: live.x,
+                            y: live.y,
+                            start_tick: live.start,
+                            end_tick: tick.saturating_sub(1).max(live.start),
+                        });
+                        *slot = Some(LiveFlame { x, y, start: tick });
+                    }
+                    None => {
+                        *slot = Some(LiveFlame { x, y, start: tick });
+                    }
+                }
+            } else if let Some(live) = slot.take() {
+                self.fire_spans.push(FireSpan {
+                    ent,
+                    x: live.x,
+                    y: live.y,
+                    start_tick: live.start,
+                    end_tick: tick.saturating_sub(1).max(live.start),
+                });
+            }
+        }
+        if slots.iter().all(Option::is_none) {
+            self.inferno_live.remove(&ent);
+        }
+    }
+
+    fn close_inferno(&mut self, ent: u32, end_tick: u32) {
+        if let Some(slots) = self.inferno_live.remove(&ent) {
+            for live in slots.into_iter().flatten() {
+                self.fire_spans.push(FireSpan {
+                    ent,
+                    x: live.x,
+                    y: live.y,
+                    start_tick: live.start,
+                    end_tick: end_tick.max(live.start),
+                });
+            }
+        }
+    }
+}
+
+fn fire_burning(e: &Entity, i: usize) -> bool {
+    prop_truthy(e, &format!("m_bFireIsBurning.{i:04}"))
+        || prop_truthy(e, &format!("m_bFireIsBurning.{i}"))
+}
+
+fn fire_pos(e: &Entity, i: usize) -> Option<(f32, f32)> {
+    for key in [
+        format!("m_firePositions.{i:04}"),
+        format!("m_firePositions.{i}"),
+    ] {
+        if let Some((x, y, _)) = prop_vec3(e, &key) {
+            return Some((x, y));
+        }
+    }
+    None
 }
 
 fn steam_from_pawn_handle(c: &Collector, ctx: &Context, handle: i32) -> Option<u64> {
@@ -207,6 +332,8 @@ impl Collector {
             self.synth_ends.push((tick, winner, reason));
         }
         self.prev_win_status = win_status;
+
+        self.sample_infernos(ctx, tick);
 
         if tick.wrapping_sub(self.last_cap) < self.opts.tick_stride && self.last_cap != 0 {
             return Ok(());

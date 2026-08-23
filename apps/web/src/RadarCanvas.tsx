@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { floorForZ, radarUrl, screenToWorld, worldToScreen, type RadarView } from "./maps";
-import { blindsAt, HIT_SECONDS, hitsAt, lingerRemaining, TRACER_SECONDS } from "./radarFx";
+import { blindsAt, firesAt, HIT_SECONDS, hitsAt, lingerRemaining, TRACER_SECONDS } from "./radarFx";
 import { currentRound, samplePlayers, sampleTrail } from "./sample";
 import { activeBomb } from "./stats";
 import type { DrawTool, MapCalibration, MapLayers, Replay, Stroke } from "./types";
@@ -273,52 +273,98 @@ export function RadarCanvas({
               ctx.stroke();
             }
           } else if (lingering || burst) {
-            const last = g.points[g.points.length - 1];
-            if (last) {
-              const s = toScreen(last.x, last.y);
-              const radius =
-                (g.kind === "smoke" ? 32 : g.kind === "molotov" ? 24 : g.kind === "he" ? 18 : 12) *
-                Math.min(1.4, v.scale);
-              if (lingering && (g.kind === "smoke" || g.kind === "molotov")) {
-                const left = lingerRemaining(g.detonate_tick, g.end_tick, tickNow);
-                const inner = Math.max(7, 8 * Math.min(1.4, v.scale));
+            const cells = g.kind === "molotov" ? firesAt(g.fires, tickNow) : [];
+            if (lingering && cells.length > 0) {
+              const cellR = 8 * Math.min(1.4, v.scale);
+              ctx.fillStyle = color;
+              ctx.globalAlpha = 0.42;
+              let cx = 0;
+              let cy = 0;
+              for (const cell of cells) {
+                const s = toScreen(cell.x, cell.y);
+                cx += s.x;
+                cy += s.y;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, cellR, 0, Math.PI * 2);
+                ctx.fill();
+              }
+              cx /= cells.length;
+              cy /= cells.length;
+              const left = lingerRemaining(g.detonate_tick, g.end_tick, tickNow);
+              const inner = Math.max(5, 6 * Math.min(1.4, v.scale));
+              ctx.globalAlpha = 0.85;
+              ctx.fillStyle = "#12181f";
+              ctx.beginPath();
+              ctx.arc(cx, cy, inner + 1.2, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.globalAlpha = 0.35;
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 1.3;
+              ctx.beginPath();
+              ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+              ctx.stroke();
+              if (left > 0) {
+                ctx.globalAlpha = 0.95;
                 ctx.fillStyle = color;
-                ctx.strokeStyle = color;
-                ctx.globalAlpha = 0.22;
                 ctx.beginPath();
-                ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, inner, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
+                ctx.closePath();
                 ctx.fill();
-                ctx.globalAlpha = 0.4;
-                ctx.lineWidth = 1.4;
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.globalAlpha = 0.85;
-                ctx.fillStyle = "#12181f";
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, inner + 1.4, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.globalAlpha = 0.35;
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, inner, 0, Math.PI * 2);
-                ctx.stroke();
-                if (left > 0) {
-                  ctx.globalAlpha = 0.95;
+              }
+            } else {
+              const last = g.points[g.points.length - 1];
+              if (last) {
+                const s = toScreen(last.x, last.y);
+                const radius =
+                  (g.kind === "smoke"
+                    ? 32
+                    : g.kind === "molotov"
+                      ? 24
+                      : g.kind === "he"
+                        ? 18
+                        : 12) * Math.min(1.4, v.scale);
+                if (lingering && (g.kind === "smoke" || g.kind === "molotov")) {
+                  const left = lingerRemaining(g.detonate_tick, g.end_tick, tickNow);
+                  const inner = Math.max(7, 8 * Math.min(1.4, v.scale));
+                  ctx.fillStyle = color;
+                  ctx.strokeStyle = color;
+                  ctx.globalAlpha = 0.22;
+                  ctx.beginPath();
+                  ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.globalAlpha = 0.4;
+                  ctx.lineWidth = 1.4;
+                  ctx.beginPath();
+                  ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
+                  ctx.stroke();
+                  ctx.globalAlpha = 0.85;
+                  ctx.fillStyle = "#12181f";
+                  ctx.beginPath();
+                  ctx.arc(s.x, s.y, inner + 1.4, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.globalAlpha = 0.35;
+                  ctx.strokeStyle = color;
+                  ctx.lineWidth = 1.5;
+                  ctx.beginPath();
+                  ctx.arc(s.x, s.y, inner, 0, Math.PI * 2);
+                  ctx.stroke();
+                  if (left > 0) {
+                    ctx.globalAlpha = 0.95;
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.moveTo(s.x, s.y);
+                    ctx.arc(s.x, s.y, inner, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
+                    ctx.closePath();
+                    ctx.fill();
+                  }
+                } else {
+                  ctx.globalAlpha = burst ? 0.45 : 0.28;
                   ctx.fillStyle = color;
                   ctx.beginPath();
-                  ctx.moveTo(s.x, s.y);
-                  ctx.arc(s.x, s.y, inner, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
-                  ctx.closePath();
+                  ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
                   ctx.fill();
                 }
-              } else {
-                ctx.globalAlpha = burst ? 0.45 : 0.28;
-                ctx.fillStyle = color;
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
-                ctx.fill();
               }
             }
           }

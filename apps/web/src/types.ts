@@ -60,6 +60,13 @@ export interface GrenadePoint {
   z: number;
 }
 
+export interface FireCell {
+  x: number;
+  y: number;
+  start_tick: number;
+  end_tick: number;
+}
+
 export interface GrenadeThrow {
   thrower: number;
   kind: GrenadeKind;
@@ -67,6 +74,7 @@ export interface GrenadeThrow {
   detonate_tick: number;
   end_tick: number;
   points: GrenadePoint[];
+  fires?: FireCell[];
 }
 
 export interface Shot {

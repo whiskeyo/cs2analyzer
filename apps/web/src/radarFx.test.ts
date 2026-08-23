@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blindsAt, HIT_SECONDS, hitsAt, lingerRemaining } from "./radarFx";
+import { blindsAt, firesAt, HIT_SECONDS, hitsAt, lingerRemaining } from "./radarFx";
 
 describe("blindsAt", () => {
   it("returns remaining flash time for the victim", () => {
@@ -37,5 +37,20 @@ describe("lingerRemaining", () => {
     expect(lingerRemaining(100, 100 + 64 * 18, 100 + 64 * 9)).toBeCloseTo(0.5, 5);
     expect(lingerRemaining(100, 100 + 64 * 18, 100 + 64 * 18)).toBe(0);
     expect(lingerRemaining(100, 100, 100)).toBe(0);
+  });
+});
+
+describe("firesAt", () => {
+  it("keeps cells whose lifetime covers the tick", () => {
+    const fires = [
+      { x: 1, y: 2, start_tick: 100, end_tick: 200 },
+      { x: 3, y: 4, start_tick: 150, end_tick: 180 },
+    ];
+    expect(firesAt(fires, 99)).toEqual([]);
+    expect(firesAt(fires, 120)).toEqual([fires[0]]);
+    expect(firesAt(fires, 160)).toEqual(fires);
+    expect(firesAt(fires, 200)).toEqual([fires[0]]);
+    expect(firesAt(fires, 201)).toEqual([]);
+    expect(firesAt(undefined, 160)).toEqual([]);
   });
 });

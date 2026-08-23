@@ -183,6 +183,9 @@ pub struct GrenadeThrow {
     pub detonate_tick: u32,
     pub end_tick: u32,
     pub points: Vec<GrenadePoint>,
+    /// Burning molotov/incendiary cells sampled from `CInferno`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fires: Vec<FireCell>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -191,6 +194,15 @@ pub struct GrenadePoint {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+}
+
+/// One inferno flame that was burning between `start_tick` and `end_tick`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct FireCell {
+    pub x: f32,
+    pub y: f32,
+    pub start_tick: u32,
+    pub end_tick: u32,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

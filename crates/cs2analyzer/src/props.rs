@@ -19,6 +19,14 @@ pub(crate) fn prop_bool(e: &Entity, name: &str) -> bool {
     matches!(e.get_property(name), Ok(FieldValue::Boolean(true)))
 }
 
+pub(crate) fn prop_vec3(e: &Entity, name: &str) -> Option<(f32, f32, f32)> {
+    match e.get_property(name) {
+        Ok(FieldValue::Vector3D(v)) => Some((v[0], v[1], v[2])),
+        Ok(FieldValue::Vector2D(v)) => Some((v[0], v[1], 0.0)),
+        _ => None,
+    }
+}
+
 pub(crate) fn prop_truthy(e: &Entity, name: &str) -> bool {
     match e.get_property(name) {
         Ok(FieldValue::Boolean(v)) => *v,
@@ -206,6 +214,10 @@ pub(crate) fn proj_kind(class: &str) -> Option<GrenadeKind> {
         "CDecoyProjectile" => Some(GrenadeKind::Decoy),
         _ => None,
     }
+}
+
+pub(crate) fn is_inferno_class(class: &str) -> bool {
+    class == "CInferno" || class == "C_Inferno"
 }
 
 pub(crate) fn is_knife_weapon(weapon: &str) -> bool {

@@ -31,7 +31,9 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     let ticks = build_ticks(c, player_count, &steam_to_idx);
     let rounds = build_rounds(c);
     apply_match_start_sides(&mut players, &ticks, &rounds);
-    let grenades = build_grenades(c, &idx_of, tick_rate(c));
+    c.finish_infernos(c.last_cap);
+    let mut grenades = build_grenades(c, &idx_of, tick_rate(c));
+    attach_molotov_fires(c, &mut grenades);
     let shots: Vec<Shot> = c
         .shots
         .iter()
@@ -419,6 +421,7 @@ fn build_grenades(
                 detonate_tick,
                 end_tick,
                 points: pts,
+                fires: Vec::new(),
             });
         }
     }
@@ -426,6 +429,18 @@ fn build_grenades(
     for (i, det) in c.grenade_dets.iter().enumerate() {
         if used_dets[i] {
             continue;
+        }
+        if det.1 == GrenadeKind::Molotov {
+            let nearby = out.iter().any(|g| {
+                g.kind == GrenadeKind::Molotov
+                    && g.detonate_tick.abs_diff(det.0) <= 48
+                    && g.points
+                        .last()
+                        .is_some_and(|p| (p.x - det.3).hypot(p.y - det.4) < 400.0)
+            });
+            if nearby {
+                continue;
+            }
         }
         let end_tick = c
             .grenade_ends
@@ -445,6 +460,7 @@ fn build_grenades(
                 y: det.4,
                 z: det.5,
             }],
+            fires: Vec::new(),
         });
     }
 
@@ -481,4 +497,118 @@ fn default_end(kind: GrenadeKind, detonate: u32, tick_rate: f32) -> u32 {
         GrenadeKind::Flash => 0.4,
     };
     detonate.saturating_add((secs * tick_rate).round() as u32)
+}
+
+fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow]) {
+    if c.fire_spans.is_empty() {
+        return;
+    }
+    let mut by_ent: HashMap<u32, Vec<&crate::observer::FireSpan>> = HashMap::new();
+    for span in &c.fire_spans {
+        by_ent.entry(span.ent).or_default().push(span);
+    }
+
+    let mut claimed = vec![false; grenades.len()];
+    for (ent, spans) in by_ent {
+        let t0 = spans.iter().map(|s| s.start_tick).min().unwrap_or(0);
+        let t1 = spans.iter().map(|s| s.end_tick).max().unwrap_or(t0);
+        let (mut cx, mut cy) = (0.0f32, 0.0f32);
+        for s in &spans {
+            cx += s.x;
+            cy += s.y;
+        }
+        let n = spans.len() as f32;
+        cx /= n;
+        cy /= n;
+
+        let det_tick = c
+            .grenade_dets
+            .iter()
+            .find(|d| d.1 == GrenadeKind::Molotov && d.2 as u32 == ent)
+            .map(|d| d.0);
+
+        let mut best = None;
+        let mut best_score = f32::MAX;
+        for (i, g) in grenades.iter().enumerate() {
+            if claimed[i] || g.kind != GrenadeKind::Molotov {
+                continue;
+            }
+            let Some(last) = g.points.last() else {
+                continue;
+            };
+            let dist = (last.x - cx).hypot(last.y - cy);
+            if dist > 800.0 {
+                continue;
+            }
+            let dt = g.detonate_tick.abs_diff(t0);
+            if dt > 96 {
+                continue;
+            }
+            let mut score = dist + dt as f32;
+            if det_tick.is_some_and(|t| g.detonate_tick.abs_diff(t) <= 16) {
+                score -= 200.0;
+            }
+            if score < best_score {
+                best_score = score;
+                best = Some(i);
+            }
+        }
+        if let Some(i) = best {
+            claimed[i] = true;
+            grenades[i].fires = spans
+                .iter()
+                .map(|s| FireCell {
+                    x: s.x,
+                    y: s.y,
+                    start_tick: s.start_tick,
+                    end_tick: s.end_tick,
+                })
+                .collect();
+            grenades[i].end_tick = t1;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::observer::{Collector, FireSpan};
+    use crate::ParseOptions;
+
+    fn molly(detonate: u32, x: f32, y: f32) -> GrenadeThrow {
+        GrenadeThrow {
+            thrower: 0,
+            kind: GrenadeKind::Molotov,
+            start_tick: detonate.saturating_sub(32),
+            detonate_tick: detonate,
+            end_tick: detonate + 64 * 7,
+            points: vec![GrenadePoint {
+                tick: detonate,
+                x,
+                y,
+                z: 0.0,
+            }],
+            fires: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn attach_fires_to_nearest_molotov() {
+        let mut c = Collector::new(ParseOptions::default());
+        c.fire_spans.push(FireSpan {
+            ent: 10,
+            x: 100.0,
+            y: 120.0,
+            start_tick: 200,
+            end_tick: 500,
+        });
+        c.grenade_dets
+            .push((200, GrenadeKind::Molotov, 10, 100.0, 120.0, 0.0));
+        let mut grenades = vec![molly(200, 100.0, 120.0), molly(800, 2000.0, 2000.0)];
+        attach_molotov_fires(&c, &mut grenades);
+        assert_eq!(grenades[0].fires.len(), 1);
+        assert!(grenades[1].fires.is_empty());
+        assert_eq!(grenades[0].end_tick, 500);
+        assert_eq!(grenades[0].fires[0].x, 100.0);
+    }
 }
