@@ -37,6 +37,9 @@ pub(crate) struct RawFrame {
     pub players: Vec<RawFramePlayer>,
 }
 
+pub(crate) type ProjPoint = (u32, u32, GrenadeKind, f32, f32, f32, Option<u64>);
+pub(crate) type HurtRec = (u32, Option<u64>, Option<u64>, i32, String);
+
 pub(crate) struct Collector {
     pub opts: ParseOptions,
     pub map_name: String,
@@ -50,7 +53,7 @@ pub(crate) struct Collector {
     pub prev_win_status: i32,
     pub grenade_dets: Vec<(u32, GrenadeKind, i32, f32, f32, f32)>,
     pub grenade_ends: Vec<(i32, u32)>,
-    pub proj_points: Vec<(u32, u32, GrenadeKind, f32, f32, f32, Option<u64>)>,
+    pub proj_points: Vec<ProjPoint>,
     pub final_winner: Option<Side>,
     pub final_reason: i32,
     pub round_scores: HashMap<u32, (i32, i32)>,
@@ -59,7 +62,7 @@ pub(crate) struct Collector {
     pub round_equip: HashMap<u32, i32>,
     pub final_score: Option<(i32, i32)>,
     pub final_names: Option<(String, String)>,
-    pub hurts: Vec<(u32, Option<u64>, Option<u64>, i32, String)>,
+    pub hurts: Vec<HurtRec>,
     pub shots: Vec<(u32, Option<u64>, f32, f32, f32)>,
     pub kills: Vec<RawKill>,
     pub blinds: Vec<(u32, i32, f32, Option<i32>)>,

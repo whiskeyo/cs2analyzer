@@ -168,7 +168,10 @@ export function RadarCanvas({
         if (p) {
           const pad = 16;
           const fit = Math.min(w, h) - pad * 2;
-          const r = { x: (p.x - calNow.pos_x) / calNow.scale, y: (calNow.pos_y - p.y) / calNow.scale };
+          const r = {
+            x: (p.x - calNow.pos_x) / calNow.scale,
+            y: (calNow.pos_y - p.y) / calNow.scale,
+          };
           v.ox = w / 2 - (w - fit) / 2 - (r.x / 1024) * fit * v.scale;
           v.oy = h / 2 - (h - fit) / 2 - (r.y / 1024) * fit * v.scale;
         }
@@ -222,88 +225,86 @@ export function RadarCanvas({
       }
 
       if (layersNow.grenades) {
-      const round = currentRound(replay, tickNow);
-      for (const g of replay.grenades) {
-        if (round && (g.start_tick < round.start_tick || g.start_tick > round.end_tick)) {
-          continue;
-        }
-        const color = GRENADE_COLOR[g.kind] ?? "#fff";
-        const visibleEnd = round ? Math.min(g.end_tick, round.end_tick) : g.end_tick;
-        const inFlight =
-          tickNow >= g.start_tick &&
-          tickNow < g.detonate_tick &&
-          tickNow <= visibleEnd;
-        const lingering =
-          tickNow >= g.detonate_tick &&
-          tickNow <= visibleEnd &&
-          (g.kind === "smoke" || g.kind === "molotov" || g.kind === "decoy");
-        const burst =
-          tickNow >= g.detonate_tick &&
-          tickNow <= g.detonate_tick + tickRate * 0.35 &&
-          tickNow <= visibleEnd &&
-          (g.kind === "he" || g.kind === "flash");
+        const round = currentRound(replay, tickNow);
+        for (const g of replay.grenades) {
+          if (round && (g.start_tick < round.start_tick || g.start_tick > round.end_tick)) {
+            continue;
+          }
+          const color = GRENADE_COLOR[g.kind] ?? "#fff";
+          const visibleEnd = round ? Math.min(g.end_tick, round.end_tick) : g.end_tick;
+          const inFlight =
+            tickNow >= g.start_tick && tickNow < g.detonate_tick && tickNow <= visibleEnd;
+          const lingering =
+            tickNow >= g.detonate_tick &&
+            tickNow <= visibleEnd &&
+            (g.kind === "smoke" || g.kind === "molotov" || g.kind === "decoy");
+          const burst =
+            tickNow >= g.detonate_tick &&
+            tickNow <= g.detonate_tick + tickRate * 0.35 &&
+            tickNow <= visibleEnd &&
+            (g.kind === "he" || g.kind === "flash");
 
-        if (inFlight) {
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1.8;
-          ctx.globalAlpha = 0.9;
-          ctx.beginPath();
-          let started = false;
-          for (const p of g.points) {
-            if (p.tick > tickNow) break;
-            const s = toScreen(p.x, p.y);
-            if (!started) {
-              ctx.moveTo(s.x, s.y);
-              started = true;
-            } else ctx.lineTo(s.x, s.y);
-          }
-          const head = grenadePosAt(g.points, tickNow);
-          if (head) {
-            const s = toScreen(head.x, head.y);
-            if (started) ctx.lineTo(s.x, s.y);
-            ctx.stroke();
-            ctx.globalAlpha = 1;
-            ctx.fillStyle = color;
+          if (inFlight) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.8;
+            ctx.globalAlpha = 0.9;
             ctx.beginPath();
-            ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
-            ctx.fill();
-          } else {
-            ctx.stroke();
+            let started = false;
+            for (const p of g.points) {
+              if (p.tick > tickNow) break;
+              const s = toScreen(p.x, p.y);
+              if (!started) {
+                ctx.moveTo(s.x, s.y);
+                started = true;
+              } else ctx.lineTo(s.x, s.y);
+            }
+            const head = grenadePosAt(g.points, tickNow);
+            if (head) {
+              const s = toScreen(head.x, head.y);
+              if (started) ctx.lineTo(s.x, s.y);
+              ctx.stroke();
+              ctx.globalAlpha = 1;
+              ctx.fillStyle = color;
+              ctx.beginPath();
+              ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+              ctx.fill();
+            } else {
+              ctx.stroke();
+            }
+          } else if (lingering || burst) {
+            const last = g.points[g.points.length - 1];
+            if (last) {
+              const s = toScreen(last.x, last.y);
+              ctx.globalAlpha = burst ? 0.45 : 0.28;
+              ctx.fillStyle = color;
+              const radius =
+                g.kind === "smoke" ? 32 : g.kind === "molotov" ? 24 : g.kind === "he" ? 18 : 12;
+              ctx.beginPath();
+              ctx.arc(s.x, s.y, radius * Math.min(1.4, v.scale), 0, Math.PI * 2);
+              ctx.fill();
+            }
           }
-        } else if (lingering || burst) {
-          const last = g.points[g.points.length - 1];
-          if (last) {
-            const s = toScreen(last.x, last.y);
-            ctx.globalAlpha = burst ? 0.45 : 0.28;
-            ctx.fillStyle = color;
-            const radius =
-              g.kind === "smoke" ? 32 : g.kind === "molotov" ? 24 : g.kind === "he" ? 18 : 12;
-            ctx.beginPath();
-            ctx.arc(s.x, s.y, radius * Math.min(1.4, v.scale), 0, Math.PI * 2);
-            ctx.fill();
-          }
+          ctx.globalAlpha = 1;
         }
-        ctx.globalAlpha = 1;
-      }
       }
 
       const tracerLife = tickRate * 0.18;
       if (layersNow.shots) {
-      for (const sh of replay.shots) {
-        const age = tickNow - sh.tick;
-        if (age < 0 || age > tracerLife) continue;
-        const s = toScreen(sh.x, sh.y);
-        const rad = yawToCanvas(sh.yaw);
-        const len = 42;
-        ctx.globalAlpha = 1 - age / tracerLife;
-        ctx.strokeStyle = "#ffe9a8";
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(s.x, s.y);
-        ctx.lineTo(s.x + Math.cos(rad) * len, s.y + Math.sin(rad) * len);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
+        for (const sh of replay.shots) {
+          const age = tickNow - sh.tick;
+          if (age < 0 || age > tracerLife) continue;
+          const s = toScreen(sh.x, sh.y);
+          const rad = yawToCanvas(sh.yaw);
+          const len = 42;
+          ctx.globalAlpha = 1 - age / tracerLife;
+          ctx.strokeStyle = "#ffe9a8";
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(s.x, s.y);
+          ctx.lineTo(s.x + Math.cos(rad) * len, s.y + Math.sin(rad) * len);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
       }
 
       const bomb = activeBomb(replay, tickNow);
@@ -509,7 +510,14 @@ export function RadarCanvas({
         const wrapEl = wrapRef.current;
         if (!wrapEl) return;
         const { x, y } = pos(e);
-        const world = screenToWorld(calNow, wrapEl.clientWidth, wrapEl.clientHeight, view.current, x, y);
+        const world = screenToWorld(
+          calNow,
+          wrapEl.clientWidth,
+          wrapEl.clientHeight,
+          view.current,
+          x,
+          y,
+        );
         if (draft.current.type === "pen") {
           draft.current.points.push(world);
         } else {
@@ -578,8 +586,7 @@ export function RadarCanvas({
     onSelectRef.current(best && best.d < 18 * 18 ? best.i : null);
   };
 
-  const cursor =
-    tool === "pan" ? "grab" : tool === "eraser" ? "cell" : "crosshair";
+  const cursor = tool === "pan" ? "grab" : tool === "eraser" ? "cell" : "crosshair";
 
   return (
     <div className="radar-wrap" ref={wrapRef} style={{ cursor }}>

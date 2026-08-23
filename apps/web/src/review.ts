@@ -42,7 +42,11 @@ function isUtil(weapon: string): boolean {
   );
 }
 
-function flashedAt(replay: Replay, player: number, tick: number): { by: number; duration: number } | null {
+function flashedAt(
+  replay: Replay,
+  player: number,
+  tick: number,
+): { by: number; duration: number } | null {
   const tps = replay.header.tick_rate || 64;
   let hit: { by: number; duration: number } | null = null;
   for (const b of replay.blinds ?? []) {
@@ -101,7 +105,7 @@ function nadeCount(gear: number): number {
 
 export function playerReview(replay: Replay, player: number, untilTick: number): PlayerReview {
   const notes: ReviewNote[] = [];
-  const name = (i: number) => (i < 0 ? "World" : replay.players[i]?.name ?? "?");
+  const name = (i: number) => (i < 0 ? "World" : (replay.players[i]?.name ?? "?"));
   let opening = 0;
   let openingLoss = 0;
   let untraded = 0;
@@ -116,9 +120,7 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
     if (r.is_knife) continue;
     const end = Math.min(r.end_tick, untilTick);
     if (r.freeze_end_tick > untilTick) continue;
-    const roundKills = replay.kills.filter(
-      (k) => k.tick >= r.freeze_end_tick && k.tick <= end,
-    );
+    const roundKills = replay.kills.filter((k) => k.tick >= r.freeze_end_tick && k.tick <= end);
     const first = roundKills[0];
     const myDeaths = roundKills.filter((k) => k.victim === player);
     const side = currentSide(replay, player, r.freeze_end_tick || r.start_tick);
@@ -224,10 +226,18 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
   push(flashed, "high", `Died flashed ${flashed} time${flashed === 1 ? "" : "s"}`);
   push(clutchLoss, "high", `Lost ${clutchLoss} clutch${clutchLoss === 1 ? "" : "es"}`);
   push(untraded, "mid", `${untraded} untraded death${untraded === 1 ? "" : "s"}`);
-  push(noReturn, "mid", `${noReturn} gunfight${noReturn === 1 ? "" : "s"} with almost no damage back`);
+  push(
+    noReturn,
+    "mid",
+    `${noReturn} gunfight${noReturn === 1 ? "" : "s"} with almost no damage back`,
+  );
   push(fedMulti, "mid", `Fed ${fedMulti} multi-kill${fedMulti === 1 ? "" : "s"}`);
   push(utilDeaths, "mid", `Died to utility ${utilDeaths} time${utilDeaths === 1 ? "" : "s"}`);
-  push(nadesLeft, "low", `Died holding unused nades ${nadesLeft} time${nadesLeft === 1 ? "" : "s"}`);
+  push(
+    nadesLeft,
+    "low",
+    `Died holding unused nades ${nadesLeft} time${nadesLeft === 1 ? "" : "s"}`,
+  );
 
   headlines.sort((a, b) => {
     const rank = { high: 0, mid: 1, low: 2 };

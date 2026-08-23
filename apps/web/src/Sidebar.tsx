@@ -136,7 +136,9 @@ export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
         </ul>
       )}
       {selected == null && tab === "score" && (
-        <p className="muted tab-hint">Click a player for full stats. Click again on the map to deselect.</p>
+        <p className="muted tab-hint">
+          Click a player for full stats. Click again on the map to deselect.
+        </p>
       )}
       {tab === "score" && selected != null && (
         <p className="muted tab-hint">

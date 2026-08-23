@@ -168,14 +168,22 @@ const ICON_FILES = new Set([
 export function prettyWeapon(raw: string): string {
   const w = raw.toLowerCase().replace(/^weapon_/, "");
   if (NAMES[w]) return NAMES[w];
-  if (w.includes("knife") || w.includes("bayonet") || w.includes("karambit") || w.includes("kukri")) {
+  if (
+    w.includes("knife") ||
+    w.includes("bayonet") ||
+    w.includes("karambit") ||
+    w.includes("kukri")
+  ) {
     return "Knife";
   }
   return raw.replace(/^weapon_/i, "").replace(/_/g, " ");
 }
 
 export function weaponKey(raw: string): string | null {
-  let w = raw.toLowerCase().replace(/^weapon_/, "").replace(/\s+/g, "_");
+  let w = raw
+    .toLowerCase()
+    .replace(/^weapon_/, "")
+    .replace(/\s+/g, "_");
   if (!w || w === "world" || w === "trigger_hurt") return null;
   if (ICON_ALIAS[w]) w = ICON_ALIAS[w];
   if (
@@ -207,7 +215,11 @@ export function formatClock(seconds: number): string {
 }
 
 export function prettyMap(mapName: string): string {
-  const name = mapName.split("/").pop()?.replace(/_scrimmagemap$/, "") ?? mapName;
+  const name =
+    mapName
+      .split("/")
+      .pop()
+      ?.replace(/_scrimmagemap$/, "") ?? mapName;
   const labels: Record<string, string> = {
     de_dust2: "Dust II",
     de_mirage: "Mirage",

@@ -231,4 +231,3 @@ export const DEFAULT_LAYERS: MapLayers = {
 export type Stroke =
   | { type: "pen"; color: string; points: { x: number; y: number }[] }
   | { type: "arrow"; color: string; from: { x: number; y: number }; to: { x: number; y: number } };
-

@@ -112,7 +112,10 @@ export function liveScore(replay: Replay, tick: number): { ct: number; t: number
 }
 
 /** Team names and scores for the sides currently playing CT / T. */
-export function liveTeams(replay: Replay, tick: number): {
+export function liveTeams(
+  replay: Replay,
+  tick: number,
+): {
   ct: number;
   t: number;
   ctName: string;
@@ -121,8 +124,10 @@ export function liveTeams(replay: Replay, tick: number): {
   const score = liveScore(replay, tick);
   const round = currentRound(replay, tick);
   const swapped = round ? roundSidesSwapped(replay, round) : false;
-  const ctName = round?.team_ct || (swapped ? replay.header.team_t || "T" : replay.header.team_ct || "CT");
-  const tName = round?.team_t || (swapped ? replay.header.team_ct || "CT" : replay.header.team_t || "T");
+  const ctName =
+    round?.team_ct || (swapped ? replay.header.team_t || "T" : replay.header.team_ct || "CT");
+  const tName =
+    round?.team_t || (swapped ? replay.header.team_ct || "CT" : replay.header.team_t || "T");
   return { ...score, ctName, tName };
 }
 
@@ -176,8 +181,15 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
 
   for (const b of replay.blinds ?? []) {
     if (b.tick > untilTick || inKnifeRound(replay, b.tick)) continue;
-    if (b.attacker >= 0 && b.victim >= 0 && b.attacker !== b.victim && b.attacker < n && b.victim < n) {
-      if (currentSide(replay, b.attacker, b.tick) === currentSide(replay, b.victim, b.tick)) continue;
+    if (
+      b.attacker >= 0 &&
+      b.victim >= 0 &&
+      b.attacker !== b.victim &&
+      b.attacker < n &&
+      b.victim < n
+    ) {
+      if (currentSide(replay, b.attacker, b.tick) === currentSide(replay, b.victim, b.tick))
+        continue;
       stats[b.attacker].enemies_flashed += 1;
       stats[b.attacker].flash_time += b.duration;
     }
@@ -198,9 +210,7 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
 
   for (const round of started) {
     const end = Math.min(round.end_tick, untilTick);
-    const roundKills = replay.kills.filter(
-      (k) => k.tick >= round.freeze_end_tick && k.tick <= end,
-    );
+    const roundKills = replay.kills.filter((k) => k.tick >= round.freeze_end_tick && k.tick <= end);
     const first = roundKills[0];
     if (first) {
       if (first.attacker >= 0 && first.attacker < n) stats[first.attacker].first_kills += 1;
@@ -310,7 +320,12 @@ function applyTrades(
   }
 }
 
-function applyClutches(replay: Replay, round: Round, roundKills: Kill[], stats: PlayerStats[]): void {
+function applyClutches(
+  replay: Replay,
+  round: Round,
+  roundKills: Kill[],
+  stats: PlayerStats[],
+): void {
   const n = replay.players.length;
   const snap = samplePlayers(replay, round.freeze_end_tick || round.start_tick);
   const alive = new Set<number>();
@@ -466,7 +481,11 @@ export interface WeaponRow {
   damage: number;
 }
 
-export function weaponBreakdown(replay: Replay, untilTick: number, player: number | null): WeaponRow[] {
+export function weaponBreakdown(
+  replay: Replay,
+  untilTick: number,
+  player: number | null,
+): WeaponRow[] {
   const by = new Map<string, WeaponRow>();
   const add = (weapon: string) => {
     const key = prettyWeapon(weapon);

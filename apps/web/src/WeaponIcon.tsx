@@ -19,5 +19,12 @@ export function WeaponIcon({ weapon, className = "", title }: Props) {
 }
 
 export function GearIcon({ name, title }: { name: string; title?: string }) {
-  return <img className="wep-icon gear" src={`/weapons/${name}.svg`} alt={title ?? name} title={title ?? name} />;
+  return (
+    <img
+      className="wep-icon gear"
+      src={`/weapons/${name}.svg`}
+      alt={title ?? name}
+      title={title ?? name}
+    />
+  );
 }

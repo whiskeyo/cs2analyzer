@@ -148,7 +148,13 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
             }
         }
 
-        apply_trades(&round_kills, trade_ticks, |i, tick| side_at(m, i, tick), &mut kast, &mut stats);
+        apply_trades(
+            &round_kills,
+            trade_ticks,
+            |i, tick| side_at(m, i, tick),
+            &mut kast,
+            &mut stats,
+        );
 
         for (i, ok) in kast.iter().enumerate() {
             if *ok {
@@ -201,7 +207,11 @@ fn apply_damage(m: &Match, until_tick: u32, stats: &mut [PlayerStats]) {
         }
         let end = round.end_tick.min(until_tick);
         let mut hp = vec![100i32; n];
-        for h in m.hurts.iter().filter(|h| h.tick >= round.start_tick && h.tick <= end) {
+        for h in m
+            .hurts
+            .iter()
+            .filter(|h| h.tick >= round.start_tick && h.tick <= end)
+        {
             if h.victim < 0 {
                 continue;
             }
@@ -336,7 +346,11 @@ fn flip_side(side: Side) -> Side {
 
 fn side_at(m: &Match, player: usize, tick: u32) -> Side {
     if m.ticks.frame_count == 0 || player >= m.players.len() {
-        return m.players.get(player).map(|p| p.start_side).unwrap_or(Side::T);
+        return m
+            .players
+            .get(player)
+            .map(|p| p.start_side)
+            .unwrap_or(Side::T);
     }
     let frame = m.ticks.frame_index_at_tick(tick);
     if let Some(tp) = m.ticks.player_at(frame, player) {

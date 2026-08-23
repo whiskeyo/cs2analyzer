@@ -4,6 +4,7 @@ apps/web/node_modules
 apps/web/dist
 apps/web/*.tsbuildinfo
 .DS_Store
+.demos/
 testdata/*.dem
 testdata/*.bin
 .env

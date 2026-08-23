@@ -57,7 +57,9 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    loadCalibrations().then(setMaps).catch(() => undefined);
+    loadCalibrations()
+      .then(setMaps)
+      .catch(() => undefined);
   }, []);
 
   const onFile = useCallback((file: File) => {
@@ -79,8 +81,7 @@ export function App() {
         setProgress({ current: msg.current, total: msg.total });
       } else if (msg.type === "done") {
         setReplay(msg.replay);
-        const first =
-          msg.replay.rounds.find((r) => !r.is_knife) ?? msg.replay.rounds[0];
+        const first = msg.replay.rounds.find((r) => !r.is_knife) ?? msg.replay.rounds[0];
         const start = first?.freeze_end_tick ?? msg.replay.ticks.ticks[0] ?? 0;
         tickRef.current = start;
         setTick(start);
@@ -106,9 +107,7 @@ export function App() {
     let last = performance.now();
     let id = 0;
     const max =
-      replay.header.playback_ticks ||
-      replay.ticks.ticks[replay.ticks.ticks.length - 1] ||
-      0;
+      replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0;
     const tps = replay.header.tick_rate || 64;
     const min = replay.ticks.ticks[0] ?? 0;
     const loop = (now: number) => {
@@ -228,8 +227,8 @@ export function App() {
         <h1>CS2 Analyzer</h1>
         <span className="file-meta">
           {prettyMap(replay.header.map_name)}
-          {fileName ? ` · ${fileName}` : ""} · {replay.kills.length} kills · {replay.grenades.length}{" "}
-          nades
+          {fileName ? ` · ${fileName}` : ""} · {replay.kills.length} kills ·{" "}
+          {replay.grenades.length} nades
         </span>
         <button type="button" className="ghost" onClick={downloadCsv}>
           Export CSV

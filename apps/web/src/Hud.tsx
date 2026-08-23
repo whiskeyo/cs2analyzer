@@ -13,16 +13,20 @@ export function Hud({ replay, tick }: Props) {
   const teams = liveTeams(replay, tick);
   const round = currentRound(replay, tick);
   const clutchName =
-    sit.clutch != null ? replay.players[sit.clutch.player]?.name ?? "Player" : null;
+    sit.clutch != null ? (replay.players[sit.clutch.player]?.name ?? "Player") : null;
 
   return (
     <div className="radar-hud">
       <div className="hud-score">
-        <span className="t">{teams.tName} {teams.t}</span>
+        <span className="t">
+          {teams.tName} {teams.t}
+        </span>
         <span className="alive">
           {sit.tAlive} – {sit.ctAlive}
         </span>
-        <span className="ct">{teams.ct} {teams.ctName}</span>
+        <span className="ct">
+          {teams.ct} {teams.ctName}
+        </span>
       </div>
       <div className="hud-meta">
         {prettyMap(replay.header.map_name)}

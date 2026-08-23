@@ -341,8 +341,7 @@ fn build_grenades(
     tick_rate: f32,
 ) -> Vec<GrenadeThrow> {
     let gap = c.opts.tick_stride.max(1) * 10;
-    let mut by_ent: HashMap<u32, Vec<(u32, GrenadeKind, f32, f32, f32, Option<u64>)>> =
-        HashMap::new();
+    let mut by_ent: HashMap<u32, Vec<ProjSample>> = HashMap::new();
     for (ent, tick, kind, x, y, z, thrower) in &c.proj_points {
         by_ent
             .entry(*ent)

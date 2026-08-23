@@ -42,7 +42,11 @@ export function MapToolbar({
       <button type="button" className={tool === "pen" ? "on" : ""} onClick={() => onTool("pen")}>
         Draw
       </button>
-      <button type="button" className={tool === "arrow" ? "on" : ""} onClick={() => onTool("arrow")}>
+      <button
+        type="button"
+        className={tool === "arrow" ? "on" : ""}
+        onClick={() => onTool("arrow")}
+      >
         Arrow
       </button>
       <button
@@ -82,7 +86,11 @@ export function MapToolbar({
         Trail
       </button>
       <span className="toolbar-sep" />
-      <button type="button" className={layers.grenades ? "on" : ""} onClick={() => toggle("grenades")}>
+      <button
+        type="button"
+        className={layers.grenades ? "on" : ""}
+        onClick={() => toggle("grenades")}
+      >
         Nades
       </button>
       <button type="button" className={layers.shots ? "on" : ""} onClick={() => toggle("shots")}>
@@ -97,7 +105,11 @@ export function MapToolbar({
       <button type="button" className={layers.cone ? "on" : ""} onClick={() => toggle("cone")}>
         Cone
       </button>
-      <button type="button" className={layers.heatmap ? "on" : ""} onClick={() => toggle("heatmap")}>
+      <button
+        type="button"
+        className={layers.heatmap ? "on" : ""}
+        onClick={() => toggle("heatmap")}
+      >
         Heat
       </button>
     </div>

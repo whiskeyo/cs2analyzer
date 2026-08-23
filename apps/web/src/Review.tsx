@@ -42,7 +42,11 @@ export function Review({ replay, tick, selected, onJump }: Props) {
       <ul className="review-notes">
         {review.notes.map((n) => (
           <li key={`${n.tick}-${n.title}`}>
-            <button type="button" className={`review-note ${n.severity}`} onClick={() => onJump(n.tick)}>
+            <button
+              type="button"
+              className={`review-note ${n.severity}`}
+              onClick={() => onJump(n.tick)}
+            >
               <span className="pill review-round">{n.roundLabel}</span>
               <span className="review-copy">
                 <span className="review-title">{n.title}</span>

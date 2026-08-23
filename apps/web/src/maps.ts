@@ -17,15 +17,15 @@ export function calibrationFor(
   maps: Record<string, MapCalibration>,
   mapName: string,
 ): MapCalibration | undefined {
-  const name = mapName.split("/").pop()?.replace(/_scrimmagemap$/, "") ?? mapName;
+  const name =
+    mapName
+      .split("/")
+      .pop()
+      ?.replace(/_scrimmagemap$/, "") ?? mapName;
   return maps[name];
 }
 
-export function worldToRadar(
-  c: MapCalibration,
-  x: number,
-  y: number,
-): { x: number; y: number } {
+export function worldToRadar(c: MapCalibration, x: number, y: number): { x: number; y: number } {
   return {
     x: (x - c.pos_x) / c.scale,
     y: (c.pos_y - y) / c.scale,
@@ -42,11 +42,7 @@ export function floorForZ(c: MapCalibration, z: number): "default" | "lower" {
   return "default";
 }
 
-export function radarToWorld(
-  c: MapCalibration,
-  px: number,
-  py: number,
-): { x: number; y: number } {
+export function radarToWorld(c: MapCalibration, px: number, py: number): { x: number; y: number } {
   return {
     x: px * c.scale + c.pos_x,
     y: c.pos_y - py * c.scale,

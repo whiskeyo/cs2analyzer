@@ -1,0 +1,7 @@
+dist
+node_modules
+src/parser
+*.tsbuildinfo
+package-lock.json
+public/maps
+public/weapons

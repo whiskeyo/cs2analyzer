@@ -15,21 +15,11 @@ interface Props {
   onSpeed: (v: number) => void;
 }
 
-export function Controls({
-  replay,
-  tick,
-  playing,
-  speed,
-  onTick,
-  onPlaying,
-  onSpeed,
-}: Props) {
+export function Controls({ replay, tick, playing, speed, onTick, onPlaying, onSpeed }: Props) {
   const round = currentRound(replay, tick);
   const min = replay.ticks.ticks[0] ?? 0;
   const max =
-    replay.header.playback_ticks ||
-    replay.ticks.ticks[replay.ticks.ticks.length - 1] ||
-    0;
+    replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0;
   const tps = replay.header.tick_rate || 64;
   const clock = formatClock(Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps));
   const roundIdx = replay.rounds.findIndex((r) => r.start_tick === round?.start_tick);

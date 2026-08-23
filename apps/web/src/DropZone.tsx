@@ -31,7 +31,9 @@ export function DropZone({ onFile, parsing, progress, error }: Props) {
         }}
       />
       <div className="drop-title">CS2 Analyzer</div>
-      <p>Drop a Counter-Strike 2 <code>.dem</code> file here.</p>
+      <p>
+        Drop a Counter-Strike 2 <code>.dem</code> file here.
+      </p>
       <p className="muted">Parsed entirely in your browser. Nothing is uploaded.</p>
       <ul className="feature-list">
         <li>Live radar, nades, tracking, and drawing</li>
