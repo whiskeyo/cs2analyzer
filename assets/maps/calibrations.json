@@ -28,5 +28,6 @@
       { "name": "default", "z_min": -50, "z_max": 20000 },
       { "name": "lower", "z_min": -5000, "z_max": -50 }
     ]
-  }
+  },
+  "de_cache": { "pos_x": -2000, "pos_y": 3250, "scale": 5.5, "radar": "de_cache.png" }
 }

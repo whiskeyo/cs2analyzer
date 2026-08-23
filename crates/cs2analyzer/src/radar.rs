@@ -166,9 +166,19 @@ const TRAIN: MapCalibration = MapCalibration {
     floors: TRAIN_FLOORS,
 };
 
+const CACHE: MapCalibration = MapCalibration {
+    name: "de_cache",
+    pos_x: -2000.0,
+    pos_y: 3250.0,
+    scale: 5.5,
+    radar: "de_cache.png",
+    lower_radar: None,
+    floors: &[],
+};
+
 /// Competitive-pool maps with radar calibration.
 pub const MAPS: &[MapCalibration] = &[
-    DUST2, MIRAGE, INFERNO, NUKE, OVERPASS, ANCIENT, ANUBIS, VERTIGO, TRAIN,
+    DUST2, MIRAGE, INFERNO, NUKE, OVERPASS, ANCIENT, ANUBIS, VERTIGO, TRAIN, CACHE,
 ];
 
 /// Look up calibration by map name (`de_dust2`, workshop suffixes stripped).
@@ -196,5 +206,12 @@ mod tests {
         assert_eq!(c.floor_for_z(-800.0), "lower");
         assert_eq!(c.floor_for_z(0.0), "default");
         assert!(c.lower_radar.is_some());
+    }
+
+    #[test]
+    fn cache_is_calibrated() {
+        let c = calibration("de_cache").unwrap();
+        assert!((c.scale - 5.5).abs() < f32::EPSILON);
+        assert!(c.lower_radar.is_none());
     }
 }
