@@ -488,21 +488,9 @@ function applyClutches(
 }
 
 export function currentSide(replay: Replay, player: number, tick: number): Side {
-  const buf = replay.ticks;
-  const pc = buf.playerCount;
-  if (pc === 0 || player >= pc) return replay.players[player]?.start_side ?? "T";
-  let lo = 0;
-  let hi = buf.ticks.length - 1;
-  const t = Math.floor(tick);
-  if (buf.ticks.length === 0) return replay.players[player]?.start_side ?? "T";
-  while (lo + 1 < hi) {
-    const mid = (lo + hi) >> 1;
-    if (buf.ticks[mid] <= t) lo = mid;
-    else hi = mid;
-  }
-  const flags = buf.flags[lo * pc + player];
-  if ((flags & 1) === 0) return replay.players[player]?.start_side ?? "T";
-  return flags & (1 << 4) ? "CT" : "T";
+  const snap = samplePlayers(replay, tick)[player];
+  if (!snap?.present) return replay.players[player]?.start_side ?? "T";
+  return snap.ct ? "CT" : "T";
 }
 
 export interface LiveSituation {

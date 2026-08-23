@@ -1,16 +1,17 @@
+import { publicUrl } from "./publicUrl";
 import type { MapCalibration } from "./types";
 
 let cache: Record<string, MapCalibration> | null = null;
 
 export async function loadCalibrations(): Promise<Record<string, MapCalibration>> {
   if (cache) return cache;
-  const res = await fetch("/maps/calibrations.json");
+  const res = await fetch(publicUrl("maps/calibrations.json"));
   cache = (await res.json()) as Record<string, MapCalibration>;
   return cache;
 }
 
 export function radarUrl(file: string): string {
-  return `/maps/${file}`;
+  return publicUrl(`maps/${file}`);
 }
 
 export function calibrationFor(
@@ -40,6 +41,23 @@ export function floorForZ(c: MapCalibration, z: number): "default" | "lower" {
     }
   }
   return "default";
+}
+
+/** Which radar image to draw. Followed/selected player wins; otherwise majority of alive. */
+export function radarFloor(
+  c: MapCalibration | undefined,
+  players: { index: number; z: number; present: boolean; alive: boolean }[],
+  selected: number | null,
+): "default" | "lower" {
+  if (!c?.lower_radar) return "default";
+  if (selected != null) {
+    const focus = players.find((p) => p.index === selected && p.present);
+    if (focus) return floorForZ(c, focus.z);
+  }
+  const alive = players.filter((p) => p.present && p.alive);
+  if (alive.length === 0) return "default";
+  const lowerVotes = alive.filter((p) => floorForZ(c, p.z) === "lower").length;
+  return lowerVotes > alive.length / 2 ? "lower" : "default";
 }
 
 export function radarToWorld(c: MapCalibration, px: number, py: number): { x: number; y: number } {

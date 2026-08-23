@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { tickRate } from "./constants";
-import { floorForZ, radarUrl, screenToWorld, worldToScreen, type RadarView } from "./maps";
+import { radarFloor, radarUrl, screenToWorld, worldToScreen, type RadarView } from "./maps";
 import {
   blindsAt,
   firesAt,
@@ -190,9 +190,7 @@ export function RadarCanvas({
 
       const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, v, wx, wy);
 
-      const alive = players.filter((p) => p.present && p.alive);
-      const lowerVotes = alive.filter((p) => calNow && floorForZ(calNow, p.z) === "lower").length;
-      const useLower = !!calNow?.lower_radar && lowerVotes > alive.length / 2;
+      const useLower = radarFloor(calNow, players, selectedRef.current) === "lower";
       const img = useLower ? images.current.lower : images.current.upper;
 
       ctx.save();

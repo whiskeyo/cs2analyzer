@@ -1,13 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   computeStats,
+  currentSide,
   defuseClock,
   freezeRemaining,
   liveScore,
   roundWinBanner,
   teamEntryShare,
 } from "./stats";
-import type { BombEvent, Kill, Player, Replay, Round } from "./types";
+import {
+  FLAG_CT,
+  FLAG_PRESENT,
+  type BombEvent,
+  type Kill,
+  type Player,
+  type Replay,
+  type Round,
+} from "./types";
 
 function emptyTicks() {
   return {
@@ -216,6 +225,29 @@ describe("computeStats", () => {
     });
     const stats = computeStats(m, 640);
     expect(stats[0].adr).toBe(40);
+  });
+});
+
+describe("currentSide", () => {
+  it("uses the last snapshot, not the previous frame", () => {
+    const ticks = emptyTicks();
+    ticks.frameCount = 2;
+    ticks.playerCount = 1;
+    ticks.ticks = new Uint32Array([100, 200]);
+    ticks.flags = new Uint8Array([FLAG_PRESENT, FLAG_PRESENT | FLAG_CT]);
+    ticks.x = new Float32Array(2);
+    ticks.y = new Float32Array(2);
+    ticks.z = new Float32Array(2);
+    ticks.yaw = new Float32Array(2);
+    ticks.health = new Uint8Array([100, 100]);
+    ticks.armor = new Uint8Array(2);
+    const m = replay({
+      players: [player(0, "T", "A")],
+      rounds: [round({ number: 1, winner: "T" })],
+      ticks,
+    });
+    expect(currentSide(m, 0, 100)).toBe("T");
+    expect(currentSide(m, 0, 200)).toBe("CT");
   });
 });
 
