@@ -12,7 +12,7 @@ type Tab = "score" | "player" | "action" | "rounds" | "weapons";
 
 const TAB_LABEL: Record<Tab, string> = {
   score: "Score",
-  player: "Player review",
+  player: "Review",
   action: "Action",
   rounds: "Rounds",
   weapons: "Weapons",
