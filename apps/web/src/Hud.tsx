@@ -1,7 +1,7 @@
 import { currentRound } from "./sample";
 import { liveSituation, liveTeams } from "./stats";
 import type { Replay } from "./types";
-import { prettyMap } from "./weapons";
+import { prettyMap, winReasonLabel } from "./weapons";
 
 interface Props {
   replay: Replay;
@@ -32,9 +32,21 @@ export function Hud({ replay, tick }: Props) {
         {prettyMap(replay.header.map_name)}
         {round ? ` · ${round.is_knife ? "Knife" : `R${round.number}`}` : ""}
       </div>
+      {sit.freeze != null && <div className="hud-freeze">Freeze {sit.freeze.toFixed(1)}s</div>}
+      {sit.roundWin && (
+        <div className={`hud-win ${sit.roundWin.winner === "CT" ? "ct" : "t"}`}>
+          {sit.roundWin.winner} wins
+          {sit.roundWin.reason ? ` · ${winReasonLabel(sit.roundWin.reason)}` : ""}
+        </div>
+      )}
       {sit.bomb && (
         <div className={`hud-bomb${sit.bomb.remaining < 10 ? " hot" : ""}`}>
           C4 {sit.bomb.remaining.toFixed(1)}s
+        </div>
+      )}
+      {sit.defuse && (
+        <div className={`hud-defuse${sit.defuse.remaining < 2 ? " hot" : ""}`}>
+          Defuse {sit.defuse.remaining.toFixed(1)}s{sit.defuse.haskit ? " · kit" : ""}
         </div>
       )}
       {sit.clutch && clutchName && (

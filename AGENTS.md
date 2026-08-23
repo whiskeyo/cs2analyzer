@@ -60,7 +60,8 @@ Tick buffers are structure-of-arrays: index = `frame * playerCount + player`. Fl
 - **Knife rounds**: max equipment value under 200 and no gun kill (FACEIT 0–0 reset). Number `0`, label “Knife”. Playback should start at the first non-knife freeze.
 - **Yaw**: stored raw `m_angEyeAngles`. Canvas: `yawToCanvas = ((-yaw + 180) * π) / 180`. Do not “fix” this without checking the radar.
 - **Grenades on radar**: skip throws whose `start_tick` is outside the current round.
-- **C4 HUD**: hide on defuse/explode, 40s timeout, next round, **or all CTs dead with bomb planted**. Round `end_tick` prefers `m_iRoundWinStatus` (synth win), not `round_officially_ended` (that tick is often the next freeze).
+- **C4 HUD**: hide on defuse/explode, 40s timeout, next round, **or all CTs dead with bomb planted**. Round `end_tick` prefers `m_iRoundWinStatus` (synth win), not `round_officially_ended` (that tick is often the next freeze). Defuse timer needs `bomb_begindefuse` / `bomb_abortdefuse` (kit 5s, no kit 10s).
+- **Freeze**: `start_tick` is round start / freeze; `freeze_end_tick` is `round_freeze_end`. Demos include freeze; playback and round jumps land on freeze end. HUD freeze countdown + “Skip freeze” while `tick < freeze_end_tick`. Home also jumps to freeze end.
 - **ADR**: enemy-only health damage, capped at remaining HP (reset to 100 each competitive round). Not raw `dmg_health` sums.
 - **Trades / KAST**: a trade is a *teammate of the victim* killing the attacker within **5s**. The killer’s next frag is **not** a trade. Survive-KAST only if the player was present at freeze.
 - **Score / OT**: do not tally CT vs T round wins as team score. Track starting-side team wins, detect swaps from pawn `FLAG_CT` vs `start_side` (MR12 + OT blocks of 3 as fallback). Header `team_ct` / `team_t` are **starting** sides (first non-knife freeze). `Round.team_ct` / `team_t` are names at that freeze (follow swaps). HUD uses `liveTeams()`.

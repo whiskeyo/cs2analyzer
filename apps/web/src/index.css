@@ -566,7 +566,10 @@ button.link {
   text-shadow: 0 1px 4px #000;
 }
 .hud-bomb,
-.hud-clutch {
+.hud-clutch,
+.hud-defuse,
+.hud-freeze,
+.hud-win {
   display: inline-block;
   width: fit-content;
   padding: 0.15rem 0.45rem;
@@ -578,9 +581,27 @@ button.link {
   background: #d4a017;
   color: #1a1404;
 }
-.hud-bomb.hot {
+.hud-bomb.hot,
+.hud-defuse.hot {
   background: #e04b4b;
   color: #fff;
+}
+.hud-defuse {
+  background: #3d8fd4;
+  color: #061018;
+}
+.hud-freeze {
+  background: #2a3440;
+  color: #c5d0da;
+  font-weight: 550;
+}
+.hud-win.ct {
+  background: #1a3348;
+  color: #7eb7e6;
+}
+.hud-win.t {
+  background: #3a3018;
+  color: #e0c15a;
 }
 .hud-clutch.ct {
   background: #1a3348;

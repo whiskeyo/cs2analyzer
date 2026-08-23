@@ -21,7 +21,12 @@ export function Controls({ replay, tick, playing, speed, onTick, onPlaying, onSp
   const max =
     replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0;
   const tps = replay.header.tick_rate || 64;
-  const clock = formatClock(Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps));
+  const inFreeze = !!round && tick < round.freeze_end_tick;
+  const freezeLeft =
+    round && tick < round.freeze_end_tick ? (round.freeze_end_tick - tick) / tps : 0;
+  const clock = inFreeze
+    ? `Freeze ${freezeLeft.toFixed(1)}s`
+    : formatClock(Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps));
   const roundIdx = replay.rounds.findIndex((r) => r.start_tick === round?.start_tick);
   const killTicks = replay.kills.map((k) => k.tick);
 
@@ -75,6 +80,18 @@ export function Controls({ replay, tick, playing, speed, onTick, onPlaying, onSp
       <button type="button" title="Step forward" onClick={() => step(1)}>
         +
       </button>
+      {inFreeze && round && (
+        <button
+          type="button"
+          title="Skip freeze (Home)"
+          onClick={() => {
+            onTick(round.freeze_end_tick);
+            onPlaying(false);
+          }}
+        >
+          Skip freeze
+        </button>
+      )}
       <label className="speed">
         {speed}×
         <select

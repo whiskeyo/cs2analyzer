@@ -1,9 +1,18 @@
 import { currentRound, samplePlayers } from "./sample";
-import type { Kill, PlayerStats, Replay, Round, Side } from "./types";
+import {
+  GEAR_DEFUSER,
+  type Kill,
+  type PlayerStats,
+  type Replay,
+  type Round,
+  type Side,
+} from "./types";
 import { prettyWeapon } from "./weapons";
 
 const TRADE_SECONDS = 5;
 const BOMB_SECONDS = 40;
+const DEFUSE_KIT_SECONDS = 5;
+const DEFUSE_SECONDS = 10;
 
 function empty(player: number): PlayerStats {
   return {
@@ -459,6 +468,9 @@ export interface LiveSituation {
   tAlive: number;
   clutch: { player: number; vs: number; side: Side } | null;
   bomb: { remaining: number; planted: boolean } | null;
+  defuse: { remaining: number; haskit: boolean } | null;
+  freeze: number | null;
+  roundWin: { winner: Side; reason: number } | null;
 }
 
 export function liveSituation(replay: Replay, tick: number): LiveSituation {
@@ -476,7 +488,15 @@ export function liveSituation(replay: Replay, tick: number): LiveSituation {
 
   const bomb = bombClock(replay, tick, ctAlive, players.filter((p) => p.present && p.ct).length);
 
-  return { ctAlive, tAlive, clutch, bomb };
+  return {
+    ctAlive,
+    tAlive,
+    clutch,
+    bomb,
+    defuse: defuseClock(replay, tick),
+    freeze: freezeRemaining(replay, tick),
+    roundWin: roundWinBanner(replay, tick),
+  };
 }
 
 /** Planted C4 while it is still in play. Stops on defuse/explode, 40s, round over, or CT wipe. */
@@ -526,6 +546,78 @@ function bombClock(
   const remaining = BOMB_SECONDS - (tick - plantTick) / tps;
   if (remaining <= 0) return null;
   return { remaining, planted: true };
+}
+
+/** Seconds left in freeze. Null once live play has started. */
+export function freezeRemaining(replay: Replay, tick: number): number | null {
+  const round = currentRound(replay, tick);
+  if (!round || tick >= round.freeze_end_tick) return null;
+  const tps = replay.header.tick_rate || 64;
+  return Math.max(0, (round.freeze_end_tick - tick) / tps);
+}
+
+/**
+ * Winner chip: after the round ends, or during the next freeze so the result
+ * stays on screen through the post-round / buy period.
+ */
+export function roundWinBanner(
+  replay: Replay,
+  tick: number,
+): { winner: Side; reason: number } | null {
+  const round = currentRound(replay, tick);
+  if (!round) return null;
+  if (tick >= round.end_tick && round.winner) {
+    return { winner: round.winner, reason: round.win_reason };
+  }
+  if (tick < round.freeze_end_tick) {
+    let prev: Round | null = null;
+    for (const r of replay.rounds) {
+      if (r.start_tick < round.start_tick) prev = r;
+    }
+    if (prev?.winner) return { winner: prev.winner, reason: prev.win_reason };
+  }
+  return null;
+}
+
+/** Active defuse: kit is 5s, no kit is 10s. Cancels on abort, death, explode, or defuse. */
+export function defuseClock(
+  replay: Replay,
+  tick: number,
+): { remaining: number; haskit: boolean } | null {
+  const tps = replay.header.tick_rate || 64;
+  const round = currentRound(replay, tick);
+  if (!round || tick > round.end_tick) return null;
+
+  let plantTick = -1;
+  let begin: { tick: number; haskit: boolean; player: number } | null = null;
+  for (const e of replay.bombEvents) {
+    if (e.tick > tick) continue;
+    if (e.tick < round.start_tick || e.tick > round.end_tick) continue;
+    if (e.kind === "planted") {
+      plantTick = e.tick;
+      begin = null;
+    } else if (e.kind === "begin_defuse" && plantTick >= 0) {
+      begin = { tick: e.tick, haskit: !!e.haskit, player: e.player };
+    } else if (e.kind === "abort_defuse") {
+      begin = null;
+    } else if (e.kind === "defused" || e.kind === "exploded") {
+      plantTick = -1;
+      begin = null;
+    }
+  }
+  if (!begin || plantTick < 0) return null;
+
+  const players = samplePlayers(replay, tick);
+  if (begin.player >= 0 && players.length > 0) {
+    const p = players.find((x) => x.index === begin.player);
+    if (p && (!p.alive || !p.present)) return null;
+    if (!begin.haskit && p && (p.gear & GEAR_DEFUSER) !== 0) begin.haskit = true;
+  }
+
+  const duration = begin.haskit ? DEFUSE_KIT_SECONDS : DEFUSE_SECONDS;
+  const remaining = duration - (tick - begin.tick) / tps;
+  if (remaining < -0.25) return null;
+  return { remaining: Math.max(0, remaining), haskit: begin.haskit };
 }
 
 export interface WeaponRow {
