@@ -224,7 +224,6 @@ code {
   padding: 0.28rem 0.3rem;
   cursor: pointer;
   font-size: 0.75rem;
-  text-transform: capitalize;
 }
 .tabs button.on {
   border-color: #6aa4d8;
@@ -889,6 +888,14 @@ button.link {
   font-variant-numeric: tabular-nums;
   color: #c8e6a0;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+}
+.spec-eq {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: #8b98a5;
 }
 .spec-hp-n {
   font-size: 0.78rem;

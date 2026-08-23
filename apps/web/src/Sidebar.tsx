@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Economy } from "./Economy";
+import { Action } from "./Action";
 import { Review } from "./Review";
 import { currentRound } from "./sample";
 import { Scoreboard } from "./Scoreboard";
@@ -8,7 +8,15 @@ import type { Replay } from "./types";
 import { WeaponIcon } from "./WeaponIcon";
 import { winReasonLabel } from "./weapons";
 
-type Tab = "score" | "eco" | "review" | "rounds" | "weapons" | "kills";
+type Tab = "score" | "player" | "action" | "rounds" | "weapons";
+
+const TAB_LABEL: Record<Tab, string> = {
+  score: "Score",
+  player: "Player review",
+  action: "Action",
+  rounds: "Rounds",
+  weapons: "Weapons",
+};
 
 interface Props {
   replay: Replay;
@@ -23,34 +31,28 @@ export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
   const round = currentRound(replay, tick);
   const stats = computeStats(replay, tick);
   const weapons = weaponBreakdown(replay, tick, selected);
-  const roundKills = replay.kills.filter((k) => {
-    if (!round) return false;
-    return k.tick >= round.start_tick && k.tick <= Math.min(round.end_tick, tick);
-  });
 
   return (
     <aside className="sidebar">
       <div className="tabs">
-        {(["score", "eco", "review", "rounds", "weapons", "kills"] as const).map((id) => (
+        {(["score", "player", "action", "rounds", "weapons"] as const).map((id) => (
           <button
             key={id}
             type="button"
             className={tab === id ? "on" : ""}
             onClick={() => setTab(id)}
           >
-            {id === "score" ? "Score" : id[0].toUpperCase() + id.slice(1)}
+            {TAB_LABEL[id]}
           </button>
         ))}
       </div>
       {tab === "score" && (
         <Scoreboard replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
       )}
-      {tab === "eco" && (
-        <Economy replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
-      )}
-      {tab === "review" && (
+      {tab === "player" && (
         <Review replay={replay} tick={tick} selected={selected} onJump={onJump} />
       )}
+      {tab === "action" && <Action replay={replay} tick={tick} onJump={onJump} />}
       {tab === "rounds" && (
         <ul className="round-list">
           {replay.rounds.map((r) => (
@@ -113,27 +115,6 @@ export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
             </tbody>
           </table>
         </div>
-      )}
-      {tab === "kills" && (
-        <ul className="kill-list">
-          {roundKills.length === 0 && <li className="muted">No kills this round yet.</li>}
-          {roundKills.map((k, i) => (
-            <li key={`${k.tick}-${i}`}>
-              <button type="button" className="kill-item" onClick={() => onJump(k.tick)}>
-                <span className="kill-who">
-                  {replay.players[k.attacker]?.name ?? "World"}
-                  {k.headshot ? (
-                    <img className="hs-icon" src="/weapons/headshot.svg" alt="HS" />
-                  ) : null}
-                </span>
-                <span className="kill-gun">
-                  <WeaponIcon weapon={k.weapon} />
-                </span>
-                <span className="kill-who victim">{replay.players[k.victim]?.name ?? "?"}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
       )}
       {selected == null && tab === "score" && (
         <p className="muted tab-hint">

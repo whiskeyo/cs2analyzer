@@ -44,7 +44,10 @@ function PlayerCard({
         <div className="spec-top">
           <span className="spec-name">{name}</span>
           <span className="spec-kd">{kd}</span>
-          <span className="spec-money">{formatMoney(p.money)}</span>
+          <span className="spec-money" title="Cash · inventory">
+            {formatMoney(p.money)}
+            <span className="spec-eq">{formatMoney(p.equip)}</span>
+          </span>
         </div>
         <div className="spec-mid">
           <span className="spec-hp-n">{hp}</span>
@@ -84,6 +87,7 @@ export function SpectatorEconomy({ replay, tick, selected, onSelect }: Props) {
 
   const column = (side: "t" | "ct", title: string, list: typeof t) => {
     const total = list.reduce((sum, r) => sum + r.p.money, 0);
+    const eq = list.reduce((sum, r) => sum + r.p.equip, 0);
     const alive = list.filter((r) => r.p.alive).length;
     return (
       <div className={`spec-eco ${side}`}>
@@ -91,7 +95,10 @@ export function SpectatorEconomy({ replay, tick, selected, onSelect }: Props) {
           <span>
             {title} · {alive}
           </span>
-          <strong>{formatMoney(total)}</strong>
+          <strong title="Cash · inventory">
+            {formatMoney(total)}
+            <span className="spec-eq">{formatMoney(eq)}</span>
+          </strong>
         </div>
         {list.map(({ p, name, kd }) => (
           <PlayerCard
