@@ -195,6 +195,12 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
         } else {
             s.kills as f32
         };
+        s.entry_attempts = s.first_kills + s.first_deaths;
+        s.entry_success = if s.entry_attempts > 0 {
+            100.0 * s.first_kills as f32 / s.entry_attempts as f32
+        } else {
+            0.0
+        };
     }
 
     stats
@@ -576,6 +582,17 @@ mod tests {
         assert_eq!(stats[0].first_kills, 1);
         assert_eq!(stats[2].first_deaths, 0);
         assert_eq!(stats[1].first_deaths, 1);
+    }
+
+    #[test]
+    fn entry_success_is_opening_kills_over_attempts() {
+        let mut m = empty_match();
+        m.kills.push(kill(100, 0, 1));
+        let stats = compute_stats(&m);
+        assert_eq!(stats[0].entry_attempts, 1);
+        assert_eq!(stats[1].entry_attempts, 1);
+        assert!((stats[0].entry_success - 100.0).abs() < f32::EPSILON);
+        assert!(stats[1].entry_success.abs() < f32::EPSILON);
     }
 
     #[test]

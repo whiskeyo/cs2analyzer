@@ -143,6 +143,19 @@ describe("computeStats", () => {
     expect(stats[2].first_deaths).toBe(0);
   });
 
+  it("reports entry success from the opening duel", () => {
+    const m = replay({
+      players: [player(0, "CT", "A"), player(1, "T", "B")],
+      rounds: [round({ number: 1, winner: "CT" })],
+      kills: [kill(100, 0, 1)],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[0].entry_attempts).toBe(1);
+    expect(stats[0].entry_success).toBe(100);
+    expect(stats[1].entry_attempts).toBe(1);
+    expect(stats[1].entry_success).toBe(0);
+  });
+
   it("ignores same-side assists", () => {
     const k = kill(100, 0, 1);
     k.assister = 1;

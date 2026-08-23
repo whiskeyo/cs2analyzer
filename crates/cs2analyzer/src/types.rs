@@ -277,6 +277,10 @@ pub struct PlayerStats {
     pub plants: u32,
     pub defuses: u32,
     pub trade_kills: u32,
+    #[serde(default)]
+    pub entry_attempts: u32,
+    #[serde(default)]
+    pub entry_success: f32,
 }
 
 impl PlayerStats {
@@ -306,6 +310,8 @@ impl PlayerStats {
             plants: 0,
             defuses: 0,
             trade_kills: 0,
+            entry_attempts: 0,
+            entry_success: 0.0,
         }
     }
 }

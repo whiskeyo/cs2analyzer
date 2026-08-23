@@ -42,7 +42,7 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
             <th>ADR</th>
             <th>KAST</th>
             <th>Rtg</th>
-            <th>FK</th>
+            <th>Ent</th>
           </tr>
         </thead>
         <tbody>
@@ -60,7 +60,7 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
               <td>{s.adr.toFixed(0)}</td>
               <td>{s.kast.toFixed(0)}</td>
               <td>{s.rating.toFixed(2)}</td>
-              <td>{s.first_kills}</td>
+              <td>{s.entry_attempts > 0 ? `${s.first_kills}/${s.entry_attempts}` : "0"}</td>
             </tr>
           ))}
         </tbody>
@@ -103,6 +103,7 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
             <dt>Opening (FK/FD)</dt>
             <dd>
               {sel.first_kills} / {sel.first_deaths}
+              {sel.entry_attempts > 0 ? ` · ${sel.entry_success.toFixed(0)}% entry` : ""}
             </dd>
             <dt>Trades (got / was)</dt>
             <dd>

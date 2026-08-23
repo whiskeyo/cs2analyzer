@@ -32,6 +32,8 @@ function empty(player: number): PlayerStats {
     defuses: 0,
     trade_kills: 0,
     trade_deaths: 0,
+    entry_attempts: 0,
+    entry_success: 0,
     kpr: 0,
     dpr: 0,
     impact: 0,
@@ -283,6 +285,8 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
     s.hs_percent = s.kills > 0 ? (100 * s.headshots) / s.kills : 0;
     s.kast = s.rounds > 0 ? (100 * s.kast_rounds) / s.rounds : 0;
     s.kd = s.deaths > 0 ? s.kills / s.deaths : s.kills;
+    s.entry_attempts = s.first_kills + s.first_deaths;
+    s.entry_success = s.entry_attempts > 0 ? (100 * s.first_kills) / s.entry_attempts : 0;
     hltvRating(s);
   }
   statsCache = { replay, tick: t, stats };

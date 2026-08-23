@@ -140,6 +140,8 @@ export interface PlayerStats {
   defuses: number;
   trade_kills: number;
   trade_deaths: number;
+  entry_attempts: number;
+  entry_success: number;
   kpr: number;
   dpr: number;
   impact: number;
