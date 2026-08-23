@@ -38,7 +38,7 @@ npm run dev
 npm run format:check && npm run lint && npm run typecheck && npm test
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same Rust and web checks, plus `npm run build`. Push to `master`/`main` also FTPs `apps/web/dist` to OVH `/cs2analyzer/` (`VITE_BASE=/cs2analyzer/`).
+CI (`.github/workflows/ci.yml`) runs the same Rust and web checks, plus `npm run build`. Push to `master`/`main` also FTPs `apps/web/dist` to OVH `/cs2analyzer/` (Vite `base` is `/` because that folder is the subdomain document root).
 
 ## Where to change what
 

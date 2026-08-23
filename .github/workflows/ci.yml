@@ -49,8 +49,6 @@ jobs:
         run: npm test
       - name: build
         run: npm run build
-        env:
-          VITE_BASE: /cs2analyzer/
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'push'
         with:
