@@ -30,10 +30,10 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
     }
 
     for k in m.kills.iter().filter(|k| k.tick <= until_tick) {
-        if in_knife_round(m, k.tick) {
+        if in_knife_round(m, k.tick) || is_suicide(k) {
             continue;
         }
-        if k.attacker >= 0 {
+        if is_enemy_kill(m, k) {
             let a = k.attacker as usize;
             if a < n {
                 stats[a].kills += 1;
@@ -48,9 +48,10 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
                 stats[v].deaths += 1;
             }
         }
-        if k.assister >= 0 {
+        if k.assister >= 0 && k.victim >= 0 {
             let a = k.assister as usize;
-            if a < n {
+            let v = k.victim as usize;
+            if a < n && v < n && is_enemy(m, a, v, k.tick) {
                 stats[a].assists += 1;
                 if k.assisted_flash {
                     stats[a].flash_assists += 1;
@@ -99,7 +100,7 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
             .iter()
             .filter(|k| k.tick >= round.freeze_end_tick && k.tick <= end)
             .collect();
-        if let Some(first) = round_kills.first() {
+        if let Some(first) = round_kills.iter().copied().find(|k| is_enemy_kill(m, k)) {
             if first.attacker >= 0 {
                 let a = first.attacker as usize;
                 if a < n {
@@ -120,20 +121,21 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
         let freeze = round.freeze_end_tick.max(round.start_tick);
 
         for k in &round_kills {
-            if k.attacker >= 0 {
+            if is_enemy_kill(m, k) {
                 let a = k.attacker as usize;
                 if a < n {
                     kast[a] = true;
                     kills_in_round[a] += 1;
                 }
             }
-            if k.assister >= 0 {
+            if k.assister >= 0 && k.victim >= 0 {
                 let a = k.assister as usize;
-                if a < n {
+                let v = k.victim as usize;
+                if a < n && v < n && is_enemy(m, a, v, k.tick) {
                     kast[a] = true;
                 }
             }
-            if k.victim >= 0 {
+            if k.victim >= 0 && !is_suicide(k) {
                 let v = k.victim as usize;
                 if v < n {
                     died_at[v] = Some(k.tick);
@@ -383,6 +385,21 @@ fn in_knife_round(m: &Match, tick: u32) -> bool {
         .unwrap_or(false)
 }
 
+fn is_suicide(k: &Kill) -> bool {
+    k.attacker >= 0 && k.attacker == k.victim
+}
+
+fn is_enemy(m: &Match, a: usize, b: usize, tick: u32) -> bool {
+    a != b
+        && a < m.players.len()
+        && b < m.players.len()
+        && side_at(m, a, tick) != side_at(m, b, tick)
+}
+
+fn is_enemy_kill(m: &Match, k: &Kill) -> bool {
+    k.attacker >= 0 && k.victim >= 0 && is_enemy(m, k.attacker as usize, k.victim as usize, k.tick)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -529,6 +546,56 @@ mod tests {
         assert_eq!(stats[0].kast_rounds, 1);
         assert_eq!(stats[2].trade_kills, 1);
         assert_eq!(stats[1].trade_kills, 0);
+    }
+
+    #[test]
+    fn suicide_is_omitted_from_kills_and_deaths() {
+        let mut m = empty_match();
+        m.kills.push(kill(100, 0, 0));
+        m.kills.push(kill(200, 0, 1));
+        let stats = compute_stats(&m);
+        assert_eq!(stats[0].kills, 1);
+        assert_eq!(stats[0].deaths, 0);
+        assert_eq!(stats[1].deaths, 1);
+    }
+
+    #[test]
+    fn teamkill_is_not_a_kill() {
+        let mut m = empty_match();
+        m.players.push(Player {
+            index: 2,
+            steam_id: 3,
+            name: "C".into(),
+            start_side: Side::Ct,
+        });
+        m.kills.push(kill(100, 0, 2));
+        m.kills.push(kill(200, 0, 1));
+        let stats = compute_stats(&m);
+        assert_eq!(stats[0].kills, 1);
+        assert_eq!(stats[2].deaths, 1);
+        assert_eq!(stats[0].first_kills, 1);
+        assert_eq!(stats[2].first_deaths, 0);
+        assert_eq!(stats[1].first_deaths, 1);
+    }
+
+    #[test]
+    fn same_side_assist_is_ignored() {
+        let mut m = empty_match();
+        m.kills.push(Kill {
+            tick: 100,
+            attacker: 0,
+            victim: 1,
+            assister: 1,
+            weapon: "ak47".into(),
+            headshot: false,
+            assisted_flash: false,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        });
+        let stats = compute_stats(&m);
+        assert_eq!(stats[1].assists, 0);
+        assert_eq!(stats[0].kills, 1);
     }
 
     #[test]

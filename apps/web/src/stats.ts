@@ -68,6 +68,18 @@ export function inKnifeRound(replay: Replay, tick: number): boolean {
   return r?.is_knife ?? false;
 }
 
+export function isSuicide(k: Kill): boolean {
+  return k.attacker >= 0 && k.attacker === k.victim;
+}
+
+export function isEnemy(replay: Replay, a: number, b: number, tick: number): boolean {
+  return a !== b && currentSide(replay, a, tick) !== currentSide(replay, b, tick);
+}
+
+export function isEnemyKill(replay: Replay, k: Kill): boolean {
+  return k.attacker >= 0 && k.victim >= 0 && isEnemy(replay, k.attacker, k.victim, k.tick);
+}
+
 export function roundSidesSwapped(replay: Replay, round: Round): boolean {
   const tick = round.freeze_end_tick || round.start_tick;
   const snap = samplePlayers(replay, tick);
@@ -164,14 +176,20 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
   for (const s of stats) s.rounds = started.length;
 
   for (const k of replay.kills) {
-    if (k.tick > untilTick || inKnifeRound(replay, k.tick)) continue;
-    if (k.attacker >= 0 && k.attacker < n) {
+    if (k.tick > untilTick || inKnifeRound(replay, k.tick) || isSuicide(k)) continue;
+    if (isEnemyKill(replay, k)) {
       stats[k.attacker].kills += 1;
       if (k.headshot) stats[k.attacker].headshots += 1;
       if (isHe(k.weapon)) stats[k.attacker].he_kills += 1;
     }
     if (k.victim >= 0 && k.victim < n) stats[k.victim].deaths += 1;
-    if (k.assister >= 0 && k.assister < n) {
+    if (
+      k.assister >= 0 &&
+      k.assister < n &&
+      k.victim >= 0 &&
+      k.victim < n &&
+      isEnemy(replay, k.assister, k.victim, k.tick)
+    ) {
       stats[k.assister].assists += 1;
       if (k.assisted_flash) stats[k.assister].flash_assists += 1;
     }
@@ -211,7 +229,7 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
   for (const round of started) {
     const end = Math.min(round.end_tick, untilTick);
     const roundKills = replay.kills.filter((k) => k.tick >= round.freeze_end_tick && k.tick <= end);
-    const first = roundKills[0];
+    const first = roundKills.find((k) => isEnemyKill(replay, k));
     if (first) {
       if (first.attacker >= 0 && first.attacker < n) stats[first.attacker].first_kills += 1;
       if (first.victim >= 0 && first.victim < n) stats[first.victim].first_deaths += 1;
@@ -223,12 +241,20 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
     const freeze = round.freeze_end_tick || round.start_tick;
 
     for (const k of roundKills) {
-      if (k.attacker >= 0 && k.attacker < n) {
+      if (isEnemyKill(replay, k) && k.attacker < n) {
         kast[k.attacker] = true;
         killsInRound[k.attacker] += 1;
       }
-      if (k.assister >= 0 && k.assister < n) kast[k.assister] = true;
-      if (k.victim >= 0 && k.victim < n) diedAt[k.victim] = k.tick;
+      if (
+        k.assister >= 0 &&
+        k.assister < n &&
+        k.victim >= 0 &&
+        k.victim < n &&
+        isEnemy(replay, k.assister, k.victim, k.tick)
+      ) {
+        kast[k.assister] = true;
+      }
+      if (k.victim >= 0 && k.victim < n && !isSuicide(k)) diedAt[k.victim] = k.tick;
     }
 
     const roundOver = round.end_tick <= untilTick;
@@ -497,9 +523,8 @@ export function weaponBreakdown(
     return row;
   };
   for (const k of replay.kills) {
-    if (k.tick > untilTick || inKnifeRound(replay, k.tick)) continue;
+    if (k.tick > untilTick || inKnifeRound(replay, k.tick) || !isEnemyKill(replay, k)) continue;
     if (player != null && k.attacker !== player) continue;
-    if (k.attacker < 0) continue;
     const row = add(k.weapon);
     row.kills += 1;
     if (k.headshot) row.hs += 1;

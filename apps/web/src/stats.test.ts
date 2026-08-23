@@ -116,6 +116,57 @@ describe("computeStats", () => {
     expect(stats[2].trade_kills).toBe(1);
     expect(stats[0].trade_deaths).toBe(1);
   });
+
+  it("omits suicides from kills and deaths", () => {
+    const m = replay({
+      players: [player(0, "CT", "A"), player(1, "T", "B")],
+      rounds: [round({ number: 1, winner: "CT" })],
+      kills: [kill(100, 0, 0), kill(200, 0, 1)],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[0].kills).toBe(1);
+    expect(stats[0].deaths).toBe(0);
+    expect(stats[1].deaths).toBe(1);
+  });
+
+  it("does not credit teamkills and skips them as the opening duel", () => {
+    const m = replay({
+      players: [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")],
+      rounds: [round({ number: 1, winner: "CT" })],
+      kills: [kill(100, 0, 2), kill(200, 0, 1)],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[0].kills).toBe(1);
+    expect(stats[2].deaths).toBe(1);
+    expect(stats[0].first_kills).toBe(1);
+    expect(stats[1].first_deaths).toBe(1);
+    expect(stats[2].first_deaths).toBe(0);
+  });
+
+  it("ignores same-side assists", () => {
+    const k = kill(100, 0, 1);
+    k.assister = 1;
+    const m = replay({
+      players: [player(0, "CT", "A"), player(1, "T", "B")],
+      rounds: [round({ number: 1, winner: "CT" })],
+      kills: [k],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[1].assists).toBe(0);
+  });
+
+  it("does not add friendly-fire to ADR", () => {
+    const m = replay({
+      players: [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")],
+      rounds: [round({ number: 1, winner: "CT" })],
+      hurts: [
+        { tick: 90, attacker: 0, victim: 2, damage: 50, weapon: "ak47" },
+        { tick: 95, attacker: 0, victim: 1, damage: 40, weapon: "ak47" },
+      ],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[0].adr).toBe(40);
+  });
 });
 
 describe("liveScore", () => {
