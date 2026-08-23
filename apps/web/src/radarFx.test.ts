@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blindsAt, HIT_SECONDS, hitsAt } from "./radarFx";
+import { blindsAt, HIT_SECONDS, hitsAt, lingerRemaining } from "./radarFx";
 
 describe("blindsAt", () => {
   it("returns remaining flash time for the victim", () => {
@@ -28,5 +28,14 @@ describe("hitsAt", () => {
     expect(hitsAt(hurts, 100, 64)?.get(0)).toEqual({ age: 0, damage: 40 });
     expect(hitsAt(hurts, 100 + 64 * 0.2, 64)?.get(0)?.damage).toBe(40);
     expect(hitsAt(hurts, 100 + 64 * (HIT_SECONDS + 0.05), 64).get(0)).toBeUndefined();
+  });
+});
+
+describe("lingerRemaining", () => {
+  it("is full at pop and empty at expiry", () => {
+    expect(lingerRemaining(100, 100 + 64 * 18, 100)).toBe(1);
+    expect(lingerRemaining(100, 100 + 64 * 18, 100 + 64 * 9)).toBeCloseTo(0.5, 5);
+    expect(lingerRemaining(100, 100 + 64 * 18, 100 + 64 * 18)).toBe(0);
+    expect(lingerRemaining(100, 100, 100)).toBe(0);
   });
 });

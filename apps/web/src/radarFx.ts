@@ -43,3 +43,10 @@ export function hitsAt(
   }
   return out;
 }
+
+/** 1 just after pop, 0 when the smoke/molly expires. */
+export function lingerRemaining(detonateTick: number, endTick: number, tick: number): number {
+  const span = endTick - detonateTick;
+  if (span <= 0) return 0;
+  return Math.min(1, Math.max(0, (endTick - tick) / span));
+}
