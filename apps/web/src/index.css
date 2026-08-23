@@ -27,12 +27,20 @@ body,
   justify-content: center;
 }
 
+.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  width: min(520px, 92vw);
+}
+
 .drop {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.4rem;
-  width: min(520px, 92vw);
+  width: 100%;
   padding: 3.5rem 2rem;
   border: 1px dashed #3a4654;
   border-radius: 12px;
@@ -65,6 +73,18 @@ body,
 .feature-list li::before {
   content: "▸ ";
   color: #6aa4d8;
+}
+.credits {
+  color: #6b7785;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-align: center;
+}
+.credits p {
+  margin: 0 0 0.35rem;
+}
+.credits a {
+  color: #8b98a5;
 }
 .error {
   color: #ff6b6b;

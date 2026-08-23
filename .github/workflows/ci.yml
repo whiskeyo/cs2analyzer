@@ -49,3 +49,30 @@ jobs:
         run: npm test
       - name: build
         run: npm run build
+        env:
+          VITE_BASE: /cs2analyzer/
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: web-dist
+          path: apps/web/dist
+
+  deploy:
+    name: Deploy to OVH
+    runs-on: ubuntu-latest
+    needs: [rust, web]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+      - name: Upload via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dist/
+          server-dir: /cs2analyzer/
+          dangerous-clean-slate: true

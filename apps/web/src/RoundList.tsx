@@ -1,4 +1,5 @@
 import { tickRate } from "./constants";
+import { publicUrl } from "./publicUrl";
 import { useMemo, useState } from "react";
 import {
   BOMB_LABEL,
@@ -197,7 +198,12 @@ function KillLine({
       <span className="gun">
         <WeaponIcon weapon={event.weapon} />
         {event.headshot && (
-          <img className="headshot-icon" src="/weapons/headshot.svg" alt="" title="Headshot" />
+          <img
+            className="headshot-icon"
+            src={publicUrl("weapons/headshot.svg")}
+            alt=""
+            title="Headshot"
+          />
         )}
       </span>
       <span className={`name ${sideClass(replay, event.victim, tick)}`}>

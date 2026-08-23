@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Local-first CS2 GOTV demo analyzer. Tomasz is the owner. Prefer working in code: implement, debug, iterate. Do not commit unless asked.
+Local-first CS2 GOTV demo analyzer. whiskeyo is the owner. Prefer working in code: implement, debug, iterate. Do not commit unless asked.
 
 Parse a `.dem` in the browser (Web Worker + WASM; the file never leaves the machine), replay it on a 2D radar, and show FACEIT-style stats. Native CLI exists for the same parser.
 
@@ -24,7 +24,7 @@ Do not edit `apps/web/src/parser/` by hand. Keep `wasm-bindgen-cli` at **0.2.127
 ```
 # Rust
 cargo fmt --all
-cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-targets -- -D warnings   # unwrap/expect denied outside tests
 cargo test --workspace
 cargo run -p cs2analyzer-cli -- parse path/to/match.dem
 
@@ -38,7 +38,7 @@ npm run dev
 npm run format:check && npm run lint && npm run typecheck && npm test
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same Rust and web checks, plus `npm run build`.
+CI (`.github/workflows/ci.yml`) runs the same Rust and web checks, plus `npm run build`. Push to `master`/`main` also FTPs `apps/web/dist` to OVH `/cs2analyzer/` (`VITE_BASE=/cs2analyzer/`).
 
 ## Where to change what
 
@@ -84,7 +84,7 @@ FACEIT-style targets for a 30-round OT game: team score follows sides (e.g. 14â€
 1. Read the existing function before extending it. Match naming and structure in the file you touch.
 2. Prefer small, reviewable diffs. **Cap a commit at about 1000 lines** (`git diff --stat`). Split by concern (parser vs UI vs stats vs CI). A larger commit is OK only when the change **cannot be smaller** (generated WASM, lockfile + one feature, rustfmt of a huge file, vendored assets).
 3. Mirror stats logic in both Rust and `stats.ts` when the formula changes. Add a unit test on the side you touched (`analysis.rs` tests and/or `apps/web/src/stats.test.ts`).
-4. After WASM rebuild, tell Tomasz to **re-drop the demo**. UI-only work: verify the affected flow in the browser (behavior, not a single screenshot). No browser tools: say what you could not click through.
+4. After WASM rebuild, tell whiskeyo to **re-drop the demo**. UI-only work: verify the affected flow in the browser (behavior, not a single screenshot). No browser tools: say what you could not click through.
 5. Do not add README/docs unless asked. Do not edit plan files. Do not commit `.demos/`, `.env`, or secrets. `apps/web/src/parser/` is generated â€” commit it only together with the parser change that produced it.
 6. Do not commit unless asked. When asked: follow repo commit style, HEREDOC message focused on **why**, no `--no-verify`. Push only when asked.
 

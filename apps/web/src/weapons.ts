@@ -8,6 +8,7 @@ import {
   WIN_REASON_T_ELIM,
   WIN_REASON_T_SURRENDER,
 } from "./constants";
+import { publicUrl } from "./publicUrl";
 
 const NAMES: Record<string, string> = {
   ak47: "AK-47",
@@ -212,10 +213,10 @@ export function weaponKey(raw: string): string | null {
 export function weaponIconSrc(raw: string | number): string | null {
   if (typeof raw === "number") {
     const key = WEAPON_BY_ID[raw];
-    return key ? `/weapons/${key}.svg` : null;
+    return key ? publicUrl(`weapons/${key}.svg`) : null;
   }
   const key = weaponKey(raw);
-  return key ? `/weapons/${key}.svg` : null;
+  return key ? publicUrl(`weapons/${key}.svg`) : null;
 }
 
 export function formatClock(seconds: number): string {

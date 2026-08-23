@@ -1,4 +1,5 @@
 import { prettyWeapon, WEAPON_BY_ID, weaponIconSrc } from "./weapons";
+import { publicUrl } from "./publicUrl";
 
 interface Props {
   weapon: string | number;
@@ -22,7 +23,7 @@ export function GearIcon({ name, title }: { name: string; title?: string }) {
   return (
     <img
       className="wep-icon gear"
-      src={`/weapons/${name}.svg`}
+      src={publicUrl(`weapons/${name}.svg`)}
       alt={title ?? name}
       title={title ?? name}
     />

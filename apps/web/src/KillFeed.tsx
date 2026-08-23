@@ -1,4 +1,5 @@
 import { KILL_FEED_SECONDS, tickRate } from "./constants";
+import { publicUrl } from "./publicUrl";
 import { recentKills } from "./stats";
 import type { Replay } from "./types";
 import { GearIcon, WeaponIcon } from "./WeaponIcon";
@@ -25,7 +26,7 @@ export function KillFeed({ replay, tick, onJump }: Props) {
               {k.headshot && (
                 <img
                   className="headshot-icon"
-                  src="/weapons/headshot.svg"
+                  src={publicUrl("weapons/headshot.svg")}
                   alt=""
                   title="Headshot"
                 />
