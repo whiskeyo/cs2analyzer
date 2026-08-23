@@ -1,3 +1,5 @@
+import { publicUrl } from "./publicUrl";
+
 interface Props {
   onFile: (file: File) => void;
   parsing: boolean;
@@ -31,6 +33,7 @@ export function DropZone({ onFile, parsing, progress, error }: Props) {
             if (file) onFile(file);
           }}
         />
+        <img className="brand-mark" src={publicUrl("favicon.svg")} width={56} height={56} alt="" />
         <div className="drop-title">CS2 Analyzer</div>
         <p>
           Drop a Counter-Strike 2 <code>.dem</code> file here.

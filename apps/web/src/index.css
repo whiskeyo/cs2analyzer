@@ -123,6 +123,24 @@ code {
   background: #10151b;
   border-bottom: 1px solid #1e2732;
 }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.brand-mark {
+  display: block;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+}
+.brand .brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
 .top h1 {
   font-size: 1rem;
   margin: 0;

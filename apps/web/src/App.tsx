@@ -22,6 +22,7 @@ import {
   type Stroke,
   type WorkerOut,
 } from "./types";
+import { publicUrl } from "./publicUrl";
 import { prettyMap } from "./weapons";
 
 export function App() {
@@ -231,7 +232,16 @@ export function App() {
         >
           New demo
         </button>
-        <h1>CS2 Analyzer</h1>
+        <div className="brand">
+          <img
+            className="brand-mark"
+            src={publicUrl("favicon.svg")}
+            width={28}
+            height={28}
+            alt=""
+          />
+          <h1>CS2 Analyzer</h1>
+        </div>
         <span className="file-meta">
           {prettyMap(replay.header.map_name)}
           {fileName ? ` · ${fileName}` : ""} · {replay.kills.length} kills ·{" "}
