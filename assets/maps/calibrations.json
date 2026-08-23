@@ -1,0 +1,32 @@
+{
+  "de_dust2": { "pos_x": -2476, "pos_y": 3239, "scale": 4.4, "radar": "de_dust2.png" },
+  "de_mirage": { "pos_x": -3230, "pos_y": 1713, "scale": 5.0, "radar": "de_mirage.png" },
+  "de_inferno": { "pos_x": -2087, "pos_y": 3870, "scale": 4.9, "radar": "de_inferno.png" },
+  "de_nuke": {
+    "pos_x": -3453, "pos_y": 2887, "scale": 7,
+    "radar": "de_nuke.png", "lower_radar": "de_nuke_lower.png",
+    "floors": [
+      { "name": "default", "z_min": -495, "z_max": 10000 },
+      { "name": "lower", "z_min": -10000, "z_max": -495 }
+    ]
+  },
+  "de_overpass": { "pos_x": -4831, "pos_y": 1781, "scale": 5.2, "radar": "de_overpass.png" },
+  "de_ancient": { "pos_x": -2953, "pos_y": 2164, "scale": 5, "radar": "de_ancient.png" },
+  "de_anubis": { "pos_x": -2796, "pos_y": 3328, "scale": 5.22, "radar": "de_anubis.png" },
+  "de_vertigo": {
+    "pos_x": -3168, "pos_y": 1762, "scale": 4,
+    "radar": "de_vertigo.png", "lower_radar": "de_vertigo_lower.png",
+    "floors": [
+      { "name": "default", "z_min": 11700, "z_max": 20000 },
+      { "name": "lower", "z_min": -10000, "z_max": 11700 }
+    ]
+  },
+  "de_train": {
+    "pos_x": -2308, "pos_y": 2078, "scale": 4.082077,
+    "radar": "de_train.png", "lower_radar": "de_train_lower.png",
+    "floors": [
+      { "name": "default", "z_min": -50, "z_max": 20000 },
+      { "name": "lower", "z_min": -5000, "z_max": -50 }
+    ]
+  }
+}

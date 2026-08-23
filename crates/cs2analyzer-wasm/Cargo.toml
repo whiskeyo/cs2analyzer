@@ -1,0 +1,16 @@
+[package]
+name = "cs2analyzer-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "WASM bindings for cs2analyzer."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cs2analyzer = { path = "../cs2analyzer", default-features = false }
+wasm-bindgen = "0.2.127"
+js-sys = "0.3.104"
+console_error_panic_hook = "0.1"
+serde_json = { workspace = true }

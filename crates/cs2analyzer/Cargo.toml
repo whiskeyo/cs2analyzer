@@ -1,0 +1,16 @@
+[package]
+name = "cs2analyzer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Parse Counter-Strike 2 demo files into compact replay snapshots and per-player stats."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+source2-demo = { workspace = true }
+
+[features]
+default = ["mimalloc"]
+mimalloc = ["source2-demo/mimalloc"]

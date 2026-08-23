@@ -1,0 +1,10 @@
+/target
+**/*.rs.bk
+apps/web/node_modules
+apps/web/dist
+apps/web/*.tsbuildinfo
+.DS_Store
+testdata/*.dem
+testdata/*.bin
+.env
+
