@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { floorForZ, radarUrl, screenToWorld, worldToScreen, type RadarView } from "./maps";
+import { blindsAt, HIT_SECONDS, hitsAt, TRACER_SECONDS } from "./radarFx";
 import { currentRound, samplePlayers, sampleTrail } from "./sample";
 import { activeBomb } from "./stats";
 import type { DrawTool, MapCalibration, MapLayers, Replay, Stroke } from "./types";
@@ -288,20 +289,28 @@ export function RadarCanvas({
         }
       }
 
-      const tracerLife = tickRate * 0.18;
+      const tracerLife = tickRate * TRACER_SECONDS;
       if (layersNow.shots) {
         for (const sh of replay.shots) {
           const age = tickNow - sh.tick;
           if (age < 0 || age > tracerLife) continue;
-          const s = toScreen(sh.x, sh.y);
+          const origin = toScreen(sh.x, sh.y);
           const rad = yawToCanvas(sh.yaw);
-          const len = 42;
-          ctx.globalAlpha = 1 - age / tracerLife;
+          const dx = Math.cos(rad);
+          const dy = Math.sin(rad);
+          const fade = 1 - age / tracerLife;
           ctx.strokeStyle = "#ffe9a8";
+          ctx.globalAlpha = fade * 0.28;
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.moveTo(origin.x, origin.y);
+          ctx.lineTo(origin.x + dx * 62, origin.y + dy * 62);
+          ctx.stroke();
+          ctx.globalAlpha = fade * 0.95;
           ctx.lineWidth = 1.4;
           ctx.beginPath();
-          ctx.moveTo(s.x, s.y);
-          ctx.lineTo(s.x + Math.cos(rad) * len, s.y + Math.sin(rad) * len);
+          ctx.moveTo(origin.x, origin.y);
+          ctx.lineTo(origin.x + dx * 48, origin.y + dy * 48);
           ctx.stroke();
           ctx.globalAlpha = 1;
         }
@@ -412,10 +421,50 @@ export function RadarCanvas({
         }
       }
 
+      const blinds = blindsAt(replay.blinds, tickNow, tickRate);
+      const hits = hitsAt(replay.hurts, tickNow, tickRate);
+      for (const p of players) {
+        if (!p.present) continue;
+        const s = toScreen(p.x, p.y);
+        const hit = hits.get(p.index);
+        if (hit) {
+          const t = Math.min(1, hit.age / HIT_SECONDS);
+          const r = 9 + t * 14 + Math.min(hit.damage, 100) * 0.04;
+          ctx.strokeStyle = "#e04b4b";
+          ctx.fillStyle = "#e04b4b";
+          ctx.globalAlpha = (1 - t) * 0.3;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 7 + (1 - t) * 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = (1 - t) * 0.9;
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        const flash = blinds.get(p.index);
+        if (flash && p.alive) {
+          const intensity = Math.min(1, flash / 1.4);
+          const pulse = 13 + intensity * 6 + Math.sin((tickNow / tickRate) * 10) * 1.4;
+          ctx.fillStyle = `rgba(255, 248, 200, ${0.12 + intensity * 0.38})`;
+          ctx.globalAlpha = 1;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 11 + intensity * 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = `rgba(255, 236, 150, ${0.45 + intensity * 0.5})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, pulse, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+
       for (const p of players) {
         if (!p.present) continue;
         const s = toScreen(p.x, p.y);
         const color = p.ct ? "#5b9fd6" : "#c9a227";
+        const flash = blinds.get(p.index) ?? 0;
         ctx.globalAlpha = p.alive ? 1 : 0.35;
         ctx.save();
         ctx.translate(s.x, s.y);
@@ -429,6 +478,10 @@ export function RadarCanvas({
         ctx.closePath();
         ctx.fillStyle = color;
         ctx.fill();
+        if (flash > 0 && p.alive) {
+          ctx.fillStyle = `rgba(255, 252, 230, ${Math.min(0.88, 0.4 + flash * 0.35)})`;
+          ctx.fill();
+        }
         if (selectedRef.current === p.index) {
           ctx.strokeStyle = "#fff";
           ctx.lineWidth = 1.4;
