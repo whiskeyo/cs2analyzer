@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findExecutes, nextExecuteTick } from "./execute";
+import { filterExecutes, findExecutes, nextExecuteTick } from "./execute";
 import type { GrenadeThrow, Kill, Player, Replay, Round } from "./types";
 
 function player(index: number, side: Player["start_side"], name: string): Player {
@@ -213,5 +213,17 @@ describe("findExecutes", () => {
       grenades: [nade(200, 3, "smoke", 0, 0), nade(220, 4, "smoke", 300, 40)],
     });
     expect(findExecutes(m)).toEqual([]);
+  });
+
+  it("filterExecutes keeps a plant and drops T executes", () => {
+    const m = replay({
+      players: roster,
+      rounds: [round({ number: 1, winner: "CT" })],
+      grenades: [nade(200, 0, "smoke"), nade(220, 1, "smoke")],
+      bombEvents: [{ tick: 1100, kind: "planted", player: 0, x: 0, y: 0, z: 0 }],
+    });
+    const beats = findExecutes(m);
+    expect(filterExecutes(beats, { kinds: ["plant"] }).every((b) => b.kind === "plant")).toBe(true);
+    expect(filterExecutes(beats, { side: "CT" }).every((b) => b.side === "CT")).toBe(true);
   });
 });

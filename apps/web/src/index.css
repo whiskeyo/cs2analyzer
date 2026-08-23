@@ -243,6 +243,59 @@ code {
   padding: 0.05rem 0.28rem;
   color: #c5d0da;
 }
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  margin: 0.2rem 0 0.55rem;
+}
+.filter-gap {
+  width: 0.35rem;
+}
+.filter {
+  background: #1c242e;
+  color: #c5d0da;
+  border: 1px solid #2c3846;
+  border-radius: 6px;
+  padding: 0.18rem 0.4rem;
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+.filter.on {
+  border-color: #6aa4d8;
+  background: #243040;
+  color: #fff;
+}
+.action-round {
+  margin-bottom: 0.65rem;
+}
+.action-round .review-notes {
+  padding-left: 0.2rem;
+}
+.round-story {
+  display: flex;
+  gap: 0.45rem;
+  width: 100%;
+  align-items: flex-start;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #2a3542;
+  color: inherit;
+  padding: 0.35rem 0.15rem 0.4rem;
+  cursor: pointer;
+  text-align: left;
+}
+.round-story:hover,
+.round-story.on {
+  background: #1a222c;
+}
+.round-story.ct .review-title {
+  color: #7eb7e6;
+}
+.round-story.t .review-title {
+  color: #e0c15a;
+}
 button.link {
   background: none;
   border: none;
@@ -550,6 +603,23 @@ button.link {
 .rs.on {
   outline: 1px solid #fff;
   color: #fff;
+}
+.rs.has-action {
+  position: relative;
+}
+.rs.has-action::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: #e0c15a;
+}
+.rs.live-action {
+  box-shadow: inset 0 0 0 1px #e0c15a;
 }
 
 .radar-hud {

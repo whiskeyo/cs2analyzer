@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { playerReview } from "./review";
+import { roundStories } from "./roundStory";
 import type { Kill, Player, Replay, Round } from "./types";
 
 function player(index: number, side: Player["start_side"], name: string): Player {
@@ -10,8 +10,8 @@ function round(partial: Partial<Round> & Pick<Round, "number" | "winner">): Roun
   return {
     start_tick: 0,
     freeze_end_tick: 64,
-    end_tick: 640,
-    win_reason: 8,
+    end_tick: 2000,
+    win_reason: 9,
     score_ct: 0,
     score_t: 0,
     is_knife: false,
@@ -75,52 +75,60 @@ function replay(partial: Partial<Replay> & Pick<Replay, "players" | "rounds">): 
   };
 }
 
-describe("playerReview", () => {
-  it("records winning the opening duel", () => {
+const roster = [
+  player(0, "T", "T1"),
+  player(1, "T", "T2"),
+  player(2, "T", "T3"),
+  player(3, "CT", "CT1"),
+  player(4, "CT", "CT2"),
+  player(5, "CT", "CT3"),
+  player(6, "CT", "CT4"),
+  player(7, "CT", "CT5"),
+];
+
+describe("roundStories", () => {
+  it("skips the knife round", () => {
     const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(100, 0, 1)],
+      players: roster,
+      rounds: [round({ number: 0, winner: "T", is_knife: true, win_reason: 9 })],
+      kills: [kill(100, 0, 3)],
     });
-    const review = playerReview(m, 0, 640);
-    expect(review.headlines.some((h) => h.text.includes("Won 1 opening"))).toBe(true);
-    expect(
-      review.notes.some((n) => n.title.startsWith("Won the opening") && n.severity === "good"),
-    ).toBe(true);
+    expect(roundStories(m)).toEqual([]);
   });
 
-  it("records a 4k as a highlight", () => {
+  it("names the opener and T elim ending", () => {
     const m = replay({
-      players: [
-        player(0, "CT", "A"),
-        player(1, "T", "B"),
-        player(2, "T", "C"),
-        player(3, "T", "D"),
-        player(4, "T", "E"),
-      ],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(100, 0, 1), kill(120, 0, 2), kill(140, 0, 3), kill(160, 0, 4)],
+      players: roster,
+      rounds: [round({ number: 1, winner: "T", win_reason: 9 })],
+      kills: [kill(120, 0, 3)],
     });
-    const review = playerReview(m, 0, 640);
-    expect(review.notes.some((n) => n.title === "4k this round")).toBe(true);
-    expect(review.headlines.some((h) => h.text.includes("4k+"))).toBe(true);
+    const stories = roundStories(m);
+    expect(stories).toHaveLength(1);
+    expect(stories[0].opener).toEqual({ name: "T1", vs: "CT1", tick: 120 });
+    expect(stories[0].ending).toBe("T elim");
+    expect(stories[0].summary).toContain("T1 opener");
+    expect(stories[0].summary).toContain("T elim");
   });
 
-  it("records trading the opener as a good play", () => {
+  it("marks a plant win as bomb", () => {
     const m = replay({
-      players: [
-        player(0, "T", "T1"),
-        player(1, "T", "T2"),
-        player(2, "CT", "CT1"),
-        player(3, "CT", "CT2"),
-      ],
-      rounds: [round({ number: 1, winner: "T" })],
-      kills: [kill(100, 2, 0), kill(180, 1, 2)],
+      players: roster,
+      rounds: [round({ number: 2, winner: "T", win_reason: 1 })],
+      bombEvents: [{ tick: 800, kind: "planted", player: 0, x: 0, y: 0, z: 0 }],
     });
-    const review = playerReview(m, 1, 640);
-    expect(
-      review.notes.some((n) => n.title.startsWith("Traded the opener") && n.severity === "good"),
-    ).toBe(true);
-    expect(review.headlines.some((h) => h.text.includes("Traded"))).toBe(true);
+    const stories = roundStories(m);
+    expect(stories[0].planted).toBe(true);
+    expect(stories[0].ending).toBe("bomb");
+  });
+
+  it("marks a 5k as an ace", () => {
+    const m = replay({
+      players: roster,
+      rounds: [round({ number: 3, winner: "T", win_reason: 9 })],
+      kills: [kill(100, 0, 3), kill(120, 0, 4), kill(140, 0, 5), kill(160, 0, 6), kill(180, 0, 7)],
+    });
+    const stories = roundStories(m);
+    expect(stories[0].ace).toBe(true);
+    expect(stories[0].ending).toBe("ace");
   });
 });

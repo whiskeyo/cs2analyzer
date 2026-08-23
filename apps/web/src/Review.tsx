@@ -1,4 +1,5 @@
-import { playerReview } from "./review";
+import { useMemo, useState } from "react";
+import { type ReviewSeverity, playerReview } from "./review";
 import type { Replay } from "./types";
 
 interface Props {
@@ -8,9 +9,26 @@ interface Props {
   onJump: (tick: number) => void;
 }
 
+type Tone = "all" | "good" | "bad";
+
+function isGood(severity: ReviewSeverity): boolean {
+  return severity === "good";
+}
+
 export function Review({ replay, tick, selected, onJump }: Props) {
+  const [tone, setTone] = useState<Tone>("all");
   const name = selected != null ? (replay.players[selected]?.name ?? "Player") : null;
   const review = selected != null ? playerReview(replay, selected, tick) : null;
+  const headlines = useMemo(() => {
+    if (!review) return [];
+    if (tone === "all") return review.headlines;
+    return review.headlines.filter((h) => (tone === "good") === isGood(h.severity));
+  }, [review, tone]);
+  const notes = useMemo(() => {
+    if (!review) return [];
+    if (tone === "all") return review.notes;
+    return review.notes.filter((n) => (tone === "good") === isGood(n.severity));
+  }, [review, tone]);
 
   if (selected == null || !name || !review) {
     return (
@@ -26,13 +44,40 @@ export function Review({ replay, tick, selected, onJump }: Props) {
       <p className="tab-hint">
         <strong>{name}</strong> — openings, clutches, and mistakes through this tick.
       </p>
-      {review.headlines.length === 0 && review.notes.length === 0 ? (
-        <p className="muted tab-hint">No player notes yet. Skip further in, then check again.</p>
+      <div className="filters" role="toolbar" aria-label="Review filters">
+        <button
+          type="button"
+          className={`filter${tone === "all" ? " on" : ""}`}
+          onClick={() => setTone("all")}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          className={`filter${tone === "good" ? " on" : ""}`}
+          onClick={() => setTone("good")}
+        >
+          Good
+        </button>
+        <button
+          type="button"
+          className={`filter${tone === "bad" ? " on" : ""}`}
+          onClick={() => setTone("bad")}
+        >
+          Bad
+        </button>
+      </div>
+      {headlines.length === 0 && notes.length === 0 ? (
+        <p className="muted tab-hint">
+          {tone === "all"
+            ? "No player notes yet. Skip further in, then check again."
+            : `No ${tone} plays through this tick.`}
+        </p>
       ) : (
         <>
-          {review.headlines.length > 0 && (
+          {headlines.length > 0 && (
             <ul className="review-heads">
-              {review.headlines.map((h) => (
+              {headlines.map((h) => (
                 <li key={h.text} className={`review-head ${h.severity}`}>
                   {h.text}
                 </li>
@@ -40,7 +85,7 @@ export function Review({ replay, tick, selected, onJump }: Props) {
             </ul>
           )}
           <ul className="review-notes">
-            {review.notes.map((n) => (
+            {notes.map((n) => (
               <li key={`${n.tick}-${n.title}`}>
                 <button
                   type="button"

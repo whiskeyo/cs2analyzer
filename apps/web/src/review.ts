@@ -156,6 +156,7 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
   let nadesLeft = 0;
   let multi = 0;
   let ecoWins = 0;
+  let tradedOpeners = 0;
 
   for (const r of replay.rounds) {
     if (r.is_knife) continue;
@@ -182,10 +183,14 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
         if (teamLost) openingLoss += 1;
       }
 
-      if (k.attacker >= 0 && !traded(replay, k, untilTick)) {
+      const wasTraded = k.attacker >= 0 && traded(replay, k, untilTick);
+      if (k.attacker >= 0 && !wasTraded) {
         untraded += 1;
         bits.push("untraded");
         if (severity !== "high") severity = "mid";
+      } else if (openingDeath && wasTraded) {
+        bits.push("traded");
+        if (severity === "high") severity = "mid";
       }
 
       const flash = flashedAt(replay, player, k.tick);
@@ -261,6 +266,32 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
         detail: prettyWeapon(first.weapon) + (first.headshot ? " HS" : ""),
         severity: "good",
       });
+    } else if (
+      first &&
+      first.attacker !== player &&
+      first.victim !== player &&
+      r.end_tick <= untilTick
+    ) {
+      const tps = replay.header.tick_rate || 64;
+      const window = Math.round(TRADE_SECONDS * tps);
+      const trade = roundKills.find(
+        (k) =>
+          isEnemyKill(replay, k) &&
+          k.attacker === player &&
+          k.victim === first.attacker &&
+          k.tick > first.tick &&
+          k.tick <= first.tick + window,
+      );
+      if (trade) {
+        tradedOpeners += 1;
+        notes.push({
+          tick: trade.tick,
+          roundLabel: roundLabel(r),
+          title: `Traded the opener (${name(first.victim)})`,
+          detail: prettyWeapon(trade.weapon) + (trade.headshot ? " HS" : ""),
+          severity: "good",
+        });
+      }
     }
 
     const myFrags = roundKills.filter((k) => isEnemyKill(replay, k) && k.attacker === player);
@@ -293,8 +324,9 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
       const vs = clutchVs(replay, r, roundKills, player, side);
       if (vs >= 1) {
         clutchWin += 1;
+        const last = [...roundKills].reverse().find((k) => k.attacker === player);
         notes.push({
-          tick: r.freeze_end_tick || r.start_tick,
+          tick: last?.tick ?? (r.freeze_end_tick || r.start_tick),
           roundLabel: roundLabel(r),
           title: `Won a 1v${vs}`,
           detail: "clutch",
@@ -310,6 +342,7 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
   };
   push(openingWin, "good", `Won ${openingWin} opening duel${openingWin === 1 ? "" : "s"}`);
   push(clutchWin, "good", `Won ${clutchWin} clutch${clutchWin === 1 ? "" : "es"}`);
+  push(tradedOpeners, "good", `Traded ${tradedOpeners} opener${tradedOpeners === 1 ? "" : "s"}`);
   push(multi, "good", `${multi} round${multi === 1 ? "" : "s"} with 4k+`);
   push(ecoWins, "good", `Won ${ecoWins} eco round${ecoWins === 1 ? "" : "s"}`);
   push(

@@ -345,3 +345,30 @@ export function nextExecuteTick(beats: ExecuteBeat[], tick: number, dir: 1 | -1)
   }
   return null;
 }
+
+export interface ExecuteFilter {
+  round?: number | null;
+  side?: Side | "all";
+  kinds?: ExecuteKind[];
+}
+
+export function filterExecutes(beats: ExecuteBeat[], filter: ExecuteFilter): ExecuteBeat[] {
+  const kinds = filter.kinds && filter.kinds.length > 0 ? new Set(filter.kinds) : null;
+  return beats.filter((b) => {
+    if (filter.round != null && b.round !== filter.round) return false;
+    if (filter.side && filter.side !== "all" && b.side !== filter.side) return false;
+    if (kinds && !kinds.has(b.kind)) return false;
+    return true;
+  });
+}
+
+/** Beat currently on screen (lead-in through a few seconds after the action). */
+export function activeExecute(beats: ExecuteBeat[], tick: number, tps: number): ExecuteBeat | null {
+  const linger = (tps || 64) * 8;
+  let hit: ExecuteBeat | null = null;
+  for (const b of beats) {
+    if (b.tick > tick) break;
+    if (tick <= b.actionTick + linger) hit = b;
+  }
+  return hit;
+}
