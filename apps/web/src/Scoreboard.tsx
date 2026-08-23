@@ -57,7 +57,7 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
               <td>{s.kills}</td>
               <td>{s.deaths}</td>
               <td>{s.assists}</td>
-              <td>{s.adr.toFixed(0)}</td>
+              <td>{s.adr.toFixed(1)}</td>
               <td>{s.kast.toFixed(0)}</td>
               <td>{s.rating.toFixed(2)}</td>
               <td>{s.entry_attempts > 0 ? `${s.first_kills}/${s.entry_attempts}` : "0"}</td>
@@ -94,9 +94,9 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
             </dd>
             <dt>CT / T</dt>
             <dd>
-              {sel.kills_ct}/{sel.deaths_ct} · ADR {sel.adr_ct.toFixed(0)}
+              {sel.kills_ct}/{sel.deaths_ct} · ADR {sel.adr_ct.toFixed(1)}
               {" · "}
-              {sel.kills_t}/{sel.deaths_t} · ADR {sel.adr_t.toFixed(0)}
+              {sel.kills_t}/{sel.deaths_t} · ADR {sel.adr_t.toFixed(1)}
             </dd>
             <dt>Damage (taken)</dt>
             <dd>
