@@ -92,6 +92,12 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
             <dd>
               {sel.kpr.toFixed(2)} / {sel.dpr.toFixed(2)}
             </dd>
+            <dt>CT / T</dt>
+            <dd>
+              {sel.kills_ct}/{sel.deaths_ct} · ADR {sel.adr_ct.toFixed(0)}
+              {" · "}
+              {sel.kills_t}/{sel.deaths_t} · ADR {sel.adr_t.toFixed(0)}
+            </dd>
             <dt>Damage (taken)</dt>
             <dd>
               {sel.damage} ({sel.damage_taken})

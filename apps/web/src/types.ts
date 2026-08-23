@@ -142,6 +142,16 @@ export interface PlayerStats {
   trade_deaths: number;
   entry_attempts: number;
   entry_success: number;
+  rounds_ct: number;
+  rounds_t: number;
+  kills_ct: number;
+  kills_t: number;
+  deaths_ct: number;
+  deaths_t: number;
+  damage_ct: number;
+  damage_t: number;
+  adr_ct: number;
+  adr_t: number;
   kpr: number;
   dpr: number;
   impact: number;

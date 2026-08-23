@@ -156,6 +156,22 @@ describe("computeStats", () => {
     expect(stats[1].entry_success).toBe(0);
   });
 
+  it("splits kills and ADR by the side the player was on", () => {
+    const m = replay({
+      players: [player(0, "CT", "A"), player(1, "T", "B")],
+      rounds: [round({ number: 1, winner: "CT" })],
+      kills: [kill(100, 0, 1)],
+      hurts: [{ tick: 90, attacker: 0, victim: 1, damage: 40, weapon: "ak47" }],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[0].kills_ct).toBe(1);
+    expect(stats[0].kills_t).toBe(0);
+    expect(stats[0].adr_ct).toBe(40);
+    expect(stats[0].adr_t).toBe(0);
+    expect(stats[1].deaths_t).toBe(1);
+    expect(stats[1].deaths_ct).toBe(0);
+  });
+
   it("ignores same-side assists", () => {
     const k = kill(100, 0, 1);
     k.assister = 1;

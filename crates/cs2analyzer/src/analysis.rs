@@ -40,12 +40,20 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
                 if k.headshot {
                     stats[a].headshots += 1;
                 }
+                match side_at(m, a, k.tick) {
+                    Side::Ct => stats[a].kills_ct += 1,
+                    Side::T => stats[a].kills_t += 1,
+                }
             }
         }
         if k.victim >= 0 {
             let v = k.victim as usize;
             if v < n {
                 stats[v].deaths += 1;
+                match side_at(m, v, k.tick) {
+                    Side::Ct => stats[v].deaths_ct += 1,
+                    Side::T => stats[v].deaths_t += 1,
+                }
             }
         }
         if k.assister >= 0 && k.victim >= 0 {
@@ -119,6 +127,15 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
         let mut kast = vec![false; n];
         let mut died_at = vec![None; n];
         let freeze = round.freeze_end_tick.max(round.start_tick);
+        for (i, s) in stats.iter_mut().enumerate() {
+            if !present_at(m, i, freeze) {
+                continue;
+            }
+            match side_at(m, i, freeze) {
+                Side::Ct => s.rounds_ct += 1,
+                Side::T => s.rounds_t += 1,
+            }
+        }
 
         for k in &round_kills {
             if is_enemy_kill(m, k) {
@@ -201,6 +218,16 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
         } else {
             0.0
         };
+        s.adr_ct = if s.rounds_ct > 0 {
+            s.damage_ct as f32 / s.rounds_ct as f32
+        } else {
+            0.0
+        };
+        s.adr_t = if s.rounds_t > 0 {
+            s.damage_t as f32 / s.rounds_t as f32
+        } else {
+            0.0
+        };
     }
 
     stats
@@ -240,6 +267,10 @@ fn apply_damage(m: &Match, until_tick: u32, stats: &mut [PlayerStats]) {
                 continue;
             }
             stats[a].damage += dealt;
+            match side_at(m, a, h.tick) {
+                Side::Ct => stats[a].damage_ct += dealt,
+                Side::T => stats[a].damage_t += dealt,
+            }
             if is_utility_weapon(&h.weapon) {
                 stats[a].utility_damage += dealt;
             }
@@ -593,6 +624,25 @@ mod tests {
         assert_eq!(stats[1].entry_attempts, 1);
         assert!((stats[0].entry_success - 100.0).abs() < f32::EPSILON);
         assert!(stats[1].entry_success.abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn splits_kills_and_adr_by_side() {
+        let mut m = empty_match();
+        m.kills.push(kill(100, 0, 1));
+        m.hurts.push(Hurt {
+            tick: 90,
+            attacker: 0,
+            victim: 1,
+            damage: 40,
+            weapon: "ak47".into(),
+        });
+        let stats = compute_stats(&m);
+        assert_eq!(stats[0].kills_ct, 1);
+        assert_eq!(stats[0].kills_t, 0);
+        assert!((stats[0].adr_ct - 40.0).abs() < f32::EPSILON);
+        assert_eq!(stats[1].deaths_t, 1);
+        assert_eq!(stats[1].deaths_ct, 0);
     }
 
     #[test]

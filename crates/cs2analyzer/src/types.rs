@@ -281,6 +281,26 @@ pub struct PlayerStats {
     pub entry_attempts: u32,
     #[serde(default)]
     pub entry_success: f32,
+    #[serde(default)]
+    pub rounds_ct: u32,
+    #[serde(default)]
+    pub rounds_t: u32,
+    #[serde(default)]
+    pub kills_ct: u32,
+    #[serde(default)]
+    pub kills_t: u32,
+    #[serde(default)]
+    pub deaths_ct: u32,
+    #[serde(default)]
+    pub deaths_t: u32,
+    #[serde(default)]
+    pub damage_ct: i32,
+    #[serde(default)]
+    pub damage_t: i32,
+    #[serde(default)]
+    pub adr_ct: f32,
+    #[serde(default)]
+    pub adr_t: f32,
 }
 
 impl PlayerStats {
@@ -312,6 +332,16 @@ impl PlayerStats {
             trade_kills: 0,
             entry_attempts: 0,
             entry_success: 0.0,
+            rounds_ct: 0,
+            rounds_t: 0,
+            kills_ct: 0,
+            kills_t: 0,
+            deaths_ct: 0,
+            deaths_t: 0,
+            damage_ct: 0,
+            damage_t: 0,
+            adr_ct: 0.0,
+            adr_t: 0.0,
         }
     }
 }

@@ -34,6 +34,16 @@ function empty(player: number): PlayerStats {
     trade_deaths: 0,
     entry_attempts: 0,
     entry_success: 0,
+    rounds_ct: 0,
+    rounds_t: 0,
+    kills_ct: 0,
+    kills_t: 0,
+    deaths_ct: 0,
+    deaths_t: 0,
+    damage_ct: 0,
+    damage_t: 0,
+    adr_ct: 0,
+    adr_t: 0,
     kpr: 0,
     dpr: 0,
     impact: 0,
@@ -183,8 +193,14 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
       stats[k.attacker].kills += 1;
       if (k.headshot) stats[k.attacker].headshots += 1;
       if (isHe(k.weapon)) stats[k.attacker].he_kills += 1;
+      if (currentSide(replay, k.attacker, k.tick) === "CT") stats[k.attacker].kills_ct += 1;
+      else stats[k.attacker].kills_t += 1;
     }
-    if (k.victim >= 0 && k.victim < n) stats[k.victim].deaths += 1;
+    if (k.victim >= 0 && k.victim < n) {
+      stats[k.victim].deaths += 1;
+      if (currentSide(replay, k.victim, k.tick) === "CT") stats[k.victim].deaths_ct += 1;
+      else stats[k.victim].deaths_t += 1;
+    }
     if (
       k.assister >= 0 &&
       k.assister < n &&
@@ -241,6 +257,11 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
     const kast = new Array(n).fill(false);
     const diedAt: (number | null)[] = new Array(n).fill(null);
     const freeze = round.freeze_end_tick || round.start_tick;
+    for (let i = 0; i < n; i++) {
+      if (!presentAt(replay, i, freeze)) continue;
+      if (currentSide(replay, i, freeze) === "CT") stats[i].rounds_ct += 1;
+      else stats[i].rounds_t += 1;
+    }
 
     for (const k of roundKills) {
       if (isEnemyKill(replay, k) && k.attacker < n) {
@@ -287,6 +308,8 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
     s.kd = s.deaths > 0 ? s.kills / s.deaths : s.kills;
     s.entry_attempts = s.first_kills + s.first_deaths;
     s.entry_success = s.entry_attempts > 0 ? (100 * s.first_kills) / s.entry_attempts : 0;
+    s.adr_ct = s.rounds_ct > 0 ? s.damage_ct / s.rounds_ct : 0;
+    s.adr_t = s.rounds_t > 0 ? s.damage_t / s.rounds_t : 0;
     hltvRating(s);
   }
   statsCache = { replay, tick: t, stats };
@@ -317,6 +340,8 @@ function applyDamage(replay: Replay, untilTick: number, stats: PlayerStats[]): v
         continue;
       }
       stats[h.attacker].damage += dealt;
+      if (currentSide(replay, h.attacker, h.tick) === "CT") stats[h.attacker].damage_ct += dealt;
+      else stats[h.attacker].damage_t += dealt;
       if (isUtility(h.weapon)) stats[h.attacker].utility_damage += dealt;
       stats[h.victim].damage_taken += dealt;
     }
