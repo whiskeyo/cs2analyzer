@@ -1,18 +1,35 @@
+import {
+  BOMB_SECONDS,
+  DEFUSE_WITH_KIT_SECONDS,
+  DEFUSE_WITHOUT_KIT_SECONDS,
+  FIRST_OVERTIME_ROUND,
+  FULL_HEALTH,
+  HLTV_IMPACT_ASSISTS_PER_ROUND,
+  HLTV_IMPACT_KILLS_PER_ROUND,
+  HLTV_IMPACT_OFFSET,
+  HLTV_RATING_ADR,
+  HLTV_RATING_DEATHS_PER_ROUND,
+  HLTV_RATING_IMPACT,
+  HLTV_RATING_KAST,
+  HLTV_RATING_KILLS_PER_ROUND,
+  HLTV_RATING_OFFSET,
+  OVERTIME_BLOCK_ROUNDS,
+  REGULATION_ROUNDS,
+  REGULATION_ROUNDS_PER_HALF,
+  TRADE_SECONDS,
+  tickRate,
+} from "./constants";
 import { currentRound, samplePlayers } from "./sample";
 import {
   GEAR_DEFUSER,
   type Kill,
+  type Player,
   type PlayerStats,
   type Replay,
   type Round,
   type Side,
 } from "./types";
 import { prettyWeapon } from "./weapons";
-
-const TRADE_SECONDS = 5;
-const BOMB_SECONDS = 40;
-const DEFUSE_KIT_SECONDS = 5;
-const DEFUSE_SECONDS = 10;
 
 function empty(player: number): PlayerStats {
   return {
@@ -29,7 +46,7 @@ function empty(player: number): PlayerStats {
     kast_rounds: 0,
     rounds: 0,
     adr: 0,
-    hs_percent: 0,
+    headshot_percent: 0,
     kast: 0,
     kd: 0,
     multi_kills_2: 0,
@@ -53,8 +70,8 @@ function empty(player: number): PlayerStats {
     damage_t: 0,
     adr_ct: 0,
     adr_t: 0,
-    kpr: 0,
-    dpr: 0,
+    kills_per_round: 0,
+    deaths_per_round: 0,
     impact: 0,
     rating: 0,
     flash_time: 0,
@@ -90,7 +107,10 @@ export function inKnifeRound(replay: Replay, tick: number): boolean {
 }
 
 export function isSuicide(k: Kill): boolean {
-  return k.attacker >= 0 && k.attacker === k.victim;
+  if (k.attacker === k.victim) return true;
+  if (k.attacker < 0) return true;
+  const w = k.weapon.toLowerCase();
+  return w === "world" || w === "suicide" || w.includes("trigger_hurt");
 }
 
 export function isEnemy(replay: Replay, a: number, b: number, tick: number): boolean {
@@ -99,6 +119,25 @@ export function isEnemy(replay: Replay, a: number, b: number, tick: number): boo
 
 export function isEnemyKill(replay: Replay, k: Kill): boolean {
   return k.attacker >= 0 && k.victim >= 0 && isEnemy(replay, k.attacker, k.victim, k.tick);
+}
+
+/** Share of opening duels among players who started on the same side (0–100). */
+export function teamEntryShare(
+  stats: PlayerStats[],
+  players: Player[],
+  player: number,
+): { attempts: number; teamAttempts: number; pct: number } {
+  const side = players[player]?.start_side;
+  const mine = stats[player]?.entry_attempts ?? 0;
+  let teamAttempts = 0;
+  for (const s of stats) {
+    if (players[s.player]?.start_side === side) teamAttempts += s.entry_attempts;
+  }
+  return {
+    attempts: mine,
+    teamAttempts,
+    pct: teamAttempts > 0 ? (100 * mine) / teamAttempts : 0,
+  };
 }
 
 export function roundSidesSwapped(replay: Replay, round: Round): boolean {
@@ -115,9 +154,9 @@ export function roundSidesSwapped(replay: Replay, round: Round): boolean {
 }
 
 function swappedBySchedule(number: number): boolean {
-  if (number <= 0 || number <= 12) return false;
-  if (number <= 24) return true;
-  return Math.floor((number - 25) / 3) % 2 === 1;
+  if (number <= 0 || number <= REGULATION_ROUNDS_PER_HALF) return false;
+  if (number <= REGULATION_ROUNDS) return true;
+  return Math.floor((number - FIRST_OVERTIME_ROUND) / OVERTIME_BLOCK_ROUNDS) % 2 === 1;
 }
 
 function winnerStartingSide(replay: Replay, round: Round): Side | null {
@@ -166,17 +205,20 @@ export function liveTeams(
 
 function hltvRating(s: PlayerStats): void {
   const r = s.rounds || 1;
-  s.kpr = s.kills / r;
-  s.dpr = s.deaths / r;
-  const apr = s.assists / r;
-  s.impact = 2.13 * s.kpr + 0.42 * apr - 0.41;
+  s.kills_per_round = s.kills / r;
+  s.deaths_per_round = s.deaths / r;
+  const assistsPerRound = s.assists / r;
+  s.impact =
+    HLTV_IMPACT_KILLS_PER_ROUND * s.kills_per_round +
+    HLTV_IMPACT_ASSISTS_PER_ROUND * assistsPerRound -
+    HLTV_IMPACT_OFFSET;
   s.rating =
-    0.0073 * s.kast +
-    0.3591 * s.kpr +
-    -0.5329 * s.dpr +
-    0.2372 * s.impact +
-    0.0032 * s.adr +
-    0.1587;
+    HLTV_RATING_KAST * s.kast +
+    HLTV_RATING_KILLS_PER_ROUND * s.kills_per_round +
+    HLTV_RATING_DEATHS_PER_ROUND * s.deaths_per_round +
+    HLTV_RATING_IMPACT * s.impact +
+    HLTV_RATING_ADR * s.adr +
+    HLTV_RATING_OFFSET;
 }
 
 let statsCache: { replay: Replay; tick: number; stats: PlayerStats[] } | null = null;
@@ -188,7 +230,7 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
   }
   const n = replay.players.length;
   const stats = Array.from({ length: n }, (_, i) => empty(i));
-  const tps = replay.header.tick_rate || 64;
+  const tps = tickRate(replay);
   const tradeTicks = Math.round(TRADE_SECONDS * tps);
 
   const started = replay.rounds.filter(
@@ -312,7 +354,7 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
 
   for (const s of stats) {
     s.adr = s.rounds > 0 ? s.damage / s.rounds : 0;
-    s.hs_percent = s.kills > 0 ? (100 * s.headshots) / s.kills : 0;
+    s.headshot_percent = s.kills > 0 ? (100 * s.headshots) / s.kills : 0;
     s.kast = s.rounds > 0 ? (100 * s.kast_rounds) / s.rounds : 0;
     s.kd = s.deaths > 0 ? s.kills / s.deaths : s.kills;
     s.entry_attempts = s.first_kills + s.first_deaths;
@@ -338,7 +380,7 @@ function applyDamage(replay: Replay, untilTick: number, stats: PlayerStats[]): v
   for (const round of competitive) {
     if (round.start_tick > untilTick) continue;
     const end = Math.min(round.end_tick, untilTick);
-    const hp = new Array(n).fill(100);
+    const hp = new Array(n).fill(FULL_HEALTH);
     for (const h of hurts) {
       if (h.tick < round.start_tick || h.tick > end) continue;
       if (h.victim < 0 || h.victim >= n || hp[h.victim] <= 0) continue;
@@ -527,7 +569,7 @@ function bombClock(
   ctAlive: number,
   ctPresent: number,
 ): { remaining: number; planted: boolean } | null {
-  const tps = replay.header.tick_rate || 64;
+  const tps = tickRate(replay);
   const round = currentRound(replay, tick);
   if (!round || tick > round.end_tick) return null;
   const next = replay.rounds.find((r) => r.start_tick > round.start_tick);
@@ -552,7 +594,7 @@ function bombClock(
 export function freezeRemaining(replay: Replay, tick: number): number | null {
   const round = currentRound(replay, tick);
   if (!round || tick >= round.freeze_end_tick) return null;
-  const tps = replay.header.tick_rate || 64;
+  const tps = tickRate(replay);
   return Math.max(0, (round.freeze_end_tick - tick) / tps);
 }
 
@@ -584,7 +626,7 @@ export function defuseClock(
   replay: Replay,
   tick: number,
 ): { remaining: number; haskit: boolean } | null {
-  const tps = replay.header.tick_rate || 64;
+  const tps = tickRate(replay);
   const round = currentRound(replay, tick);
   if (!round || tick > round.end_tick) return null;
 
@@ -614,7 +656,7 @@ export function defuseClock(
     if (!begin.haskit && p && (p.gear & GEAR_DEFUSER) !== 0) begin.haskit = true;
   }
 
-  const duration = begin.haskit ? DEFUSE_KIT_SECONDS : DEFUSE_SECONDS;
+  const duration = begin.haskit ? DEFUSE_WITH_KIT_SECONDS : DEFUSE_WITHOUT_KIT_SECONDS;
   const remaining = duration - (tick - begin.tick) / tps;
   if (remaining < -0.25) return null;
   return { remaining: Math.max(0, remaining), haskit: begin.haskit };
@@ -624,7 +666,7 @@ export interface WeaponRow {
   weapon: string;
   raw: string;
   kills: number;
-  hs: number;
+  headshots: number;
   damage: number;
 }
 
@@ -638,7 +680,7 @@ export function weaponBreakdown(
     const key = prettyWeapon(weapon);
     let row = by.get(key);
     if (!row) {
-      row = { weapon: key, raw: weapon, kills: 0, hs: 0, damage: 0 };
+      row = { weapon: key, raw: weapon, kills: 0, headshots: 0, damage: 0 };
       by.set(key, row);
     }
     return row;
@@ -648,7 +690,7 @@ export function weaponBreakdown(
     if (player != null && k.attacker !== player) continue;
     const row = add(k.weapon);
     row.kills += 1;
-    if (k.headshot) row.hs += 1;
+    if (k.headshot) row.headshots += 1;
   }
   for (const h of replay.hurts ?? []) {
     if (h.tick > untilTick || inKnifeRound(replay, h.tick)) continue;
@@ -714,7 +756,7 @@ export function exportStatsCsv(replay: Replay, stats: PlayerStats[], tick: numbe
       s.assists,
       s.adr.toFixed(1),
       s.kast.toFixed(1),
-      s.hs_percent.toFixed(1),
+      s.headshot_percent.toFixed(1),
       s.rating.toFixed(2),
       s.first_kills,
       s.first_deaths,

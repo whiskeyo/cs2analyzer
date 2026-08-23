@@ -1,10 +1,12 @@
 //! Per-player stats derived from events and rounds.
 
+use crate::constants::{
+    FIRST_OVERTIME_ROUND, FULL_HEALTH, OVERTIME_BLOCK_ROUNDS, REGULATION_ROUNDS,
+    REGULATION_ROUNDS_PER_HALF, TRADE_SECONDS,
+};
 use crate::props::is_utility_weapon;
 use crate::types::*;
 use crate::{FLAG_CT, FLAG_PRESENT};
-
-const TRADE_SECONDS: f32 = 5.0;
 
 /// Compute MVP scoreboard stats from an assembled match (kills/hurts/rounds).
 pub fn compute_stats(m: &Match) -> Vec<PlayerStats> {
@@ -197,7 +199,7 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
         } else {
             0.0
         };
-        s.hs_percent = if s.kills > 0 {
+        s.headshot_percent = if s.kills > 0 {
             100.0 * s.headshots as f32 / s.kills as f32
         } else {
             0.0
@@ -241,7 +243,7 @@ fn apply_damage(m: &Match, until_tick: u32, stats: &mut [PlayerStats]) {
             continue;
         }
         let end = round.end_tick.min(until_tick);
-        let mut hp = vec![100i32; n];
+        let mut hp = vec![FULL_HEALTH; n];
         for h in m
             .hurts
             .iter()
@@ -367,12 +369,12 @@ pub fn starting_team_scores(m: &Match, until_tick: u32) -> (i32, i32) {
 }
 
 fn swapped_by_schedule(number: u32) -> bool {
-    if number == 0 || number <= 12 {
+    if number == 0 || number <= REGULATION_ROUNDS_PER_HALF {
         false
-    } else if number <= 24 {
+    } else if number <= REGULATION_ROUNDS {
         true
     } else {
-        ((number - 25) / 3) % 2 == 1
+        ((number - FIRST_OVERTIME_ROUND) / OVERTIME_BLOCK_ROUNDS) % 2 == 1
     }
 }
 
@@ -423,7 +425,14 @@ fn in_knife_round(m: &Match, tick: u32) -> bool {
 }
 
 fn is_suicide(k: &Kill) -> bool {
-    k.attacker >= 0 && k.attacker == k.victim
+    if k.attacker == k.victim {
+        return true;
+    }
+    if k.attacker < 0 {
+        return true;
+    }
+    let w = k.weapon.to_ascii_lowercase();
+    w == "world" || w == "suicide" || w.contains("trigger_hurt")
 }
 
 fn is_enemy(m: &Match, a: usize, b: usize, tick: u32) -> bool {
@@ -535,7 +544,7 @@ mod tests {
         assert_eq!(stats[0].headshots, 1);
         assert_eq!(stats[1].deaths, 1);
         assert!((stats[0].adr - 100.0).abs() < f32::EPSILON);
-        assert!((stats[0].hs_percent - 100.0).abs() < f32::EPSILON);
+        assert!((stats[0].headshot_percent - 100.0).abs() < f32::EPSILON);
         assert!(stats[0].kast > 0.0);
     }
 
@@ -589,6 +598,28 @@ mod tests {
     fn suicide_is_omitted_from_kills_and_deaths() {
         let mut m = empty_match();
         m.kills.push(kill(100, 0, 0));
+        m.kills.push(kill(200, 0, 1));
+        let stats = compute_stats(&m);
+        assert_eq!(stats[0].kills, 1);
+        assert_eq!(stats[0].deaths, 0);
+        assert_eq!(stats[1].deaths, 1);
+    }
+
+    #[test]
+    fn world_death_is_omitted_from_kills_and_deaths() {
+        let mut m = empty_match();
+        m.kills.push(Kill {
+            tick: 100,
+            attacker: -1,
+            victim: 0,
+            assister: -1,
+            weapon: "world".into(),
+            headshot: false,
+            assisted_flash: false,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        });
         m.kills.push(kill(200, 0, 1));
         let stats = compute_stats(&m);
         assert_eq!(stats[0].kills, 1);

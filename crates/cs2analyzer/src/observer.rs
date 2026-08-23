@@ -83,7 +83,7 @@ pub(crate) struct Collector {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct FireSpan {
-    pub ent: u32,
+    pub entity: u32,
     pub x: f32,
     pub y: f32,
     pub start_tick: u32,
@@ -159,12 +159,12 @@ impl Collector {
 
     pub(crate) fn finish_infernos(&mut self, tick: u32) {
         let ents: Vec<u32> = self.inferno_live.keys().copied().collect();
-        for ent in ents {
-            self.close_inferno(ent, tick);
+        for entity in ents {
+            self.close_inferno(entity, tick);
         }
         let smokes: Vec<u32> = self.smoke_live.keys().copied().collect();
-        for ent in smokes {
-            self.close_smoke(ent, tick);
+        for entity in smokes {
+            self.close_smoke(entity, tick);
         }
     }
 
@@ -174,8 +174,8 @@ impl Collector {
             if !is_inferno_class(e.class().name()) {
                 continue;
             }
-            let ent = e.index();
-            seen.insert(ent);
+            let entity = e.index();
+            seen.insert(entity);
             self.track_inferno(e, tick);
         }
         let stale: Vec<u32> = self
@@ -184,14 +184,14 @@ impl Collector {
             .copied()
             .filter(|k| !seen.contains(k))
             .collect();
-        for ent in stale {
-            self.close_inferno(ent, tick.saturating_sub(1));
+        for entity in stale {
+            self.close_inferno(entity, tick.saturating_sub(1));
         }
     }
 
     fn track_inferno(&mut self, e: &Entity, tick: u32) {
-        let ent = e.index();
-        let slots = self.inferno_live.entry(ent).or_insert([None; 64]);
+        let entity = e.index();
+        let slots = self.inferno_live.entry(entity).or_insert([None; 64]);
         for (i, slot) in slots.iter_mut().enumerate() {
             let burning = fire_burning(e, i);
             if burning {
@@ -208,7 +208,7 @@ impl Collector {
                     }
                     Some(live) => {
                         self.fire_spans.push(FireSpan {
-                            ent,
+                            entity,
                             x: live.x,
                             y: live.y,
                             start_tick: live.start,
@@ -222,7 +222,7 @@ impl Collector {
                 }
             } else if let Some(live) = slot.take() {
                 self.fire_spans.push(FireSpan {
-                    ent,
+                    entity,
                     x: live.x,
                     y: live.y,
                     start_tick: live.start,
@@ -231,15 +231,15 @@ impl Collector {
             }
         }
         if slots.iter().all(Option::is_none) {
-            self.inferno_live.remove(&ent);
+            self.inferno_live.remove(&entity);
         }
     }
 
-    fn close_inferno(&mut self, ent: u32, end_tick: u32) {
-        if let Some(slots) = self.inferno_live.remove(&ent) {
+    fn close_inferno(&mut self, entity: u32, end_tick: u32) {
+        if let Some(slots) = self.inferno_live.remove(&entity) {
             for live in slots.into_iter().flatten() {
                 self.fire_spans.push(FireSpan {
-                    ent,
+                    entity,
                     x: live.x,
                     y: live.y,
                     start_tick: live.start,
@@ -258,8 +258,8 @@ impl Collector {
             if !prop_truthy(e, "m_bDidSmokeEffect") && !prop_truthy(e, "m_bSmokeEffectSpawned") {
                 continue;
             }
-            let ent = e.index();
-            seen.insert(ent);
+            let entity = e.index();
+            seen.insert(entity);
             self.track_smoke(e, tick);
         }
         let stale: Vec<u32> = self
@@ -268,17 +268,17 @@ impl Collector {
             .copied()
             .filter(|k| !seen.contains(k))
             .collect();
-        for ent in stale {
-            self.close_smoke(ent, tick.saturating_sub(1));
+        for entity in stale {
+            self.close_smoke(entity, tick.saturating_sub(1));
         }
     }
 
     fn track_smoke(&mut self, e: &Entity, tick: u32) {
-        let ent = e.index();
+        let entity = e.index();
         let update = prop_i32(e, "m_nVoxelUpdate");
         if self
             .smoke_live
-            .get(&ent)
+            .get(&entity)
             .is_some_and(|s| s.update == update && update != 0)
         {
             return;
@@ -286,13 +286,13 @@ impl Collector {
         let origin = prop_vec3(e, "m_vSmokeDetonationPos").unwrap_or_else(|| entity_xyz(e));
         let bytes = smoke_voxel_bytes(e);
         let Some(xy) = crate::smoke::occupancy_xy(&bytes, bytes.len(), origin) else {
-            if let Some(live) = self.smoke_live.get_mut(&ent) {
+            if let Some(live) = self.smoke_live.get_mut(&entity) {
                 live.update = update;
             }
             return;
         };
         let new_keys: HashSet<(i16, i16)> = xy.iter().map(|s| s.key).collect();
-        let live = self.smoke_live.entry(ent).or_insert_with(|| LiveSmoke {
+        let live = self.smoke_live.entry(entity).or_insert_with(|| LiveSmoke {
             update,
             cells: HashMap::new(),
         });
@@ -306,7 +306,7 @@ impl Collector {
         for key in gone {
             if let Some(cell) = live.cells.remove(&key) {
                 self.smoke_spans.push(FireSpan {
-                    ent,
+                    entity,
                     x: cell.x,
                     y: cell.y,
                     start_tick: cell.start,
@@ -323,11 +323,11 @@ impl Collector {
         }
     }
 
-    fn close_smoke(&mut self, ent: u32, end_tick: u32) {
-        if let Some(live) = self.smoke_live.remove(&ent) {
+    fn close_smoke(&mut self, entity: u32, end_tick: u32) {
+        if let Some(live) = self.smoke_live.remove(&entity) {
             for cell in live.cells.into_values() {
                 self.smoke_spans.push(FireSpan {
-                    ent,
+                    entity,
                     x: cell.x,
                     y: cell.y,
                     start_tick: cell.start,

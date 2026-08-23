@@ -1,3 +1,4 @@
+import { NADE_SITE_SEPARATION, PULSE_SITE_SEPARATION, tickRate } from "./constants";
 import { samplePlayers } from "./sample";
 import { currentSide, isEnemyKill } from "./stats";
 import type { GrenadeThrow, Replay, Round, Side } from "./types";
@@ -17,12 +18,9 @@ export interface ExecuteBeat {
 }
 
 const UTIL = new Set(["smoke", "molotov", "flash", "he"]);
-/** Same bombsite. Two defaults on opposite sides of the map stay split. */
-const NADE_CLUSTER = 2000;
-const PULSE_MERGE = 2400;
 
 function tps(replay: Replay): number {
-  return replay.header.tick_rate || 64;
+  return tickRate(replay);
 }
 
 function inRound(r: Round, tick: number): boolean {
@@ -93,7 +91,7 @@ function spatialClusters(nades: GrenadeThrow[], maxDist: number): GrenadeThrow[]
 function clusterUtil(nades: GrenadeThrow[], gap: number): GrenadeThrow[][] {
   const out: GrenadeThrow[][] = [];
   for (const timed of clusterByTick(nades, (g) => g.detonate_tick, gap)) {
-    out.push(...spatialClusters(timed, NADE_CLUSTER));
+    out.push(...spatialClusters(timed, NADE_SITE_SEPARATION));
   }
   return out;
 }
@@ -165,7 +163,7 @@ function tooFar(window: Pulse[], next: Pulse): boolean {
   if (!b) return false;
   const pts = window.map(pulseXY).filter((p): p is { x: number; y: number } => p != null);
   if (pts.length === 0) return false;
-  return pts.every((a) => Math.hypot(a.x - b.x, a.y - b.y) > PULSE_MERGE);
+  return pts.every((a) => Math.hypot(a.x - b.x, a.y - b.y) > PULSE_SITE_SEPARATION);
 }
 
 function withXY(p: Pulse, xy: { x: number; y: number } | null): Pulse {

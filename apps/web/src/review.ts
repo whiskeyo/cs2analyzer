@@ -1,10 +1,10 @@
+import { ECO_MAX_EQUIPMENT, MIN_REVIEW_FLASH_SECONDS, TRADE_SECONDS, tickRate } from "./constants";
 import { samplePlayers } from "./sample";
 import { currentSide, isEnemyKill } from "./stats";
 import type { Kill, Replay, Round } from "./types";
 import { GEAR_DECOY, GEAR_FLASH, GEAR_FLASH2, GEAR_HE, GEAR_MOLLY, GEAR_SMOKE } from "./types";
 import { prettyWeapon } from "./weapons";
 
-const TRADE_SECONDS = 5;
 const NADE_GEAR = GEAR_HE | GEAR_FLASH | GEAR_FLASH2 | GEAR_SMOKE | GEAR_MOLLY | GEAR_DECOY;
 
 export type ReviewSeverity = "good" | "high" | "mid" | "low";
@@ -47,10 +47,10 @@ function flashedAt(
   player: number,
   tick: number,
 ): { by: number; duration: number } | null {
-  const tps = replay.header.tick_rate || 64;
+  const tps = tickRate(replay);
   let hit: { by: number; duration: number } | null = null;
   for (const b of replay.blinds ?? []) {
-    if (b.victim !== player || b.duration < 0.4) continue;
+    if (b.victim !== player || b.duration < MIN_REVIEW_FLASH_SECONDS) continue;
     const end = b.tick + b.duration * tps;
     if (tick >= b.tick && tick <= end) {
       hit = { by: b.attacker, duration: b.duration };
@@ -63,7 +63,7 @@ function flashedAt(
 
 function traded(replay: Replay, death: Kill, untilTick: number): boolean {
   if (death.attacker < 0) return false;
-  const tps = replay.header.tick_rate || 64;
+  const tps = tickRate(replay);
   const window = Math.round(TRADE_SECONDS * tps);
   const side = currentSide(replay, death.victim, death.tick);
   for (const k of replay.kills) {
@@ -138,6 +138,100 @@ function clutchVs(
     note();
   }
   return maxVs;
+}
+
+export interface MatchHighlight {
+  tick: number;
+  roundLabel: string;
+  title: string;
+  detail: string;
+  player: number;
+}
+
+/** Match-level jump targets: traded openers, 4k/ace, eco wins, clutch wins. */
+export function matchHighlights(replay: Replay, untilTick: number): MatchHighlight[] {
+  const name = (i: number) => (i < 0 ? "World" : (replay.players[i]?.name ?? "?"));
+  const out: MatchHighlight[] = [];
+
+  for (const r of replay.rounds) {
+    if (r.is_knife) continue;
+    const end = Math.min(r.end_tick, untilTick);
+    if (r.freeze_end_tick > untilTick) continue;
+    const roundKills = replay.kills.filter((k) => k.tick >= r.freeze_end_tick && k.tick <= end);
+    const first = roundKills.find((k) => isEnemyKill(replay, k));
+    const freeze = r.freeze_end_tick || r.start_tick;
+
+    if (first && r.end_tick <= untilTick) {
+      const tps = tickRate(replay);
+      const window = Math.round(TRADE_SECONDS * tps);
+      const trade = roundKills.find(
+        (k) =>
+          isEnemyKill(replay, k) &&
+          k.victim === first.attacker &&
+          k.tick > first.tick &&
+          k.tick <= first.tick + window,
+      );
+      if (trade) {
+        out.push({
+          tick: trade.tick,
+          roundLabel: roundLabel(r),
+          title: `${name(trade.attacker)} traded the opener`,
+          detail: `${name(first.victim)} → ${name(first.attacker)} · ${prettyWeapon(trade.weapon)}`,
+          player: trade.attacker,
+        });
+      }
+    }
+
+    for (let p = 0; p < replay.players.length; p++) {
+      const myFrags = roundKills.filter((k) => isEnemyKill(replay, k) && k.attacker === p);
+      if (myFrags.length < 4) continue;
+      const last = myFrags[myFrags.length - 1];
+      out.push({
+        tick: last.tick,
+        roundLabel: roundLabel(r),
+        title: myFrags.length >= 5 ? `${name(p)} ace` : `${name(p)} ${myFrags.length}k`,
+        detail: myFrags.map((k) => prettyWeapon(k.weapon)).join(", "),
+        player: p,
+      });
+    }
+
+    if (r.end_tick <= untilTick && r.winner) {
+      const snap = samplePlayers(replay, freeze);
+      let eco: { index: number; equip: number } | null = null;
+      for (const p of snap) {
+        if (!p.present || p.equip >= ECO_MAX_EQUIPMENT) continue;
+        if ((p.ct ? "CT" : "T") !== r.winner) continue;
+        if (!eco || p.equip < eco.equip) eco = { index: p.index, equip: p.equip };
+      }
+      if (eco) {
+        out.push({
+          tick: freeze,
+          roundLabel: roundLabel(r),
+          title: "Eco round win",
+          detail: `${name(eco.index)} eq $${eco.equip}`,
+          player: eco.index,
+        });
+      }
+
+      for (let p = 0; p < replay.players.length; p++) {
+        const side = currentSide(replay, p, freeze);
+        if (side !== r.winner) continue;
+        const vs = clutchVs(replay, r, roundKills, p, side);
+        if (vs < 1) continue;
+        const last = [...roundKills].reverse().find((k) => k.attacker === p);
+        out.push({
+          tick: last?.tick ?? freeze,
+          roundLabel: roundLabel(r),
+          title: `${name(p)} won a 1v${vs}`,
+          detail: "clutch",
+          player: p,
+        });
+      }
+    }
+  }
+
+  out.sort((a, b) => a.tick - b.tick);
+  return out;
 }
 
 export function playerReview(replay: Replay, player: number, untilTick: number): PlayerReview {
@@ -272,7 +366,7 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
       first.victim !== player &&
       r.end_tick <= untilTick
     ) {
-      const tps = replay.header.tick_rate || 64;
+      const tps = tickRate(replay);
       const window = Math.round(TRADE_SECONDS * tps);
       const trade = roundKills.find(
         (k) =>
@@ -309,7 +403,7 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
 
     const freeze = r.freeze_end_tick || r.start_tick;
     const me = samplePlayers(replay, freeze).find((p) => p.index === player);
-    if (me && me.equip < 2000 && r.end_tick <= untilTick && r.winner === side) {
+    if (me && me.equip < ECO_MAX_EQUIPMENT && r.end_tick <= untilTick && r.winner === side) {
       ecoWins += 1;
       notes.push({
         tick: freeze,

@@ -2,6 +2,7 @@
 
 mod analysis;
 mod assemble;
+mod constants;
 mod error;
 mod inventory;
 mod observer;
@@ -11,6 +12,7 @@ mod smoke;
 mod types;
 
 pub use analysis::{compute_stats, compute_stats_until};
+pub use constants::*;
 pub use error::ParseError;
 pub use radar::{calibration, MapCalibration, VerticalSection, MAPS};
 pub use types::*;
@@ -30,7 +32,7 @@ pub struct ParseOptions {
 impl Default for ParseOptions {
     fn default() -> Self {
         Self {
-            tick_stride: 4,
+            tick_stride: DEFAULT_TICK_STRIDE,
             skip_warmup: true,
         }
     }

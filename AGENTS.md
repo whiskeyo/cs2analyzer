@@ -52,7 +52,17 @@ CI (`.github/workflows/ci.yml`) runs the same Rust and web checks, plus `npm run
 | Weapon icons / def indices | `inventory.rs` + `apps/web/src/weapons.ts` + `public/weapons/*.svg` |
 | Review tab | `apps/web/src/review.ts` |
 
-Tick buffers are structure-of-arrays: index = `frame * playerCount + player`. Flags: `PRESENT`, `ALIVE`, `DUCKED`, `SCOPED`, `CT` (`1<<4`). Max 16 player slots.
+Tick buffers are structure-of-arrays: index = `frame * playerCount + player`. Flags: `PRESENT`, `ALIVE`, `DUCKED`, `SCOPED`, `CT` (`1<<4`). Max 16 player slots (`MAX_PLAYERS`).
+
+## Named values (no magic numbers)
+
+Do not drop unexplained numeric literals into parser, stats, or UI logic. Put CS2 / FACEIT values in `apps/web/src/constants.ts` and `crates/cs2analyzer/src/constants.rs` (keep both sides aligned when the number is shared) and use the name.
+
+Examples: tick rate `64`, full HP `100`, knife-round equipment `200`, eco `2000`, MR12 `12`/`24`/`3`, trade window `5s`, bomb `40s`, defuse `5`/`10s`, grenade linger times, HLTV rating weights, round-win reason codes.
+
+OK as raw literals: `0` / `1` / `-1` sentinels, loop indexes, `x` / `y` / `z`, test fixture ticks, and purely visual canvas/CSS pixels.
+
+Prefer full words in identifiers (`entry`, `headshots`, `entity`, `kills_per_round`, `headshot_percent`). Industry scoreboard acronyms that we also show in the HUD may stay (`adr`, `kast`, `kd`).
 
 ## Domain rules (easy to get wrong)
 

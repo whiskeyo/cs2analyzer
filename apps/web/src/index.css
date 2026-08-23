@@ -316,6 +316,51 @@ button.link {
   margin: 0;
   padding: 0;
 }
+.round-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.lead-in {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: #8b98a5;
+}
+.lead-in input {
+  width: 3.4rem;
+  background: #1c242e;
+  border: 1px solid #2c3846;
+  border-radius: 4px;
+  color: inherit;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.75rem;
+}
+.round-block {
+  border-bottom: 1px solid #1a222c;
+}
+.round-row {
+  display: flex;
+  align-items: stretch;
+}
+.round-row .round-item {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+.round-toggle {
+  flex: 0 0 1.3rem;
+  background: transparent;
+  border: none;
+  color: #8b98a5;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.7rem;
+}
+.round-toggle:hover {
+  color: #e8eef4;
+}
 .round-item,
 .kill-item {
   display: flex;
@@ -331,11 +376,94 @@ button.link {
   font-size: 0.8rem;
 }
 .round-item:hover,
-.kill-item:hover {
+.kill-item:hover,
+.round-event:hover {
   background: #1a222c;
 }
-.round-item.on {
+.round-item.on,
+.round-block.on > .round-row .round-item {
   background: #243040;
+}
+.round-counts {
+  display: block;
+  font-size: 0.68rem;
+  color: #6e7c8a;
+}
+.round-events {
+  list-style: none;
+  margin: 0 0 0.35rem 1.15rem;
+  padding: 0;
+}
+.round-empty {
+  font-size: 0.72rem;
+  color: #6e7c8a;
+  padding: 0.2rem 0.3rem 0.4rem;
+}
+.round-event {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0.22rem 0.2rem;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.74rem;
+}
+.round-event.on {
+  background: #243040;
+}
+.round-clock {
+  flex: 0 0 2.2rem;
+  font-variant-numeric: tabular-nums;
+  color: #6e7c8a;
+}
+.round-event-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.3rem;
+}
+.round-event .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.round-event .name.ct {
+  color: #7eb7e6;
+}
+.round-event .name.t {
+  color: #e0c15a;
+}
+.round-event .gun {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.1rem;
+}
+.round-event .nade-kind {
+  color: #b8c4d0;
+}
+.round-event .nade-kind.smoke {
+  color: #c8d0d8;
+}
+.round-event .nade-kind.flash {
+  color: #f4e27a;
+}
+.round-event .nade-kind.he {
+  color: #e07040;
+}
+.round-event .nade-kind.molotov {
+  color: #ff6a2a;
+}
+.round-event .bomb-kind {
+  color: #d4b45a;
+}
+.round-event .bomb-kind.exploded {
+  color: #e07a5f;
 }
 .pill {
   min-width: 2.6rem;
@@ -505,6 +633,15 @@ button.link {
 }
 .sb-row.selected {
   background: #243040;
+}
+.entry-pct {
+  display: block;
+  font-size: 0.62rem;
+  color: #6e7c8a;
+}
+.sb-split {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .detail {
@@ -760,7 +897,7 @@ button.link {
   height: 13px;
   max-width: 18px;
 }
-.hs-icon {
+.headshot-icon {
   height: 11px;
   width: 11px;
   object-fit: contain;

@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { blindsAt, firesAt, HIT_SECONDS, hitsAt, lingerRemaining } from "./radarFx";
+import {
+  blindsAt,
+  firesAt,
+  HIT_SECONDS,
+  hitsAt,
+  lingerRemaining,
+  nadePopTick,
+  nadeVisibleEnd,
+} from "./radarFx";
+import type { GrenadeThrow } from "./types";
 
 describe("blindsAt", () => {
   it("returns remaining flash time for the victim", () => {
@@ -52,5 +61,54 @@ describe("firesAt", () => {
     expect(firesAt(fires, 200)).toEqual([fires[0]]);
     expect(firesAt(fires, 201)).toEqual([]);
     expect(firesAt(undefined, 160)).toEqual([]);
+  });
+});
+
+function smoke(partial: Partial<GrenadeThrow> = {}): GrenadeThrow {
+  return {
+    thrower: 0,
+    kind: "smoke",
+    start_tick: 80,
+    detonate_tick: 100,
+    end_tick: 100 + 64 * 18,
+    points: [],
+    ...partial,
+  };
+}
+
+describe("nadeVisibleEnd", () => {
+  it("caps a stretched end_tick at 18s from pop", () => {
+    const g = smoke({ end_tick: 50_000 });
+    expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * 18);
+  });
+
+  it("hides when occupancy dies early (molly hole)", () => {
+    const g = smoke({
+      voxels: [{ x: 0, y: 0, start_tick: 100, end_tick: 400 }],
+    });
+    expect(nadeVisibleEnd(g, 64)).toBe(400);
+  });
+
+  it("does not extend past the default window if occupancy lingered in GOTV", () => {
+    const g = smoke({
+      end_tick: 50_000,
+      voxels: [{ x: 0, y: 0, start_tick: 100, end_tick: 50_000 }],
+    });
+    expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * 18);
+  });
+
+  it("clips to round end", () => {
+    const g = smoke();
+    expect(nadeVisibleEnd(g, 64, 200)).toBe(200);
+  });
+});
+
+describe("nadePopTick", () => {
+  it("uses the first occupancy sample when detonate is late", () => {
+    const g = smoke({
+      detonate_tick: 50_000,
+      voxels: [{ x: 0, y: 0, start_tick: 120, end_tick: 400 }],
+    });
+    expect(nadePopTick(g)).toBe(120);
   });
 });

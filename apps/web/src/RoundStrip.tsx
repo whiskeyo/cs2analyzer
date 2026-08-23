@@ -1,3 +1,4 @@
+import { tickRate } from "./constants";
 import { activeExecute, findExecutes } from "./execute";
 import { currentRound } from "./sample";
 import type { Replay } from "./types";
@@ -12,7 +13,7 @@ export function RoundStrip({ replay, tick, onJump }: Props) {
   const current = currentRound(replay, tick);
   const beats = findExecutes(replay);
   const actionRounds = new Set(beats.map((b) => b.round));
-  const live = activeExecute(beats, tick, replay.header.tick_rate || 64);
+  const live = activeExecute(beats, tick, tickRate(replay));
   return (
     <div className="round-strip" role="list">
       {replay.rounds.map((r) => {

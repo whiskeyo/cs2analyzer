@@ -1,3 +1,4 @@
+import { KILL_FEED_SECONDS, tickRate } from "./constants";
 import { recentKills } from "./stats";
 import type { Replay } from "./types";
 import { GearIcon, WeaponIcon } from "./WeaponIcon";
@@ -9,8 +10,8 @@ interface Props {
 }
 
 export function KillFeed({ replay, tick, onJump }: Props) {
-  const tps = replay.header.tick_rate || 64;
-  const kills = recentKills(replay, tick, tps * 6, 6);
+  const tps = tickRate(replay);
+  const kills = recentKills(replay, tick, tps * KILL_FEED_SECONDS, 6);
   if (kills.length === 0) return null;
   return (
     <ol className="kill-feed">
@@ -22,7 +23,12 @@ export function KillFeed({ replay, tick, onJump }: Props) {
             <span className="gun">
               <WeaponIcon weapon={k.weapon} />
               {k.headshot && (
-                <img className="hs-icon" src="/weapons/headshot.svg" alt="HS" title="Headshot" />
+                <img
+                  className="headshot-icon"
+                  src="/weapons/headshot.svg"
+                  alt=""
+                  title="Headshot"
+                />
               )}
             </span>
             <span className="vic">{replay.players[k.victim]?.name ?? "?"}</span>

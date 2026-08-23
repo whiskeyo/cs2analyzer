@@ -1,3 +1,4 @@
+import { tickRate } from "./constants";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Controls } from "./Controls";
 import { DropZone } from "./DropZone";
@@ -109,7 +110,7 @@ export function App() {
     let id = 0;
     const max =
       replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0;
-    const tps = replay.header.tick_rate || 64;
+    const tps = tickRate(replay);
     const min = replay.ticks.ticks[0] ?? 0;
     const loop = (now: number) => {
       const dt = (now - last) / 1000;

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { type ReviewSeverity, playerReview } from "./review";
+import { type ReviewSeverity, matchHighlights, playerReview } from "./review";
 import type { Replay } from "./types";
 
 interface Props {
@@ -7,6 +7,7 @@ interface Props {
   tick: number;
   selected: number | null;
   onJump: (tick: number) => void;
+  onSelect: (index: number) => void;
 }
 
 type Tone = "all" | "good" | "bad";
@@ -15,7 +16,7 @@ function isGood(severity: ReviewSeverity): boolean {
   return severity === "good";
 }
 
-export function Review({ replay, tick, selected, onJump }: Props) {
+export function Review({ replay, tick, selected, onJump, onSelect }: Props) {
   const [tone, setTone] = useState<Tone>("all");
   const name = selected != null ? (replay.players[selected]?.name ?? "Player") : null;
   const review = selected != null ? playerReview(replay, selected, tick) : null;
@@ -31,11 +32,39 @@ export function Review({ replay, tick, selected, onJump }: Props) {
   }, [review, tone]);
 
   if (selected == null || !name || !review) {
+    const highlights = matchHighlights(replay, tick);
     return (
-      <p className="muted tab-hint">
-        Select a player on the map or scoreboard for openings, clutches, and mistakes through this
-        tick.
-      </p>
+      <div className="review">
+        <p className="tab-hint">
+          Match highlights through this tick. Select a player for their openings and mistakes.
+        </p>
+        {highlights.length === 0 ? (
+          <p className="muted tab-hint">
+            No clutch wins, eco wins, 4ks, or traded openers yet. Skip further in, then check again.
+          </p>
+        ) : (
+          <ul className="review-notes">
+            {highlights.map((n) => (
+              <li key={`${n.tick}-${n.title}`}>
+                <button
+                  type="button"
+                  className="review-note good"
+                  onClick={() => {
+                    if (n.player >= 0) onSelect(n.player);
+                    onJump(n.tick);
+                  }}
+                >
+                  <span className="pill review-round">{n.roundLabel}</span>
+                  <span className="review-copy">
+                    <span className="review-title">{n.title}</span>
+                    <span className="review-detail">{n.detail}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     );
   }
 

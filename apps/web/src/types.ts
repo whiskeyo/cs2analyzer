@@ -138,7 +138,7 @@ export interface PlayerStats {
   kast_rounds: number;
   rounds: number;
   adr: number;
-  hs_percent: number;
+  headshot_percent: number;
   kast: number;
   kd: number;
   multi_kills_2: number;
@@ -162,8 +162,8 @@ export interface PlayerStats {
   damage_t: number;
   adr_ct: number;
   adr_t: number;
-  kpr: number;
-  dpr: number;
+  kills_per_round: number;
+  deaths_per_round: number;
   impact: number;
   rating: number;
   flash_time: number;

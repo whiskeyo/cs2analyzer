@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { Action } from "./Action";
 import { Review } from "./Review";
-import { currentRound } from "./sample";
+import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
 import { computeStats, weaponBreakdown } from "./stats";
 import type { Replay } from "./types";
 import { WeaponIcon } from "./WeaponIcon";
-import { winReasonLabel } from "./weapons";
 
 type Tab = "score" | "player" | "action" | "rounds" | "weapons";
 
@@ -28,7 +27,6 @@ interface Props {
 
 export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
   const [tab, setTab] = useState<Tab>("score");
-  const round = currentRound(replay, tick);
   const stats = computeStats(replay, tick);
   const weapons = weaponBreakdown(replay, tick, selected);
 
@@ -50,31 +48,17 @@ export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
         <Scoreboard replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
       )}
       {tab === "player" && (
-        <Review replay={replay} tick={tick} selected={selected} onJump={onJump} />
+        <Review
+          replay={replay}
+          tick={tick}
+          selected={selected}
+          onJump={onJump}
+          onSelect={(i) => onSelect(i)}
+        />
       )}
       {tab === "action" && <Action replay={replay} tick={tick} onJump={onJump} />}
       {tab === "rounds" && (
-        <ul className="round-list">
-          {replay.rounds.map((r) => (
-            <li key={r.start_tick}>
-              <button
-                type="button"
-                className={`round-item${round?.start_tick === r.start_tick ? " on" : ""}`}
-                onClick={() => onJump(r.freeze_end_tick || r.start_tick)}
-              >
-                <span className={`pill ${r.winner === "CT" ? "ct" : r.winner === "T" ? "t" : ""}`}>
-                  {r.is_knife ? "Knife" : `R${r.number}`}
-                </span>
-                <span className="round-meta">
-                  {r.winner ?? "—"} · {winReasonLabel(r.win_reason)}
-                </span>
-                <span className="round-score">
-                  {r.score_ct}-{r.score_t}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <RoundList replay={replay} tick={tick} onJump={onJump} onSelect={onSelect} />
       )}
       {tab === "weapons" && (
         <div>
@@ -108,7 +92,7 @@ export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
                     <span>{w.weapon}</span>
                   </td>
                   <td>{w.kills}</td>
-                  <td>{w.kills ? `${Math.round((100 * w.hs) / w.kills)}%` : "—"}</td>
+                  <td>{w.kills ? `${Math.round((100 * w.headshots) / w.kills)}%` : "—"}</td>
                   <td>{w.damage}</td>
                 </tr>
               ))}

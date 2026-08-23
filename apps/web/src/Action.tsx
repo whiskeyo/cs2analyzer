@@ -1,3 +1,4 @@
+import { ACTION_HIGHLIGHT_SECONDS, tickRate } from "./constants";
 import { useMemo, useState } from "react";
 import { type ExecuteKind, filterExecutes, findExecutes } from "./execute";
 import { roundStories } from "./roundStory";
@@ -114,7 +115,8 @@ export function Action({ replay, tick, onJump }: Props) {
                 <ul className="review-notes">
                   {rows.map((b) => {
                     const liveBeat =
-                      tick >= b.tick && tick <= b.actionTick + (replay.header.tick_rate || 64) * 8;
+                      tick >= b.tick &&
+                      tick <= b.actionTick + tickRate(replay) * ACTION_HIGHLIGHT_SECONDS;
                     return (
                       <li key={`${b.actionTick}-${b.kind}`}>
                         <button

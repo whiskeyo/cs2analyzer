@@ -1,7 +1,17 @@
 import { useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { tickRate } from "./constants";
 import { floorForZ, radarUrl, screenToWorld, worldToScreen, type RadarView } from "./maps";
-import { blindsAt, firesAt, HIT_SECONDS, hitsAt, lingerRemaining, TRACER_SECONDS } from "./radarFx";
+import {
+  blindsAt,
+  firesAt,
+  HIT_SECONDS,
+  hitsAt,
+  lingerRemaining,
+  nadePopTick,
+  nadeVisibleEnd,
+  TRACER_SECONDS,
+} from "./radarFx";
 import { currentRound, samplePlayers, sampleTrail } from "./sample";
 import { activeBomb } from "./stats";
 import type { DrawTool, MapCalibration, MapLayers, Replay, Stroke } from "./types";
@@ -200,7 +210,7 @@ export function RadarCanvas({
         ctx.fillText("No radar for this map — showing world XY", pad, 24);
       }
 
-      const tickRate = replay.header.tick_rate || 64;
+      const ticksPerSecond = tickRate(replay);
       const layersNow = layersRef.current;
 
       if (layersNow.heatmap) {
@@ -232,16 +242,16 @@ export function RadarCanvas({
             continue;
           }
           const color = GRENADE_COLOR[g.kind] ?? "#fff";
-          const visibleEnd = round ? Math.min(g.end_tick, round.end_tick) : g.end_tick;
-          const inFlight =
-            tickNow >= g.start_tick && tickNow < g.detonate_tick && tickNow <= visibleEnd;
+          const popAt = nadePopTick(g);
+          const visibleEnd = nadeVisibleEnd(g, ticksPerSecond, round?.end_tick);
+          const inFlight = tickNow >= g.start_tick && tickNow < popAt && tickNow <= visibleEnd;
           const lingering =
-            tickNow >= g.detonate_tick &&
+            tickNow >= popAt &&
             tickNow <= visibleEnd &&
             (g.kind === "smoke" || g.kind === "molotov" || g.kind === "decoy");
           const burst =
-            tickNow >= g.detonate_tick &&
-            tickNow <= g.detonate_tick + tickRate * 0.35 &&
+            tickNow >= popAt &&
+            tickNow <= popAt + ticksPerSecond * 0.35 &&
             tickNow <= visibleEnd &&
             (g.kind === "he" || g.kind === "flash");
 
@@ -273,6 +283,8 @@ export function RadarCanvas({
               ctx.stroke();
             }
           } else if (lingering || burst) {
+            const occupancy =
+              g.kind === "molotov" ? g.fires : g.kind === "smoke" ? g.voxels : undefined;
             const cells =
               g.kind === "molotov"
                 ? firesAt(g.fires, tickNow)
@@ -280,22 +292,39 @@ export function RadarCanvas({
                   ? firesAt(g.voxels, tickNow)
                   : [];
             if (lingering && cells.length > 0) {
-              const cellR = (g.kind === "smoke" ? 6 : 8) * Math.min(1.4, v.scale);
-              ctx.fillStyle = color;
-              ctx.globalAlpha = g.kind === "smoke" ? 0.32 : 0.42;
               let cx = 0;
               let cy = 0;
               for (const cell of cells) {
                 const s = toScreen(cell.x, cell.y);
                 cx += s.x;
                 cy += s.y;
+              }
+              cx /= cells.length;
+              cy /= cells.length;
+              if (g.kind === "smoke") {
+                const radius = 32 * Math.min(1.4, v.scale);
+                ctx.fillStyle = color;
+                ctx.strokeStyle = color;
+                ctx.globalAlpha = 0.22;
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 0.4;
+                ctx.lineWidth = 1.4;
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+              }
+              const cellR = (g.kind === "smoke" ? 6 : 8) * Math.min(1.4, v.scale);
+              ctx.fillStyle = color;
+              ctx.globalAlpha = g.kind === "smoke" ? 0.32 : 0.42;
+              for (const cell of cells) {
+                const s = toScreen(cell.x, cell.y);
                 ctx.beginPath();
                 ctx.arc(s.x, s.y, cellR, 0, Math.PI * 2);
                 ctx.fill();
               }
-              cx /= cells.length;
-              cy /= cells.length;
-              const left = lingerRemaining(g.detonate_tick, g.end_tick, tickNow);
+              const left = lingerRemaining(popAt, visibleEnd, tickNow);
               const inner = Math.max(5, 6 * Math.min(1.4, v.scale));
               ctx.globalAlpha = 0.85;
               ctx.fillStyle = "#12181f";
@@ -317,6 +346,8 @@ export function RadarCanvas({
                 ctx.closePath();
                 ctx.fill();
               }
+            } else if (lingering && occupancy && occupancy.length > 0) {
+              // Occupancy was sampled but none is live — don't keep the envelope circle.
             } else {
               const last = g.points[g.points.length - 1];
               if (last) {
@@ -330,7 +361,7 @@ export function RadarCanvas({
                         ? 18
                         : 12) * Math.min(1.4, v.scale);
                 if (lingering && (g.kind === "smoke" || g.kind === "molotov")) {
-                  const left = lingerRemaining(g.detonate_tick, g.end_tick, tickNow);
+                  const left = lingerRemaining(popAt, visibleEnd, tickNow);
                   const inner = Math.max(7, 8 * Math.min(1.4, v.scale));
                   ctx.fillStyle = color;
                   ctx.strokeStyle = color;
@@ -377,7 +408,7 @@ export function RadarCanvas({
         }
       }
 
-      const tracerLife = tickRate * TRACER_SECONDS;
+      const tracerLife = ticksPerSecond * TRACER_SECONDS;
       if (layersNow.shots) {
         for (const sh of replay.shots) {
           const age = tickNow - sh.tick;
@@ -436,7 +467,7 @@ export function RadarCanvas({
       }
 
       if (trailsRef.current) {
-        const lookback = tickRate * 2.5;
+        const lookback = ticksPerSecond * 2.5;
         const ids =
           selectedRef.current != null ? [selectedRef.current] : players.map((p) => p.index);
         for (const id of ids) {
@@ -509,8 +540,8 @@ export function RadarCanvas({
         }
       }
 
-      const blinds = blindsAt(replay.blinds, tickNow, tickRate);
-      const hits = hitsAt(replay.hurts, tickNow, tickRate);
+      const blinds = blindsAt(replay.blinds, tickNow, ticksPerSecond);
+      const hits = hitsAt(replay.hurts, tickNow, ticksPerSecond);
       for (const p of players) {
         if (!p.present) continue;
         const s = toScreen(p.x, p.y);
@@ -533,7 +564,7 @@ export function RadarCanvas({
         const flash = blinds.get(p.index);
         if (flash && p.alive) {
           const intensity = Math.min(1, flash / 1.4);
-          const pulse = 13 + intensity * 6 + Math.sin((tickNow / tickRate) * 10) * 1.4;
+          const pulse = 13 + intensity * 6 + Math.sin((tickNow / ticksPerSecond) * 10) * 1.4;
           ctx.fillStyle = `rgba(255, 248, 200, ${0.12 + intensity * 0.38})`;
           ctx.globalAlpha = 1;
           ctx.beginPath();

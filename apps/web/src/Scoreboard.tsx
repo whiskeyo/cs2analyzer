@@ -1,4 +1,4 @@
-import { computeStats, currentSide, liveTeams } from "./stats";
+import { computeStats, currentSide, liveTeams, teamEntryShare } from "./stats";
 import { samplePlayers } from "./sample";
 import type { PlayerStats, Replay } from "./types";
 
@@ -41,8 +41,10 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
             <th>A</th>
             <th>ADR</th>
             <th>KAST</th>
-            <th>Rtg</th>
-            <th>Ent</th>
+            <th>Rating</th>
+            <th>Entry</th>
+            <th>CT</th>
+            <th>T</th>
           </tr>
         </thead>
         <tbody>
@@ -60,7 +62,22 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
               <td>{s.adr.toFixed(1)}</td>
               <td>{s.kast.toFixed(0)}</td>
               <td>{s.rating.toFixed(2)}</td>
-              <td>{s.entry_attempts > 0 ? `${s.first_kills}/${s.entry_attempts}` : "0"}</td>
+              <td>
+                {s.entry_attempts > 0 ? (
+                  <>
+                    {s.first_kills}/{s.entry_attempts}
+                    <span className="entry-pct">{s.entry_success.toFixed(0)}%</span>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className="sb-split">
+                {s.kills_ct}-{s.deaths_ct}
+              </td>
+              <td className="sb-split">
+                {s.kills_t}-{s.deaths_t}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -70,6 +87,7 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
 
   const sel = selected != null ? stats.find((s) => s.player === selected) : null;
   const selPlayer = selected != null ? replay.players[selected] : null;
+  const share = selected != null ? teamEntryShare(stats, replay.players, selected) : null;
 
   return (
     <div>
@@ -88,9 +106,9 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
             <dd>
               {sel.rating.toFixed(2)} / {sel.impact.toFixed(2)}
             </dd>
-            <dt>KPR / DPR</dt>
+            <dt>Kills / round · Deaths / round</dt>
             <dd>
-              {sel.kpr.toFixed(2)} / {sel.dpr.toFixed(2)}
+              {sel.kills_per_round.toFixed(2)} / {sel.deaths_per_round.toFixed(2)}
             </dd>
             <dt>CT / T</dt>
             <dd>
@@ -102,14 +120,17 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
             <dd>
               {sel.damage} ({sel.damage_taken})
             </dd>
-            <dt>HS% / UD</dt>
+            <dt>Headshot % / utility damage</dt>
             <dd>
-              {sel.hs_percent.toFixed(0)}% / {sel.utility_damage}
+              {sel.headshot_percent.toFixed(0)}% / {sel.utility_damage}
             </dd>
-            <dt>Opening (FK/FD)</dt>
+            <dt>Opening (first kills / first deaths)</dt>
             <dd>
               {sel.first_kills} / {sel.first_deaths}
               {sel.entry_attempts > 0 ? ` · ${sel.entry_success.toFixed(0)}% entry` : ""}
+              {share && share.teamAttempts > 0
+                ? ` · ${share.pct.toFixed(0)}% of team (${share.attempts}/${share.teamAttempts})`
+                : ""}
             </dd>
             <dt>Trades (got / was)</dt>
             <dd>

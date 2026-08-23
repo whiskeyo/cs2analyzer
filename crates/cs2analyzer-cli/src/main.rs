@@ -107,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     s.assists,
                     s.adr,
                     s.kast,
-                    s.hs_percent,
+                    s.headshot_percent,
                     s.utility_damage,
                     s.first_kills,
                     s.first_deaths

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { computeStats, defuseClock, freezeRemaining, liveScore, roundWinBanner } from "./stats";
+import {
+  computeStats,
+  defuseClock,
+  freezeRemaining,
+  liveScore,
+  roundWinBanner,
+  teamEntryShare,
+} from "./stats";
 import type { BombEvent, Kill, Player, Replay, Round } from "./types";
 
 function emptyTicks() {
@@ -129,6 +136,20 @@ describe("computeStats", () => {
     expect(stats[1].deaths).toBe(1);
   });
 
+  it("omits world / trigger_hurt deaths from kills and deaths", () => {
+    const fall = kill(100, -1, 0);
+    fall.weapon = "world";
+    const m = replay({
+      players: [player(0, "CT", "A"), player(1, "T", "B")],
+      rounds: [round({ number: 1, winner: "CT" })],
+      kills: [fall, kill(200, 0, 1)],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[0].kills).toBe(1);
+    expect(stats[0].deaths).toBe(0);
+    expect(stats[1].deaths).toBe(1);
+  });
+
   it("does not credit teamkills and skips them as the opening duel", () => {
     const m = replay({
       players: [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")],
@@ -195,6 +216,34 @@ describe("computeStats", () => {
     });
     const stats = computeStats(m, 640);
     expect(stats[0].adr).toBe(40);
+  });
+});
+
+describe("teamEntryShare", () => {
+  it("is the player's share of opening duels on the starting side", () => {
+    const players = [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")];
+    const m = replay({
+      players,
+      rounds: [
+        round({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
+        round({
+          number: 2,
+          winner: "T",
+          start_tick: 641,
+          freeze_end_tick: 705,
+          end_tick: 1280,
+        }),
+      ],
+      kills: [kill(100, 0, 1), kill(800, 1, 2)],
+    });
+    const stats = computeStats(m, 1280);
+    expect(teamEntryShare(stats, players, 0)).toEqual({
+      attempts: 1,
+      teamAttempts: 2,
+      pct: 50,
+    });
+    expect(teamEntryShare(stats, players, 2).pct).toBe(50);
+    expect(teamEntryShare(stats, players, 1).pct).toBe(100);
   });
 });
 

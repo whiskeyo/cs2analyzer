@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { playerReview } from "./review";
+import { matchHighlights, playerReview } from "./review";
 import type { Kill, Player, Replay, Round } from "./types";
 
 function player(index: number, side: Player["start_side"], name: string): Player {
@@ -122,5 +122,35 @@ describe("playerReview", () => {
       review.notes.some((n) => n.title.startsWith("Traded the opener") && n.severity === "good"),
     ).toBe(true);
     expect(review.headlines.some((h) => h.text.includes("Traded"))).toBe(true);
+  });
+});
+
+describe("matchHighlights", () => {
+  it("lists a 4k and a traded opener as jump targets", () => {
+    const m = replay({
+      players: [
+        player(0, "CT", "A"),
+        player(1, "T", "B"),
+        player(2, "T", "C"),
+        player(3, "T", "D"),
+        player(4, "T", "E"),
+        player(5, "CT", "F"),
+      ],
+      rounds: [round({ number: 1, winner: "CT" })],
+      kills: [kill(100, 1, 0), kill(180, 5, 1), kill(200, 5, 2), kill(220, 5, 3), kill(240, 5, 4)],
+    });
+    const highlights = matchHighlights(m, 640);
+    expect(highlights.some((h) => h.title === "F traded the opener" && h.player === 5)).toBe(true);
+    expect(highlights.some((h) => h.title === "F 4k" && h.tick === 240)).toBe(true);
+  });
+
+  it("does not copy an eco win once per player", () => {
+    const m = replay({
+      players: [player(0, "CT", "A"), player(1, "T", "B")],
+      rounds: [round({ number: 1, winner: "CT" })],
+      kills: [kill(100, 0, 1)],
+    });
+    const ecos = matchHighlights(m, 640).filter((h) => h.title === "Eco round win");
+    expect(ecos).toEqual([]);
   });
 });

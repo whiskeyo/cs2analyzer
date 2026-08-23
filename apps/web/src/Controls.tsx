@@ -1,3 +1,4 @@
+import { tickRate } from "./constants";
 import { currentRound } from "./sample";
 import { nextEventTick } from "./stats";
 import type { Replay } from "./types";
@@ -20,7 +21,7 @@ export function Controls({ replay, tick, playing, speed, onTick, onPlaying, onSp
   const min = replay.ticks.ticks[0] ?? 0;
   const max =
     replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0;
-  const tps = replay.header.tick_rate || 64;
+  const tps = tickRate(replay);
   const inFreeze = !!round && tick < round.freeze_end_tick;
   const freezeLeft =
     round && tick < round.freeze_end_tick ? (round.freeze_end_tick - tick) / tps : 0;

@@ -1,6 +1,10 @@
 //! Turn the streaming collector into a compact [`Match`].
 
 use crate::analysis::{compute_stats, starting_team_scores};
+use crate::constants::{
+    DEFAULT_TICK_RATE, FLASH_POP_SECONDS, HE_DECOY_SECONDS, KNIFE_ROUND_MAX_EQUIPMENT,
+    MOLOTOV_SECONDS, SMOKE_SECONDS,
+};
 use crate::observer::Collector;
 use crate::types::*;
 use crate::{FLAG_PRESENT, MAX_PLAYERS};
@@ -167,7 +171,7 @@ fn tick_rate(c: &Collector) -> f32 {
     if c.tick_interval > 0.0 {
         1.0 / c.tick_interval
     } else {
-        64.0
+        DEFAULT_TICK_RATE
     }
 }
 
@@ -259,7 +263,7 @@ fn build_rounds(c: &Collector) -> Vec<Round> {
         let gun_kill = c.kills.iter().any(|k| {
             k.tick >= start && k.tick <= end_tick && !crate::props::is_knife_weapon(&k.weapon)
         });
-        let is_knife = max_ev < 200 && !gun_kill;
+        let is_knife = max_ev < KNIFE_ROUND_MAX_EQUIPMENT && !gun_kill;
         let (team_ct, team_t) = c.round_names.get(&freeze).cloned().unwrap_or_default();
         rounds.push(Round {
             number: 0,
@@ -345,10 +349,10 @@ fn build_grenades(
     tick_rate: f32,
 ) -> Vec<GrenadeThrow> {
     let gap = c.opts.tick_stride.max(1) * 10;
-    let mut by_ent: HashMap<u32, Vec<ProjSample>> = HashMap::new();
-    for (ent, tick, kind, x, y, z, thrower) in &c.proj_points {
-        by_ent
-            .entry(*ent)
+    let mut by_entity: HashMap<u32, Vec<ProjSample>> = HashMap::new();
+    for (entity, tick, kind, x, y, z, thrower) in &c.proj_points {
+        by_entity
+            .entry(*entity)
             .or_default()
             .push((*tick, *kind, *x, *y, *z, *thrower));
     }
@@ -356,7 +360,7 @@ fn build_grenades(
     let mut used_dets = vec![false; c.grenade_dets.len()];
     let mut out = Vec::new();
 
-    for (ent, mut points) in by_ent {
+    for (entity, mut points) in by_entity {
         points.sort_by_key(|p| p.0);
         for seg in split_proj_track(points, gap) {
             if seg.is_empty() {
@@ -377,7 +381,7 @@ fn build_grenades(
                 if !in_window {
                     return false;
                 }
-                d.2 as u32 == ent || d.2 <= 0
+                d.2 as u32 == entity || d.2 <= 0
             });
             let matched = matched.or_else(|| {
                 c.grenade_dets.iter().enumerate().find(|(i, d)| {
@@ -494,10 +498,10 @@ fn split_proj_track(points: Vec<ProjSample>, gap: u32) -> Vec<Vec<ProjSample>> {
 
 fn default_end(kind: GrenadeKind, detonate: u32, tick_rate: f32) -> u32 {
     let secs = match kind {
-        GrenadeKind::Smoke => 18.0,
-        GrenadeKind::Molotov => 7.0,
-        GrenadeKind::He | GrenadeKind::Decoy => 0.5,
-        GrenadeKind::Flash => 0.4,
+        GrenadeKind::Smoke => SMOKE_SECONDS,
+        GrenadeKind::Molotov => MOLOTOV_SECONDS,
+        GrenadeKind::He | GrenadeKind::Decoy => HE_DECOY_SECONDS,
+        GrenadeKind::Flash => FLASH_POP_SECONDS,
     };
     detonate.saturating_add((secs * tick_rate).round() as u32)
 }
@@ -506,13 +510,13 @@ fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow]) {
     if c.fire_spans.is_empty() {
         return;
     }
-    let mut by_ent: HashMap<u32, Vec<&crate::observer::FireSpan>> = HashMap::new();
+    let mut by_entity: HashMap<u32, Vec<&crate::observer::FireSpan>> = HashMap::new();
     for span in &c.fire_spans {
-        by_ent.entry(span.ent).or_default().push(span);
+        by_entity.entry(span.entity).or_default().push(span);
     }
 
     let mut claimed = vec![false; grenades.len()];
-    for (ent, spans) in by_ent {
+    for (entity, spans) in by_entity {
         let t0 = spans.iter().map(|s| s.start_tick).min().unwrap_or(0);
         let t1 = spans.iter().map(|s| s.end_tick).max().unwrap_or(t0);
         let (mut cx, mut cy) = (0.0f32, 0.0f32);
@@ -527,7 +531,7 @@ fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow]) {
         let det_tick = c
             .grenade_dets
             .iter()
-            .find(|d| d.1 == GrenadeKind::Molotov && d.2 as u32 == ent)
+            .find(|d| d.1 == GrenadeKind::Molotov && d.2 as u32 == entity)
             .map(|d| d.0);
 
         let mut best = None;
@@ -567,7 +571,7 @@ fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow]) {
                     end_tick: s.end_tick,
                 })
                 .collect();
-            grenades[i].end_tick = t1;
+            grenades[i].end_tick = t1.min(grenades[i].end_tick);
         }
     }
 }
@@ -576,13 +580,13 @@ fn attach_smoke_voxels(c: &Collector, grenades: &mut [GrenadeThrow]) {
     if c.smoke_spans.is_empty() {
         return;
     }
-    let mut by_ent: HashMap<u32, Vec<&crate::observer::FireSpan>> = HashMap::new();
+    let mut by_entity: HashMap<u32, Vec<&crate::observer::FireSpan>> = HashMap::new();
     for span in &c.smoke_spans {
-        by_ent.entry(span.ent).or_default().push(span);
+        by_entity.entry(span.entity).or_default().push(span);
     }
 
     let mut claimed = vec![false; grenades.len()];
-    for (ent, spans) in by_ent {
+    for (entity, spans) in by_entity {
         let t0 = spans.iter().map(|s| s.start_tick).min().unwrap_or(0);
         let t1 = spans.iter().map(|s| s.end_tick).max().unwrap_or(t0);
         let (mut cx, mut cy) = (0.0f32, 0.0f32);
@@ -597,7 +601,7 @@ fn attach_smoke_voxels(c: &Collector, grenades: &mut [GrenadeThrow]) {
         let det_tick = c
             .grenade_dets
             .iter()
-            .find(|d| d.1 == GrenadeKind::Smoke && d.2 as u32 == ent)
+            .find(|d| d.1 == GrenadeKind::Smoke && d.2 as u32 == entity)
             .map(|d| d.0);
 
         let mut best = None;
@@ -637,7 +641,7 @@ fn attach_smoke_voxels(c: &Collector, grenades: &mut [GrenadeThrow]) {
                     end_tick: s.end_tick,
                 })
                 .collect();
-            grenades[i].end_tick = t1;
+            grenades[i].end_tick = t1.min(grenades[i].end_tick);
         }
     }
 }
@@ -670,7 +674,7 @@ mod tests {
     fn attach_fires_to_nearest_molotov() {
         let mut c = Collector::new(ParseOptions::default());
         c.fire_spans.push(FireSpan {
-            ent: 10,
+            entity: 10,
             x: 100.0,
             y: 120.0,
             start_tick: 200,
@@ -708,7 +712,7 @@ mod tests {
     fn attach_voxels_to_nearest_smoke() {
         let mut c = Collector::new(ParseOptions::default());
         c.smoke_spans.push(FireSpan {
-            ent: 22,
+            entity: 22,
             x: 50.0,
             y: 60.0,
             start_tick: 200,
@@ -722,5 +726,22 @@ mod tests {
         assert!(grenades[1].voxels.is_empty());
         assert_eq!(grenades[0].end_tick, 900);
         assert_eq!(grenades[0].voxels[0].x, 50.0);
+    }
+
+    #[test]
+    fn attach_does_not_extend_past_default_end() {
+        let mut c = Collector::new(ParseOptions::default());
+        c.smoke_spans.push(FireSpan {
+            entity: 22,
+            x: 50.0,
+            y: 60.0,
+            start_tick: 200,
+            end_tick: 50_000,
+        });
+        c.grenade_dets
+            .push((200, GrenadeKind::Smoke, 22, 50.0, 60.0, 0.0));
+        let mut grenades = vec![smoke(200, 50.0, 60.0)];
+        attach_smoke_voxels(&c, &mut grenades);
+        assert_eq!(grenades[0].end_tick, 200 + 64 * 18);
     }
 }

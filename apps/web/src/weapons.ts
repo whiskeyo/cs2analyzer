@@ -1,3 +1,14 @@
+import {
+  WIN_REASON_BOMB,
+  WIN_REASON_CT_ELIM,
+  WIN_REASON_CT_SURRENDER,
+  WIN_REASON_DEFUSE,
+  WIN_REASON_DRAW,
+  WIN_REASON_TIME,
+  WIN_REASON_T_ELIM,
+  WIN_REASON_T_SURRENDER,
+} from "./constants";
+
 const NAMES: Record<string, string> = {
   ak47: "AK-47",
   m4a1: "M4A4",
@@ -240,21 +251,21 @@ export function prettyMap(mapName: string): string {
 
 export function winReasonLabel(code: number): string {
   switch (code) {
-    case 1:
+    case WIN_REASON_BOMB:
       return "Bomb";
-    case 7:
+    case WIN_REASON_DEFUSE:
       return "Defuse";
-    case 8:
+    case WIN_REASON_CT_ELIM:
       return "CT elim";
-    case 9:
+    case WIN_REASON_T_ELIM:
       return "T elim";
-    case 10:
+    case WIN_REASON_DRAW:
       return "Draw";
-    case 12:
+    case WIN_REASON_TIME:
       return "Time";
-    case 17:
+    case WIN_REASON_T_SURRENDER:
       return "T surrender";
-    case 18:
+    case WIN_REASON_CT_SURRENDER:
       return "CT surrender";
     default:
       return code ? `#${code}` : "—";
