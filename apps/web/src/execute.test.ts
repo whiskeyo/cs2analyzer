@@ -206,6 +206,31 @@ describe("findExecutes", () => {
     expect(beats[0].side).toBe("T");
   });
 
+  it("labels util and kills per side instead of summing both teams", () => {
+    const m = replay({
+      players: roster,
+      rounds: [round({ number: 1, winner: "T" })],
+      grenades: [
+        nade(200, 0, "smoke"),
+        nade(210, 1, "smoke"),
+        nade(220, 2, "molotov"),
+        nade(230, 3, "smoke"),
+        nade(240, 4, "molotov"),
+        nade(250, 3, "flash"),
+        nade(260, 4, "he"),
+      ],
+      kills: [kill(230, 0, 3), kill(250, 1, 4)],
+    });
+    const beats = findExecutes(m);
+    expect(beats).toHaveLength(1);
+    expect(beats[0].detail).toMatch(/T .*2 smokes/);
+    expect(beats[0].detail).toMatch(/T .*2k/);
+    expect(beats[0].detail).toMatch(/CT .*1 smoke/);
+    expect(beats[0].detail).toMatch(/CT .*2 util/);
+    expect(beats[0].detail).not.toMatch(/7 smoke/);
+    expect(beats[0].detail).not.toMatch(/(^|· )4k( ·|$)/);
+  });
+
   it("does not call a CT default dump a take", () => {
     const m = replay({
       players: roster,

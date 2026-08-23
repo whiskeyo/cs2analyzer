@@ -1,7 +1,7 @@
 import { NADE_SITE_SEPARATION, PULSE_SITE_SEPARATION, tickRate } from "./constants";
 import { samplePlayers } from "./sample";
 import { currentSide, isEnemyKill } from "./stats";
-import type { GrenadeThrow, Replay, Round, Side } from "./types";
+import type { GrenadeThrow, Kill, Replay, Round, Side } from "./types";
 import { formatClock } from "./weapons";
 
 export type ExecuteKind = "execute" | "retake" | "plant" | "fight";
@@ -149,7 +149,7 @@ interface Pulse {
   tick: number;
   tag: "t-util" | "ct-util" | "t-push" | "plant" | "kills";
   nades?: GrenadeThrow[];
-  kills?: number;
+  kills?: Kill[];
   x?: number;
   y?: number;
 }
@@ -189,6 +189,22 @@ function nadeBits(nades: GrenadeThrow[]): string {
   const other = s.total - s.smokes - s.mollys;
   if (other) parts.push(`${other} util`);
   return parts.join(" · ");
+}
+
+function attackerSide(replay: Replay, k: Kill): Side | null {
+  if (k.attacker < 0) return null;
+  return currentSide(replay, k.attacker, k.tick);
+}
+
+/** One team's util + kills + tags, or empty if that side did nothing. */
+function sideBits(label: Side, nades: GrenadeThrow[], kills: number, extras: string[]): string {
+  const parts: string[] = [];
+  const nade = nadeBits(nades);
+  if (nade) parts.push(nade);
+  if (kills) parts.push(`${kills}k`);
+  parts.push(...extras);
+  if (parts.length === 0) return "";
+  return `${label} ${parts.join(" · ")}`;
 }
 
 function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
@@ -245,7 +261,7 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
     if (group.length < 2) continue;
     pulses.push(
       withXY(
-        { tick: group[0].tick, tag: "kills", kills: group.length },
+        { tick: group[0].tick, tag: "kills", kills: group },
         centroid(group.map((k) => ({ x: k.x, y: k.y }))),
       ),
     );
@@ -269,8 +285,12 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
     const action = win[0].tick;
     const tags = new Set(win.map((w) => w.tag));
     const afterPlant = plantTick != null && action > plantTick;
-    const nadesIn = win.flatMap((w) => w.nades ?? []);
-    const killN = win.reduce((s, w) => s + (w.kills ?? 0), 0);
+    const tNadesIn = win.filter((w) => w.tag === "t-util").flatMap((w) => w.nades ?? []);
+    const ctNadesIn = win.filter((w) => w.tag === "ct-util").flatMap((w) => w.nades ?? []);
+    const frags = win.flatMap((w) => w.kills ?? []);
+    const tKillN = frags.filter((k) => attackerSide(replay, k) === "T").length;
+    const ctKillN = frags.filter((k) => attackerSide(replay, k) === "CT").length;
+    const killN = frags.length;
     const hasT = tags.has("t-util") || tags.has("t-push");
     const hasCt = tags.has("ct-util");
     const hasPlant = tags.has("plant");
@@ -299,11 +319,14 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
       title = "Plant";
     }
 
-    const bits = [nadeBits(nadesIn)];
-    if (killN) bits.push(`${killN}k`);
-    if (tags.has("t-push")) bits.push("stack");
-    if (hasPlant && kind !== "plant") bits.push("plant");
-    bits.push(roundClock(replay, round, action));
+    const bits = [
+      sideBits("T", tNadesIn, tKillN, [
+        ...(tags.has("t-push") ? ["stack"] : []),
+        ...(hasPlant && kind !== "plant" ? ["plant"] : []),
+      ]),
+      sideBits("CT", ctNadesIn, ctKillN, []),
+      roundClock(replay, round, action),
+    ];
 
     beats.push({
       tick: leadIn(replay, round, action),
