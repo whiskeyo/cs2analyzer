@@ -235,6 +235,15 @@ code {
   margin: 0.5rem 0 0.4rem;
   font-size: 0.78rem;
 }
+.tab-hint kbd {
+  font-family: inherit;
+  font-size: 0.72rem;
+  background: #1c242e;
+  border: 1px solid #2c3846;
+  border-radius: 4px;
+  padding: 0.05rem 0.28rem;
+  color: #c5d0da;
+}
 button.link {
   background: none;
   border: none;
@@ -351,6 +360,21 @@ button.link {
 }
 .review-note.good .review-title {
   color: #7dcea0;
+}
+.review-note.on {
+  background: #1a222c;
+}
+.review-note.execute .review-title {
+  color: #e0c15a;
+}
+.review-note.retake .review-title {
+  color: #7eb7e6;
+}
+.review-note.plant .review-title {
+  color: #d4a017;
+}
+.review-note.fight .review-title {
+  color: #e07040;
 }
 .review-copy {
   display: flex;

@@ -8,6 +8,7 @@ import { MapToolbar } from "./MapToolbar";
 import { calibrationFor, loadCalibrations } from "./maps";
 import { RadarCanvas } from "./RadarCanvas";
 import { RoundStrip } from "./RoundStrip";
+import { findExecutes, nextExecuteTick } from "./execute";
 import { currentRound } from "./sample";
 import { Sidebar } from "./Sidebar";
 import { computeStats, exportStatsCsv, nextEventTick } from "./stats";
@@ -162,6 +163,11 @@ export function App() {
         if (t != null) jump(t);
         return;
       }
+      if (e.key === "e" || e.key === "E") {
+        const t = nextExecuteTick(findExecutes(r), tickRef.current, e.key === "E" ? -1 : 1);
+        if (t != null) jump(t);
+        return;
+      }
       if (e.key === "Home") {
         jump(round?.freeze_end_tick || round?.start_tick || min);
         return;
@@ -309,7 +315,8 @@ export function App() {
         onSpeed={setSpeed}
       />
       <p className="keys">
-        Space play · ←/→ scrub · [ ] rounds · , . kills · F track · T trail · Esc deselect
+        Space play · ←/→ scrub · [ ] rounds · e E executes · , . kills · F track · T trail · Esc
+        deselect
       </p>
     </div>
   );
