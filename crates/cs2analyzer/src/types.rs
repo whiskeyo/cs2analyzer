@@ -234,11 +234,13 @@ pub struct Blind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum BombKind {
     Planted,
     Defused,
     Exploded,
+    BeginDefuse,
+    AbortDefuse,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -249,6 +251,8 @@ pub struct BombEvent {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+    #[serde(default)]
+    pub haskit: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

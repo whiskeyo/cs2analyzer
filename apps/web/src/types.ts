@@ -107,11 +107,12 @@ export interface Blind {
 
 export interface BombEvent {
   tick: number;
-  kind: "planted" | "defused" | "exploded";
+  kind: "planted" | "defused" | "exploded" | "begin_defuse" | "abort_defuse";
   player: number;
   x: number;
   y: number;
   z: number;
+  haskit?: boolean;
 }
 
 export interface PlayerStats {

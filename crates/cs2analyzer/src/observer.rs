@@ -39,6 +39,7 @@ pub(crate) struct RawFrame {
 
 pub(crate) type ProjPoint = (u32, u32, GrenadeKind, f32, f32, f32, Option<u64>);
 pub(crate) type HurtRec = (u32, Option<u64>, Option<u64>, i32, String);
+pub(crate) type BombRec = (u32, BombKind, Option<u64>, f32, f32, f32, bool);
 
 pub(crate) struct Collector {
     pub opts: ParseOptions,
@@ -66,7 +67,7 @@ pub(crate) struct Collector {
     pub shots: Vec<(u32, Option<u64>, f32, f32, f32)>,
     pub kills: Vec<RawKill>,
     pub blinds: Vec<(u32, i32, f32, Option<i32>)>,
-    pub bomb_events: Vec<(u32, BombKind, Option<u64>, f32, f32, f32)>,
+    pub bomb_events: Vec<BombRec>,
     pub userid_to_steam: HashMap<i32, u64>,
     pub frames: Vec<RawFrame>,
     pub pawn_to_steam: HashMap<u32, u64>,
@@ -131,6 +132,16 @@ impl Collector {
 fn steam_from_pawn_handle(c: &Collector, ctx: &Context, handle: i32) -> Option<u64> {
     let pawn = ctx.entities().get_by_handle(handle as u32 as usize).ok()?;
     c.pawn_to_steam.get(&pawn.index()).copied()
+}
+
+fn steam_from_game_event(c: &Collector, ctx: &Context, ge: &GameEvent<'_>) -> Option<u64> {
+    ev_i32(ge, "userid_pawn")
+        .and_then(|h| steam_from_pawn_handle(c, ctx, h))
+        .or_else(|| ev_i32(ge, "userid").and_then(|uid| c.userid_to_steam.get(&uid).copied()))
+}
+
+fn ev_haskit(ge: &GameEvent<'_>) -> bool {
+    ev_bool(ge, "haskit") || ev_i32(ge, "haskit").unwrap_or(0) != 0
 }
 
 const PROGRESS_TICK_INTERVAL: u32 = 512;
@@ -389,21 +400,24 @@ impl Collector {
                     z,
                 });
             }
-            name @ ("bomb_planted" | "bomb_defused" | "bomb_exploded") => {
+            name @ ("bomb_planted" | "bomb_defused" | "bomb_exploded" | "bomb_begindefuse"
+            | "bomb_abortdefuse") => {
                 let kind = match name {
                     "bomb_planted" => BombKind::Planted,
                     "bomb_defused" => BombKind::Defused,
+                    "bomb_begindefuse" => BombKind::BeginDefuse,
+                    "bomb_abortdefuse" => BombKind::AbortDefuse,
                     _ => BombKind::Exploded,
                 };
-                let player =
-                    ev_i32(ge, "userid_pawn").and_then(|h| steam_from_pawn_handle(self, ctx, h));
+                let player = steam_from_game_event(self, ctx, ge);
                 let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
                 if let Some(h) = ev_i32(ge, "userid_pawn") {
                     if let Ok(p) = ctx.entities().get_by_handle(h as u32 as usize) {
                         (x, y, z) = entity_xyz(p);
                     }
                 }
-                self.bomb_events.push((tick, kind, player, x, y, z));
+                self.bomb_events
+                    .push((tick, kind, player, x, y, z, ev_haskit(ge)));
             }
             name @ ("smokegrenade_detonate"
             | "inferno_startburn"

@@ -97,13 +97,14 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     let bomb_events: Vec<BombEvent> = c
         .bomb_events
         .iter()
-        .map(|(tick, kind, player, x, y, z)| BombEvent {
+        .map(|(tick, kind, player, x, y, z, haskit)| BombEvent {
             tick: *tick,
             kind: *kind,
             player: idx_of(*player),
             x: *x,
             y: *y,
             z: *z,
+            haskit: *haskit,
         })
         .collect();
 
