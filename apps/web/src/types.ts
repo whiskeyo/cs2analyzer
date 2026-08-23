@@ -75,6 +75,7 @@ export interface GrenadeThrow {
   end_tick: number;
   points: GrenadePoint[];
   fires?: FireCell[];
+  voxels?: FireCell[];
 }
 
 export interface Shot {

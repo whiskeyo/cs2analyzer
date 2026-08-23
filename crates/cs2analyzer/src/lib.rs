@@ -7,6 +7,7 @@ mod inventory;
 mod observer;
 mod props;
 mod radar;
+mod smoke;
 mod types;
 
 pub use analysis::{compute_stats, compute_stats_until};

@@ -273,11 +273,16 @@ export function RadarCanvas({
               ctx.stroke();
             }
           } else if (lingering || burst) {
-            const cells = g.kind === "molotov" ? firesAt(g.fires, tickNow) : [];
+            const cells =
+              g.kind === "molotov"
+                ? firesAt(g.fires, tickNow)
+                : g.kind === "smoke"
+                  ? firesAt(g.voxels, tickNow)
+                  : [];
             if (lingering && cells.length > 0) {
-              const cellR = 8 * Math.min(1.4, v.scale);
+              const cellR = (g.kind === "smoke" ? 6 : 8) * Math.min(1.4, v.scale);
               ctx.fillStyle = color;
-              ctx.globalAlpha = 0.42;
+              ctx.globalAlpha = g.kind === "smoke" ? 0.32 : 0.42;
               let cx = 0;
               let cy = 0;
               for (const cell of cells) {
