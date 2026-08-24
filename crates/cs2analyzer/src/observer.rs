@@ -39,7 +39,7 @@ pub(crate) struct RawFrame {
 
 pub(crate) type ProjPoint = (u32, u32, GrenadeKind, f32, f32, f32, Option<u64>);
 pub(crate) type HurtRec = (u32, Option<u64>, Option<u64>, i32, String);
-pub(crate) type BombRec = (u32, BombKind, Option<u64>, f32, f32, f32, bool);
+pub(crate) type BombRec = (u32, BombKind, Option<u64>, f32, f32, f32, bool, Option<u8>);
 
 pub(crate) struct Collector {
     pub opts: ParseOptions,
@@ -645,8 +645,13 @@ impl Collector {
                         (x, y, z) = entity_xyz(p);
                     }
                 }
+                let site = if kind == BombKind::Planted {
+                    ev_i32(ge, "site").and_then(|s| u8::try_from(s).ok())
+                } else {
+                    None
+                };
                 self.bomb_events
-                    .push((tick, kind, player, x, y, z, ev_haskit(ge)));
+                    .push((tick, kind, player, x, y, z, ev_haskit(ge), site));
             }
             name @ ("smokegrenade_detonate"
             | "inferno_startburn"

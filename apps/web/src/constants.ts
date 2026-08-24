@@ -50,6 +50,30 @@ export const NADE_SITE_SEPARATION = 2000;
 /** World-unit gap: execute pulses farther than this stay separate. */
 export const PULSE_SITE_SEPARATION = 2400;
 
+/** Valve overview texture size. `bombA_x` fractions are relative to this. */
+export const RADAR_OVERVIEW_SIZE = 1024;
+
+/** World units: inside this of bombsite A or B is that site, otherwise Mid. */
+export const SITE_CALLOUT_RADIUS = 1800;
+
+/** A/B only if that site is clearly closer; otherwise Mid. */
+export const SITE_CALLOUT_CLOSER_RATIO = 0.85;
+
+/** Seconds after freeze before we look for a T site take. */
+export const T_PUSH_DELAY_SECONDS = 8;
+
+/** How often to sample T positions while hunting a take. */
+export const T_PUSH_STEP_SECONDS = 2;
+
+/** Alive Ts that must still be grouped to count as a take. */
+export const T_PUSH_MIN_PLAYERS = 3;
+
+/** Max average distance from the T centroid (world units). */
+export const T_PUSH_MAX_SPREAD = 1100;
+
+/** How far the T centroid must travel from freeze (world units). */
+export const T_PUSH_MIN_MOVED = 750;
+
 /** Seconds of playback kept after an Action beat. */
 export const ACTION_HIGHLIGHT_SECONDS = 8;
 

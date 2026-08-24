@@ -104,10 +104,10 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
             }
         })
         .collect();
-    let bomb_events: Vec<BombEvent> = c
+    let mut bomb_events: Vec<BombEvent> = c
         .bomb_events
         .iter()
-        .map(|(tick, kind, player, x, y, z, haskit)| BombEvent {
+        .map(|(tick, kind, player, x, y, z, haskit, site)| BombEvent {
             tick: *tick,
             kind: *kind,
             player: idx_of(*player),
@@ -115,8 +115,10 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
             y: *y,
             z: *z,
             haskit: *haskit,
+            site: *site,
         })
         .collect();
+    fill_missing_bomb_positions(&mut bomb_events, &ticks);
 
     let (team_ct, team_t) = start_team_names(c, &rounds);
 
@@ -646,6 +648,24 @@ fn attach_smoke_voxels(c: &Collector, grenades: &mut [GrenadeThrow]) {
                 .collect();
             grenades[i].end_tick = t1.min(grenades[i].end_tick);
         }
+    }
+}
+
+fn fill_missing_bomb_positions(events: &mut [BombEvent], ticks: &TickBuffer) {
+    for e in events {
+        if e.x != 0.0 || e.y != 0.0 || e.player < 0 {
+            continue;
+        }
+        let frame = ticks.frame_index_at_tick(e.tick);
+        let Some(tp) = ticks.player_at(frame, e.player as usize) else {
+            continue;
+        };
+        if tp.flags & FLAG_PRESENT == 0 {
+            continue;
+        }
+        e.x = tp.x;
+        e.y = tp.y;
+        e.z = tp.z;
     }
 }
 

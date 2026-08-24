@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { tickRate } from "./constants";
 import { radarFloor, radarUrl, screenToWorld, worldToScreen, type RadarView } from "./maps";
+import { publicUrl } from "./publicUrl";
 import {
   blindsAt,
   firesAt,
@@ -27,6 +28,31 @@ const GRENADE_COLOR: Record<string, string> = {
 function yawToCanvas(yaw: number): number {
   // CS2 eye yaw 0 is +X, but the pawn forward used on radar is 180° from that.
   return ((-yaw + 180) * Math.PI) / 180;
+}
+
+function drawC4(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  icon: HTMLImageElement | null,
+) {
+  const r = 14;
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, r, 0, Math.PI * 2);
+  ctx.fillStyle = "#161208";
+  ctx.fill();
+  ctx.lineWidth = 2.4;
+  ctx.strokeStyle = "#f5d76e";
+  ctx.stroke();
+  if (icon && icon.complete && icon.naturalWidth > 0) {
+    const size = 18;
+    ctx.drawImage(icon, at.x - size / 2, at.y - size / 2, size, size);
+  } else {
+    ctx.fillStyle = "#f5d76e";
+    ctx.font = "bold 9px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("C4", at.x, at.y);
+  }
 }
 
 function grenadePosAt(
@@ -123,6 +149,15 @@ export function RadarCanvas({
     ly: 0,
   });
   const draft = useRef<Stroke | null>(null);
+  const c4Icon = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = publicUrl("weapons/c4.svg");
+    img.onload = () => {
+      c4Icon.current = img;
+    };
+  }, []);
 
   useEffect(() => {
     images.current = { upper: null, lower: null };
@@ -435,11 +470,7 @@ export function RadarCanvas({
 
       const bomb = activeBomb(replay, tickNow);
       if (bomb) {
-        const s = toScreen(bomb.x, bomb.y);
-        ctx.fillStyle = "#d4a017";
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, 6, 0, Math.PI * 2);
-        ctx.fill();
+        drawC4(ctx, toScreen(bomb.x, bomb.y), c4Icon.current);
       }
 
       if (layersNow.deaths) {

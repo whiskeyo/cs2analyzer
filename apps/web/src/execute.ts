@@ -1,9 +1,20 @@
-import { NADE_SITE_SEPARATION, PULSE_SITE_SEPARATION, tickRate } from "./constants";
+import {
+  NADE_SITE_SEPARATION,
+  PULSE_SITE_SEPARATION,
+  T_PUSH_DELAY_SECONDS,
+  T_PUSH_MAX_SPREAD,
+  T_PUSH_MIN_MOVED,
+  T_PUSH_MIN_PLAYERS,
+  T_PUSH_STEP_SECONDS,
+  tickRate,
+} from "./constants";
 import { samplePlayers } from "./sample";
-import { currentSide, isEnemyKill } from "./stats";
-import type { GrenadeThrow, Kill, Replay, Round, Side } from "./types";
+import { nearestBombsite, siteCallout, type SiteCallout } from "./sites";
+import { currentSide, isEnemyKill, plantedBombPos } from "./stats";
+import type { BombEvent, GrenadeThrow, Kill, Replay, Round, Side } from "./types";
 import { formatClock } from "./weapons";
 
+export type { SiteCallout } from "./sites";
 export type ExecuteKind = "execute" | "retake" | "plant" | "fight";
 
 export interface ExecuteBeat {
@@ -13,6 +24,7 @@ export interface ExecuteBeat {
   roundLabel: string;
   kind: ExecuteKind;
   side: Side | null;
+  site: SiteCallout | null;
   title: string;
   detail: string;
 }
@@ -43,10 +55,10 @@ function clusterByTick<T>(items: T[], tickOf: (x: T) => number, gap: number): T[
   return groups;
 }
 
-function landing(g: GrenadeThrow): { x: number; y: number } | null {
+function landing(g: GrenadeThrow): { x: number; y: number; z: number } | null {
   if (g.points.length === 0) return null;
   const hit = g.points.find((p) => p.tick === g.detonate_tick) ?? g.points[g.points.length - 1];
-  return { x: hit.x, y: hit.y };
+  return { x: hit.x, y: hit.y, z: hit.z };
 }
 
 function centroid(pts: { x: number; y: number }[]): { x: number; y: number } | null {
@@ -57,8 +69,11 @@ function centroid(pts: { x: number; y: number }[]): { x: number; y: number } | n
   };
 }
 
-function nadeCentroid(nades: GrenadeThrow[]): { x: number; y: number } | null {
-  return centroid(nades.map(landing).filter((p): p is { x: number; y: number } => p != null));
+function nadeCentroid(nades: GrenadeThrow[]): { x: number; y: number; z: number } | null {
+  const pts = nades.map(landing).filter((p): p is { x: number; y: number; z: number } => p != null);
+  const xy = centroid(pts);
+  if (!xy) return null;
+  return { ...xy, z: pts.reduce((s, p) => s + p.z, 0) / pts.length };
 }
 
 /** Split a timed dump if nades landed on opposite sides of the map. */
@@ -113,26 +128,34 @@ function isDump(nades: GrenadeThrow[]): boolean {
 
 function sideStats(replay: Replay, tick: number, ct: boolean) {
   const pts = samplePlayers(replay, tick).filter((p) => p.present && p.alive && p.ct === ct);
-  if (pts.length < 3) return null;
+  if (pts.length < T_PUSH_MIN_PLAYERS) return null;
   const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
   const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
   const spread = pts.reduce((s, p) => s + Math.hypot(p.x - cx, p.y - cy), 0) / pts.length;
   return { n: pts.length, cx, cy, spread };
 }
 
-/** First tick Ts are stacked and have left spawn — a take, not a default. */
+/** First tick a grouped T pack is actually on A or B — not just walking out of spawn. */
 function tPushTick(replay: Replay, round: Round): { tick: number; x: number; y: number } | null {
   const rate = tps(replay);
   const freeze = round.freeze_end_tick || round.start_tick;
   const start = sideStats(replay, freeze, false);
   if (!start) return null;
-  const from = freeze + rate * 8;
-  const step = rate * 2;
+  const from = freeze + rate * T_PUSH_DELAY_SECONDS;
+  const step = rate * T_PUSH_STEP_SECONDS;
   for (let tick = from; tick < round.end_tick; tick += step) {
     const now = sideStats(replay, tick, false);
     if (!now) continue;
     const moved = Math.hypot(now.cx - start.cx, now.cy - start.cy);
-    if (now.n >= 3 && now.spread < 1100 && moved > 750) {
+    if (
+      now.n < T_PUSH_MIN_PLAYERS ||
+      now.spread >= T_PUSH_MAX_SPREAD ||
+      moved <= T_PUSH_MIN_MOVED
+    ) {
+      continue;
+    }
+    const site = siteCallout(replay.header.map_name, now.cx, now.cy);
+    if (site === "A" || site === "B") {
       return { tick, x: now.cx, y: now.cy };
     }
   }
@@ -152,6 +175,7 @@ interface Pulse {
   kills?: Kill[];
   x?: number;
   y?: number;
+  z?: number;
 }
 
 function pulseXY(p: Pulse): { x: number; y: number } | null {
@@ -166,8 +190,23 @@ function tooFar(window: Pulse[], next: Pulse): boolean {
   return pts.every((a) => Math.hypot(a.x - b.x, a.y - b.y) > PULSE_SITE_SEPARATION);
 }
 
-function withXY(p: Pulse, xy: { x: number; y: number } | null): Pulse {
-  return xy ? { ...p, x: xy.x, y: xy.y } : p;
+function withXY(p: Pulse, xy: { x: number; y: number; z?: number } | null): Pulse {
+  return xy ? { ...p, x: xy.x, y: xy.y, z: xy.z } : p;
+}
+
+function windowPoint(win: Pulse[]): { x: number; y: number; z?: number } | null {
+  const plant = win.find((w) => w.tag === "plant" && w.x != null && w.y != null);
+  if (plant && plant.x != null && plant.y != null) {
+    return { x: plant.x, y: plant.y, z: plant.z };
+  }
+  const pts = win.filter((w) => w.x != null && w.y != null);
+  if (pts.length === 0) return null;
+  const zs = pts.flatMap((w) => (w.z != null ? [w.z] : []));
+  return {
+    x: pts.reduce((s, w) => s + w.x!, 0) / pts.length,
+    y: pts.reduce((s, w) => s + w.y!, 0) / pts.length,
+    z: zs.length > 0 ? zs.reduce((s, z) => s + z, 0) / zs.length : undefined,
+  };
 }
 
 function roundLabel(r: Round): string {
@@ -194,6 +233,12 @@ function nadeBits(nades: GrenadeThrow[]): string {
 function attackerSide(replay: Replay, k: Kill): Side | null {
   if (k.attacker < 0) return null;
   return currentSide(replay, k.attacker, k.tick);
+}
+
+function bombsiteFromEvent(e: BombEvent): SiteCallout | null {
+  if (e.site === 0) return "A";
+  if (e.site === 1) return "B";
+  return null;
 }
 
 /** One team's util + kills + tags, or empty if that side did nothing. */
@@ -251,7 +296,14 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
   );
   const plantTick = plants[0]?.tick ?? null;
   if (plants[0]) {
-    pulses.push({ tick: plants[0].tick, tag: "plant", x: plants[0].x, y: plants[0].y });
+    const pos = plantedBombPos(replay, plants[0]);
+    pulses.push({
+      tick: plants[0].tick,
+      tag: "plant",
+      x: pos.x,
+      y: pos.y,
+      z: pos.z,
+    });
   }
 
   const kills = replay.kills.filter(
@@ -259,10 +311,11 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
   );
   for (const group of clusterByTick(kills, (k) => k.tick, killGap)) {
     if (group.length < 2) continue;
+    const killXY = centroid(group.map((k) => ({ x: k.x, y: k.y })));
     pulses.push(
       withXY(
         { tick: group[0].tick, tag: "kills", kills: group },
-        centroid(group.map((k) => ({ x: k.x, y: k.y }))),
+        killXY ? { ...killXY, z: group.reduce((s, k) => s + k.z, 0) / group.length } : null,
       ),
     );
   }
@@ -294,6 +347,7 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
     const hasT = tags.has("t-util") || tags.has("t-push");
     const hasCt = tags.has("ct-util");
     const hasPlant = tags.has("plant");
+    const dumped = tags.has("t-util");
 
     // CT util alone is usually defaulting (A smoke + B smoke, or one-site defaults).
     if (!hasT && !hasPlant && !(hasCt && afterPlant) && killN < 3) continue;
@@ -308,7 +362,10 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
     } else if (hasT || (hasPlant && !hasCt)) {
       kind = hasPlant && !hasT ? "plant" : "execute";
       side = "T";
-      title = hasPlant && hasT ? "T execute" : hasPlant ? "Plant" : "T execute";
+      if (hasPlant && dumped) title = "T execute";
+      else if (hasPlant) title = "Plant";
+      else if (dumped) title = "T execute";
+      else title = "T push";
     } else if (hasCt && killN >= 3) {
       kind = "execute";
       side = "CT";
@@ -319,11 +376,19 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
       title = "Plant";
     }
 
+    const at = windowPoint(win);
+    let site = at ? siteCallout(replay.header.map_name, at.x, at.y, at.z) : null;
+    if (hasPlant && plants[0]) {
+      const pos = plantedBombPos(replay, plants[0]);
+      site =
+        bombsiteFromEvent(plants[0]) ??
+        nearestBombsite(replay.header.map_name, pos.x, pos.y, pos.z) ??
+        site;
+    }
+    if (site) title = `${title} · ${site}`;
+
     const bits = [
-      sideBits("T", tNadesIn, tKillN, [
-        ...(tags.has("t-push") ? ["stack"] : []),
-        ...(hasPlant && kind !== "plant" ? ["plant"] : []),
-      ]),
+      sideBits("T", tNadesIn, tKillN, [...(hasPlant && kind !== "plant" ? ["plant"] : [])]),
       sideBits("CT", ctNadesIn, ctKillN, []),
       roundClock(replay, round, action),
     ];
@@ -335,6 +400,7 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
       roundLabel: roundLabel(round),
       kind,
       side,
+      site,
       title,
       detail: bits.filter(Boolean).join(" · "),
     });
@@ -370,6 +436,7 @@ export function nextExecuteTick(beats: ExecuteBeat[], tick: number, dir: 1 | -1)
 export interface ExecuteFilter {
   round?: number | null;
   side?: Side | "all";
+  site?: SiteCallout | "all";
   kinds?: ExecuteKind[];
 }
 
@@ -378,6 +445,7 @@ export function filterExecutes(beats: ExecuteBeat[], filter: ExecuteFilter): Exe
   return beats.filter((b) => {
     if (filter.round != null && b.round !== filter.round) return false;
     if (filter.side && filter.side !== "all" && b.side !== filter.side) return false;
+    if (filter.site && filter.site !== "all" && b.site !== filter.site) return false;
     if (kinds && !kinds.has(b.kind)) return false;
     return true;
   });

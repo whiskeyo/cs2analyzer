@@ -268,6 +268,9 @@ pub struct BombEvent {
     pub z: f32,
     #[serde(default)]
     pub haskit: bool,
+    /// Bombsite index from `bomb_planted` (`0` = A, `1` = B).
+    #[serde(default)]
+    pub site: Option<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

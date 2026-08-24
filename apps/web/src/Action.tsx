@@ -1,6 +1,6 @@
 import { ACTION_HIGHLIGHT_SECONDS, tickRate } from "./constants";
 import { useMemo, useState } from "react";
-import { type ExecuteKind, filterExecutes, findExecutes } from "./execute";
+import { type ExecuteKind, type SiteCallout, filterExecutes, findExecutes } from "./execute";
 import { roundStories } from "./roundStory";
 import { currentRound } from "./sample";
 import type { Replay, Side } from "./types";
@@ -21,14 +21,15 @@ const KINDS: { id: ExecuteKind; label: string }[] = [
 export function Action({ replay, tick, onJump }: Props) {
   const [thisRound, setThisRound] = useState(false);
   const [side, setSide] = useState<Side | "all">("all");
+  const [site, setSite] = useState<SiteCallout | "all">("all");
   const [kinds, setKinds] = useState<ExecuteKind[]>([]);
   const live = currentRound(replay, tick);
   const stories = useMemo(() => roundStories(replay), [replay]);
   const beats = useMemo(() => findExecutes(replay), [replay]);
   const roundN = thisRound ? (live && !live.is_knife ? live.number : -1) : null;
   const filtered = useMemo(
-    () => filterExecutes(beats, { round: roundN, side, kinds }),
-    [beats, roundN, side, kinds],
+    () => filterExecutes(beats, { round: roundN, side, site, kinds }),
+    [beats, roundN, side, site, kinds],
   );
   const visibleStories = roundN != null ? stories.filter((s) => s.round === roundN) : stories;
 
@@ -77,6 +78,35 @@ export function Action({ replay, tick, onJump }: Props) {
           onClick={() => setSide("CT")}
         >
           CT
+        </button>
+        <span className="filter-gap" />
+        <button
+          type="button"
+          className={`filter${site === "all" ? " on" : ""}`}
+          onClick={() => setSite("all")}
+        >
+          All sites
+        </button>
+        <button
+          type="button"
+          className={`filter${site === "A" ? " on" : ""}`}
+          onClick={() => setSite("A")}
+        >
+          A
+        </button>
+        <button
+          type="button"
+          className={`filter${site === "B" ? " on" : ""}`}
+          onClick={() => setSite("B")}
+        >
+          B
+        </button>
+        <button
+          type="button"
+          className={`filter${site === "Mid" ? " on" : ""}`}
+          onClick={() => setSite("Mid")}
+        >
+          Mid
         </button>
         <span className="filter-gap" />
         {KINDS.map((k) => (

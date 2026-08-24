@@ -22,6 +22,7 @@ import {
 import { currentRound, samplePlayers } from "./sample";
 import {
   GEAR_DEFUSER,
+  type BombEvent,
   type Kill,
   type Player,
   type PlayerStats,
@@ -544,11 +545,23 @@ export function activeBomb(
   for (const e of replay.bombEvents) {
     if (e.tick > tick) continue;
     if (e.tick < round.start_tick || e.tick > round.end_tick) continue;
-    if (e.kind === "planted") plant = { x: e.x, y: e.y };
+    if (e.kind === "planted") {
+      const pos = plantedBombPos(replay, e);
+      plant = { x: pos.x, y: pos.y };
+    }
     if (e.kind === "defused" || e.kind === "exploded") plant = null;
   }
   if (!plant) return null;
   return { ...clock, ...plant };
+}
+
+/** World position of a plant. GOTV often omits pawn XYZ; fall back to the planter. */
+export function plantedBombPos(replay: Replay, e: BombEvent): { x: number; y: number; z: number } {
+  if (e.x !== 0 || e.y !== 0) return { x: e.x, y: e.y, z: e.z };
+  if (e.player < 0) return { x: e.x, y: e.y, z: e.z };
+  const p = samplePlayers(replay, e.tick)[e.player];
+  if (p?.present) return { x: p.x, y: p.y, z: p.z };
+  return { x: e.x, y: e.y, z: e.z };
 }
 
 function bombClock(

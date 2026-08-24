@@ -101,6 +101,52 @@ const roster = [
 ];
 
 describe("findExecutes", () => {
+  it("labels a Dust2 A dump as A", () => {
+    const m = replay({
+      players: roster,
+      rounds: [round({ number: 1, winner: "T" })],
+      header: {
+        map_name: "de_dust2",
+        tick_rate: 64,
+        tick_stride: 4,
+        duration_s: 10,
+        playback_ticks: 1920,
+        team_ct: "CT",
+        team_t: "T",
+        score_ct: 0,
+        score_t: 0,
+      },
+      grenades: [nade(200, 0, "smoke", 1128, 2518), nade(220, 1, "smoke", 1180, 2480)],
+    });
+    const beats = findExecutes(m);
+    expect(beats).toHaveLength(1);
+    expect(beats[0].site).toBe("A");
+    expect(beats[0].title).toMatch(/A/);
+  });
+
+  it("labels an Anubis A plant as A, not Mid", () => {
+    const m = replay({
+      players: roster,
+      rounds: [round({ number: 1, winner: "T" })],
+      header: {
+        map_name: "de_anubis",
+        tick_rate: 64,
+        tick_stride: 4,
+        duration_s: 10,
+        playback_ticks: 1920,
+        team_ct: "CT",
+        team_t: "T",
+        score_ct: 0,
+        score_t: 0,
+      },
+      bombEvents: [{ tick: 400, kind: "planted", player: 0, x: -658, y: 1835, z: 80 }],
+    });
+    const beats = findExecutes(m);
+    const plant = beats.find((b) => b.kind === "plant");
+    expect(plant?.site).toBe("A");
+    expect(plant?.title).toMatch(/A/);
+  });
+
   it("treats a T smoke dump as an execute", () => {
     const m = replay({
       players: roster,
