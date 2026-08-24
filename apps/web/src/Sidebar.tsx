@@ -1,18 +1,22 @@
 import { useState } from "react";
 import { Action } from "./Action";
+import { Clutch } from "./Clutch";
 import { Review } from "./Review";
 import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
 import { computeStats, weaponBreakdown } from "./stats";
 import type { Replay } from "./types";
+import { Utility } from "./Utility";
 import { WeaponIcon } from "./WeaponIcon";
 
-type Tab = "score" | "player" | "action" | "rounds" | "weapons";
+type Tab = "score" | "player" | "action" | "util" | "clutch" | "rounds" | "weapons";
 
 const TAB_LABEL: Record<Tab, string> = {
   score: "Score",
   player: "Review",
   action: "Action",
+  util: "Util",
+  clutch: "Clutch",
   rounds: "Rounds",
   weapons: "Weapons",
 };
@@ -33,16 +37,18 @@ export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
   return (
     <aside className="sidebar">
       <div className="tabs">
-        {(["score", "player", "action", "rounds", "weapons"] as const).map((id) => (
-          <button
-            key={id}
-            type="button"
-            className={tab === id ? "on" : ""}
-            onClick={() => setTab(id)}
-          >
-            {TAB_LABEL[id]}
-          </button>
-        ))}
+        {(["score", "player", "action", "util", "clutch", "rounds", "weapons"] as const).map(
+          (id) => (
+            <button
+              key={id}
+              type="button"
+              className={tab === id ? "on" : ""}
+              onClick={() => setTab(id)}
+            >
+              {TAB_LABEL[id]}
+            </button>
+          ),
+        )}
       </div>
       {tab === "score" && (
         <Scoreboard replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
@@ -57,6 +63,24 @@ export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
         />
       )}
       {tab === "action" && <Action replay={replay} tick={tick} onJump={onJump} />}
+      {tab === "util" && (
+        <Utility
+          replay={replay}
+          tick={tick}
+          selected={selected}
+          onJump={onJump}
+          onSelect={(i) => onSelect(i)}
+        />
+      )}
+      {tab === "clutch" && (
+        <Clutch
+          replay={replay}
+          tick={tick}
+          selected={selected}
+          onJump={onJump}
+          onSelect={(i) => onSelect(i)}
+        />
+      )}
       {tab === "rounds" && (
         <RoundList replay={replay} tick={tick} onJump={onJump} onSelect={onSelect} />
       )}

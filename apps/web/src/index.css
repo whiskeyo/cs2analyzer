@@ -32,7 +32,7 @@ body,
   flex-direction: column;
   align-items: center;
   gap: 1.25rem;
-  width: min(520px, 92vw);
+  width: min(560px, 92vw);
 }
 
 .drop {
@@ -88,6 +88,87 @@ body,
 }
 .error {
   color: #ff6b6b;
+}
+.notice {
+  color: #7dcea0;
+  font-size: 0.85rem;
+}
+.home-notes {
+  width: 100%;
+  text-align: center;
+}
+.home-notes-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+}
+.saved-demos {
+  margin-top: 1rem;
+  text-align: left;
+}
+.saved-demos h2 {
+  margin: 0 0 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: #c5d0da;
+}
+.saved-demos ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #1e2732;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #12171d;
+}
+.saved-demos li {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid #1e2732;
+}
+.saved-demos li:last-child {
+  border-bottom: none;
+}
+.saved-demo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0.55rem 0.7rem;
+  cursor: pointer;
+  text-align: left;
+}
+.saved-demo:hover {
+  background: #1a222c;
+}
+.saved-demo-map {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+.saved-demo-file {
+  font-size: 0.75rem;
+  color: #c5d0da;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.saved-demo-meta {
+  font-size: 0.7rem;
+  color: #8b98a5;
+}
+.saved-demo-del {
+  flex-shrink: 0;
+  align-self: center;
+  margin-right: 0.45rem;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
 }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -154,12 +235,23 @@ code {
   font-size: 0.85rem;
 }
 .ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 2rem;
   background: transparent;
   color: #c5d0da;
   border: 1px solid #2c3846;
   border-radius: 6px;
   padding: 0.3rem 0.7rem;
   cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .stage {
@@ -190,9 +282,20 @@ code {
   color: #e8eef4;
   border: 1px solid #2c3846;
   border-radius: 6px;
-  padding: 0.25rem 0.55rem;
+  padding: 0.22rem 0.45rem;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+}
+.map-toolbar button.icon-btn {
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-toolbar button.icon-btn svg {
+  display: block;
 }
 .map-toolbar button.on {
   border-color: #6aa4d8;
@@ -208,14 +311,27 @@ code {
   margin: 0 0.4rem;
 }
 .swatch {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border-radius: 99px;
-  border: 2px solid transparent;
+  border: 2px solid #0008;
+  box-shadow: 0 0 0 1px #fff4;
 }
 .swatch.on {
   border-color: #fff;
+  box-shadow: 0 0 0 1px #000a;
+}
+.palette-picks,
+.floor-picks {
+  display: flex;
+  gap: 0.2rem;
+  margin: 0 0.15rem;
+}
+.palette-picks button,
+.floor-picks button {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
 }
 .toolbar-sep {
   width: 1px;
@@ -300,13 +416,14 @@ code {
 }
 .tabs button {
   flex: 1;
+  min-width: 3.2rem;
   background: #1c242e;
   color: #c5d0da;
   border: 1px solid #2c3846;
   border-radius: 6px;
   padding: 0.28rem 0.3rem;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
 .tabs button.on {
   border-color: #6aa4d8;
@@ -652,6 +769,16 @@ button.link {
 .review-detail {
   font-size: 0.72rem;
   color: #8b98a5;
+}
+.util-head {
+  margin: 0.85rem 0 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: #e8eef4;
+}
+.util-head .muted {
+  font-weight: 400;
+  font-size: 0.72rem;
 }
 .review-round {
   flex-shrink: 0;

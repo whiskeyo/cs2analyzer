@@ -234,6 +234,8 @@ export type WorkerOut =
 
 export type DrawTool = "pan" | "pen" | "arrow" | "eraser";
 
+export type FloorMode = "auto" | "upper" | "lower";
+
 export interface MapLayers {
   grenades: boolean;
   shots: boolean;
@@ -242,6 +244,7 @@ export interface MapLayers {
   cone: boolean;
   heatmap: boolean;
   summary: boolean;
+  openings: boolean;
 }
 
 export const DEFAULT_LAYERS: MapLayers = {
@@ -252,6 +255,7 @@ export const DEFAULT_LAYERS: MapLayers = {
   cone: true,
   heatmap: false,
   summary: false,
+  openings: true,
 };
 
 export type Stroke = { round: number } & (

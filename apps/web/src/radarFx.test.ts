@@ -11,6 +11,9 @@ import {
   nadePopTick,
   nadeVisibleEnd,
   nadesForSummary,
+  occupancyToDraw,
+  openingDuel,
+  shortenSegment,
 } from "./radarFx";
 import {
   FLAG_ALIVE,
@@ -78,6 +81,17 @@ describe("firesAt", () => {
   });
 });
 
+describe("occupancyToDraw", () => {
+  it("uses the first occupancy wave before cells start, then live cells", () => {
+    const g = smoke({
+      voxels: [{ x: 1, y: 2, start_tick: 140, end_tick: 200 }],
+    });
+    expect(occupancyToDraw(g, 110)).toEqual(g.voxels);
+    expect(occupancyToDraw(g, 150)).toEqual(g.voxels);
+    expect(occupancyToDraw(g, 250)).toEqual(g.voxels);
+  });
+});
+
 function smoke(partial: Partial<GrenadeThrow> = {}): GrenadeThrow {
   return {
     thrower: 0,
@@ -114,6 +128,13 @@ describe("nadeVisibleEnd", () => {
   it("clips to round end", () => {
     const g = smoke();
     expect(nadeVisibleEnd(g, 64, 200)).toBe(200);
+  });
+
+  it("does not hide a smoke when occupancy was only sampled for a few ticks", () => {
+    const g = smoke({
+      voxels: [{ x: 0, y: 0, start_tick: 100, end_tick: 108 }],
+    });
+    expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * 18);
   });
 });
 
@@ -320,5 +341,36 @@ describe("killLineEnds", () => {
         kill({ tick: 100, attacker: 0, victim: 1, x: KILL_LINE_MIN_LENGTH - 1, y: 0 }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("openingDuel", () => {
+  it("is the first enemy kill of the round, not a teamkill", () => {
+    const m = replay({
+      players: [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")],
+      kills: [
+        kill({ tick: 80, attacker: 0, victim: 2, x: 10, y: 0 }),
+        kill({ tick: 120, attacker: 0, victim: 1, x: 200, y: 0 }),
+        kill({ tick: 180, attacker: 1, victim: 0, x: 0, y: 0 }),
+      ],
+    });
+    const r = m.rounds[0];
+    expect(openingDuel(m, r, 110)).toBeNull();
+    expect(openingDuel(m, r, 120)?.attacker).toBe(0);
+    expect(openingDuel(m, r, 120)?.victim).toBe(1);
+    expect(openingDuel(m, r, 640)?.tick).toBe(120);
+  });
+});
+
+describe("shortenSegment", () => {
+  it("caps length and leaves short segments", () => {
+    expect(shortenSegment({ x: 0, y: 0 }, { x: 100, y: 0 }, 40)).toEqual({
+      from: { x: 0, y: 0 },
+      to: { x: 40, y: 0 },
+    });
+    expect(shortenSegment({ x: 0, y: 0 }, { x: 10, y: 0 }, 40)).toEqual({
+      from: { x: 0, y: 0 },
+      to: { x: 10, y: 0 },
+    });
   });
 });

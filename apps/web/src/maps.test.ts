@@ -32,6 +32,10 @@ describe("radarFloor", () => {
     expect(radarFloor(nuke, players, null)).toBe("default");
     expect(radarFloor(nuke, players, 0)).toBe("lower");
     expect(radarFloor(nuke, players, 1)).toBe("default");
+    expect(radarFloor(nuke, players, 0, "upper")).toBe("default");
+    expect(radarFloor(nuke, players, 1, "lower")).toBe("lower");
+    expect(radarFloor(nuke, players, null, "upper")).toBe("default");
+    expect(radarFloor(nuke, players, null, "lower")).toBe("lower");
   });
 
   it("uses majority of alive players when nobody is selected", () => {

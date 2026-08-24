@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { tickRate } from "./constants";
+import { OPENING_ARROW_MAX_PX, PEN_MIN_SAMPLE_DISTANCE, tickRate } from "./constants";
 import { radarFloor, radarUrl, screenToWorld, worldToScreen, type RadarView } from "./maps";
 import { publicUrl } from "./publicUrl";
 import {
@@ -9,17 +9,29 @@ import {
   HIT_SECONDS,
   hitsAt,
   killLineEnds,
+  occupancyToDraw,
   lingerRemaining,
   nadeLandPos,
   nadePopTick,
   nadeVisibleEnd,
   nadesForSummary,
   NADE_COLORS,
+  openingDuel,
+  shortenSegment,
   TRACER_SECONDS,
 } from "./radarFx";
 import { currentRound, samplePlayers, sampleTrail } from "./sample";
 import { activeBomb } from "./stats";
-import type { DrawTool, MapCalibration, MapLayers, Replay, Stroke, SummaryFilter } from "./types";
+import { drawSmoothLine, simplifyStroke } from "./strokes";
+import type {
+  DrawTool,
+  FloorMode,
+  MapCalibration,
+  MapLayers,
+  Replay,
+  Stroke,
+  SummaryFilter,
+} from "./types";
 
 function yawToCanvas(yaw: number): number {
   // CS2 eye yaw 0 is +X, but the pawn forward used on radar is 180° from that.
@@ -69,6 +81,37 @@ function grenadePosAt(
   return points[points.length - 1];
 }
 
+function drawCurvedArrow(
+  ctx: CanvasRenderingContext2D,
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  color: string,
+  width: number,
+) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const bulge = Math.min(16, len * 0.08);
+  const cx = (a.x + b.x) / 2 - (dy / len) * bulge;
+  const cy = (a.y + b.y) / 2 + (dx / len) * bulge;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.quadraticCurveTo(cx, cy, b.x, b.y);
+  ctx.stroke();
+  const ang = Math.atan2(b.y - cy, b.x - cx);
+  ctx.beginPath();
+  ctx.moveTo(b.x, b.y);
+  ctx.lineTo(b.x - 14 * Math.cos(ang - 0.4), b.y - 14 * Math.sin(ang - 0.4));
+  ctx.lineTo(b.x - 14 * Math.cos(ang + 0.4), b.y - 14 * Math.sin(ang + 0.4));
+  ctx.closePath();
+  ctx.fill();
+}
+
 interface Props {
   replay: Replay;
   tick: number;
@@ -85,6 +128,7 @@ interface Props {
   layers: MapLayers;
   summaryFilter: SummaryFilter;
   viewEpoch: number;
+  floorMode: FloorMode;
 }
 
 export function RadarCanvas({
@@ -103,6 +147,7 @@ export function RadarCanvas({
   layers,
   summaryFilter,
   viewEpoch,
+  floorMode,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -132,6 +177,8 @@ export function RadarCanvas({
   layersRef.current = layers;
   const summaryFilterRef = useRef(summaryFilter);
   summaryFilterRef.current = summaryFilter;
+  const floorModeRef = useRef(floorMode);
+  floorModeRef.current = floorMode;
   const calRef = useRef(cal);
   calRef.current = cal;
   const images = useRef<{ upper: HTMLImageElement | null; lower: HTMLImageElement | null }>({
@@ -151,6 +198,7 @@ export function RadarCanvas({
     ly: 0,
   });
   const draft = useRef<Stroke | null>(null);
+  const penTip = useRef<{ x: number; y: number } | null>(null);
   const c4Icon = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
@@ -227,7 +275,8 @@ export function RadarCanvas({
 
       const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, v, wx, wy);
 
-      const useLower = radarFloor(calNow, players, selectedRef.current) === "lower";
+      const useLower =
+        radarFloor(calNow, players, selectedRef.current, floorModeRef.current) === "lower";
       const img = useLower ? images.current.lower : images.current.upper;
 
       ctx.save();
@@ -348,7 +397,7 @@ export function RadarCanvas({
               g.kind === "molotov"
                 ? firesAt(g.fires, tickNow)
                 : g.kind === "smoke"
-                  ? firesAt(g.voxels, tickNow)
+                  ? occupancyToDraw(g, tickNow)
                   : [];
             if (lingering && cells.length > 0) {
               let cx = 0;
@@ -405,8 +454,8 @@ export function RadarCanvas({
                 ctx.closePath();
                 ctx.fill();
               }
-            } else if (lingering && occupancy && occupancy.length > 0) {
-              // Occupancy was sampled but none is live — don't keep the envelope circle.
+            } else if (lingering && occupancy && occupancy.length > 0 && g.kind !== "smoke") {
+              // Molly occupancy was sampled but none is live — don't keep the envelope circle.
             } else {
               const last = g.points[g.points.length - 1];
               if (last) {
@@ -540,6 +589,34 @@ export function RadarCanvas({
         }
       }
 
+      if (layersNow.openings) {
+        const round = currentRound(replay, tickNow);
+        if (round) {
+          const opening = openingDuel(replay, round, tickNow);
+          if (opening) {
+            const line = killLineEnds(replay, opening);
+            if (line) {
+              const from = toScreen(line.from.x, line.from.y);
+              const to = toScreen(line.to.x, line.to.y);
+              const short = shortenSegment(from, to, OPENING_ARROW_MAX_PX);
+              const color = line.ct ? "#5b9fd6" : "#ffd24a";
+              ctx.globalAlpha = 1;
+              drawCurvedArrow(ctx, short.from, short.to, color, 3.2);
+              ctx.fillStyle = color;
+              ctx.strokeStyle = "#12181f";
+              ctx.lineWidth = 3;
+              ctx.font = "bold 11px ui-sans-serif, system-ui";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "bottom";
+              ctx.strokeText("FK", short.from.x, short.from.y - 8);
+              ctx.fillText("FK", short.from.x, short.from.y - 8);
+              ctx.strokeText("FD", to.x, to.y - 8);
+              ctx.fillText("FD", to.x, to.y - 8);
+            }
+          }
+        }
+      }
+
       if (trailsRef.current) {
         const lookback = ticksPerSecond * 2.5;
         const ids =
@@ -562,35 +639,21 @@ export function RadarCanvas({
         }
       }
 
-      const drawStroke = (st: Stroke, alpha = 1) => {
+      const drawStroke = (st: Stroke, alpha = 1, live = false) => {
         ctx.globalAlpha = alpha;
         ctx.strokeStyle = st.color;
         ctx.fillStyle = st.color;
-        ctx.lineWidth = 2.2;
+        ctx.lineWidth = st.type === "arrow" ? 3.2 : 2.8;
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
         if (st.type === "pen") {
-          ctx.beginPath();
-          st.points.forEach((pt, i) => {
-            const s = toScreen(pt.x, pt.y);
-            if (i === 0) ctx.moveTo(s.x, s.y);
-            else ctx.lineTo(s.x, s.y);
-          });
-          ctx.stroke();
+          const worldPts = live ? st.points : simplifyStroke(st.points);
+          const pts = worldPts.map((pt) => toScreen(pt.x, pt.y));
+          drawSmoothLine(ctx, pts);
         } else {
           const a = toScreen(st.from.x, st.from.y);
           const b = toScreen(st.to.x, st.to.y);
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.stroke();
-          const ang = Math.atan2(b.y - a.y, b.x - a.x);
-          ctx.beginPath();
-          ctx.moveTo(b.x, b.y);
-          ctx.lineTo(b.x - 12 * Math.cos(ang - 0.4), b.y - 12 * Math.sin(ang - 0.4));
-          ctx.lineTo(b.x - 12 * Math.cos(ang + 0.4), b.y - 12 * Math.sin(ang + 0.4));
-          ctx.closePath();
-          ctx.fill();
+          drawCurvedArrow(ctx, a, b, st.color, 3.2);
         }
         ctx.globalAlpha = 1;
       };
@@ -598,7 +661,7 @@ export function RadarCanvas({
       for (const st of strokesRef.current) {
         if (st.round === roundNow) drawStroke(st);
       }
-      if (draft.current) drawStroke(draft.current, 0.7);
+      if (draft.current) drawStroke(draft.current, 0.85, true);
 
       if (layersNow.cone && selectedRef.current != null) {
         const p = players.find((x) => x.index === selectedRef.current && x.present && x.alive);
@@ -748,6 +811,7 @@ export function RadarCanvas({
           toolNow === "pen"
             ? { type: "pen", color: colorRef.current, round, points: [world] }
             : { type: "arrow", color: colorRef.current, round, from: world, to: world };
+        penTip.current = toolNow === "pen" ? world : null;
         return;
       }
 
@@ -772,7 +836,11 @@ export function RadarCanvas({
           y,
         );
         if (draft.current.type === "pen") {
-          draft.current.points.push(world);
+          penTip.current = world;
+          const last = draft.current.points[draft.current.points.length - 1];
+          if (Math.hypot(world.x - last.x, world.y - last.y) >= PEN_MIN_SAMPLE_DISTANCE) {
+            draft.current.points.push(world);
+          }
         } else {
           draft.current.to = world;
         }
@@ -794,8 +862,24 @@ export function RadarCanvas({
 
     const onUp = () => {
       if (view.current.drawing && draft.current) {
-        onStrokesRef.current([...strokesRef.current, draft.current]);
+        let st = draft.current;
+        if (st.type === "pen") {
+          const tip = penTip.current;
+          if (tip) {
+            const last = st.points[st.points.length - 1];
+            if (Math.hypot(tip.x - last.x, tip.y - last.y) > 0) st.points.push(tip);
+          }
+          if (st.points.length < 2) {
+            draft.current = null;
+            penTip.current = null;
+            view.current.drawing = false;
+            return;
+          }
+          st = { ...st, points: simplifyStroke(st.points) };
+        }
+        onStrokesRef.current([...strokesRef.current, st]);
         draft.current = null;
+        penTip.current = null;
       }
       view.current.drawing = false;
       view.current.dragging = false;

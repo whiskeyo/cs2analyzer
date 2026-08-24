@@ -3,9 +3,11 @@ import {
   HE_DECOY_SECONDS,
   KILL_LINE_MIN_LENGTH,
   MOLOTOV_SECONDS,
+  SMOKE_OCCUPANCY_RELIABLE_SECONDS,
   SMOKE_SECONDS,
 } from "./constants";
 import { currentRound, samplePlayer } from "./sample";
+import { isEnemyKill } from "./stats";
 import type {
   Blind,
   FireCell,
@@ -14,6 +16,7 @@ import type {
   Hurt,
   Kill,
   Replay,
+  Round,
   SummaryFilter,
 } from "./types";
 
@@ -100,6 +103,28 @@ export function firesAt(fires: FireCell[] | undefined, tick: number): FireCell[]
   return fires.filter((c) => tick >= c.start_tick && tick <= c.end_tick);
 }
 
+/**
+ * Smoke cells to draw at `tick`. If occupancy was sampled late or has a gap,
+ * keep the last known footprint instead of drawing nothing.
+ */
+export function occupancyToDraw(g: GrenadeThrow, tick: number): FireCell[] {
+  const cells = g.voxels;
+  if (!cells || cells.length === 0) return [];
+  const live = firesAt(cells, tick);
+  if (live.length > 0) return live;
+  let latestEnd = 0;
+  for (const c of cells) {
+    if (c.end_tick <= tick && c.end_tick > latestEnd) latestEnd = c.end_tick;
+  }
+  if (latestEnd > 0) return cells.filter((c) => c.end_tick === latestEnd);
+  let earliest = Number.POSITIVE_INFINITY;
+  for (const c of cells) {
+    if (c.start_tick < earliest) earliest = c.start_tick;
+  }
+  if (!Number.isFinite(earliest)) return [];
+  return cells.filter((c) => c.start_tick === earliest);
+}
+
 function occupancyOf(g: GrenadeThrow): FireCell[] | undefined {
   if (g.kind === "molotov") return g.fires;
   if (g.kind === "smoke") return g.voxels;
@@ -130,10 +155,14 @@ export function nadeVisibleEnd(g: GrenadeThrow, tickRate: number, roundEnd?: num
   const cells = occupancyOf(g);
   if (cells && cells.length > 0) {
     let last = 0;
+    let first = Number.POSITIVE_INFINITY;
     for (const c of cells) {
       if (c.end_tick > last) last = c.end_tick;
+      if (c.start_tick < first) first = c.start_tick;
     }
-    if (last > 0 && last < end) end = last;
+    const coverage = last - (Number.isFinite(first) ? first : last);
+    const reliable = g.kind !== "smoke" || coverage >= SMOKE_OCCUPANCY_RELIABLE_SECONDS * rate;
+    if (last > 0 && last < end && reliable) end = last;
   }
   if (roundEnd != null && roundEnd > 0) end = Math.min(end, roundEnd);
   return end;
@@ -198,4 +227,30 @@ export function killLineEnds(replay: Replay, k: Kill): KillLineEnds | null {
   const dy = attacker.y - k.y;
   if (dx * dx + dy * dy < KILL_LINE_MIN_LENGTH * KILL_LINE_MIN_LENGTH) return null;
   return { from: { x: attacker.x, y: attacker.y }, to: { x: k.x, y: k.y }, ct: attacker.ct };
+}
+
+/** First enemy frag of the round through `untilTick`. */
+export function openingDuel(replay: Replay, round: Round, untilTick: number): Kill | null {
+  if (round.is_knife) return null;
+  let first: Kill | null = null;
+  for (const k of replay.kills) {
+    if (k.tick < round.freeze_end_tick || k.tick > round.end_tick || k.tick > untilTick) continue;
+    if (!isEnemyKill(replay, k)) continue;
+    if (!first || k.tick < first.tick) first = k;
+  }
+  return first;
+}
+
+/** Cap a segment at `maxLen` (same units as the points — world or screen). */
+export function shortenSegment(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  maxLen: number,
+): { from: { x: number; y: number }; to: { x: number; y: number } } {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.hypot(dx, dy);
+  if (len <= maxLen || len === 0) return { from, to };
+  const s = maxLen / len;
+  return { from, to: { x: from.x + dx * s, y: from.y + dy * s } };
 }

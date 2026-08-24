@@ -44,6 +44,9 @@ export const MOLOTOV_SECONDS = 7;
 export const HE_DECOY_SECONDS = 0.5;
 export const FLASH_POP_SECONDS = 0.4;
 
+/** Occupancy shorter than this is undersampled; keep the full smoke linger. */
+export const SMOKE_OCCUPANCY_RELIABLE_SECONDS = 4;
+
 /** World-unit gap: nades farther than this are different sites. */
 export const NADE_SITE_SEPARATION = 2000;
 
@@ -82,6 +85,21 @@ export const KILL_FEED_SECONDS = 6;
 
 /** Skip a kill line when attacker and victim are closer than this (world units). */
 export const KILL_LINE_MIN_LENGTH = 24;
+
+/** Opening-duel arrow on radar, screen pixels from the attacker. */
+export const OPENING_ARROW_MAX_PX = 72;
+
+/** Undo stack depth for drawings. */
+export const DRAW_HISTORY_LIMIT = 80;
+
+/** World units: skip pen samples closer than this (keep letter-sized strokes). */
+export const PEN_MIN_SAMPLE_DISTANCE = 4;
+
+/** How far interior pen points slide toward their neighbors (0–1). */
+export const PEN_SMOOTH_AMOUNT = 0.2;
+
+/** Debounce before writing the review overlay to IndexedDB. */
+export const PROJECT_SAVE_DEBOUNCE_MS = 400;
 
 /** CS2 round-win reason codes (`m_iRoundWinStatus` / game events). */
 export const WIN_REASON_BOMB = 1;

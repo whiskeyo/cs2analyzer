@@ -1,5 +1,5 @@
 import { publicUrl } from "./publicUrl";
-import type { MapCalibration } from "./types";
+import type { FloorMode, MapCalibration } from "./types";
 
 let cache: Record<string, MapCalibration> | null = null;
 
@@ -43,13 +43,16 @@ export function floorForZ(c: MapCalibration, z: number): "default" | "lower" {
   return "default";
 }
 
-/** Which radar image to draw. Followed/selected player wins; otherwise majority of alive. */
+/** Which radar image to draw. Explicit Upper/Lower wins; Auto follows selected, then majority alive. */
 export function radarFloor(
   c: MapCalibration | undefined,
   players: { index: number; z: number; present: boolean; alive: boolean }[],
   selected: number | null,
+  mode: FloorMode = "auto",
 ): "default" | "lower" {
   if (!c?.lower_radar) return "default";
+  if (mode === "upper") return "default";
+  if (mode === "lower") return "lower";
   if (selected != null) {
     const focus = players.find((p) => p.index === selected && p.present);
     if (focus) return floorForZ(c, focus.z);
