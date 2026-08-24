@@ -18,10 +18,36 @@ if [[ ! -f "$LOCAL_DIR/index.html" ]]; then
   exit 1
 fi
 
-# lftp reads this when -u has a user but no password (commas in the secret are safe).
-export LFTP_PASSWORD="$FTP_PASSWORD"
+# `-u user` with LFTP_PASSWORD still prompts; with no TTY lftp logs in anonymous
+# and OVH returns 530. ~/.netrc is how lftp picks up a password non-interactively.
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+export HOME="$work"
 
-lftp -u "$FTP_USERNAME" "$FTP_HOST" <<EOF
+python3 - <<'PY'
+import os
+from pathlib import Path
+
+def quote(value: str) -> str:
+    if any(ch in value for ch in ' \t\'"\\'):
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return value
+
+host = os.environ["FTP_HOST"]
+for prefix in ("ftpes://", "ftps://", "ftp://"):
+    if host.lower().startswith(prefix):
+        host = host[len(prefix) :]
+        break
+host = host.split("/")[0]
+
+Path.home().joinpath(".netrc").write_text(
+    f"machine {quote(host)}\nlogin {quote(os.environ['FTP_USERNAME'])}\npassword {quote(os.environ['FTP_PASSWORD'])}\n",
+    encoding="utf-8",
+)
+PY
+chmod 600 "$HOME/.netrc"
+
+lftp "$FTP_HOST" <<EOF
 set cmd:fail-exit yes
 set ssl:verify-certificate no
 set ftp:ssl-allow yes
