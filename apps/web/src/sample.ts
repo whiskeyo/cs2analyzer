@@ -48,37 +48,43 @@ function frameAt(ticks: Uint32Array, tick: number): { i: number; t: number } {
   return { i: lo, t };
 }
 
-export function samplePlayers(replay: Replay, tick: number): SampledPlayer[] {
+export function samplePlayer(replay: Replay, player: number, tick: number): SampledPlayer | null {
   const buf = replay.ticks;
   const pc = buf.playerCount;
-  if (pc === 0 || buf.frameCount === 0) return [];
+  if (pc === 0 || buf.frameCount === 0 || player < 0 || player >= pc) return null;
   const { i, t } = frameAt(buf.ticks, tick);
   const j = Math.min(i + 1, buf.frameCount - 1);
+  const a = i * pc + player;
+  const b = j * pc + player;
+  const flags = buf.flags[a];
+  return {
+    index: player,
+    x: lerp(buf.x[a], buf.x[b], t),
+    y: lerp(buf.y[a], buf.y[b], t),
+    z: lerp(buf.z[a], buf.z[b], t),
+    yaw: lerpAngle(buf.yaw[a], buf.yaw[b], t),
+    health: buf.health[a],
+    armor: buf.armor[a],
+    present: (flags & FLAG_PRESENT) !== 0,
+    alive: (flags & FLAG_ALIVE) !== 0,
+    ducked: (flags & FLAG_DUCKED) !== 0,
+    scoped: (flags & FLAG_SCOPED) !== 0,
+    ct: (flags & FLAG_CT) !== 0,
+    money: buf.money?.[a] ?? 0,
+    equip: buf.equip?.[a] ?? 0,
+    gear: buf.gear?.[a] ?? 0,
+    primary: buf.primary?.[a] ?? 0,
+    secondary: buf.secondary?.[a] ?? 0,
+  };
+}
+
+export function samplePlayers(replay: Replay, tick: number): SampledPlayer[] {
+  const pc = replay.ticks.playerCount;
+  if (pc === 0 || replay.ticks.frameCount === 0) return [];
   const out: SampledPlayer[] = [];
   for (let p = 0; p < pc; p++) {
-    const a = i * pc + p;
-    const b = j * pc + p;
-    const flags = buf.flags[a];
-    const present = (flags & FLAG_PRESENT) !== 0;
-    out.push({
-      index: p,
-      x: lerp(buf.x[a], buf.x[b], t),
-      y: lerp(buf.y[a], buf.y[b], t),
-      z: lerp(buf.z[a], buf.z[b], t),
-      yaw: lerpAngle(buf.yaw[a], buf.yaw[b], t),
-      health: buf.health[a],
-      armor: buf.armor[a],
-      present,
-      alive: (flags & FLAG_ALIVE) !== 0,
-      ducked: (flags & FLAG_DUCKED) !== 0,
-      scoped: (flags & FLAG_SCOPED) !== 0,
-      ct: (flags & FLAG_CT) !== 0,
-      money: buf.money?.[a] ?? 0,
-      equip: buf.equip?.[a] ?? 0,
-      gear: buf.gear?.[a] ?? 0,
-      primary: buf.primary?.[a] ?? 0,
-      secondary: buf.secondary?.[a] ?? 0,
-    });
+    const sampled = samplePlayer(replay, p, tick);
+    if (sampled) out.push(sampled);
   }
   return out;
 }

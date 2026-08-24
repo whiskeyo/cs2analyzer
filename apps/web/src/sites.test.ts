@@ -21,11 +21,11 @@ describe("siteCallout", () => {
     expect(siteCallout("de_cbble", 0, 0)).toBeNull();
   });
 
-  it("labels Anubis A west of CT, not the map origin", () => {
-    expect(siteCallout("de_anubis", -658, 1835)).toBe("A");
-    expect(siteCallout("de_anubis", -16, -307)).toBe("B");
-    expect(siteCallout("de_anubis", -337, 764)).toBe("Mid");
-    expect(nearestBombsite("de_anubis", -658, 1835)).toBe("A");
-    expect(nearestBombsite("de_anubis", 0, 0)).toBe("B");
+  it("labels Anubis A on the west pillar and B on the northeast temple", () => {
+    expect(siteCallout("de_anubis", -1460, 705)).toBe("A");
+    expect(siteCallout("de_anubis", 1320, 1936)).toBe("B");
+    expect(siteCallout("de_anubis", -70, 1324)).toBe("Mid");
+    expect(nearestBombsite("de_anubis", -1460, 705)).toBe("A");
+    expect(nearestBombsite("de_anubis", 1320, 1936)).toBe("B");
   });
 });

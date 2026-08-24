@@ -1,14 +1,27 @@
 import { describe, expect, it } from "vitest";
+import { KILL_LINE_MIN_LENGTH } from "./constants";
 import {
   blindsAt,
   firesAt,
   HIT_SECONDS,
   hitsAt,
+  killLineEnds,
   lingerRemaining,
+  nadeLandPos,
   nadePopTick,
   nadeVisibleEnd,
+  nadesForSummary,
 } from "./radarFx";
-import type { GrenadeThrow } from "./types";
+import {
+  FLAG_ALIVE,
+  FLAG_CT,
+  FLAG_PRESENT,
+  type GrenadeThrow,
+  type Kill,
+  type Player,
+  type Replay,
+  type Round,
+} from "./types";
 
 describe("blindsAt", () => {
   it("returns remaining flash time for the victim", () => {
@@ -110,5 +123,174 @@ describe("nadePopTick", () => {
       voxels: [{ x: 0, y: 0, start_tick: 120, end_tick: 400 }],
     });
     expect(nadePopTick(g)).toBe(120);
+  });
+});
+
+describe("nadeLandPos", () => {
+  it("uses the last trajectory point when there is no occupancy", () => {
+    const g = smoke({
+      points: [
+        { tick: 80, x: 0, y: 0, z: 0 },
+        { tick: 100, x: 400, y: 200, z: 10 },
+      ],
+    });
+    expect(nadeLandPos(g)).toEqual({ x: 400, y: 200 });
+  });
+
+  it("uses the occupancy centroid at pop", () => {
+    const g = smoke({
+      voxels: [
+        { x: 0, y: 0, start_tick: 100, end_tick: 200 },
+        { x: 20, y: 40, start_tick: 100, end_tick: 200 },
+        { x: 999, y: 999, start_tick: 201, end_tick: 300 },
+      ],
+    });
+    expect(nadeLandPos(g)).toEqual({ x: 10, y: 20 });
+  });
+
+  it("returns null with no points and no occupancy", () => {
+    expect(nadeLandPos(smoke())).toBeNull();
+  });
+});
+
+function player(index: number, side: Player["start_side"], name: string): Player {
+  return { index, steam_id: index + 1, name, start_side: side };
+}
+
+function round(partial: Partial<Round> & Pick<Round, "number">): Round {
+  return {
+    start_tick: 0,
+    freeze_end_tick: 64,
+    end_tick: 640,
+    winner: "CT",
+    win_reason: 8,
+    score_ct: 0,
+    score_t: 0,
+    is_knife: false,
+    ...partial,
+  };
+}
+
+function emptyTicks(playerCount: number, frameCount: number) {
+  const n = playerCount * frameCount;
+  return {
+    frameCount,
+    playerCount,
+    ticks: new Uint32Array(frameCount),
+    x: new Float32Array(n),
+    y: new Float32Array(n),
+    z: new Float32Array(n),
+    yaw: new Float32Array(n),
+    health: new Uint8Array(n),
+    armor: new Uint8Array(n),
+    flags: new Uint8Array(n),
+    money: new Uint16Array(n),
+    equip: new Uint16Array(n),
+    gear: new Uint16Array(n),
+    primary: new Uint8Array(n),
+    secondary: new Uint8Array(n),
+  };
+}
+
+function replay(partial: Partial<Replay> = {}): Replay {
+  return {
+    header: {
+      map_name: "de_anubis",
+      tick_rate: 64,
+      tick_stride: 4,
+      duration_s: 10,
+      playback_ticks: 1920,
+      team_ct: "CT",
+      team_t: "T",
+      score_ct: 0,
+      score_t: 0,
+    },
+    players: [player(0, "CT", "A"), player(1, "T", "B")],
+    rounds: [round({ number: 1 })],
+    grenades: [],
+    shots: [],
+    kills: [],
+    hurts: [],
+    blinds: [],
+    bombEvents: [],
+    stats: [],
+    ticks: emptyTicks(0, 0),
+    ...partial,
+  };
+}
+
+function kill(partial: Partial<Kill> & Pick<Kill, "tick" | "attacker" | "victim">): Kill {
+  return {
+    assister: -1,
+    weapon: "ak47",
+    headshot: false,
+    assisted_flash: false,
+    x: 0,
+    y: 0,
+    z: 0,
+    ...partial,
+  };
+}
+
+describe("nadesForSummary", () => {
+  it("drops knife-round nades and draws smokes under flashes", () => {
+    const flash: GrenadeThrow = {
+      thrower: 0,
+      kind: "flash",
+      start_tick: 200,
+      detonate_tick: 220,
+      end_tick: 240,
+      points: [{ tick: 220, x: 1, y: 1, z: 0 }],
+    };
+    const knifeSmoke = smoke({ start_tick: 10, detonate_tick: 20 });
+    const liveSmoke = smoke({ start_tick: 200, detonate_tick: 220 });
+    const m = replay({
+      rounds: [
+        round({ number: 0, is_knife: true, start_tick: 0, end_tick: 100 }),
+        round({ number: 1, start_tick: 100, freeze_end_tick: 164, end_tick: 640 }),
+      ],
+      grenades: [flash, knifeSmoke, liveSmoke],
+    });
+    expect(nadesForSummary(m).map((g) => g.kind)).toEqual(["smoke", "flash"]);
+  });
+});
+
+describe("killLineEnds", () => {
+  it("draws attacker to victim for an enemy frag", () => {
+    const ticks = emptyTicks(2, 1);
+    ticks.ticks[0] = 100;
+    ticks.x[0] = 0;
+    ticks.y[0] = 0;
+    ticks.x[1] = 200;
+    ticks.y[1] = 0;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    const m = replay({ ticks });
+    const line = killLineEnds(m, kill({ tick: 100, attacker: 0, victim: 1, x: 200, y: 0 }));
+    expect(line).toEqual({
+      from: { x: 0, y: 0 },
+      to: { x: 200, y: 0 },
+      ct: true,
+    });
+  });
+
+  it("skips suicides, teamkills, and point-blank overlap", () => {
+    const ticks = emptyTicks(2, 1);
+    ticks.ticks[0] = 100;
+    ticks.x[0] = 0;
+    ticks.x[1] = 8;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    const m = replay({ ticks });
+    expect(killLineEnds(m, kill({ tick: 100, attacker: 0, victim: 0, x: 0, y: 0 }))).toBeNull();
+    expect(killLineEnds(m, kill({ tick: 100, attacker: 0, victim: 1, x: 8, y: 0 }))).toBeNull();
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.x[1] = KILL_LINE_MIN_LENGTH - 1;
+    expect(
+      killLineEnds(
+        m,
+        kill({ tick: 100, attacker: 0, victim: 1, x: KILL_LINE_MIN_LENGTH - 1, y: 0 }),
+      ),
+    ).toBeNull();
   });
 });

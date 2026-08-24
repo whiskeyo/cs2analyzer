@@ -23,6 +23,7 @@ import {
   type WorkerOut,
 } from "./types";
 import { publicUrl } from "./publicUrl";
+import { NADE_COLORS } from "./radarFx";
 import { prettyMap } from "./weapons";
 
 export function App() {
@@ -264,7 +265,10 @@ export function App() {
             onColor={setColor}
             onFollow={setFollow}
             onTrails={setTrails}
-            onLayers={setLayers}
+            onLayers={(next) => {
+              if (next.summary && !layers.summary) setPlaying(false);
+              setLayers(next);
+            }}
             onClear={() => setStrokes([])}
             onResetView={() => setViewEpoch((n) => n + 1)}
           />
@@ -289,6 +293,24 @@ export function App() {
               viewEpoch={viewEpoch}
             />
             <Hud replay={replay} tick={tick} />
+            {layers.summary && (
+              <ul className="nade-legend">
+                {(
+                  [
+                    ["smoke", "Smoke"],
+                    ["molotov", "Molly"],
+                    ["flash", "Flash"],
+                    ["he", "HE"],
+                    ["decoy", "Decoy"],
+                  ] as const
+                ).map(([kind, label]) => (
+                  <li key={kind}>
+                    <i style={{ background: NADE_COLORS[kind] }} />
+                    {label}
+                  </li>
+                ))}
+              </ul>
+            )}
             <SpectatorEconomy
               replay={replay}
               tick={tick}

@@ -241,6 +241,37 @@ code {
   height: 100%;
 }
 
+.nade-legend {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 4;
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.7rem;
+  background: rgba(13, 17, 22, 0.82);
+  border: 1px solid #2c3846;
+  border-radius: 8px;
+  pointer-events: none;
+  font-size: 0.75rem;
+  color: #e8eef4;
+}
+.nade-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.nade-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 99px;
+  display: inline-block;
+}
+
 .sidebar {
   overflow: auto;
   background: #10151b;

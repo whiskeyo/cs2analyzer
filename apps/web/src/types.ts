@@ -241,6 +241,7 @@ export interface MapLayers {
   deaths: boolean;
   cone: boolean;
   heatmap: boolean;
+  summary: boolean;
 }
 
 export const DEFAULT_LAYERS: MapLayers = {
@@ -250,6 +251,7 @@ export const DEFAULT_LAYERS: MapLayers = {
   deaths: true,
   cone: true,
   heatmap: false,
+  summary: false,
 };
 
 export type Stroke =

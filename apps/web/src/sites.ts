@@ -44,7 +44,8 @@ function layout(
 
 /**
  * Bombsite markers from Valve overview `bombA_x` / `bombB_y` (0–1 on the radar).
- * Anubis has no bomb icons in the overview; A is west of CT spawn, B is south toward T.
+ * Anubis has no bomb icons in the overview; A is the west pillar courtyard,
+ * B is the northeast temple (not south toward T spawn).
  */
 const MAP_SITES: Record<string, MapSites> = {
   de_dust2: layout(-2476, 3239, 4.4, [0.8, 0.16], [0.21, 0.12]),
@@ -53,7 +54,7 @@ const MAP_SITES: Record<string, MapSites> = {
   de_nuke: layout(-3453, 2887, 7, [0.58, 0.48], [0.58, 0.58], -495),
   de_overpass: layout(-4831, 1781, 5.2, [0.55, 0.23], [0.7, 0.31]),
   de_ancient: layout(-2953, 2164, 5, [0.31, 0.25], [0.8, 0.4]),
-  de_anubis: layout(-2796, 3328, 5.22, [0.4, 0.28], [0.52, 0.68]),
+  de_anubis: layout(-2796, 3328, 5.22, [0.25, 0.49], [0.77, 0.26]),
   de_vertigo: layout(-3168, 1762, 4.0, [0.705, 0.585], [0.222, 0.223], 11700),
   de_train: layout(-2308, 2078, 4.082077, [0.63, 0.49], [0.52, 0.76]),
   de_cache: layout(-2000, 3250, 5.5, [0.325, 0.26], [0.345, 0.79]),

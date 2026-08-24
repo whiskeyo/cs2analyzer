@@ -80,6 +80,9 @@ export const ACTION_HIGHLIGHT_SECONDS = 8;
 /** Kill-feed rows stay this long. */
 export const KILL_FEED_SECONDS = 6;
 
+/** Skip a kill line when attacker and victim are closer than this (world units). */
+export const KILL_LINE_MIN_LENGTH = 24;
+
 /** CS2 round-win reason codes (`m_iRoundWinStatus` / game events). */
 export const WIN_REASON_BOMB = 1;
 export const WIN_REASON_DEFUSE = 7;

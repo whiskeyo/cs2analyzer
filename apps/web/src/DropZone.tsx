@@ -42,7 +42,7 @@ export function DropZone({ onFile, parsing, progress, error }: Props) {
         <ul className="feature-list">
           <li>Live radar, nades, tracking, and drawing</li>
           <li>Scoreboard, clutches, weapons, and round history</li>
-          <li>Kill feed, bomb timer, heatmap, CSV export</li>
+          <li>Kill feed, bomb timer, death lines, nade summary, CSV export</li>
         </ul>
         {parsing && (
           <div className="progress">

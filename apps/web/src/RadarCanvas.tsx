@@ -8,22 +8,18 @@ import {
   firesAt,
   HIT_SECONDS,
   hitsAt,
+  killLineEnds,
   lingerRemaining,
+  nadeLandPos,
   nadePopTick,
   nadeVisibleEnd,
+  nadesForSummary,
+  NADE_COLORS,
   TRACER_SECONDS,
 } from "./radarFx";
 import { currentRound, samplePlayers, sampleTrail } from "./sample";
 import { activeBomb } from "./stats";
 import type { DrawTool, MapCalibration, MapLayers, Replay, Stroke } from "./types";
-
-const GRENADE_COLOR: Record<string, string> = {
-  smoke: "#c8d0d8",
-  flash: "#f4e27a",
-  he: "#e07040",
-  molotov: "#ff6a2a",
-  decoy: "#9aa0a6",
-};
 
 function yawToCanvas(yaw: number): number {
   // CS2 eye yaw 0 is +X, but the pawn forward used on radar is 180° from that.
@@ -268,13 +264,37 @@ export function RadarCanvas({
         ctx.globalAlpha = 1;
       }
 
+      if (layersNow.summary) {
+        const zoom = Math.min(1.4, v.scale);
+        for (const g of nadesForSummary(replay)) {
+          const land = nadeLandPos(g);
+          if (!land) continue;
+          const s = toScreen(land.x, land.y);
+          const color = NADE_COLORS[g.kind] ?? "#fff";
+          const radius =
+            (g.kind === "smoke" ? 16 : g.kind === "molotov" ? 12 : g.kind === "he" ? 10 : 8) * zoom;
+          ctx.fillStyle = color;
+          ctx.strokeStyle = color;
+          ctx.globalAlpha = 0.2;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 0.45;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+
       if (layersNow.grenades) {
         const round = currentRound(replay, tickNow);
         for (const g of replay.grenades) {
           if (round && (g.start_tick < round.start_tick || g.start_tick > round.end_tick)) {
             continue;
           }
-          const color = GRENADE_COLOR[g.kind] ?? "#fff";
+          const color = NADE_COLORS[g.kind] ?? "#fff";
           const popAt = nadePopTick(g);
           const visibleEnd = nadeVisibleEnd(g, ticksPerSecond, round?.end_tick);
           const inFlight = tickNow >= g.start_tick && tickNow < popAt && tickNow <= visibleEnd;
@@ -476,14 +496,33 @@ export function RadarCanvas({
       if (layersNow.deaths) {
         const round = currentRound(replay, tickNow);
         if (round) {
-          ctx.lineWidth = 1.6;
           for (const k of replay.kills) {
             if (k.tick < round.freeze_end_tick || k.tick > tickNow || k.tick > round.end_tick) {
               continue;
             }
+            const line = killLineEnds(replay, k);
+            if (line) {
+              const from = toScreen(line.from.x, line.from.y);
+              const to = toScreen(line.to.x, line.to.y);
+              ctx.strokeStyle = line.ct ? "#5b9fd6" : "#c9a227";
+              ctx.globalAlpha = k.headshot ? 0.9 : 0.7;
+              ctx.lineWidth = k.headshot ? 2 : 1.6;
+              ctx.setLineDash([7, 5]);
+              ctx.beginPath();
+              ctx.moveTo(from.x, from.y);
+              ctx.lineTo(to.x, to.y);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.globalAlpha = 0.85;
+              ctx.beginPath();
+              ctx.arc(from.x, from.y, 3, 0, Math.PI * 2);
+              ctx.fillStyle = ctx.strokeStyle;
+              ctx.fill();
+            }
             const s = toScreen(k.x, k.y);
             ctx.strokeStyle = "#e04b4b";
             ctx.globalAlpha = 0.85;
+            ctx.lineWidth = 1.6;
             ctx.beginPath();
             ctx.moveTo(s.x - 4, s.y - 4);
             ctx.lineTo(s.x + 4, s.y + 4);

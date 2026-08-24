@@ -112,6 +112,13 @@ export function MapToolbar({
       >
         Heat
       </button>
+      <button
+        type="button"
+        className={layers.summary ? "on" : ""}
+        onClick={() => toggle("summary")}
+      >
+        Summary
+      </button>
     </div>
   );
 }

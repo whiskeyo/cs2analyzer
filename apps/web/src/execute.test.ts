@@ -139,7 +139,7 @@ describe("findExecutes", () => {
         score_ct: 0,
         score_t: 0,
       },
-      bombEvents: [{ tick: 400, kind: "planted", player: 0, x: -658, y: 1835, z: 80 }],
+      bombEvents: [{ tick: 400, kind: "planted", player: 0, x: -1460, y: 705, z: 80 }],
     });
     const beats = findExecutes(m);
     const plant = beats.find((b) => b.kind === "plant");

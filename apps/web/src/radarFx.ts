@@ -1,5 +1,12 @@
-import { FLASH_POP_SECONDS, HE_DECOY_SECONDS, MOLOTOV_SECONDS, SMOKE_SECONDS } from "./constants";
-import type { Blind, FireCell, GrenadeThrow, Hurt } from "./types";
+import {
+  FLASH_POP_SECONDS,
+  HE_DECOY_SECONDS,
+  KILL_LINE_MIN_LENGTH,
+  MOLOTOV_SECONDS,
+  SMOKE_SECONDS,
+} from "./constants";
+import { currentRound, samplePlayer } from "./sample";
+import type { Blind, FireCell, GrenadeKind, GrenadeThrow, Hurt, Kill, Replay } from "./types";
 
 /** Must match `default_end` in assemble.rs. */
 const NADE_SECS: Record<string, number> = {
@@ -8,6 +15,23 @@ const NADE_SECS: Record<string, number> = {
   decoy: HE_DECOY_SECONDS,
   he: HE_DECOY_SECONDS,
   flash: FLASH_POP_SECONDS,
+};
+
+export const NADE_COLORS: Record<GrenadeKind, string> = {
+  smoke: "#c8d0d8",
+  flash: "#f4e27a",
+  he: "#e07040",
+  molotov: "#ff6a2a",
+  decoy: "#9aa0a6",
+};
+
+/** Draw larger nades first so flashes sit on top of stacked smokes. */
+const NADE_SUMMARY_ORDER: Record<GrenadeKind, number> = {
+  smoke: 0,
+  molotov: 1,
+  he: 2,
+  decoy: 3,
+  flash: 4,
 };
 
 /** How long a hit ring stays on the victim. */
@@ -104,4 +128,50 @@ export function nadeVisibleEnd(g: GrenadeThrow, tickRate: number, roundEnd?: num
   }
   if (roundEnd != null && roundEnd > 0) end = Math.min(end, roundEnd);
   return end;
+}
+
+/** Landing / pop position: occupancy centroid at pop, else the last trajectory sample. */
+export function nadeLandPos(g: GrenadeThrow): { x: number; y: number } | null {
+  const cells = occupancyOf(g);
+  if (cells && cells.length > 0) {
+    const pop = nadePopTick(g);
+    const atPop = cells.filter((c) => c.start_tick <= pop && c.end_tick >= pop);
+    const use = atPop.length > 0 ? atPop : cells;
+    let x = 0;
+    let y = 0;
+    for (const c of use) {
+      x += c.x;
+      y += c.y;
+    }
+    return { x: x / use.length, y: y / use.length };
+  }
+  const last = g.points[g.points.length - 1];
+  if (!last) return null;
+  return { x: last.x, y: last.y };
+}
+
+export function nadesForSummary(replay: Replay): GrenadeThrow[] {
+  const out = replay.grenades.filter((g) => !currentRound(replay, g.start_tick)?.is_knife);
+  out.sort((a, b) => NADE_SUMMARY_ORDER[a.kind] - NADE_SUMMARY_ORDER[b.kind]);
+  return out;
+}
+
+export interface KillLineEnds {
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  ct: boolean;
+}
+
+/** Attacker → victim in world XY at the kill tick. Null for suicides, teamkills, or missing pawns. */
+export function killLineEnds(replay: Replay, k: Kill): KillLineEnds | null {
+  if (k.attacker < 0 || k.victim < 0 || k.attacker === k.victim) return null;
+  const attacker = samplePlayer(replay, k.attacker, k.tick);
+  if (!attacker?.present) return null;
+  const victim = samplePlayer(replay, k.victim, k.tick);
+  const victimCt = victim?.present ? victim.ct : replay.players[k.victim]?.start_side === "CT";
+  if (attacker.ct === victimCt) return null;
+  const dx = attacker.x - k.x;
+  const dy = attacker.y - k.y;
+  if (dx * dx + dy * dy < KILL_LINE_MIN_LENGTH * KILL_LINE_MIN_LENGTH) return null;
+  return { from: { x: attacker.x, y: attacker.y }, to: { x: k.x, y: k.y }, ct: attacker.ct };
 }
