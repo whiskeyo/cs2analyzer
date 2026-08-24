@@ -3,7 +3,8 @@
 use crate::analysis::{compute_stats, starting_team_scores};
 use crate::constants::{
     DEFAULT_TICK_RATE, FLASH_POP_SECONDS, HE_DECOY_SECONDS, KNIFE_ROUND_MAX_EQUIPMENT,
-    KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_SECONDS, SMOKE_SECONDS,
+    KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_SECONDS, SMOKE_SECONDS, SMOKE_VOXEL_ATTACH_DIST,
+    SMOKE_VOXEL_ATTACH_TICKS,
 };
 use crate::observer::Collector;
 use crate::types::*;
@@ -603,11 +604,10 @@ fn attach_smoke_voxels(c: &Collector, grenades: &mut [GrenadeThrow]) {
         cx /= n;
         cy /= n;
 
-        let det_tick = c
+        let det = c
             .grenade_dets
             .iter()
-            .find(|d| d.1 == GrenadeKind::Smoke && d.2 as u32 == entity)
-            .map(|d| d.0);
+            .find(|d| d.1 == GrenadeKind::Smoke && d.2 as u32 == entity);
 
         let mut best = None;
         let mut best_score = f32::MAX;
@@ -615,20 +615,24 @@ fn attach_smoke_voxels(c: &Collector, grenades: &mut [GrenadeThrow]) {
             if claimed[i] || g.kind != GrenadeKind::Smoke {
                 continue;
             }
-            let Some(last) = g.points.last() else {
-                continue;
-            };
-            let dist = (last.x - cx).hypot(last.y - cy);
-            if dist > 800.0 {
+            let dt_det = det.map(|d| g.detonate_tick.abs_diff(d.0));
+            let dt_span = g.detonate_tick.abs_diff(t0);
+            let dt = dt_det.unwrap_or(dt_span).min(dt_span);
+            if dt > SMOKE_VOXEL_ATTACH_TICKS {
                 continue;
             }
-            let dt = g.detonate_tick.abs_diff(t0);
-            if dt > 128 {
+            let (px, py) = g.points.last().map(|p| (p.x, p.y)).unwrap_or((cx, cy));
+            let dist_throw = (px - cx).hypot(py - cy);
+            let dist_det = det
+                .map(|d| (d.3 - cx).hypot(d.4 - cy))
+                .unwrap_or(dist_throw);
+            let dist = dist_throw.min(dist_det);
+            if dist > SMOKE_VOXEL_ATTACH_DIST && dt_det.map(|t| t > 16).unwrap_or(true) {
                 continue;
             }
             let mut score = dist + dt as f32;
-            if det_tick.is_some_and(|t| g.detonate_tick.abs_diff(t) <= 16) {
-                score -= 200.0;
+            if dt_det.is_some_and(|t| t <= 16) {
+                score -= 500.0;
             }
             if score < best_score {
                 best_score = score;
@@ -766,5 +770,23 @@ mod tests {
         let mut grenades = vec![smoke(200, 50.0, 60.0)];
         attach_smoke_voxels(&c, &mut grenades);
         assert_eq!(grenades[0].end_tick, 200 + 64 * 18);
+    }
+
+    #[test]
+    fn attach_voxels_when_trajectory_ended_far_from_the_cloud() {
+        let mut c = Collector::new(ParseOptions::default());
+        c.smoke_spans.push(FireSpan {
+            entity: 22,
+            x: 50.0,
+            y: 60.0,
+            start_tick: 400,
+            end_tick: 900,
+        });
+        c.grenade_dets
+            .push((200, GrenadeKind::Smoke, 22, 50.0, 60.0, 0.0));
+        let mut grenades = vec![smoke(200, 4000.0, 4000.0)];
+        attach_smoke_voxels(&c, &mut grenades);
+        assert_eq!(grenades[0].voxels.len(), 1);
+        assert_eq!(grenades[0].voxels[0].x, 50.0);
     }
 }

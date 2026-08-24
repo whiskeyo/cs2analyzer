@@ -34,3 +34,9 @@ pub const SMOKE_SECONDS: f32 = 18.0;
 pub const MOLOTOV_SECONDS: f32 = 7.0;
 pub const HE_DECOY_SECONDS: f32 = 0.5;
 pub const FLASH_POP_SECONDS: f32 = 0.4;
+
+/// World units: voxel centroid can be this far from the throw or detonate pos.
+pub const SMOKE_VOXEL_ATTACH_DIST: f32 = 2500.0;
+
+/// First occupancy sample may lag detonate by this many ticks (~5s at 64 Hz).
+pub const SMOKE_VOXEL_ATTACH_TICKS: u32 = 320;

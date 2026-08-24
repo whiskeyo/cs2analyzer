@@ -276,21 +276,28 @@ impl Collector {
     fn track_smoke(&mut self, e: &Entity, tick: u32) {
         let entity = e.index();
         let update = prop_i32(e, "m_nVoxelUpdate");
-        if self
+        let live_cells = self
             .smoke_live
             .get(&entity)
-            .is_some_and(|s| s.update == update && update != 0)
+            .map(|s| s.cells.len())
+            .unwrap_or(0);
+        if live_cells > 0
+            && self
+                .smoke_live
+                .get(&entity)
+                .is_some_and(|s| s.update == update && update != 0)
         {
             return;
         }
         let origin = prop_vec3(e, "m_vSmokeDetonationPos").unwrap_or_else(|| entity_xyz(e));
         let bytes = smoke_voxel_bytes(e);
         let Some(xy) = crate::smoke::occupancy_xy(&bytes, bytes.len(), origin) else {
-            if let Some(live) = self.smoke_live.get_mut(&entity) {
-                live.update = update;
-            }
+            // Blob may still be filling under the same update id — keep retrying.
             return;
         };
+        if xy.is_empty() && live_cells == 0 {
+            return;
+        }
         let new_keys: HashSet<(i16, i16)> = xy.iter().map(|s| s.key).collect();
         let live = self.smoke_live.entry(entity).or_insert_with(|| LiveSmoke {
             update,
