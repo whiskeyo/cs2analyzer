@@ -19,7 +19,7 @@ import {
 } from "./radarFx";
 import { currentRound, samplePlayers, sampleTrail } from "./sample";
 import { activeBomb } from "./stats";
-import type { DrawTool, MapCalibration, MapLayers, Replay, Stroke } from "./types";
+import type { DrawTool, MapCalibration, MapLayers, Replay, Stroke, SummaryFilter } from "./types";
 
 function yawToCanvas(yaw: number): number {
   // CS2 eye yaw 0 is +X, but the pawn forward used on radar is 180° from that.
@@ -83,6 +83,7 @@ interface Props {
   onStrokes: (next: Stroke[]) => void;
   onPan: () => void;
   layers: MapLayers;
+  summaryFilter: SummaryFilter;
   viewEpoch: number;
 }
 
@@ -100,10 +101,13 @@ export function RadarCanvas({
   onStrokes,
   onPan,
   layers,
+  summaryFilter,
   viewEpoch,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const replayRef = useRef(replay);
+  replayRef.current = replay;
   const tickRef = useRef(tick);
   tickRef.current = tick;
   const selectedRef = useRef(selected);
@@ -126,6 +130,8 @@ export function RadarCanvas({
   onPanRef.current = onPan;
   const layersRef = useRef(layers);
   layersRef.current = layers;
+  const summaryFilterRef = useRef(summaryFilter);
+  summaryFilterRef.current = summaryFilter;
   const calRef = useRef(cal);
   calRef.current = cal;
   const images = useRef<{ upper: HTMLImageElement | null; lower: HTMLImageElement | null }>({
@@ -266,7 +272,7 @@ export function RadarCanvas({
 
       if (layersNow.summary) {
         const zoom = Math.min(1.4, v.scale);
-        for (const g of nadesForSummary(replay)) {
+        for (const g of nadesForSummary(replay, summaryFilterRef.current)) {
           const land = nadeLandPos(g);
           if (!land) continue;
           const s = toScreen(land.x, land.y);
@@ -588,7 +594,10 @@ export function RadarCanvas({
         }
         ctx.globalAlpha = 1;
       };
-      for (const st of strokesRef.current) drawStroke(st);
+      const roundNow = currentRound(replay, tickRef.current)?.number ?? 0;
+      for (const st of strokesRef.current) {
+        if (st.round === roundNow) drawStroke(st);
+      }
       if (draft.current) drawStroke(draft.current, 0.7);
 
       if (layersNow.cone && selectedRef.current != null) {
@@ -722,7 +731,10 @@ export function RadarCanvas({
 
       if (toolNow === "eraser" && calNow) {
         const world = screenToWorld(calNow, w, h, view.current, x, y);
-        const next = strokesRef.current.filter((st) => !hitStroke(st, world.x, world.y, 48));
+        const roundNow = currentRound(replayRef.current, tickRef.current)?.number ?? 0;
+        const next = strokesRef.current.filter(
+          (st) => st.round !== roundNow || !hitStroke(st, world.x, world.y, 48),
+        );
         onStrokesRef.current(next);
         return;
       }
@@ -731,10 +743,11 @@ export function RadarCanvas({
         if (!calNow) return;
         view.current.drawing = true;
         const world = screenToWorld(calNow, w, h, view.current, x, y);
+        const round = currentRound(replayRef.current, tickRef.current)?.number ?? 0;
         draft.current =
           toolNow === "pen"
-            ? { type: "pen", color: colorRef.current, points: [world] }
-            : { type: "arrow", color: colorRef.current, from: world, to: world };
+            ? { type: "pen", color: colorRef.current, round, points: [world] }
+            : { type: "arrow", color: colorRef.current, round, from: world, to: world };
         return;
       }
 

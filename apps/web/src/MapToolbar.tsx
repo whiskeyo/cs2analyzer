@@ -56,7 +56,7 @@ export function MapToolbar({
       >
         Erase
       </button>
-      <button type="button" onClick={onClear}>
+      <button type="button" onClick={onClear} title="Clear drawings on this round">
         Clear
       </button>
       <button type="button" onClick={onResetView}>

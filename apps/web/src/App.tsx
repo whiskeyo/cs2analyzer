@@ -15,11 +15,13 @@ import { Sidebar } from "./Sidebar";
 import { computeStats, exportStatsCsv, nextEventTick } from "./stats";
 import {
   DEFAULT_LAYERS,
+  DEFAULT_SUMMARY_FILTER,
   type DrawTool,
   type MapCalibration,
   type MapLayers,
   type Replay,
   type Stroke,
+  type SummaryFilter,
   type WorkerOut,
 } from "./types";
 import { publicUrl } from "./publicUrl";
@@ -42,6 +44,7 @@ export function App() {
   const [color, setColor] = useState("#f4d35e");
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [layers, setLayers] = useState<MapLayers>(DEFAULT_LAYERS);
+  const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>(DEFAULT_SUMMARY_FILTER);
   const [viewEpoch, setViewEpoch] = useState(0);
   const [maps, setMaps] = useState<Record<string, MapCalibration>>({});
   const workerRef = useRef<Worker | null>(null);
@@ -76,6 +79,7 @@ export function App() {
     setFollow(false);
     setSelected(null);
     setLayers(DEFAULT_LAYERS);
+    setSummaryFilter(DEFAULT_SUMMARY_FILTER);
     workerRef.current?.terminate();
     const worker = new Worker(new URL("./parseWorker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
@@ -269,7 +273,10 @@ export function App() {
               if (next.summary && !layers.summary) setPlaying(false);
               setLayers(next);
             }}
-            onClear={() => setStrokes([])}
+            onClear={() => {
+              const round = currentRound(replay, tick)?.number;
+              setStrokes((s) => (round == null ? [] : s.filter((st) => st.round !== round)));
+            }}
             onResetView={() => setViewEpoch((n) => n + 1)}
           />
           <div className="radar-stage">
@@ -290,11 +297,26 @@ export function App() {
               onStrokes={setStrokes}
               onPan={() => setFollow(false)}
               layers={layers}
+              summaryFilter={summaryFilter}
               viewEpoch={viewEpoch}
             />
             <Hud replay={replay} tick={tick} />
             {layers.summary && (
-              <ul className="nade-legend">
+              <div className="nade-legend">
+                <button
+                  type="button"
+                  className={summaryFilter.t ? "on" : ""}
+                  onClick={() => setSummaryFilter((f) => ({ ...f, t: !f.t }))}
+                >
+                  T
+                </button>
+                <button
+                  type="button"
+                  className={summaryFilter.ct ? "on" : ""}
+                  onClick={() => setSummaryFilter((f) => ({ ...f, ct: !f.ct }))}
+                >
+                  CT
+                </button>
                 {(
                   [
                     ["smoke", "Smoke"],
@@ -304,12 +326,22 @@ export function App() {
                     ["decoy", "Decoy"],
                   ] as const
                 ).map(([kind, label]) => (
-                  <li key={kind}>
+                  <button
+                    key={kind}
+                    type="button"
+                    className={summaryFilter.kinds[kind] ? "on" : ""}
+                    onClick={() =>
+                      setSummaryFilter((f) => ({
+                        ...f,
+                        kinds: { ...f.kinds, [kind]: !f.kinds[kind] },
+                      }))
+                    }
+                  >
                     <i style={{ background: NADE_COLORS[kind] }} />
                     {label}
-                  </li>
+                  </button>
                 ))}
-              </ul>
+              </div>
             )}
             <SpectatorEconomy
               replay={replay}

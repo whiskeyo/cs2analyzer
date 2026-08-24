@@ -248,22 +248,36 @@ code {
   transform: translateX(-50%);
   z-index: 4;
   margin: 0;
-  padding: 0.4rem 0.55rem;
-  list-style: none;
+  padding: 0.35rem 0.45rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem 0.7rem;
+  gap: 0.3rem;
   background: rgba(13, 17, 22, 0.82);
   border: 1px solid #2c3846;
   border-radius: 8px;
-  pointer-events: none;
+  pointer-events: auto;
   font-size: 0.75rem;
   color: #e8eef4;
 }
-.nade-legend li {
+.nade-legend button {
   display: flex;
   align-items: center;
   gap: 0.3rem;
+  background: #1c242e;
+  color: #c5d0da;
+  border: 1px solid #2c3846;
+  border-radius: 6px;
+  padding: 0.18rem 0.4rem;
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+.nade-legend button.on {
+  border-color: #6aa4d8;
+  background: #243040;
+  color: #fff;
+}
+.nade-legend button:not(.on) {
+  opacity: 0.45;
 }
 .nade-legend i {
   width: 9px;

@@ -6,7 +6,16 @@ import {
   SMOKE_SECONDS,
 } from "./constants";
 import { currentRound, samplePlayer } from "./sample";
-import type { Blind, FireCell, GrenadeKind, GrenadeThrow, Hurt, Kill, Replay } from "./types";
+import type {
+  Blind,
+  FireCell,
+  GrenadeKind,
+  GrenadeThrow,
+  Hurt,
+  Kill,
+  Replay,
+  SummaryFilter,
+} from "./types";
 
 /** Must match `default_end` in assemble.rs. */
 const NADE_SECS: Record<string, number> = {
@@ -150,8 +159,23 @@ export function nadeLandPos(g: GrenadeThrow): { x: number; y: number } | null {
   return { x: last.x, y: last.y };
 }
 
-export function nadesForSummary(replay: Replay): GrenadeThrow[] {
-  const out = replay.grenades.filter((g) => !currentRound(replay, g.start_tick)?.is_knife);
+function throwerIsCt(replay: Replay, g: GrenadeThrow): boolean {
+  const thrower = samplePlayer(replay, g.thrower, g.start_tick);
+  if (thrower?.present) return thrower.ct;
+  return replay.players[g.thrower]?.start_side === "CT";
+}
+
+export function nadesForSummary(replay: Replay, filter?: SummaryFilter): GrenadeThrow[] {
+  const out = replay.grenades.filter((g) => {
+    if (currentRound(replay, g.start_tick)?.is_knife) return false;
+    if (filter && !filter.kinds[g.kind]) return false;
+    if (filter && (!filter.t || !filter.ct)) {
+      const ct = throwerIsCt(replay, g);
+      if (ct && !filter.ct) return false;
+      if (!ct && !filter.t) return false;
+    }
+    return true;
+  });
   out.sort((a, b) => NADE_SUMMARY_ORDER[a.kind] - NADE_SUMMARY_ORDER[b.kind]);
   return out;
 }

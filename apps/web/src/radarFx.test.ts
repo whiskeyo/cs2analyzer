@@ -21,6 +21,7 @@ import {
   type Player,
   type Replay,
   type Round,
+  DEFAULT_SUMMARY_FILTER,
 } from "./types";
 
 describe("blindsAt", () => {
@@ -252,6 +253,33 @@ describe("nadesForSummary", () => {
       grenades: [flash, knifeSmoke, liveSmoke],
     });
     expect(nadesForSummary(m).map((g) => g.kind)).toEqual(["smoke", "flash"]);
+  });
+
+  it("filters summary nades by kind and thrower side", () => {
+    const tSmoke = smoke({ thrower: 1, start_tick: 200, detonate_tick: 220 });
+    const ctFlash: GrenadeThrow = {
+      thrower: 0,
+      kind: "flash",
+      start_tick: 200,
+      detonate_tick: 220,
+      end_tick: 240,
+      points: [{ tick: 220, x: 1, y: 1, z: 0 }],
+    };
+    const m = replay({
+      grenades: [tSmoke, ctFlash],
+    });
+    expect(
+      nadesForSummary(m, {
+        ...DEFAULT_SUMMARY_FILTER,
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, flash: false },
+      }).map((g) => g.kind),
+    ).toEqual(["smoke"]);
+    expect(nadesForSummary(m, { ...DEFAULT_SUMMARY_FILTER, t: false }).map((g) => g.kind)).toEqual([
+      "flash",
+    ]);
+    expect(nadesForSummary(m, { ...DEFAULT_SUMMARY_FILTER, ct: false }).map((g) => g.kind)).toEqual(
+      ["smoke"],
+    );
   });
 });
 

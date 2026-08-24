@@ -254,6 +254,19 @@ export const DEFAULT_LAYERS: MapLayers = {
   summary: false,
 };
 
-export type Stroke =
+export type Stroke = { round: number } & (
   | { type: "pen"; color: string; points: { x: number; y: number }[] }
-  | { type: "arrow"; color: string; from: { x: number; y: number }; to: { x: number; y: number } };
+  | { type: "arrow"; color: string; from: { x: number; y: number }; to: { x: number; y: number } }
+);
+
+export interface SummaryFilter {
+  kinds: Record<GrenadeKind, boolean>;
+  t: boolean;
+  ct: boolean;
+}
+
+export const DEFAULT_SUMMARY_FILTER: SummaryFilter = {
+  kinds: { smoke: true, flash: true, he: true, molotov: true, decoy: true },
+  t: true,
+  ct: true,
+};
