@@ -38,7 +38,7 @@ npm run dev
 npm run format:check && npm run lint && npm run typecheck && npm test
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same Rust and web checks, plus `npm run build`. Push to `master`/`main` also FTPs `apps/web/dist` to OVH `/cs2analyzer/` (Vite `base` is `/` because that folder is the subdomain document root).
+CI (`.github/workflows/ci.yml`) runs the same Rust and web checks, plus `npm run build`. Push to `master`/`main` also FTPs `apps/web/dist` to OVH: upload to `/cs2analyzer_staging/`, then rename over `/cs2analyzer/` (Vite `base` is `/` because that folder is the subdomain document root). Never wipe the live folder first.
 
 ## Where to change what
 
