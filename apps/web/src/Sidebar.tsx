@@ -4,19 +4,21 @@ import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "./constants";
 import { Action } from "./Action";
 import { Clutch } from "./Clutch";
 import { Review } from "./Review";
+import { Notes } from "./Notes";
 import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
 import { clampSidebarWidth, loadSidebarWidth, saveSidebarWidth } from "./sidebarWidth";
 import { computeStats, weaponBreakdown } from "./stats";
-import type { Replay } from "./types";
+import type { Replay, Stroke } from "./types";
 import { Utility } from "./Utility";
 import { WeaponIcon } from "./WeaponIcon";
 
-type Tab = "score" | "player" | "action" | "util" | "clutch" | "rounds" | "weapons";
+type Tab = "score" | "player" | "notes" | "action" | "util" | "clutch" | "rounds" | "weapons";
 
 const TAB_LABEL: Record<Tab, string> = {
   score: "Score",
   player: "Review",
+  notes: "Notes",
   action: "Action",
   util: "Util",
   clutch: "Clutch",
@@ -27,12 +29,13 @@ const TAB_LABEL: Record<Tab, string> = {
 interface Props {
   replay: Replay;
   tick: number;
+  strokes: Stroke[];
   selected: number | null;
   onSelect: (index: number | null) => void;
   onJump: (tick: number) => void;
 }
 
-export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
+export function Sidebar({ replay, tick, strokes, selected, onSelect, onJump }: Props) {
   const [tab, setTab] = useState<Tab>("score");
   const [width, setWidth] = useState(loadSidebarWidth);
   const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
@@ -125,18 +128,18 @@ export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
         onKeyDown={onResizeKeyDown}
       />
       <div className="tabs">
-        {(["score", "player", "action", "util", "clutch", "rounds", "weapons"] as const).map(
-          (id) => (
-            <button
-              key={id}
-              type="button"
-              className={tab === id ? "on" : ""}
-              onClick={() => setTab(id)}
-            >
-              {TAB_LABEL[id]}
-            </button>
-          ),
-        )}
+        {(
+          ["score", "player", "notes", "action", "util", "clutch", "rounds", "weapons"] as const
+        ).map((id) => (
+          <button
+            key={id}
+            type="button"
+            className={tab === id ? "on" : ""}
+            onClick={() => setTab(id)}
+          >
+            {TAB_LABEL[id]}
+          </button>
+        ))}
       </div>
       {tab === "score" && (
         <Scoreboard replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
@@ -150,6 +153,7 @@ export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
           onSelect={(i) => onSelect(i)}
         />
       )}
+      {tab === "notes" && <Notes replay={replay} strokes={strokes} onJump={onJump} />}
       {tab === "action" && <Action replay={replay} tick={tick} onJump={onJump} />}
       {tab === "util" && (
         <Utility

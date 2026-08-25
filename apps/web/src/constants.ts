@@ -95,6 +95,12 @@ export const PEN_MIN_SAMPLE_DISTANCE = 4;
 /** How far interior pen points slide toward their neighbors (0–1). */
 export const PEN_SMOOTH_AMOUNT = 0.2;
 
+/** How long a Moment overlay stays on the radar. */
+export const NOTE_MOMENT_SECONDS = 5;
+
+/** Radar text label max width (screen px). */
+export const NOTE_TEXT_MAX_WIDTH = 160;
+
 /** Debounce before writing the review overlay to IndexedDB. */
 export const PROJECT_SAVE_DEBOUNCE_MS = 400;
 

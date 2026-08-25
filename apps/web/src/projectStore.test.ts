@@ -113,4 +113,32 @@ describe("parseBundle", () => {
     });
     expect(p?.strokes).toHaveLength(1);
   });
+
+  it("keeps old files without ticks and loads text plus a moment window", () => {
+    const p = parseProject({
+      ...project(),
+      strokes: [
+        project().strokes[0],
+        {
+          type: "text",
+          round: 1,
+          color: "#ff1744",
+          x: 10,
+          y: 20,
+          text: "hold mid",
+          start_tick: 120,
+          end_tick: 440,
+        },
+        { type: "text", round: 1, color: "#fff", x: 0, y: 0 },
+      ],
+    });
+    expect(p?.strokes).toHaveLength(2);
+    expect(p?.strokes[0]).toEqual(project().strokes[0]);
+    expect(p?.strokes[1]).toMatchObject({
+      type: "text",
+      text: "hold mid",
+      start_tick: 120,
+      end_tick: 440,
+    });
+  });
 });

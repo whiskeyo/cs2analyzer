@@ -1,7 +1,13 @@
-import { useEffect, useRef } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
-import { OPENING_ARROW_MAX_PX, PEN_MIN_SAMPLE_DISTANCE, tickRate } from "./constants";
+import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import {
+  NOTE_TEXT_MAX_WIDTH,
+  OPENING_ARROW_MAX_PX,
+  PEN_MIN_SAMPLE_DISTANCE,
+  tickRate,
+} from "./constants";
 import { radarFloor, radarUrl, screenToWorld, worldToScreen, type RadarView } from "./maps";
+import { overlayVisible, withMoment } from "./overlay";
 import { publicUrl } from "./publicUrl";
 import {
   blindsAt,
@@ -111,6 +117,96 @@ function drawCurvedArrow(
   ctx.fill();
 }
 
+const TEXT_PAD = 6;
+const TEXT_LINE = 15;
+const TEXT_FONT = "12px ui-sans-serif, system-ui";
+
+function wrapNote(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const out: string[] = [];
+  for (const para of text.split("\n")) {
+    if (para.length === 0) {
+      out.push("");
+      continue;
+    }
+    let line = "";
+    for (const word of para.split(/(\s+)/)) {
+      const next = line + word;
+      if (line && ctx.measureText(next).width > maxWidth) {
+        out.push(line.trimEnd());
+        line = word.trimStart();
+      } else {
+        line = next;
+      }
+    }
+    if (line.length > 0) out.push(line.trimEnd());
+  }
+  return out.length > 0 ? out : [""];
+}
+
+function textBox(
+  ctx: CanvasRenderingContext2D,
+  st: Extract<Stroke, { type: "text" }>,
+  screen: { x: number; y: number },
+): { x: number; y: number; w: number; h: number; lines: string[] } {
+  ctx.font = TEXT_FONT;
+  const lines = wrapNote(ctx, st.text, NOTE_TEXT_MAX_WIDTH);
+  let inner = 24;
+  for (const line of lines) {
+    inner = Math.max(inner, ctx.measureText(line || " ").width);
+  }
+  const w = Math.min(NOTE_TEXT_MAX_WIDTH, inner) + TEXT_PAD * 2;
+  const h = Math.max(1, lines.length) * TEXT_LINE + TEXT_PAD * 2;
+  return { x: screen.x - w / 2, y: screen.y - h / 2, w, h, lines };
+}
+
+function drawTextLabel(
+  ctx: CanvasRenderingContext2D,
+  st: Extract<Stroke, { type: "text" }>,
+  screen: { x: number; y: number },
+) {
+  const box = textBox(ctx, st, screen);
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = "#12181f";
+  ctx.strokeStyle = st.color;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.roundRect(box.x, box.y, box.w, box.h, 4);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = st.color;
+  ctx.font = TEXT_FONT;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < box.lines.length; i++) {
+    ctx.fillText(box.lines[i], box.x + TEXT_PAD, box.y + TEXT_PAD + i * TEXT_LINE);
+  }
+  ctx.restore();
+}
+
+function hitTextLabel(
+  ctx: CanvasRenderingContext2D,
+  st: Extract<Stroke, { type: "text" }>,
+  screen: { x: number; y: number },
+  mx: number,
+  my: number,
+): boolean {
+  const box = textBox(ctx, st, screen);
+  return mx >= box.x && mx <= box.x + box.w && my >= box.y && my <= box.y + box.h;
+}
+
+interface TextEdit {
+  index: number | null;
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  round: number;
+  start_tick?: number;
+  end_tick?: number;
+}
+
 interface Props {
   replay: Replay;
   tick: number;
@@ -124,6 +220,8 @@ interface Props {
   strokes: Stroke[];
   onStrokes: (next: Stroke[]) => void;
   onPan: () => void;
+  onPause: () => void;
+  moment: boolean;
   layers: MapLayers;
   summaryFilter: SummaryFilter;
   viewEpoch: number;
@@ -143,6 +241,8 @@ export function RadarCanvas({
   strokes,
   onStrokes,
   onPan,
+  onPause,
+  moment,
   layers,
   summaryFilter,
   viewEpoch,
@@ -172,6 +272,10 @@ export function RadarCanvas({
   onSelectRef.current = onSelect;
   const onPanRef = useRef(onPan);
   onPanRef.current = onPan;
+  const onPauseRef = useRef(onPause);
+  onPauseRef.current = onPause;
+  const momentRef = useRef(moment);
+  momentRef.current = moment;
   const layersRef = useRef(layers);
   layersRef.current = layers;
   const summaryFilterRef = useRef(summaryFilter);
@@ -199,6 +303,48 @@ export function RadarCanvas({
   const draft = useRef<Stroke | null>(null);
   const penTip = useRef<{ x: number; y: number } | null>(null);
   const c4Icon = useRef<HTMLImageElement | null>(null);
+  const [editing, setEditing] = useState<TextEdit | null>(null);
+  const editingRef = useRef<TextEdit | null>(null);
+  editingRef.current = editing;
+  const editAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editing) editAreaRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keystrokes should not steal focus
+  }, [editing?.index, editing?.x, editing?.y]);
+
+  const commitEditingRef = useRef<() => void>(() => undefined);
+
+  const commitEditing = () => {
+    const ed = editingRef.current;
+    if (!ed) return;
+    editingRef.current = null;
+    setEditing(null);
+    const trimmed = ed.text.trim();
+    const list = strokesRef.current;
+    if (ed.index == null) {
+      if (!trimmed) return;
+      const st: Stroke = {
+        type: "text",
+        round: ed.round,
+        color: ed.color,
+        x: ed.x,
+        y: ed.y,
+        text: trimmed,
+        ...(ed.start_tick != null ? { start_tick: ed.start_tick, end_tick: ed.end_tick } : {}),
+      };
+      onStrokesRef.current([...list, st]);
+      return;
+    }
+    if (!trimmed) {
+      onStrokesRef.current(list.filter((_, i) => i !== ed.index));
+      return;
+    }
+    onStrokesRef.current(
+      list.map((s, i) => (i === ed.index && s.type === "text" ? { ...s, text: trimmed } : s)),
+    );
+  };
+  commitEditingRef.current = commitEditing;
 
   useEffect(() => {
     const img = new Image();
@@ -619,6 +765,11 @@ export function RadarCanvas({
       }
 
       const drawStroke = (st: Stroke, alpha = 1, live = false) => {
+        if (st.type === "text") {
+          if (alpha < 1) return;
+          drawTextLabel(ctx, st, toScreen(st.x, st.y));
+          return;
+        }
         ctx.globalAlpha = alpha;
         ctx.strokeStyle = st.color;
         ctx.fillStyle = st.color;
@@ -637,10 +788,23 @@ export function RadarCanvas({
         ctx.globalAlpha = 1;
       };
       const roundNow = currentRound(replay, tickRef.current)?.number ?? 0;
-      for (const st of strokesRef.current) {
-        if (st.round === roundNow) drawStroke(st);
+      const tickDraw = tickRef.current;
+      const skipText = editingRef.current?.index;
+      strokesRef.current.forEach((st, i) => {
+        if (!overlayVisible(st, tickDraw, roundNow)) return;
+        if (st.type === "text" && skipText === i) return;
+        drawStroke(st);
+      });
+      if (draft.current && overlayVisible(draft.current, tickDraw, roundNow)) {
+        drawStroke(draft.current, 0.85, true);
       }
-      if (draft.current) drawStroke(draft.current, 0.85, true);
+      const ed = editingRef.current;
+      const area = editAreaRef.current;
+      if (ed && area && calNow) {
+        const s = toScreen(ed.x, ed.y);
+        area.style.left = `${s.x}px`;
+        area.style.top = `${s.y}px`;
+      }
 
       if (layersNow.cone && selectedRef.current != null) {
         const p = players.find((x) => x.index === selectedRef.current && x.present && x.alive);
@@ -765,19 +929,81 @@ export function RadarCanvas({
 
     const onDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
+      if (e.target instanceof HTMLElement && e.target.closest(".radar-text-edit")) return;
       const calNow = calRef.current;
       const { x, y } = pos(e);
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       const toolNow = toolRef.current;
+      const rnd = currentRound(replayRef.current, tickRef.current);
+      const roundNow = rnd?.number ?? 0;
+      const tickNow = tickRef.current;
+      const tps = tickRate(replayRef.current);
+      const ctx = canvasRef.current?.getContext("2d");
 
       if (toolNow === "eraser" && calNow) {
         const world = screenToWorld(calNow, w, h, view.current, x, y);
-        const roundNow = currentRound(replayRef.current, tickRef.current)?.number ?? 0;
-        const next = strokesRef.current.filter(
-          (st) => st.round !== roundNow || !hitStroke(st, world.x, world.y, 48),
-        );
+        const next = strokesRef.current.filter((st) => {
+          if (st.round !== roundNow || !overlayVisible(st, tickNow, roundNow)) return true;
+          if (st.type === "text") {
+            if (!ctx) return true;
+            const s = worldToScreen(calNow, w, h, view.current, st.x, st.y);
+            return !hitTextLabel(ctx, st, s, x, y);
+          }
+          return !hitStroke(st, world.x, world.y, 48);
+        });
         onStrokesRef.current(next);
+        return;
+      }
+
+      if (toolNow === "text") {
+        if (!calNow) return;
+        onPauseRef.current();
+        commitEditingRef.current();
+        const world = screenToWorld(calNow, w, h, view.current, x, y);
+        if (ctx) {
+          for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+            const st = strokesRef.current[i];
+            if (st.type !== "text" || !overlayVisible(st, tickNow, roundNow)) continue;
+            const s = worldToScreen(calNow, w, h, view.current, st.x, st.y);
+            if (hitTextLabel(ctx, st, s, x, y)) {
+              const next: TextEdit = {
+                index: i,
+                x: st.x,
+                y: st.y,
+                text: st.text,
+                color: st.color,
+                round: st.round,
+                start_tick: st.start_tick,
+                end_tick: st.end_tick,
+              };
+              editingRef.current = next;
+              setEditing(next);
+              return;
+            }
+          }
+        }
+        const next: TextEdit = {
+          index: null,
+          x: world.x,
+          y: world.y,
+          text: "",
+          color: colorRef.current,
+          round: roundNow,
+        };
+        const stamped = withMoment(
+          { type: "text", round: roundNow, color: next.color, x: next.x, y: next.y, text: "" },
+          momentRef.current,
+          tickNow,
+          rnd?.end_tick ?? 0,
+          tps,
+        );
+        if (stamped.start_tick != null) {
+          next.start_tick = stamped.start_tick;
+          next.end_tick = stamped.end_tick;
+        }
+        editingRef.current = next;
+        setEditing(next);
         return;
       }
 
@@ -785,11 +1011,11 @@ export function RadarCanvas({
         if (!calNow) return;
         view.current.drawing = true;
         const world = screenToWorld(calNow, w, h, view.current, x, y);
-        const round = currentRound(replayRef.current, tickRef.current)?.number ?? 0;
-        draft.current =
+        const base: Stroke =
           toolNow === "pen"
-            ? { type: "pen", color: colorRef.current, round, points: [world] }
-            : { type: "arrow", color: colorRef.current, round, from: world, to: world };
+            ? { type: "pen", color: colorRef.current, round: roundNow, points: [world] }
+            : { type: "arrow", color: colorRef.current, round: roundNow, from: world, to: world };
+        draft.current = withMoment(base, momentRef.current, tickNow, rnd?.end_tick ?? 0, tps);
         penTip.current = toolNow === "pen" ? world : null;
         return;
       }
@@ -820,7 +1046,7 @@ export function RadarCanvas({
           if (Math.hypot(world.x - last.x, world.y - last.y) >= PEN_MIN_SAMPLE_DISTANCE) {
             draft.current.points.push(world);
           }
-        } else {
+        } else if (draft.current.type === "arrow") {
           draft.current.to = world;
         }
         return;
@@ -855,6 +1081,11 @@ export function RadarCanvas({
             return;
           }
           st = { ...st, points: simplifyStroke(st.points) };
+        } else if (st.type !== "arrow") {
+          draft.current = null;
+          penTip.current = null;
+          view.current.drawing = false;
+          return;
         }
         onStrokesRef.current([...strokesRef.current, st]);
         draft.current = null;
@@ -904,14 +1135,44 @@ export function RadarCanvas({
 
   const cursor = tool === "pan" ? "grab" : tool === "eraser" ? "cell" : "crosshair";
 
+  const onTextKeyDown = (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      editingRef.current = null;
+      setEditing(null);
+      return;
+    }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      commitEditing();
+    }
+  };
+
   return (
     <div className="radar-wrap" ref={wrapRef} style={{ cursor }}>
       <canvas ref={canvasRef} onClick={onClick} />
+      {editing && (
+        <textarea
+          ref={editAreaRef}
+          className="radar-text-edit"
+          value={editing.text}
+          placeholder="Note"
+          rows={2}
+          onChange={(e) => {
+            const next = { ...editing, text: e.target.value };
+            editingRef.current = next;
+            setEditing(next);
+          }}
+          onKeyDown={onTextKeyDown}
+          onBlur={() => commitEditing()}
+        />
+      )}
     </div>
   );
 }
 
 function hitStroke(st: Stroke, x: number, y: number, maxDist: number): boolean {
+  if (st.type === "text") return false;
   const d2 = maxDist * maxDist;
   if (st.type === "pen") {
     return st.points.some((p) => (p.x - x) ** 2 + (p.y - y) ** 2 < d2);

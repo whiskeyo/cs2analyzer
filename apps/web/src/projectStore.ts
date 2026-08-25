@@ -58,15 +58,41 @@ function isPoint(v: unknown): v is { x: number; y: number } {
   return typeof o.x === "number" && typeof o.y === "number";
 }
 
+function optionalTick(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+function withWindow<T extends Stroke>(base: T, o: Record<string, unknown>): T {
+  const start_tick = optionalTick(o.start_tick);
+  const end_tick = optionalTick(o.end_tick);
+  return {
+    ...base,
+    ...(start_tick != null ? { start_tick } : {}),
+    ...(end_tick != null ? { end_tick } : {}),
+  };
+}
+
 function parseStroke(v: unknown): Stroke | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
   if (typeof o.round !== "number" || typeof o.color !== "string") return null;
   if (o.type === "pen" && Array.isArray(o.points) && o.points.every(isPoint)) {
-    return { type: "pen", round: o.round, color: o.color, points: o.points };
+    return withWindow({ type: "pen", round: o.round, color: o.color, points: o.points }, o);
   }
   if (o.type === "arrow" && isPoint(o.from) && isPoint(o.to)) {
-    return { type: "arrow", round: o.round, color: o.color, from: o.from, to: o.to };
+    return withWindow({ type: "arrow", round: o.round, color: o.color, from: o.from, to: o.to }, o);
+  }
+  if (
+    o.type === "text" &&
+    typeof o.x === "number" &&
+    typeof o.y === "number" &&
+    typeof o.text === "string" &&
+    o.text.trim() !== ""
+  ) {
+    return withWindow(
+      { type: "text", round: o.round, color: o.color, x: o.x, y: o.y, text: o.text },
+      o,
+    );
   }
   return null;
 }

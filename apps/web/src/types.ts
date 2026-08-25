@@ -231,7 +231,7 @@ export type WorkerOut =
   | { type: "done"; replay: Replay }
   | { type: "error"; message: string };
 
-export type DrawTool = "pan" | "pen" | "arrow" | "eraser";
+export type DrawTool = "pan" | "pen" | "arrow" | "text" | "eraser";
 
 export type FloorMode = "auto" | "upper" | "lower";
 
@@ -257,9 +257,15 @@ export const DEFAULT_LAYERS: MapLayers = {
   openings: true,
 };
 
-export type Stroke = { round: number } & (
+export type Stroke = {
+  round: number;
+  /** If set with `end_tick`, only visible in that window. Omit both for the whole round. */
+  start_tick?: number;
+  end_tick?: number;
+} & (
   | { type: "pen"; color: string; points: { x: number; y: number }[] }
   | { type: "arrow"; color: string; from: { x: number; y: number }; to: { x: number; y: number } }
+  | { type: "text"; color: string; x: number; y: number; text: string }
 );
 
 export interface SummaryFilter {

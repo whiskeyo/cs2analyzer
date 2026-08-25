@@ -69,6 +69,7 @@ export function App() {
   const [selected, setSelected] = useState<number | null>(null);
   const [follow, setFollow] = useState(false);
   const [trails, setTrails] = useState(false);
+  const [moment, setMoment] = useState(false);
   const [tool, setTool] = useState<DrawTool>("pan");
   const [paletteId, setPaletteId] = useState(defaultPaletteId);
   const [color, setColor] = useState(defaultColor);
@@ -493,6 +494,7 @@ export function App() {
             paletteId={paletteId}
             follow={follow}
             trails={trails}
+            moment={moment}
             canFollow={selected != null}
             layers={layers}
             floorMode={floorMode}
@@ -510,6 +512,7 @@ export function App() {
             }}
             onFollow={setFollow}
             onTrails={setTrails}
+            onMoment={setMoment}
             onLayers={(next) => {
               if (next.summary && !layers.summary) setPlaying(false);
               setLayers(next);
@@ -540,6 +543,8 @@ export function App() {
               strokes={strokes}
               onStrokes={(next) => commitStrokes(next)}
               onPan={() => setFollow(false)}
+              onPause={() => setPlaying(false)}
+              moment={moment}
               layers={layers}
               summaryFilter={summaryFilter}
               viewEpoch={viewEpoch}
@@ -603,6 +608,7 @@ export function App() {
         <Sidebar
           replay={replay}
           tick={tick}
+          strokes={strokes}
           selected={selected}
           onSelect={(i) => {
             setSelected(i);
@@ -611,7 +617,7 @@ export function App() {
           onJump={jump}
         />
       </main>
-      <RoundStrip replay={replay} tick={tick} onJump={jump} />
+      <RoundStrip replay={replay} tick={tick} strokes={strokes} onJump={jump} />
       <Controls
         replay={replay}
         tick={tick}
