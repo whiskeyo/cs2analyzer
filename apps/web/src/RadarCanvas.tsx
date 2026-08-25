@@ -1,9 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useRef } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import {
   NOTE_TEXT_DRAG_PX,
-  NOTE_TEXT_MIN_HEIGHT,
-  NOTE_TEXT_MIN_WIDTH,
   OPENING_ARROW_MAX_PX,
   PEN_MIN_SAMPLE_DISTANCE,
   tickRate,
@@ -40,6 +38,7 @@ import {
   hitTextLabel,
   yawToCanvas,
 } from "./radar/draw";
+import { TextNoteEditor, useTextNotes, type TextEdit, type TextMove } from "./radar/TextNoteEditor";
 import { currentRound, samplePlayers, sampleTrail } from "./sample";
 import { activeBomb } from "./stats";
 import { drawSmoothLine, simplifyStroke } from "./strokes";
@@ -52,22 +51,6 @@ import type {
   Stroke,
   SummaryFilter,
 } from "./types";
-
-interface TextEdit {
-  index: number | null;
-  x: number;
-  y: number;
-  /** Wrap-local px so the first paint sits on the click, not after the canvas. */
-  sx: number;
-  sy: number;
-  text: string;
-  color: string;
-  round: number;
-  start_tick?: number;
-  end_tick?: number;
-  box_w?: number;
-  box_h?: number;
-}
 
 interface Props {
   replay: Replay;
@@ -165,128 +148,21 @@ export function RadarCanvas({
   const draft = useRef<Stroke | null>(null);
   const penTip = useRef<{ x: number; y: number } | null>(null);
   const c4Icon = useRef<HTMLImageElement | null>(null);
-  const [editing, setEditing] = useState<TextEdit | null>(null);
-  const editingRef = useRef<TextEdit | null>(null);
-  editingRef.current = editing;
-  const editAreaRef = useRef<HTMLTextAreaElement>(null);
-  const editWrapRef = useRef<HTMLDivElement>(null);
-  const ignoreBlurRef = useRef(false);
   const suppressClickRef = useRef(false);
-  const textMoveRef = useRef<{
-    index: number;
-    grabWx: number;
-    grabWy: number;
-    grabSx: number;
-    grabSy: number;
-    origX: number;
-    origY: number;
-    x: number;
-    y: number;
-    moved: boolean;
-  } | null>(null);
-  const editDragRef = useRef<{
-    grabX: number;
-    grabY: number;
-    origSx: number;
-    origSy: number;
-  } | null>(null);
-
-  const focusEditor = () => {
-    const el = editAreaRef.current;
-    if (!el) return;
-    el.focus({ preventScroll: true });
-    const n = el.value.length;
-    el.setSelectionRange(n, n);
-  };
-
-  useLayoutEffect(() => {
-    if (!editing) return;
-    focusEditor();
-    const id = window.setTimeout(focusEditor, 0);
-    return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- typing / drag should not steal the caret
-  }, [editing?.index]);
-
-  useEffect(() => {
-    if (!editing) return;
-    const el = editAreaRef.current;
-    if (!el) return;
-    const sync = () => {
-      const ed = editingRef.current;
-      if (!ed) return;
-      const box_w = Math.max(NOTE_TEXT_MIN_WIDTH, el.offsetWidth);
-      const box_h = Math.max(NOTE_TEXT_MIN_HEIGHT, el.offsetHeight);
-      if (ed.box_w === box_w && ed.box_h === box_h) return;
-      const next = { ...ed, box_w, box_h };
-      editingRef.current = next;
-      setEditing(next);
-    };
-    const ro = new ResizeObserver(sync);
-    ro.observe(el);
-    return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-bind when the editor opens
-  }, [editing?.index]);
-
-  const commitEditingRef = useRef<() => void>(() => undefined);
-
-  const commitEditing = () => {
-    const ed = editingRef.current;
-    if (!ed) return;
-    const el = editAreaRef.current;
-    const trimmed = ed.text.trim();
-    const list = strokesRef.current;
-    const box =
-      el != null
-        ? {
-            box_w: Math.max(NOTE_TEXT_MIN_WIDTH, el.offsetWidth),
-            box_h: Math.max(NOTE_TEXT_MIN_HEIGHT, el.offsetHeight),
-          }
-        : {
-            ...(ed.box_w != null ? { box_w: ed.box_w } : {}),
-            ...(ed.box_h != null ? { box_h: ed.box_h } : {}),
-          };
-    editingRef.current = null;
-    setEditing(null);
-    if (ed.index == null) {
-      if (!trimmed) return;
-      const st: Stroke = {
-        type: "text",
-        round: ed.round,
-        color: ed.color,
-        x: ed.x,
-        y: ed.y,
-        text: trimmed,
-        ...box,
-        ...(ed.start_tick != null ? { start_tick: ed.start_tick, end_tick: ed.end_tick } : {}),
-      };
-      onStrokesRef.current([...list, st]);
-      return;
-    }
-    if (!trimmed) {
-      onStrokesRef.current(list.filter((_, i) => i !== ed.index));
-      return;
-    }
-    onStrokesRef.current(
-      list.map((s, i) =>
-        i === ed.index && s.type === "text" ? { ...s, text: trimmed, x: ed.x, y: ed.y, ...box } : s,
-      ),
-    );
-  };
-  commitEditingRef.current = commitEditing;
-
-  const beginEditingRef = useRef<(next: TextEdit) => void>(() => undefined);
-  const beginEditing = (next: TextEdit) => {
-    ignoreBlurRef.current = true;
-    const clear = () => {
-      ignoreBlurRef.current = false;
-      window.removeEventListener("mouseup", clear);
-      focusEditor();
-    };
-    window.addEventListener("mouseup", clear);
-    editingRef.current = next;
-    setEditing(next);
-  };
-  beginEditingRef.current = beginEditing;
+  const textMoveRef = useRef<TextMove | null>(null);
+  const notes = useTextNotes(strokesRef, onStrokes);
+  const {
+    editing,
+    setEditing,
+    editingRef,
+    editAreaRef,
+    editWrapRef,
+    ignoreBlurRef,
+    editDragRef,
+    focusEditor,
+    beginEditingRef,
+    commitEditingRef,
+  } = notes;
 
   useEffect(() => {
     const img = new Image();
@@ -879,6 +755,7 @@ export function RadarCanvas({
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rAF loop reads latest refs
   }, [replay]);
 
   useEffect(() => {
@@ -1217,6 +1094,7 @@ export function RadarCanvas({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pointer handlers read latest refs
   }, []);
 
   const onClick = (e: ReactMouseEvent<HTMLCanvasElement>) => {
@@ -1251,76 +1129,23 @@ export function RadarCanvas({
 
   const cursor = tool === "pan" ? "grab" : tool === "eraser" ? "cell" : "crosshair";
 
-  const onTextKeyDown = (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      editingRef.current = null;
-      setEditing(null);
-      return;
-    }
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      commitEditing();
-    }
-  };
-
   return (
     <div className="radar-wrap" ref={wrapRef} style={{ cursor }}>
       <canvas ref={canvasRef} onClick={onClick} />
       {editing && (
-        <div
-          ref={editWrapRef}
-          className="radar-text-edit-wrap"
-          style={{ left: editing.sx, top: editing.sy }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <div
-            className="radar-text-edit-grip"
-            title="Drag to move"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const box = wrapRef.current;
-              const ed = editingRef.current;
-              if (!box || !ed) return;
-              ignoreBlurRef.current = true;
-              const rect = box.getBoundingClientRect();
-              editDragRef.current = {
-                grabX: e.clientX - rect.left,
-                grabY: e.clientY - rect.top,
-                origSx: ed.sx,
-                origSy: ed.sy,
-              };
-            }}
-          />
-          <textarea
-            ref={editAreaRef}
-            className="radar-text-edit"
-            value={editing.text}
-            placeholder="Note"
-            rows={2}
-            autoFocus
-            style={{
-              minWidth: NOTE_TEXT_MIN_WIDTH,
-              minHeight: NOTE_TEXT_MIN_HEIGHT,
-              ...(editing.box_w != null ? { width: editing.box_w } : {}),
-              ...(editing.box_h != null ? { height: editing.box_h } : {}),
-            }}
-            onChange={(e) => {
-              const next = { ...editing, text: e.target.value };
-              editingRef.current = next;
-              setEditing(next);
-            }}
-            onKeyDown={onTextKeyDown}
-            onBlur={() => {
-              if (ignoreBlurRef.current) {
-                focusEditor();
-                return;
-              }
-              commitEditing();
-            }}
-          />
-        </div>
+        <TextNoteEditor
+          editing={editing}
+          wrapRef={wrapRef}
+          editWrapRef={editWrapRef}
+          editAreaRef={editAreaRef}
+          editingRef={editingRef}
+          ignoreBlurRef={ignoreBlurRef}
+          editDragRef={editDragRef}
+          focusEditor={focusEditor}
+          commitEditing={notes.commitEditing}
+          onTextKeyDown={notes.onTextKeyDown}
+          setEditing={setEditing}
+        />
       )}
     </div>
   );
