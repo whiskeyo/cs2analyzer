@@ -1,5 +1,4 @@
-import { roundScrubRange } from "./roundTimeline";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controls } from "./Controls";
 import { DropZone } from "./DropZone";
 import { ImportNotesButton } from "./ImportNotesButton";
@@ -9,33 +8,30 @@ import { SpectatorEconomy } from "./SpectatorEconomy";
 import { MapToolbar } from "./MapToolbar";
 import { calibrationFor, loadCalibrations } from "./maps";
 import { COLOR_PRESETS } from "./palettes";
-import { deleteProject, isNotesFile, loadProject, matchKey } from "./projectStore";
+import { deleteProject } from "./projectStore";
 import { RadarCanvas } from "./RadarCanvas";
 import { RoundStrip } from "./RoundStrip";
-import { findExecutes, nextExecuteTick } from "./execute";
 import { currentRound } from "./sample";
 import { Sidebar } from "./Sidebar";
-import { computeStats, exportStatsCsv, nextEventTick } from "./stats";
+import { computeStats, exportStatsCsv } from "./stats";
 import {
   DEFAULT_LAYERS,
-  DEFAULT_SUMMARY_FILTER,
   type DrawTool,
   type MapCalibration,
   type MapLayers,
   type Replay,
-  type WorkerOut,
 } from "./types";
 import { publicUrl } from "./publicUrl";
 import { NADE_COLORS } from "./radarFx";
 import { prettyMap } from "./weapons";
+import { useDemoParse } from "./useDemoParse";
+import { useHotkeys } from "./useHotkeys";
 import { usePlayback } from "./usePlayback";
 import { useReviewProject } from "./useReviewProject";
 
 export function App() {
   const [replay, setReplay] = useState<Replay | null>(null);
   const [fileName, setFileName] = useState("");
-  const [parsing, setParsing] = useState(false);
-  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const { tick, setTick, tickRef, playing, setPlaying, playingRef, speed, setSpeed, jump } =
     usePlayback(replay);
   const replayRef = useRef(replay);
@@ -84,164 +80,46 @@ export function App() {
   const [layers, setLayers] = useState<MapLayers>(DEFAULT_LAYERS);
   const [viewEpoch, setViewEpoch] = useState(0);
   const [maps, setMaps] = useState<Record<string, MapCalibration>>({});
-  const workerRef = useRef<Worker | null>(null);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  const { parsing, progress, onFile } = useDemoParse({
+    persistNow,
+    importNotesText,
+    commitStrokes,
+    applyProject,
+    jump,
+    setReplay,
+    setFileName,
+    setFollow,
+    setSelected,
+    setLayers,
+    setSummaryFilter,
+    setFloorMode,
+    setError,
+    setNotice,
+    setPlaying,
+    setTick,
+    tickRef,
+  });
+  useHotkeys({
+    replayRef,
+    tickRef,
+    playingRef,
+    selectedRef,
+    jump,
+    undo,
+    redo,
+    setPlaying,
+    setFollow,
+    setTrails,
+    setSelected,
+  });
 
   useEffect(() => {
     loadCalibrations()
       .then(setMaps)
       .catch(() => undefined);
   }, []);
-
-  const onFile = useCallback(
-    (file: File) => {
-      if (isNotesFile(file)) {
-        void file.text().then((text) => importNotesText(text));
-        return;
-      }
-      void persistNow();
-      setError(null);
-      setNotice(null);
-      setParsing(true);
-      setProgress({ current: 0, total: 1 });
-      setReplay(null);
-      setFileName(file.name);
-      commitStrokes([], true);
-      setFollow(false);
-      setSelected(null);
-      setLayers(DEFAULT_LAYERS);
-      setSummaryFilter(DEFAULT_SUMMARY_FILTER);
-      setFloorMode("auto");
-      workerRef.current?.terminate();
-      const worker = new Worker(new URL("./parseWorker.ts", import.meta.url), { type: "module" });
-      workerRef.current = worker;
-      worker.onmessage = (ev: MessageEvent<WorkerOut>) => {
-        const msg = ev.data;
-        if (msg.type === "progress") {
-          setProgress({ current: msg.current, total: msg.total });
-        } else if (msg.type === "done") {
-          setReplay(msg.replay);
-          const first = msg.replay.rounds.find((r) => !r.is_knife) ?? msg.replay.rounds[0];
-          const start = first?.freeze_end_tick ?? msg.replay.ticks.ticks[0] ?? 0;
-          tickRef.current = start;
-          setTick(start);
-          setParsing(false);
-          worker.terminate();
-          void loadProject(matchKey(msg.replay, file.name))
-            .then((p) => {
-              if (p) {
-                applyProject(p, true);
-                setPlaying(false);
-                setNotice("Restored drawings for this match.");
-              } else {
-                setPlaying(true);
-              }
-            })
-            .catch(() => setPlaying(true));
-        } else {
-          setError(msg.message);
-          setParsing(false);
-          worker.terminate();
-        }
-      };
-      worker.onerror = (e) => {
-        setError(e.message || "Worker failed");
-        setParsing(false);
-        worker.terminate();
-      };
-      file.arrayBuffer().then((bytes) => worker.postMessage({ bytes }, [bytes]));
-    },
-    [
-      applyProject,
-      commitStrokes,
-      importNotesText,
-      persistNow,
-      setError,
-      setFloorMode,
-      setNotice,
-      setPlaying,
-      setSummaryFilter,
-      setTick,
-      tickRef,
-    ],
-  );
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
-      if ((e.target as HTMLElement | null)?.closest?.(".radar-text-edit")) return;
-      if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) {
-        e.preventDefault();
-        redo();
-        return;
-      }
-      const r = replayRef.current;
-      if (!r) return;
-      const round = currentRound(r, tickRef.current);
-      const roundIdx = r.rounds.findIndex((x) => x.start_tick === round?.start_tick);
-      const fallback = {
-        min: r.ticks.ticks[0] ?? 0,
-        max: r.header.playback_ticks || r.ticks.ticks[r.ticks.ticks.length - 1] || 0,
-      };
-      const { min, max } = roundScrubRange(round ?? undefined, r.rounds, fallback);
-      const kills = r.kills.map((k) => k.tick);
-
-      if (e.code === "Space") {
-        e.preventDefault();
-        setPlaying(!playingRef.current);
-        return;
-      }
-      if (e.key === "[" || e.key === "]") {
-        const n = r.rounds[roundIdx + (e.key === "]" ? 1 : -1)];
-        if (n) jump(n.freeze_end_tick || n.start_tick);
-        return;
-      }
-      if (e.key === "," || e.key === ".") {
-        const t = nextEventTick(kills, tickRef.current, e.key === "." ? 1 : -1);
-        if (t != null) jump(t);
-        return;
-      }
-      if (e.key === "e" || e.key === "E") {
-        const t = nextExecuteTick(findExecutes(r), tickRef.current, e.key === "E" ? -1 : 1);
-        if (t != null) jump(t);
-        return;
-      }
-      if (e.key === "Home") {
-        jump(round?.freeze_end_tick || round?.start_tick || min);
-        return;
-      }
-      if (e.key === "f" || e.key === "F") {
-        if (selectedRef.current != null) setFollow((v) => !v);
-        return;
-      }
-      if (e.key === "t" || e.key === "T") {
-        setTrails((v) => !v);
-        return;
-      }
-      if (e.key === "Escape") {
-        setSelected(null);
-        setFollow(false);
-        return;
-      }
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        e.preventDefault();
-        const step = e.shiftKey ? 64 : 16;
-        jump(
-          Math.min(max, Math.max(min, tickRef.current + (e.key === "ArrowRight" ? step : -step))),
-        );
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [jump, redo, undo, playingRef, setPlaying, tickRef]);
 
   const cal = replay ? calibrationFor(maps, replay.header.map_name) : undefined;
 
