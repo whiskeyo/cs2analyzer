@@ -82,11 +82,11 @@ FACEIT-style targets for a 30-round OT game: team score follows sides (e.g. 14�
 ## Adding changes
 
 1. Read the existing function before extending it. Match naming and structure in the file you touch.
-2. Prefer small, reviewable diffs. **Cap a commit at about 1000 lines** (`git diff --stat`). Split by concern (parser vs UI vs stats vs CI). A larger commit is OK only when the change **cannot be smaller** (generated WASM, lockfile + one feature, rustfmt of a huge file, vendored assets).
+2. **Every change should be as small as possible.** Do not bundle unrelated edits. One behavior, one fix, or one feature per diff — then stop. **Every functionality needs its own commit** (do not squash “text notes + sidebar + timeline” into one). **Cap a commit at about 1000 lines** (`git diff --stat`). Split by concern (parser vs UI vs stats vs CI). A larger commit is OK only when the change **cannot be smaller** (generated WASM, lockfile + one feature, rustfmt of a huge file, vendored assets).
 3. Mirror stats logic in both Rust and `stats.ts` when the formula changes. Add a unit test on the side you touched (`analysis.rs` tests and/or `apps/web/src/stats.test.ts`).
 4. After WASM rebuild, tell whiskeyo to **re-drop the demo**. UI-only work: verify the affected flow in the browser (behavior, not a single screenshot). No browser tools: say what you could not click through.
 5. Do not add README/docs unless asked. Do not edit plan files. Do not commit `.demos/`, `.env`, or secrets. `apps/web/src/parser/` is generated — commit it only together with the parser change that produced it.
-6. Do not commit unless asked. When asked: follow repo commit style, HEREDOC message focused on **why**, no `--no-verify`. Push only when asked.
+6. Do not commit unless asked. When asked: one commit per functionality, follow repo commit style, HEREDOC message focused on **why**, no `--no-verify`. Push only when asked.
 
 ## Web notes
 
