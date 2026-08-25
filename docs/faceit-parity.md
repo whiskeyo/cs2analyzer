@@ -1,6 +1,6 @@
 # FACEIT parity and analysis roadmap
 
-Compared against FACEIT match `1-a333d902-16d8-41ab-9ce8-cdc5445f3508` (Anubis OT, SHAFRA0 16 – mont3rax 14) using the GOTV demo in `.demos/` (not committed). FACEIT HTML is Cloudflare-blocked from this environment; numbers below are from FACEIT’s official analysis UI (scoreboard / KAST / entry / clutch) plus our CLI parse.
+Compared against FACEIT match `1-a333d902-16d8-41ab-9ce8-cdc5445f3508` (Anubis OT, SHAFRA0 16 – mont3rax 14) using the GOTV demo in `.demos/` (not committed). FACEIT HTML is Cloudflare-blocked from this environment; numbers below are from FACEIT’s official analysis UI (scoreboard / KAST / entry / clutch) plus a parse of the GOTV demo.
 
 ## What already matches
 

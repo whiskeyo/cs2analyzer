@@ -8,7 +8,6 @@ Drop a `.dem` file in the browser to parse it with WebAssembly (the file never l
 
 ```
 crates/cs2analyzer       Native library (parse + stats + radar math)
-crates/cs2analyzer-cli   `cs2analyzer parse match.dem`
 crates/cs2analyzer-wasm  wasm-bindgen wrapper
 apps/web                 Vite + React 2D viewer
 ```
@@ -24,13 +23,6 @@ println!("{}  {}-{}", m.header.map_name, m.header.score_ct, m.header.score_t);
 if let Some(cal) = calibration(&m.header.map_name) {
     let (px, py) = cal.world_to_radar(m.ticks.x[0], m.ticks.y[0]);
 }
-```
-
-CLI:
-
-```
-cargo run -p cs2analyzer-cli -- parse path/to/match.dem
-cargo run -p cs2analyzer-cli -- parse path/to/match.dem --json out.json
 ```
 
 ## Website

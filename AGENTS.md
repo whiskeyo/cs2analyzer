@@ -2,13 +2,12 @@
 
 Local-first CS2 GOTV demo analyzer. whiskeyo is the owner. Prefer working in code: implement, debug, iterate. Do not commit unless asked.
 
-Parse a `.dem` in the browser (Web Worker + WASM; the file never leaves the machine), replay it on a 2D radar, and show FACEIT-style stats. Native CLI exists for the same parser.
+Parse a `.dem` in the browser (Web Worker + WASM; the file never leaves the machine), replay it on a 2D radar, and show FACEIT-style stats.
 
 ## Layout
 
 ```
 crates/cs2analyzer       Parse, assemble Match, stats, radar math
-crates/cs2analyzer-cli   `cs2analyzer parse match.dem`
 crates/cs2analyzer-wasm  wasm-bindgen wrapper (no mimalloc)
 apps/web                 Vite + React viewer (dev: http://localhost:5173/)
 scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
@@ -26,7 +25,6 @@ Do not edit `apps/web/src/parser/` by hand. Keep `wasm-bindgen-cli` at **0.2.127
 cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings   # unwrap/expect denied outside tests
 cargo test --workspace
-cargo run -p cs2analyzer-cli -- parse path/to/match.dem
 
 # WASM (after Rust parser/types changes)
 ./scripts/build-wasm.sh

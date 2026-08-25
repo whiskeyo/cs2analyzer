@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "crates/cs2analyzer",
-    "crates/cs2analyzer-cli",
     "crates/cs2analyzer-wasm",
 ]
 

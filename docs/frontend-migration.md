@@ -21,7 +21,6 @@ Leptos or Yew would have been reasonable if the goal was “one language everywh
 Keep as-is:
 
 - `crates/cs2analyzer` (observer, assemble, analysis, types)
-- `crates/cs2analyzer-cli`
 - `crates/cs2analyzer-wasm` wasm-bindgen surface (`parseDemo`, typed-array getters, `free()`)
 - `scripts/build-wasm.sh` + `wasm-bindgen` **0.2.127**
 - Vendored maps/weapons under `apps/web/public/`
