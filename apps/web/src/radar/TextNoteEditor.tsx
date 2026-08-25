@@ -194,7 +194,7 @@ interface EditorProps {
   focusEditor: () => void;
   commitEditing: () => void;
   onTextKeyDown: (e: ReactKeyboardEvent<HTMLTextAreaElement>) => void;
-  setEditing: (next: TextEdit) => void;
+  setEditing: (next: TextEdit | null) => void;
 }
 
 export function TextNoteEditor({
