@@ -65,10 +65,14 @@ function optionalTick(v: unknown): number | undefined {
 function withWindow<T extends Stroke>(base: T, o: Record<string, unknown>): T {
   const start_tick = optionalTick(o.start_tick);
   const end_tick = optionalTick(o.end_tick);
+  const group = typeof o.group === "string" && o.group.trim() !== "" ? o.group.trim() : undefined;
+  const hidden = o.hidden === true;
   return {
     ...base,
     ...(start_tick != null ? { start_tick } : {}),
     ...(end_tick != null ? { end_tick } : {}),
+    ...(group ? { group } : {}),
+    ...(hidden ? { hidden: true } : {}),
   };
 }
 

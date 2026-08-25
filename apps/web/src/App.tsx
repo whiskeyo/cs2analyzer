@@ -1,4 +1,5 @@
 import { DRAW_HISTORY_LIMIT, PROJECT_SAVE_DEBOUNCE_MS, tickRate } from "./constants";
+import { roundScrubRange } from "./roundTimeline";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Controls } from "./Controls";
 import { DropZone } from "./DropZone";
@@ -330,6 +331,7 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      if ((e.target as HTMLElement | null)?.closest?.(".radar-text-edit")) return;
       if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -345,8 +347,11 @@ export function App() {
       if (!r) return;
       const round = currentRound(r, tickRef.current);
       const roundIdx = r.rounds.findIndex((x) => x.start_tick === round?.start_tick);
-      const min = r.ticks.ticks[0] ?? 0;
-      const max = r.header.playback_ticks || r.ticks.ticks[r.ticks.ticks.length - 1] || 0;
+      const fallback = {
+        min: r.ticks.ticks[0] ?? 0,
+        max: r.header.playback_ticks || r.ticks.ticks[r.ticks.ticks.length - 1] || 0,
+      };
+      const { min, max } = roundScrubRange(round ?? undefined, r.rounds, fallback);
       const kills = r.kills.map((k) => k.tick);
 
       if (e.code === "Space") {
@@ -615,6 +620,7 @@ export function App() {
             setFollow(i != null);
           }}
           onJump={jump}
+          onStrokes={(next) => commitStrokes(next)}
         />
       </main>
       <RoundStrip replay={replay} tick={tick} strokes={strokes} onJump={jump} />

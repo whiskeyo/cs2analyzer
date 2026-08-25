@@ -33,9 +33,10 @@ interface Props {
   selected: number | null;
   onSelect: (index: number | null) => void;
   onJump: (tick: number) => void;
+  onStrokes: (next: Stroke[]) => void;
 }
 
-export function Sidebar({ replay, tick, strokes, selected, onSelect, onJump }: Props) {
+export function Sidebar({ replay, tick, strokes, selected, onSelect, onJump, onStrokes }: Props) {
   const [tab, setTab] = useState<Tab>("score");
   const [width, setWidth] = useState(loadSidebarWidth);
   const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
@@ -153,7 +154,15 @@ export function Sidebar({ replay, tick, strokes, selected, onSelect, onJump }: P
           onSelect={(i) => onSelect(i)}
         />
       )}
-      {tab === "notes" && <Notes replay={replay} strokes={strokes} onJump={onJump} />}
+      {tab === "notes" && (
+        <Notes
+          replay={replay}
+          tick={tick}
+          strokes={strokes}
+          onJump={onJump}
+          onStrokes={onStrokes}
+        />
+      )}
       {tab === "action" && <Action replay={replay} tick={tick} onJump={onJump} />}
       {tab === "util" && (
         <Utility

@@ -350,15 +350,18 @@ code {
   position: absolute;
   inset: 0;
   background: #0d1116;
+  overflow: hidden;
 }
 .radar-wrap canvas {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
 }
 .radar-text-edit {
   position: absolute;
-  z-index: 5;
+  z-index: 6;
   transform: translate(-50%, -50%);
   min-width: 8rem;
   max-width: 14rem;
@@ -370,6 +373,8 @@ code {
   color: #e8eef4;
   border: 1px solid #6aa4d8;
   border-radius: 4px;
+  pointer-events: auto;
+  user-select: text;
   font:
     12px ui-sans-serif,
     system-ui,
@@ -785,6 +790,274 @@ button.link {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.notes-round-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.3rem;
+}
+.notes-round-head .notes-round-label {
+  margin: 0;
+  flex: 1;
+}
+.notes-round-head button {
+  background: #1c242e;
+  color: #e8eef4;
+  border: 1px solid #2c3846;
+  border-radius: 6px;
+  padding: 0.18rem 0.45rem;
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+.notes-actions {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0 0 0.65rem;
+}
+.notes-actions button {
+  background: #1c242e;
+  color: #e8eef4;
+  border: 1px solid #2c3846;
+  border-radius: 6px;
+  padding: 0.22rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+.notes-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.note-cluster[draggable="true"],
+.note-row[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+.notes-dragging .note-cluster[draggable="true"],
+.notes-dragging .note-row[draggable="true"] {
+  cursor: grabbing;
+}
+.note-cluster {
+  margin: 0 0 0.45rem;
+}
+.note-cluster:not(.note-loose) {
+  border: 1px solid #2c3846;
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem 0.15rem;
+  background: #151c24;
+}
+.note-cluster.note-drop,
+.note-drop-slot.on {
+  outline: 1px dashed #6aa4d8;
+  background: #18222c;
+}
+.note-drop-slot {
+  margin: 0 0 0.4rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px dashed #2c3846;
+  border-radius: 6px;
+  color: #8b98a5;
+  font-size: 0.75rem;
+  text-align: center;
+}
+.note-cluster-head {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0 0 0.15rem;
+}
+.note-cluster-fold {
+  flex: 0 0 1.4rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  background: #1c242e;
+  color: #c5d0da;
+  border: 1px solid #2c3846;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 0.7rem;
+}
+.note-cluster-count {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.1rem 0.25rem;
+  background: transparent;
+  border: none;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: #8b98a5;
+  cursor: pointer;
+}
+.note-cluster-head .note-group-name {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  margin: 0;
+  cursor: grab;
+  user-select: none;
+}
+.note-cluster + .note-cluster,
+.note-cluster + .review-notes {
+  margin-top: 0.35rem;
+}
+.note-group-name {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 0.15rem;
+  background: #1c242e;
+  color: #e8eef4;
+  border: 1px solid #2c3846;
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+.note-group-name:focus {
+  border-color: #6aa4d8;
+  outline: none;
+}
+.note-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+  border-bottom: 1px solid #1e2732;
+  padding: 0.2rem 0 0.35rem;
+}
+.note-row.on {
+  background: #1a222c;
+}
+.note-pick {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.note-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  margin-top: 0.35rem;
+}
+.note-row .review-note {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  border-bottom: none;
+  padding: 0.35rem 0.1rem;
+  cursor: grab;
+}
+.note-row.dim {
+  opacity: 0.5;
+}
+.note-io {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  flex: 1 1 100%;
+  padding-left: 1.55rem;
+}
+.note-cluster-io .note-io {
+  padding-left: 0;
+}
+.note-io > button,
+.note-eye {
+  background: #1c242e;
+  color: #c5d0da;
+  border: 1px solid #2c3846;
+  border-radius: 4px;
+  padding: 0.12rem 0.3rem;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+.note-eye {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.note-eye input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+}
+.note-edge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.note-edge-label {
+  color: #8b98a5;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.note-clock {
+  display: inline-flex;
+  align-items: stretch;
+  background: #1c242e;
+  border: 1px solid #2c3846;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.note-clock-read {
+  min-width: 2.8rem;
+  margin: 0;
+  padding: 0.18rem 0.45rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: #c5d0da;
+  font: inherit;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+.note-clock-spin {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #2c3846;
+}
+.note-clock-spin button {
+  flex: 1;
+  margin: 0;
+  padding: 0 0.32rem;
+  background: #1c242e;
+  color: #8b98a5;
+  border: none;
+  border-radius: 0;
+  line-height: 1;
+  font-size: 0.48rem;
+  cursor: pointer;
+}
+.note-clock-spin button + button {
+  border-top: 1px solid #2c3846;
+}
+.note-clock-spin button:hover {
+  color: #e8eef4;
+  background: #24303c;
+}
+.note-eye.off {
+  color: #6e7c8a;
+}
+.note-cluster-io {
+  margin: 0 0 0.2rem 1.7rem;
+}
+.notes-dragging input,
+.notes-dragging textarea,
+.notes-dragging .note-io,
+.notes-dragging .note-eye,
+.notes-dragging .note-cluster-fold,
+.notes-dragging .note-cluster-count,
+.notes-dragging .review-note {
+  pointer-events: none;
+}
 .review-note {
   display: flex;
   gap: 0.45rem;
@@ -969,8 +1242,102 @@ button.link {
   border-color: #6aa4d8;
   background: #243040;
 }
+.timeline-wrap {
+  flex: 1 1 220px;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.timeline-bar {
+  position: relative;
+  height: 18px;
+}
+.timeline-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 5px;
+  height: 8px;
+  border-radius: 4px;
+  background: #1c242e;
+  overflow: hidden;
+  pointer-events: none;
+}
+.timeline-freeze {
+  height: 100%;
+  background: #2a3a4d;
+}
+.timeline-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #3d6a94;
+}
+.timeline-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.timeline-tick {
+  position: absolute;
+  top: 3px;
+  width: 1px;
+  height: 12px;
+  background: #4a5d70;
+  transform: translateX(-50%);
+}
 .timeline {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  appearance: none;
+  cursor: pointer;
+}
+.timeline::-webkit-slider-runnable-track {
+  height: 8px;
+  background: transparent;
+  border: none;
+}
+.timeline::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: #6aa4d8;
+  border: 1px solid #8ec0ea;
+}
+.timeline::-moz-range-track {
+  height: 8px;
+  background: transparent;
+  border: none;
+}
+.timeline::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #6aa4d8;
+  border: 1px solid #8ec0ea;
+}
+.timeline-labels {
+  position: relative;
+  height: 14px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.timeline-label {
+  position: absolute;
+  top: 0;
+  font-size: 0.65rem;
+  line-height: 14px;
+  color: #8b98a5;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .clock,
 .map-name {

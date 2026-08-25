@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import {
   NOTE_TEXT_MAX_WIDTH,
@@ -243,6 +243,9 @@ interface TextEdit {
   index: number | null;
   x: number;
   y: number;
+  /** Wrap-local px so the first paint sits on the click, not after the canvas. */
+  sx: number;
+  sy: number;
   text: string;
   color: string;
   round: number;
@@ -350,9 +353,21 @@ export function RadarCanvas({
   const editingRef = useRef<TextEdit | null>(null);
   editingRef.current = editing;
   const editAreaRef = useRef<HTMLTextAreaElement>(null);
+  const ignoreBlurRef = useRef(false);
 
-  useEffect(() => {
-    if (editing) editAreaRef.current?.focus();
+  const focusEditor = () => {
+    const el = editAreaRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    const n = el.value.length;
+    el.setSelectionRange(n, n);
+  };
+
+  useLayoutEffect(() => {
+    if (!editing) return;
+    focusEditor();
+    const id = window.setTimeout(focusEditor, 0);
+    return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keystrokes should not steal focus
   }, [editing?.index, editing?.x, editing?.y]);
 
@@ -388,6 +403,20 @@ export function RadarCanvas({
     );
   };
   commitEditingRef.current = commitEditing;
+
+  const beginEditingRef = useRef<(next: TextEdit) => void>(() => undefined);
+  const beginEditing = (next: TextEdit) => {
+    ignoreBlurRef.current = true;
+    const clear = () => {
+      ignoreBlurRef.current = false;
+      window.removeEventListener("mouseup", clear);
+      focusEditor();
+    };
+    window.addEventListener("mouseup", clear);
+    editingRef.current = next;
+    setEditing(next);
+  };
+  beginEditingRef.current = beginEditing;
 
   useEffect(() => {
     const img = new Image();
@@ -849,11 +878,11 @@ export function RadarCanvas({
       const tickDraw = tickRef.current;
       const skipText = editingRef.current?.index;
       strokesRef.current.forEach((st, i) => {
-        if (!overlayVisible(st, tickDraw, roundNow)) return;
+        if (!overlayVisible(st, tickDraw, roundNow, strokesRef.current)) return;
         if (st.type === "text" && skipText === i) return;
         drawStroke(st);
       });
-      if (draft.current && overlayVisible(draft.current, tickDraw, roundNow)) {
+      if (draft.current && overlayVisible(draft.current, tickDraw, roundNow, strokesRef.current)) {
         drawStroke(draft.current, 0.85, true);
       }
       const ed = editingRef.current;
@@ -1010,7 +1039,8 @@ export function RadarCanvas({
       if (toolNow === "eraser" && calNow) {
         const world = screenToWorld(calNow, w, h, view.current, x, y);
         const next = strokesRef.current.filter((st) => {
-          if (st.round !== roundNow || !overlayVisible(st, tickNow, roundNow)) return true;
+          if (st.round !== roundNow || !overlayVisible(st, tickNow, roundNow, strokesRef.current))
+            return true;
           if (st.type === "text") {
             if (!ctx) return true;
             const s = worldToScreen(calNow, w, h, view.current, st.x, st.y);
@@ -1024,27 +1054,29 @@ export function RadarCanvas({
 
       if (toolNow === "text") {
         if (!calNow) return;
+        e.preventDefault();
         onPauseRef.current();
         commitEditingRef.current();
         const world = screenToWorld(calNow, w, h, view.current, x, y);
         if (ctx) {
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const st = strokesRef.current[i];
-            if (st.type !== "text" || !overlayVisible(st, tickNow, roundNow)) continue;
+            if (st.type !== "text" || !overlayVisible(st, tickNow, roundNow, strokesRef.current))
+              continue;
             const s = worldToScreen(calNow, w, h, view.current, st.x, st.y);
             if (hitTextLabel(ctx, st, s, x, y)) {
-              const next: TextEdit = {
+              beginEditingRef.current({
                 index: i,
                 x: st.x,
                 y: st.y,
+                sx: s.x,
+                sy: s.y,
                 text: st.text,
                 color: st.color,
                 round: st.round,
                 start_tick: st.start_tick,
                 end_tick: st.end_tick,
-              };
-              editingRef.current = next;
-              setEditing(next);
+              });
               return;
             }
           }
@@ -1053,6 +1085,8 @@ export function RadarCanvas({
           index: null,
           x: world.x,
           y: world.y,
+          sx: x,
+          sy: y,
           text: "",
           color: colorRef.current,
           round: roundNow,
@@ -1068,8 +1102,7 @@ export function RadarCanvas({
           next.start_tick = stamped.start_tick;
           next.end_tick = stamped.end_tick;
         }
-        editingRef.current = next;
-        setEditing(next);
+        beginEditingRef.current(next);
         return;
       }
 
@@ -1224,13 +1257,22 @@ export function RadarCanvas({
           value={editing.text}
           placeholder="Note"
           rows={2}
+          autoFocus
+          style={{ left: editing.sx, top: editing.sy }}
+          onMouseDown={(e) => e.stopPropagation()}
           onChange={(e) => {
             const next = { ...editing, text: e.target.value };
             editingRef.current = next;
             setEditing(next);
           }}
           onKeyDown={onTextKeyDown}
-          onBlur={() => commitEditing()}
+          onBlur={() => {
+            if (ignoreBlurRef.current) {
+              focusEditor();
+              return;
+            }
+            commitEditing();
+          }}
         />
       )}
     </div>

@@ -90,8 +90,8 @@ export const KILL_LINE_MIN_LENGTH = 24;
 /** Opening-duel arrow on radar, screen pixels from the attacker. */
 export const OPENING_ARROW_MAX_PX = 72;
 
-/** Undo stack depth for drawings. */
-export const DRAW_HISTORY_LIMIT = 80;
+/** Round-clock marks on the scrubber (seconds after freeze). */
+export const ROUND_TIMELINE_STEP_SECONDS = 10;
 
 /** World units: skip pen samples closer than this (keep letter-sized strokes). */
 export const PEN_MIN_SAMPLE_DISTANCE = 4;
@@ -99,11 +99,26 @@ export const PEN_MIN_SAMPLE_DISTANCE = 4;
 /** How far interior pen points slide toward their neighbors (0–1). */
 export const PEN_SMOOTH_AMOUNT = 0.2;
 
-/** How long a Moment overlay stays on the radar. */
+/** How long a Moment overlay stays on the radar by default. */
 export const NOTE_MOMENT_SECONDS = 5;
+
+/** Shortest Moment window the Notes tab will store. */
+export const NOTE_MOMENT_MIN_SECONDS = 0.5;
+
+/** Start/end stepper increment in the Notes tab. */
+export const NOTE_MOMENT_STEP_SECONDS = 1;
+
+/** Longest overlay group name stored on a stroke. */
+export const NOTE_GROUP_NAME_MAX = 40;
+
+/** Default name when squashing pens/arrows into one list row. */
+export const NOTE_LAYER_NAME = "Drawings";
 
 /** Radar text label max width (screen px). */
 export const NOTE_TEXT_MAX_WIDTH = 160;
+
+/** Undo stack depth for drawings. */
+export const DRAW_HISTORY_LIMIT = 80;
 
 /** Debounce before writing the review overlay to IndexedDB. */
 export const PROJECT_SAVE_DEBOUNCE_MS = 400;

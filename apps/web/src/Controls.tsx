@@ -1,4 +1,5 @@
 import { tickRate } from "./constants";
+import { freezeWidth, markLabelShift, roundScrubRange, roundTimelineMarks } from "./roundTimeline";
 import { currentRound } from "./sample";
 import { nextEventTick } from "./stats";
 import type { Replay } from "./types";
@@ -18,9 +19,11 @@ interface Props {
 
 export function Controls({ replay, tick, playing, speed, onTick, onPlaying, onSpeed }: Props) {
   const round = currentRound(replay, tick);
-  const min = replay.ticks.ticks[0] ?? 0;
-  const max =
-    replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0;
+  const fallback = {
+    min: replay.ticks.ticks[0] ?? 0,
+    max: replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0,
+  };
+  const { min, max } = roundScrubRange(round ?? undefined, replay.rounds, fallback);
   const tps = tickRate(replay);
   const inFreeze = !!round && tick < round.freeze_end_tick;
   const freezeLeft =
@@ -30,6 +33,10 @@ export function Controls({ replay, tick, playing, speed, onTick, onPlaying, onSp
     : formatClock(Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps));
   const roundIdx = replay.rounds.findIndex((r) => r.start_tick === round?.start_tick);
   const killTicks = replay.kills.map((k) => k.tick);
+  const marks = round ? roundTimelineMarks(round, tps, { min, max }) : [];
+  const freezeAt = round ? freezeWidth(round, { min, max }) : 0;
+  const span = max - min;
+  const progress = span > 0 ? (Math.min(max, Math.max(min, tick)) - min) / span : 0;
 
   const gotoRound = (dir: number) => {
     const r = replay.rounds[roundIdx + dir];
@@ -130,14 +137,41 @@ export function Controls({ replay, tick, playing, speed, onTick, onPlaying, onSp
           ))}
         </select>
       </label>
-      <input
-        className="timeline"
-        type="range"
-        min={min}
-        max={max}
-        value={Math.min(max, Math.max(min, tick))}
-        onChange={(e) => onTick(Number(e.target.value))}
-      />
+      <div className="timeline-wrap">
+        <div className="timeline-bar">
+          <div className="timeline-rail" aria-hidden="true">
+            {freezeAt > 0 && (
+              <div className="timeline-freeze" style={{ width: `${freezeAt * 100}%` }} />
+            )}
+            <div className="timeline-fill" style={{ width: `${progress * 100}%` }} />
+          </div>
+          <div className="timeline-marks" aria-hidden="true">
+            {marks.map((m) => (
+              <span key={m.tick} className="timeline-tick" style={{ left: `${m.at * 100}%` }} />
+            ))}
+          </div>
+          <input
+            className="timeline"
+            type="range"
+            min={min}
+            max={max}
+            aria-label="Round timeline"
+            value={Math.min(max, Math.max(min, tick))}
+            onChange={(e) => onTick(Number(e.target.value))}
+          />
+        </div>
+        <div className="timeline-labels" aria-hidden="true">
+          {marks.map((m) => (
+            <span
+              key={m.tick}
+              className="timeline-label"
+              style={{ left: `${m.at * 100}%`, transform: `translateX(${markLabelShift(m.at)})` }}
+            >
+              {m.label}
+            </span>
+          ))}
+        </div>
+      </div>
       <span className="clock">
         {round ? (round.is_knife ? "Knife" : `R${round.number}`) : "—"} {clock}
       </span>

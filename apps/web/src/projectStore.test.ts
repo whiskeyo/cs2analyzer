@@ -141,4 +141,19 @@ describe("parseBundle", () => {
       end_tick: 440,
     });
   });
+
+  it("keeps a group id on a stroke", () => {
+    const p = parseProject({
+      ...project(),
+      strokes: [
+        { ...project().strokes[0], group: "g2", start_tick: 10, end_tick: 80, hidden: true },
+      ],
+    });
+    expect(p?.strokes[0]).toMatchObject({
+      group: "g2",
+      start_tick: 10,
+      end_tick: 80,
+      hidden: true,
+    });
+  });
 });

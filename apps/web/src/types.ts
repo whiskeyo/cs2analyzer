@@ -262,6 +262,10 @@ export type Stroke = {
   /** If set with `end_tick`, only visible in that window. Omit both for the whole round. */
   start_tick?: number;
   end_tick?: number;
+  /** Members with the same id share one show/hide window. */
+  group?: string;
+  /** Hidden notes stay in the list but are not drawn. Default is visible. */
+  hidden?: boolean;
 } & (
   | { type: "pen"; color: string; points: { x: number; y: number }[] }
   | { type: "arrow"; color: string; from: { x: number; y: number }; to: { x: number; y: number } }
