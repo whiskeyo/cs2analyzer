@@ -114,8 +114,15 @@ export const NOTE_GROUP_NAME_MAX = 40;
 /** Default name when squashing pens/arrows into one list row. */
 export const NOTE_LAYER_NAME = "Drawings";
 
-/** Radar text label max width (screen px). */
+/** Radar text label max width (screen px) when the box has not been resized. */
 export const NOTE_TEXT_MAX_WIDTH = 160;
+
+/** Smallest text editor / label box (screen px). */
+export const NOTE_TEXT_MIN_WIDTH = 128;
+export const NOTE_TEXT_MIN_HEIGHT = 40;
+
+/** Screen px before a text-note press counts as a move, not a click. */
+export const NOTE_TEXT_DRAG_PX = 4;
 
 /** Undo stack depth for drawings. */
 export const DRAW_HISTORY_LIMIT = 80;

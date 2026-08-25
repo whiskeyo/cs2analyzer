@@ -1,7 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import {
+  NOTE_TEXT_DRAG_PX,
   NOTE_TEXT_MAX_WIDTH,
+  NOTE_TEXT_MIN_HEIGHT,
+  NOTE_TEXT_MIN_WIDTH,
   OPENING_ARROW_MAX_PX,
   PEN_MIN_SAMPLE_DISTANCE,
   tickRate,
@@ -186,19 +189,27 @@ function wrapNote(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return out.length > 0 ? out : [""];
 }
 
+function textWrapWidth(st: Extract<Stroke, { type: "text" }>): number {
+  if (st.box_w == null) return NOTE_TEXT_MAX_WIDTH;
+  return Math.max(1, st.box_w - TEXT_PAD * 2);
+}
+
 function textBox(
   ctx: CanvasRenderingContext2D,
   st: Extract<Stroke, { type: "text" }>,
   screen: { x: number; y: number },
 ): { x: number; y: number; w: number; h: number; lines: string[] } {
   ctx.font = TEXT_FONT;
-  const lines = wrapNote(ctx, st.text, NOTE_TEXT_MAX_WIDTH);
+  const wrapW = textWrapWidth(st);
+  const lines = wrapNote(ctx, st.text, wrapW);
   let inner = 24;
   for (const line of lines) {
     inner = Math.max(inner, ctx.measureText(line || " ").width);
   }
-  const w = Math.min(NOTE_TEXT_MAX_WIDTH, inner) + TEXT_PAD * 2;
-  const h = Math.max(1, lines.length) * TEXT_LINE + TEXT_PAD * 2;
+  const contentW = Math.min(wrapW, inner) + TEXT_PAD * 2;
+  const contentH = Math.max(1, lines.length) * TEXT_LINE + TEXT_PAD * 2;
+  const w = st.box_w ?? contentW;
+  const h = st.box_h ?? contentH;
   return { x: screen.x - w / 2, y: screen.y - h / 2, w, h, lines };
 }
 
@@ -217,6 +228,7 @@ function drawTextLabel(
   ctx.roundRect(box.x, box.y, box.w, box.h, 4);
   ctx.fill();
   ctx.stroke();
+  ctx.clip();
   ctx.fillStyle = st.color;
   ctx.font = TEXT_FONT;
   ctx.textAlign = "left";
@@ -239,6 +251,27 @@ function hitTextLabel(
   return mx >= box.x && mx <= box.x + box.w && my >= box.y && my <= box.y + box.h;
 }
 
+function findTextIndex(
+  ctx: CanvasRenderingContext2D,
+  cal: MapCalibration,
+  w: number,
+  h: number,
+  view: RadarView,
+  strokes: Stroke[],
+  tick: number,
+  round: number,
+  mx: number,
+  my: number,
+): number {
+  for (let i = strokes.length - 1; i >= 0; i--) {
+    const st = strokes[i];
+    if (st.type !== "text" || !overlayVisible(st, tick, round, strokes)) continue;
+    const s = worldToScreen(cal, w, h, view, st.x, st.y);
+    if (hitTextLabel(ctx, st, s, mx, my)) return i;
+  }
+  return -1;
+}
+
 interface TextEdit {
   index: number | null;
   x: number;
@@ -251,6 +284,8 @@ interface TextEdit {
   round: number;
   start_tick?: number;
   end_tick?: number;
+  box_w?: number;
+  box_h?: number;
 }
 
 interface Props {
@@ -353,7 +388,27 @@ export function RadarCanvas({
   const editingRef = useRef<TextEdit | null>(null);
   editingRef.current = editing;
   const editAreaRef = useRef<HTMLTextAreaElement>(null);
+  const editWrapRef = useRef<HTMLDivElement>(null);
   const ignoreBlurRef = useRef(false);
+  const suppressClickRef = useRef(false);
+  const textMoveRef = useRef<{
+    index: number;
+    grabWx: number;
+    grabWy: number;
+    grabSx: number;
+    grabSy: number;
+    origX: number;
+    origY: number;
+    x: number;
+    y: number;
+    moved: boolean;
+  } | null>(null);
+  const editDragRef = useRef<{
+    grabX: number;
+    grabY: number;
+    origSx: number;
+    origSy: number;
+  } | null>(null);
 
   const focusEditor = () => {
     const el = editAreaRef.current;
@@ -368,18 +423,49 @@ export function RadarCanvas({
     focusEditor();
     const id = window.setTimeout(focusEditor, 0);
     return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keystrokes should not steal focus
-  }, [editing?.index, editing?.x, editing?.y]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- typing / drag should not steal the caret
+  }, [editing?.index]);
+
+  useEffect(() => {
+    if (!editing) return;
+    const el = editAreaRef.current;
+    if (!el) return;
+    const sync = () => {
+      const ed = editingRef.current;
+      if (!ed) return;
+      const box_w = Math.max(NOTE_TEXT_MIN_WIDTH, el.offsetWidth);
+      const box_h = Math.max(NOTE_TEXT_MIN_HEIGHT, el.offsetHeight);
+      if (ed.box_w === box_w && ed.box_h === box_h) return;
+      const next = { ...ed, box_w, box_h };
+      editingRef.current = next;
+      setEditing(next);
+    };
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-bind when the editor opens
+  }, [editing?.index]);
 
   const commitEditingRef = useRef<() => void>(() => undefined);
 
   const commitEditing = () => {
     const ed = editingRef.current;
     if (!ed) return;
-    editingRef.current = null;
-    setEditing(null);
+    const el = editAreaRef.current;
     const trimmed = ed.text.trim();
     const list = strokesRef.current;
+    const box =
+      el != null
+        ? {
+            box_w: Math.max(NOTE_TEXT_MIN_WIDTH, el.offsetWidth),
+            box_h: Math.max(NOTE_TEXT_MIN_HEIGHT, el.offsetHeight),
+          }
+        : {
+            ...(ed.box_w != null ? { box_w: ed.box_w } : {}),
+            ...(ed.box_h != null ? { box_h: ed.box_h } : {}),
+          };
+    editingRef.current = null;
+    setEditing(null);
     if (ed.index == null) {
       if (!trimmed) return;
       const st: Stroke = {
@@ -389,6 +475,7 @@ export function RadarCanvas({
         x: ed.x,
         y: ed.y,
         text: trimmed,
+        ...box,
         ...(ed.start_tick != null ? { start_tick: ed.start_tick, end_tick: ed.end_tick } : {}),
       };
       onStrokesRef.current([...list, st]);
@@ -399,7 +486,9 @@ export function RadarCanvas({
       return;
     }
     onStrokesRef.current(
-      list.map((s, i) => (i === ed.index && s.type === "text" ? { ...s, text: trimmed } : s)),
+      list.map((s, i) =>
+        i === ed.index && s.type === "text" ? { ...s, text: trimmed, x: ed.x, y: ed.y, ...box } : s,
+      ),
     );
   };
   commitEditingRef.current = commitEditing;
@@ -877,20 +966,25 @@ export function RadarCanvas({
       const roundNow = currentRound(replay, tickRef.current)?.number ?? 0;
       const tickDraw = tickRef.current;
       const skipText = editingRef.current?.index;
+      const moving = textMoveRef.current;
       strokesRef.current.forEach((st, i) => {
         if (!overlayVisible(st, tickDraw, roundNow, strokesRef.current)) return;
         if (st.type === "text" && skipText === i) return;
+        if (st.type === "text" && moving && moving.index === i && moving.moved) {
+          drawStroke({ ...st, x: moving.x, y: moving.y });
+          return;
+        }
         drawStroke(st);
       });
       if (draft.current && overlayVisible(draft.current, tickDraw, roundNow, strokesRef.current)) {
         drawStroke(draft.current, 0.85, true);
       }
       const ed = editingRef.current;
-      const area = editAreaRef.current;
-      if (ed && area && calNow) {
+      const wrapBox = editWrapRef.current;
+      if (ed && wrapBox && calNow) {
         const s = toScreen(ed.x, ed.y);
-        area.style.left = `${s.x}px`;
-        area.style.top = `${s.y}px`;
+        wrapBox.style.left = `${s.x}px`;
+        wrapBox.style.top = `${s.y}px`;
       }
 
       if (layersNow.cone && selectedRef.current != null) {
@@ -1024,7 +1118,7 @@ export function RadarCanvas({
 
     const onDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
-      if (e.target instanceof HTMLElement && e.target.closest(".radar-text-edit")) return;
+      if (e.target instanceof HTMLElement && e.target.closest(".radar-text-edit-wrap")) return;
       const calNow = calRef.current;
       const { x, y } = pos(e);
       const w = wrap.clientWidth;
@@ -1052,35 +1146,47 @@ export function RadarCanvas({
         return;
       }
 
+      if ((toolNow === "text" || toolNow === "pan") && calNow && ctx) {
+        const hit = findTextIndex(
+          ctx,
+          calNow,
+          w,
+          h,
+          view.current,
+          strokesRef.current,
+          tickNow,
+          roundNow,
+          x,
+          y,
+        );
+        if (hit >= 0) {
+          const st = strokesRef.current[hit];
+          if (st.type === "text") {
+            const world = screenToWorld(calNow, w, h, view.current, x, y);
+            suppressClickRef.current = true;
+            textMoveRef.current = {
+              index: hit,
+              grabWx: world.x,
+              grabWy: world.y,
+              grabSx: x,
+              grabSy: y,
+              origX: st.x,
+              origY: st.y,
+              x: st.x,
+              y: st.y,
+              moved: false,
+            };
+            return;
+          }
+        }
+      }
+
       if (toolNow === "text") {
         if (!calNow) return;
         e.preventDefault();
         onPauseRef.current();
         commitEditingRef.current();
         const world = screenToWorld(calNow, w, h, view.current, x, y);
-        if (ctx) {
-          for (let i = strokesRef.current.length - 1; i >= 0; i--) {
-            const st = strokesRef.current[i];
-            if (st.type !== "text" || !overlayVisible(st, tickNow, roundNow, strokesRef.current))
-              continue;
-            const s = worldToScreen(calNow, w, h, view.current, st.x, st.y);
-            if (hitTextLabel(ctx, st, s, x, y)) {
-              beginEditingRef.current({
-                index: i,
-                x: st.x,
-                y: st.y,
-                sx: s.x,
-                sy: s.y,
-                text: st.text,
-                color: st.color,
-                round: st.round,
-                start_tick: st.start_tick,
-                end_tick: st.end_tick,
-              });
-              return;
-            }
-          }
-        }
         const next: TextEdit = {
           index: null,
           x: world.x,
@@ -1127,6 +1233,51 @@ export function RadarCanvas({
 
     const onMove = (e: MouseEvent) => {
       const calNow = calRef.current;
+      const wrapEl = wrapRef.current;
+      const edDrag = editDragRef.current;
+      const ed = editingRef.current;
+      if (edDrag && ed && calNow && wrapEl) {
+        const { x, y } = pos(e);
+        const sx = edDrag.origSx + (x - edDrag.grabX);
+        const sy = edDrag.origSy + (y - edDrag.grabY);
+        const world = screenToWorld(
+          calNow,
+          wrapEl.clientWidth,
+          wrapEl.clientHeight,
+          view.current,
+          sx,
+          sy,
+        );
+        ed.x = world.x;
+        ed.y = world.y;
+        ed.sx = sx;
+        ed.sy = sy;
+        const box = editWrapRef.current;
+        if (box) {
+          box.style.left = `${sx}px`;
+          box.style.top = `${sy}px`;
+        }
+        return;
+      }
+      const moving = textMoveRef.current;
+      if (moving && calNow && wrapEl) {
+        const { x, y } = pos(e);
+        if (!moving.moved) {
+          if (Math.hypot(x - moving.grabSx, y - moving.grabSy) < NOTE_TEXT_DRAG_PX) return;
+          moving.moved = true;
+        }
+        const world = screenToWorld(
+          calNow,
+          wrapEl.clientWidth,
+          wrapEl.clientHeight,
+          view.current,
+          x,
+          y,
+        );
+        moving.x = moving.origX + (world.x - moving.grabWx);
+        moving.y = moving.origY + (world.y - moving.grabWy);
+        return;
+      }
       if (view.current.drawing && draft.current && calNow) {
         const wrapEl = wrapRef.current;
         if (!wrapEl) return;
@@ -1164,7 +1315,59 @@ export function RadarCanvas({
       view.current.ly = e.clientY;
     };
 
+    const editTextAt = (index: number) => {
+      const st = strokesRef.current[index];
+      if (st?.type !== "text") return;
+      const calNow = calRef.current;
+      if (!calNow) return;
+      const s = worldToScreen(
+        calNow,
+        wrap.clientWidth,
+        wrap.clientHeight,
+        view.current,
+        st.x,
+        st.y,
+      );
+      suppressClickRef.current = true;
+      onPauseRef.current();
+      commitEditingRef.current();
+      beginEditingRef.current({
+        index,
+        x: st.x,
+        y: st.y,
+        sx: s.x,
+        sy: s.y,
+        text: st.text,
+        color: st.color,
+        round: st.round,
+        start_tick: st.start_tick,
+        end_tick: st.end_tick,
+        box_w: st.box_w,
+        box_h: st.box_h,
+      });
+    };
+
     const onUp = () => {
+      if (editDragRef.current) {
+        editDragRef.current = null;
+        const ed = editingRef.current;
+        if (ed) setEditing({ ...ed });
+        ignoreBlurRef.current = false;
+        focusEditor();
+      }
+      const moving = textMoveRef.current;
+      if (moving) {
+        textMoveRef.current = null;
+        if (moving.moved) {
+          onStrokesRef.current(
+            strokesRef.current.map((s, i) =>
+              i === moving.index && s.type === "text" ? { ...s, x: moving.x, y: moving.y } : s,
+            ),
+          );
+        } else {
+          editTextAt(moving.index);
+        }
+      }
       if (view.current.drawing && draft.current) {
         let st = draft.current;
         if (st.type === "pen") {
@@ -1194,19 +1397,52 @@ export function RadarCanvas({
       view.current.dragging = false;
     };
 
+    const onDblClick = (e: MouseEvent) => {
+      if (e.target instanceof HTMLElement && e.target.closest(".radar-text-edit-wrap")) return;
+      if (toolRef.current === "eraser") return;
+      const calNow = calRef.current;
+      const ctx = canvasRef.current?.getContext("2d");
+      if (!calNow || !ctx) return;
+      const { x, y } = pos(e);
+      const w = wrap.clientWidth;
+      const h = wrap.clientHeight;
+      const rnd = currentRound(replayRef.current, tickRef.current);
+      const roundNow = rnd?.number ?? 0;
+      const hit = findTextIndex(
+        ctx,
+        calNow,
+        w,
+        h,
+        view.current,
+        strokesRef.current,
+        tickRef.current,
+        roundNow,
+        x,
+        y,
+      );
+      if (hit < 0) return;
+      editTextAt(hit);
+    };
+
     wrap.addEventListener("wheel", onWheel, { passive: false });
     wrap.addEventListener("mousedown", onDown);
+    wrap.addEventListener("dblclick", onDblClick);
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {
       wrap.removeEventListener("wheel", onWheel);
       wrap.removeEventListener("mousedown", onDown);
+      wrap.removeEventListener("dblclick", onDblClick);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
   }, []);
 
   const onClick = (e: ReactMouseEvent<HTMLCanvasElement>) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
     if (toolRef.current !== "pan") return;
     if (view.current.dragged) return;
     const canvas = canvasRef.current;
@@ -1251,29 +1487,59 @@ export function RadarCanvas({
     <div className="radar-wrap" ref={wrapRef} style={{ cursor }}>
       <canvas ref={canvasRef} onClick={onClick} />
       {editing && (
-        <textarea
-          ref={editAreaRef}
-          className="radar-text-edit"
-          value={editing.text}
-          placeholder="Note"
-          rows={2}
-          autoFocus
+        <div
+          ref={editWrapRef}
+          className="radar-text-edit-wrap"
           style={{ left: editing.sx, top: editing.sy }}
           onMouseDown={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            const next = { ...editing, text: e.target.value };
-            editingRef.current = next;
-            setEditing(next);
-          }}
-          onKeyDown={onTextKeyDown}
-          onBlur={() => {
-            if (ignoreBlurRef.current) {
-              focusEditor();
-              return;
-            }
-            commitEditing();
-          }}
-        />
+        >
+          <div
+            className="radar-text-edit-grip"
+            title="Drag to move"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const box = wrapRef.current;
+              const ed = editingRef.current;
+              if (!box || !ed) return;
+              ignoreBlurRef.current = true;
+              const rect = box.getBoundingClientRect();
+              editDragRef.current = {
+                grabX: e.clientX - rect.left,
+                grabY: e.clientY - rect.top,
+                origSx: ed.sx,
+                origSy: ed.sy,
+              };
+            }}
+          />
+          <textarea
+            ref={editAreaRef}
+            className="radar-text-edit"
+            value={editing.text}
+            placeholder="Note"
+            rows={2}
+            autoFocus
+            style={{
+              minWidth: NOTE_TEXT_MIN_WIDTH,
+              minHeight: NOTE_TEXT_MIN_HEIGHT,
+              ...(editing.box_w != null ? { width: editing.box_w } : {}),
+              ...(editing.box_h != null ? { height: editing.box_h } : {}),
+            }}
+            onChange={(e) => {
+              const next = { ...editing, text: e.target.value };
+              editingRef.current = next;
+              setEditing(next);
+            }}
+            onKeyDown={onTextKeyDown}
+            onBlur={() => {
+              if (ignoreBlurRef.current) {
+                focusEditor();
+                return;
+              }
+              commitEditing();
+            }}
+          />
+        </div>
       )}
     </div>
   );

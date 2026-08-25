@@ -269,7 +269,15 @@ export type Stroke = {
 } & (
   | { type: "pen"; color: string; points: { x: number; y: number }[] }
   | { type: "arrow"; color: string; from: { x: number; y: number }; to: { x: number; y: number } }
-  | { type: "text"; color: string; x: number; y: number; text: string }
+  | {
+      type: "text";
+      color: string;
+      x: number;
+      y: number;
+      text: string;
+      box_w?: number;
+      box_h?: number;
+    }
 );
 
 export interface SummaryFilter {

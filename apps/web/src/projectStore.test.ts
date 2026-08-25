@@ -142,6 +142,30 @@ describe("parseBundle", () => {
     });
   });
 
+  it("keeps a resized text box", () => {
+    const p = parseProject({
+      ...project(),
+      strokes: [
+        {
+          type: "text",
+          round: 1,
+          color: "#ff1744",
+          x: 10,
+          y: 20,
+          text: "hold mid",
+          box_w: 240,
+          box_h: 80,
+        },
+      ],
+    });
+    expect(p?.strokes[0]).toMatchObject({
+      type: "text",
+      text: "hold mid",
+      box_w: 240,
+      box_h: 80,
+    });
+  });
+
   it("keeps a group id on a stroke", () => {
     const p = parseProject({
       ...project(),

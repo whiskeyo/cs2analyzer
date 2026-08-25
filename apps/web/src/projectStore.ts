@@ -62,6 +62,10 @@ function optionalTick(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
+function optionalSize(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
+}
+
 function withWindow<T extends Stroke>(base: T, o: Record<string, unknown>): T {
   const start_tick = optionalTick(o.start_tick);
   const end_tick = optionalTick(o.end_tick);
@@ -93,8 +97,19 @@ function parseStroke(v: unknown): Stroke | null {
     typeof o.text === "string" &&
     o.text.trim() !== ""
   ) {
+    const box_w = optionalSize(o.box_w);
+    const box_h = optionalSize(o.box_h);
     return withWindow(
-      { type: "text", round: o.round, color: o.color, x: o.x, y: o.y, text: o.text },
+      {
+        type: "text",
+        round: o.round,
+        color: o.color,
+        x: o.x,
+        y: o.y,
+        text: o.text,
+        ...(box_w != null ? { box_w } : {}),
+        ...(box_h != null ? { box_h } : {}),
+      },
       o,
     );
   }
