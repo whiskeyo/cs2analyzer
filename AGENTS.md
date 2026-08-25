@@ -45,8 +45,9 @@ CI (`.github/workflows/ci.yml`) runs the same Rust and web checks, plus `npm run
 | Demo events, hurts, rounds, knife detect | `crates/cs2analyzer/src/observer.rs`, `assemble.rs` |
 | ADR, KAST, trades, team scores | `analysis.rs` **and** `apps/web/src/stats.ts` (keep them aligned) |
 | Tick sampling, `currentRound` | `apps/web/src/sample.ts` |
-| Radar, yaw, nades, shots | `apps/web/src/RadarCanvas.tsx`, `radar/draw.ts` |
+| Radar, yaw, nades, shots | `apps/web/src/RadarCanvas.tsx`, `radar/` |
 | HUD / scoreboard labels | `Hud.tsx`, `Scoreboard.tsx`, `liveTeams()` in `stats.ts` |
+| Notes layers / clocks | `Notes.tsx`, `overlay/`, `notes/` |
 | Weapon icons / def indices | `inventory.rs` + `apps/web/src/weapons.ts` + `public/weapons/*.svg` |
 | Review tab | `apps/web/src/review.ts` |
 

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import type { DragEvent as ReactDragEvent } from "react";
-import { NOTE_GROUP_NAME_MAX, NOTE_MOMENT_STEP_SECONDS, tickRate } from "./constants";
+import { NOTE_GROUP_NAME_MAX, tickRate } from "./constants";
 import {
   canGroupIndexes,
   clearMomentWindow,
@@ -22,8 +22,17 @@ import {
   ungroupStrokes,
   type NoteDropDest,
 } from "./overlay";
+import {
+  eventElement,
+  indexesForDrag,
+  isDragControl,
+  lockNoteDrag,
+  parseDrag,
+  unlockNoteDrag,
+  type NoteDrag,
+} from "./notes/drag";
+import { MomentInOut, roundWindowEnd } from "./notes/NoteClocks";
 import { roundClock } from "./roundEvents";
-import { roundScrubRange } from "./roundTimeline";
 import type { Replay, Round, Stroke } from "./types";
 
 interface Props {
@@ -32,189 +41,6 @@ interface Props {
   strokes: Stroke[];
   onJump: (tick: number) => void;
   onStrokes: (next: Stroke[]) => void;
-}
-
-interface NoteDrag {
-  round: number;
-  indexes: number[];
-}
-
-function indexesForDrag(index: number, selected: number[], strokes: Stroke[]): number[] {
-  if (selected.includes(index)) {
-    const round = strokes[index]?.round;
-    return selected.filter((i) => strokes[i]?.round === round);
-  }
-  return [index];
-}
-
-function eventElement(target: EventTarget | null): Element | null {
-  if (target instanceof Element) return target;
-  if (target instanceof Node) return target.parentElement;
-  return null;
-}
-
-function isDragControl(target: EventTarget | null): boolean {
-  const el = eventElement(target);
-  if (!el) return false;
-  return Boolean(
-    el.closest(
-      "input, textarea, select, label.note-pick, .note-io, .note-eye, .note-cluster-fold, .note-cluster-count",
-    ),
-  );
-}
-
-function setRowsDraggable(cluster: HTMLElement, on: boolean) {
-  cluster.querySelectorAll<HTMLElement>(".note-row").forEach((row) => {
-    row.draggable = on;
-  });
-}
-
-/** Freeze folder vs row before HTML5's move threshold, so a downward grab still picks up the box. */
-function lockNoteDrag(cluster: HTMLElement, target: EventTarget | null, folder: boolean) {
-  const el = eventElement(target);
-  if (isDragControl(el)) return;
-  const row = el?.closest(".note-row");
-  if (row instanceof HTMLElement && cluster.contains(row)) {
-    cluster.draggable = false;
-    setRowsDraggable(cluster, false);
-    row.draggable = true;
-    return;
-  }
-  if (!folder) return;
-  cluster.draggable = true;
-  setRowsDraggable(cluster, false);
-}
-
-function unlockNoteDrag(cluster: HTMLElement, folder: boolean) {
-  cluster.draggable = folder;
-  setRowsDraggable(cluster, true);
-}
-
-function parseDrag(raw: string): NoteDrag | null {
-  try {
-    const v = JSON.parse(raw) as NoteDrag;
-    if (typeof v.round === "number" && Array.isArray(v.indexes)) return v;
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function roundWindowEnd(rnd: Round | undefined, replay: Replay): number {
-  const fallback =
-    replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0;
-  return roundScrubRange(rnd, replay.rounds, {
-    min: rnd?.start_tick ?? 0,
-    max: fallback,
-  }).max;
-}
-
-function MomentEdgeField({
-  label,
-  seconds,
-  maxSeconds,
-  clock,
-  onChange,
-  onPlayhead,
-}: {
-  label: string;
-  seconds: number;
-  maxSeconds: number;
-  clock: string;
-  onChange: (seconds: number) => void;
-  onPlayhead: () => void;
-}) {
-  const sec = Math.round(seconds);
-  const cap = maxSeconds > 0 ? maxSeconds : Number.POSITIVE_INFINITY;
-  const nudge = (dir: number) => {
-    onChange(Math.min(cap, Math.max(0, sec + dir * NOTE_MOMENT_STEP_SECONDS)));
-  };
-  return (
-    <span className="note-edge">
-      <span className="note-edge-label">{label}</span>
-      <span className="note-clock">
-        <button
-          type="button"
-          className="note-clock-read"
-          title={`${clock} — double-click sets the playhead`}
-          onDoubleClick={(e) => {
-            e.preventDefault();
-            onPlayhead();
-          }}
-        >
-          {clock}
-        </button>
-        <span className="note-clock-spin">
-          <button
-            type="button"
-            aria-label={`${label} later`}
-            title="Later"
-            onClick={() => nudge(1)}
-          >
-            ▲
-          </button>
-          <button
-            type="button"
-            aria-label={`${label} earlier`}
-            title="Earlier"
-            onClick={() => nudge(-1)}
-          >
-            ▼
-          </button>
-        </span>
-      </span>
-    </span>
-  );
-}
-
-function MomentInOut({
-  win,
-  round,
-  tps,
-  roundEndTick,
-  onSetEdge,
-  onClear,
-  onClockEdge,
-}: {
-  win: { start: number; end: number } | null;
-  round: Round | undefined;
-  tps: number;
-  roundEndTick: number;
-  onSetEdge: (edge: "start" | "end") => void;
-  onClear: () => void;
-  onClockEdge: (edge: "start" | "end", seconds: number) => void;
-}) {
-  const origin = round ? round.freeze_end_tick || round.start_tick : 0;
-  const start = win?.start ?? origin;
-  const end = win?.end ?? (roundEndTick > origin ? roundEndTick : origin);
-  const maxSeconds = tps > 0 && roundEndTick > origin ? (roundEndTick - origin) / tps : 0;
-  const startSec = tps > 0 ? Math.max(0, (start - origin) / tps) : 0;
-  const endSec = tps > 0 ? Math.max(0, (end - origin) / tps) : 0;
-  return (
-    <span className="note-io">
-      <MomentEdgeField
-        label="Start"
-        seconds={startSec}
-        maxSeconds={maxSeconds}
-        clock={round ? roundClock(round, start, tps) : "In"}
-        onChange={(seconds) => onClockEdge("start", seconds)}
-        onPlayhead={() => onSetEdge("start")}
-      />
-      <MomentEdgeField
-        label="End"
-        seconds={endSec}
-        maxSeconds={maxSeconds}
-        clock={round ? roundClock(round, end, tps) : "Out"}
-        onChange={(seconds) => onClockEdge("end", seconds)}
-        onPlayhead={() => onSetEdge("end")}
-      />
-      {win && (
-        <button type="button" title="Show for the whole round" onClick={onClear}>
-          Round
-        </button>
-      )}
-    </span>
-  );
 }
 
 function GroupNameField({
