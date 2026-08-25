@@ -16,6 +16,7 @@ import {
   hitsAt,
   killLineEnds,
   lingerRemaining,
+  nadeBurstSpan,
   nadeLandPos,
   nadePopTick,
   nadeVisibleEnd,
@@ -66,6 +67,47 @@ function drawC4(
     ctx.textBaseline = "middle";
     ctx.fillText("C4", at.x, at.y);
   }
+}
+
+function drawHeBurst(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  color: string,
+  progress: number,
+  scale: number,
+) {
+  const t = Math.min(1, Math.max(0, progress));
+  const zoom = Math.min(1.4, scale);
+  const r = (12 + t * 22) * zoom;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.28 * (1 - t);
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, r * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.85 * (1 - t * 0.65);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 0.45 * (1 - t);
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, r * 0.62, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 0.9 * (1 - t * 0.5);
+  ctx.lineWidth = 1.6;
+  const spike = r + 6 * zoom;
+  const inner = r * 0.35;
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4 + t * 0.2;
+    ctx.beginPath();
+    ctx.moveTo(at.x + Math.cos(a) * inner, at.y + Math.sin(a) * inner);
+    ctx.lineTo(at.x + Math.cos(a) * spike, at.y + Math.sin(a) * spike);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function grenadePosAt(
@@ -502,15 +544,17 @@ export function RadarCanvas({
             tickNow >= popAt &&
             tickNow <= visibleEnd &&
             (g.kind === "smoke" || g.kind === "molotov" || g.kind === "decoy");
+          const burstSpan = nadeBurstSpan(g.kind, ticksPerSecond);
           const burst =
+            burstSpan > 0 &&
             tickNow >= popAt &&
-            tickNow <= popAt + ticksPerSecond * 0.35 &&
-            tickNow <= visibleEnd &&
-            (g.kind === "he" || g.kind === "flash");
+            tickNow <= popAt + burstSpan &&
+            tickNow <= visibleEnd;
 
           if (inFlight) {
             ctx.strokeStyle = color;
-            ctx.lineWidth = 1.8;
+            ctx.lineWidth = g.kind === "he" ? 2.2 : 1.8;
+            ctx.setLineDash(g.kind === "he" ? [6, 4] : []);
             ctx.globalAlpha = 0.9;
             ctx.beginPath();
             let started = false;
@@ -527,13 +571,23 @@ export function RadarCanvas({
               const s = toScreen(head.x, head.y);
               if (started) ctx.lineTo(s.x, s.y);
               ctx.stroke();
+              ctx.setLineDash([]);
               ctx.globalAlpha = 1;
               ctx.fillStyle = color;
               ctx.beginPath();
-              ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
-              ctx.fill();
+              if (g.kind === "he") {
+                ctx.save();
+                ctx.translate(s.x, s.y);
+                ctx.rotate(Math.PI / 4);
+                ctx.fillRect(-3.4, -3.4, 6.8, 6.8);
+                ctx.restore();
+              } else {
+                ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+              }
             } else {
               ctx.stroke();
+              ctx.setLineDash([]);
             }
           } else if (lingering || burst) {
             const occupancy = g.kind === "molotov" ? g.fires : undefined;
@@ -627,6 +681,9 @@ export function RadarCanvas({
                     ctx.closePath();
                     ctx.fill();
                   }
+                } else if (burst && g.kind === "he") {
+                  const span = nadeBurstSpan("he", ticksPerSecond) || 1;
+                  drawHeBurst(ctx, s, color, (tickNow - popAt) / span, v.scale);
                 } else {
                   ctx.globalAlpha = burst ? 0.45 : 0.28;
                   ctx.fillStyle = color;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KILL_LINE_MIN_LENGTH } from "./constants";
+import { HE_BURST_SECONDS, KILL_LINE_MIN_LENGTH } from "./constants";
 import {
   blindsAt,
   firesAt,
@@ -7,6 +7,7 @@ import {
   hitsAt,
   killLineEnds,
   lingerRemaining,
+  nadeBurstSpan,
   nadeLandPos,
   nadePopTick,
   nadeVisibleEnd,
@@ -62,6 +63,14 @@ describe("lingerRemaining", () => {
     expect(lingerRemaining(100, 100 + 64 * 18, 100 + 64 * 9)).toBeCloseTo(0.5, 5);
     expect(lingerRemaining(100, 100 + 64 * 18, 100 + 64 * 18)).toBe(0);
     expect(lingerRemaining(100, 100, 100)).toBe(0);
+  });
+});
+
+describe("nadeBurstSpan", () => {
+  it("keeps HE on the radar longer than a flash pop", () => {
+    expect(nadeBurstSpan("he", 64)).toBe(Math.round(HE_BURST_SECONDS * 64));
+    expect(nadeBurstSpan("flash", 64)).toBeLessThan(nadeBurstSpan("he", 64));
+    expect(nadeBurstSpan("smoke", 64)).toBe(0);
   });
 });
 

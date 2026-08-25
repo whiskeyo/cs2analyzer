@@ -44,6 +44,10 @@ export const MOLOTOV_SECONDS = 7;
 export const HE_DECOY_SECONDS = 0.5;
 export const FLASH_POP_SECONDS = 0.4;
 
+/** How long an HE/flash pop stays drawn after detonate. */
+export const HE_BURST_SECONDS = 0.55;
+export const FLASH_BURST_SECONDS = 0.35;
+
 /** World-unit gap: nades farther than this are different sites. */
 export const NADE_SITE_SEPARATION = 2000;
 

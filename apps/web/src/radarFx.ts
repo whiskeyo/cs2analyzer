@@ -1,5 +1,7 @@
 import {
   FLASH_POP_SECONDS,
+  FLASH_BURST_SECONDS,
+  HE_BURST_SECONDS,
   HE_DECOY_SECONDS,
   KILL_LINE_MIN_LENGTH,
   MOLOTOV_SECONDS,
@@ -31,10 +33,16 @@ const NADE_SECS: Record<string, number> = {
 export const NADE_COLORS: Record<GrenadeKind, string> = {
   smoke: "#c8d0d8",
   flash: "#f4e27a",
-  he: "#e07040",
+  he: "#9ecb3c",
   molotov: "#ff6a2a",
   decoy: "#9aa0a6",
 };
+
+/** Ticks the HE/flash pop ring stays after detonate. */
+export function nadeBurstSpan(kind: GrenadeKind, tickRate: number): number {
+  const secs = kind === "he" ? HE_BURST_SECONDS : kind === "flash" ? FLASH_BURST_SECONDS : 0;
+  return Math.round(secs * (tickRate || 64));
+}
 
 /** Draw larger nades first so flashes sit on top of stacked smokes. */
 const NADE_SUMMARY_ORDER: Record<GrenadeKind, number> = {
