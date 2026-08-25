@@ -257,7 +257,7 @@ code {
 .stage {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr minmax(320px, 400px);
+  grid-template-columns: 1fr auto;
   min-height: 0;
 }
 
@@ -403,10 +403,45 @@ code {
 }
 
 .sidebar {
+  position: relative;
   overflow: auto;
   background: #10151b;
   border-left: 1px solid #1e2732;
   padding: 0.6rem 0.7rem 1rem;
+  flex-shrink: 0;
+}
+.sidebar-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 8px;
+  margin-left: -4px;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+}
+.sidebar-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+}
+.sidebar-resize:hover::after,
+.sidebar-resize:focus-visible::after,
+body.sidebar-resizing .sidebar-resize::after {
+  background: #6aa4d8;
+}
+.sidebar-resize:focus-visible {
+  outline: none;
+}
+body.sidebar-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 .tabs {
   display: flex;
@@ -1369,6 +1404,11 @@ button.link {
     border-left: none;
     border-top: 1px solid #1e2732;
     max-height: 40vh;
+    width: auto !important;
+    min-width: 0;
+  }
+  .sidebar-resize {
+    display: none;
   }
   .kill-feed,
   .spec-eco {

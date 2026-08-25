@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent, PointerEvent } from "react";
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "./constants";
 import { Action } from "./Action";
 import { Clutch } from "./Clutch";
 import { Review } from "./Review";
 import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
+import { clampSidebarWidth, loadSidebarWidth, saveSidebarWidth } from "./sidebarWidth";
 import { computeStats, weaponBreakdown } from "./stats";
 import type { Replay } from "./types";
 import { Utility } from "./Utility";
@@ -31,11 +34,96 @@ interface Props {
 
 export function Sidebar({ replay, tick, selected, onSelect, onJump }: Props) {
   const [tab, setTab] = useState<Tab>("score");
+  const [width, setWidth] = useState(loadSidebarWidth);
+  const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
+  const widthRef = useRef(width);
+  widthRef.current = width;
   const stats = computeStats(replay, tick);
   const weapons = weaponBreakdown(replay, tick, selected);
 
+  useEffect(() => {
+    const fit = () => {
+      const stage = document.querySelector(".stage");
+      const stageWidth = stage instanceof HTMLElement ? stage.clientWidth : window.innerWidth;
+      setWidth((w) => clampSidebarWidth(w, stageWidth));
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      document.body.classList.remove("sidebar-resizing");
+    };
+  }, []);
+
+  const stageWidthOf = (el: HTMLElement) => {
+    const stage = el.closest(".stage");
+    return stage instanceof HTMLElement ? stage.clientWidth : window.innerWidth;
+  };
+
+  const onResizePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { pointerId: e.pointerId, startX: e.clientX, startWidth: widthRef.current };
+    document.body.classList.add("sidebar-resizing");
+  };
+
+  const onResizePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const next = clampSidebarWidth(
+      drag.startWidth + (drag.startX - e.clientX),
+      stageWidthOf(e.currentTarget),
+    );
+    setWidth(next);
+  };
+
+  const endResize = (e: PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+    document.body.classList.remove("sidebar-resizing");
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    saveSidebarWidth(widthRef.current);
+  };
+
+  const onResizeKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 48 : 16;
+    let raw: number;
+    if (e.key === "ArrowLeft") raw = widthRef.current + step;
+    else if (e.key === "ArrowRight") raw = widthRef.current - step;
+    else if (e.key === "Home") raw = SIDEBAR_MAX_WIDTH;
+    else if (e.key === "End") raw = SIDEBAR_MIN_WIDTH;
+    else return;
+    e.preventDefault();
+    const next = clampSidebarWidth(raw, stageWidthOf(e.currentTarget));
+    setWidth(next);
+    saveSidebarWidth(next);
+  };
+
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" style={{ width }}>
+      <div
+        className="sidebar-resize"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize side panel"
+        aria-valuemin={SIDEBAR_MIN_WIDTH}
+        aria-valuemax={SIDEBAR_MAX_WIDTH}
+        aria-valuenow={width}
+        tabIndex={0}
+        onPointerDown={onResizePointerDown}
+        onPointerMove={onResizePointerMove}
+        onPointerUp={endResize}
+        onPointerCancel={endResize}
+        onDoubleClick={() => {
+          setWidth(SIDEBAR_MIN_WIDTH);
+          saveSidebarWidth(SIDEBAR_MIN_WIDTH);
+        }}
+        onKeyDown={onResizeKeyDown}
+      />
       <div className="tabs">
         {(["score", "player", "action", "util", "clutch", "rounds", "weapons"] as const).map(
           (id) => (

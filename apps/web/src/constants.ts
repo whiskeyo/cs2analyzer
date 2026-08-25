@@ -44,9 +44,6 @@ export const MOLOTOV_SECONDS = 7;
 export const HE_DECOY_SECONDS = 0.5;
 export const FLASH_POP_SECONDS = 0.4;
 
-/** Occupancy shorter than this is undersampled; keep the full smoke linger. */
-export const SMOKE_OCCUPANCY_RELIABLE_SECONDS = 4;
-
 /** World-unit gap: nades farther than this are different sites. */
 export const NADE_SITE_SEPARATION = 2000;
 
@@ -100,6 +97,13 @@ export const PEN_SMOOTH_AMOUNT = 0.2;
 
 /** Debounce before writing the review overlay to IndexedDB. */
 export const PROJECT_SAVE_DEBOUNCE_MS = 400;
+
+/** Side panel: current layout is the floor; drag left to grow (CSS px). */
+export const SIDEBAR_MIN_WIDTH = 400;
+export const SIDEBAR_MAX_WIDTH = 640;
+
+/** Leave at least this much of `.stage` for the radar while resizing. */
+export const RADAR_MIN_WIDTH = 360;
 
 /** CS2 round-win reason codes (`m_iRoundWinStatus` / game events). */
 export const WIN_REASON_BOMB = 1;
