@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { HE_BURST_SECONDS, KILL_LINE_MIN_LENGTH } from "./constants";
 import {
   blindsAt,
+  formatBlindLeft,
   firesAt,
   HIT_SECONDS,
   hitsAt,
@@ -42,6 +43,11 @@ describe("blindsAt", () => {
       { tick: 110, attacker: 2, victim: 0, duration: 2 },
     ];
     expect(blindsAt(blinds, 120, 64).get(0)).toBeCloseTo(2 - 10 / 64, 5);
+  });
+
+  it("formats remaining flash time for the radar label", () => {
+    expect(formatBlindLeft(1.42)).toBe("1.4s");
+    expect(formatBlindLeft(0.05)).toBe("0.1s");
   });
 });
 

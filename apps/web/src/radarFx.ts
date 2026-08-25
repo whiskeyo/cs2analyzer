@@ -58,6 +58,11 @@ export const HIT_SECONDS = 0.45;
 /** Shot traces linger this long (look-direction, not bullet physics). */
 export const TRACER_SECONDS = 0.42;
 
+/** Remaining seconds on a flash, for the radar label. */
+export function formatBlindLeft(seconds: number): string {
+  return `${seconds.toFixed(1)}s`;
+}
+
 /** Remaining flash time (seconds) per victim at `tick`. */
 export function blindsAt(
   blinds: Blind[] | undefined,

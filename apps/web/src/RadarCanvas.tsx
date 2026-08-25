@@ -11,6 +11,7 @@ import { overlayVisible, withMoment } from "./overlay";
 import { publicUrl } from "./publicUrl";
 import {
   blindsAt,
+  formatBlindLeft,
   firesAt,
   HIT_SECONDS,
   hitsAt,
@@ -947,6 +948,14 @@ export function RadarCanvas({
           ctx.stroke();
         }
         ctx.restore();
+
+        if (p.alive && flash > 0) {
+          ctx.fillStyle = NADE_COLORS.flash;
+          ctx.font = "10px ui-sans-serif, system-ui";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(formatBlindLeft(flash), s.x + 12, s.y);
+        }
 
         if (p.alive) {
           if (layersNow.names) {
