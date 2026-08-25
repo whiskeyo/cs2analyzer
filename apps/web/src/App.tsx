@@ -1,4 +1,4 @@
-import { DRAW_HISTORY_LIMIT, PROJECT_SAVE_DEBOUNCE_MS, tickRate } from "./constants";
+import { DRAW_HISTORY_LIMIT, PROJECT_SAVE_DEBOUNCE_MS } from "./constants";
 import { roundScrubRange } from "./roundTimeline";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Controls } from "./Controls";
@@ -46,6 +46,7 @@ import {
 import { publicUrl } from "./publicUrl";
 import { NADE_COLORS } from "./radarFx";
 import { prettyMap } from "./weapons";
+import { usePlayback } from "./usePlayback";
 
 function downloadJson(name: string, text: string) {
   const blob = new Blob([text], { type: "application/json" });
@@ -64,9 +65,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saved, setSaved] = useState<ReviewProject[]>([]);
-  const [tick, setTick] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1);
+  const { tick, setTick, tickRef, playing, setPlaying, playingRef, speed, setSpeed, jump } =
+    usePlayback(replay);
   const [selected, setSelected] = useState<number | null>(null);
   const [follow, setFollow] = useState(false);
   const [trails, setTrails] = useState(false);
@@ -83,12 +83,8 @@ export function App() {
   const [viewEpoch, setViewEpoch] = useState(0);
   const [maps, setMaps] = useState<Record<string, MapCalibration>>({});
   const workerRef = useRef<Worker | null>(null);
-  const tickRef = useRef(0);
-  tickRef.current = tick;
   const replayRef = useRef(replay);
   replayRef.current = replay;
-  const playingRef = useRef(playing);
-  playingRef.current = playing;
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   const historyRef = useRef<Stroke[][]>([[]]);
@@ -99,12 +95,6 @@ export function App() {
   strokesRef.current = strokes;
   const overlayRef = useRef({ summaryFilter, floorMode, paletteId, color });
   overlayRef.current = { summaryFilter, floorMode, paletteId, color };
-
-  const jump = useCallback((t: number, pause = true) => {
-    tickRef.current = t;
-    setTick(t);
-    if (pause) setPlaying(false);
-  }, []);
 
   const refreshSaved = useCallback(() => {
     void loadAllProjects()
@@ -224,7 +214,7 @@ export function App() {
     })
       .then(refreshSaved)
       .catch(() => undefined);
-  }, [refreshSaved]);
+  }, [refreshSaved, tickRef]);
 
   useEffect(() => {
     loadCalibrations()
@@ -291,41 +281,8 @@ export function App() {
       };
       file.arrayBuffer().then((bytes) => worker.postMessage({ bytes }, [bytes]));
     },
-    [applyProject, commitStrokes, importNotesText, persistNow],
+    [applyProject, commitStrokes, importNotesText, persistNow, setPlaying, setTick, tickRef],
   );
-
-  useEffect(() => {
-    if (!replay || !playing) return;
-    let last = performance.now();
-    let id = 0;
-    const max =
-      replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0;
-    const tps = tickRate(replay);
-    const min = replay.ticks.ticks[0] ?? 0;
-    const loop = (now: number) => {
-      const dt = (now - last) / 1000;
-      last = now;
-      tickRef.current += dt * tps * speed;
-      if (tickRef.current >= max) {
-        tickRef.current = max;
-        setTick(max);
-        setPlaying(false);
-        return;
-      }
-      if (tickRef.current <= min) {
-        tickRef.current = min;
-        setTick(min);
-        if (speed < 0) {
-          setPlaying(false);
-          return;
-        }
-      }
-      setTick(tickRef.current);
-      id = requestAnimationFrame(loop);
-    };
-    id = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(id);
-  }, [replay, playing, speed]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -401,7 +358,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [jump, redo, undo]);
+  }, [jump, redo, undo, playingRef, setPlaying, tickRef]);
 
   useEffect(() => {
     if (!replay) return;
