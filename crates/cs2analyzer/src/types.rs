@@ -186,9 +186,6 @@ pub struct GrenadeThrow {
     /// Burning molotov/incendiary cells sampled from `CInferno`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fires: Vec<FireCell>,
-    /// Occupied smoke voxels sampled from `CSmokeGrenadeProjectile`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub voxels: Vec<FireCell>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

@@ -9,7 +9,6 @@ import {
   HIT_SECONDS,
   hitsAt,
   killLineEnds,
-  occupancyToDraw,
   lingerRemaining,
   nadeLandPos,
   nadePopTick,
@@ -391,14 +390,8 @@ export function RadarCanvas({
               ctx.stroke();
             }
           } else if (lingering || burst) {
-            const occupancy =
-              g.kind === "molotov" ? g.fires : g.kind === "smoke" ? g.voxels : undefined;
-            const cells =
-              g.kind === "molotov"
-                ? firesAt(g.fires, tickNow)
-                : g.kind === "smoke"
-                  ? occupancyToDraw(g, tickNow)
-                  : [];
+            const occupancy = g.kind === "molotov" ? g.fires : undefined;
+            const cells = g.kind === "molotov" ? firesAt(g.fires, tickNow) : [];
             if (lingering && cells.length > 0) {
               let cx = 0;
               let cy = 0;
@@ -409,23 +402,9 @@ export function RadarCanvas({
               }
               cx /= cells.length;
               cy /= cells.length;
-              if (g.kind === "smoke") {
-                const radius = 32 * Math.min(1.4, v.scale);
-                ctx.fillStyle = color;
-                ctx.strokeStyle = color;
-                ctx.globalAlpha = 0.22;
-                ctx.beginPath();
-                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.globalAlpha = 0.4;
-                ctx.lineWidth = 1.4;
-                ctx.beginPath();
-                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-                ctx.stroke();
-              }
-              const cellR = (g.kind === "smoke" ? 6 : 8) * Math.min(1.4, v.scale);
+              const cellR = 8 * Math.min(1.4, v.scale);
               ctx.fillStyle = color;
-              ctx.globalAlpha = g.kind === "smoke" ? 0.32 : 0.42;
+              ctx.globalAlpha = 0.42;
               for (const cell of cells) {
                 const s = toScreen(cell.x, cell.y);
                 ctx.beginPath();
@@ -454,7 +433,7 @@ export function RadarCanvas({
                 ctx.closePath();
                 ctx.fill();
               }
-            } else if (lingering && occupancy && occupancy.length > 0 && g.kind !== "smoke") {
+            } else if (lingering && occupancy && occupancy.length > 0) {
               // Molly occupancy was sampled but none is live — don't keep the envelope circle.
             } else {
               const last = g.points[g.points.length - 1];

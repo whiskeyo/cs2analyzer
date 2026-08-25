@@ -3,8 +3,7 @@
 use crate::analysis::{compute_stats, starting_team_scores};
 use crate::constants::{
     DEFAULT_TICK_RATE, FLASH_POP_SECONDS, HE_DECOY_SECONDS, KNIFE_ROUND_MAX_EQUIPMENT,
-    KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_SECONDS, SMOKE_SECONDS, SMOKE_VOXEL_ATTACH_DIST,
-    SMOKE_VOXEL_ATTACH_TICKS,
+    KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_SECONDS, SMOKE_SECONDS,
 };
 use crate::observer::Collector;
 use crate::types::*;
@@ -42,7 +41,6 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     c.finish_infernos(c.last_cap);
     let mut grenades = build_grenades(c, &idx_of, tick_rate(c));
     attach_molotov_fires(c, &mut grenades);
-    attach_smoke_voxels(c, &mut grenades);
     let shots: Vec<Shot> = c
         .shots
         .iter()
@@ -433,7 +431,6 @@ fn build_grenades(
                 end_tick,
                 points: pts,
                 fires: Vec::new(),
-                voxels: Vec::new(),
             });
         }
     }
@@ -473,7 +470,6 @@ fn build_grenades(
                 z: det.5,
             }],
             fires: Vec::new(),
-            voxels: Vec::new(),
         });
     }
 
@@ -582,79 +578,6 @@ fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow]) {
     }
 }
 
-fn attach_smoke_voxels(c: &Collector, grenades: &mut [GrenadeThrow]) {
-    if c.smoke_spans.is_empty() {
-        return;
-    }
-    let mut by_entity: HashMap<u32, Vec<&crate::observer::FireSpan>> = HashMap::new();
-    for span in &c.smoke_spans {
-        by_entity.entry(span.entity).or_default().push(span);
-    }
-
-    let mut claimed = vec![false; grenades.len()];
-    for (entity, spans) in by_entity {
-        let t0 = spans.iter().map(|s| s.start_tick).min().unwrap_or(0);
-        let t1 = spans.iter().map(|s| s.end_tick).max().unwrap_or(t0);
-        let (mut cx, mut cy) = (0.0f32, 0.0f32);
-        for s in &spans {
-            cx += s.x;
-            cy += s.y;
-        }
-        let n = spans.len() as f32;
-        cx /= n;
-        cy /= n;
-
-        let det = c
-            .grenade_dets
-            .iter()
-            .find(|d| d.1 == GrenadeKind::Smoke && d.2 as u32 == entity);
-
-        let mut best = None;
-        let mut best_score = f32::MAX;
-        for (i, g) in grenades.iter().enumerate() {
-            if claimed[i] || g.kind != GrenadeKind::Smoke {
-                continue;
-            }
-            let dt_det = det.map(|d| g.detonate_tick.abs_diff(d.0));
-            let dt_span = g.detonate_tick.abs_diff(t0);
-            let dt = dt_det.unwrap_or(dt_span).min(dt_span);
-            if dt > SMOKE_VOXEL_ATTACH_TICKS {
-                continue;
-            }
-            let (px, py) = g.points.last().map(|p| (p.x, p.y)).unwrap_or((cx, cy));
-            let dist_throw = (px - cx).hypot(py - cy);
-            let dist_det = det
-                .map(|d| (d.3 - cx).hypot(d.4 - cy))
-                .unwrap_or(dist_throw);
-            let dist = dist_throw.min(dist_det);
-            if dist > SMOKE_VOXEL_ATTACH_DIST && dt_det.map(|t| t > 16).unwrap_or(true) {
-                continue;
-            }
-            let mut score = dist + dt as f32;
-            if dt_det.is_some_and(|t| t <= 16) {
-                score -= 500.0;
-            }
-            if score < best_score {
-                best_score = score;
-                best = Some(i);
-            }
-        }
-        if let Some(i) = best {
-            claimed[i] = true;
-            grenades[i].voxels = spans
-                .iter()
-                .map(|s| FireCell {
-                    x: s.x,
-                    y: s.y,
-                    start_tick: s.start_tick,
-                    end_tick: s.end_tick,
-                })
-                .collect();
-            grenades[i].end_tick = t1.min(grenades[i].end_tick);
-        }
-    }
-}
-
 fn fill_missing_bomb_positions(events: &mut [BombEvent], ticks: &TickBuffer) {
     for e in events {
         if e.x != 0.0 || e.y != 0.0 || e.player < 0 {
@@ -693,7 +616,6 @@ mod tests {
                 z: 0.0,
             }],
             fires: Vec::new(),
-            voxels: Vec::new(),
         }
     }
 
@@ -715,78 +637,5 @@ mod tests {
         assert!(grenades[1].fires.is_empty());
         assert_eq!(grenades[0].end_tick, 500);
         assert_eq!(grenades[0].fires[0].x, 100.0);
-    }
-
-    fn smoke(detonate: u32, x: f32, y: f32) -> GrenadeThrow {
-        GrenadeThrow {
-            thrower: 0,
-            kind: GrenadeKind::Smoke,
-            start_tick: detonate.saturating_sub(32),
-            detonate_tick: detonate,
-            end_tick: detonate + 64 * 18,
-            points: vec![GrenadePoint {
-                tick: detonate,
-                x,
-                y,
-                z: 0.0,
-            }],
-            fires: Vec::new(),
-            voxels: Vec::new(),
-        }
-    }
-
-    #[test]
-    fn attach_voxels_to_nearest_smoke() {
-        let mut c = Collector::new(ParseOptions::default());
-        c.smoke_spans.push(FireSpan {
-            entity: 22,
-            x: 50.0,
-            y: 60.0,
-            start_tick: 200,
-            end_tick: 900,
-        });
-        c.grenade_dets
-            .push((200, GrenadeKind::Smoke, 22, 50.0, 60.0, 0.0));
-        let mut grenades = vec![smoke(200, 50.0, 60.0), smoke(800, 2000.0, 2000.0)];
-        attach_smoke_voxels(&c, &mut grenades);
-        assert_eq!(grenades[0].voxels.len(), 1);
-        assert!(grenades[1].voxels.is_empty());
-        assert_eq!(grenades[0].end_tick, 900);
-        assert_eq!(grenades[0].voxels[0].x, 50.0);
-    }
-
-    #[test]
-    fn attach_does_not_extend_past_default_end() {
-        let mut c = Collector::new(ParseOptions::default());
-        c.smoke_spans.push(FireSpan {
-            entity: 22,
-            x: 50.0,
-            y: 60.0,
-            start_tick: 200,
-            end_tick: 50_000,
-        });
-        c.grenade_dets
-            .push((200, GrenadeKind::Smoke, 22, 50.0, 60.0, 0.0));
-        let mut grenades = vec![smoke(200, 50.0, 60.0)];
-        attach_smoke_voxels(&c, &mut grenades);
-        assert_eq!(grenades[0].end_tick, 200 + 64 * 18);
-    }
-
-    #[test]
-    fn attach_voxels_when_trajectory_ended_far_from_the_cloud() {
-        let mut c = Collector::new(ParseOptions::default());
-        c.smoke_spans.push(FireSpan {
-            entity: 22,
-            x: 50.0,
-            y: 60.0,
-            start_tick: 400,
-            end_tick: 900,
-        });
-        c.grenade_dets
-            .push((200, GrenadeKind::Smoke, 22, 50.0, 60.0, 0.0));
-        let mut grenades = vec![smoke(200, 4000.0, 4000.0)];
-        attach_smoke_voxels(&c, &mut grenades);
-        assert_eq!(grenades[0].voxels.len(), 1);
-        assert_eq!(grenades[0].voxels[0].x, 50.0);
     }
 }

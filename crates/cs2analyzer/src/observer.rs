@@ -77,8 +77,6 @@ pub(crate) struct Collector {
     pub progress: Option<Box<dyn FnMut(u32, u32)>>,
     pub fire_spans: Vec<FireSpan>,
     inferno_live: HashMap<u32, [Option<LiveFlame>; 64]>,
-    pub smoke_spans: Vec<FireSpan>,
-    smoke_live: HashMap<u32, LiveSmoke>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -95,11 +93,6 @@ struct LiveFlame {
     x: f32,
     y: f32,
     start: u32,
-}
-
-struct LiveSmoke {
-    update: i32,
-    cells: HashMap<(i16, i16), LiveFlame>,
 }
 
 pub(crate) struct RawKill {
@@ -152,8 +145,6 @@ impl Collector {
             progress: None,
             fire_spans: Vec::new(),
             inferno_live: HashMap::new(),
-            smoke_spans: Vec::new(),
-            smoke_live: HashMap::new(),
         }
     }
 
@@ -161,10 +152,6 @@ impl Collector {
         let ents: Vec<u32> = self.inferno_live.keys().copied().collect();
         for entity in ents {
             self.close_inferno(entity, tick);
-        }
-        let smokes: Vec<u32> = self.smoke_live.keys().copied().collect();
-        for entity in smokes {
-            self.close_smoke(entity, tick);
         }
     }
 
@@ -244,101 +231,6 @@ impl Collector {
                     y: live.y,
                     start_tick: live.start,
                     end_tick: end_tick.max(live.start),
-                });
-            }
-        }
-    }
-
-    fn sample_smokes(&mut self, ctx: &Context, tick: u32) {
-        let mut seen = HashSet::new();
-        for e in ctx.entities().iter() {
-            if !is_smoke_class(e.class().name()) {
-                continue;
-            }
-            if !prop_truthy(e, "m_bDidSmokeEffect") && !prop_truthy(e, "m_bSmokeEffectSpawned") {
-                continue;
-            }
-            let entity = e.index();
-            seen.insert(entity);
-            self.track_smoke(e, tick);
-        }
-        let stale: Vec<u32> = self
-            .smoke_live
-            .keys()
-            .copied()
-            .filter(|k| !seen.contains(k))
-            .collect();
-        for entity in stale {
-            self.close_smoke(entity, tick.saturating_sub(1));
-        }
-    }
-
-    fn track_smoke(&mut self, e: &Entity, tick: u32) {
-        let entity = e.index();
-        let update = prop_i32(e, "m_nVoxelUpdate");
-        let live_cells = self
-            .smoke_live
-            .get(&entity)
-            .map(|s| s.cells.len())
-            .unwrap_or(0);
-        if live_cells > 0
-            && self
-                .smoke_live
-                .get(&entity)
-                .is_some_and(|s| s.update == update && update != 0)
-        {
-            return;
-        }
-        let origin = prop_vec3(e, "m_vSmokeDetonationPos").unwrap_or_else(|| entity_xyz(e));
-        let bytes = smoke_voxel_bytes(e);
-        let Some(xy) = crate::smoke::occupancy_xy(&bytes, bytes.len(), origin) else {
-            // Blob may still be filling under the same update id — keep retrying.
-            return;
-        };
-        if xy.is_empty() && live_cells == 0 {
-            return;
-        }
-        let new_keys: HashSet<(i16, i16)> = xy.iter().map(|s| s.key).collect();
-        let live = self.smoke_live.entry(entity).or_insert_with(|| LiveSmoke {
-            update,
-            cells: HashMap::new(),
-        });
-        live.update = update;
-        let gone: Vec<(i16, i16)> = live
-            .cells
-            .keys()
-            .copied()
-            .filter(|k| !new_keys.contains(k))
-            .collect();
-        for key in gone {
-            if let Some(cell) = live.cells.remove(&key) {
-                self.smoke_spans.push(FireSpan {
-                    entity,
-                    x: cell.x,
-                    y: cell.y,
-                    start_tick: cell.start,
-                    end_tick: tick.saturating_sub(1).max(cell.start),
-                });
-            }
-        }
-        for seed in xy {
-            live.cells.entry(seed.key).or_insert(LiveFlame {
-                x: seed.x,
-                y: seed.y,
-                start: tick,
-            });
-        }
-    }
-
-    fn close_smoke(&mut self, entity: u32, end_tick: u32) {
-        if let Some(live) = self.smoke_live.remove(&entity) {
-            for cell in live.cells.into_values() {
-                self.smoke_spans.push(FireSpan {
-                    entity,
-                    x: cell.x,
-                    y: cell.y,
-                    start_tick: cell.start,
-                    end_tick: end_tick.max(cell.start),
                 });
             }
         }
@@ -442,7 +334,6 @@ impl Collector {
         self.prev_win_status = win_status;
 
         self.sample_infernos(ctx, tick);
-        self.sample_smokes(ctx, tick);
 
         if tick.wrapping_sub(self.last_cap) < self.opts.tick_stride && self.last_cap != 0 {
             return Ok(());

@@ -11,7 +11,6 @@ import {
   nadePopTick,
   nadeVisibleEnd,
   nadesForSummary,
-  occupancyToDraw,
   openingDuel,
   shortenSegment,
 } from "./radarFx";
@@ -81,17 +80,6 @@ describe("firesAt", () => {
   });
 });
 
-describe("occupancyToDraw", () => {
-  it("uses the first occupancy wave before cells start, then live cells", () => {
-    const g = smoke({
-      voxels: [{ x: 1, y: 2, start_tick: 140, end_tick: 200 }],
-    });
-    expect(occupancyToDraw(g, 110)).toEqual(g.voxels);
-    expect(occupancyToDraw(g, 150)).toEqual(g.voxels);
-    expect(occupancyToDraw(g, 250)).toEqual(g.voxels);
-  });
-});
-
 function smoke(partial: Partial<GrenadeThrow> = {}): GrenadeThrow {
   return {
     thrower: 0,
@@ -104,6 +92,18 @@ function smoke(partial: Partial<GrenadeThrow> = {}): GrenadeThrow {
   };
 }
 
+function molotov(partial: Partial<GrenadeThrow> = {}): GrenadeThrow {
+  return {
+    thrower: 0,
+    kind: "molotov",
+    start_tick: 80,
+    detonate_tick: 100,
+    end_tick: 100 + 64 * 7,
+    points: [],
+    ...partial,
+  };
+}
+
 describe("nadeVisibleEnd", () => {
   it("caps a stretched end_tick at 18s from pop", () => {
     const g = smoke({ end_tick: 50_000 });
@@ -111,38 +111,31 @@ describe("nadeVisibleEnd", () => {
   });
 
   it("hides when occupancy dies early (molly hole)", () => {
-    const g = smoke({
-      voxels: [{ x: 0, y: 0, start_tick: 100, end_tick: 400 }],
+    const g = molotov({
+      fires: [{ x: 0, y: 0, start_tick: 100, end_tick: 400 }],
     });
     expect(nadeVisibleEnd(g, 64)).toBe(400);
   });
 
   it("does not extend past the default window if occupancy lingered in GOTV", () => {
-    const g = smoke({
+    const g = molotov({
       end_tick: 50_000,
-      voxels: [{ x: 0, y: 0, start_tick: 100, end_tick: 50_000 }],
+      fires: [{ x: 0, y: 0, start_tick: 100, end_tick: 50_000 }],
     });
-    expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * 18);
+    expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * 7);
   });
 
   it("clips to round end", () => {
     const g = smoke();
     expect(nadeVisibleEnd(g, 64, 200)).toBe(200);
   });
-
-  it("does not hide a smoke when occupancy was only sampled for a few ticks", () => {
-    const g = smoke({
-      voxels: [{ x: 0, y: 0, start_tick: 100, end_tick: 108 }],
-    });
-    expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * 18);
-  });
 });
 
 describe("nadePopTick", () => {
   it("uses the first occupancy sample when detonate is late", () => {
-    const g = smoke({
+    const g = molotov({
       detonate_tick: 50_000,
-      voxels: [{ x: 0, y: 0, start_tick: 120, end_tick: 400 }],
+      fires: [{ x: 0, y: 0, start_tick: 120, end_tick: 400 }],
     });
     expect(nadePopTick(g)).toBe(120);
   });
@@ -160,8 +153,8 @@ describe("nadeLandPos", () => {
   });
 
   it("uses the occupancy centroid at pop", () => {
-    const g = smoke({
-      voxels: [
+    const g = molotov({
+      fires: [
         { x: 0, y: 0, start_tick: 100, end_tick: 200 },
         { x: 20, y: 40, start_tick: 100, end_tick: 200 },
         { x: 999, y: 999, start_tick: 201, end_tick: 300 },

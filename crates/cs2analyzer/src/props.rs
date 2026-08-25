@@ -2,7 +2,6 @@
 
 use crate::types::{GrenadeKind, Side};
 use source2_demo::prelude::*;
-use std::sync::OnceLock;
 
 pub(crate) fn prop_i32(e: &Entity, name: &str) -> i32 {
     match e.get_property(name) {
@@ -219,72 +218,6 @@ pub(crate) fn proj_kind(class: &str) -> Option<GrenadeKind> {
 
 pub(crate) fn is_inferno_class(class: &str) -> bool {
     class == "CInferno" || class == "C_Inferno"
-}
-
-pub(crate) fn is_smoke_class(class: &str) -> bool {
-    class == "CSmokeGrenadeProjectile" || class == "C_SmokeGrenadeProjectile"
-}
-
-pub(crate) fn prop_bytes(e: &Entity, name: &str) -> Vec<u8> {
-    let mut out = Vec::new();
-    if let Ok(iter) = e.get_iter(name) {
-        for v in iter.flatten() {
-            match v {
-                FieldValue::Unsigned8(b) => out.push(*b),
-                FieldValue::Signed8(b) => out.push(*b as u8),
-                FieldValue::Unsigned32(b) => out.push(*b as u8),
-                FieldValue::Signed32(b) => out.push(*b as u8),
-                _ => {}
-            }
-        }
-    }
-    if !out.is_empty() {
-        return out;
-    }
-    for i in 0..8192usize {
-        let key = format!("{name}.{i}");
-        let padded = format!("{name}.{i:04}");
-        let val = e.get_property(&key).or_else(|_| e.get_property(&padded));
-        match val {
-            Ok(FieldValue::Unsigned8(b)) => out.push(*b),
-            Ok(FieldValue::Signed8(b)) => out.push(*b as u8),
-            Ok(FieldValue::Unsigned32(b)) => out.push(*b as u8),
-            Err(_) => break,
-            _ => break,
-        }
-    }
-    out
-}
-
-static VOXEL_DATA_PROP: OnceLock<String> = OnceLock::new();
-
-fn discover_voxel_prop(e: &Entity) -> Option<String> {
-    for f in e.fields() {
-        if f.name.contains("VoxelFrameData")
-            && !f.name.contains("Size")
-            && !f.name.contains("Update")
-        {
-            return Some(f.name.split('.').next().unwrap_or(&f.name).to_string());
-        }
-    }
-    None
-}
-
-pub(crate) fn smoke_voxel_bytes(e: &Entity) -> Vec<u8> {
-    let mut bytes = prop_bytes(e, "m_VoxelFrameData");
-    if bytes.is_empty() {
-        if let Some(name) = VOXEL_DATA_PROP.get() {
-            bytes = prop_bytes(e, name);
-        } else if let Some(name) = discover_voxel_prop(e) {
-            bytes = prop_bytes(e, &name);
-            let _ = VOXEL_DATA_PROP.set(name);
-        }
-    }
-    let size = prop_i32(e, "m_nVoxelFrameDataSize");
-    if size > 0 {
-        bytes.truncate((size as usize).min(bytes.len()));
-    }
-    bytes
 }
 
 pub(crate) fn is_knife_weapon(weapon: &str) -> bool {

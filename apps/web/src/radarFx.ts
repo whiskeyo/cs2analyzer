@@ -3,7 +3,6 @@ import {
   HE_DECOY_SECONDS,
   KILL_LINE_MIN_LENGTH,
   MOLOTOV_SECONDS,
-  SMOKE_OCCUPANCY_RELIABLE_SECONDS,
   SMOKE_SECONDS,
 } from "./constants";
 import { currentRound, samplePlayer } from "./sample";
@@ -103,31 +102,8 @@ export function firesAt(fires: FireCell[] | undefined, tick: number): FireCell[]
   return fires.filter((c) => tick >= c.start_tick && tick <= c.end_tick);
 }
 
-/**
- * Smoke cells to draw at `tick`. If occupancy was sampled late or has a gap,
- * keep the last known footprint instead of drawing nothing.
- */
-export function occupancyToDraw(g: GrenadeThrow, tick: number): FireCell[] {
-  const cells = g.voxels;
-  if (!cells || cells.length === 0) return [];
-  const live = firesAt(cells, tick);
-  if (live.length > 0) return live;
-  let latestEnd = 0;
-  for (const c of cells) {
-    if (c.end_tick <= tick && c.end_tick > latestEnd) latestEnd = c.end_tick;
-  }
-  if (latestEnd > 0) return cells.filter((c) => c.end_tick === latestEnd);
-  let earliest = Number.POSITIVE_INFINITY;
-  for (const c of cells) {
-    if (c.start_tick < earliest) earliest = c.start_tick;
-  }
-  if (!Number.isFinite(earliest)) return [];
-  return cells.filter((c) => c.start_tick === earliest);
-}
-
 function occupancyOf(g: GrenadeThrow): FireCell[] | undefined {
   if (g.kind === "molotov") return g.fires;
-  if (g.kind === "smoke") return g.voxels;
   return undefined;
 }
 
@@ -155,14 +131,10 @@ export function nadeVisibleEnd(g: GrenadeThrow, tickRate: number, roundEnd?: num
   const cells = occupancyOf(g);
   if (cells && cells.length > 0) {
     let last = 0;
-    let first = Number.POSITIVE_INFINITY;
     for (const c of cells) {
       if (c.end_tick > last) last = c.end_tick;
-      if (c.start_tick < first) first = c.start_tick;
     }
-    const coverage = last - (Number.isFinite(first) ? first : last);
-    const reliable = g.kind !== "smoke" || coverage >= SMOKE_OCCUPANCY_RELIABLE_SECONDS * rate;
-    if (last > 0 && last < end && reliable) end = last;
+    if (last > 0 && last < end) end = last;
   }
   if (roundEnd != null && roundEnd > 0) end = Math.min(end, roundEnd);
   return end;
