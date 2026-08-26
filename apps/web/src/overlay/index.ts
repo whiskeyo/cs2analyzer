@@ -14,6 +14,8 @@ export {
 } from "./visibility";
 export {
   nextGroupId,
+  renameStrokeText,
+  removeStrokesAt,
   setStrokesHidden,
   groupStrokes,
   ungroupStrokes,
@@ -30,6 +32,7 @@ export {
 } from "./groups";
 export {
   strokeTitle,
+  strokeWindowKind,
   groupLabel,
   notesByRound,
   clusterNoteRound,
@@ -40,3 +43,10 @@ export {
   type NoteCluster,
   type NoteGroup,
 } from "./list";
+export {
+  isBookmarkStroke,
+  makeBookmarkStroke,
+  roundBookmarkMarks,
+  type BookmarkStroke,
+  type BookmarkScrubMark,
+} from "./bookmarks";

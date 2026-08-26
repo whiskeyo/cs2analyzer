@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { tickRate } from "./constants";
 import { Controls } from "./Controls";
 import { DropZone } from "./DropZone";
 import { ImportNotesButton } from "./ImportNotesButton";
@@ -12,6 +13,7 @@ import { deleteProject } from "./projectStore";
 import { RadarCanvas } from "./RadarCanvas";
 import { RoundStrip } from "./RoundStrip";
 import { currentRound } from "./sample";
+import { makeBookmarkStroke } from "./overlay";
 import { Sidebar } from "./Sidebar";
 import { computeStats, exportStatsCsv } from "./stats";
 import {
@@ -229,9 +231,21 @@ export function App() {
             onRedo={redo}
             onClear={() => {
               const round = currentRound(replay, tick)?.number;
-              commitStrokes(round == null ? [] : strokes.filter((st) => st.round !== round));
+              commitStrokes(
+                round == null
+                  ? []
+                  : strokes.filter((st) => st.round !== round || st.type === "bookmark"),
+              );
             }}
             onResetView={() => setViewEpoch((n) => n + 1)}
+            onStampBookmark={() => {
+              const rnd = currentRound(replay, tick);
+              if (!rnd) return;
+              commitStrokes([
+                ...strokes,
+                makeBookmarkStroke(color, rnd.number, tick, moment, rnd.end_tick, tickRate(replay)),
+              ]);
+            }}
           />
           <div className="radar-stage">
             <RadarCanvas
@@ -329,6 +343,7 @@ export function App() {
       <Controls
         replay={replay}
         tick={tick}
+        strokes={strokes}
         playing={playing}
         speed={speed}
         onTick={(t) => {

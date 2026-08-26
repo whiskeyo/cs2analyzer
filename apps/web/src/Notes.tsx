@@ -12,13 +12,16 @@ import {
   notesByRound,
   overlayJumpTick,
   overlayWindow,
+  removeStrokesAt,
   renameGroup,
+  renameStrokeText,
   setMomentClockEdge,
   setMomentEdge,
   setStrokesHidden,
   squashLooseDrawings,
   squashStrokes,
   strokeTitle,
+  strokeWindowKind,
   ungroupStrokes,
   type NoteDropDest,
 } from "./overlay";
@@ -111,6 +114,79 @@ function GroupNameField({
         if (e.key === "Escape") {
           skipBlur.current = true;
           setDraft(shown);
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
+function BookmarkTitleField({
+  index,
+  title,
+  strokes,
+  onStrokes,
+}: {
+  index: number;
+  title: string;
+  strokes: Stroke[];
+  onStrokes: (next: Stroke[]) => void;
+}) {
+  const [draft, setDraft] = useState(title);
+  const [editing, setEditing] = useState(false);
+  const skipBlur = useRef(false);
+
+  const commit = () => {
+    if (skipBlur.current) {
+      skipBlur.current = false;
+      setEditing(false);
+      return;
+    }
+    const next = draft.trim();
+    setEditing(false);
+    if (!next || next === title) {
+      setDraft(title);
+      return;
+    }
+    onStrokes(renameStrokeText(strokes, index, next));
+  };
+
+  if (!editing) {
+    return (
+      <span
+        className="review-title"
+        title="Double-click to rename"
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          setDraft(title);
+          setEditing(true);
+        }}
+      >
+        {title}
+      </span>
+    );
+  }
+
+  return (
+    <input
+      className="note-group-name"
+      value={draft}
+      maxLength={NOTE_GROUP_NAME_MAX}
+      aria-label="Bookmark name"
+      draggable={false}
+      autoFocus
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+        if (e.key === "Escape") {
+          skipBlur.current = true;
+          setDraft(title);
           e.currentTarget.blur();
         }
       }}
@@ -250,9 +326,9 @@ export function Notes({ replay, tick, strokes, onJump, onStrokes }: Props) {
     >
       <p className="tab-hint">
         Drag a layer or a note. Drop on the top slot to ungroup, on the bottom slot to make a new
-        group, or onto a layer box to add it there. Double-click a layer name to rename. Start/End
-        clocks use the arrows (0:59 then 1:00). Double-click a clock to pin it to the playhead. The
-        eye hides a note on the radar.
+        group, or onto a layer box to add it there. Double-click a layer or bookmark name to rename.
+        Start/End clocks use the arrows (0:59 then 1:00). Double-click a clock to pin it to the
+        playhead. The eye hides a map note or a timeline bookmark.
       </p>
       <div className="notes-actions">
         <button
@@ -485,28 +561,64 @@ export function Notes({ replay, tick, strokes, onJump, onStrokes }: Props) {
                             >
                               <span className="note-swatch" style={{ background: st.color }} />
                               <span className="review-copy">
-                                <span className="review-title">{strokeTitle(st)}</span>
+                                {st.type === "bookmark" ? (
+                                  <BookmarkTitleField
+                                    index={index}
+                                    title={strokeTitle(st)}
+                                    strokes={strokes}
+                                    onStrokes={onStrokes}
+                                  />
+                                ) : (
+                                  <span className="review-title">{strokeTitle(st)}</span>
+                                )}
                                 <span className="review-detail">
                                   {rnd ? `${roundClock(rnd, itemAt, tps)} · ` : ""}
-                                  {itemWin ? "Moment" : "Whole round"}
+                                  {strokeWindowKind(itemWin)}
                                   {st.hidden ? " · Hidden" : ""}
                                 </span>
                               </span>
                             </div>
                             <label
                               className={`note-eye${st.hidden ? " off" : ""}`}
-                              title={st.hidden ? "Show on radar" : "Hide on radar"}
+                              title={
+                                st.type === "bookmark"
+                                  ? st.hidden
+                                    ? "Show on timeline"
+                                    : "Hide on timeline"
+                                  : st.hidden
+                                    ? "Show on radar"
+                                    : "Hide on radar"
+                              }
                             >
                               <input
                                 type="checkbox"
                                 checked={!st.hidden}
-                                aria-label={st.hidden ? "Show on radar" : "Hide on radar"}
+                                aria-label={
+                                  st.type === "bookmark"
+                                    ? st.hidden
+                                      ? "Show on timeline"
+                                      : "Hide on timeline"
+                                    : st.hidden
+                                      ? "Show on radar"
+                                      : "Hide on radar"
+                                }
                                 onChange={() =>
                                   onStrokes(setStrokesHidden(strokes, [index], !st.hidden))
                                 }
                               />
                               {st.hidden ? "○" : "●"}
                             </label>
+                            {st.type === "bookmark" && (
+                              <button
+                                type="button"
+                                className="note-remove"
+                                title="Remove bookmark"
+                                aria-label="Remove bookmark"
+                                onClick={() => onStrokes(removeStrokesAt(strokes, [index]))}
+                              >
+                                ×
+                              </button>
+                            )}
                             {cluster.group == null && (
                               <MomentInOut
                                 win={itemWin}

@@ -1,6 +1,6 @@
 import type { GrenadeKind } from "./replayTypes";
 
-export type DrawTool = "pan" | "pen" | "arrow" | "text" | "eraser";
+export type DrawTool = "pan" | "pen" | "arrow" | "text" | "bookmark" | "eraser";
 
 export type FloorMode = "auto" | "upper" | "lower";
 
@@ -47,6 +47,7 @@ export type Stroke = {
       box_w?: number;
       box_h?: number;
     }
+  | { type: "bookmark"; color: string; text: string }
 );
 
 export interface SummaryFilter {

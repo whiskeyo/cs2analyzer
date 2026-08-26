@@ -1,8 +1,9 @@
 import { tickRate } from "./constants";
+import { roundBookmarkMarks } from "./overlay";
 import { freezeWidth, markLabelShift, roundScrubRange, roundTimelineMarks } from "./roundTimeline";
 import { currentRound } from "./sample";
 import { nextEventTick } from "./stats";
-import type { Replay } from "./types";
+import type { Replay, Stroke } from "./types";
 import { formatClock } from "./weapons";
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
@@ -10,6 +11,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 interface Props {
   replay: Replay;
   tick: number;
+  strokes: Stroke[];
   playing: boolean;
   speed: number;
   onTick: (tick: number) => void;
@@ -17,7 +19,16 @@ interface Props {
   onSpeed: (v: number) => void;
 }
 
-export function Controls({ replay, tick, playing, speed, onTick, onPlaying, onSpeed }: Props) {
+export function Controls({
+  replay,
+  tick,
+  strokes,
+  playing,
+  speed,
+  onTick,
+  onPlaying,
+  onSpeed,
+}: Props) {
   const round = currentRound(replay, tick);
   const fallback = {
     min: replay.ticks.ticks[0] ?? 0,
@@ -34,6 +45,7 @@ export function Controls({ replay, tick, playing, speed, onTick, onPlaying, onSp
   const roundIdx = replay.rounds.findIndex((r) => r.start_tick === round?.start_tick);
   const killTicks = replay.kills.map((k) => k.tick);
   const marks = round ? roundTimelineMarks(round, tps, { min, max }) : [];
+  const bookmarks = round ? roundBookmarkMarks(strokes, round, { min, max }) : [];
   const freezeAt = round ? freezeWidth(round, { min, max }) : 0;
   const span = max - min;
   const progress = span > 0 ? (Math.min(max, Math.max(min, tick)) - min) / span : 0;
@@ -159,6 +171,36 @@ export function Controls({ replay, tick, playing, speed, onTick, onPlaying, onSp
             value={Math.min(max, Math.max(min, tick))}
             onChange={(e) => onTick(Number(e.target.value))}
           />
+          <div className="timeline-bookmarks">
+            {bookmarks.map((m) => {
+              const span = m.kind !== "pin";
+              return (
+                <button
+                  key={m.index}
+                  type="button"
+                  className={`timeline-bookmark ${m.kind}`}
+                  title={m.title}
+                  aria-label={m.title}
+                  style={
+                    span
+                      ? {
+                          left: `${m.startAt * 100}%`,
+                          width: `${Math.max(0.8, (m.endAt - m.startAt) * 100)}%`,
+                          color: m.color,
+                        }
+                      : { left: `${m.startAt * 100}%`, color: m.color }
+                  }
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onTick(m.tick);
+                    onPlaying(false);
+                  }}
+                />
+              );
+            })}
+          </div>
         </div>
         <div className="timeline-labels" aria-hidden="true">
           {marks.map((m) => (

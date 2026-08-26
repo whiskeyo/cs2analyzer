@@ -26,6 +26,7 @@ interface Props {
   onRedo: () => void;
   onClear: () => void;
   onResetView: () => void;
+  onStampBookmark: () => void;
 }
 
 function Icon({ d }: { d: string }) {
@@ -83,6 +84,7 @@ const I = {
   track: "M8 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 3.5V2M8 14v-1.5M3.5 8H2M14 8h-1.5",
   trail: "M3 12c2-1 3-4 5-4s3 3 5 2",
   moment: "M8 3.5A4.5 4.5 0 1 1 3.5 8M8 5.5V8l1.8 1.2",
+  bookmark: "M4.5 2h7v12l-3.5-2.2L4.5 14Z",
 };
 
 export function MapToolbar({
@@ -110,6 +112,7 @@ export function MapToolbar({
   onRedo,
   onClear,
   onResetView,
+  onStampBookmark,
 }: Props) {
   const toggle = (key: keyof MapLayers) => onLayers({ ...layers, [key]: !layers[key] });
   const preset = COLOR_PRESETS.find((p) => p.id === paletteId) ?? COLOR_PRESETS[0];
@@ -119,6 +122,15 @@ export function MapToolbar({
       <IconBtn title="Draw" on={tool === "pen"} onClick={() => onTool("pen")} d={I.pen} />
       <IconBtn title="Arrow" on={tool === "arrow"} onClick={() => onTool("arrow")} d={I.arrow} />
       <IconBtn title="Text note" on={tool === "text"} onClick={() => onTool("text")} d={I.text} />
+      <IconBtn
+        title="Bookmark this tick (Moment: a few seconds). Nothing is drawn on the radar."
+        on={tool === "bookmark"}
+        onClick={() => {
+          onTool("bookmark");
+          onStampBookmark();
+        }}
+        d={I.bookmark}
+      />
       <IconBtn title="Erase" on={tool === "eraser"} onClick={() => onTool("eraser")} d={I.erase} />
       <IconBtn title="Undo drawing (Ctrl+Z)" disabled={!canUndo} onClick={onUndo} d={I.undo} />
       <IconBtn title="Redo drawing (Ctrl+Y)" disabled={!canRedo} onClick={onRedo} d={I.redo} />
@@ -158,7 +170,7 @@ export function MapToolbar({
       />
       <IconBtn title="Trail" on={trails} onClick={() => onTrails(!trails)} d={I.trail} />
       <IconBtn
-        title="Moment: new drawings last a few seconds from this tick"
+        title="Moment: new drawings and bookmarks last a few seconds from this tick"
         on={moment}
         onClick={() => onMoment(!moment)}
         d={I.moment}

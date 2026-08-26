@@ -1,3 +1,4 @@
+import { NOTE_BOOKMARK_TITLE } from "./constants";
 import { COLOR_PRESETS } from "./palettes";
 import {
   DEFAULT_SUMMARY_FILTER,
@@ -89,6 +90,10 @@ function parseStroke(v: unknown): Stroke | null {
   }
   if (o.type === "arrow" && isPoint(o.from) && isPoint(o.to)) {
     return withWindow({ type: "arrow", round: o.round, color: o.color, from: o.from, to: o.to }, o);
+  }
+  if (o.type === "bookmark" && typeof o.text === "string") {
+    const text = o.text.trim() !== "" ? o.text : NOTE_BOOKMARK_TITLE;
+    return withWindow({ type: "bookmark", round: o.round, color: o.color, text }, o);
   }
   if (
     o.type === "text" &&

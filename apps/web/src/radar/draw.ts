@@ -233,11 +233,12 @@ export function findTextIndex(
 }
 
 export function hitStroke(st: Stroke, x: number, y: number, maxDist: number): boolean {
-  if (st.type === "text") return false;
+  if (st.type === "text" || st.type === "bookmark") return false;
   const d2 = maxDist * maxDist;
   if (st.type === "pen") {
     return st.points.some((p) => (p.x - x) ** 2 + (p.y - y) ** 2 < d2);
   }
+  if (st.type !== "arrow") return false;
   const steps = 8;
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;

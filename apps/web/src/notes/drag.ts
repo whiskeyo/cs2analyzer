@@ -24,7 +24,7 @@ export function isDragControl(target: EventTarget | null): boolean {
   if (!el) return false;
   return Boolean(
     el.closest(
-      "input, textarea, select, label.note-pick, .note-io, .note-eye, .note-cluster-fold, .note-cluster-count",
+      "input, textarea, select, label.note-pick, .note-io, .note-eye, .note-remove, .note-cluster-fold, .note-cluster-count",
     ),
   );
 }

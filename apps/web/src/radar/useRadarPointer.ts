@@ -7,7 +7,7 @@ import {
 } from "react";
 import { NOTE_TEXT_DRAG_PX, PEN_MIN_SAMPLE_DISTANCE, tickRate } from "../constants";
 import { screenToWorld, worldToScreen, type RadarView } from "../maps";
-import { overlayVisible, withMoment } from "../overlay";
+import { makeBookmarkStroke, overlayVisible, withMoment } from "../overlay";
 import { findTextIndex, hitStroke, hitTextLabel } from "./draw";
 import type { TextEdit, TextEditDrag, TextMove } from "./TextNoteEditor";
 import { currentRound } from "../sample";
@@ -158,6 +158,23 @@ export function useRadarPointer(opts: RadarPointerOpts) {
             return;
           }
         }
+      }
+
+      if (toolNow === "bookmark") {
+        e.preventDefault();
+        onPauseRef.current();
+        onStrokesRef.current([
+          ...strokesRef.current,
+          makeBookmarkStroke(
+            colorRef.current,
+            roundNow,
+            tickNow,
+            momentRef.current,
+            rnd?.end_tick ?? 0,
+            tps,
+          ),
+        ]);
+        return;
       }
 
       if (toolNow === "text") {

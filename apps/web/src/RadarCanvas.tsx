@@ -589,6 +589,7 @@ export function RadarCanvas({
       }
 
       const drawStroke = (st: Stroke, alpha = 1, live = false) => {
+        if (st.type === "bookmark") return;
         if (st.type === "text") {
           if (alpha < 1) return;
           drawTextLabel(ctx, st, toScreen(st.x, st.y));
@@ -807,7 +808,14 @@ export function RadarCanvas({
     onSelectRef.current(best && best.d < 18 * 18 ? best.i : null);
   };
 
-  const cursor = tool === "pan" ? "grab" : tool === "eraser" ? "cell" : "crosshair";
+  const cursor =
+    tool === "pan"
+      ? "grab"
+      : tool === "eraser"
+        ? "cell"
+        : tool === "bookmark"
+          ? "pointer"
+          : "crosshair";
 
   return (
     <div className="radar-wrap" ref={wrapRef} style={{ cursor }}>

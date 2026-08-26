@@ -114,6 +114,9 @@ export const NOTE_GROUP_NAME_MAX = 40;
 /** Default name when squashing pens/arrows into one list row. */
 export const NOTE_LAYER_NAME = "Drawings";
 
+/** Default label for a timeline bookmark. */
+export const NOTE_BOOKMARK_TITLE = "Bookmark";
+
 /** Radar text label max width (screen px) when the box has not been resized. */
 export const NOTE_TEXT_MAX_WIDTH = 160;
 

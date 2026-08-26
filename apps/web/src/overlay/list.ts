@@ -1,11 +1,22 @@
+import { NOTE_BOOKMARK_TITLE } from "../constants";
 import type { Stroke } from "../types";
 
 export type TextStroke = Extract<Stroke, { type: "text" }>;
 
 export function strokeTitle(st: Stroke): string {
   if (st.type === "text") return st.text;
+  if (st.type === "bookmark") {
+    const text = st.text.trim();
+    return text !== "" ? text : NOTE_BOOKMARK_TITLE;
+  }
   if (st.type === "pen") return "Pen";
   return "Arrow";
+}
+
+export function strokeWindowKind(win: { start: number; end: number } | null): string {
+  if (!win) return "Whole round";
+  if (win.end <= win.start) return "Pin";
+  return "Moment";
 }
 
 export function groupLabel(id: string): string {
@@ -81,7 +92,7 @@ export function groupOverlays(strokes: Stroke[]): NoteGroup[] {
       by.set(s.round, g);
     }
     if (s.type === "text") g.texts.push(s);
-    else g.drawings += 1;
+    else if (s.type === "pen" || s.type === "arrow") g.drawings += 1;
   }
   for (const g of by.values()) {
     g.texts.sort((a, b) => (a.start_tick ?? 0) - (b.start_tick ?? 0));

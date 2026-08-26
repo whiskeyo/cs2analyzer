@@ -48,6 +48,22 @@ function groupWindowFor(
   return overlayWindow(member, strokes);
 }
 
+export function renameStrokeText(strokes: Stroke[], index: number, text: string): Stroke[] {
+  const st = strokes[index];
+  if (!st || (st.type !== "text" && st.type !== "bookmark")) return strokes;
+  const next = text.trim().slice(0, NOTE_GROUP_NAME_MAX);
+  if (!next) return strokes;
+  return strokes.map((s, i) =>
+    i === index && (s.type === "text" || s.type === "bookmark") ? { ...s, text: next } : s,
+  );
+}
+
+export function removeStrokesAt(strokes: Stroke[], indexes: number[]): Stroke[] {
+  const drop = new Set(indexes);
+  if (drop.size === 0) return strokes;
+  return strokes.filter((_, i) => !drop.has(i));
+}
+
 export function setStrokesHidden(strokes: Stroke[], indexes: number[], hidden: boolean): Stroke[] {
   const targets = new Set(indexes);
   return strokes.map((s, i) => {

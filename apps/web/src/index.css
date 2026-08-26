@@ -998,7 +998,8 @@ button.link {
   padding-left: 0;
 }
 .note-io > button,
-.note-eye {
+.note-eye,
+.note-remove {
   background: #1c242e;
   color: #c5d0da;
   border: 1px solid #2c3846;
@@ -1086,6 +1087,7 @@ button.link {
 .notes-dragging textarea,
 .notes-dragging .note-io,
 .notes-dragging .note-eye,
+.notes-dragging .note-remove,
 .notes-dragging .note-cluster-fold,
 .notes-dragging .note-cluster-count,
 .notes-dragging .review-note {
@@ -1284,7 +1286,82 @@ button.link {
 }
 .timeline-bar {
   position: relative;
-  height: 18px;
+  height: 22px;
+}
+.timeline-bookmarks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.controls button.timeline-bookmark {
+  pointer-events: auto;
+  position: absolute;
+  top: 8px;
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  line-height: 0;
+  font-size: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  overflow: visible;
+  transform: translateX(-50%);
+}
+.controls button.timeline-bookmark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: auto;
+  bottom: 2px;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 6px solid currentColor;
+  transform: translateX(-50%);
+}
+.controls button.timeline-bookmark.span,
+.controls button.timeline-bookmark.round {
+  transform: none;
+  height: 2px;
+  top: 16px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.95;
+}
+.controls button.timeline-bookmark.round {
+  opacity: 0.45;
+}
+.controls button.timeline-bookmark.span::before,
+.controls button.timeline-bookmark.round::before,
+.controls button.timeline-bookmark.span::after,
+.controls button.timeline-bookmark.round::after {
+  content: "";
+  position: absolute;
+  top: auto;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 6px solid currentColor;
+}
+.controls button.timeline-bookmark.span::before,
+.controls button.timeline-bookmark.round::before {
+  left: 0;
+  transform: translateX(-50%);
+}
+.controls button.timeline-bookmark.span::after,
+.controls button.timeline-bookmark.round::after {
+  left: auto;
+  right: 0;
+  transform: translateX(50%);
 }
 .timeline-rail {
   position: absolute;
@@ -1330,6 +1407,7 @@ button.link {
   background: transparent;
   appearance: none;
   cursor: pointer;
+  z-index: 1;
 }
 .timeline::-webkit-slider-runnable-track {
   height: 8px;

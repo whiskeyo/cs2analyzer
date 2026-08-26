@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NOTE_BOOKMARK_TITLE } from "./constants";
 import { COLOR_PRESETS } from "./palettes";
 import {
   PROJECT_SCHEMA,
@@ -178,6 +179,28 @@ describe("parseBundle", () => {
       start_tick: 10,
       end_tick: 80,
       hidden: true,
+    });
+  });
+
+  it("keeps a bookmark and fills a blank title", () => {
+    const p = parseProject({
+      ...project(),
+      strokes: [
+        {
+          type: "bookmark",
+          round: 1,
+          color: "#ff1744",
+          text: "",
+          start_tick: 80,
+          end_tick: 80,
+        },
+      ],
+    });
+    expect(p?.strokes[0]).toMatchObject({
+      type: "bookmark",
+      text: NOTE_BOOKMARK_TITLE,
+      start_tick: 80,
+      end_tick: 80,
     });
   });
 });
