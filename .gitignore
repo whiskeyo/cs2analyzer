@@ -3,6 +3,9 @@
 apps/web/node_modules
 apps/web/dist
 apps/web/*.tsbuildinfo
+apps/layouts/node_modules
+apps/layouts/dist
+apps/layouts/*.tsbuildinfo
 .DS_Store
 .demos/
 testdata/*.dem
