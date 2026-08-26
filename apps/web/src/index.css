@@ -561,6 +561,21 @@ body.sidebar-resizing {
   background: #243040;
   color: #fff;
 }
+.filter.clear {
+  min-width: 1.5rem;
+  padding: 0.18rem 0.35rem;
+  color: #f0b4b4;
+  border-color: #8a3a3a;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.filter.clear:hover:not(:disabled) {
+  background: #2a1c1c;
+}
+.filter.clear:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
 .action-round {
   margin-bottom: 0.65rem;
 }
@@ -1139,6 +1154,16 @@ button.link {
 .review-title {
   font-size: 0.8rem;
   font-weight: 600;
+}
+.util-nade-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.util-nade-title .wep-icon {
+  height: 15px;
+  max-width: 48px;
+  flex-shrink: 0;
 }
 .review-detail {
   font-size: 0.72rem;

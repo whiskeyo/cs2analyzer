@@ -6,6 +6,7 @@ import {
   filterExecutes,
   findExecutes,
 } from "@/lib/match/execute";
+import { layoutSiteFilters, type MapPlaces } from "@/lib/match/sites";
 import { roundStories } from "@/lib/match/roundStory";
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Side } from "@/lib/replay/replayTypes";
@@ -14,6 +15,7 @@ interface Props {
   replay: Replay;
   tick: number;
   onJump: (tick: number) => void;
+  places: MapPlaces | null;
 }
 
 const KINDS: { id: ExecuteKind; label: string }[] = [
@@ -23,18 +25,24 @@ const KINDS: { id: ExecuteKind; label: string }[] = [
   { id: "fight", label: "Fight" },
 ];
 
-export function Action({ replay, tick, onJump }: Props) {
+export function Action({ replay, tick, onJump, places }: Props) {
   const [thisRound, setThisRound] = useState(false);
   const [side, setSide] = useState<Side | "all">("all");
   const [site, setSite] = useState<SiteCallout | "all">("all");
   const [kinds, setKinds] = useState<ExecuteKind[]>([]);
   const live = currentRound(replay, tick);
   const stories = useMemo(() => roundStories(replay), [replay]);
-  const beats = useMemo(() => findExecutes(replay), [replay]);
+  const beats = useMemo(() => findExecutes(replay, places), [replay, places]);
+  const filters = layoutSiteFilters(places?.layout);
+  const showSites = filters.a || filters.b || filters.mid;
+  const siteFilter: SiteCallout | "all" =
+    (site === "A" && !filters.a) || (site === "B" && !filters.b) || (site === "Mid" && !filters.mid)
+      ? "all"
+      : site;
   const roundN = thisRound ? (live && !live.is_knife ? live.number : -1) : null;
   const filtered = useMemo(
-    () => filterExecutes(beats, { round: roundN, side, site, kinds }),
-    [beats, roundN, side, site, kinds],
+    () => filterExecutes(beats, { round: roundN, side, site: siteFilter, kinds }),
+    [beats, roundN, side, siteFilter, kinds],
   );
   const visibleStories = roundN != null ? stories.filter((s) => s.round === roundN) : stories;
 
@@ -84,35 +92,45 @@ export function Action({ replay, tick, onJump }: Props) {
         >
           CT
         </button>
-        <span className="filter-gap" />
-        <button
-          type="button"
-          className={`filter${site === "all" ? " on" : ""}`}
-          onClick={() => setSite("all")}
-        >
-          All sites
-        </button>
-        <button
-          type="button"
-          className={`filter${site === "A" ? " on" : ""}`}
-          onClick={() => setSite("A")}
-        >
-          A
-        </button>
-        <button
-          type="button"
-          className={`filter${site === "B" ? " on" : ""}`}
-          onClick={() => setSite("B")}
-        >
-          B
-        </button>
-        <button
-          type="button"
-          className={`filter${site === "Mid" ? " on" : ""}`}
-          onClick={() => setSite("Mid")}
-        >
-          Mid
-        </button>
+        {showSites && (
+          <>
+            <span className="filter-gap" />
+            <button
+              type="button"
+              className={`filter${siteFilter === "all" ? " on" : ""}`}
+              onClick={() => setSite("all")}
+            >
+              All sites
+            </button>
+            {filters.a && (
+              <button
+                type="button"
+                className={`filter${siteFilter === "A" ? " on" : ""}`}
+                onClick={() => setSite("A")}
+              >
+                A
+              </button>
+            )}
+            {filters.b && (
+              <button
+                type="button"
+                className={`filter${siteFilter === "B" ? " on" : ""}`}
+                onClick={() => setSite("B")}
+              >
+                B
+              </button>
+            )}
+            {filters.mid && (
+              <button
+                type="button"
+                className={`filter${siteFilter === "Mid" ? " on" : ""}`}
+                onClick={() => setSite("Mid")}
+              >
+                Mid
+              </button>
+            )}
+          </>
+        )}
         <span className="filter-gap" />
         {KINDS.map((k) => (
           <button

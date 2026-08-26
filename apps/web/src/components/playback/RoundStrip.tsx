@@ -4,17 +4,19 @@ import { currentRound } from "@/lib/replay/sample";
 import type { Replay } from "@/lib/replay/replayTypes";
 import type { Stroke } from "@/lib/notes/types";
 import { noteRounds, overlayJumpTick } from "@/lib/notes";
+import type { MapPlaces } from "@/lib/match/sites";
 
 interface Props {
   replay: Replay;
   tick: number;
   strokes: Stroke[];
   onJump: (tick: number) => void;
+  places: MapPlaces | null;
 }
 
-export function RoundStrip({ replay, tick, strokes, onJump }: Props) {
+export function RoundStrip({ replay, tick, strokes, onJump, places }: Props) {
   const current = currentRound(replay, tick);
-  const beats = findExecutes(replay);
+  const beats = findExecutes(replay, places);
   const actionRounds = new Set(beats.map((b) => b.round));
   const noted = noteRounds(strokes);
   const live = activeExecute(beats, tick, tickRate(replay));

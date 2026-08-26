@@ -1,53 +1,56 @@
 import { MIN_REVIEW_FLASH_SECONDS } from "@/lib/shared/constants";
 import { nadeLandPos } from "@/lib/radar/radarFx";
+import { NADE_LABEL } from "@/lib/match/roundEvents";
 import { currentRound } from "@/lib/replay/sample";
-import { siteCallout, type SiteCallout } from "./sites";
+import { calloutsInLocation, placeAt, type MapPlaces, type SiteCallout } from "./sites";
+import type { MapLayout } from "@/lib/radar/layouts";
 import { inKnifeRound, isEnemy } from "@/lib/stats/stats";
-import type { Replay, Round } from "@/lib/replay/replayTypes";
+import type { GrenadeKind, GrenadeThrow, Replay, Round } from "@/lib/replay/replayTypes";
 
-export interface FlashBlindRow {
-  tick: number;
-  round: number;
-  roundLabel: string;
-  attacker: number;
+const KIND_ORDER: GrenadeKind[] = ["smoke", "flash", "he", "molotov", "decoy"];
+
+export interface UtilBlind {
   victim: number;
-  attackerName: string;
   victimName: string;
   duration: number;
   enemy: boolean;
 }
 
-export interface HeDamageRow {
-  tick: number;
-  round: number;
-  roundLabel: string;
-  attacker: number;
+export interface UtilHit {
   victim: number;
-  attackerName: string;
   victimName: string;
   damage: number;
+  enemy: boolean;
 }
 
-export interface SmokeThrowRow {
+export interface UtilThrowRow {
   tick: number;
+  detonateTick: number;
+  endTick: number;
   round: number;
   roundLabel: string;
+  kind: GrenadeKind;
   thrower: number;
   throwerName: string;
   site: SiteCallout | null;
+  location: string | null;
   inSite: boolean;
+  blinds: UtilBlind[];
+  hits: UtilHit[];
 }
 
 export interface UtilitySummary {
-  flashes: FlashBlindRow[];
+  throws: UtilThrowRow[];
+  byKind: Record<GrenadeKind, number>;
   enemyFlashCount: number;
-  he: HeDamageRow[];
   heDamage: number;
-  smokes: SmokeThrowRow[];
-  smokesThrown: number;
-  smokesInSite: number;
-  smokesA: number;
-  smokesB: number;
+  inSite: number;
+  nadesA: number;
+  nadesB: number;
+}
+
+function emptyKindCounts(): Record<GrenadeKind, number> {
+  return { smoke: 0, flash: 0, he: 0, molotov: 0, decoy: 0 };
 }
 
 function roundLabel(r: Round): string {
@@ -64,86 +67,193 @@ function isHeGrenade(weapon: string): boolean {
   return weapon.toLowerCase().includes("hegrenade");
 }
 
+function isMollyWeapon(weapon: string): boolean {
+  const w = weapon.toLowerCase();
+  return w.includes("inferno") || w.includes("molotov") || w.includes("incgrenade");
+}
+
+function rowDamage(row: UtilThrowRow): number {
+  return row.hits.reduce((n, hit) => n + hit.damage, 0);
+}
+
+function addHit(
+  row: UtilThrowRow,
+  replay: Replay,
+  victim: number,
+  damage: number,
+  tick: number,
+): void {
+  const existing = row.hits.find((hit) => hit.victim === victim);
+  if (existing) {
+    existing.damage += damage;
+    return;
+  }
+  row.hits.push({
+    victim,
+    victimName: nameOf(replay, victim),
+    damage,
+    enemy: row.thrower >= 0 && victim >= 0 && isEnemy(replay, row.thrower, victim, tick),
+  });
+}
+
+function nearestThrow(rows: UtilThrowRow[], attacker: number, tick: number): UtilThrowRow | null {
+  let best: UtilThrowRow | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const row of rows) {
+    if (row.thrower !== attacker || !coversTick(row, tick)) continue;
+    const dist = Math.abs(tick - row.detonateTick);
+    if (dist < bestDist) {
+      best = row;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
 function nameOf(replay: Replay, i: number): string {
   return i < 0 ? "World" : (replay.players[i]?.name ?? "?");
+}
+
+function coversTick(row: UtilThrowRow, tick: number): boolean {
+  return tick >= row.tick && tick <= row.endTick;
+}
+
+function attachBlinds(rows: UtilThrowRow[], replay: Replay, untilTick: number): void {
+  const flashes = rows.filter((row) => row.kind === "flash");
+  if (flashes.length === 0) return;
+  for (const blind of replay.blinds ?? []) {
+    if (blind.tick > untilTick || blind.duration < MIN_REVIEW_FLASH_SECONDS) continue;
+    if (inKnifeRound(replay, blind.tick)) continue;
+    const best = nearestThrow(flashes, blind.attacker, blind.tick);
+    if (!best) continue;
+    best.blinds.push({
+      victim: blind.victim,
+      victimName: nameOf(replay, blind.victim),
+      duration: blind.duration,
+      enemy:
+        blind.attacker >= 0 &&
+        blind.victim >= 0 &&
+        isEnemy(replay, blind.attacker, blind.victim, blind.tick),
+    });
+  }
+}
+
+function attachDamage(rows: UtilThrowRow[], replay: Replay, untilTick: number): void {
+  const hes = rows.filter((row) => row.kind === "he");
+  const mollys = rows.filter((row) => row.kind === "molotov");
+  if (hes.length === 0 && mollys.length === 0) return;
+  for (const hurt of replay.hurts ?? []) {
+    if (hurt.tick > untilTick || hurt.damage <= 0) continue;
+    if (inKnifeRound(replay, hurt.tick)) continue;
+    if (hurt.attacker < 0 || hurt.victim < 0) continue;
+    if (!isEnemy(replay, hurt.attacker, hurt.victim, hurt.tick)) continue;
+    const pool = isHeGrenade(hurt.weapon) ? hes : isMollyWeapon(hurt.weapon) ? mollys : null;
+    if (!pool) continue;
+    const best = nearestThrow(pool, hurt.attacker, hurt.tick);
+    if (best) addHit(best, replay, hurt.victim, hurt.damage, hurt.tick);
+  }
+}
+
+function fromThrow(replay: Replay, nade: GrenadeThrow, places?: MapPlaces | null): UtilThrowRow {
+  const land = nadeLandPos(nade);
+  const z = nade.points[nade.points.length - 1]?.z;
+  const hit = land ? placeAt(places, land.x, land.y, z) : { site: null, location: null };
+  const meta = labelAt(replay, nade.start_tick);
+  return {
+    tick: nade.start_tick,
+    detonateTick: nade.detonate_tick,
+    endTick: nade.end_tick,
+    round: meta.round,
+    roundLabel: meta.roundLabel,
+    kind: nade.kind,
+    thrower: nade.thrower,
+    throwerName: nameOf(replay, nade.thrower),
+    site: hit.site,
+    location: hit.location,
+    inSite: hit.site === "A" || hit.site === "B",
+    blinds: [],
+    hits: [],
+  };
 }
 
 export function utilityThrough(
   replay: Replay,
   untilTick: number,
   player: number | null,
+  places?: MapPlaces | null,
 ): UtilitySummary {
-  const flashes: FlashBlindRow[] = [];
-  for (const b of replay.blinds ?? []) {
-    if (b.tick > untilTick || b.duration < MIN_REVIEW_FLASH_SECONDS) continue;
-    if (inKnifeRound(replay, b.tick)) continue;
-    if (player != null && b.attacker !== player && b.victim !== player) continue;
-    const enemy = b.attacker >= 0 && b.victim >= 0 && isEnemy(replay, b.attacker, b.victim, b.tick);
-    const meta = labelAt(replay, b.tick);
-    flashes.push({
-      tick: b.tick,
-      round: meta.round,
-      roundLabel: meta.roundLabel,
-      attacker: b.attacker,
-      victim: b.victim,
-      attackerName: nameOf(replay, b.attacker),
-      victimName: nameOf(replay, b.victim),
-      duration: b.duration,
-      enemy,
-    });
+  const throws: UtilThrowRow[] = [];
+  const byKind = emptyKindCounts();
+  for (const nade of replay.grenades) {
+    if (nade.start_tick > untilTick) continue;
+    if (inKnifeRound(replay, nade.start_tick)) continue;
+    if (player != null && nade.thrower !== player) continue;
+    const row = fromThrow(replay, nade, places);
+    byKind[row.kind] += 1;
+    throws.push(row);
   }
-
-  const he: HeDamageRow[] = [];
-  for (const h of replay.hurts ?? []) {
-    if (h.tick > untilTick || h.damage <= 0 || !isHeGrenade(h.weapon)) continue;
-    if (inKnifeRound(replay, h.tick)) continue;
-    if (h.attacker < 0 || h.victim < 0) continue;
-    if (!isEnemy(replay, h.attacker, h.victim, h.tick)) continue;
-    if (player != null && h.attacker !== player && h.victim !== player) continue;
-    const meta = labelAt(replay, h.tick);
-    he.push({
-      tick: h.tick,
-      round: meta.round,
-      roundLabel: meta.roundLabel,
-      attacker: h.attacker,
-      victim: h.victim,
-      attackerName: nameOf(replay, h.attacker),
-      victimName: nameOf(replay, h.victim),
-      damage: h.damage,
-    });
-  }
-
-  const smokes: SmokeThrowRow[] = [];
-  const mapName = replay.header.map_name;
-  for (const g of replay.grenades) {
-    if (g.kind !== "smoke" || g.start_tick > untilTick) continue;
-    if (inKnifeRound(replay, g.start_tick)) continue;
-    if (player != null && g.thrower !== player) continue;
-    const land = nadeLandPos(g);
-    const z = g.points[g.points.length - 1]?.z;
-    const site = land ? siteCallout(mapName, land.x, land.y, z) : null;
-    const inSite = site === "A" || site === "B";
-    const meta = labelAt(replay, g.start_tick);
-    smokes.push({
-      tick: g.start_tick,
-      round: meta.round,
-      roundLabel: meta.roundLabel,
-      thrower: g.thrower,
-      throwerName: nameOf(replay, g.thrower),
-      site,
-      inSite,
-    });
-  }
+  throws.sort((a, b) => a.tick - b.tick || a.detonateTick - b.detonateTick);
+  attachBlinds(throws, replay, untilTick);
+  attachDamage(throws, replay, untilTick);
 
   return {
-    flashes,
-    enemyFlashCount: flashes.filter((f) => f.enemy).length,
-    he,
-    heDamage: he.reduce((n, r) => n + r.damage, 0),
-    smokes,
-    smokesThrown: smokes.length,
-    smokesInSite: smokes.filter((s) => s.inSite).length,
-    smokesA: smokes.filter((s) => s.site === "A").length,
-    smokesB: smokes.filter((s) => s.site === "B").length,
+    throws,
+    byKind,
+    enemyFlashCount: throws.reduce(
+      (n, row) => n + row.blinds.filter((blind) => blind.enemy).length,
+      0,
+    ),
+    heDamage: throws.reduce((n, row) => n + rowDamage(row), 0),
+    inSite: throws.filter((row) => row.inSite).length,
+    nadesA: throws.filter((row) => row.site === "A").length,
+    nadesB: throws.filter((row) => row.site === "B").length,
   };
+}
+
+export function utilKindSummary(byKind: Record<GrenadeKind, number>): string {
+  return KIND_ORDER.filter((kind) => byKind[kind] > 0)
+    .map((kind) => `${byKind[kind]} ${NADE_LABEL[kind]}`)
+    .join(" · ");
+}
+
+export function throwDetail(row: UtilThrowRow): string {
+  const parts: string[] = [];
+  if (row.blinds.length > 0) {
+    parts.push(
+      row.blinds.map((blind) => `${blind.victimName} ${blind.duration.toFixed(1)}s`).join(" · "),
+    );
+  }
+  if (row.hits.length > 0) {
+    parts.push(row.hits.map((hit) => `${hit.victimName} (${hit.damage})`).join(", "));
+  }
+  return parts.join(" · ");
+}
+
+export function usedUtilKinds(rows: UtilThrowRow[]): GrenadeKind[] {
+  return KIND_ORDER.filter((kind) => rows.some((row) => row.kind === kind));
+}
+
+/** Layout order, then any leftover names. Unused callouts stay out. */
+export function usedUtilCallouts(rows: UtilThrowRow[], layout?: MapLayout | null): string[] {
+  const used = new Set<string>();
+  for (const row of rows) {
+    for (const name of calloutsInLocation(row.location)) used.add(name);
+  }
+  if (used.size === 0) return [];
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  for (const callout of layout?.callouts ?? []) {
+    if (used.has(callout.name) && !seen.has(callout.name)) {
+      ordered.push(callout.name);
+      seen.add(callout.name);
+    }
+  }
+  for (const name of [...used].sort((a, b) => a.localeCompare(b))) {
+    if (!seen.has(name)) ordered.push(name);
+  }
+  return ordered;
+}
+
+export function utilMatchesCallout(row: UtilThrowRow, callout: string): boolean {
+  return calloutsInLocation(row.location).includes(callout);
 }

@@ -10,6 +10,7 @@ import { Scoreboard } from "./Scoreboard";
 import { clampSidebarWidth, loadSidebarWidth, saveSidebarWidth } from "@/lib/shared/sidebarWidth";
 import { computeStats, weaponBreakdown } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";
+import type { MapPlaces } from "@/lib/match/sites";
 import type { Stroke } from "@/lib/notes/types";
 import { Utility } from "./Utility";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
@@ -35,9 +36,19 @@ interface Props {
   onSelect: (index: number | null) => void;
   onJump: (tick: number) => void;
   onStrokes: (next: Stroke[]) => void;
+  places: MapPlaces | null;
 }
 
-export function Sidebar({ replay, tick, strokes, selected, onSelect, onJump, onStrokes }: Props) {
+export function Sidebar({
+  replay,
+  tick,
+  strokes,
+  selected,
+  onSelect,
+  onJump,
+  onStrokes,
+  places,
+}: Props) {
   const [tab, setTab] = useState<Tab>("score");
   const [width, setWidth] = useState(loadSidebarWidth);
   const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
@@ -164,7 +175,7 @@ export function Sidebar({ replay, tick, strokes, selected, onSelect, onJump, onS
           onStrokes={onStrokes}
         />
       )}
-      {tab === "action" && <Action replay={replay} tick={tick} onJump={onJump} />}
+      {tab === "action" && <Action replay={replay} tick={tick} onJump={onJump} places={places} />}
       {tab === "util" && (
         <Utility
           replay={replay}
@@ -172,6 +183,7 @@ export function Sidebar({ replay, tick, strokes, selected, onSelect, onJump, onS
           selected={selected}
           onJump={onJump}
           onSelect={(i) => onSelect(i)}
+          places={places}
         />
       )}
       {tab === "clutch" && (

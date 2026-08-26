@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { tickRate } from "@/lib/shared/constants";
 import { Controls } from "@/components/playback/Controls";
 import { DropZone } from "./DropZone";
@@ -8,6 +8,7 @@ import { KillFeed } from "@/components/radar/KillFeed";
 import { SpectatorEconomy } from "@/components/radar/SpectatorEconomy";
 import { MapToolbar } from "@/components/radar/MapToolbar";
 import { calibrationFor, loadCalibrations } from "@/lib/radar/maps";
+import { loadMapLayout, mapKey, type MapLayout } from "@/lib/radar/layouts";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { deleteProject } from "@/lib/notes/projectStore";
 import { RadarCanvas } from "@/components/radar/RadarCanvas";
@@ -17,6 +18,7 @@ import { makeBookmarkStroke } from "@/lib/notes";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { computeStats, exportStatsCsv } from "@/lib/stats/stats";
 import { type MapCalibration, type Replay } from "@/lib/replay/replayTypes";
+import type { MapPlaces } from "@/lib/match/sites";
 import { DEFAULT_LAYERS, type DrawTool, type MapLayers } from "@/lib/notes/types";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { NADE_COLORS } from "@/lib/radar/radarFx";
@@ -77,8 +79,10 @@ export function App() {
   const [layers, setLayers] = useState<MapLayers>(DEFAULT_LAYERS);
   const [viewEpoch, setViewEpoch] = useState(0);
   const [maps, setMaps] = useState<Record<string, MapCalibration>>({});
+  const [layout, setLayout] = useState<MapLayout | null>(null);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  const placesRef = useRef<MapPlaces | null>(null);
   const { parsing, progress, onFile } = useDemoParse({
     persistNow,
     importNotesText,
@@ -110,6 +114,7 @@ export function App() {
     setFollow,
     setTrails,
     setSelected,
+    placesRef,
   });
 
   useEffect(() => {
@@ -118,7 +123,26 @@ export function App() {
       .catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    if (!replay) return;
+    let cancel = false;
+    loadMapLayout(replay.header.map_name)
+      .then((next) => {
+        if (!cancel) setLayout(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancel = true;
+    };
+  }, [replay]);
+
   const cal = replay ? calibrationFor(maps, replay.header.map_name) : undefined;
+  const places = useMemo((): MapPlaces | null => {
+    if (!replay || !cal || !layout || layout.callouts.length === 0) return null;
+    if (layout.map !== mapKey(replay.header.map_name)) return null;
+    return { layout, cal };
+  }, [replay, cal, layout]);
+  placesRef.current = places;
 
   if (!replay) {
     return (
@@ -332,9 +356,10 @@ export function App() {
           }}
           onJump={jump}
           onStrokes={(next) => commitStrokes(next)}
+          places={places}
         />
       </main>
-      <RoundStrip replay={replay} tick={tick} strokes={strokes} onJump={jump} />
+      <RoundStrip replay={replay} tick={tick} strokes={strokes} onJump={jump} places={places} />
       <Controls
         replay={replay}
         tick={tick}

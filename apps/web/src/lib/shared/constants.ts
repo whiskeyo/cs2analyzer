@@ -54,14 +54,17 @@ export const NADE_SITE_SEPARATION = 2000;
 /** World-unit gap: execute pulses farther than this stay separate. */
 export const PULSE_SITE_SEPARATION = 2400;
 
-/** Valve overview texture size. `bombA_x` fractions are relative to this. */
+/** Valve overview texture size. Layout polygons are drawn on this. */
 export const RADAR_OVERVIEW_SIZE = 1024;
 
-/** World units: inside this of bombsite A or B is that site, otherwise Mid. */
-export const SITE_CALLOUT_RADIUS = 1800;
+/** Radar pixels: a landing this close to a drawn callout still counts as near it. */
+export const CALLOUT_NEAR_RADIUS = 80;
 
-/** A/B only if that site is clearly closer; otherwise Mid. */
-export const SITE_CALLOUT_CLOSER_RATIO = 0.85;
+/** Nearest callout stands alone if it is within this fraction of the next. */
+export const CALLOUT_CLOSEST_RATIO = 0.7;
+
+/** Max neighbors listed as "between X, Y, Z". */
+export const CALLOUT_BETWEEN_MAX = 3;
 
 /** Seconds after freeze before we look for a T site take. */
 export const T_PUSH_DELAY_SECONDS = 8;

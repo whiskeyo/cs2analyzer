@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { filterExecutes, findExecutes, nextExecuteTick } from "./execute";
+import type { LayoutCallout } from "@/lib/radar/layouts";
 import type { GrenadeThrow, Kill, Player, Replay, Round } from "@/lib/replay/replayTypes";
+import type { MapPlaces } from "./sites";
 
 function player(index: number, side: Player["start_side"], name: string): Player {
   return { index, steam_id: index + 1, name, start_side: side };
@@ -100,49 +102,81 @@ const roster = [
   player(4, "CT", "CT2"),
 ];
 
+function rect(id: string, name: string, x: number, y: number, w: number, h: number): LayoutCallout {
+  return {
+    id,
+    name,
+    floor: "default",
+    polygon: [
+      { x, y },
+      { x: x + w, y },
+      { x: x + w, y: y + h },
+      { x, y: y + h },
+    ],
+  };
+}
+
+const layoutPlaces: MapPlaces = {
+  layout: {
+    schema: 1,
+    map: "de_test",
+    callouts: [
+      rect("a", "A Site", 0, 0, 100, 100),
+      rect("palace", "Palace", 120, 0, 60, 60),
+      rect("b", "B Site", 800, 800, 100, 100),
+    ],
+  },
+  cal: { pos_x: 0, pos_y: 1024, scale: 1, radar: "test.png" },
+};
+
 describe("findExecutes", () => {
-  it("labels a Dust2 A dump as A", () => {
+  it("omits A/B when the map has no layout", () => {
     const m = replay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
-      header: {
-        map_name: "de_dust2",
-        tick_rate: 64,
-        tick_stride: 4,
-        duration_s: 10,
-        playback_ticks: 1920,
-        team_ct: "CT",
-        team_t: "T",
-        score_ct: 0,
-        score_t: 0,
-      },
-      grenades: [nade(200, 0, "smoke", 1128, 2518), nade(220, 1, "smoke", 1180, 2480)],
+      grenades: [nade(200, 0, "smoke", 50, 974), nade(220, 1, "smoke", 60, 970)],
     });
     const beats = findExecutes(m);
+    expect(beats).toHaveLength(1);
+    expect(beats[0].site).toBeNull();
+    expect(beats[0].title).not.toMatch(/\bA\b/);
+  });
+
+  it("labels an A-site dump from grenade landings", () => {
+    const m = replay({
+      players: roster,
+      rounds: [round({ number: 1, winner: "T" })],
+      grenades: [nade(200, 0, "smoke", 50, 974), nade(220, 1, "smoke", 60, 970)],
+    });
+    const beats = findExecutes(m, layoutPlaces);
     expect(beats).toHaveLength(1);
     expect(beats[0].site).toBe("A");
     expect(beats[0].title).toMatch(/A/);
   });
 
-  it("labels an Anubis A plant as A, not Mid", () => {
+  it("treats Palace landings as an A execute", () => {
     const m = replay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
-      header: {
-        map_name: "de_anubis",
-        tick_rate: 64,
-        tick_stride: 4,
-        duration_s: 10,
-        playback_ticks: 1920,
-        team_ct: "CT",
-        team_t: "T",
-        score_ct: 0,
-        score_t: 0,
-      },
-      bombEvents: [{ tick: 400, kind: "planted", player: 0, x: -1460, y: 705, z: 80 }],
+      grenades: [nade(200, 0, "smoke", 150, 994), nade(220, 1, "smoke", 140, 990)],
     });
-    const beats = findExecutes(m);
-    const plant = beats.find((b) => b.kind === "plant");
+    const beats = findExecutes(m, layoutPlaces);
+    expect(beats).toHaveLength(1);
+    expect(beats[0].site).toBe("A");
+    expect(beats[0].location).toBe("Palace");
+    expect(beats[0].title).toMatch(/Palace/);
+  });
+
+  it("labels a plant from layout, not as Mid", () => {
+    const m = replay({
+      players: roster,
+      rounds: [round({ number: 1, winner: "T" })],
+      bombEvents: [{ tick: 400, kind: "planted", player: 0, x: 50, y: 974, z: 80 }],
+    });
+    const unlabeled = findExecutes(m).find((b) => b.kind === "plant");
+    expect(unlabeled?.site).toBeNull();
+    expect(unlabeled?.title).not.toMatch(/\bA\b/);
+    const plant = findExecutes(m, layoutPlaces).find((b) => b.kind === "plant");
     expect(plant?.site).toBe("A");
     expect(plant?.title).toMatch(/A/);
   });

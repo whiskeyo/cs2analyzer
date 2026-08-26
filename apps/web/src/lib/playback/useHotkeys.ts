@@ -1,6 +1,7 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { roundScrubRange } from "./roundTimeline";
 import { findExecutes, nextExecuteTick } from "@/lib/match/execute";
+import type { MapPlaces } from "@/lib/match/sites";
 import { currentRound } from "@/lib/replay/sample";
 import { nextEventTick } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";
@@ -10,6 +11,7 @@ export function useHotkeys(opts: {
   tickRef: MutableRefObject<number>;
   playingRef: MutableRefObject<boolean>;
   selectedRef: MutableRefObject<number | null>;
+  placesRef: MutableRefObject<MapPlaces | null>;
   jump: (t: number, pause?: boolean) => void;
   undo: () => void;
   redo: () => void;
@@ -65,7 +67,11 @@ export function useHotkeys(opts: {
         return;
       }
       if (e.key === "e" || e.key === "E") {
-        const t = nextExecuteTick(findExecutes(r), o.tickRef.current, e.key === "E" ? -1 : 1);
+        const t = nextExecuteTick(
+          findExecutes(r, o.placesRef.current),
+          o.tickRef.current,
+          e.key === "E" ? -1 : 1,
+        );
         if (t != null) o.jump(t);
         return;
       }

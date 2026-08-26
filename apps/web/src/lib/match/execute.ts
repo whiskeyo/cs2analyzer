@@ -9,9 +9,18 @@ import {
   tickRate,
 } from "@/lib/shared/constants";
 import { samplePlayers } from "@/lib/replay/sample";
-import { nearestBombsite, siteCallout, type SiteCallout } from "./sites";
+import {
+  placeAt,
+  placeFromLandings,
+  placeLabel,
+  plantPlace,
+  siteAt,
+  type MapPlaces,
+  type PlaceHit,
+  type SiteCallout,
+} from "./sites";
 import { currentSide, isEnemyKill, plantedBombPos } from "@/lib/stats/stats";
-import type { BombEvent, GrenadeThrow, Kill, Replay, Round, Side } from "@/lib/replay/replayTypes";
+import type { GrenadeThrow, Kill, Replay, Round, Side } from "@/lib/replay/replayTypes";
 import { formatClock } from "@/lib/weapons/weapons";
 
 export type { SiteCallout } from "./sites";
@@ -25,6 +34,7 @@ export interface ExecuteBeat {
   kind: ExecuteKind;
   side: Side | null;
   site: SiteCallout | null;
+  location: string | null;
   title: string;
   detail: string;
 }
@@ -136,7 +146,11 @@ function sideStats(replay: Replay, tick: number, ct: boolean) {
 }
 
 /** First tick a grouped T pack is actually on A or B — not just walking out of spawn. */
-function tPushTick(replay: Replay, round: Round): { tick: number; x: number; y: number } | null {
+function tPushTick(
+  replay: Replay,
+  round: Round,
+  places: MapPlaces | null | undefined,
+): { tick: number; x: number; y: number } | null {
   const rate = tps(replay);
   const freeze = round.freeze_end_tick || round.start_tick;
   const start = sideStats(replay, freeze, false);
@@ -154,7 +168,7 @@ function tPushTick(replay: Replay, round: Round): { tick: number; x: number; y: 
     ) {
       continue;
     }
-    const site = siteCallout(replay.header.map_name, now.cx, now.cy);
+    const site = siteAt(places, now.cx, now.cy);
     if (site === "A" || site === "B") {
       return { tick, x: now.cx, y: now.cy };
     }
@@ -235,10 +249,28 @@ function attackerSide(replay: Replay, k: Kill): Side | null {
   return currentSide(replay, k.attacker, k.tick);
 }
 
-function bombsiteFromEvent(e: BombEvent): SiteCallout | null {
-  if (e.site === 0) return "A";
-  if (e.site === 1) return "B";
-  return null;
+function nadeLandings(nades: GrenadeThrow[]): { x: number; y: number; z: number }[] {
+  return nades.map(landing).filter((p): p is { x: number; y: number; z: number } => p != null);
+}
+
+function beatPlace(
+  places: MapPlaces | null | undefined,
+  tNades: GrenadeThrow[],
+  ctNades: GrenadeThrow[],
+  plant: { x: number; y: number; z: number } | null,
+  at: { x: number; y: number; z?: number } | null,
+): PlaceHit {
+  let hit = placeFromLandings(places, nadeLandings(tNades));
+  if (!hit.site && !hit.location) {
+    hit = placeFromLandings(places, nadeLandings([...tNades, ...ctNades]));
+  }
+  if (!hit.site && !hit.location && plant) {
+    hit = plantPlace(places, plant.x, plant.y, plant.z);
+  }
+  if (!hit.site && !hit.location && at) {
+    hit = plant ? plantPlace(places, at.x, at.y, at.z) : placeAt(places, at.x, at.y, at.z);
+  }
+  return hit;
 }
 
 /** One team's util + kills + tags, or empty if that side did nothing. */
@@ -252,7 +284,11 @@ function sideBits(label: Side, nades: GrenadeThrow[], kills: number, extras: str
   return `${label} ${parts.join(" · ")}`;
 }
 
-function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
+function beatsForRound(
+  replay: Replay,
+  round: Round,
+  places: MapPlaces | null | undefined,
+): ExecuteBeat[] {
   const rate = tps(replay);
   const from = round.freeze_end_tick || round.start_tick;
   const utilGap = Math.round(4 * rate);
@@ -288,7 +324,7 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
     );
   }
 
-  const push = tPushTick(replay, round);
+  const push = tPushTick(replay, round, places);
   if (push != null) pulses.push({ tick: push.tick, tag: "t-push", x: push.x, y: push.y });
 
   const plants = (replay.bombEvents ?? []).filter(
@@ -377,15 +413,10 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
     }
 
     const at = windowPoint(win);
-    let site = at ? siteCallout(replay.header.map_name, at.x, at.y, at.z) : null;
-    if (hasPlant && plants[0]) {
-      const pos = plantedBombPos(replay, plants[0]);
-      site =
-        bombsiteFromEvent(plants[0]) ??
-        nearestBombsite(replay.header.map_name, pos.x, pos.y, pos.z) ??
-        site;
-    }
-    if (site) title = `${title} · ${site}`;
+    const plantPos = hasPlant && plants[0] ? plantedBombPos(replay, plants[0]) : null;
+    const hit = beatPlace(places, tNadesIn, ctNadesIn, plantPos, at);
+    const label = placeLabel(hit);
+    if (label) title = `${title} · ${label}`;
 
     const bits = [
       sideBits("T", tNadesIn, tKillN, [...(hasPlant && kind !== "plant" ? ["plant"] : [])]),
@@ -400,7 +431,8 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
       roundLabel: roundLabel(round),
       kind,
       side,
-      site,
+      site: hit.site,
+      location: hit.location,
       title,
       detail: bits.filter(Boolean).join(" · "),
     });
@@ -408,17 +440,25 @@ function beatsForRound(replay: Replay, round: Round): ExecuteBeat[] {
   return beats;
 }
 
-let executeCache: { replay: Replay; beats: ExecuteBeat[] } | null = null;
+let executeCache: { replay: Replay; key: string; beats: ExecuteBeat[] } | null = null;
+
+function placesCacheKey(places: MapPlaces | null | undefined): string {
+  if (!places || places.layout.callouts.length === 0) return "";
+  return `${places.layout.map}:${places.layout.callouts.length}`;
+}
 
 /** Site hits / retakes — skip the slow default. Jump to `tick` (a couple of seconds of lead-in). */
-export function findExecutes(replay: Replay): ExecuteBeat[] {
-  if (executeCache && executeCache.replay === replay) return executeCache.beats;
+export function findExecutes(replay: Replay, places?: MapPlaces | null): ExecuteBeat[] {
+  const key = placesCacheKey(places);
+  if (executeCache && executeCache.replay === replay && executeCache.key === key) {
+    return executeCache.beats;
+  }
   const out: ExecuteBeat[] = [];
   for (const round of replay.rounds) {
     if (round.is_knife) continue;
-    out.push(...beatsForRound(replay, round));
+    out.push(...beatsForRound(replay, round, places));
   }
-  executeCache = { replay, beats: out };
+  executeCache = { replay, key, beats: out };
   return out;
 }
 
