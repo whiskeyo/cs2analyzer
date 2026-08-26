@@ -1,51 +1,101 @@
 # CS2 Analyzer
 
-Rust library and local-first website for Counter-Strike 2 demo analysis.
+Local-first Counter-Strike 2 GOTV demo analyzer. Drop a `.dem` in the browser: it is parsed on your machine (Web Worker + WASM), then you can replay the match on a 2D radar and inspect FACEIT-style stats.
 
-Drop a `.dem` file in the browser to parse it with WebAssembly (the file never leaves your machine), then replay the match on a 2D radar: players, grenade trajectories, shot tracers, and a per-player scoreboard (K/D/A, ADR, KAST, HS%, first kills, utility damage).
+The file never leaves the computer. This is a fan project, not affiliated with Valve.
 
-## Layout
+## What the app does
+
+The viewer (`apps/web`, http://localhost:5173/) is the product:
+
+- Parse a GOTV demo in the browser and keep a tick-by-tick replay
+- 2D radar: players, yaw, grenades, shot tracers, bomb, freeze / C4 HUD
+- Scoreboard through the current tick: K/D/A, ADR, KAST, HS%, first kills, utility, side swaps and overtime
+- Sidebar: Review, Notes (drawings, clocks, bookmarks), Action (executes / round story), Util, Clutches, Rounds, Weapons
+- Callout names on Action/Util come from per-map layout JSON. Empty layout → positions stay hidden
+
+A second local app (`apps/layouts`, http://localhost:5174/) draws those callout polygons and writes `apps/web/public/layouts/{map}.json`. It is not deployed.
+
+## Architecture
 
 ```
-crates/cs2analyzer       Native library (parse + stats + radar math)
+.dem  →  Web Worker + WASM  →  Match / Replay  →  React viewer (radar + sidebar)
+                                      ↑
+                         layout JSON + radar PNGs (local assets)
+```
+
+**Parse (Rust).** `crates/cs2analyzer` walks the demo, then assembles a `Match`: header, rounds, kills, hurts, blinds, grenades, bomb events, and a structure-of-arrays tick buffer (`frame * playerCount + player`). Pipeline: `observer.rs` → `assemble.rs` → `analysis.rs`.
+
+**WASM.** `crates/cs2analyzer-wasm` is a thin `wasm-bindgen` wrapper (no `mimalloc`). `./scripts/build-wasm.sh` emits generated JS into `apps/web/src/parser/` — do not edit that folder by hand. Keep `wasm-bindgen-cli` at **0.2.127**.
+
+**Viewer (TypeScript).** Playback, radar canvas, HUD, and live stats live in `apps/web`. The UI **recomputes** scoreboard stats in `lib/stats/stats.ts` as you scrub; WASM `statsJson` is only a snapshot at parse time. After parser changes, rebuild WASM **and re-drop the demo**. UI-only work does not need a re-drop.
+
+**Layouts.** Polygons are radar-pixel coordinates on Valve’s 1024 overview. The editor saves JSON the viewer already knows how to load.
+
+```
+crates/cs2analyzer       Parse, assemble Match, stats, radar math
 crates/cs2analyzer-wasm  wasm-bindgen wrapper
-apps/web                 Vite + React 2D viewer
+apps/web                 Vite + React viewer
+apps/layouts             Callout overlay editor (local only)
+scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
+.demos/                  Local GOTV files (gitignored)
 ```
 
-## Native library
+Web `src/` is view vs logic: `components/` (TSX) and `lib/<feature>/` (hooks + pure code). Tests sit next to the module they cover.
 
-```rust
-use cs2analyzer::{parse_demo, ParseOptions, calibration};
+| Goal | Start here |
+|---|---|
+| Demo events, rounds, knife detect | `crates/cs2analyzer/src/observer.rs`, `assemble.rs` |
+| ADR, KAST, trades, team scores | `analysis.rs` **and** `apps/web/src/lib/stats/stats.ts` |
+| Tick sampling, `currentRound` | `apps/web/src/lib/replay/sample.ts` |
+| Radar, yaw, nades, shots | `components/radar/RadarCanvas.tsx`, `lib/radar/` |
+| HUD / scoreboard | `components/radar/Hud.tsx`, `components/sidebar/Scoreboard.tsx` |
+| Notes / bookmarks | `components/sidebar/Notes.tsx`, `lib/notes/` |
+| Playhead, hotkeys, round strip | `lib/playback/`, `components/playback/` |
+| Parse worker / drop | `lib/parse/` |
+| Executes, clutches, util | `lib/match/`, matching tab in `components/sidebar/` |
+| Callout overlays | `apps/layouts`; JSON in `apps/web/public/layouts/` |
 
-let bytes = std::fs::read("match.dem")?;
-let m = parse_demo(&bytes, ParseOptions::default())?;
-println!("{}  {}-{}", m.header.map_name, m.header.score_ct, m.header.score_t);
-if let Some(cal) = calibration(&m.header.map_name) {
-    let (px, py) = cal.world_to_radar(m.ticks.x[0], m.ticks.y[0]);
-}
+More domain rules (knife rounds, ADR caps, trades, OT score) are in `AGENTS.md`.
+
+## Working on the repo
+
+Rust and Node 22. First time:
+
+```
+./scripts/build-wasm.sh   # if parser/ WASM is missing
+cd apps/web && npm install && npm run dev
 ```
 
-## Website
+Open the printed URL and drop a GOTV `.dem`. Keep demos in `.demos/` (never commit them).
 
 ```
-# regenerate WASM bindings after changing the Rust crates
+# Rust
+cargo fmt --all
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+
+# WASM — after changing the parser or its types
 ./scripts/build-wasm.sh
 
+# Viewer
 cd apps/web
-npm install
-npm run dev
+npm run dev                                          # http://localhost:5173/
+npm run format:check && npm run lint && npm run typecheck && npm test
+
+# Callout editor (not deployed)
+cd apps/layouts
+npm install                                          # first time
+npm run dev                                          # http://localhost:5174/
+# Save to folder writes apps/web/public/layouts/{map}.json
 ```
 
-Open the printed localhost URL and drop a GOTV `.dem`.
+CI runs the same Rust, web, and layouts checks, plus a production build of the viewer.
 
-## Radar images
+Keep changes small and one concern per commit (parser vs UI vs stats). When a stats formula changes, update both Rust and `lib/stats/stats.ts` and add a test on the side you touched. Named CS2/FACEIT values belong in `apps/web/src/lib/shared/constants.ts` and `crates/cs2analyzer/src/constants.rs`, not magic numbers.
 
-Overview PNGs under `apps/web/public/maps/` come from [cs2-map-icons](https://github.com/MurkyYT/cs2-map-icons) (extracted from the CS2 game files). They are Valve’s property, vendored so this fan project works offline. Do not claim ownership of those assets.
+## Assets
 
-Killfeed and equipment SVGs under `apps/web/public/weapons/` come from [ChetdeJong/cs2-killfeed-generator](https://github.com/ChetdeJong/cs2-killfeed-generator) (MIT) and [Juknum/counter-strike-icons](https://github.com/Juknum/counter-strike-icons) (Valve panorama icons). Same rule: vendored for offline use, not ours.
+Radar PNGs under `apps/web/public/maps/` come from [cs2-map-icons](https://github.com/MurkyYT/cs2-map-icons) (extracted from CS2). Killfeed and equipment SVGs under `apps/web/public/weapons/` come from [ChetdeJong/cs2-killfeed-generator](https://github.com/ChetdeJong/cs2-killfeed-generator) (MIT) and [Juknum/counter-strike-icons](https://github.com/Juknum/counter-strike-icons). Vendored for offline use; do not claim ownership.
 
-## Notes
-
-- Demos do not store full bullet physics. Tracers are drawn from `weapon_fire` along the shooter’s look direction.
-- `source2-demo` protobufs can break after CS2 updates; bump that crate and re-test.
-- Parsing runs in a Web Worker. Large demos (200–400 MB) need a few seconds and a decent amount of RAM.
+Demos do not store full bullet physics — tracers follow `weapon_fire` look direction. `source2-demo` protobufs can break after CS2 updates; bump that crate and re-test rather than patching generated proto by hand. Large demos (200–400 MB) need a few seconds and a decent amount of RAM.
