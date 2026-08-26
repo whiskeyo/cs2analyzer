@@ -14,7 +14,7 @@ scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored; never commit)
 ```
 
-Parser pipeline: `observer.rs` (tick walk) → `assemble.rs` (`Match`) → `analysis.rs` (stats). The web UI **recomputes** live stats in `apps/web/src/stats.ts`; WASM `statsJson` is a snapshot at parse time. After parser changes, rebuild WASM **and re-drop the demo**. UI-only stats/HUD changes apply without a re-drop.
+Parser pipeline: `observer.rs` (tick walk) → `assemble.rs` (`Match`) → `analysis.rs` (stats). The web UI **recomputes** live stats in `apps/web/src/lib/stats/stats.ts`; WASM `statsJson` is a snapshot at parse time. After parser changes, rebuild WASM **and re-drop the demo**. UI-only stats/HUD changes apply without a re-drop.
 
 Do not edit `apps/web/src/parser/` by hand. Keep `wasm-bindgen-cli` at **0.2.127** (same as the `wasm-bindgen` crate). WASM disables the `mimalloc` feature (`default-features = false`).
 
@@ -40,22 +40,27 @@ CI (`.github/workflows/ci.yml`) runs the same Rust and web checks, plus `npm run
 
 ## Where to change what
 
+Web `src/` is view vs logic: `components/` (TSX) and `lib/<feature>/` (hooks + pure code). Never leave `Foo.tsx` beside a `foo/` folder. Tests sit next to the module they cover. Vite entry (`main.tsx`, `index.css`) and generated `parser/` stay at `src/` root.
+
 | Goal | Start here |
 |---|---|
 | Demo events, hurts, rounds, knife detect | `crates/cs2analyzer/src/observer.rs`, `assemble.rs` |
-| ADR, KAST, trades, team scores | `analysis.rs` **and** `apps/web/src/stats.ts` (keep them aligned) |
-| Tick sampling, `currentRound` | `apps/web/src/sample.ts` |
-| Radar, yaw, nades, shots | `apps/web/src/RadarCanvas.tsx`, `radar/` |
-| HUD / scoreboard labels | `Hud.tsx`, `Scoreboard.tsx`, `liveTeams()` in `stats.ts` |
-| Notes layers / clocks | `Notes.tsx`, `overlay/`, `notes/` |
-| Weapon icons / def indices | `inventory.rs` + `apps/web/src/weapons.ts` + `public/weapons/*.svg` |
-| Review tab | `apps/web/src/review.ts` |
+| ADR, KAST, trades, team scores | `analysis.rs` **and** `apps/web/src/lib/stats/stats.ts` (keep them aligned) |
+| Tick sampling, `currentRound` | `apps/web/src/lib/replay/sample.ts` |
+| Radar, yaw, nades, shots | `apps/web/src/components/radar/RadarCanvas.tsx`, `lib/radar/` |
+| HUD / scoreboard labels | `components/radar/Hud.tsx`, `components/sidebar/Scoreboard.tsx`, `liveTeams()` in `lib/stats/stats.ts` |
+| Notes layers / clocks / bookmarks | `components/sidebar/Notes.tsx`, `lib/notes/` |
+| Weapon icons / def indices | `inventory.rs` + `apps/web/src/lib/weapons/weapons.ts` + `public/weapons/*.svg` |
+| Review tab | `apps/web/src/lib/match/review.ts` |
+| Playhead, hotkeys, round scrubber | `lib/playback/`, `components/playback/` |
+| Parse worker / drop | `lib/parse/` |
+| Executes, clutches, util, round story | `lib/match/`, matching tab in `components/sidebar/` |
 
 Tick buffers are structure-of-arrays: index = `frame * playerCount + player`. Flags: `PRESENT`, `ALIVE`, `DUCKED`, `SCOPED`, `CT` (`1<<4`). Max 16 player slots (`MAX_PLAYERS`).
 
 ## Named values (no magic numbers)
 
-Do not drop unexplained numeric literals into parser, stats, or UI logic. Put CS2 / FACEIT values in `apps/web/src/constants.ts` and `crates/cs2analyzer/src/constants.rs` (keep both sides aligned when the number is shared) and use the name.
+Do not drop unexplained numeric literals into parser, stats, or UI logic. Put CS2 / FACEIT values in `apps/web/src/lib/shared/constants.ts` and `crates/cs2analyzer/src/constants.rs` (keep both sides aligned when the number is shared) and use the name.
 
 Examples: tick rate `64`, full HP `100`, knife-round equipment `200`, eco `2000`, MR12 `12`/`24`/`3`, trade window `5s`, bomb `40s`, defuse `5`/`10s`, grenade linger times, HLTV rating weights, round-win reason codes.
 
@@ -82,7 +87,7 @@ FACEIT-style targets for a 30-round OT game: team score follows sides (e.g. 14�
 
 1. Read the existing function before extending it. Match naming and structure in the file you touch.
 2. **Every change should be as small as possible.** Do not bundle unrelated edits. One behavior, one fix, or one feature per diff — then stop. **Every functionality needs its own commit** (do not squash “text notes + sidebar + timeline” into one). **Cap a commit at about 1000 lines** (`git diff --stat`). Split by concern (parser vs UI vs stats vs CI). A larger commit is OK only when the change **cannot be smaller** (generated WASM, lockfile + one feature, rustfmt of a huge file, vendored assets).
-3. Mirror stats logic in both Rust and `stats.ts` when the formula changes. Add a unit test on the side you touched (`analysis.rs` tests and/or `apps/web/src/stats.test.ts`).
+3. Mirror stats logic in both Rust and `lib/stats/stats.ts` when the formula changes. Add a unit test on the side you touched (`analysis.rs` tests and/or `apps/web/src/lib/stats/stats.test.ts`).
 4. After WASM rebuild, tell whiskeyo to **re-drop the demo**. UI-only work: verify the affected flow in the browser (behavior, not a single screenshot). No browser tools: say what you could not click through.
 5. Do not add README/docs unless asked. Do not edit plan files. Do not commit `.demos/`, `.env`, or secrets. `apps/web/src/parser/` is generated — commit it only together with the parser change that produced it.
 6. Do not commit unless asked. When asked: one commit per functionality, follow repo commit style, HEREDOC message focused on **why**, no `--no-verify`. Push only when asked.
