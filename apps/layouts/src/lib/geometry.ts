@@ -82,6 +82,63 @@ export function shapeIsLargeEnough(draft: Exclude<LayoutDraft, { kind: "polygon"
   return Math.hypot(draft.end.x - draft.start.x, draft.end.y - draft.start.y) >= MIN_SHAPE_SIZE;
 }
 
+export function distanceToSegment(
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+/** Index of the edge from vertex i to i+1 (wrapping). */
+export function nearestPolygonEdge(
+  polygon: Point[],
+  toScreen: (p: Point) => Point,
+  sx: number,
+  sy: number,
+): { index: number; dist: number } | null {
+  if (polygon.length < MIN_POLYGON_VERTICES) return null;
+  let best = -1;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < polygon.length; i++) {
+    const a = polygon[i];
+    const b = polygon[(i + 1) % polygon.length];
+    if (!a || !b) continue;
+    const sa = toScreen(a);
+    const sb = toScreen(b);
+    const dist = distanceToSegment(sx, sy, sa.x, sa.y, sb.x, sb.y);
+    if (dist < bestDist) {
+      best = i;
+      bestDist = dist;
+    }
+  }
+  if (best < 0) return null;
+  return { index: best, dist: bestDist };
+}
+
+/** Insert a vertex at the midpoint of the edge that starts at `edgeIndex`. */
+export function splitPolygonEdge(polygon: Point[], edgeIndex: number): Point[] {
+  if (polygon.length < 2) return polygon.map((p) => ({ ...p }));
+  const i = ((edgeIndex % polygon.length) + polygon.length) % polygon.length;
+  const a = polygon[i];
+  const b = polygon[(i + 1) % polygon.length];
+  if (!a || !b) return polygon.map((p) => ({ ...p }));
+  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  return [
+    ...polygon.slice(0, i + 1).map((p) => ({ ...p })),
+    mid,
+    ...polygon.slice(i + 1).map((p) => ({ ...p })),
+  ];
+}
+
 export function draftToPolygon(draft: LayoutDraft, cursor?: Point | null): Point[] {
   if (draft.kind === "polygon") {
     return cursor ? [...draft.points, cursor] : draft.points;

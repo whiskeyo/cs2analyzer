@@ -105,7 +105,7 @@ export function LayoutToolbar({ tool, floor, hasFloors, onTool, onFloor, onReset
           </button>
         </span>
       )}
-      <span className="hint">Ctrl+S saves to folder</span>
+      <span className="hint">Double-click an edge to add a vertex · Ctrl+S saves</span>
     </div>
   );
 }

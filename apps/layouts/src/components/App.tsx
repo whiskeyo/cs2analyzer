@@ -70,18 +70,19 @@ export function App() {
     [replaceLayout],
   );
 
-  const { closeDraft, cancelDraft, onMouseDown, onWheel, onContextMenu } = useLayoutPointer({
-    wrapRef,
-    view,
-    toolRef,
-    floorRef,
-    calloutsRef,
-    selectedIdRef,
-    draftRef,
-    cursorRef,
-    onCallouts,
-    onSelect: setSelectedId,
-  });
+  const { closeDraft, cancelDraft, onMouseDown, onDoubleClick, onWheel, onContextMenu } =
+    useLayoutPointer({
+      wrapRef,
+      view,
+      toolRef,
+      floorRef,
+      calloutsRef,
+      selectedIdRef,
+      draftRef,
+      cursorRef,
+      onCallouts,
+      onSelect: setSelectedId,
+    });
 
   useEffect(() => {
     loadCalibrations()
@@ -301,6 +302,7 @@ export function App() {
             draftRef={draftRef}
             cursorRef={cursorRef}
             onMouseDown={onMouseDown}
+            onDoubleClick={onDoubleClick}
             onWheel={onWheel}
             onContextMenu={onContextMenu}
           />

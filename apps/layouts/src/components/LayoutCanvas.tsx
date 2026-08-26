@@ -17,6 +17,7 @@ interface Props {
   draftRef: RefObject<LayoutDraft | null>;
   cursorRef: RefObject<Point | null>;
   onMouseDown: (e: MouseEvent<HTMLDivElement>) => void;
+  onDoubleClick: (e: MouseEvent<HTMLDivElement>) => void;
   onWheel: (e: WheelEvent<HTMLDivElement>) => void;
   onContextMenu: (e: MouseEvent<HTMLDivElement>) => void;
 }
@@ -32,6 +33,7 @@ export function LayoutCanvas({
   draftRef,
   cursorRef,
   onMouseDown,
+  onDoubleClick,
   onWheel,
   onContextMenu,
 }: Props) {
@@ -198,6 +200,7 @@ export function LayoutCanvas({
       ref={wrapRef}
       className={`canvas-wrap tool-${tool}`}
       onMouseDown={onMouseDown}
+      onDoubleClick={onDoubleClick}
       onWheel={onWheel}
       onContextMenu={onContextMenu}
     >

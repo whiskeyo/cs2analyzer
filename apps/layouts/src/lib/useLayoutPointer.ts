@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, type MutableRefObject, type RefObject }
 import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from "react";
 import {
   CLOSE_LOOP_HIT_PX,
+  EDGE_HIT_PX,
   MIN_POLYGON_VERTICES,
   VERTEX_HIT_PX,
   VIEW_SCALE_MAX,
@@ -11,10 +12,12 @@ import {
 } from "./constants";
 import {
   circlePolygon,
+  nearestPolygonEdge,
   pointInPolygon,
   polygonArea,
   rectPolygon,
   shapeIsLargeEnough,
+  splitPolygonEdge,
   translatePolygon,
 } from "./geometry";
 import { nextCalloutName, slugId, uniqueId } from "./layout";
@@ -88,6 +91,31 @@ function hitCallout(
   if (hits.length === 0) return null;
   hits.sort((a, b) => polygonArea(a.polygon) - polygonArea(b.polygon));
   return hits[0] ?? null;
+}
+
+function hitEdge(
+  wrap: HTMLDivElement,
+  view: RadarView,
+  callouts: LayoutCallout[],
+  floor: LayoutFloor,
+  preferredId: string | null,
+  sx: number,
+  sy: number,
+): { callout: LayoutCallout; index: number } | null {
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  const toScreen = (p: Point) => radarToScreen(w, h, view, p.x, p.y);
+  const layer = visible(callouts, floor);
+  const preferred = preferredId ? layer.find((c) => c.id === preferredId) : undefined;
+  const ordered = preferred ? [preferred, ...layer.filter((c) => c.id !== preferred.id)] : layer;
+  let best: { callout: LayoutCallout; index: number; dist: number } | null = null;
+  for (const callout of ordered) {
+    const hit = nearestPolygonEdge(callout.polygon, toScreen, sx, sy);
+    if (!hit || hit.dist > EDGE_HIT_PX) continue;
+    if (!best || hit.dist < best.dist) best = { callout, index: hit.index, dist: hit.dist };
+    if (preferred && callout.id === preferred.id) break;
+  }
+  return best ? { callout: best.callout, index: best.index } : null;
 }
 
 export function useLayoutPointer(opts: LayoutPointerOpts) {
@@ -169,6 +197,7 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
         return;
       }
       if (native.button !== 0) return;
+      if (native.detail >= 2) return;
 
       const radar = screenToRadar(w, h, view.current, x, y);
       cursorRef.current = radar;
@@ -238,6 +267,37 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
   const onContextMenu = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
     e.preventDefault();
   }, []);
+
+  const onDoubleClick = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>) => {
+      const wrap = wrapRef.current;
+      if (!wrap || draftRef.current) return;
+      e.preventDefault();
+      const { x, y } = pos(wrap, e.nativeEvent);
+      const floor = floorRef.current;
+      const selected = calloutsRef.current.find((c) => c.id === selectedIdRef.current);
+      if (selected && selected.floor === floor) {
+        const vertex = hitVertex(wrap, view.current, selected.polygon, x, y);
+        if (vertex >= 0) return;
+      }
+      const edge = hitEdge(
+        wrap,
+        view.current,
+        calloutsRef.current,
+        floor,
+        selectedIdRef.current,
+        x,
+        y,
+      );
+      if (!edge) return;
+      const polygon = splitPolygonEdge(edge.callout.polygon, edge.index);
+      onCalloutsRef.current(
+        calloutsRef.current.map((c) => (c.id === edge.callout.id ? { ...c, polygon } : c)),
+      );
+      onSelectRef.current(edge.callout.id);
+    },
+    [calloutsRef, draftRef, floorRef, selectedIdRef, view, wrapRef],
+  );
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -309,5 +369,5 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
     };
   }, [calloutsRef, commitPolygon, cursorRef, draftRef, view, wrapRef]);
 
-  return { closeDraft, cancelDraft, onMouseDown, onWheel, onContextMenu };
+  return { closeDraft, cancelDraft, onMouseDown, onDoubleClick, onWheel, onContextMenu };
 }

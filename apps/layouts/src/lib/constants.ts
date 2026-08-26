@@ -15,6 +15,9 @@ export const CLOSE_LOOP_HIT_PX = 10;
 /** Grab a vertex within this many screen pixels. */
 export const VERTEX_HIT_PX = 8;
 
+/** Double-click an edge within this many screen pixels to split it. */
+export const EDGE_HIT_PX = 10;
+
 export const MIN_POLYGON_VERTICES = 3;
 
 /** Skip a dragged rect/circle smaller than this (radar pixels). */
