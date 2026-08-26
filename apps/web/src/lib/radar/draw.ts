@@ -93,7 +93,7 @@ export function grenadePosAt(
   return points[points.length - 1];
 }
 
-export function drawCurvedArrow(
+export function drawArrow(
   ctx: CanvasRenderingContext2D,
   a: { x: number; y: number },
   b: { x: number; y: number },
@@ -102,10 +102,10 @@ export function drawCurvedArrow(
 ) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const bulge = Math.min(16, len * 0.08);
-  const cx = (a.x + b.x) / 2 - (dy / len) * bulge;
-  const cy = (a.y + b.y) / 2 + (dx / len) * bulge;
+  const ang = Math.atan2(dy, dx);
+  const head = 14;
+  const tx = b.x - Math.cos(ang) * head * 0.55;
+  const ty = b.y - Math.sin(ang) * head * 0.55;
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   ctx.lineWidth = width;
@@ -113,13 +113,12 @@ export function drawCurvedArrow(
   ctx.lineCap = "round";
   ctx.beginPath();
   ctx.moveTo(a.x, a.y);
-  ctx.quadraticCurveTo(cx, cy, b.x, b.y);
+  ctx.lineTo(tx, ty);
   ctx.stroke();
-  const ang = Math.atan2(b.y - cy, b.x - cx);
   ctx.beginPath();
   ctx.moveTo(b.x, b.y);
-  ctx.lineTo(b.x - 14 * Math.cos(ang - 0.4), b.y - 14 * Math.sin(ang - 0.4));
-  ctx.lineTo(b.x - 14 * Math.cos(ang + 0.4), b.y - 14 * Math.sin(ang + 0.4));
+  ctx.lineTo(b.x - head * Math.cos(ang - 0.4), b.y - head * Math.sin(ang - 0.4));
+  ctx.lineTo(b.x - head * Math.cos(ang + 0.4), b.y - head * Math.sin(ang + 0.4));
   ctx.closePath();
   ctx.fill();
 }

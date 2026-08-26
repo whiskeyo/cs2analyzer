@@ -87,9 +87,6 @@ export const KILL_FEED_SECONDS = 6;
 /** Skip a kill line when attacker and victim are closer than this (world units). */
 export const KILL_LINE_MIN_LENGTH = 24;
 
-/** Opening-duel arrow on radar, screen pixels from the attacker. */
-export const OPENING_ARROW_MAX_PX = 72;
-
 /** Round-clock marks on the scrubber (seconds after freeze). */
 export const ROUND_TIMELINE_STEP_SECONDS = 10;
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { OPENING_ARROW_MAX_PX, tickRate } from "@/lib/shared/constants";
+import { tickRate } from "@/lib/shared/constants";
 import { radarFloor, radarUrl, worldToScreen } from "@/lib/radar/maps";
 import { overlayVisible } from "@/lib/notes";
 import { publicUrl } from "@/lib/shared/publicUrl";
@@ -19,11 +19,10 @@ import {
   nadesForSummary,
   NADE_COLORS,
   openingDuel,
-  shortenSegment,
   TRACER_SECONDS,
 } from "@/lib/radar/radarFx";
 import {
-  drawCurvedArrow,
+  drawArrow,
   drawC4,
   drawHeBurst,
   drawTextLabel,
@@ -540,18 +539,17 @@ export function RadarCanvas({
             if (line) {
               const from = toScreen(line.from.x, line.from.y);
               const to = toScreen(line.to.x, line.to.y);
-              const short = shortenSegment(from, to, OPENING_ARROW_MAX_PX);
               const color = line.ct ? "#5b9fd6" : "#ffd24a";
               ctx.globalAlpha = 1;
-              drawCurvedArrow(ctx, short.from, short.to, color, 3.2);
+              drawArrow(ctx, from, to, color, 3.2);
               ctx.fillStyle = color;
               ctx.strokeStyle = "#12181f";
               ctx.lineWidth = 3;
               ctx.font = "bold 11px ui-sans-serif, system-ui";
               ctx.textAlign = "center";
               ctx.textBaseline = "bottom";
-              ctx.strokeText("FK", short.from.x, short.from.y - 8);
-              ctx.fillText("FK", short.from.x, short.from.y - 8);
+              ctx.strokeText("FK", from.x, from.y - 8);
+              ctx.fillText("FK", from.x, from.y - 8);
               ctx.strokeText("FD", to.x, to.y - 8);
               ctx.fillText("FD", to.x, to.y - 8);
             }
@@ -601,7 +599,7 @@ export function RadarCanvas({
         } else {
           const a = toScreen(st.from.x, st.from.y);
           const b = toScreen(st.to.x, st.to.y);
-          drawCurvedArrow(ctx, a, b, st.color, 3.2);
+          drawArrow(ctx, a, b, st.color, 3.2);
         }
         ctx.globalAlpha = 1;
       };
