@@ -10,6 +10,7 @@ Parse a `.dem` in the browser (Web Worker + WASM; the file never leaves the mach
 crates/cs2analyzer       Parse, assemble Match, stats, radar math
 crates/cs2analyzer-wasm  wasm-bindgen wrapper (no mimalloc)
 apps/web                 Vite + React viewer (dev: http://localhost:5173/)
+apps/layouts             Callout overlay editor, not deployed (dev: http://localhost:5174/)
 scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored; never commit)
 ```
@@ -34,9 +35,16 @@ cd apps/web
 npm install          # first time
 npm run dev
 npm run format:check && npm run lint && npm run typecheck && npm test
+
+# Callout layouts (local editor, not deployed)
+cd apps/layouts
+npm install          # first time
+npm run dev          # http://localhost:5174/
+npm run format:check && npm run lint && npm run typecheck && npm test
+# Save to folder writes apps/web/public/layouts/{map}.json (local Vite; layouts is not deployed)
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same Rust and web checks, plus `npm run build`. Push to `master`/`main` also FTPs `apps/web/dist` to OVH: upload to `/cs2analyzer_staging/`, then rename over `/cs2analyzer/` (Vite `base` is `/` because that folder is the subdomain document root). Never wipe the live folder first.
+CI (`.github/workflows/ci.yml`) runs the same Rust, web, and layouts checks, plus `npm run build` for the viewer. Push to `master`/`main` also FTPs `apps/web/dist` to OVH: upload to `/cs2analyzer_staging/`, then rename over `/cs2analyzer/` (Vite `base` is `/` because that folder is the subdomain document root). Never wipe the live folder first.
 
 ## Where to change what
 
@@ -54,7 +62,8 @@ Web `src/` is view vs logic: `components/` (TSX) and `lib/<feature>/` (hooks + p
 | Review tab | `apps/web/src/lib/match/review.ts` |
 | Playhead, hotkeys, round scrubber | `lib/playback/`, `components/playback/` |
 | Parse worker / drop | `lib/parse/` |
-| Executes, clutches, util, round story | `lib/match/`, matching tab in `components/sidebar/` |
+| Executes, clutches, util, round story | `lib/match/` (site labels from layout JSON in `sites.ts`; empty layout → hide positions), matching tab in `components/sidebar/` |
+| Map callout overlays | `apps/layouts` editor; JSON in `apps/web/public/layouts/`; `lib/radar/layouts.ts` |
 
 Tick buffers are structure-of-arrays: index = `frame * playerCount + player`. Flags: `PRESENT`, `ALIVE`, `DUCKED`, `SCOPED`, `CT` (`1<<4`). Max 16 player slots (`MAX_PLAYERS`).
 
