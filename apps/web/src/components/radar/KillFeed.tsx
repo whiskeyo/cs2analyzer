@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { KILL_FEED_SECONDS, tickRate } from "@/lib/shared/constants";
+import { KILL_FEED_MAX_ROWS, KILL_FEED_SECONDS, tickRate } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { recentKills } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";
@@ -13,7 +13,7 @@ interface Props {
 
 export const KillFeed = memo(function KillFeed({ replay, tick, onJump }: Props) {
   const tps = tickRate(replay);
-  const kills = recentKills(replay, tick, tps * KILL_FEED_SECONDS, 6);
+  const kills = recentKills(replay, tick, tps * KILL_FEED_SECONDS, KILL_FEED_MAX_ROWS);
   if (kills.length === 0) return null;
   return (
     <ol className="kill-feed">

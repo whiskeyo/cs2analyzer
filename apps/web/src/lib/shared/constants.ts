@@ -85,7 +85,13 @@ export const T_PUSH_MIN_MOVED = 750;
 export const ACTION_HIGHLIGHT_SECONDS = 8;
 
 /** Kill-feed rows stay this long. */
-export const KILL_FEED_SECONDS = 6;
+export const KILL_FEED_SECONDS = 10;
+
+/** Max kill-feed rows shown at once. */
+export const KILL_FEED_MAX_ROWS = 6;
+
+/** Saved-note cards per page on the home screen. */
+export const SAVED_NOTES_PAGE_SIZE = 10;
 
 /** Skip a kill line when attacker and victim are closer than this (world units). */
 export const KILL_LINE_MIN_LENGTH = 24;
