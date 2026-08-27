@@ -1,0 +1,46 @@
+name: Bug report
+description: Something in the viewer or parser is wrong
+title: "[bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do **not** attach `.dem` files to GitHub. Paste a public download URL instead so we can fetch the same demo.
+  - type: input
+    id: map
+    attributes:
+      label: Map
+      description: Official map name from the demo or HUD (for example de_mirage).
+      placeholder: de_mirage
+    validations:
+      required: true
+  - type: input
+    id: demo_url
+    attributes:
+      label: Demo download URL
+      description: Direct or shared link to the `.dem` (FACEIT, Google Drive, Mega, etc.). Must be downloadable without an account if possible.
+      placeholder: https://
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What you saw
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: |
+        Name, version, and OS. Chrome or Edge — three-dot menu → Help → About (or open chrome://version). Firefox — hamburger menu → Help → About Firefox (or about:support). Safari — Safari menu → About Safari.
+      placeholder: Firefox 141 on Linux
+    validations:
+      required: true
