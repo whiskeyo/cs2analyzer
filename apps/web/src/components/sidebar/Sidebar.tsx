@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { Action } from "./Action";
@@ -39,7 +39,7 @@ interface Props {
   places: MapPlaces | null;
 }
 
-export function Sidebar({
+export const Sidebar = memo(function Sidebar({
   replay,
   tick,
   strokes,
@@ -54,8 +54,6 @@ export function Sidebar({
   const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
   const widthRef = useRef(width);
   widthRef.current = width;
-  const stats = computeStats(replay, tick);
-  const weapons = weaponBreakdown(replay, tick, selected);
 
   useEffect(() => {
     const fit = () => {
@@ -199,44 +197,7 @@ export function Sidebar({
         <RoundList replay={replay} tick={tick} onJump={onJump} onSelect={onSelect} />
       )}
       {tab === "weapons" && (
-        <div>
-          <p className="muted tab-hint">
-            {selected != null
-              ? replay.players[selected]?.name
-              : "Select a player or view match totals"}
-            {selected != null && (
-              <>
-                {" "}
-                <button type="button" className="link" onClick={() => onSelect(null)}>
-                  (all)
-                </button>
-              </>
-            )}
-          </p>
-          <table>
-            <thead>
-              <tr>
-                <th>Weapon</th>
-                <th>K</th>
-                <th>HS</th>
-                <th>DMG</th>
-              </tr>
-            </thead>
-            <tbody>
-              {weapons.map((w) => (
-                <tr key={w.weapon}>
-                  <td className="wep-cell">
-                    <WeaponIcon weapon={w.raw} />
-                    <span>{w.weapon}</span>
-                  </td>
-                  <td>{w.kills}</td>
-                  <td>{w.kills ? `${Math.round((100 * w.headshots) / w.kills)}%` : "—"}</td>
-                  <td>{w.damage}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <WeaponTable replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
       )}
       {selected == null && tab === "score" && (
         <p className="muted tab-hint">
@@ -244,10 +205,78 @@ export function Sidebar({
         </p>
       )}
       {tab === "score" && selected != null && (
-        <p className="muted tab-hint">
-          {stats.find((s) => s.player === selected)?.rating.toFixed(2)} rating through this tick
-        </p>
+        <RatingHint replay={replay} tick={tick} selected={selected} />
       )}
     </aside>
+  );
+});
+
+/** Split out so `weaponBreakdown` only runs while its tab is open. */
+function WeaponTable({
+  replay,
+  tick,
+  selected,
+  onSelect,
+}: {
+  replay: Replay;
+  tick: number;
+  selected: number | null;
+  onSelect: (index: number | null) => void;
+}) {
+  const weapons = weaponBreakdown(replay, tick, selected);
+  return (
+    <div>
+      <p className="muted tab-hint">
+        {selected != null ? replay.players[selected]?.name : "Select a player or view match totals"}
+        {selected != null && (
+          <>
+            {" "}
+            <button type="button" className="link" onClick={() => onSelect(null)}>
+              (all)
+            </button>
+          </>
+        )}
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Weapon</th>
+            <th>K</th>
+            <th>HS</th>
+            <th>DMG</th>
+          </tr>
+        </thead>
+        <tbody>
+          {weapons.map((w) => (
+            <tr key={w.weapon}>
+              <td className="wep-cell">
+                <WeaponIcon weapon={w.raw} />
+                <span>{w.weapon}</span>
+              </td>
+              <td>{w.kills}</td>
+              <td>{w.kills ? `${Math.round((100 * w.headshots) / w.kills)}%` : "—"}</td>
+              <td>{w.damage}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function RatingHint({
+  replay,
+  tick,
+  selected,
+}: {
+  replay: Replay;
+  tick: number;
+  selected: number;
+}) {
+  const stats = computeStats(replay, tick);
+  return (
+    <p className="muted tab-hint">
+      {stats.find((s) => s.player === selected)?.rating.toFixed(2)} rating through this tick
+    </p>
   );
 }

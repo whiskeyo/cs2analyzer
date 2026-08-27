@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { currentRound } from "@/lib/replay/sample";
 import { liveSituation, liveTeams } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";
@@ -8,7 +9,8 @@ interface Props {
   tick: number;
 }
 
-export function Hud({ replay, tick }: Props) {
+/** Memoised: every app state change re-renders the viewer, not just a new tick. */
+export const Hud = memo(function Hud({ replay, tick }: Props) {
   const sit = liveSituation(replay, tick);
   const teams = liveTeams(replay, tick);
   const round = currentRound(replay, tick);
@@ -56,4 +58,4 @@ export function Hud({ replay, tick }: Props) {
       )}
     </div>
   );
-}
+});

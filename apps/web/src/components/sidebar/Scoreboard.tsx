@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { computeStats, currentSide, liveTeams, teamEntryShare } from "@/lib/stats/stats";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { PlayerStats, Replay } from "@/lib/replay/replayTypes";
@@ -13,7 +14,7 @@ function rowClass(stats: PlayerStats, side: string, selected: number | null): st
   return `sb-row ${side === "CT" ? "ct" : "t"}${selected === stats.player ? " selected" : ""}`;
 }
 
-export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
+export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onSelect }: Props) {
   const stats = computeStats(replay, tick);
   const teams = liveTeams(replay, tick);
   const sampled = samplePlayers(replay, tick);
@@ -168,4 +169,4 @@ export function Scoreboard({ replay, tick, selected, onSelect }: Props) {
       )}
     </div>
   );
-}
+});

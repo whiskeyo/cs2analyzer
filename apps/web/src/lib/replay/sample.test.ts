@@ -1,91 +1,58 @@
 import { describe, expect, it } from "vitest";
-import { samplePlayer, samplePlayers } from "./sample";
-import {
-  FLAG_ALIVE,
-  FLAG_CT,
-  FLAG_PRESENT,
-  type Player,
-  type Replay,
-  type Round,
-} from "@/lib/replay/replayTypes";
-
-function emptyTicks(playerCount: number, frameCount: number) {
-  const n = playerCount * frameCount;
-  return {
-    frameCount,
-    playerCount,
-    ticks: new Uint32Array(frameCount),
-    x: new Float32Array(n),
-    y: new Float32Array(n),
-    z: new Float32Array(n),
-    yaw: new Float32Array(n),
-    health: new Uint8Array(n),
-    armor: new Uint8Array(n),
-    flags: new Uint8Array(n),
-    money: new Uint16Array(n),
-    equip: new Uint16Array(n),
-    gear: new Uint16Array(n),
-    primary: new Uint8Array(n),
-    secondary: new Uint8Array(n),
-  };
-}
-
-function replay(ticks: Replay["ticks"]): Replay {
-  const players: Player[] = [
-    { index: 0, steam_id: 1, name: "A", start_side: "CT" },
-    { index: 1, steam_id: 2, name: "B", start_side: "T" },
-  ];
-  const rounds: Round[] = [
-    {
-      number: 1,
-      start_tick: 0,
-      freeze_end_tick: 64,
-      end_tick: 640,
-      winner: "CT",
-      win_reason: 8,
-      score_ct: 1,
-      score_t: 0,
-      is_knife: false,
-    },
-  ];
-  return {
-    header: {
-      map_name: "de_anubis",
-      tick_rate: 64,
-      tick_stride: 4,
-      duration_s: 10,
-      playback_ticks: 1920,
-      team_ct: "CT",
-      team_t: "T",
-      score_ct: 0,
-      score_t: 0,
-    },
-    players,
-    rounds,
-    grenades: [],
-    shots: [],
-    kills: [],
-    hurts: [],
-    blinds: [],
-    bombEvents: [],
-    stats: [],
-    ticks,
-  };
-}
+import { currentRound, samplePlayer, samplePlayers } from "./sample";
+import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
+import { makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
 
 describe("samplePlayer", () => {
   it("returns one pawn and null for a missing slot", () => {
-    const ticks = emptyTicks(2, 1);
+    const ticks = makeTicks(2, 1);
     ticks.ticks[0] = 80;
     ticks.x[0] = 10;
     ticks.y[0] = 20;
     ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
     ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
-    const m = replay(ticks);
+    const m = makeReplay({ ticks });
     const a = samplePlayer(m, 0, 80);
     expect(a?.x).toBe(10);
     expect(a?.ct).toBe(true);
     expect(samplePlayer(m, 2, 80)).toBeNull();
     expect(samplePlayers(m, 80)).toHaveLength(2);
+  });
+
+  it("reuses the snapshot for a tick it already sampled", () => {
+    const ticks = makeTicks(2, 1);
+    ticks.ticks[0] = 80;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE;
+    const m = makeReplay({ ticks });
+    expect(samplePlayers(m, 80)).toBe(samplePlayers(m, 80));
+    expect(samplePlayers(m, 90)).not.toBe(samplePlayers(m, 80));
+  });
+});
+
+describe("currentRound", () => {
+  const rounds = [
+    makeRound({ number: 0, is_knife: true, start_tick: 0, end_tick: 100 }),
+    makeRound({ number: 1, start_tick: 200, end_tick: 900 }),
+    makeRound({ number: 2, start_tick: 1000, end_tick: 1800 }),
+    makeRound({ number: 3, start_tick: 2000, end_tick: 2800 }),
+  ];
+  const replay = makeReplay({ rounds });
+
+  it("takes the last round that has started", () => {
+    expect(currentRound(replay, 0)?.number).toBe(0);
+    expect(currentRound(replay, 200)?.number).toBe(1);
+    expect(currentRound(replay, 500)?.number).toBe(1);
+    expect(currentRound(replay, 2500)?.number).toBe(3);
+    expect(currentRound(replay, 99999)?.number).toBe(3);
+  });
+
+  it("keeps the gap after a round inside that round", () => {
+    // Round 1 ended at 900 but round 2 has not started, so 950 is still R1.
+    expect(currentRound(replay, 950)?.number).toBe(1);
+  });
+
+  it("falls back to the first round before the demo starts, and null with no rounds", () => {
+    expect(currentRound(replay, -50)?.number).toBe(0);
+    expect(currentRound(makeReplay({ rounds: [] }), 100)).toBeNull();
   });
 });

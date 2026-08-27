@@ -5,103 +5,30 @@ import {
   defuseClock,
   freezeRemaining,
   liveScore,
+  liveTeams,
   roundWinBanner,
   teamEntryShare,
+  weaponBreakdown,
 } from "./stats";
+import { FULL_HEALTH } from "@/lib/shared/constants";
+import { FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import {
-  FLAG_CT,
-  FLAG_PRESENT,
-  type BombEvent,
-  type Kill,
-  type Player,
-  type Replay,
-  type Round,
-} from "@/lib/replay/replayTypes";
-
-function emptyTicks() {
-  return {
-    frameCount: 0,
-    playerCount: 0,
-    ticks: new Uint32Array(),
-    x: new Float32Array(),
-    y: new Float32Array(),
-    z: new Float32Array(),
-    yaw: new Float32Array(),
-    health: new Uint8Array(),
-    armor: new Uint8Array(),
-    flags: new Uint8Array(),
-    money: new Uint16Array(),
-    equip: new Uint16Array(),
-    gear: new Uint16Array(),
-    primary: new Uint8Array(),
-    secondary: new Uint8Array(),
-  };
-}
-
-function player(index: number, side: Player["start_side"], name: string): Player {
-  return { index, steam_id: index + 1, name, start_side: side };
-}
-
-function round(partial: Partial<Round> & Pick<Round, "number" | "winner">): Round {
-  return {
-    start_tick: 0,
-    freeze_end_tick: 64,
-    end_tick: 640,
-    win_reason: 8,
-    score_ct: 0,
-    score_t: 0,
-    is_knife: false,
-    ...partial,
-  };
-}
-
-function kill(tick: number, attacker: number, victim: number): Kill {
-  return {
-    tick,
-    attacker,
-    victim,
-    assister: -1,
-    weapon: "ak47",
-    headshot: false,
-    assisted_flash: false,
-    x: 0,
-    y: 0,
-    z: 0,
-  };
-}
-
-function replay(partial: Partial<Replay> & Pick<Replay, "players" | "rounds">): Replay {
-  return {
-    header: {
-      map_name: "de_anubis",
-      tick_rate: 64,
-      tick_stride: 4,
-      duration_s: 10,
-      playback_ticks: 1920,
-      team_ct: "CT",
-      team_t: "T",
-      score_ct: 0,
-      score_t: 0,
-    },
-    grenades: [],
-    shots: [],
-    kills: [],
-    hurts: [],
-    blinds: [],
-    bombEvents: [],
-    stats: [],
-    ticks: emptyTicks(),
-    ...partial,
-  };
-}
+  makeBombEvent,
+  makeHurt,
+  makeKill,
+  makePlayer,
+  makeReplay,
+  makeRound,
+  makeTicks,
+} from "@/lib/testing/fixtures";
 
 describe("computeStats", () => {
   it("caps ADR at remaining HP and ignores overkill", () => {
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(100, 0, 1)],
-      hurts: [{ tick: 90, attacker: 0, victim: 1, damage: 110, weapon: "ak47" }],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 1)],
+      hurts: [makeHurt(90, 0, 1, 110)],
     });
     const stats = computeStats(m, 640);
     expect(stats[0].kills).toBe(1);
@@ -110,10 +37,10 @@ describe("computeStats", () => {
   });
 
   it("does not treat the killer's next frag as a trade", () => {
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(100, 1, 0), kill(120, 1, 2)],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "CT", "C")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 1, 0), makeKill(120, 1, 2)],
     });
     const stats = computeStats(m, 640);
     expect(stats[0].kast_rounds).toBe(0);
@@ -122,10 +49,10 @@ describe("computeStats", () => {
   });
 
   it("counts a teammate killing the attacker as a trade", () => {
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(100, 1, 0), kill(120, 2, 1)],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "CT", "C")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 1, 0), makeKill(120, 2, 1)],
     });
     const stats = computeStats(m, 640);
     expect(stats[0].kast_rounds).toBe(1);
@@ -134,10 +61,10 @@ describe("computeStats", () => {
   });
 
   it("omits suicides from kills and deaths", () => {
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(100, 0, 0), kill(200, 0, 1)],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 0), makeKill(200, 0, 1)],
     });
     const stats = computeStats(m, 640);
     expect(stats[0].kills).toBe(1);
@@ -146,12 +73,10 @@ describe("computeStats", () => {
   });
 
   it("omits world / trigger_hurt deaths from kills and deaths", () => {
-    const fall = kill(100, -1, 0);
-    fall.weapon = "world";
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [fall, kill(200, 0, 1)],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, -1, 0, { weapon: "world" }), makeKill(200, 0, 1)],
     });
     const stats = computeStats(m, 640);
     expect(stats[0].kills).toBe(1);
@@ -160,10 +85,10 @@ describe("computeStats", () => {
   });
 
   it("does not credit teamkills and skips them as the opening duel", () => {
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(100, 0, 2), kill(200, 0, 1)],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "CT", "C")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 2), makeKill(200, 0, 1)],
     });
     const stats = computeStats(m, 640);
     expect(stats[0].kills).toBe(1);
@@ -174,10 +99,10 @@ describe("computeStats", () => {
   });
 
   it("reports entry success from the opening duel", () => {
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(100, 0, 1)],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 1)],
     });
     const stats = computeStats(m, 640);
     expect(stats[0].entry_attempts).toBe(1);
@@ -187,11 +112,11 @@ describe("computeStats", () => {
   });
 
   it("splits kills and ADR by the side the player was on", () => {
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(100, 0, 1)],
-      hurts: [{ tick: 90, attacker: 0, victim: 1, damage: 40, weapon: "ak47" }],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 1)],
+      hurts: [makeHurt(90, 0, 1, 40)],
     });
     const stats = computeStats(m, 640);
     expect(stats[0].kills_ct).toBe(1);
@@ -203,25 +128,20 @@ describe("computeStats", () => {
   });
 
   it("ignores same-side assists", () => {
-    const k = kill(100, 0, 1);
-    k.assister = 1;
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      kills: [k],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 1, { assister: 1 })],
     });
     const stats = computeStats(m, 640);
     expect(stats[1].assists).toBe(0);
   });
 
   it("does not add friendly-fire to ADR", () => {
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")],
-      rounds: [round({ number: 1, winner: "CT" })],
-      hurts: [
-        { tick: 90, attacker: 0, victim: 2, damage: 50, weapon: "ak47" },
-        { tick: 95, attacker: 0, victim: 1, damage: 40, weapon: "ak47" },
-      ],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "CT", "C")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      hurts: [makeHurt(90, 0, 2, 50), makeHurt(95, 0, 1, 40)],
     });
     const stats = computeStats(m, 640);
     expect(stats[0].adr).toBe(40);
@@ -230,20 +150,13 @@ describe("computeStats", () => {
 
 describe("currentSide", () => {
   it("uses the last snapshot, not the previous frame", () => {
-    const ticks = emptyTicks();
-    ticks.frameCount = 2;
-    ticks.playerCount = 1;
-    ticks.ticks = new Uint32Array([100, 200]);
-    ticks.flags = new Uint8Array([FLAG_PRESENT, FLAG_PRESENT | FLAG_CT]);
-    ticks.x = new Float32Array(2);
-    ticks.y = new Float32Array(2);
-    ticks.z = new Float32Array(2);
-    ticks.yaw = new Float32Array(2);
-    ticks.health = new Uint8Array([100, 100]);
-    ticks.armor = new Uint8Array(2);
-    const m = replay({
-      players: [player(0, "T", "A")],
-      rounds: [round({ number: 1, winner: "T" })],
+    const ticks = makeTicks(1, 2);
+    ticks.ticks.set([100, 200]);
+    ticks.flags.set([FLAG_PRESENT, FLAG_PRESENT | FLAG_CT]);
+    ticks.health.fill(FULL_HEALTH);
+    const m = makeReplay({
+      players: [makePlayer(0, "T", "A")],
+      rounds: [makeRound({ number: 1, winner: "T" })],
       ticks,
     });
     expect(currentSide(m, 0, 100)).toBe("T");
@@ -253,12 +166,12 @@ describe("currentSide", () => {
 
 describe("teamEntryShare", () => {
   it("is the player's share of opening duels on the starting side", () => {
-    const players = [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")];
-    const m = replay({
+    const players = [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "CT", "C")];
+    const m = makeReplay({
       players,
       rounds: [
-        round({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
-        round({
+        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
+        makeRound({
           number: 2,
           winner: "T",
           start_tick: 641,
@@ -266,7 +179,7 @@ describe("teamEntryShare", () => {
           end_tick: 1280,
         }),
       ],
-      kills: [kill(100, 0, 1), kill(800, 1, 2)],
+      kills: [makeKill(100, 0, 1), makeKill(800, 1, 2)],
     });
     const stats = computeStats(m, 1280);
     expect(teamEntryShare(stats, players, 0)).toEqual({
@@ -281,11 +194,11 @@ describe("teamEntryShare", () => {
 
 describe("liveScore", () => {
   it("attributes overtime side-swap wins to the starting teams", () => {
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B")],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
       rounds: [
-        round({ number: 12, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 200 }),
-        round({
+        makeRound({ number: 12, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 200 }),
+        makeRound({
           number: 13,
           winner: "CT",
           start_tick: 201,
@@ -300,16 +213,12 @@ describe("liveScore", () => {
   });
 });
 
-function bomb(partial: Partial<BombEvent> & Pick<BombEvent, "tick" | "kind">): BombEvent {
-  return { player: 0, x: 0, y: 0, z: 0, haskit: false, ...partial };
-}
-
 describe("freezeRemaining", () => {
   it("counts down until freeze_end_tick", () => {
-    const m = replay({
-      players: [player(0, "CT", "A")],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A")],
       rounds: [
-        round({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
+        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
       ],
     });
     expect(freezeRemaining(m, 0)).toBe(1);
@@ -320,10 +229,10 @@ describe("freezeRemaining", () => {
 
 describe("roundWinBanner", () => {
   it("shows the winner after end_tick", () => {
-    const m = replay({
-      players: [player(0, "CT", "A")],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A")],
       rounds: [
-        round({
+        makeRound({
           number: 1,
           winner: "CT",
           start_tick: 0,
@@ -338,10 +247,10 @@ describe("roundWinBanner", () => {
   });
 
   it("keeps the previous winner on screen during the next freeze", () => {
-    const m = replay({
-      players: [player(0, "CT", "A")],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A")],
       rounds: [
-        round({
+        makeRound({
           number: 1,
           winner: "T",
           start_tick: 0,
@@ -349,7 +258,7 @@ describe("roundWinBanner", () => {
           end_tick: 200,
           win_reason: 1,
         }),
-        round({
+        makeRound({
           number: 2,
           winner: null,
           start_tick: 201,
@@ -366,14 +275,14 @@ describe("roundWinBanner", () => {
 
 describe("defuseClock", () => {
   it("counts a 5s kit defuse after plant", () => {
-    const m = replay({
-      players: [player(0, "CT", "A")],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A")],
       rounds: [
-        round({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
+        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
       ],
       bombEvents: [
-        bomb({ tick: 100, kind: "planted" }),
-        bomb({ tick: 200, kind: "begin_defuse", haskit: true, player: 0 }),
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: true, player: 0 }),
       ],
     });
     expect(defuseClock(m, 199)).toBeNull();
@@ -383,18 +292,64 @@ describe("defuseClock", () => {
   });
 
   it("uses 10s without a kit and cancels on abort", () => {
-    const m = replay({
-      players: [player(0, "CT", "A")],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A")],
       rounds: [
-        round({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
+        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
       ],
       bombEvents: [
-        bomb({ tick: 100, kind: "planted" }),
-        bomb({ tick: 200, kind: "begin_defuse", haskit: false }),
-        bomb({ tick: 300, kind: "abort_defuse" }),
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false }),
+        makeBombEvent({ tick: 300, kind: "abort_defuse" }),
       ],
     });
     expect(defuseClock(m, 264)?.remaining).toBeCloseTo(9, 5);
     expect(defuseClock(m, 300)).toBeNull();
+  });
+});
+
+describe("weaponBreakdown", () => {
+  const m = makeReplay({
+    players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+    rounds: [
+      makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
+    ],
+    kills: [
+      makeKill(200, 0, 1, { weapon: "ak47", headshot: true }),
+      makeKill(400, 1, 0, { weapon: "deagle" }),
+    ],
+    hurts: [makeHurt(200, 0, 1, 100, { weapon: "ak47" })],
+  });
+
+  it("tallies kills, headshots and damage per weapon, best first", () => {
+    const rows = weaponBreakdown(m, 2000, null);
+    expect(rows.map((r) => r.raw)).toEqual(["ak47", "deagle"]);
+    expect(rows[0]).toMatchObject({ kills: 1, headshots: 1, damage: 100 });
+  });
+
+  it("narrows to one player when asked", () => {
+    expect(weaponBreakdown(m, 2000, 0).map((r) => r.raw)).toEqual(["ak47"]);
+  });
+
+  it("caches per replay, whole tick and player", () => {
+    const rows = weaponBreakdown(m, 2000, null);
+    expect(weaponBreakdown(m, 2000.9, null)).toBe(rows);
+    expect(weaponBreakdown(m, 2000, 0)).not.toBe(rows);
+  });
+});
+
+describe("liveTeams", () => {
+  const m = makeReplay({
+    header: { team_ct: "Astralis", team_t: "Vitality" },
+    rounds: [makeRound({ number: 1, winner: "CT", start_tick: 0, end_tick: 640 })],
+  });
+
+  it("names the sides currently playing CT and T", () => {
+    expect(liveTeams(m, 640)).toMatchObject({ ctName: "Astralis", tName: "Vitality", ct: 1, t: 0 });
+  });
+
+  it("caches per replay and whole tick", () => {
+    const teams = liveTeams(m, 640);
+    expect(liveTeams(m, 640.5)).toBe(teams);
   });
 });

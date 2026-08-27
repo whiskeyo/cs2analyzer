@@ -84,23 +84,55 @@ export function samplePlayer(replay: Replay, player: number, tick: number): Samp
   };
 }
 
+/**
+ * Snapshots are read many times per frame — the radar, the HUD, the scoreboard
+ * and most of `lib/match` all ask for the same tick — and every read walks all
+ * 16 slots. Cache a few recent ticks per demo. Callers must treat the result as
+ * read-only. The window covers the current tick plus a pass over the round
+ * freezes, which is the widest pattern in `lib/match`.
+ */
+const SAMPLE_CACHE_TICKS = 64;
+let sampleCache: { replay: Replay; byTick: Map<number, SampledPlayer[]> } | null = null;
+
 export function samplePlayers(replay: Replay, tick: number): SampledPlayer[] {
   const pc = replay.ticks.playerCount;
   if (pc === 0 || replay.ticks.frameCount === 0) return [];
+  if (!sampleCache || sampleCache.replay !== replay) {
+    sampleCache = { replay, byTick: new Map() };
+  }
+  const hit = sampleCache.byTick.get(tick);
+  if (hit) return hit;
   const out: SampledPlayer[] = [];
   for (let p = 0; p < pc; p++) {
     const sampled = samplePlayer(replay, p, tick);
     if (sampled) out.push(sampled);
   }
+  const { byTick } = sampleCache;
+  if (byTick.size >= SAMPLE_CACHE_TICKS) {
+    const oldest = byTick.keys().next().value;
+    if (oldest !== undefined) byTick.delete(oldest);
+  }
+  byTick.set(tick, out);
   return out;
 }
 
+/**
+ * Last round that has started at `tick` — not the round containing `tick` by
+ * `end_tick`, so the gap after a round still belongs to it. Rounds come out of
+ * the parser ordered by `start_tick`, so this binary searches.
+ */
 export function currentRound(replay: Replay, tick: number) {
-  let found = replay.rounds[0] ?? null;
-  for (const r of replay.rounds) {
-    if (tick >= r.start_tick) found = r;
+  const rounds = replay.rounds;
+  if (rounds.length === 0) return null;
+  let lo = 0;
+  let hi = rounds.length - 1;
+  if (tick < rounds[0].start_tick) return rounds[0];
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (rounds[mid].start_tick <= tick) lo = mid;
+    else hi = mid - 1;
   }
-  return found;
+  return rounds[lo];
 }
 
 export function sampleTrail(

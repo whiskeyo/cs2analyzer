@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { formatMoney, gearItems, mainWeaponId, sidearmId } from "@/lib/weapons/loadout";
 import { samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
 import { computeStats, liveTeams } from "@/lib/stats/stats";
@@ -68,7 +69,12 @@ function PlayerCard({
   );
 }
 
-export function SpectatorEconomy({ replay, tick, selected, onSelect }: Props) {
+export const SpectatorEconomy = memo(function SpectatorEconomy({
+  replay,
+  tick,
+  selected,
+  onSelect,
+}: Props) {
   const samples = samplePlayers(replay, tick);
   const stats = computeStats(replay, tick);
   const teams = liveTeams(replay, tick);
@@ -120,4 +126,4 @@ export function SpectatorEconomy({ replay, tick, selected, onSelect }: Props) {
       {column("ct", teams.ctName, ct)}
     </>
   );
-}
+});

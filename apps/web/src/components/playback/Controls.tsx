@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { tickRate } from "@/lib/shared/constants";
 import { roundBookmarkMarks } from "@/lib/notes";
 import {
@@ -25,7 +26,7 @@ interface Props {
   onSpeed: (v: number) => void;
 }
 
-export function Controls({
+export const Controls = memo(function Controls({
   replay,
   tick,
   strokes,
@@ -225,4 +226,4 @@ export function Controls({
       </span>
     </div>
   );
-}
+});

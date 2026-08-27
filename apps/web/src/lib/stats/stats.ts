@@ -184,16 +184,31 @@ export function liveScore(replay: Replay, tick: number): { ct: number; t: number
   return swapped ? { ct: startT, t: startCt } : { ct: startCt, t: startT };
 }
 
-/** Team names and scores for the sides currently playing CT / T. */
-export function liveTeams(
-  replay: Replay,
-  tick: number,
-): {
+export interface LiveTeams {
   ct: number;
   t: number;
   ctName: string;
   tName: string;
-} {
+}
+
+let teamsCache: { replay: Replay; tick: number; teams: LiveTeams } | null = null;
+
+/**
+ * Team names and scores for the sides currently playing CT / T. Cached like
+ * `computeStats`: the HUD, the scoreboard and the economy strip all ask for the
+ * same tick, and each call tallies every round.
+ */
+export function liveTeams(replay: Replay, tick: number): LiveTeams {
+  const t = Math.floor(tick);
+  if (teamsCache && teamsCache.replay === replay && teamsCache.tick === t) {
+    return teamsCache.teams;
+  }
+  const teams = computeLiveTeams(replay, tick);
+  teamsCache = { replay, tick: t, teams };
+  return teams;
+}
+
+function computeLiveTeams(replay: Replay, tick: number): LiveTeams {
   const score = liveScore(replay, tick);
   const round = currentRound(replay, tick);
   const swapped = round ? roundSidesSwapped(replay, round) : false;
@@ -671,7 +686,34 @@ export interface WeaponRow {
   damage: number;
 }
 
+let weaponCache: {
+  replay: Replay;
+  tick: number;
+  player: number | null;
+  rows: WeaponRow[];
+} | null = null;
+
+/** Cached per `(replay, tick, player)`: this scans every kill and every hurt. */
 export function weaponBreakdown(
+  replay: Replay,
+  untilTick: number,
+  player: number | null,
+): WeaponRow[] {
+  const t = Math.floor(untilTick);
+  if (
+    weaponCache &&
+    weaponCache.replay === replay &&
+    weaponCache.tick === t &&
+    weaponCache.player === player
+  ) {
+    return weaponCache.rows;
+  }
+  const rows = computeWeaponBreakdown(replay, untilTick, player);
+  weaponCache = { replay, tick: t, player, rows };
+  return rows;
+}
+
+function computeWeaponBreakdown(
   replay: Replay,
   untilTick: number,
   player: number | null,

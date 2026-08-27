@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { tickRate } from "@/lib/shared/constants";
 import { activeExecute, findExecutes } from "@/lib/match/execute";
 import { currentRound } from "@/lib/replay/sample";
@@ -14,7 +15,13 @@ interface Props {
   places: MapPlaces | null;
 }
 
-export function RoundStrip({ replay, tick, strokes, onJump, places }: Props) {
+export const RoundStrip = memo(function RoundStrip({
+  replay,
+  tick,
+  strokes,
+  onJump,
+  places,
+}: Props) {
   const current = currentRound(replay, tick);
   const beats = findExecutes(replay, places);
   const actionRounds = new Set(beats.map((b) => b.round));
@@ -49,4 +56,4 @@ export function RoundStrip({ replay, tick, strokes, onJump, places }: Props) {
       })}
     </div>
   );
-}
+});
