@@ -1,38 +1,14 @@
 import { useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { tickRate } from "@/lib/shared/constants";
-import { radarFloor, radarUrl, worldToScreen } from "@/lib/radar/maps";
+import { radarUrl, worldToScreen } from "@/lib/radar/maps";
 import { overlayVisible } from "@/lib/notes";
 import { publicUrl } from "@/lib/shared/publicUrl";
-import {
-  blindsAt,
-  formatBlindLeft,
-  firesAt,
-  HIT_SECONDS,
-  hitsAt,
-  killLineEnds,
-  lingerRemaining,
-  nadeBurstSpan,
-  nadeLandPos,
-  nadePopTick,
-  nadeVisibleEnd,
-  nadesForSummary,
-  NADE_COLORS,
-  openingDuel,
-  TRACER_SECONDS,
-} from "@/lib/radar/radarFx";
-import {
-  drawArrow,
-  drawC4,
-  drawHeBurst,
-  drawTextLabel,
-  grenadePosAt,
-  yawToCanvas,
-} from "@/lib/radar/draw";
+import { drawArrow, drawTextLabel } from "@/lib/radar/draw";
+import { buildRadarFrame } from "@/lib/radar/radarFrame";
+import { paintPawns, paintRadarFrame, paintViewCone } from "@/lib/radar/paintRadarFrame";
 import { TextNoteEditor, useTextNotes, type TextMove } from "@/components/radar/TextNoteEditor";
 import { useRadarPointer, type RadarPanView } from "@/lib/radar/useRadarPointer";
-import { currentRound, samplePlayers, sampleTrail } from "@/lib/replay/sample";
-import { activeBomb } from "@/lib/stats/stats";
+import { samplePlayers } from "@/lib/replay/sample";
 import { drawSmoothLine, simplifyStroke } from "@/lib/radar/strokes";
 import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
 import type { DrawTool, FloorMode, MapLayers, Stroke, SummaryFilter } from "@/lib/notes/types";
@@ -202,11 +178,21 @@ export function RadarCanvas({
 
       const tickNow = tickRef.current;
       const calNow = calRef.current;
-      const players = samplePlayers(replay, tickNow);
       const v = view.current;
+      const frame = buildRadarFrame({
+        replay,
+        tick: tickNow,
+        layers: layersRef.current,
+        summaryFilter: summaryFilterRef.current,
+        selected: selectedRef.current,
+        trails: trailsRef.current,
+        floorMode: floorModeRef.current,
+        cal: calNow,
+        scale: v.scale,
+      });
 
       if (followRef.current && selectedRef.current != null && calNow) {
-        const p = players.find((x) => x.index === selectedRef.current && x.present);
+        const p = frame.players.find((x) => x.index === selectedRef.current && x.present);
         if (p) {
           const pad = 16;
           const fit = Math.min(w, h) - pad * 2;
@@ -220,10 +206,7 @@ export function RadarCanvas({
       }
 
       const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, v, wx, wy);
-
-      const useLower =
-        radarFloor(calNow, players, selectedRef.current, floorModeRef.current) === "lower";
-      const img = useLower ? images.current.lower : images.current.upper;
+      const img = frame.useLowerFloor ? images.current.lower : images.current.upper;
 
       ctx.save();
       const pad = 16;
@@ -240,344 +223,7 @@ export function RadarCanvas({
         ctx.fillText("No radar for this map — showing world XY", pad, 24);
       }
 
-      const ticksPerSecond = tickRate(replay);
-      const layersNow = layersRef.current;
-
-      if (layersNow.heatmap) {
-        const focus = selectedRef.current;
-        ctx.globalAlpha = 0.22;
-        for (const k of replay.kills) {
-          if (k.tick > tickNow) continue;
-          if (focus != null && k.attacker !== focus && k.victim !== focus) continue;
-          const s = toScreen(k.x, k.y);
-          ctx.fillStyle =
-            focus == null
-              ? k.headshot
-                ? "#ff8a8a"
-                : "#c9a227"
-              : k.attacker === focus
-                ? "#ee6c4d"
-                : "#5b9fd6";
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, k.attacker === focus ? 7 : 5, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-      }
-
-      if (layersNow.summary) {
-        const zoom = Math.min(1.4, v.scale);
-        for (const g of nadesForSummary(replay, summaryFilterRef.current)) {
-          const land = nadeLandPos(g);
-          if (!land) continue;
-          const s = toScreen(land.x, land.y);
-          const color = NADE_COLORS[g.kind] ?? "#fff";
-          const radius =
-            (g.kind === "smoke" ? 16 : g.kind === "molotov" ? 12 : g.kind === "he" ? 10 : 8) * zoom;
-          ctx.fillStyle = color;
-          ctx.strokeStyle = color;
-          ctx.globalAlpha = 0.2;
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = 0.45;
-          ctx.lineWidth = 1.2;
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      }
-
-      if (layersNow.grenades) {
-        const round = currentRound(replay, tickNow);
-        for (const g of replay.grenades) {
-          if (round && (g.start_tick < round.start_tick || g.start_tick > round.end_tick)) {
-            continue;
-          }
-          const color = NADE_COLORS[g.kind] ?? "#fff";
-          const popAt = nadePopTick(g);
-          const visibleEnd = nadeVisibleEnd(g, ticksPerSecond, round?.end_tick);
-          const inFlight = tickNow >= g.start_tick && tickNow < popAt && tickNow <= visibleEnd;
-          const lingering =
-            tickNow >= popAt &&
-            tickNow <= visibleEnd &&
-            (g.kind === "smoke" || g.kind === "molotov" || g.kind === "decoy");
-          const burstSpan = nadeBurstSpan(g.kind, ticksPerSecond);
-          const burst =
-            burstSpan > 0 &&
-            tickNow >= popAt &&
-            tickNow <= popAt + burstSpan &&
-            tickNow <= visibleEnd;
-
-          if (inFlight) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = g.kind === "he" ? 2.2 : 1.8;
-            ctx.setLineDash(g.kind === "he" ? [6, 4] : []);
-            ctx.globalAlpha = 0.9;
-            ctx.beginPath();
-            let started = false;
-            for (const p of g.points) {
-              if (p.tick > tickNow) break;
-              const s = toScreen(p.x, p.y);
-              if (!started) {
-                ctx.moveTo(s.x, s.y);
-                started = true;
-              } else ctx.lineTo(s.x, s.y);
-            }
-            const head = grenadePosAt(g.points, tickNow);
-            if (head) {
-              const s = toScreen(head.x, head.y);
-              if (started) ctx.lineTo(s.x, s.y);
-              ctx.stroke();
-              ctx.setLineDash([]);
-              ctx.globalAlpha = 1;
-              ctx.fillStyle = color;
-              ctx.beginPath();
-              if (g.kind === "he") {
-                ctx.save();
-                ctx.translate(s.x, s.y);
-                ctx.rotate(Math.PI / 4);
-                ctx.fillRect(-3.4, -3.4, 6.8, 6.8);
-                ctx.restore();
-              } else {
-                ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
-                ctx.fill();
-              }
-            } else {
-              ctx.stroke();
-              ctx.setLineDash([]);
-            }
-          } else if (lingering || burst) {
-            const occupancy = g.kind === "molotov" ? g.fires : undefined;
-            const cells = g.kind === "molotov" ? firesAt(g.fires, tickNow) : [];
-            if (lingering && cells.length > 0) {
-              let cx = 0;
-              let cy = 0;
-              for (const cell of cells) {
-                const s = toScreen(cell.x, cell.y);
-                cx += s.x;
-                cy += s.y;
-              }
-              cx /= cells.length;
-              cy /= cells.length;
-              const cellR = 8 * Math.min(1.4, v.scale);
-              ctx.fillStyle = color;
-              ctx.globalAlpha = 0.42;
-              for (const cell of cells) {
-                const s = toScreen(cell.x, cell.y);
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, cellR, 0, Math.PI * 2);
-                ctx.fill();
-              }
-              const left = lingerRemaining(popAt, visibleEnd, tickNow);
-              const inner = Math.max(5, 6 * Math.min(1.4, v.scale));
-              ctx.globalAlpha = 0.85;
-              ctx.fillStyle = "#12181f";
-              ctx.beginPath();
-              ctx.arc(cx, cy, inner + 1.2, 0, Math.PI * 2);
-              ctx.fill();
-              ctx.globalAlpha = 0.35;
-              ctx.strokeStyle = color;
-              ctx.lineWidth = 1.3;
-              ctx.beginPath();
-              ctx.arc(cx, cy, inner, 0, Math.PI * 2);
-              ctx.stroke();
-              if (left > 0) {
-                ctx.globalAlpha = 0.95;
-                ctx.fillStyle = color;
-                ctx.beginPath();
-                ctx.moveTo(cx, cy);
-                ctx.arc(cx, cy, inner, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
-                ctx.closePath();
-                ctx.fill();
-              }
-            } else if (lingering && occupancy && occupancy.length > 0) {
-              // Molly occupancy was sampled but none is live — don't keep the envelope circle.
-            } else {
-              const last = g.points[g.points.length - 1];
-              if (last) {
-                const s = toScreen(last.x, last.y);
-                const radius =
-                  (g.kind === "smoke"
-                    ? 32
-                    : g.kind === "molotov"
-                      ? 24
-                      : g.kind === "he"
-                        ? 18
-                        : 12) * Math.min(1.4, v.scale);
-                if (lingering && (g.kind === "smoke" || g.kind === "molotov")) {
-                  const left = lingerRemaining(popAt, visibleEnd, tickNow);
-                  const inner = Math.max(7, 8 * Math.min(1.4, v.scale));
-                  ctx.fillStyle = color;
-                  ctx.strokeStyle = color;
-                  ctx.globalAlpha = 0.22;
-                  ctx.beginPath();
-                  ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
-                  ctx.fill();
-                  ctx.globalAlpha = 0.4;
-                  ctx.lineWidth = 1.4;
-                  ctx.beginPath();
-                  ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
-                  ctx.stroke();
-                  ctx.globalAlpha = 0.85;
-                  ctx.fillStyle = "#12181f";
-                  ctx.beginPath();
-                  ctx.arc(s.x, s.y, inner + 1.4, 0, Math.PI * 2);
-                  ctx.fill();
-                  ctx.globalAlpha = 0.35;
-                  ctx.strokeStyle = color;
-                  ctx.lineWidth = 1.5;
-                  ctx.beginPath();
-                  ctx.arc(s.x, s.y, inner, 0, Math.PI * 2);
-                  ctx.stroke();
-                  if (left > 0) {
-                    ctx.globalAlpha = 0.95;
-                    ctx.fillStyle = color;
-                    ctx.beginPath();
-                    ctx.moveTo(s.x, s.y);
-                    ctx.arc(s.x, s.y, inner, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
-                    ctx.closePath();
-                    ctx.fill();
-                  }
-                } else if (burst && g.kind === "he") {
-                  const span = nadeBurstSpan("he", ticksPerSecond) || 1;
-                  drawHeBurst(ctx, s, color, (tickNow - popAt) / span, v.scale);
-                } else {
-                  ctx.globalAlpha = burst ? 0.45 : 0.28;
-                  ctx.fillStyle = color;
-                  ctx.beginPath();
-                  ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
-                  ctx.fill();
-                }
-              }
-            }
-          }
-          ctx.globalAlpha = 1;
-        }
-      }
-
-      const tracerLife = ticksPerSecond * TRACER_SECONDS;
-      if (layersNow.shots) {
-        for (const sh of replay.shots) {
-          const age = tickNow - sh.tick;
-          if (age < 0 || age > tracerLife) continue;
-          const origin = toScreen(sh.x, sh.y);
-          const rad = yawToCanvas(sh.yaw);
-          const dx = Math.cos(rad);
-          const dy = Math.sin(rad);
-          const fade = 1 - age / tracerLife;
-          ctx.strokeStyle = "#ffe9a8";
-          ctx.globalAlpha = fade * 0.28;
-          ctx.lineWidth = 2.6;
-          ctx.beginPath();
-          ctx.moveTo(origin.x, origin.y);
-          ctx.lineTo(origin.x + dx * 62, origin.y + dy * 62);
-          ctx.stroke();
-          ctx.globalAlpha = fade * 0.95;
-          ctx.lineWidth = 1.4;
-          ctx.beginPath();
-          ctx.moveTo(origin.x, origin.y);
-          ctx.lineTo(origin.x + dx * 48, origin.y + dy * 48);
-          ctx.stroke();
-          ctx.globalAlpha = 1;
-        }
-      }
-
-      const bomb = activeBomb(replay, tickNow);
-      if (bomb) {
-        drawC4(ctx, toScreen(bomb.x, bomb.y), c4Icon.current);
-      }
-
-      if (layersNow.deaths) {
-        const round = currentRound(replay, tickNow);
-        if (round) {
-          for (const k of replay.kills) {
-            if (k.tick < round.freeze_end_tick || k.tick > tickNow || k.tick > round.end_tick) {
-              continue;
-            }
-            const line = killLineEnds(replay, k);
-            if (line) {
-              const from = toScreen(line.from.x, line.from.y);
-              const to = toScreen(line.to.x, line.to.y);
-              ctx.strokeStyle = line.ct ? "#5b9fd6" : "#c9a227";
-              ctx.globalAlpha = k.headshot ? 0.9 : 0.7;
-              ctx.lineWidth = k.headshot ? 2 : 1.6;
-              ctx.setLineDash([7, 5]);
-              ctx.beginPath();
-              ctx.moveTo(from.x, from.y);
-              ctx.lineTo(to.x, to.y);
-              ctx.stroke();
-              ctx.setLineDash([]);
-              ctx.globalAlpha = 0.85;
-              ctx.beginPath();
-              ctx.arc(from.x, from.y, 3, 0, Math.PI * 2);
-              ctx.fillStyle = ctx.strokeStyle;
-              ctx.fill();
-            }
-            const s = toScreen(k.x, k.y);
-            ctx.strokeStyle = "#e04b4b";
-            ctx.globalAlpha = 0.85;
-            ctx.lineWidth = 1.6;
-            ctx.beginPath();
-            ctx.moveTo(s.x - 4, s.y - 4);
-            ctx.lineTo(s.x + 4, s.y + 4);
-            ctx.moveTo(s.x + 4, s.y - 4);
-            ctx.lineTo(s.x - 4, s.y + 4);
-            ctx.stroke();
-          }
-          ctx.globalAlpha = 1;
-        }
-      }
-
-      if (layersNow.openings) {
-        const round = currentRound(replay, tickNow);
-        if (round) {
-          const opening = openingDuel(replay, round, tickNow);
-          if (opening) {
-            const line = killLineEnds(replay, opening);
-            if (line) {
-              const from = toScreen(line.from.x, line.from.y);
-              const to = toScreen(line.to.x, line.to.y);
-              const color = line.ct ? "#5b9fd6" : "#ffd24a";
-              ctx.globalAlpha = 1;
-              drawArrow(ctx, from, to, color, 3.2);
-              ctx.fillStyle = color;
-              ctx.strokeStyle = "#12181f";
-              ctx.lineWidth = 3;
-              ctx.font = "bold 11px ui-sans-serif, system-ui";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "bottom";
-              ctx.strokeText("FK", from.x, from.y - 8);
-              ctx.fillText("FK", from.x, from.y - 8);
-              ctx.strokeText("FD", to.x, to.y - 8);
-              ctx.fillText("FD", to.x, to.y - 8);
-            }
-          }
-        }
-      }
-
-      if (trailsRef.current) {
-        const lookback = ticksPerSecond * 2.5;
-        const ids =
-          selectedRef.current != null ? [selectedRef.current] : players.map((p) => p.index);
-        for (const id of ids) {
-          const pts = sampleTrail(replay, id, tickNow, lookback);
-          if (pts.length < 2) continue;
-          const p = players.find((x) => x.index === id);
-          ctx.strokeStyle = p?.ct ? "#5b9fd6" : "#c9a227";
-          ctx.lineWidth = 2;
-          ctx.globalAlpha = 0.45;
-          ctx.beginPath();
-          pts.forEach((pt, i) => {
-            const s = toScreen(pt.x, pt.y);
-            if (i === 0) ctx.moveTo(s.x, s.y);
-            else ctx.lineTo(s.x, s.y);
-          });
-          ctx.stroke();
-          ctx.globalAlpha = 1;
-        }
-      }
+      paintRadarFrame(ctx, frame, toScreen, { scale: v.scale, c4Icon: c4Icon.current });
 
       const drawStroke = (st: Stroke, alpha = 1, live = false) => {
         if (st.type === "bookmark") return;
@@ -603,12 +249,11 @@ export function RadarCanvas({
         }
         ctx.globalAlpha = 1;
       };
-      const roundNow = currentRound(replay, tickRef.current)?.number ?? 0;
-      const tickDraw = tickRef.current;
+      const roundNow = frame.round?.number ?? 0;
       const skipText = editingRef.current?.index;
       const moving = textMoveRef.current;
       strokesRef.current.forEach((st, i) => {
-        if (!overlayVisible(st, tickDraw, roundNow, strokesRef.current)) return;
+        if (!overlayVisible(st, tickNow, roundNow, strokesRef.current)) return;
         if (st.type === "text" && skipText === i) return;
         if (st.type === "text" && moving && moving.index === i && moving.moved) {
           drawStroke({ ...st, x: moving.x, y: moving.y });
@@ -616,7 +261,7 @@ export function RadarCanvas({
         }
         drawStroke(st);
       });
-      if (draft.current && overlayVisible(draft.current, tickDraw, roundNow, strokesRef.current)) {
+      if (draft.current && overlayVisible(draft.current, tickNow, roundNow, strokesRef.current)) {
         drawStroke(draft.current, 0.85, true);
       }
       const ed = editingRef.current;
@@ -627,112 +272,8 @@ export function RadarCanvas({
         wrapBox.style.top = `${s.y}px`;
       }
 
-      if (layersNow.cone && selectedRef.current != null) {
-        const p = players.find((x) => x.index === selectedRef.current && x.present && x.alive);
-        if (p) {
-          const s = toScreen(p.x, p.y);
-          ctx.save();
-          ctx.translate(s.x, s.y);
-          ctx.rotate(yawToCanvas(p.yaw));
-          ctx.fillStyle = p.ct ? "rgba(91,159,214,0.18)" : "rgba(201,162,39,0.18)";
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.arc(0, 0, 78 * Math.min(1.6, v.scale), -0.55, 0.55);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
-        }
-      }
-
-      const blinds = blindsAt(replay.blinds, tickNow, ticksPerSecond);
-      const hits = hitsAt(replay.hurts, tickNow, ticksPerSecond);
-      for (const p of players) {
-        if (!p.present) continue;
-        const s = toScreen(p.x, p.y);
-        const hit = hits.get(p.index);
-        if (hit) {
-          const t = Math.min(1, hit.age / HIT_SECONDS);
-          const r = 9 + t * 14 + Math.min(hit.damage, 100) * 0.04;
-          ctx.strokeStyle = "#e04b4b";
-          ctx.fillStyle = "#e04b4b";
-          ctx.globalAlpha = (1 - t) * 0.3;
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, 7 + (1 - t) * 5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = (1 - t) * 0.9;
-          ctx.lineWidth = 2.2;
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        const flash = blinds.get(p.index);
-        if (flash && p.alive) {
-          const intensity = Math.min(1, flash / 1.4);
-          const pulse = 13 + intensity * 6 + Math.sin((tickNow / ticksPerSecond) * 10) * 1.4;
-          ctx.fillStyle = `rgba(255, 248, 200, ${0.12 + intensity * 0.38})`;
-          ctx.globalAlpha = 1;
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, 11 + intensity * 5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = `rgba(255, 236, 150, ${0.45 + intensity * 0.5})`;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, pulse, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      }
-
-      for (const p of players) {
-        if (!p.present) continue;
-        const s = toScreen(p.x, p.y);
-        const color = p.ct ? "#5b9fd6" : "#c9a227";
-        const flash = blinds.get(p.index) ?? 0;
-        ctx.globalAlpha = p.alive ? 1 : 0.35;
-        ctx.save();
-        ctx.translate(s.x, s.y);
-        ctx.rotate(yawToCanvas(p.yaw));
-        ctx.beginPath();
-        const size = selectedRef.current === p.index ? 9 : 7;
-        ctx.moveTo(size + 2, 0);
-        ctx.lineTo(-size * 0.7, size * 0.7);
-        ctx.lineTo(-size * 0.35, 0);
-        ctx.lineTo(-size * 0.7, -size * 0.7);
-        ctx.closePath();
-        ctx.fillStyle = color;
-        ctx.fill();
-        if (flash > 0 && p.alive) {
-          ctx.fillStyle = `rgba(255, 252, 230, ${Math.min(0.88, 0.4 + flash * 0.35)})`;
-          ctx.fill();
-        }
-        if (selectedRef.current === p.index) {
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 1.4;
-          ctx.stroke();
-        }
-        ctx.restore();
-
-        if (p.alive && flash > 0) {
-          ctx.fillStyle = NADE_COLORS.flash;
-          ctx.font = "10px ui-sans-serif, system-ui";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
-          ctx.fillText(formatBlindLeft(flash), s.x + 12, s.y);
-        }
-
-        if (p.alive) {
-          if (layersNow.names) {
-            ctx.fillStyle = "#e8eef4";
-            ctx.font = "11px ui-sans-serif, system-ui";
-            ctx.textAlign = "center";
-            const name = replay.players[p.index]?.name ?? "";
-            ctx.fillText(name.slice(0, 12), s.x, s.y + 16);
-          }
-          ctx.fillStyle = p.health > 20 ? "#3dba6a" : "#e04b4b";
-          ctx.fillRect(s.x - 10, s.y + 18, 20 * (p.health / 100), 3);
-        }
-        ctx.globalAlpha = 1;
-      }
+      paintViewCone(ctx, frame, toScreen);
+      paintPawns(ctx, frame, toScreen, layersRef.current.names);
       ctx.restore();
       raf = requestAnimationFrame(draw);
     };
