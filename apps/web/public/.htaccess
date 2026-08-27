@@ -1,0 +1,7 @@
+AddType application/wasm .wasm
+
+<IfModule mod_headers.c>
+  <Files "index.html">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </Files>
+</IfModule>
