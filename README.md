@@ -1,6 +1,6 @@
 # CS2 Analyzer
 
-Local-first Counter-Strike 2 GOTV demo analyzer. Drop a `.dem` in the browser: it is parsed on your machine (Web Worker + WASM), then you can replay the match on a 2D radar and inspect FACEIT-style stats.
+Local-first Counter-Strike 2 GOTV demo analyzer. Drop a `.dem` in the browser: it is parsed on your machine (Web Worker + WASM), then you can replay the match on a 2D radar and inspect FACEIT-style stats. The website is hosted on **[cs2analyzer.whiskeyo.pl](https://cs2analyzer.whiskeyo.pl)**.
 
 The file never leaves the computer. This is a fan project, not affiliated with Valve.
 
