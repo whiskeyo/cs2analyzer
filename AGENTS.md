@@ -8,6 +8,7 @@ Parse a `.dem` in the browser (Web Worker + WASM; the file never leaves the mach
 
 ```
 crates/cs2analyzer       Parse, assemble Match, stats, radar math
+crates/cs2analyzer-cli   `cs2analyzer` binary: dump a demo as JSON (fixtures, cross-checks)
 crates/cs2analyzer-wasm  wasm-bindgen wrapper (no mimalloc)
 apps/web                 Vite + React viewer (dev: http://localhost:5173/)
 apps/layouts             Callout overlay editor, not deployed (dev: http://localhost:5174/)
@@ -15,7 +16,9 @@ scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored; never commit)
 ```
 
-Parser pipeline: `observer.rs` (tick walk) → `assemble.rs` (`Match`) → `analysis.rs` (stats). The web UI **recomputes** live stats in `apps/web/src/lib/stats/stats.ts`; WASM `statsJson` is a snapshot at parse time. After parser changes, rebuild WASM **and re-drop the demo**. UI-only stats/HUD changes apply without a re-drop.
+Parser pipeline: `observer.rs` (tick walk) → `assemble.rs` (`Match`) → `analysis.rs` (stats). The web UI **recomputes** live stats in `apps/web/src/lib/stats/stats.ts`; WASM does not ship `Match::stats` (a whole-match snapshot the viewer cannot use) — use the CLI for a Rust-side tally. After parser changes, rebuild WASM **and re-drop the demo**. UI-only stats/HUD changes apply without a re-drop.
+
+The worker validates every JSON payload in `lib/parse/decode.ts`, so a serde rename in `types.rs` fails with a named error instead of a blank radar. Update the shapes there when a required field changes.
 
 Do not edit `apps/web/src/parser/` by hand. Keep `wasm-bindgen-cli` at **0.2.127** (same as the `wasm-bindgen` crate). WASM disables the `mimalloc` feature (`default-features = false`).
 
@@ -29,6 +32,13 @@ cargo test --workspace
 
 # WASM (after Rust parser/types changes)
 ./scripts/build-wasm.sh
+
+# Native CLI: JSON to stdout, progress to stderr
+cargo run --release -p cs2analyzer-cli -- .demos/your.dem            # summary
+cargo run --release -p cs2analyzer-cli -- .demos/your.dem -s replay  # everything, for fixtures
+
+# Rust vs TS stats parity on a real demo (opt-in; needs the release CLI built)
+cd apps/web && CS2_DEMO=.demos/your.dem npx vitest run src/lib/stats/parity.test.ts
 
 # Web
 cd apps/web

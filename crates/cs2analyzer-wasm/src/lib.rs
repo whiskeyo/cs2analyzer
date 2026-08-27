@@ -8,6 +8,11 @@ pub fn start() {
 }
 
 /// Parsed match handle. Tick buffers are exposed as typed arrays.
+///
+/// `Match::stats` is deliberately not exposed: it is a whole-match snapshot,
+/// while the viewer needs the scoreboard through the current tick and computes
+/// that itself in `apps/web/src/lib/stats/stats.ts`. Use the CLI for a
+/// match-level Rust tally.
 #[wasm_bindgen]
 pub struct ParsedMatch {
     inner: Match,
@@ -58,11 +63,6 @@ impl ParsedMatch {
     #[wasm_bindgen(js_name = bombEventsJson)]
     pub fn bomb_events_json(&self) -> Result<String, JsValue> {
         serde_json::to_string(&self.inner.bomb_events).map_err(js_err)
-    }
-
-    #[wasm_bindgen(js_name = statsJson)]
-    pub fn stats_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string(&self.inner.stats).map_err(js_err)
     }
 
     #[wasm_bindgen(js_name = playerCount)]

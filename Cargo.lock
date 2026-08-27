@@ -105,6 +105,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cs2analyzer-cli"
+version = "0.1.0"
+dependencies = [
+ "cs2analyzer",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "cs2analyzer-wasm"
 version = "0.1.0"
 dependencies = [

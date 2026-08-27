@@ -3,6 +3,11 @@
 
 /**
  * Parsed match handle. Tick buffers are exposed as typed arrays.
+ *
+ * `Match::stats` is deliberately not exposed: it is a whole-match snapshot,
+ * while the viewer needs the scoreboard through the current tick and computes
+ * that itself in `apps/web/src/lib/stats/stats.ts`. Use the CLI for a
+ * match-level Rust tally.
  */
 export class ParsedMatch {
     private constructor();
@@ -27,7 +32,6 @@ export class ParsedMatch {
     roundsJson(): string;
     secondary(): Uint8Array;
     shotsJson(): string;
-    statsJson(): string;
     ticks(): Uint32Array;
     x(): Float32Array;
     y(): Float32Array;
@@ -67,7 +71,6 @@ export interface InitOutput {
     readonly parsedmatch_roundsJson: (a: number) => [number, number, number, number];
     readonly parsedmatch_secondary: (a: number) => [number, number];
     readonly parsedmatch_shotsJson: (a: number) => [number, number, number, number];
-    readonly parsedmatch_statsJson: (a: number) => [number, number, number, number];
     readonly parsedmatch_ticks: (a: number) => [number, number];
     readonly parsedmatch_x: (a: number) => [number, number];
     readonly parsedmatch_y: (a: number) => [number, number];

@@ -22,7 +22,6 @@ export const parsedmatch_primary: (a: number) => [number, number];
 export const parsedmatch_roundsJson: (a: number) => [number, number, number, number];
 export const parsedmatch_secondary: (a: number) => [number, number];
 export const parsedmatch_shotsJson: (a: number) => [number, number, number, number];
-export const parsedmatch_statsJson: (a: number) => [number, number, number, number];
 export const parsedmatch_ticks: (a: number) => [number, number];
 export const parsedmatch_x: (a: number) => [number, number];
 export const parsedmatch_y: (a: number) => [number, number];

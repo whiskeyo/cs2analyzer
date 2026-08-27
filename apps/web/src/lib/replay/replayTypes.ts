@@ -125,6 +125,11 @@ export interface BombEvent {
   site?: number;
 }
 
+/**
+ * Live scoreboard row. Computed in the browser by `lib/stats/stats.ts` through
+ * the current tick; the parser's own `PlayerStats` is a whole-match snapshot and
+ * is not shipped to the viewer.
+ */
 export interface PlayerStats {
   player: number;
   kills: number;
@@ -207,7 +212,6 @@ export interface Replay {
   hurts: Hurt[];
   blinds: Blind[];
   bombEvents: BombEvent[];
-  stats: PlayerStats[];
   ticks: TickBuffers;
 }
 
@@ -226,7 +230,16 @@ export interface MapCalibration {
   floors?: FloorSection[];
 }
 
+/** Worker-side parse breakdown. `parseMs` is the WASM `parseDemo` call. */
+export interface ParseTimings {
+  initMs: number;
+  parseMs: number;
+  jsonMs: number;
+  buffersMs: number;
+  totalMs: number;
+}
+
 export type WorkerOut =
   | { type: "progress"; current: number; total: number }
-  | { type: "done"; replay: Replay }
+  | { type: "done"; replay: Replay; timings: ParseTimings }
   | { type: "error"; message: string };

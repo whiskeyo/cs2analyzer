@@ -1,5 +1,19 @@
 import init, { parseDemo } from "@/parser/cs2analyzer_wasm.js";
-import type { Replay, WorkerOut } from "@/lib/replay/replayTypes";
+import { decodeList, decodeObject } from "./decode";
+import type {
+  Blind,
+  BombEvent,
+  GrenadeThrow,
+  Hurt,
+  Kill,
+  MatchHeader,
+  ParseTimings,
+  Player,
+  Replay,
+  Round,
+  Shot,
+  WorkerOut,
+} from "@/lib/replay/replayTypes";
 
 let wasmReady: Promise<void> | null = null;
 
@@ -12,24 +26,41 @@ function ensureWasm(): Promise<void> {
 
 self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
   try {
+    const t0 = performance.now();
     await ensureWasm();
+    const initMs = performance.now() - t0;
+
     const data = new Uint8Array(ev.data.bytes);
+    const tParse = performance.now();
     const parsed = parseDemo(data, 4, true, (current: number, total: number) => {
       const msg: WorkerOut = { type: "progress", current, total };
       self.postMessage(msg);
     });
+    const parseMs = performance.now() - tParse;
 
+    const tJson = performance.now();
+    const header = decodeObject<MatchHeader>("header", parsed.headerJson());
+    const players = decodeList<Player>("players", parsed.playersJson());
+    const rounds = decodeList<Round>("rounds", parsed.roundsJson());
+    const grenades = decodeList<GrenadeThrow>("grenades", parsed.grenadesJson());
+    const shots = decodeList<Shot>("shots", parsed.shotsJson());
+    const kills = decodeList<Kill>("kills", parsed.killsJson());
+    const hurts = decodeList<Hurt>("hurts", parsed.hurtsJson());
+    const blinds = decodeList<Blind>("blinds", parsed.blindsJson());
+    const bombEvents = decodeList<BombEvent>("bombEvents", parsed.bombEventsJson());
+    const jsonMs = performance.now() - tJson;
+
+    const tBuffers = performance.now();
     const replay: Replay = {
-      header: JSON.parse(parsed.headerJson()),
-      players: JSON.parse(parsed.playersJson()),
-      rounds: JSON.parse(parsed.roundsJson()),
-      grenades: JSON.parse(parsed.grenadesJson()),
-      shots: JSON.parse(parsed.shotsJson()),
-      kills: JSON.parse(parsed.killsJson()),
-      hurts: JSON.parse(parsed.hurtsJson()),
-      blinds: JSON.parse(parsed.blindsJson()),
-      bombEvents: JSON.parse(parsed.bombEventsJson()),
-      stats: JSON.parse(parsed.statsJson()),
+      header,
+      players,
+      rounds,
+      grenades,
+      shots,
+      kills,
+      hurts,
+      blinds,
+      bombEvents,
       ticks: {
         frameCount: parsed.frameCount(),
         playerCount: parsed.playerCount(),
@@ -49,6 +80,15 @@ self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
       },
     };
     parsed.free();
+    const buffersMs = performance.now() - tBuffers;
+
+    const timings: ParseTimings = {
+      initMs,
+      parseMs,
+      jsonMs,
+      buffersMs,
+      totalMs: performance.now() - t0,
+    };
 
     const transfer = [
       replay.ticks.ticks.buffer,
@@ -65,7 +105,7 @@ self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
       replay.ticks.primary.buffer,
       replay.ticks.secondary.buffer,
     ];
-    const msg: WorkerOut = { type: "done", replay };
+    const msg: WorkerOut = { type: "done", replay, timings };
     self.postMessage(msg, { transfer });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
