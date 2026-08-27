@@ -1,41 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { filterExecutes, findExecutes, nextExecuteTick } from "./execute";
-import type { LayoutCallout } from "@/lib/radar/layouts";
-import type { GrenadeThrow, Kill, Player, Replay, Round } from "@/lib/replay/replayTypes";
-import type { MapPlaces } from "./sites";
+import type { GrenadeThrow, Round } from "@/lib/replay/replayTypes";
+import {
+  makeBombEvent,
+  makeCallout,
+  makeGrenade,
+  makeKill,
+  makePlaces,
+  makePlayer,
+  makeReplay,
+  makeRound,
+} from "@/lib/testing/fixtures";
 
-function player(index: number, side: Player["start_side"], name: string): Player {
-  return { index, steam_id: index + 1, name, start_side: side };
-}
-
+/** Executes need a long round: beats land well after the default 640. */
 function round(partial: Partial<Round> & Pick<Round, "number" | "winner">): Round {
-  return {
-    start_tick: 0,
-    freeze_end_tick: 64,
-    end_tick: 2000,
-    win_reason: 1,
-    score_ct: 0,
-    score_t: 0,
-    is_knife: false,
-    ...partial,
-  };
+  return makeRound({ end_tick: 2000, win_reason: 1, ...partial });
 }
 
-function kill(tick: number, attacker: number, victim: number): Kill {
-  return {
-    tick,
-    attacker,
-    victim,
-    assister: -1,
-    weapon: "ak47",
-    headshot: false,
-    assisted_flash: false,
-    x: 0,
-    y: 0,
-    z: 0,
-  };
-}
-
+/** Throw that detonates at `tick`, optionally landing at (x, y). */
 function nade(
   tick: number,
   thrower: number,
@@ -43,95 +25,33 @@ function nade(
   x?: number,
   y?: number,
 ): GrenadeThrow {
-  return {
+  return makeGrenade({
     thrower,
     kind,
     start_tick: tick - 32,
     detonate_tick: tick,
     end_tick: tick + 64,
     points: x == null || y == null ? [] : [{ tick, x, y, z: 0 }],
-  };
-}
-
-function replay(partial: Partial<Replay> & Pick<Replay, "players" | "rounds">): Replay {
-  return {
-    header: {
-      map_name: "de_anubis",
-      tick_rate: 64,
-      tick_stride: 4,
-      duration_s: 10,
-      playback_ticks: 1920,
-      team_ct: "CT",
-      team_t: "T",
-      score_ct: 0,
-      score_t: 0,
-    },
-    grenades: [],
-    shots: [],
-    kills: [],
-    hurts: [],
-    blinds: [],
-    bombEvents: [],
-    stats: [],
-    ticks: {
-      frameCount: 0,
-      playerCount: 0,
-      ticks: new Uint32Array(),
-      x: new Float32Array(),
-      y: new Float32Array(),
-      z: new Float32Array(),
-      yaw: new Float32Array(),
-      health: new Uint8Array(),
-      armor: new Uint8Array(),
-      flags: new Uint8Array(),
-      money: new Uint16Array(),
-      equip: new Uint16Array(),
-      gear: new Uint16Array(),
-      primary: new Uint8Array(),
-      secondary: new Uint8Array(),
-    },
-    ...partial,
-  };
+  });
 }
 
 const roster = [
-  player(0, "T", "T1"),
-  player(1, "T", "T2"),
-  player(2, "T", "T3"),
-  player(3, "CT", "CT1"),
-  player(4, "CT", "CT2"),
+  makePlayer(0, "T", "T1"),
+  makePlayer(1, "T", "T2"),
+  makePlayer(2, "T", "T3"),
+  makePlayer(3, "CT", "CT1"),
+  makePlayer(4, "CT", "CT2"),
 ];
 
-function rect(id: string, name: string, x: number, y: number, w: number, h: number): LayoutCallout {
-  return {
-    id,
-    name,
-    floor: "default",
-    polygon: [
-      { x, y },
-      { x: x + w, y },
-      { x: x + w, y: y + h },
-      { x, y: y + h },
-    ],
-  };
-}
-
-const layoutPlaces: MapPlaces = {
-  layout: {
-    schema: 1,
-    map: "de_test",
-    callouts: [
-      rect("a", "A Site", 0, 0, 100, 100),
-      rect("palace", "Palace", 120, 0, 60, 60),
-      rect("b", "B Site", 800, 800, 100, 100),
-    ],
-  },
-  cal: { pos_x: 0, pos_y: 1024, scale: 1, radar: "test.png" },
-};
+const layoutPlaces = makePlaces([
+  makeCallout("a", "A Site", 0, 0, 100, 100),
+  makeCallout("palace", "Palace", 120, 0, 60, 60),
+  makeCallout("b", "B Site", 800, 800, 100, 100),
+]);
 
 describe("findExecutes", () => {
   it("omits A/B when the map has no layout", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
       grenades: [nade(200, 0, "smoke", 50, 974), nade(220, 1, "smoke", 60, 970)],
@@ -143,7 +63,7 @@ describe("findExecutes", () => {
   });
 
   it("labels an A-site dump from grenade landings", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
       grenades: [nade(200, 0, "smoke", 50, 974), nade(220, 1, "smoke", 60, 970)],
@@ -155,7 +75,7 @@ describe("findExecutes", () => {
   });
 
   it("treats Palace landings as an A execute", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
       grenades: [nade(200, 0, "smoke", 150, 994), nade(220, 1, "smoke", 140, 990)],
@@ -168,10 +88,10 @@ describe("findExecutes", () => {
   });
 
   it("labels a plant from layout, not as Mid", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
-      bombEvents: [{ tick: 400, kind: "planted", player: 0, x: 50, y: 974, z: 80 }],
+      bombEvents: [makeBombEvent({ tick: 400, kind: "planted", x: 50, y: 974, z: 80 })],
     });
     const unlabeled = findExecutes(m).find((b) => b.kind === "plant");
     expect(unlabeled?.site).toBeNull();
@@ -182,7 +102,7 @@ describe("findExecutes", () => {
   });
 
   it("treats a T smoke dump as an execute", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
       grenades: [nade(200, 0, "smoke"), nade(220, 1, "smoke"), nade(240, 2, "molotov")],
@@ -195,35 +115,35 @@ describe("findExecutes", () => {
   });
 
   it("ignores a lonely opening duel", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(120, 0, 3)],
+      kills: [makeKill(120, 0, 3)],
     });
     expect(findExecutes(m)).toEqual([]);
   });
 
   it("ignores a 2k opening", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "CT" })],
-      kills: [kill(120, 0, 3), kill(180, 1, 4)],
+      kills: [makeKill(120, 0, 3), makeKill(180, 1, 4)],
     });
     expect(findExecutes(m)).toEqual([]);
   });
 
   it("keeps a 3k burst as a fight", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
-      kills: [kill(300, 0, 3), kill(320, 1, 4), kill(340, 0, 4)],
+      kills: [makeKill(300, 0, 3), makeKill(320, 1, 4), makeKill(340, 0, 4)],
     });
     const beats = findExecutes(m);
     expect(beats.some((b) => b.kind === "fight")).toBe(true);
   });
 
   it("marks a plant and a later CT util dump as a retake", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "CT" })],
       grenades: [
@@ -232,7 +152,7 @@ describe("findExecutes", () => {
         nade(900, 3, "smoke"),
         nade(920, 4, "molotov"),
       ],
-      bombEvents: [{ tick: 400, kind: "planted", player: 0, x: 0, y: 0, z: 0 }],
+      bombEvents: [makeBombEvent({ tick: 400, kind: "planted" })],
     });
     const beats = findExecutes(m);
     expect(beats.some((b) => b.kind === "execute" && b.side === "T")).toBe(true);
@@ -240,11 +160,11 @@ describe("findExecutes", () => {
   });
 
   it("nextExecuteTick walks forward and back", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
       grenades: [nade(200, 0, "smoke"), nade(220, 1, "smoke")],
-      bombEvents: [{ tick: 1100, kind: "planted", player: 0, x: 0, y: 0, z: 0 }],
+      bombEvents: [makeBombEvent({ tick: 1100, kind: "planted" })],
     });
     const beats = findExecutes(m);
     expect(beats.length).toBeGreaterThanOrEqual(2);
@@ -253,7 +173,7 @@ describe("findExecutes", () => {
   });
 
   it("ignores CT smokes on opposite sides of the map", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "CT" })],
       grenades: [nade(200, 3, "smoke", 0, 0), nade(220, 4, "smoke", 3200, 0)],
@@ -262,7 +182,7 @@ describe("findExecutes", () => {
   });
 
   it("ignores T smokes that land on opposite bombsites", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
       grenades: [nade(200, 0, "smoke", 0, 0), nade(220, 1, "smoke", 0, 3200)],
@@ -271,7 +191,7 @@ describe("findExecutes", () => {
   });
 
   it("still treats clustered T smokes as an execute", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
       grenades: [
@@ -287,7 +207,7 @@ describe("findExecutes", () => {
   });
 
   it("labels util and kills per side instead of summing both teams", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "T" })],
       grenades: [
@@ -299,7 +219,7 @@ describe("findExecutes", () => {
         nade(250, 3, "flash"),
         nade(260, 4, "he"),
       ],
-      kills: [kill(230, 0, 3), kill(250, 1, 4)],
+      kills: [makeKill(230, 0, 3), makeKill(250, 1, 4)],
     });
     const beats = findExecutes(m);
     expect(beats).toHaveLength(1);
@@ -312,7 +232,7 @@ describe("findExecutes", () => {
   });
 
   it("does not call a CT default dump a take", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "CT" })],
       grenades: [nade(200, 3, "smoke", 0, 0), nade(220, 4, "smoke", 300, 40)],
@@ -321,11 +241,11 @@ describe("findExecutes", () => {
   });
 
   it("filterExecutes keeps a plant and drops T executes", () => {
-    const m = replay({
+    const m = makeReplay({
       players: roster,
       rounds: [round({ number: 1, winner: "CT" })],
       grenades: [nade(200, 0, "smoke"), nade(220, 1, "smoke")],
-      bombEvents: [{ tick: 1100, kind: "planted", player: 0, x: 0, y: 0, z: 0 }],
+      bombEvents: [makeBombEvent({ tick: 1100, kind: "planted" })],
     });
     const beats = findExecutes(m);
     expect(filterExecutes(beats, { kinds: ["plant"] }).every((b) => b.kind === "plant")).toBe(true);

@@ -16,17 +16,26 @@ import {
   openingDuel,
   shortenSegment,
 } from "./radarFx";
-import {
-  FLAG_ALIVE,
-  FLAG_CT,
-  FLAG_PRESENT,
-  type GrenadeThrow,
-  type Kill,
-  type Player,
-  type Replay,
-  type Round,
-} from "@/lib/replay/replayTypes";
+import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type GrenadeThrow } from "@/lib/replay/replayTypes";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
+import {
+  makeGrenade,
+  makeKill,
+  makePlayer,
+  makeReplay,
+  makeRound,
+  makeTicks,
+} from "@/lib/testing/fixtures";
+
+/** Smoke that pops at 100 and lingers the full 18s. */
+function smoke(partial: Partial<GrenadeThrow> = {}): GrenadeThrow {
+  return makeGrenade({ kind: "smoke", end_tick: 100 + 64 * 18, ...partial });
+}
+
+/** Molotov that pops at 100 and burns the full 7s. */
+function molotov(partial: Partial<GrenadeThrow> = {}): GrenadeThrow {
+  return makeGrenade({ kind: "molotov", end_tick: 100 + 64 * 7, ...partial });
+}
 
 describe("blindsAt", () => {
   it("returns remaining flash time for the victim", () => {
@@ -95,30 +104,6 @@ describe("firesAt", () => {
   });
 });
 
-function smoke(partial: Partial<GrenadeThrow> = {}): GrenadeThrow {
-  return {
-    thrower: 0,
-    kind: "smoke",
-    start_tick: 80,
-    detonate_tick: 100,
-    end_tick: 100 + 64 * 18,
-    points: [],
-    ...partial,
-  };
-}
-
-function molotov(partial: Partial<GrenadeThrow> = {}): GrenadeThrow {
-  return {
-    thrower: 0,
-    kind: "molotov",
-    start_tick: 80,
-    detonate_tick: 100,
-    end_tick: 100 + 64 * 7,
-    points: [],
-    ...partial,
-  };
-}
-
 describe("nadeVisibleEnd", () => {
   it("caps a stretched end_tick at 18s from pop", () => {
     const g = smoke({ end_tick: 50_000 });
@@ -183,101 +168,21 @@ describe("nadeLandPos", () => {
   });
 });
 
-function player(index: number, side: Player["start_side"], name: string): Player {
-  return { index, steam_id: index + 1, name, start_side: side };
-}
-
-function round(partial: Partial<Round> & Pick<Round, "number">): Round {
-  return {
-    start_tick: 0,
-    freeze_end_tick: 64,
-    end_tick: 640,
-    winner: "CT",
-    win_reason: 8,
-    score_ct: 0,
-    score_t: 0,
-    is_knife: false,
-    ...partial,
-  };
-}
-
-function emptyTicks(playerCount: number, frameCount: number) {
-  const n = playerCount * frameCount;
-  return {
-    frameCount,
-    playerCount,
-    ticks: new Uint32Array(frameCount),
-    x: new Float32Array(n),
-    y: new Float32Array(n),
-    z: new Float32Array(n),
-    yaw: new Float32Array(n),
-    health: new Uint8Array(n),
-    armor: new Uint8Array(n),
-    flags: new Uint8Array(n),
-    money: new Uint16Array(n),
-    equip: new Uint16Array(n),
-    gear: new Uint16Array(n),
-    primary: new Uint8Array(n),
-    secondary: new Uint8Array(n),
-  };
-}
-
-function replay(partial: Partial<Replay> = {}): Replay {
-  return {
-    header: {
-      map_name: "de_anubis",
-      tick_rate: 64,
-      tick_stride: 4,
-      duration_s: 10,
-      playback_ticks: 1920,
-      team_ct: "CT",
-      team_t: "T",
-      score_ct: 0,
-      score_t: 0,
-    },
-    players: [player(0, "CT", "A"), player(1, "T", "B")],
-    rounds: [round({ number: 1 })],
-    grenades: [],
-    shots: [],
-    kills: [],
-    hurts: [],
-    blinds: [],
-    bombEvents: [],
-    stats: [],
-    ticks: emptyTicks(0, 0),
-    ...partial,
-  };
-}
-
-function kill(partial: Partial<Kill> & Pick<Kill, "tick" | "attacker" | "victim">): Kill {
-  return {
-    assister: -1,
-    weapon: "ak47",
-    headshot: false,
-    assisted_flash: false,
-    x: 0,
-    y: 0,
-    z: 0,
-    ...partial,
-  };
-}
-
 describe("nadesForSummary", () => {
   it("drops knife-round nades and draws smokes under flashes", () => {
-    const flash: GrenadeThrow = {
-      thrower: 0,
+    const flash = makeGrenade({
       kind: "flash",
       start_tick: 200,
       detonate_tick: 220,
       end_tick: 240,
       points: [{ tick: 220, x: 1, y: 1, z: 0 }],
-    };
+    });
     const knifeSmoke = smoke({ start_tick: 10, detonate_tick: 20 });
     const liveSmoke = smoke({ start_tick: 200, detonate_tick: 220 });
-    const m = replay({
+    const m = makeReplay({
       rounds: [
-        round({ number: 0, is_knife: true, start_tick: 0, end_tick: 100 }),
-        round({ number: 1, start_tick: 100, freeze_end_tick: 164, end_tick: 640 }),
+        makeRound({ number: 0, is_knife: true, start_tick: 0, end_tick: 100 }),
+        makeRound({ number: 1, start_tick: 100, freeze_end_tick: 164, end_tick: 640 }),
       ],
       grenades: [flash, knifeSmoke, liveSmoke],
     });
@@ -286,15 +191,14 @@ describe("nadesForSummary", () => {
 
   it("filters summary nades by kind and thrower side", () => {
     const tSmoke = smoke({ thrower: 1, start_tick: 200, detonate_tick: 220 });
-    const ctFlash: GrenadeThrow = {
-      thrower: 0,
+    const ctFlash = makeGrenade({
       kind: "flash",
       start_tick: 200,
       detonate_tick: 220,
       end_tick: 240,
       points: [{ tick: 220, x: 1, y: 1, z: 0 }],
-    };
-    const m = replay({
+    });
+    const m = makeReplay({
       grenades: [tSmoke, ctFlash],
     });
     expect(
@@ -314,7 +218,7 @@ describe("nadesForSummary", () => {
 
 describe("killLineEnds", () => {
   it("draws attacker to victim for an enemy frag", () => {
-    const ticks = emptyTicks(2, 1);
+    const ticks = makeTicks(2, 1);
     ticks.ticks[0] = 100;
     ticks.x[0] = 0;
     ticks.y[0] = 0;
@@ -322,8 +226,8 @@ describe("killLineEnds", () => {
     ticks.y[1] = 0;
     ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
     ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
-    const m = replay({ ticks });
-    const line = killLineEnds(m, kill({ tick: 100, attacker: 0, victim: 1, x: 200, y: 0 }));
+    const m = makeReplay({ ticks });
+    const line = killLineEnds(m, makeKill(100, 0, 1, { x: 200 }));
     expect(line).toEqual({
       from: { x: 0, y: 0 },
       to: { x: 200, y: 0 },
@@ -332,35 +236,26 @@ describe("killLineEnds", () => {
   });
 
   it("skips suicides, teamkills, and point-blank overlap", () => {
-    const ticks = emptyTicks(2, 1);
+    const ticks = makeTicks(2, 1);
     ticks.ticks[0] = 100;
     ticks.x[0] = 0;
     ticks.x[1] = 8;
     ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
     ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
-    const m = replay({ ticks });
-    expect(killLineEnds(m, kill({ tick: 100, attacker: 0, victim: 0, x: 0, y: 0 }))).toBeNull();
-    expect(killLineEnds(m, kill({ tick: 100, attacker: 0, victim: 1, x: 8, y: 0 }))).toBeNull();
+    const m = makeReplay({ ticks });
+    expect(killLineEnds(m, makeKill(100, 0, 0))).toBeNull();
+    expect(killLineEnds(m, makeKill(100, 0, 1, { x: 8 }))).toBeNull();
     ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
     ticks.x[1] = KILL_LINE_MIN_LENGTH - 1;
-    expect(
-      killLineEnds(
-        m,
-        kill({ tick: 100, attacker: 0, victim: 1, x: KILL_LINE_MIN_LENGTH - 1, y: 0 }),
-      ),
-    ).toBeNull();
+    expect(killLineEnds(m, makeKill(100, 0, 1, { x: KILL_LINE_MIN_LENGTH - 1 }))).toBeNull();
   });
 });
 
 describe("openingDuel", () => {
   it("is the first enemy kill of the round, not a teamkill", () => {
-    const m = replay({
-      players: [player(0, "CT", "A"), player(1, "T", "B"), player(2, "CT", "C")],
-      kills: [
-        kill({ tick: 80, attacker: 0, victim: 2, x: 10, y: 0 }),
-        kill({ tick: 120, attacker: 0, victim: 1, x: 200, y: 0 }),
-        kill({ tick: 180, attacker: 1, victim: 0, x: 0, y: 0 }),
-      ],
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "CT", "C")],
+      kills: [makeKill(80, 0, 2, { x: 10 }), makeKill(120, 0, 1, { x: 200 }), makeKill(180, 1, 0)],
     });
     const r = m.rounds[0];
     expect(openingDuel(m, r, 110)).toBeNull();

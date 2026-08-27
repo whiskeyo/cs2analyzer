@@ -10,63 +10,15 @@ import {
   type ReviewProject,
 } from "./projectStore";
 import type { Replay } from "@/lib/replay/replayTypes";
+import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
 
+/** `matchKey` reads the map, round count, and sorted Steam IDs. */
 function replay(): Replay {
-  return {
-    header: {
-      map_name: "de_mirage",
-      tick_rate: 64,
-      tick_stride: 4,
-      duration_s: 10,
-      playback_ticks: 1920,
-      team_ct: "A",
-      team_t: "B",
-      score_ct: 0,
-      score_t: 0,
-    },
-    players: [
-      { index: 0, steam_id: 100, name: "A", start_side: "CT" },
-      { index: 1, steam_id: 50, name: "B", start_side: "T" },
-    ],
-    rounds: [
-      {
-        number: 1,
-        start_tick: 0,
-        freeze_end_tick: 64,
-        end_tick: 640,
-        winner: "CT",
-        win_reason: 8,
-        score_ct: 0,
-        score_t: 0,
-        is_knife: false,
-      },
-    ],
-    grenades: [],
-    shots: [],
-    kills: [],
-    hurts: [],
-    blinds: [],
-    bombEvents: [],
-    stats: [],
-    ticks: {
-      frameCount: 0,
-      playerCount: 0,
-      ticks: new Uint32Array(),
-      x: new Float32Array(),
-      y: new Float32Array(),
-      z: new Float32Array(),
-      yaw: new Float32Array(),
-      health: new Uint8Array(),
-      armor: new Uint8Array(),
-      flags: new Uint8Array(),
-      money: new Uint16Array(),
-      equip: new Uint16Array(),
-      gear: new Uint16Array(),
-      primary: new Uint8Array(),
-      secondary: new Uint8Array(),
-    },
-  };
+  return makeReplay({
+    header: { map_name: "de_mirage", team_ct: "A", team_t: "B" },
+    players: [makePlayer(0, "CT", "A", 100), makePlayer(1, "T", "B", 50)],
+  });
 }
 
 function project(partial: Partial<ReviewProject> = {}): ReviewProject {

@@ -1,20 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { freezeWidth, markLabelShift, roundScrubRange, roundTimelineMarks } from "./roundTimeline";
 import type { Round } from "@/lib/replay/replayTypes";
+import { makeRound } from "@/lib/testing/fixtures";
 
+/** A full 25s round so the 10s timeline marks have somewhere to land. */
 function round(partial: Partial<Round> = {}): Round {
-  return {
-    number: 1,
-    start_tick: 0,
-    freeze_end_tick: 64,
-    end_tick: 64 + 64 * 25,
-    winner: "CT",
-    win_reason: 8,
-    score_ct: 1,
-    score_t: 0,
-    is_knife: false,
-    ...partial,
-  };
+  return makeRound({ number: 1, end_tick: 64 + 64 * 25, score_ct: 1, ...partial });
 }
 
 const fallback = { min: 0, max: 50_000 };

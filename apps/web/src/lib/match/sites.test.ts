@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LayoutCallout, MapLayout } from "@/lib/radar/layouts";
-import type { MapCalibration } from "@/lib/replay/replayTypes";
+import { makeCallout, makePlaces } from "@/lib/testing/fixtures";
 import {
   layoutSiteFilters,
   nearerBombsite,
@@ -11,37 +10,14 @@ import {
   siteAt,
   siteFromName,
   calloutsInLocation,
-  type MapPlaces,
 } from "./sites";
 
-function rect(id: string, name: string, x: number, y: number, w: number, h: number): LayoutCallout {
-  return {
-    id,
-    name,
-    floor: "default",
-    polygon: [
-      { x, y },
-      { x: x + w, y },
-      { x: x + w, y: y + h },
-      { x, y: y + h },
-    ],
-  };
-}
-
-/** world (x, y) → radar (x, 1024 - y) */
-const UNIT_CAL: MapCalibration = { pos_x: 0, pos_y: 1024, scale: 1, radar: "test.png" };
-
-function placesWith(callouts: LayoutCallout[]): MapPlaces {
-  const layout: MapLayout = { schema: 1, map: "de_test", callouts };
-  return { layout, cal: UNIT_CAL };
-}
-
-const fixture = placesWith([
-  rect("a", "A Site", 0, 0, 100, 100),
-  rect("palace", "Palace", 120, 0, 60, 60),
-  rect("b", "B Site", 800, 800, 100, 100),
-  rect("mid", "Mid", 400, 400, 100, 100),
-  rect("spawn", "T Spawn", 0, 900, 50, 50),
+const fixture = makePlaces([
+  makeCallout("a", "A Site", 0, 0, 100, 100),
+  makeCallout("palace", "Palace", 120, 0, 60, 60),
+  makeCallout("b", "B Site", 800, 800, 100, 100),
+  makeCallout("mid", "Mid", 400, 400, 100, 100),
+  makeCallout("spawn", "T Spawn", 0, 900, 50, 50),
 ]);
 
 /** Radar (50, 50) */
@@ -72,7 +48,7 @@ describe("siteFromName", () => {
 
 describe("siteAt", () => {
   it("returns null when the layout has no callouts", () => {
-    expect(siteAt(placesWith([]), A_WORLD.x, A_WORLD.y)).toBeNull();
+    expect(siteAt(makePlaces([]), A_WORLD.x, A_WORLD.y)).toBeNull();
     expect(siteAt(null, A_WORLD.x, A_WORLD.y)).toBeNull();
   });
 

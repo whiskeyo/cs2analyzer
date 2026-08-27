@@ -26,6 +26,7 @@ import {
   withMoment,
 } from "@/lib/notes";
 import type { Round } from "@/lib/replay/replayTypes";
+import { makeRound } from "@/lib/testing/fixtures";
 import type { Stroke } from "./types";
 
 function pen(
@@ -44,17 +45,7 @@ function pen(
 }
 
 function round(number: number): Round {
-  return {
-    number,
-    start_tick: 0,
-    freeze_end_tick: 64,
-    end_tick: 640,
-    winner: "CT",
-    win_reason: 8,
-    score_ct: 0,
-    score_t: 0,
-    is_knife: false,
-  };
+  return makeRound({ number });
 }
 
 describe("overlayVisible", () => {
