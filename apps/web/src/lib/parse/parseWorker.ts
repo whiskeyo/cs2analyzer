@@ -17,9 +17,19 @@ import type {
 
 let wasmReady: Promise<void> | null = null;
 
+/** Bytes, not a Response — OVH/Cloudflare omit `application/wasm`, and wasm-bindgen would warn. */
+async function loadWasm(): Promise<void> {
+  const url = new URL("../../parser/cs2analyzer_wasm_bg.wasm", import.meta.url);
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`failed to fetch Wasm: ${res.status} ${res.statusText}`);
+  }
+  await init({ module_or_path: await res.arrayBuffer() });
+}
+
 function ensureWasm(): Promise<void> {
   if (!wasmReady) {
-    wasmReady = init().then(() => undefined);
+    wasmReady = loadWasm();
   }
   return wasmReady;
 }

@@ -1,12 +1,26 @@
 import react from "@vitejs/plugin-react";
+import { copyFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
+const root = fileURLToPath(new URL(".", import.meta.url));
 const src = fileURLToPath(new URL("./src", import.meta.url));
+
+/** Vite's public copy can skip dotfiles; Apache on OVH still needs this name. */
+function copyHtaccess() {
+  return {
+    name: "copy-htaccess",
+    closeBundle() {
+      const from = `${root}public/.htaccess`;
+      const to = `${root}dist/.htaccess`;
+      if (existsSync(from)) copyFileSync(from, to);
+    },
+  };
+}
 
 export default defineConfig({
   base: process.env.VITE_BASE || "/",
-  plugins: [react()],
+  plugins: [react(), copyHtaccess()],
   resolve: {
     alias: {
       "@": src,

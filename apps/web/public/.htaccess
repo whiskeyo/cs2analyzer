@@ -1,6 +1,13 @@
 AddType application/wasm .wasm
 
+<FilesMatch "\.wasm$">
+  ForceType application/wasm
+</FilesMatch>
+
 <IfModule mod_headers.c>
+  <FilesMatch "\.wasm$">
+    Header set Content-Type "application/wasm"
+  </FilesMatch>
   <Files "index.html">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
   </Files>
