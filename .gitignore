@@ -3,6 +3,7 @@
 apps/web/node_modules
 apps/web/dist
 apps/web/*.tsbuildinfo
+apps/web/coverage
 apps/layouts/node_modules
 apps/layouts/dist
 apps/layouts/*.tsbuildinfo

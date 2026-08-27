@@ -16,7 +16,31 @@ export default defineConfig({
     format: "es",
   },
   test: {
-    environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // `.test.ts` is pure logic and stays on the fast node path;
+    // `.test.tsx` renders components and needs a DOM.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "logic",
+          environment: "node",
+          include: ["src/**/*.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "dom",
+          environment: "jsdom",
+          include: ["src/**/*.test.tsx"],
+          setupFiles: ["src/lib/testing/setup.ts"],
+        },
+      },
+    ],
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/parser/**", "src/lib/testing/**", "src/**/*.test.{ts,tsx}", "src/main.tsx"],
+    },
   },
 });
