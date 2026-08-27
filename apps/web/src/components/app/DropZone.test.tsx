@@ -13,7 +13,6 @@ function props(overrides: Partial<Parameters<typeof DropZone>[0]> = {}) {
     onFile: noop,
     onExportNotes: noop,
     onDeleteNotes: noop,
-    onWantDemo: noop,
     parsing: false,
     progress: null,
     error: null,
@@ -72,12 +71,58 @@ describe("DropZone", () => {
   });
 
   it("lists saved notes and asks for the demo that matches them", async () => {
-    const onWantDemo = vi.fn();
-    render(<DropZone {...props({ saved: [savedProject()], onWantDemo })} />);
+    render(<DropZone {...props({ saved: [savedProject()] })} />);
 
     expect(screen.getByText("Mirage")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
     await userEvent.click(screen.getByText("a.dem"));
-    expect(onWantDemo).toHaveBeenCalledWith("a.dem");
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Drop a.dem here to restore those drawings");
+
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("prints the scorecard on a saved note and keeps end-of-game stats for hover", () => {
+    render(
+      <DropZone
+        {...props({
+          saved: [
+            savedProject({
+              mapName: "de_inferno",
+              fileName: "eyeballers-vs-phantom-m2-inferno.dem",
+              scorecard: {
+                teamA: "EYEBALLERS",
+                teamB: "Phantom",
+                scoreA: 17,
+                scoreB: 19,
+                firstHalf: { a: 6, b: 6 },
+                secondHalf: { a: 6, b: 6 },
+                overtime: { a: 5, b: 7 },
+              },
+              playerStats: [
+                {
+                  name: "s1mple",
+                  start_side: "CT",
+                  kills: 24,
+                  deaths: 18,
+                  adr: 88,
+                  kast: 72,
+                  rating: 1.23,
+                },
+              ],
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("Inferno: EYEBALLERS - Phantom, 17:19 (6:6, 6:6, OT 5:7)"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("s1mple")).toBeInTheDocument();
+    expect(screen.getByText("1.23")).toBeInTheDocument();
   });
 
   it("deletes saved notes by key", async () => {
@@ -94,5 +139,40 @@ describe("DropZone", () => {
 
     rerender(<DropZone {...props({ saved: [savedProject()] })} />);
     expect(screen.getByRole("button", { name: "Export notes" })).toBeEnabled();
+  });
+
+  it("paginates saved notes ten at a time", async () => {
+    const saved = Array.from({ length: 11 }, (_, i) =>
+      savedProject({
+        key: `de_mirage|1|50,100|${i}.dem`,
+        fileName: `${i}.dem`,
+      }),
+    );
+    render(<DropZone {...props({ saved })} />);
+
+    expect(screen.getByText("0.dem")).toBeInTheDocument();
+    expect(screen.queryByText("10.dem")).not.toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("10.dem")).toBeInTheDocument();
+    expect(screen.queryByText("0.dem")).not.toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+  });
+
+  it("links GitHub, Issues, and Donate in the footer", () => {
+    render(<DropZone {...props()} />);
+    expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+      "href",
+      "https://github.com/whiskeyo/cs2analyzer",
+    );
+    expect(screen.getByRole("link", { name: "Issues" })).toHaveAttribute(
+      "href",
+      "https://github.com/whiskeyo/cs2analyzer/issues",
+    );
+    expect(screen.getByRole("link", { name: "Donate" })).toHaveAttribute(
+      "href",
+      "https://steamcommunity.com/tradeoffer/new/?partner=69520211&token=YCinud5X",
+    );
   });
 });

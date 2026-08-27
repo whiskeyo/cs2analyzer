@@ -17,9 +17,6 @@ export function Splash() {
         onDeleteNotes={(key) => {
           void deleteProject(key).then(review.refreshSaved);
         }}
-        onWantDemo={(name) =>
-          status.setNotice(`Drop ${name} to restore those notes. The demo itself is not stored.`)
-        }
       />
     </div>
   );

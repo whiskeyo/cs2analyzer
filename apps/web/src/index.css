@@ -23,16 +23,30 @@ body,
   flex-direction: column;
 }
 .app.splash {
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow: auto;
 }
 
 .home {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1.25rem;
-  width: min(560px, 92vw);
+  align-items: stretch;
+  gap: 1.5rem;
+  flex: 1 0 auto;
+  min-height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 1.5rem 0 1.25rem;
+}
+
+.home-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  width: min(1100px, 94vw);
+  margin: auto auto 0;
 }
 
 .drop {
@@ -75,16 +89,58 @@ body,
   color: #6aa4d8;
 }
 .credits {
+  margin-top: auto;
   color: #6b7785;
   font-size: 0.75rem;
   line-height: 1.5;
   text-align: center;
+  padding: 1.25rem 3vw 0;
+  border-top: 1px solid #1e2732;
 }
 .credits p {
   margin: 0 0 0.35rem;
 }
 .credits a {
   color: #8b98a5;
+}
+.credits-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.8rem;
+}
+.credits-links a {
+  color: #c5d0da;
+}
+.home-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.55);
+}
+.home-modal-card {
+  width: min(420px, 100%);
+  padding: 1.25rem 1.35rem 1.1rem;
+  border: 1px solid #2c3846;
+  border-radius: 10px;
+  background: #12171d;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+.home-modal-card h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+  font-weight: 650;
+}
+.home-modal-card p {
+  margin: 0 0 1rem;
+  color: #c5d0da;
+  font-size: 0.9rem;
 }
 .error {
   color: #ff6b6b;
@@ -95,11 +151,11 @@ body,
 }
 .home-notes {
   width: 100%;
-  text-align: center;
+  text-align: left;
 }
 .home-notes-actions {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   margin-top: 0.45rem;
 }
@@ -119,7 +175,6 @@ body,
   padding: 0;
   border: 1px solid #1e2732;
   border-radius: 8px;
-  overflow: hidden;
   background: #12171d;
 }
 .saved-demos li {
@@ -133,6 +188,7 @@ body,
 .saved-demo {
   flex: 1;
   min-width: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -163,12 +219,57 @@ body,
   font-size: 0.7rem;
   color: #8b98a5;
 }
+.saved-demo-stats {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: calc(100% - 2px);
+  z-index: 6;
+  min-width: 280px;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid #2c3846;
+  border-radius: 6px;
+  background: #10151b;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.saved-demo:hover .saved-demo-stats,
+.saved-demo:focus-visible .saved-demo-stats {
+  display: block;
+}
+.saved-demo-stats table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+.saved-demo-stats th,
+.saved-demo-stats td {
+  padding: 0.12rem 0.35rem;
+  text-align: right;
+}
+.saved-demo-stats th:first-child,
+.saved-demo-stats td:first-child {
+  text-align: left;
+}
+.saved-demo-stats th {
+  color: #8b98a5;
+  font-weight: 550;
+}
 .saved-demo-del {
   flex-shrink: 0;
   align-self: center;
   margin-right: 0.45rem;
   font-size: 0.72rem;
   padding: 0.2rem 0.45rem;
+}
+.saved-demos-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  margin-top: 0.65rem;
+  font-size: 0.75rem;
+  color: #8b98a5;
 }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -349,7 +450,7 @@ code {
 .radar-wrap {
   position: absolute;
   inset: 0;
-  background: #0d1116;
+  background: #0b0e12;
   overflow: hidden;
 }
 .radar-wrap canvas {
@@ -1694,8 +1795,8 @@ button.link {
   max-width: 18px;
 }
 .headshot-icon {
-  height: 11px;
-  width: 11px;
+  height: 14px;
+  width: 14px;
   object-fit: contain;
 }
 .wep-fallback {
@@ -1947,6 +2048,9 @@ button.link {
 }
 
 @media (max-width: 900px) {
+  .home-main {
+    grid-template-columns: 1fr;
+  }
   .stage {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr auto;
