@@ -173,7 +173,7 @@ export function RadarCanvas({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = "#0d1116";
+      ctx.fillStyle = "#0b0e12";
       ctx.fillRect(0, 0, w, h);
 
       const tickNow = tickRef.current;
@@ -209,6 +209,9 @@ export function RadarCanvas({
       const img = frame.useLowerFloor ? images.current.lower : images.current.upper;
 
       ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, w, h);
+      ctx.clip();
       const pad = 16;
       const fit = Math.min(w, h) - pad * 2;
       const baseX = (w - fit) / 2 + v.ox;
