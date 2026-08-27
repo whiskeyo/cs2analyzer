@@ -103,6 +103,15 @@ describe("DropZone", () => {
               },
               playerStats: [
                 {
+                  name: "device",
+                  start_side: "T",
+                  kills: 12,
+                  deaths: 20,
+                  adr: 60,
+                  kast: 55,
+                  rating: 0.81,
+                },
+                {
                   name: "s1mple",
                   start_side: "CT",
                   kills: 24,
@@ -121,8 +130,9 @@ describe("DropZone", () => {
     expect(
       screen.getByText("Inferno: EYEBALLERS - Phantom, 17:19 (6:6, 6:6, OT 5:7)"),
     ).toBeInTheDocument();
-    expect(screen.getByText("s1mple")).toBeInTheDocument();
-    expect(screen.getByText("1.23")).toBeInTheDocument();
+    const rows = screen.getAllByRole("row");
+    expect(rows[1]).toHaveTextContent(/^s1mple/);
+    expect(rows[2]).toHaveTextContent(/^device/);
   });
 
   it("deletes saved notes by key", async () => {

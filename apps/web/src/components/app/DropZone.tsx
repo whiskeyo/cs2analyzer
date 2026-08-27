@@ -34,10 +34,7 @@ function noteTitle(p: ReviewProject): string {
 }
 
 function sortedSnapshots(rows: SavedPlayerSnapshot[]): SavedPlayerSnapshot[] {
-  return [...rows].sort((a, b) => {
-    if (a.start_side !== b.start_side) return a.start_side === "CT" ? -1 : 1;
-    return b.rating - a.rating;
-  });
+  return [...rows].sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
 }
 
 function takeDroppedFile(e: DragEvent, onFile: (file: File) => void): void {
