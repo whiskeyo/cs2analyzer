@@ -1,4 +1,9 @@
-import { RADAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "./constants";
+import {
+  RADAR_MIN_WIDTH,
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+} from "./constants";
 
 export const SIDEBAR_WIDTH_STORAGE_KEY = "cs2analyzer.sidebarWidth";
 
@@ -12,10 +17,10 @@ export function clampSidebarWidth(width: number, stageWidth: number): number {
 export function loadSidebarWidth(): number {
   try {
     const raw = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
-    if (raw == null) return SIDEBAR_MIN_WIDTH;
+    if (raw == null) return SIDEBAR_DEFAULT_WIDTH;
     return clampSidebarWidth(Number(raw), Number.POSITIVE_INFINITY);
   } catch {
-    return SIDEBAR_MIN_WIDTH;
+    return SIDEBAR_DEFAULT_WIDTH;
   }
 }
 

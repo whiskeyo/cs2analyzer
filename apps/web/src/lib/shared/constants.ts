@@ -141,6 +141,7 @@ export const PROJECT_SAVE_DEBOUNCE_MS = 400;
 
 /** Side panel: current layout is the floor; drag left to grow (CSS px). */
 export const SIDEBAR_MIN_WIDTH = 400;
+export const SIDEBAR_DEFAULT_WIDTH = 480;
 export const SIDEBAR_MAX_WIDTH = 640;
 
 /** Leave at least this much of `.stage` for the radar while resizing. */

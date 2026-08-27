@@ -125,7 +125,7 @@ body,
   background: rgba(0, 0, 0, 0.55);
 }
 .home-modal-card {
-  width: min(420px, 100%);
+  width: min(560px, 100%);
   padding: 1.25rem 1.35rem 1.1rem;
   border: 1px solid #2c3846;
   border-radius: 10px;

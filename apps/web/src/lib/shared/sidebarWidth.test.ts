@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { RADAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "./constants";
-import { clampSidebarWidth } from "./sidebarWidth";
+import {
+  RADAR_MIN_WIDTH,
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+} from "./constants";
+import { clampSidebarWidth, loadSidebarWidth } from "./sidebarWidth";
 
 describe("clampSidebarWidth", () => {
   it("keeps the current layout as the floor", () => {
@@ -20,5 +25,11 @@ describe("clampSidebarWidth", () => {
 
   it("falls back to the floor on bad input", () => {
     expect(clampSidebarWidth(Number.NaN, 1600)).toBe(SIDEBAR_MIN_WIDTH);
+  });
+});
+
+describe("loadSidebarWidth", () => {
+  it("starts at the default when nothing is stored", () => {
+    expect(loadSidebarWidth()).toBe(SIDEBAR_DEFAULT_WIDTH);
   });
 });
