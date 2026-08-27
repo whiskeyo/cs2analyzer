@@ -109,28 +109,28 @@ Demos do not store full bullet physics — tracers follow `weapon_fire` look dir
 
 web app:
 
-- [ ] make the killfeed stay a little bit longer
-- [ ] change the "headshot" icon on the killfeed, currently it's not really readable
-- [ ] add steam trade link as a "donation" form
-- [ ] somehow organize the main page so it looks nicer - having everything centered (as it is now) is fine, but with the growing list of saved notes, it's quite annoying; 
+- [x] make the killfeed stay a little bit longer
+- [x] change the "headshot" icon on the killfeed, currently it's not really readable
+- [x] add steam trade link as a "donation" form
+- [x] somehow organize the main page so it looks nicer - having everything centered (as it is now) is fine, but with the growing list of saved notes, it's quite annoying; 
       maybe left-right layout with notes split into 10-item pages would be good? then the bottom of the page could be used for copyright, vendor information, github link etc.
 - [ ] maybe introduce some kind of user settings so it's easier to configure everything how user likes it; at this point i have no particular idea about it, so i'm open for suggestions
-- [ ] link github repo (after it's set to public), link to Issues for reporting bugs, the template for bug reports
+- [x] link github repo (after it's set to public), link to Issues for reporting bugs, the template for bug reports
 - [ ] multi-demo environment: overlaying a few demos of the same team would allow tracking the same player's behaviors -> how to do it? can it be executed multi-threaded? 
       how to map different kinds of rounds/plays from different matches? e.g.
       -> game A starts with player X starting on T side; which means CT side starts in R13, so CT pistol = R13, but in game B the player X starts on CT side, so CT pistol = R1
       -> game A has 2 eco rounds where player X was playing in CT, but in game B there are 0 eco rounds (do not count pistol!!!), and in game C there are 3 eco rounds
       -> in game A player X throws similar set of grenades, in game B the same grenades are utilized, but in game C his behavior is completely different
       how would it store the data efficiently, to allow moving between demos? what's the hard limit of concurrent demos that could be analyzed?
-- [ ] in saved notes, instead of printing the map name only (apart from the demo name, etc.), print more data, it could look like this:
+- [x] in saved notes, instead of printing the map name only (apart from the demo name, etc.), print more data, it could look like this:
 
       Inferno: EYEBALLERS - Phantom, 17:19 (6:6, 6:6, OT 5:7)
       eyeballers-vs-phantom-m2-inferno.dem
       163 drawings - 09.08.2026, 12:33:12
 
       Also, hovering the note could show the final stats of players at the end of the game 
-- [ ] moving far away from the map shows the "outline" of png - remove it
-- [ ] find out what causes issues printed to console on the deployed page:
+- [x] moving far away from the map shows the "outline" of png - remove it
+- [x] find out what causes issues printed to console on the deployed page:
 
       ```log
       Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
@@ -141,6 +141,8 @@ web app:
       parseWorker-D_yCwlkP.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
       TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
       ```
+
+      (extension noise; OVH was not serving `.wasm` as `application/wasm`; hashed CSS 404 from a stale `index.html`. `.htaccess` is in `apps/web/public/` — confirm on the next live deploy.)
 
 layout/callouts dev app:
 
