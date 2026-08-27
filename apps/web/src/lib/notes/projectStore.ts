@@ -1,9 +1,11 @@
 import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
 import { COLOR_PRESETS } from "./palettes";
 import type { GrenadeKind, Replay } from "@/lib/replay/replayTypes";
+import type { MatchScorecard, SavedPlayerSnapshot } from "@/lib/stats/stats";
 import { DEFAULT_SUMMARY_FILTER, type FloorMode, type Stroke, type SummaryFilter } from "./types";
 
-export const PROJECT_SCHEMA = 1;
+export const PROJECT_SCHEMA = 2;
+const MIN_PROJECT_SCHEMA = 1;
 const DB_NAME = "cs2analyzer";
 const DB_VERSION = 1;
 const STORE = "projects";
@@ -22,6 +24,8 @@ export interface ReviewProject {
   floorMode: FloorMode;
   paletteId: string;
   color: string;
+  scorecard?: MatchScorecard;
+  playerStats?: SavedPlayerSnapshot[];
 }
 
 export interface ProjectBundle {
@@ -133,10 +137,64 @@ function parseFloor(v: unknown): FloorMode {
   return v === "upper" || v === "lower" || v === "auto" ? v : "auto";
 }
 
+function isProjectSchema(v: unknown): v is number {
+  return typeof v === "number" && v >= MIN_PROJECT_SCHEMA && v <= PROJECT_SCHEMA;
+}
+
+function parseHalf(v: unknown): MatchScorecard["firstHalf"] {
+  if (!v || typeof v !== "object") return null;
+  const o = v as { a?: unknown; b?: unknown };
+  if (typeof o.a !== "number" || typeof o.b !== "number") return null;
+  if (!Number.isFinite(o.a) || !Number.isFinite(o.b)) return null;
+  return { a: o.a, b: o.b };
+}
+
+function parseScorecard(v: unknown): MatchScorecard | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const o = v as Record<string, unknown>;
+  if (typeof o.teamA !== "string" || typeof o.teamB !== "string") return undefined;
+  if (typeof o.scoreA !== "number" || typeof o.scoreB !== "number") return undefined;
+  if (!Number.isFinite(o.scoreA) || !Number.isFinite(o.scoreB)) return undefined;
+  return {
+    teamA: o.teamA,
+    teamB: o.teamB,
+    scoreA: o.scoreA,
+    scoreB: o.scoreB,
+    firstHalf: parseHalf(o.firstHalf),
+    secondHalf: parseHalf(o.secondHalf),
+    overtime: parseHalf(o.overtime),
+  };
+}
+
+function parsePlayerStats(v: unknown): SavedPlayerSnapshot[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: SavedPlayerSnapshot[] = [];
+  for (const row of v) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    if (typeof o.name !== "string") continue;
+    if (o.start_side !== "CT" && o.start_side !== "T") continue;
+    if (typeof o.kills !== "number" || typeof o.deaths !== "number") continue;
+    if (typeof o.adr !== "number" || typeof o.kast !== "number" || typeof o.rating !== "number") {
+      continue;
+    }
+    out.push({
+      name: o.name,
+      start_side: o.start_side,
+      kills: o.kills,
+      deaths: o.deaths,
+      adr: o.adr,
+      kast: o.kast,
+      rating: o.rating,
+    });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 export function parseProject(raw: unknown): ReviewProject | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
-  if (o.schema !== PROJECT_SCHEMA || typeof o.key !== "string") return null;
+  if (!isProjectSchema(o.schema) || typeof o.key !== "string") return null;
   if (typeof o.fileName !== "string" || typeof o.mapName !== "string") return null;
   if (!Array.isArray(o.strokes)) return null;
   const strokes: Stroke[] = [];
@@ -149,6 +207,8 @@ export function parseProject(raw: unknown): ReviewProject | null {
       ? o.paletteId
       : defaultPaletteId();
   const color = typeof o.color === "string" ? o.color : defaultColor();
+  const scorecard = parseScorecard(o.scorecard);
+  const playerStats = parsePlayerStats(o.playerStats);
   return {
     schema: PROJECT_SCHEMA,
     key: o.key,
@@ -161,6 +221,8 @@ export function parseProject(raw: unknown): ReviewProject | null {
     floorMode: parseFloor(o.floorMode),
     paletteId,
     color,
+    ...(scorecard ? { scorecard } : {}),
+    ...(playerStats ? { playerStats } : {}),
   };
 }
 
@@ -168,7 +230,7 @@ export function parseBundle(raw: unknown): ProjectBundle | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   if (Array.isArray(o.projects)) {
-    if (o.schema !== PROJECT_SCHEMA) return null;
+    if (!isProjectSchema(o.schema)) return null;
     const projects: ReviewProject[] = [];
     for (const p of o.projects) {
       const proj = parseProject(p);

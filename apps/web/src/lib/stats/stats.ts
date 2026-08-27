@@ -219,6 +219,121 @@ function computeLiveTeams(replay: Replay, tick: number): LiveTeams {
   return { ...score, ctName, tName };
 }
 
+export interface MatchHalfScore {
+  a: number;
+  b: number;
+}
+
+/** Starting-side scorecard for a saved-note card (team A started CT). */
+export interface MatchScorecard {
+  teamA: string;
+  teamB: string;
+  scoreA: number;
+  scoreB: number;
+  firstHalf: MatchHalfScore | null;
+  secondHalf: MatchHalfScore | null;
+  overtime: MatchHalfScore | null;
+}
+
+export interface SavedPlayerSnapshot {
+  name: string;
+  start_side: Side;
+  kills: number;
+  deaths: number;
+  adr: number;
+  kast: number;
+  rating: number;
+}
+
+function emptyHalf(): MatchHalfScore {
+  return { a: 0, b: 0 };
+}
+
+/** Last tick that still belongs to a played round (or the last sampled frame). */
+export function matchEndTick(replay: Replay): number {
+  let max = 0;
+  for (const r of replay.rounds) {
+    if (r.end_tick > max) max = r.end_tick;
+  }
+  if (replay.ticks.frameCount > 0) {
+    const last = replay.ticks.ticks[replay.ticks.frameCount - 1] ?? 0;
+    if (last > max) max = last;
+  }
+  return max;
+}
+
+/**
+ * Wins for the teams that started CT / T, split by regulation half and OT.
+ * Empty halves are omitted so a pistol-only save does not print `0:0`.
+ */
+export function matchScorecard(replay: Replay, tick: number): MatchScorecard {
+  const firstHalf = emptyHalf();
+  const secondHalf = emptyHalf();
+  const overtime = emptyHalf();
+  let hasFirst = false;
+  let hasSecond = false;
+  let hasOt = false;
+  let scoreA = 0;
+  let scoreB = 0;
+  for (const r of replay.rounds) {
+    if (r.is_knife || r.end_tick > tick) continue;
+    const start = winnerStartingSide(replay, r);
+    if (start !== "CT" && start !== "T") continue;
+    const toA = start === "CT";
+    if (toA) scoreA += 1;
+    else scoreB += 1;
+    const n = r.number;
+    if (n <= 0) continue;
+    if (n <= REGULATION_ROUNDS_PER_HALF) {
+      hasFirst = true;
+      if (toA) firstHalf.a += 1;
+      else firstHalf.b += 1;
+    } else if (n <= REGULATION_ROUNDS) {
+      hasSecond = true;
+      if (toA) secondHalf.a += 1;
+      else secondHalf.b += 1;
+    } else {
+      hasOt = true;
+      if (toA) overtime.a += 1;
+      else overtime.b += 1;
+    }
+  }
+  return {
+    teamA: replay.header.team_ct || "CT",
+    teamB: replay.header.team_t || "T",
+    scoreA,
+    scoreB,
+    firstHalf: hasFirst ? firstHalf : null,
+    secondHalf: hasSecond ? secondHalf : null,
+    overtime: hasOt ? overtime : null,
+  };
+}
+
+export function formatScorecard(card: MatchScorecard): string {
+  const halves: string[] = [];
+  if (card.firstHalf) halves.push(`${card.firstHalf.a}:${card.firstHalf.b}`);
+  if (card.secondHalf) halves.push(`${card.secondHalf.a}:${card.secondHalf.b}`);
+  if (card.overtime) halves.push(`OT ${card.overtime.a}:${card.overtime.b}`);
+  const detail = halves.length > 0 ? ` (${halves.join(", ")})` : "";
+  return `${card.teamA} - ${card.teamB}, ${card.scoreA}:${card.scoreB}${detail}`;
+}
+
+/** Compact end-of-match rows for a saved-note hover. Not the live scoreboard. */
+export function savedPlayerSnapshots(replay: Replay, tick: number): SavedPlayerSnapshot[] {
+  return computeStats(replay, tick).map((s) => {
+    const p = replay.players[s.player];
+    return {
+      name: p?.name ?? "?",
+      start_side: p?.start_side ?? "CT",
+      kills: s.kills,
+      deaths: s.deaths,
+      adr: Math.round(s.adr),
+      kast: Math.round(s.kast),
+      rating: Math.round(s.rating * 100) / 100,
+    };
+  });
+}
+
 function hltvRating(s: PlayerStats): void {
   const r = s.rounds || 1;
   s.kills_per_round = s.kills / r;

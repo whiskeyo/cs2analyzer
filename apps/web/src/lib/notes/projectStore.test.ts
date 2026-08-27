@@ -135,6 +135,43 @@ describe("parseBundle", () => {
     });
   });
 
+  it("loads schema 1 notes and optional score snapshots", () => {
+    const p = parseProject({
+      ...project(),
+      schema: 1,
+      scorecard: {
+        teamA: "EYEBALLERS",
+        teamB: "Phantom",
+        scoreA: 17,
+        scoreB: 19,
+        firstHalf: { a: 6, b: 6 },
+        secondHalf: { a: 6, b: 6 },
+        overtime: { a: 5, b: 7 },
+      },
+      playerStats: [
+        {
+          name: "s1mple",
+          start_side: "CT",
+          kills: 24,
+          deaths: 18,
+          adr: 88,
+          kast: 72,
+          rating: 1.23,
+        },
+      ],
+    });
+    expect(p?.schema).toBe(PROJECT_SCHEMA);
+    expect(p?.scorecard?.scoreA).toBe(17);
+    expect(p?.playerStats?.[0]?.name).toBe("s1mple");
+  });
+
+  it("keeps schema 1 notes that have no score snapshot", () => {
+    const p = parseProject({ ...project(), schema: 1 });
+    expect(p?.key).toBe("de_mirage|1|50,100|a.dem");
+    expect(p?.scorecard).toBeUndefined();
+    expect(p?.playerStats).toBeUndefined();
+  });
+
   it("keeps a bookmark and fills a blank title", () => {
     const p = parseProject({
       ...project(),

@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DRAW_HISTORY_LIMIT, PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
+import { matchEndTick, matchScorecard, savedPlayerSnapshots } from "@/lib/stats/stats";
+import type { LoadedDemo } from "@/lib/parse/session";
+import type { Playback } from "@/lib/playback/usePlayback";
+import type { Status } from "@/lib/state/status";
+import { useResetOn } from "@/lib/state/useResetOn";
 import {
   defaultColor,
   defaultPaletteId,
@@ -13,10 +18,6 @@ import {
   serializeBundle,
   type ReviewProject,
 } from "./projectStore";
-import type { LoadedDemo } from "@/lib/parse/session";
-import type { Playback } from "@/lib/playback/usePlayback";
-import type { Status } from "@/lib/state/status";
-import { useResetOn } from "@/lib/state/useResetOn";
 import { DEFAULT_SUMMARY_FILTER, type FloorMode, type Stroke, type SummaryFilter } from "./types";
 
 function downloadJson(name: string, text: string) {
@@ -171,6 +172,7 @@ export function useReviewProject(opts: {
     (target: LoadedDemo | null) => {
       if (!target) return Promise.resolve();
       const overlay = overlayRef.current;
+      const endTick = matchEndTick(target.replay);
       return saveProject({
         schema: PROJECT_SCHEMA,
         key: matchKey(target.replay, target.fileName),
@@ -183,6 +185,8 @@ export function useReviewProject(opts: {
         floorMode: overlay.floorMode,
         paletteId: overlay.paletteId,
         color: overlay.color,
+        scorecard: matchScorecard(target.replay, endTick),
+        playerStats: savedPlayerSnapshots(target.replay, endTick),
       })
         .then(refreshSaved)
         .catch(() => undefined);
