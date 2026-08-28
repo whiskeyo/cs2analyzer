@@ -3,7 +3,22 @@ import { CalloutPanel } from "@/components/CalloutPanel";
 import { LayoutCanvas } from "@/components/LayoutCanvas";
 import { LayoutToolbar } from "@/components/LayoutToolbar";
 import { loadLayoutFile, saveLayoutFile } from "@/lib/api";
-import { emptyLayout, formatLayout, parseMapLayout } from "@/lib/layout";
+import {
+  emptyLayout,
+  formatLayout,
+  layoutWithCallouts,
+  moveCallout,
+  parseMapLayout,
+  renameLayoutGroup,
+  nudgeLayoutGroup,
+} from "@/lib/layout";
+import {
+  dissolveSmallGroups,
+  canGroupIds,
+  canUngroupIds,
+  groupCallouts,
+  ungroupCallouts,
+} from "@/lib/groups";
 import { loadCalibrations } from "@/lib/maps";
 import type {
   LayoutCallout,
@@ -30,7 +45,7 @@ export function App() {
   const [savedJson, setSavedJson] = useState(() => formatLayout(emptyLayout("de_mirage")));
   const [jsonText, setJsonText] = useState(() => formatLayout(emptyLayout("de_mirage")));
   const [jsonError, setJsonError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [saveNote, setSaveNote] = useState<string | null>(null);
 
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -51,8 +66,11 @@ export function App() {
   floorRef.current = floor;
   const calloutsRef = useRef(layout.callouts);
   calloutsRef.current = layout.callouts;
+  const selectedId = selectedIds[selectedIds.length - 1] ?? null;
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
   const dirty = formatLayout(layout) !== savedJson;
@@ -65,10 +83,22 @@ export function App() {
 
   const onCallouts = useCallback(
     (callouts: LayoutCallout[]) => {
-      replaceLayout({ ...layoutRef.current, callouts });
+      replaceLayout(layoutWithCallouts(layoutRef.current, callouts));
     },
     [replaceLayout],
   );
+
+  const selectCallout = useCallback((id: string | null, additive = false) => {
+    if (!id) {
+      if (!additive) setSelectedIds([]);
+      return;
+    }
+    if (additive) {
+      setSelectedIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+      return;
+    }
+    setSelectedIds([id]);
+  }, []);
 
   const { closeDraft, cancelDraft, onMouseDown, onDoubleClick, onWheel, onContextMenu } =
     useLayoutPointer({
@@ -81,7 +111,7 @@ export function App() {
       draftRef,
       cursorRef,
       onCallouts,
-      onSelect: setSelectedId,
+      onSelect: selectCallout,
     });
 
   useEffect(() => {
@@ -105,7 +135,7 @@ export function App() {
         view.current = { scale: 1, ox: 0, oy: 0, panning: false, dragged: false, lx: 0, ly: 0 };
         draftRef.current = null;
         setFloor("default");
-        setSelectedId(null);
+        setSelectedIds([]);
         setLayout(next);
         const text = formatLayout(next);
         setSavedJson(text);
@@ -128,6 +158,7 @@ export function App() {
         void saveToFolder();
         return;
       }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (typingInField()) return;
       if (e.key === "Enter") {
         e.preventDefault();
@@ -135,11 +166,29 @@ export function App() {
       }
       if (e.key === "Escape") {
         cancelDraft();
-        setSelectedId(null);
+        setSelectedIds([]);
       }
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedIdRef.current) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedIdsRef.current.length > 0) {
         e.preventDefault();
-        deleteCallout(selectedIdRef.current);
+        deleteCallouts(selectedIdsRef.current);
+      }
+      if (e.key.toLowerCase() === "g") {
+        const ids = selectedIdsRef.current;
+        if (canGroupIds(layoutRef.current.callouts, ids)) {
+          e.preventDefault();
+          onCallouts(groupCallouts(layoutRef.current.callouts, ids));
+          setSelectedIds([]);
+        }
+        return;
+      }
+      if (e.key.toLowerCase() === "u") {
+        const ids = selectedIdsRef.current;
+        if (canUngroupIds(layoutRef.current.callouts, ids)) {
+          e.preventDefault();
+          onCallouts(ungroupCallouts(layoutRef.current.callouts, ids));
+          setSelectedIds([]);
+        }
+        return;
       }
       if (e.key === "1") pickTool("pan");
       if (e.key === "2") pickTool("polygon");
@@ -165,18 +214,41 @@ export function App() {
   const cal = maps?.[mapId];
   const mapIds = maps ? Object.keys(maps).sort() : [];
 
-  function deleteCallout(id: string) {
-    const next = layoutRef.current.callouts.filter((c) => c.id !== id);
-    replaceLayout({ ...layoutRef.current, callouts: next });
-    if (selectedIdRef.current === id) setSelectedId(null);
+  function deleteCallouts(ids: string[]) {
+    const drop = new Set(ids);
+    if (drop.size === 0) return;
+    const next = dissolveSmallGroups(layoutRef.current.callouts.filter((c) => !drop.has(c.id)));
+    replaceLayout(layoutWithCallouts(layoutRef.current, next));
+    setSelectedIds((cur) => cur.filter((id) => !drop.has(id)));
   }
 
   function renameCallout(id: string, name: string) {
     if (name.length === 0) return;
-    replaceLayout({
-      ...layoutRef.current,
-      callouts: layoutRef.current.callouts.map((c) => (c.id === id ? { ...c, name } : c)),
-    });
+    replaceLayout(
+      layoutWithCallouts(
+        layoutRef.current,
+        layoutRef.current.callouts.map((c) => (c.id === id ? { ...c, name } : c)),
+      ),
+    );
+  }
+
+  function nudgeCallout(id: string, delta: -1 | 1) {
+    const from = layoutRef.current.callouts.findIndex((c) => c.id === id);
+    if (from < 0) return;
+    replaceLayout(
+      layoutWithCallouts(
+        layoutRef.current,
+        moveCallout(layoutRef.current.callouts, from, from + delta),
+      ),
+    );
+  }
+
+  function renameLayoutGroupName(fromId: string, name: string) {
+    replaceLayout(renameLayoutGroup(layoutRef.current, fromId, name));
+  }
+
+  function nudgeGroup(id: string, delta: -1 | 1) {
+    replaceLayout(nudgeLayoutGroup(layoutRef.current, id, delta));
   }
 
   function pickTool(next: LayoutTool) {
@@ -296,7 +368,7 @@ export function App() {
             floor={floor}
             tool={tool}
             callouts={layout.callouts}
-            selectedId={selectedId}
+            selectedIds={selectedIds}
             wrapRef={wrapRef}
             view={view}
             draftRef={draftRef}
@@ -309,14 +381,18 @@ export function App() {
         </div>
         <CalloutPanel
           layout={layout}
-          selectedId={selectedId}
+          selectedIds={selectedIds}
           jsonText={jsonText}
           jsonError={jsonError}
           dirty={dirty}
           saveNote={saveNote}
-          onSelect={setSelectedId}
+          onSelectedIds={setSelectedIds}
+          onCallouts={onCallouts}
           onRename={renameCallout}
-          onDelete={deleteCallout}
+          onRenameGroup={renameLayoutGroupName}
+          onNudge={nudgeCallout}
+          onNudgeGroup={nudgeGroup}
+          onDelete={deleteCallouts}
           onJsonText={(text) => {
             setJsonText(text);
             setJsonError(null);

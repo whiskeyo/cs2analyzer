@@ -3,6 +3,8 @@ import {
   calloutAtRadar,
   calloutAtWorld,
   distanceToPolygon,
+  layoutGroupFilters,
+  orderedLayoutCallouts,
   parseMapLayout,
   type MapLayout,
 } from "./layouts";
@@ -97,5 +99,133 @@ describe("parseMapLayout", () => {
       callouts: [{ id: "x", name: "X", floor: "default", polygon: [{ x: 1, y: 1 }] }],
     });
     expect(parsed?.callouts).toEqual([]);
+  });
+
+  it("keeps a trimmed optional group when two members share it", () => {
+    const parsed = parseMapLayout({
+      schema: 1,
+      map: "de_dust2",
+      callouts: [
+        {
+          id: "yard",
+          name: "Yard",
+          floor: "default",
+          group: "  A  ",
+          polygon: [
+            { x: 0, y: 0 },
+            { x: 4, y: 0 },
+            { x: 4, y: 4 },
+          ],
+        },
+        {
+          id: "car",
+          name: "Car",
+          floor: "default",
+          group: "  A  ",
+          polygon: [
+            { x: 10, y: 10 },
+            { x: 14, y: 10 },
+            { x: 14, y: 14 },
+          ],
+        },
+      ],
+    });
+    expect(parsed?.callouts.map((c) => c.group)).toEqual(["A", "A"]);
+  });
+
+  it("dissolves a singleton group", () => {
+    const parsed = parseMapLayout({
+      schema: 1,
+      map: "de_dust2",
+      callouts: [
+        {
+          id: "yard",
+          name: "Yard",
+          floor: "default",
+          group: "A",
+          polygon: [
+            { x: 0, y: 0 },
+            { x: 4, y: 0 },
+            { x: 4, y: 4 },
+          ],
+        },
+      ],
+    });
+    expect(parsed?.callouts[0]?.group).toBeUndefined();
+  });
+});
+
+describe("orderedLayoutCallouts", () => {
+  const box = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 4 },
+  ];
+
+  it("clusters groups by first appearance and leaves ungrouped last", () => {
+    const grouped: MapLayout = {
+      schema: 1,
+      map: "de_mirage",
+      callouts: [
+        { id: "mid", name: "Mid", floor: "default", polygon: box },
+        { id: "site", name: "A Site", floor: "default", group: "A", polygon: box },
+        { id: "tetris", name: "Tetris", floor: "default", group: "A", polygon: box },
+      ],
+    };
+    expect(orderedLayoutCallouts(grouped).map((c) => c.name)).toEqual(["A Site", "Tetris", "Mid"]);
+  });
+
+  it("keeps array order when nothing is grouped", () => {
+    expect(orderedLayoutCallouts(layout).map((c) => c.id)).toEqual(["yard", "car", "secret"]);
+  });
+});
+
+describe("layoutGroupFilters", () => {
+  const box = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 4 },
+  ];
+
+  it("lists named groups in first-appearance order", () => {
+    const grouped: MapLayout = {
+      schema: 1,
+      map: "de_mirage",
+      callouts: [
+        { id: "mid", name: "Mid", floor: "default", polygon: box },
+        { id: "site", name: "A Site", floor: "default", group: "A side", polygon: box },
+        { id: "tetris", name: "Tetris", floor: "default", group: "A side", polygon: box },
+        { id: "apps", name: "Apps", floor: "default", group: "B side", polygon: box },
+        { id: "b", name: "B Site", floor: "default", group: "B side", polygon: box },
+      ],
+    };
+    expect(layoutGroupFilters(grouped)).toEqual([
+      { id: "A side", label: "A side" },
+      { id: "B side", label: "B side" },
+    ]);
+    expect(layoutGroupFilters({ ...grouped, groups: ["B side", "A side"] })).toEqual([
+      { id: "B side", label: "B side" },
+      { id: "A side", label: "A side" },
+    ]);
+    expect(layoutGroupFilters({ schema: 1, map: "de_dust2", callouts: [] })).toEqual([]);
+  });
+
+  it("parses an explicit groups array", () => {
+    const parsed = parseMapLayout({
+      schema: 1,
+      map: "de_mirage",
+      groups: ["B side", "A side"],
+      callouts: [
+        { id: "site", name: "A Site", floor: "default", group: "A side", polygon: box },
+        { id: "tetris", name: "Tetris", floor: "default", group: "A side", polygon: box },
+        { id: "apps", name: "Apps", floor: "default", group: "B side", polygon: box },
+        { id: "b", name: "B Site", floor: "default", group: "B side", polygon: box },
+      ],
+    });
+    expect(parsed?.groups).toEqual(["B side", "A side"]);
+    expect(layoutGroupFilters(parsed)).toEqual([
+      { id: "B side", label: "B side" },
+      { id: "A side", label: "A side" },
+    ]);
   });
 });

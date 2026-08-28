@@ -65,8 +65,8 @@ body,
   margin-left: auto;
 }
 .top select,
-.panel button,
-.panel input,
+.panel button:not(.callout-cluster-fold):not(.callout-cluster-nudge),
+.panel input:not([type="checkbox"]),
 .panel textarea,
 .panel select {
   background: #1c242e;
@@ -80,11 +80,12 @@ body,
 .panel button {
   cursor: pointer;
 }
-.panel button:hover,
-.callout-list button:hover {
+.panel button:hover:not(:disabled):not(.callout-cluster-fold):not(.callout-cluster-nudge),
+.callout-list .pick:hover {
   border-color: #6aa4d8;
 }
-.callout-list button.on {
+.callout-list .pick.on,
+.callout-list .pick.selected {
   border-color: #6aa4d8;
   background: #243040;
   color: #fff;
@@ -179,8 +180,8 @@ body,
 }
 
 .panel {
-  width: 340px;
-  flex: 0 0 340px;
+  width: 360px;
+  flex: 0 0 360px;
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
@@ -258,13 +259,186 @@ body,
   flex-direction: column;
   gap: 0.25rem;
 }
-.callout-list button {
-  width: 100%;
+.callout-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.callout-row.on .pick,
+.callout-list .pick.selected {
+  border-color: #6aa4d8;
+}
+.callout-list .pick {
+  flex: 1;
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
   text-align: left;
+  background: #1c242e;
+  color: #c5d0da;
+  border: 1px solid #2c3846;
   border-left-width: 3px;
+  border-radius: 6px;
+  padding: 0.28rem 0.5rem;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: grab;
+}
+.callout-actions {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0 0 0.5rem;
+}
+.callout-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.callout-cluster[draggable="true"],
+.callout-row[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+.callouts-dragging .callout-cluster[draggable="true"],
+.callouts-dragging .callout-row[draggable="true"] {
+  cursor: grabbing;
+}
+.callout-cluster {
+  margin: 0 0 0.45rem;
+}
+.callout-cluster:not(.callout-loose) {
+  border: 1px solid #2c3846;
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem 0.15rem;
+  background: #151c24;
+}
+.callout-cluster.callout-drop,
+.callout-drop-slot.on {
+  outline: 1px dashed #6aa4d8;
+  background: #18222c;
+}
+.callout-drop-slot {
+  margin: 0 0 0.4rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px dashed #2c3846;
+  border-radius: 6px;
+  color: #8b98a5;
+  font-size: 0.75rem;
+  text-align: center;
+}
+.callout-cluster-head {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0 0 0.15rem;
+  min-width: 0;
+}
+.callout-cluster-fold {
+  flex: 0 0 1.4rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #1c242e;
+  color: #c5d0da;
+  border: 1px solid #2c3846;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 0.7rem;
+}
+.callout-cluster-fold:hover {
+  border-color: #6aa4d8;
+}
+.callout-cluster-count {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: #8b98a5;
+}
+.callout-cluster-order {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.15rem;
+}
+.callout-cluster-nudge {
+  flex: 0 0 1.4rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #1c242e;
+  color: #c5d0da;
+  border: 1px solid #2c3846;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 0.7rem;
+}
+.callout-cluster-nudge:hover:not(:disabled) {
+  border-color: #6aa4d8;
+}
+.callout-cluster-nudge:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.callout-cluster-head .callout-group-name {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  margin: 0;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.callout-group-name {
+  display: block;
+  box-sizing: border-box;
+  background: #1c242e;
+  color: #e8eef4;
+  border: 1px solid #2c3846;
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+.callout-group-name:focus {
+  border-color: #6aa4d8;
+  outline: none;
+}
+.callout-pick {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 0.1rem;
+  cursor: pointer;
+}
+.panel .callout-pick input {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  accent-color: #6aa4d8;
+}
+.selected-order {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.selected-order button {
+  min-width: 2rem;
 }
 .selected {
   display: flex;

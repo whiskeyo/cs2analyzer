@@ -11,7 +11,7 @@ interface Props {
   floor: LayoutFloor;
   tool: LayoutTool;
   callouts: LayoutCallout[];
-  selectedId: string | null;
+  selectedIds: string[];
   wrapRef: RefObject<HTMLDivElement | null>;
   view: RefObject<PanView>;
   draftRef: RefObject<LayoutDraft | null>;
@@ -27,7 +27,7 @@ export function LayoutCanvas({
   floor,
   tool,
   callouts,
-  selectedId,
+  selectedIds,
   wrapRef,
   view,
   draftRef,
@@ -41,8 +41,8 @@ export function LayoutCanvas({
   const imageRef = useRef<HTMLImageElement | null>(null);
   const calloutsRef = useRef(callouts);
   calloutsRef.current = callouts;
-  const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
   const floorRef = useRef(floor);
   floorRef.current = floor;
 
@@ -87,11 +87,12 @@ export function LayoutCanvas({
 
       const toScreen = (p: Point) => radarToScreen(w, h, v, p.x, p.y);
       const floorNow = floorRef.current;
-      const selectedNow = selectedIdRef.current;
+      const selectedNow = selectedIdsRef.current;
 
       for (const callout of calloutsRef.current) {
         if (callout.floor !== floorNow) continue;
-        const selected = callout.id === selectedNow;
+        const selected = selectedNow.includes(callout.id);
+        const vertices = selected && selectedNow.length === 1;
         const color = calloutColor(callout.id);
         const pts = callout.polygon;
         if (pts.length < 1) continue;
@@ -119,7 +120,7 @@ export function LayoutCanvas({
         ctx.fillStyle = color;
         ctx.strokeText(callout.name, c.x, c.y);
         ctx.fillText(callout.name, c.x, c.y);
-        if (selected) {
+        if (vertices) {
           for (const p of pts) {
             const s = toScreen(p);
             ctx.beginPath();

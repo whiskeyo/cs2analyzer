@@ -48,7 +48,7 @@ export interface LayoutPointerOpts {
   draftRef: MutableRefObject<LayoutDraft | null>;
   cursorRef: MutableRefObject<Point | null>;
   onCallouts: (next: LayoutCallout[]) => void;
-  onSelect: (id: string | null) => void;
+  onSelect: (id: string | null, additive?: boolean) => void;
 }
 
 function pos(wrap: HTMLDivElement, e: MouseEvent): Point {
@@ -203,6 +203,12 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
       cursorRef.current = radar;
       const tool = toolRef.current;
       const floor = floorRef.current;
+      const additive = native.ctrlKey || native.metaKey;
+      if (additive) {
+        const hit = hitCallout(wrap, view.current, calloutsRef.current, floor, x, y);
+        onSelectRef.current(hit?.id ?? null, true);
+        return;
+      }
 
       if (tool === "rect" || tool === "circle") {
         draftRef.current = { kind: tool, start: { ...radar }, end: { ...radar } };

@@ -1,5 +1,12 @@
-import { CALLOUT_PALETTE, MIN_POLYGON_VERTICES } from "./constants";
+import { CALLOUT_PALETTE, LAYOUT_GROUP_NAME_MAX, MIN_POLYGON_VERTICES } from "./constants";
 import type { LayoutCallout, LayoutFloor, MapLayout, Point } from "./types";
+import {
+  dissolveSmallGroups,
+  nudgeGroupOrder,
+  renameGroup,
+  renameGroupOrder,
+  syncGroupOrder,
+} from "./groups";
 
 export const LAYOUT_SCHEMA = 1 as const;
 
@@ -8,7 +15,16 @@ export function emptyLayout(map: string): MapLayout {
 }
 
 export function formatLayout(layout: MapLayout): string {
-  return `${JSON.stringify(layout, null, 2)}\n`;
+  const body =
+    layout.groups && layout.groups.length > 0
+      ? {
+          schema: layout.schema,
+          map: layout.map,
+          groups: layout.groups,
+          callouts: layout.callouts,
+        }
+      : { schema: layout.schema, map: layout.map, callouts: layout.callouts };
+  return `${JSON.stringify(body, null, 2)}\n`;
 }
 
 export function slugId(name: string): string {
@@ -50,6 +66,7 @@ function parseCallout(value: unknown): LayoutCallout | null {
     id?: unknown;
     name?: unknown;
     floor?: unknown;
+    group?: unknown;
     polygon?: unknown;
   };
   if (typeof row.id !== "string" || row.id.length === 0) return null;
@@ -61,13 +78,35 @@ function parseCallout(value: unknown): LayoutCallout | null {
     if (!isPoint(p)) return null;
     polygon.push({ x: p.x, y: p.y });
   }
-  return { id: row.id, name: row.name, floor: row.floor, polygon };
+  const group =
+    typeof row.group === "string" ? row.group.trim().slice(0, LAYOUT_GROUP_NAME_MAX) : "";
+  return {
+    id: row.id,
+    name: row.name,
+    floor: row.floor,
+    polygon,
+    ...(group ? { group } : {}),
+  };
+}
+
+function parseGroupNames(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    const name = item.trim().slice(0, LAYOUT_GROUP_NAME_MAX);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    names.push(name);
+  }
+  return names.length > 0 ? names : undefined;
 }
 
 /** Returns null when the payload is not a layout object. Invalid callouts are dropped. */
 export function parseMapLayout(data: unknown, expectedMap?: string): MapLayout | null {
   if (typeof data !== "object" || data == null) return null;
-  const row = data as { schema?: unknown; map?: unknown; callouts?: unknown };
+  const row = data as { schema?: unknown; map?: unknown; groups?: unknown; callouts?: unknown };
   if (row.schema !== LAYOUT_SCHEMA) return null;
   if (typeof row.map !== "string" || row.map.length === 0) return null;
   if (expectedMap && row.map !== expectedMap) return null;
@@ -80,9 +119,67 @@ export function parseMapLayout(data: unknown, expectedMap?: string): MapLayout |
     seen.add(callout.id);
     callouts.push(callout);
   }
-  return { schema: LAYOUT_SCHEMA, map: row.map, callouts };
+  const dissolved = dissolveSmallGroups(callouts);
+  const preferred = parseGroupNames(row.groups);
+  const groups = preferred ? syncGroupOrder(preferred, dissolved) : undefined;
+  return {
+    schema: LAYOUT_SCHEMA,
+    map: row.map,
+    callouts: dissolved,
+    ...(groups ? { groups } : {}),
+  };
+}
+
+export function layoutWithCallouts(layout: MapLayout, callouts: LayoutCallout[]): MapLayout {
+  const next: MapLayout = { schema: layout.schema, map: layout.map, callouts };
+  if (layout.groups && layout.groups.length > 0) {
+    const groups = syncGroupOrder(layout.groups, callouts);
+    if (groups) next.groups = groups;
+  }
+  return next;
+}
+
+export function renameLayoutGroup(layout: MapLayout, fromId: string, name: string): MapLayout {
+  const callouts = renameGroup(layout.callouts, fromId, name);
+  if (callouts === layout.callouts) return layout;
+  const member = layout.callouts.find((c) => c.group === fromId);
+  const toId = member ? (callouts.find((c) => c.id === member.id)?.group ?? fromId) : fromId;
+  const base: MapLayout =
+    layout.groups && layout.groups.length > 0
+      ? { ...layout, groups: renameGroupOrder(layout.groups, fromId, toId), callouts }
+      : { ...layout, callouts };
+  return layoutWithCallouts(base, callouts);
+}
+
+export function nudgeLayoutGroup(layout: MapLayout, id: string, delta: -1 | 1): MapLayout {
+  const order = syncGroupOrder(layout.groups, layout.callouts);
+  if (!order) return layout;
+  const next = nudgeGroupOrder(order, id, delta);
+  if (next.length === order.length && next.every((name, i) => name === order[i])) return layout;
+  return { ...layout, groups: next };
 }
 
 export function nextCalloutName(callouts: LayoutCallout[]): string {
   return `Callout ${callouts.length + 1}`;
+}
+
+export function moveCallout(callouts: LayoutCallout[], from: number, to: number): LayoutCallout[] {
+  if (from === to || from < 0 || to < 0 || from >= callouts.length || to >= callouts.length) {
+    return callouts;
+  }
+  const next = callouts.slice();
+  const [item] = next.splice(from, 1);
+  if (!item) return callouts;
+  next.splice(to, 0, item);
+  return next;
+}
+
+export function moveCalloutById(
+  callouts: LayoutCallout[],
+  fromId: string,
+  toId: string,
+): LayoutCallout[] {
+  const from = callouts.findIndex((c) => c.id === fromId);
+  const to = callouts.findIndex((c) => c.id === toId);
+  return moveCallout(callouts, from, to);
 }

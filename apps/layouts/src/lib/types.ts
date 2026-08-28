@@ -9,6 +9,8 @@ export interface LayoutCallout {
   id: string;
   name: string;
   floor: LayoutFloor;
+  /** Members with the same id share one Util filter, like notes layers. */
+  group?: string;
   /** Radar pixels on the 1024 Valve overview (same space as the PNG). */
   polygon: Point[];
 }
@@ -21,6 +23,8 @@ export type LayoutDraft =
 export interface MapLayout {
   schema: 1;
   map: string;
+  /** Group names in Action / Util chip order. Omitted → first appearance in `callouts`. */
+  groups?: string[];
   callouts: LayoutCallout[];
 }
 

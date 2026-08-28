@@ -105,7 +105,9 @@ export function LayoutToolbar({ tool, floor, hasFloors, onTool, onFloor, onReset
           </button>
         </span>
       )}
-      <span className="hint">Double-click an edge to add a vertex · Ctrl+S saves</span>
+      <span className="hint">
+        Double-click an edge · Ctrl+click multi-select · G group · U ungroup · Ctrl+S saves
+      </span>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { publicUrl } from "@/lib/shared/publicUrl";
+import { LAYOUT_GROUP_NAME_MAX } from "@/lib/shared/constants";
 import { floorForZ, worldToRadar } from "@/lib/radar/maps";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
@@ -16,6 +17,8 @@ export interface LayoutCallout {
   id: string;
   name: string;
   floor: LayoutFloor;
+  /** Members with the same id share one Util filter, like notes layers. */
+  group?: string;
   /** Radar pixels on the 1024 Valve overview. */
   polygon: LayoutPoint[];
 }
@@ -23,6 +26,8 @@ export interface LayoutCallout {
 export interface MapLayout {
   schema: 1;
   map: string;
+  /** Group names in Action / Util chip order. Omitted → first appearance in `callouts`. */
+  groups?: string[];
   callouts: LayoutCallout[];
 }
 
@@ -55,6 +60,7 @@ function parseCallout(value: unknown): LayoutCallout | null {
     id?: unknown;
     name?: unknown;
     floor?: unknown;
+    group?: unknown;
     polygon?: unknown;
   };
   if (typeof row.id !== "string" || row.id.length === 0) return null;
@@ -66,12 +72,20 @@ function parseCallout(value: unknown): LayoutCallout | null {
     if (!isPoint(p)) return null;
     polygon.push({ x: p.x, y: p.y });
   }
-  return { id: row.id, name: row.name, floor: row.floor, polygon };
+  const group =
+    typeof row.group === "string" ? row.group.trim().slice(0, LAYOUT_GROUP_NAME_MAX) : "";
+  return {
+    id: row.id,
+    name: row.name,
+    floor: row.floor,
+    polygon,
+    ...(group ? { group } : {}),
+  };
 }
 
 export function parseMapLayout(data: unknown, expectedMap?: string): MapLayout | null {
   if (typeof data !== "object" || data == null) return null;
-  const row = data as { schema?: unknown; map?: unknown; callouts?: unknown };
+  const row = data as { schema?: unknown; map?: unknown; groups?: unknown; callouts?: unknown };
   if (row.schema !== LAYOUT_SCHEMA) return null;
   if (typeof row.map !== "string" || row.map.length === 0) return null;
   if (expectedMap && row.map !== expectedMap) return null;
@@ -84,7 +98,15 @@ export function parseMapLayout(data: unknown, expectedMap?: string): MapLayout |
     seen.add(callout.id);
     callouts.push(callout);
   }
-  return { schema: LAYOUT_SCHEMA, map: row.map, callouts };
+  const dissolved = dissolveSmallGroups(callouts);
+  const preferred = parseGroupNames(row.groups);
+  const groups = preferred ? syncGroupOrder(preferred, dissolved) : undefined;
+  return {
+    schema: LAYOUT_SCHEMA,
+    map: row.map,
+    callouts: dissolved,
+    ...(groups ? { groups } : {}),
+  };
 }
 
 function pointInPolygon(x: number, y: number, polygon: LayoutPoint[]): boolean {
@@ -195,4 +217,122 @@ export async function loadMapLayout(mapName: string): Promise<MapLayout> {
   const parsed = parseMapLayout(await res.json(), map) ?? emptyMapLayout(map);
   cache.set(map, parsed);
   return parsed;
+}
+
+/**
+ * Grouped callouts sit together. `groups` is the chip/list order; otherwise first appearance.
+ * Ungrouped names keep array order after the grouped blocks.
+ */
+export function groupLabel(id: string): string {
+  const m = /^g(\d+)$/.exec(id);
+  return m ? `Group ${m[1]}` : id;
+}
+
+export interface LayoutCluster {
+  group: string | null;
+  callouts: LayoutCallout[];
+}
+
+function dissolveSmallGroups(callouts: LayoutCallout[]): LayoutCallout[] {
+  const counts = new Map<string, number>();
+  for (const c of callouts) {
+    if (!c.group) continue;
+    counts.set(c.group, (counts.get(c.group) ?? 0) + 1);
+  }
+  return callouts.map((c) => {
+    if (!c.group) return c;
+    if ((counts.get(c.group) ?? 0) >= 2) return c;
+    const next = { ...c };
+    delete next.group;
+    return next;
+  });
+}
+
+function parseGroupNames(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    const name = item.trim().slice(0, LAYOUT_GROUP_NAME_MAX);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    names.push(name);
+  }
+  return names.length > 0 ? names : undefined;
+}
+
+function liveGroupIds(callouts: readonly LayoutCallout[]): string[] {
+  const seen = new Set<string>();
+  const order: string[] = [];
+  for (const callout of callouts) {
+    const id = callout.group;
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    order.push(id);
+  }
+  return order;
+}
+
+function syncGroupOrder(
+  preferred: readonly string[] | undefined,
+  callouts: readonly LayoutCallout[],
+): string[] | undefined {
+  const live = liveGroupIds(callouts);
+  if (live.length === 0) return undefined;
+  const liveSet = new Set(live);
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const id of preferred ?? []) {
+    if (!liveSet.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    next.push(id);
+  }
+  for (const id of live) {
+    if (seen.has(id)) continue;
+    next.push(id);
+  }
+  return next;
+}
+
+export function clusterLayoutCallouts(layout: MapLayout): LayoutCluster[] {
+  const by = new Map<string, LayoutCallout[]>();
+  const none: LayoutCallout[] = [];
+  for (const callout of layout.callouts) {
+    const id = callout.group;
+    if (!id) {
+      none.push(callout);
+      continue;
+    }
+    let list = by.get(id);
+    if (!list) {
+      list = [];
+      by.set(id, list);
+    }
+    list.push(callout);
+  }
+  const order = syncGroupOrder(layout.groups, layout.callouts) ?? [];
+  const clustered: LayoutCluster[] = order.map((group) => ({
+    group,
+    callouts: by.get(group) ?? [],
+  }));
+  if (none.length > 0) clustered.push({ group: null, callouts: none });
+  return clustered;
+}
+
+export function orderedLayoutCallouts(layout: MapLayout): LayoutCallout[] {
+  return clusterLayoutCallouts(layout).flatMap((cluster) => cluster.callouts);
+}
+
+/** Top-level layout groups, in `groups` order (or first appearance). */
+export function layoutGroupFilters(
+  layout: MapLayout | null | undefined,
+): { id: string; label: string }[] {
+  if (!layout) return [];
+  const out: { id: string; label: string }[] = [];
+  for (const cluster of clusterLayoutCallouts(layout)) {
+    if (!cluster.group) continue;
+    out.push({ id: cluster.group, label: groupLabel(cluster.group) });
+  }
+  return out;
 }

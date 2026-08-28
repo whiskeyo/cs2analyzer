@@ -117,6 +117,9 @@ export const NOTE_MOMENT_STEP_SECONDS = 1;
 /** Longest overlay group name stored on a stroke. */
 export const NOTE_GROUP_NAME_MAX = 40;
 
+/** Same cap for callout groups in the layout editor / Util chips. */
+export const LAYOUT_GROUP_NAME_MAX = NOTE_GROUP_NAME_MAX;
+
 /** Default name when squashing pens/arrows into one list row. */
 export const NOTE_LAYER_NAME = "Drawings";
 
