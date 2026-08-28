@@ -146,8 +146,8 @@ web app:
 
 layout/callouts dev app:
 
-- [ ] allow grouping callouts for easier analysis, e.g. { "stairs", "tetris", "jungle", "A site", "shadow", "GetRight" } belong to A side of the map
-- [ ] allow reordering callouts, so the analysis page (e.g. Util in web) shows nearby places from the game next to each other
+- [x] allow grouping callouts for easier analysis, e.g. { "stairs", "tetris", "jungle", "A site", "shadow", "GetRight" } belong to A side of the map
+- [x] allow reordering callouts, so the analysis page (e.g. Util in web) shows nearby places from the game next to each other
 
 backend/WASM:
 
