@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import prettier from "prettier";
 import {
   emptyLayout,
   formatLayout,
@@ -168,5 +169,33 @@ describe("group order", () => {
     const text = formatLayout({ ...layout, groups: ["B side", "A side"] });
     expect(text.indexOf('"groups"')).toBeGreaterThan(-1);
     expect(text.indexOf('"groups"')).toBeLessThan(text.indexOf('"callouts"'));
+  });
+
+  it("prints a short groups array on one line, matching Prettier", async () => {
+    const text = formatLayout({ ...layout, groups: ["B side", "A side"] });
+    expect(text).toContain('"groups": ["B side", "A side"]');
+    expect(text).toBe(await prettier.format(text, { parser: "json", printWidth: 100 }));
+  });
+
+  it("matches Prettier on a layout with polygons", async () => {
+    const text = formatLayout({
+      schema: 1,
+      map: "de_mirage",
+      groups: ["A", "Mid", "B", "Others"],
+      callouts: [
+        {
+          id: "callout-1",
+          name: "Ladder Room",
+          floor: "default",
+          polygon: [
+            { x: 401.92455549722047, y: 349.00720813322124 },
+            { x: 458.4906919589356, y: 348.14139992207254 },
+            { x: 458.7792946959852, y: 368.92079698964136 },
+          ],
+          group: "Mid",
+        },
+      ],
+    });
+    expect(text).toBe(await prettier.format(text, { parser: "json", printWidth: 100 }));
   });
 });

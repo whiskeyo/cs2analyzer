@@ -1,12 +1,7 @@
 {
   "schema": 1,
   "map": "de_nuke",
-  "groups": [
-    "A",
-    "Outside",
-    "B",
-    "Others"
-  ],
+  "groups": ["A", "Outside", "B", "Others"],
   "callouts": [
     {
       "id": "callout-1",

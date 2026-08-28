@@ -1,13 +1,7 @@
 {
   "schema": 1,
   "map": "de_inferno",
-  "groups": [
-    "A",
-    "Mid",
-    "2nd Mid",
-    "B",
-    "Others"
-  ],
+  "groups": ["A", "Mid", "2nd Mid", "B", "Others"],
   "callouts": [
     {
       "id": "callout-1",

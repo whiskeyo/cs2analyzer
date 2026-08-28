@@ -29,6 +29,9 @@ export const CIRCLE_SEGMENTS = 32;
 /** Same cap as notes layers (`NOTE_GROUP_NAME_MAX`). */
 export const LAYOUT_GROUP_NAME_MAX = 40;
 
+/** Same as `.prettierrc.json` printWidth so Save to folder passes `format:check`. */
+export const LAYOUT_JSON_PRINT_WIDTH = 100;
+
 export const CALLOUT_PALETTE = [
   "#ff2d6a",
   "#ffe600",

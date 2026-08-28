@@ -1,12 +1,7 @@
 {
   "schema": 1,
   "map": "de_mirage",
-  "groups": [
-    "A",
-    "Mid",
-    "B",
-    "Others"
-  ],
+  "groups": ["A", "Mid", "B", "Others"],
   "callouts": [
     {
       "id": "callout-1",
