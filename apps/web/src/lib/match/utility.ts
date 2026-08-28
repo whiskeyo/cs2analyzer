@@ -3,7 +3,7 @@ import { nadeLandPos } from "@/lib/radar/radarFx";
 import { NADE_LABEL } from "@/lib/match/roundEvents";
 import { currentRound } from "@/lib/replay/sample";
 import { calloutsInLocation, placeAt, type MapPlaces, type SiteCallout } from "./sites";
-import type { MapLayout } from "@/lib/radar/layouts";
+import { clusterLayoutCallouts, groupLabel, type MapLayout } from "@/lib/radar/layouts";
 import { inKnifeRound, isEnemy } from "@/lib/stats/stats";
 import type { GrenadeKind, GrenadeThrow, Replay, Round } from "@/lib/replay/replayTypes";
 
@@ -233,27 +233,47 @@ export function usedUtilKinds(rows: UtilThrowRow[]): GrenadeKind[] {
   return KIND_ORDER.filter((kind) => rows.some((row) => row.kind === kind));
 }
 
-/** Layout order, then any leftover names. Unused callouts stay out. */
-export function usedUtilCallouts(rows: UtilThrowRow[], layout?: MapLayout | null): string[] {
+export interface UtilPlaceChip {
+  key: string;
+  label: string;
+  names: string[];
+}
+
+/** Top-level groups first (any member used), then leftover ungrouped names. */
+export function usedUtilPlaces(rows: UtilThrowRow[], layout?: MapLayout | null): UtilPlaceChip[] {
   const used = new Set<string>();
   for (const row of rows) {
     for (const name of calloutsInLocation(row.location)) used.add(name);
   }
   if (used.size === 0) return [];
-  const ordered: string[] = [];
+  const chips: UtilPlaceChip[] = [];
   const seen = new Set<string>();
-  for (const callout of layout?.callouts ?? []) {
-    if (used.has(callout.name) && !seen.has(callout.name)) {
-      ordered.push(callout.name);
+  for (const cluster of layout ? clusterLayoutCallouts(layout) : []) {
+    if (cluster.group) {
+      const names = cluster.callouts.map((c) => c.name);
+      if (!names.some((name) => used.has(name))) continue;
+      chips.push({ key: `group:${cluster.group}`, label: groupLabel(cluster.group), names });
+      for (const name of names) seen.add(name);
+      continue;
+    }
+    for (const callout of cluster.callouts) {
+      if (!used.has(callout.name) || seen.has(callout.name)) continue;
+      chips.push({ key: `callout:${callout.name}`, label: callout.name, names: [callout.name] });
       seen.add(callout.name);
     }
   }
   for (const name of [...used].sort((a, b) => a.localeCompare(b))) {
-    if (!seen.has(name)) ordered.push(name);
+    if (seen.has(name)) continue;
+    chips.push({ key: `callout:${name}`, label: name, names: [name] });
   }
-  return ordered;
+  return chips;
 }
 
 export function utilMatchesCallout(row: UtilThrowRow, callout: string): boolean {
   return calloutsInLocation(row.location).includes(callout);
+}
+
+export function utilMatchesPlace(row: UtilThrowRow, chip: UtilPlaceChip): boolean {
+  const names = calloutsInLocation(row.location);
+  return chip.names.some((name) => names.includes(name));
 }

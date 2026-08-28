@@ -2,10 +2,10 @@ import { useState } from "react";
 import { NADE_LABEL, NADE_WEAPON } from "@/lib/match/roundEvents";
 import {
   throwDetail,
-  usedUtilCallouts,
   usedUtilKinds,
+  usedUtilPlaces,
   utilKindSummary,
-  utilMatchesCallout,
+  utilMatchesPlace,
   utilityThrough,
 } from "@/lib/match/utility";
 import { placesReady, type MapPlaces } from "@/lib/match/sites";
@@ -34,15 +34,17 @@ export function Utility({ replay, tick, selected, onJump, onSelect, places }: Pr
   const who = selected != null ? (replay.players[selected]?.name ?? "Player") : "Match";
   const hasPlaces = placesReady(places);
   const kinds = usedUtilKinds(u.throws);
-  const callouts = usedUtilCallouts(u.throws, places?.layout);
+  const placeChips = usedUtilPlaces(u.throws, places?.layout);
   const [kindSel, setKindSel] = useState<GrenadeKind[]>([]);
-  const [calloutSel, setCalloutSel] = useState<string[]>([]);
+  const [placeSel, setPlaceSel] = useState<string[]>([]);
   const kindsOn = kept(kindSel, kinds);
-  const calloutsOn = kept(calloutSel, callouts);
+  const placeKeys = placeChips.map((chip) => chip.key);
+  const placesOn = kept(placeSel, placeKeys);
   const rows = u.throws.filter((row) => {
     if (kindsOn.length > 0 && !kindsOn.includes(row.kind)) return false;
-    if (calloutsOn.length > 0 && !calloutsOn.some((name) => utilMatchesCallout(row, name))) {
-      return false;
+    if (placesOn.length > 0) {
+      const active = placeChips.filter((chip) => placesOn.includes(chip.key));
+      if (!active.some((chip) => utilMatchesPlace(row, chip))) return false;
     }
     return true;
   });
@@ -87,26 +89,27 @@ export function Utility({ replay, tick, selected, onJump, onSelect, places }: Pr
           ))}
         </div>
       )}
-      {callouts.length > 0 && (
+      {placeChips.length > 0 && (
         <div className="filters" role="toolbar" aria-label="Nade callout filters">
           <button
             type="button"
             className="filter clear"
             title="Show all positions"
             aria-label="Show all positions"
-            disabled={calloutsOn.length === 0}
-            onClick={() => setCalloutSel([])}
+            disabled={placesOn.length === 0}
+            onClick={() => setPlaceSel([])}
           >
             ×
           </button>
-          {callouts.map((name) => (
+          {placeChips.map((chip) => (
             <button
-              key={name}
+              key={chip.key}
               type="button"
-              className={`filter${calloutsOn.includes(name) ? " on" : ""}`}
-              onClick={() => setCalloutSel((prev) => toggleIn(kept(prev, callouts), name))}
+              className={`filter${placesOn.includes(chip.key) ? " on" : ""}`}
+              title={chip.names.length > 1 ? chip.names.join(", ") : undefined}
+              onClick={() => setPlaceSel((prev) => toggleIn(kept(prev, placeKeys), chip.key))}
             >
-              {name}
+              {chip.label}
             </button>
           ))}
         </div>

@@ -13,10 +13,11 @@ import {
 } from "@/lib/testing/fixtures";
 import {
   throwDetail,
-  usedUtilCallouts,
   usedUtilKinds,
+  usedUtilPlaces,
   utilKindSummary,
   utilMatchesCallout,
+  utilMatchesPlace,
   utilityThrough,
 } from "./utility";
 
@@ -141,9 +142,33 @@ describe("utilityThrough", () => {
       grenades: [nade("smoke", 200, 1, 50, 974), nade("flash", 240, 0, 450, 574)],
     });
     const u = utilityThrough(m, 640, null, layoutPlaces);
-    expect(usedUtilCallouts(u.throws, layoutPlaces.layout)).toEqual(["A Site", "Mid"]);
+    expect(usedUtilPlaces(u.throws, layoutPlaces.layout).map((chip) => chip.label)).toEqual([
+      "A Site",
+      "Mid",
+    ]);
     expect(u.throws.filter((row) => utilMatchesCallout(row, "A Site"))).toHaveLength(1);
     expect(u.throws.filter((row) => utilMatchesCallout(row, "B Site"))).toHaveLength(0);
     expect(usedUtilKinds(u.throws)).toEqual(["smoke", "flash"]);
+  });
+
+  it("exposes a used group as one filter chip covering its members", () => {
+    const grouped = makePlaces([
+      makeCallout("mid", "Mid", 400, 400, 100, 100),
+      { ...makeCallout("a", "A Site", 0, 0, 100, 100), group: "A side" },
+      { ...makeCallout("tet", "Tetris", 150, 150, 100, 100), group: "A side" },
+    ]);
+    const m = replay({
+      grenades: [
+        nade("smoke", 200, 1, 50, 974),
+        nade("flash", 210, 0, 200, 824),
+        nade("he", 220, 1, 450, 574),
+      ],
+    });
+    const u = utilityThrough(m, 640, null, grouped);
+    const chips = usedUtilPlaces(u.throws, grouped.layout);
+    expect(chips.map((chip) => chip.label)).toEqual(["A side", "Mid"]);
+    const aSide = chips[0];
+    expect(aSide).toBeDefined();
+    expect(u.throws.filter((row) => utilMatchesPlace(row, aSide!))).toHaveLength(2);
   });
 });
