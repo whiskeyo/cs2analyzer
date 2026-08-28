@@ -144,6 +144,9 @@ web app:
 
       (extension noise; OVH was not serving `.wasm` as `application/wasm`; hashed CSS 404 from a stale `index.html`. `.htaccess` is in `apps/web/public/` — confirm on the next live deploy.)
 
+- [ ] to the existing set of review cases, I'd like to add "team review" too, e.g. swing rounds (lost with player advantage, e.g. 5v3, anti-eco/anti-force losses)
+- [ ] add pdf export of rounds that had notes/bookmarks, the game sumarry, each player review, etc.
+
 layout/callouts dev app:
 
 - [x] allow grouping callouts for easier analysis, e.g. { "stairs", "tetris", "jungle", "A site", "shadow", "GetRight" } belong to A side of the map
