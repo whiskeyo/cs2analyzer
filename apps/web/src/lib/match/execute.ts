@@ -14,6 +14,7 @@ import {
   placeFromLandings,
   placeLabel,
   plantPlace,
+  placeMatchesLayoutGroup,
   siteAt,
   type MapPlaces,
   type PlaceHit,
@@ -22,6 +23,7 @@ import {
 import { currentSide, isEnemyKill, plantedBombPos } from "@/lib/stats/stats";
 import type { GrenadeThrow, Kill, Replay, Round, Side } from "@/lib/replay/replayTypes";
 import { formatClock } from "@/lib/weapons/weapons";
+import type { MapLayout } from "@/lib/radar/layouts";
 
 export type { SiteCallout } from "./sites";
 export type ExecuteKind = "execute" | "retake" | "plant" | "fight";
@@ -476,7 +478,8 @@ export function nextExecuteTick(beats: ExecuteBeat[], tick: number, dir: 1 | -1)
 export interface ExecuteFilter {
   round?: number | null;
   side?: Side | "all";
-  site?: SiteCallout | "all";
+  group?: string | "all";
+  layout?: MapLayout | null;
   kinds?: ExecuteKind[];
 }
 
@@ -485,7 +488,9 @@ export function filterExecutes(beats: ExecuteBeat[], filter: ExecuteFilter): Exe
   return beats.filter((b) => {
     if (filter.round != null && b.round !== filter.round) return false;
     if (filter.side && filter.side !== "all" && b.side !== filter.side) return false;
-    if (filter.site && filter.site !== "all" && b.site !== filter.site) return false;
+    if (filter.group && filter.group !== "all") {
+      if (!placeMatchesLayoutGroup(b.location, b.site, filter.group, filter.layout)) return false;
+    }
     if (kinds && !kinds.has(b.kind)) return false;
     return true;
   });

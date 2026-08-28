@@ -251,4 +251,23 @@ describe("findExecutes", () => {
     expect(filterExecutes(beats, { kinds: ["plant"] }).every((b) => b.kind === "plant")).toBe(true);
     expect(filterExecutes(beats, { side: "CT" }).every((b) => b.side === "CT")).toBe(true);
   });
+
+  it("filters executes by layout group name", () => {
+    const grouped = makePlaces([
+      { ...makeCallout("a", "A Site", 0, 0, 100, 100), group: "A side" },
+      { ...makeCallout("palace", "Palace", 120, 0, 60, 60), group: "A side" },
+      { ...makeCallout("b", "B Site", 800, 800, 100, 100), group: "B side" },
+    ]);
+    const m = makeReplay({
+      players: roster,
+      rounds: [round({ number: 1, winner: "T" })],
+      grenades: [nade(200, 0, "smoke", 150, 994), nade(220, 1, "smoke", 140, 990)],
+    });
+    const beats = findExecutes(m, grouped);
+    expect(beats[0]?.location).toBe("Palace");
+    expect(
+      filterExecutes(beats, { group: "A side", layout: grouped.layout }).map((b) => b.location),
+    ).toEqual(["Palace"]);
+    expect(filterExecutes(beats, { group: "B side", layout: grouped.layout })).toEqual([]);
+  });
 });

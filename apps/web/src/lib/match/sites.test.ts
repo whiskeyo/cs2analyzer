@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { makeCallout, makePlaces } from "@/lib/testing/fixtures";
 import {
-  layoutSiteFilters,
   nearerBombsite,
   placeAt,
   placeFromLandings,
   placeLabel,
+  placeMatchesLayoutGroup,
   plantPlace,
   siteAt,
   siteFromName,
@@ -107,13 +107,25 @@ describe("calloutsInLocation", () => {
   });
 });
 
-describe("layoutSiteFilters", () => {
-  it("hides A/B/Mid when the layout is empty", () => {
-    expect(layoutSiteFilters({ schema: 1, map: "de_dust2", callouts: [] })).toEqual({
-      a: false,
-      b: false,
-      mid: false,
-    });
-    expect(layoutSiteFilters(fixture.layout)).toEqual({ a: true, b: true, mid: true });
+describe("placeMatchesLayoutGroup", () => {
+  const grouped = makePlaces([
+    { ...makeCallout("a", "A Site", 0, 0, 100, 100), group: "A side" },
+    { ...makeCallout("palace", "Palace", 120, 0, 60, 60), group: "A side" },
+    { ...makeCallout("b", "B Site", 800, 800, 100, 100), group: "B side" },
+    makeCallout("mid", "Mid", 400, 400, 100, 100),
+  ]);
+
+  it("matches a group by room name, including between-gaps", () => {
+    expect(placeMatchesLayoutGroup("Palace", "A", "A side", grouped.layout)).toBe(true);
+    expect(placeMatchesLayoutGroup("Palace", "A", "B side", grouped.layout)).toBe(false);
+    expect(placeMatchesLayoutGroup("between A Site, Palace", null, "A side", grouped.layout)).toBe(
+      true,
+    );
+    expect(placeMatchesLayoutGroup("Mid", "Mid", "A side", grouped.layout)).toBe(false);
+  });
+
+  it("falls back to A/B/Mid only when the beat has no room name", () => {
+    expect(placeMatchesLayoutGroup(null, "A", "A side", grouped.layout)).toBe(true);
+    expect(placeMatchesLayoutGroup(null, "B", "A side", grouped.layout)).toBe(false);
   });
 });

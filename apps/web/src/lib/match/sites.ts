@@ -44,20 +44,24 @@ export function siteFromName(name: string): SiteCallout | null {
   return null;
 }
 
-export function layoutSiteFilters(layout: MapLayout | null | undefined): {
-  a: boolean;
-  b: boolean;
-  mid: boolean;
-} {
-  const out = { a: false, b: false, mid: false };
-  if (!layout) return out;
-  for (const callout of layout.callouts) {
-    const site = siteFromName(callout.name);
-    if (site === "A") out.a = true;
-    else if (site === "B") out.b = true;
-    else if (site === "Mid") out.mid = true;
+/** True when this place sits in a named layout group (by room, or A/B/Mid on a nameless plant). */
+export function placeMatchesLayoutGroup(
+  location: string | null | undefined,
+  site: SiteCallout | null | undefined,
+  groupId: string,
+  layout: MapLayout | null | undefined,
+): boolean {
+  if (!layout || groupId.length === 0) return false;
+  const members = layout.callouts.filter((c) => c.group === groupId);
+  if (members.length === 0) return false;
+  const names = new Set(members.map((c) => c.name));
+  for (const name of calloutsInLocation(location)) {
+    if (names.has(name)) return true;
   }
-  return out;
+  if (!location && site) {
+    return members.some((c) => siteFromName(c.name) === site);
+  }
+  return false;
 }
 
 export function locationAt(

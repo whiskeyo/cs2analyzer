@@ -1,12 +1,8 @@
 import { ACTION_HIGHLIGHT_SECONDS, tickRate } from "@/lib/shared/constants";
 import { useMemo, useState } from "react";
-import {
-  type ExecuteKind,
-  type SiteCallout,
-  filterExecutes,
-  findExecutes,
-} from "@/lib/match/execute";
-import { layoutSiteFilters, type MapPlaces } from "@/lib/match/sites";
+import { type ExecuteKind, filterExecutes, findExecutes } from "@/lib/match/execute";
+import type { MapPlaces } from "@/lib/match/sites";
+import { layoutGroupFilters } from "@/lib/radar/layouts";
 import { roundStories } from "@/lib/match/roundStory";
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Side } from "@/lib/replay/replayTypes";
@@ -28,21 +24,25 @@ const KINDS: { id: ExecuteKind; label: string }[] = [
 export function Action({ replay, tick, onJump, places }: Props) {
   const [thisRound, setThisRound] = useState(false);
   const [side, setSide] = useState<Side | "all">("all");
-  const [site, setSite] = useState<SiteCallout | "all">("all");
+  const [group, setGroup] = useState<string | "all">("all");
   const [kinds, setKinds] = useState<ExecuteKind[]>([]);
   const live = currentRound(replay, tick);
   const stories = useMemo(() => roundStories(replay), [replay]);
   const beats = useMemo(() => findExecutes(replay, places), [replay, places]);
-  const filters = layoutSiteFilters(places?.layout);
-  const showSites = filters.a || filters.b || filters.mid;
-  const siteFilter: SiteCallout | "all" =
-    (site === "A" && !filters.a) || (site === "B" && !filters.b) || (site === "Mid" && !filters.mid)
-      ? "all"
-      : site;
+  const groups = layoutGroupFilters(places?.layout);
+  const groupFilter: string | "all" =
+    group !== "all" && !groups.some((g) => g.id === group) ? "all" : group;
   const roundN = thisRound ? (live && !live.is_knife ? live.number : -1) : null;
   const filtered = useMemo(
-    () => filterExecutes(beats, { round: roundN, side, site: siteFilter, kinds }),
-    [beats, roundN, side, siteFilter, kinds],
+    () =>
+      filterExecutes(beats, {
+        round: roundN,
+        side,
+        group: groupFilter,
+        layout: places?.layout,
+        kinds,
+      }),
+    [beats, roundN, side, groupFilter, places?.layout, kinds],
   );
   const visibleStories = roundN != null ? stories.filter((s) => s.round === roundN) : stories;
 
@@ -92,43 +92,26 @@ export function Action({ replay, tick, onJump, places }: Props) {
         >
           CT
         </button>
-        {showSites && (
+        {groups.length > 0 && (
           <>
             <span className="filter-gap" />
             <button
               type="button"
-              className={`filter${siteFilter === "all" ? " on" : ""}`}
-              onClick={() => setSite("all")}
+              className={`filter${groupFilter === "all" ? " on" : ""}`}
+              onClick={() => setGroup("all")}
             >
-              All sites
+              All
             </button>
-            {filters.a && (
+            {groups.map((g) => (
               <button
+                key={g.id}
                 type="button"
-                className={`filter${siteFilter === "A" ? " on" : ""}`}
-                onClick={() => setSite("A")}
+                className={`filter${groupFilter === g.id ? " on" : ""}`}
+                onClick={() => setGroup(g.id)}
               >
-                A
+                {g.label}
               </button>
-            )}
-            {filters.b && (
-              <button
-                type="button"
-                className={`filter${siteFilter === "B" ? " on" : ""}`}
-                onClick={() => setSite("B")}
-              >
-                B
-              </button>
-            )}
-            {filters.mid && (
-              <button
-                type="button"
-                className={`filter${siteFilter === "Mid" ? " on" : ""}`}
-                onClick={() => setSite("Mid")}
-              >
-                Mid
-              </button>
-            )}
+            ))}
           </>
         )}
         <span className="filter-gap" />
