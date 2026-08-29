@@ -15,7 +15,7 @@ function downloadCsv(replay: Replay, fileName: string, tick: number) {
 }
 
 export function ViewerHeader() {
-  const { session, playback, review, onFile } = useApp();
+  const { session, playback, review, onFiles } = useApp();
   const replay = session.replay;
   if (!replay) return null;
 
@@ -36,7 +36,7 @@ export function ViewerHeader() {
       <button type="button" className="ghost" onClick={() => void review.exportNotes()}>
         Export notes
       </button>
-      <ImportNotesButton onFile={onFile} />
+      <ImportNotesButton onFile={(file) => onFiles([file])} />
       <button
         type="button"
         className="ghost"

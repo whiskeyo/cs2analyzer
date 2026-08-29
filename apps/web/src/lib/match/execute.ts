@@ -442,7 +442,24 @@ function beatsForRound(
   return beats;
 }
 
-let executeCache: { replay: Replay; key: string; beats: ExecuteBeat[] } | null = null;
+let executeCache: WeakMap<Replay, Map<string, ExecuteBeat[]>> | null = null;
+
+function executeCacheFor(replay: Replay): Map<string, ExecuteBeat[]> {
+  if (!executeCache) executeCache = new WeakMap();
+  let byPlaces = executeCache.get(replay);
+  if (!byPlaces) {
+    byPlaces = new Map();
+    executeCache.set(replay, byPlaces);
+  }
+  return byPlaces;
+}
+
+/** Drop cached executes for one replay (tests). */
+export function clearExecuteCache(replay?: Replay): void {
+  if (!executeCache) return;
+  if (replay) executeCache.delete(replay);
+  else executeCache = new WeakMap();
+}
 
 function placesCacheKey(places: MapPlaces | null | undefined): string {
   if (!places || places.layout.callouts.length === 0) return "";
@@ -452,15 +469,15 @@ function placesCacheKey(places: MapPlaces | null | undefined): string {
 /** Site hits / retakes — skip the slow default. Jump to `tick` (a couple of seconds of lead-in). */
 export function findExecutes(replay: Replay, places?: MapPlaces | null): ExecuteBeat[] {
   const key = placesCacheKey(places);
-  if (executeCache && executeCache.replay === replay && executeCache.key === key) {
-    return executeCache.beats;
-  }
+  const byPlaces = executeCacheFor(replay);
+  const hit = byPlaces.get(key);
+  if (hit) return hit;
   const out: ExecuteBeat[] = [];
   for (const round of replay.rounds) {
     if (round.is_knife) continue;
     out.push(...beatsForRound(replay, round, places));
   }
-  executeCache = { replay, key, beats: out };
+  byPlaces.set(key, out);
   return out;
 }
 

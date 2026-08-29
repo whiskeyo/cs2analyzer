@@ -1,6 +1,6 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { tickRate } from "@/lib/shared/constants";
-import { activeExecute, findExecutes } from "@/lib/match/execute";
+import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execute";
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay } from "@/lib/replay/replayTypes";
 import type { Stroke } from "@/lib/notes/types";
@@ -23,7 +23,27 @@ export const RoundStrip = memo(function RoundStrip({
   places,
 }: Props) {
   const current = currentRound(replay, tick);
-  const beats = findExecutes(replay, places);
+  const [beats, setBeats] = useState<ExecuteBeat[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) setBeats(findExecutes(replay, places));
+    };
+    if (typeof requestIdleCallback !== "undefined") {
+      const id = requestIdleCallback(run);
+      return () => {
+        cancelled = true;
+        cancelIdleCallback(id);
+      };
+    }
+    const id = window.setTimeout(run, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+    };
+  }, [replay, places]);
+
   const actionRounds = new Set(beats.map((b) => b.round));
   const noted = noteRounds(strokes);
   const live = activeExecute(beats, tick, tickRate(replay));

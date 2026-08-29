@@ -10,7 +10,7 @@ const noop = () => {};
 
 function props(overrides: Partial<Parameters<typeof DropZone>[0]> = {}) {
   return {
-    onFile: noop,
+    onFiles: noop,
     onExportNotes: noop,
     onDeleteNotes: noop,
     parsing: false,
@@ -41,15 +41,15 @@ function savedProject(overrides: Partial<ReviewProject> = {}): ReviewProject {
 
 describe("DropZone", () => {
   it("hands a picked demo to the parser", async () => {
-    const onFile = vi.fn();
-    const { container } = render(<DropZone {...props({ onFile })} />);
+    const onFiles = vi.fn();
+    const { container } = render(<DropZone {...props({ onFiles })} />);
 
     const input = container.querySelector("input[type=file]");
     const demo = new File(["fake"], "match.dem");
     await userEvent.upload(input as HTMLInputElement, demo);
 
-    expect(onFile).toHaveBeenCalledTimes(1);
-    expect(onFile.mock.calls[0][0].name).toBe("match.dem");
+    expect(onFiles).toHaveBeenCalledTimes(1);
+    expect(onFiles.mock.calls[0][0][0].name).toBe("match.dem");
   });
 
   it("shows parse progress as a percentage", () => {

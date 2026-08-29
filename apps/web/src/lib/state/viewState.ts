@@ -1,6 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useLayoutEffect } from "react";
 import { DEFAULT_LAYERS, type DrawTool, type MapLayers } from "@/lib/notes/types";
-import { useResetOn } from "./useResetOn";
 
 /**
  * Radar view state that is not persisted with a review: selection, camera
@@ -17,12 +16,19 @@ export function useViewState(demoId: string | null) {
   const [viewEpoch, setViewEpoch] = useState(0);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  const prevDemoIdRef = useRef<string | null>(null);
 
-  useResetOn(demoId, () => {
+  useLayoutEffect(() => {
+    if (!demoId) {
+      prevDemoIdRef.current = null;
+      return;
+    }
+    if (prevDemoIdRef.current === demoId) return;
+    prevDemoIdRef.current = demoId;
     setSelected(null);
     setFollow(false);
     setLayers(DEFAULT_LAYERS);
-  });
+  }, [demoId]);
 
   /** Selecting a player also starts tracking them; deselecting stops. */
   const select = useCallback((index: number | null) => {

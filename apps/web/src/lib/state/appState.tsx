@@ -22,8 +22,8 @@ export interface AppState {
   cal: MapCalibration | undefined;
   /** Callout layout for the loaded map. Null when the map has no callouts. */
   places: MapPlaces | null;
-  /** Routes a dropped file to the parser or the notes importer. */
-  onFile: (file: File) => void;
+  /** Routes dropped demo(s) to the parser or a notes file to the importer. */
+  onFiles: (files: File[]) => void;
 }
 
 const AppStateContext = createContext<AppState | null>(null);
@@ -36,9 +36,25 @@ const AppStateContext = createContext<AppState | null>(null);
  */
 function useAppState(createWorker?: CreateWorker): AppState {
   const status = useStatus();
-  const session = useDemoSession({ status, createWorker });
-  const playback = usePlayback(session.replay);
-  const review = useReviewProject({ demo: session.demo, status, playback });
+  const stashSeriesReviewRef = useRef<() => void>(() => undefined);
+  const pausePlaybackRef = useRef<() => void>(() => undefined);
+  const session = useDemoSession({
+    status,
+    createWorker,
+    onBeforeSelectDemo: () => {
+      pausePlaybackRef.current();
+      stashSeriesReviewRef.current();
+    },
+  });
+  const playback = usePlayback(session.replay, session.demo?.id ?? null);
+  const review = useReviewProject({
+    demo: session.demo,
+    series: session.series,
+    status,
+    playback,
+  });
+  stashSeriesReviewRef.current = review.stashForSeriesSwitch;
+  pausePlaybackRef.current = playback.pauseNow;
   const view = useViewState(session.demo?.id ?? null);
 
   const [maps, setMaps] = useState<Record<string, MapCalibration>>({});
@@ -91,15 +107,19 @@ function useAppState(createWorker?: CreateWorker): AppState {
     setSelected: view.setSelected,
   });
 
-  const onFile = (file: File) => {
-    if (isNotesFile(file)) {
-      void file.text().then((text) => void review.importNotesText(text));
+  const onFiles = (files: File[]) => {
+    if (files.length === 0) return;
+    if (files.length === 1 && isNotesFile(files[0])) {
+      void files[0].text().then((text) => void review.importNotesText(text));
       return;
     }
-    session.parseDemo(file);
+    const demos = files.filter((f) => !isNotesFile(f));
+    if (demos.length === 0) return;
+    if (demos.length === 1) session.parseDemo(demos[0]);
+    else void session.parseDemos(demos);
   };
 
-  return { status, session, playback, review, view, cal, places, onFile };
+  return { status, session, playback, review, view, cal, places, onFiles };
 }
 
 export function AppStateProvider({

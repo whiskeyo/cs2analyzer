@@ -12,7 +12,7 @@ const STEAM_TRADE_URL =
   "https://steamcommunity.com/tradeoffer/new/?partner=69520211&token=YCinud5X";
 
 interface Props {
-  onFile: (file: File) => void;
+  onFiles: (files: File[]) => void;
   onExportNotes: () => void;
   onDeleteNotes: (key: string) => void;
   parsing: boolean;
@@ -37,14 +37,14 @@ function sortedSnapshots(rows: SavedPlayerSnapshot[]): SavedPlayerSnapshot[] {
   return [...rows].sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
 }
 
-function takeDroppedFile(e: DragEvent, onFile: (file: File) => void): void {
+function takeDroppedFiles(e: DragEvent, onFiles: (files: File[]) => void): void {
   e.preventDefault();
-  const file = e.dataTransfer.files[0];
-  if (file) onFile(file);
+  const files = [...e.dataTransfer.files];
+  if (files.length > 0) onFiles(files);
 }
 
 export function DropZone({
-  onFile,
+  onFiles,
   onExportNotes,
   onDeleteNotes,
   parsing,
@@ -82,15 +82,16 @@ export function DropZone({
         <label
           className="drop"
           onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => takeDroppedFile(e, onFile)}
+          onDrop={(e) => takeDroppedFiles(e, onFiles)}
         >
           <input
             type="file"
             accept=".dem,.json,application/octet-stream,application/json"
+            multiple
             hidden
             onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) onFile(file);
+              const files = [...(e.target.files ?? [])];
+              if (files.length > 0) onFiles(files);
             }}
           />
           <img
@@ -102,7 +103,8 @@ export function DropZone({
           />
           <div className="drop-title">CS2 Analyzer</div>
           <p>
-            Drop a Counter-Strike 2 <code>.dem</code> file here.
+            Drop one Counter-Strike 2 <code>.dem</code> to watch, or several on the same map for
+            habits.
           </p>
           <p className="muted">Parsed entirely in your browser. Nothing is uploaded.</p>
           <ul className="feature-list">
@@ -134,7 +136,7 @@ export function DropZone({
             >
               Export notes
             </button>
-            <ImportNotesButton onFile={onFile} />
+            <ImportNotesButton onFile={(file) => onFiles([file])} />
           </div>
           {saved.length > 0 && (
             <div className="saved-demos">
@@ -265,9 +267,9 @@ export function DropZone({
             onClick={(e) => e.stopPropagation()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
-              takeDroppedFile(e, (file) => {
+              takeDroppedFiles(e, (files) => {
                 setWantedDemo(null);
-                onFile(file);
+                onFiles(files);
               });
             }}
           >

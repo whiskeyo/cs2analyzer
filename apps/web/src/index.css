@@ -335,6 +335,53 @@ code {
   color: #8b98a5;
   font-size: 0.85rem;
 }
+.series-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 1rem;
+  background: #0c1014;
+  border-bottom: 1px solid #1e2732;
+  font-size: 0.82rem;
+  overflow-x: auto;
+}
+.series-bar-label {
+  color: #8b98a5;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.series-bar-files {
+  display: flex;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.series-file {
+  background: #151c24;
+  border: 1px solid #243040;
+  border-radius: 4px;
+  color: #c8d0da;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.5rem;
+  white-space: nowrap;
+}
+.series-file:hover {
+  border-color: #3a5068;
+}
+.series-file.active {
+  background: #1a2838;
+  border-color: #4a7090;
+  color: #e8f0f8;
+}
+.series-switch-wait {
+  color: #8b98a5;
+  font-size: 0.9rem;
+  margin: 2rem 1rem;
+  text-align: center;
+}
 .ghost {
   display: inline-flex;
   align-items: center;

@@ -3,11 +3,11 @@ import { useApp } from "@/lib/state/appState";
 import { DropZone } from "./DropZone";
 
 export function Splash() {
-  const { session, status, review, onFile } = useApp();
+  const { session, status, review, onFiles } = useApp();
   return (
     <div className="app splash">
       <DropZone
-        onFile={onFile}
+        onFiles={onFiles}
         onExportNotes={() => void review.exportNotes()}
         parsing={session.parsing}
         progress={session.progress}

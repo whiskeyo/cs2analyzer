@@ -19,7 +19,7 @@ function makeDemo() {
 
 function renderPlayback() {
   const demo = makeDemo();
-  return renderHook(() => usePlayback(demo));
+  return renderHook(() => usePlayback(demo, "de_test|demo.dem"));
 }
 
 describe("usePlayback", () => {

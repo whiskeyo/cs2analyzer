@@ -1,0 +1,193 @@
+import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
+import { PARSE_POOL_MAX } from "@/lib/shared/constants";
+import { loadedDemo, type LoadedDemo } from "./session";
+import type { CreateWorker } from "./useDemoSession";
+
+export interface ParseFileResult {
+  file: File;
+  demo?: LoadedDemo;
+  error?: string;
+  timings?: ParseTimings;
+}
+
+export interface ParsePoolProgress {
+  completed: number;
+  total: number;
+  /** Sum of in-flight worker progress fractions (0–poolSize). */
+  inFlightFraction: number;
+}
+
+/** Worker count: cap RAM use; queue the rest. */
+export function parsePoolSize(fileCount: number): number {
+  const hw =
+    typeof navigator !== "undefined" && navigator.hardwareConcurrency
+      ? navigator.hardwareConcurrency
+      : 2;
+  return Math.min(PARSE_POOL_MAX, 4, hw, fileCount);
+}
+
+export function mapNameFromReplay(replay: Replay): string {
+  return replay.header.map_name;
+}
+
+/** Keep demos that share the first successful file's map; skip mismatches. */
+export function buildSeriesDemos(results: ParseFileResult[]): {
+  demos: LoadedDemo[];
+  mapName: string;
+  skipped: string[];
+} {
+  const demos: LoadedDemo[] = [];
+  const skipped: string[] = [];
+  let mapName = "";
+
+  for (const result of results) {
+    if (result.error) {
+      skipped.push(`${result.file.name}: ${result.error}`);
+      continue;
+    }
+    if (!result.demo) continue;
+    const map = mapNameFromReplay(result.demo.replay);
+    if (!mapName) mapName = map;
+    if (map !== mapName) {
+      skipped.push(`${result.file.name}: map ${map} (expected ${mapName})`);
+      continue;
+    }
+    demos.push(result.demo);
+  }
+
+  return { demos, mapName, skipped };
+}
+
+function parseOneFile(
+  createWorker: CreateWorker,
+  file: File,
+  onWorkerProgress: (current: number, total: number) => void,
+): Promise<ParseFileResult> {
+  return new Promise((resolve) => {
+    const worker = createWorker();
+    worker.onmessage = (ev: MessageEvent<WorkerOut>) => {
+      const msg = ev.data;
+      if (msg.type === "progress") {
+        onWorkerProgress(msg.current, msg.total);
+        return;
+      }
+      worker.terminate();
+      if (msg.type !== "done") {
+        resolve({
+          file,
+          error: msg.type === "error" ? msg.message : "Parse failed",
+        });
+        return;
+      }
+      resolve({
+        file,
+        demo: loadedDemo(msg.replay, file.name, file),
+        timings: msg.timings,
+      });
+    };
+    worker.onerror = (e) => {
+      worker.terminate();
+      resolve({ file, error: e.message || "Worker failed" });
+    };
+    void file.arrayBuffer().then((bytes) => worker.postMessage({ bytes }, [bytes]));
+  });
+}
+
+/**
+ * Parse several `.dem` files with a small worker pool. Results stay in drop order.
+ * Progress blends completed files with in-flight WASM tick callbacks.
+ */
+export async function runParsePool(
+  createWorker: CreateWorker,
+  files: File[],
+  onProgress: (progress: ParsePoolProgress) => void,
+): Promise<ParseFileResult[]> {
+  const total = files.length;
+  if (total === 0) return [];
+
+  const results: ParseFileResult[] = new Array(total);
+  let completed = 0;
+  const inFlight = new Map<number, { current: number; total: number }>();
+
+  const poolSize = parsePoolSize(total);
+  const queue = files.map((file, index) => ({ file, index }));
+
+  let progressRaf = 0;
+  let progressDirty = false;
+  const scheduleProgress = () => {
+    if (progressDirty) return;
+    progressDirty = true;
+    progressRaf = requestAnimationFrame(() => {
+      progressDirty = false;
+      progressRaf = 0;
+      let inFlightFraction = 0;
+      for (const slot of inFlight.values()) {
+        inFlightFraction += slot.total > 0 ? slot.current / slot.total : 0;
+      }
+      onProgress({ completed, total, inFlightFraction });
+    });
+  };
+
+  // Final progress flush when the pool drains (may fall between animation frames).
+  const flushProgress = () => {
+    if (progressRaf) {
+      cancelAnimationFrame(progressRaf);
+      progressRaf = 0;
+      progressDirty = false;
+    }
+    let inFlightFraction = 0;
+    for (const slot of inFlight.values()) {
+      inFlightFraction += slot.total > 0 ? slot.current / slot.total : 0;
+    }
+    onProgress({ completed, total, inFlightFraction });
+  };
+
+  await new Promise<void>((resolve) => {
+    let active = 0;
+
+    const report = () => scheduleProgress();
+
+    const pump = () => {
+      while (active < poolSize && queue.length > 0) {
+        const job = queue.shift();
+        if (!job) break;
+        active += 1;
+        inFlight.set(job.index, { current: 0, total: 1 });
+        report();
+
+        void parseOneFile(createWorker, job.file, (current, workerTotal) => {
+          inFlight.set(job.index, { current, total: workerTotal });
+          report();
+        }).then((result) => {
+          inFlight.delete(job.index);
+          results[job.index] = result;
+          completed += 1;
+          active -= 1;
+          report();
+          if (queue.length > 0) pump();
+          else if (active === 0) {
+            flushProgress();
+            resolve();
+          }
+        });
+      }
+      if (active === 0 && queue.length === 0) {
+        flushProgress();
+        resolve();
+      }
+    };
+
+    pump();
+  });
+
+  return results;
+}
+
+/** Map parse-pool progress to a single `{ current, total }` pair for the splash bar. */
+export function parsePoolBar(progress: ParsePoolProgress): { current: number; total: number } {
+  const current = Math.min(
+    progress.total,
+    progress.completed + progress.inFlightFraction,
+  );
+  return { current: Math.round(current * 100), total: progress.total * 100 };
+}

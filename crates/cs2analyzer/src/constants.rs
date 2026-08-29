@@ -24,6 +24,9 @@ pub const REGULATION_ROUNDS: u32 = 24;
 /// First 1-based round number of overtime.
 pub const FIRST_OVERTIME_ROUND: u32 = 25;
 
+/// CS2 OT freeze money per player (no pistol round in OT).
+pub const OVERTIME_START_MONEY: i32 = 10000;
+
 /// Overtime side-swap block length.
 pub const OVERTIME_BLOCK_ROUNDS: u32 = 3;
 

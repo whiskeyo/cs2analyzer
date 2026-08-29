@@ -24,6 +24,15 @@ export const REGULATION_ROUNDS = 24;
 /** First 1-based round number of overtime. */
 export const FIRST_OVERTIME_ROUND = 25;
 
+/** CS2 OT freeze money per player (no pistol round in OT). */
+export const OVERTIME_START_MONEY = 10000;
+
+/** Max GOTV files in one habits series. */
+export const SERIES_MAX_FILES = 12;
+
+/** Concurrent WASM parse workers (queue the rest). */
+export const PARSE_POOL_MAX = 3;
+
 /** Overtime side-swap block length. */
 export const OVERTIME_BLOCK_ROUNDS = 3;
 

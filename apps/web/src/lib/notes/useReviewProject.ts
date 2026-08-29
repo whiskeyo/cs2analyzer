@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DRAW_HISTORY_LIMIT, PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { matchEndTick, matchScorecard, savedPlayerSnapshots } from "@/lib/stats/stats";
-import type { LoadedDemo } from "@/lib/parse/session";
+import type { LoadedDemo, DemoSeries } from "@/lib/parse/session";
 import type { Playback } from "@/lib/playback/usePlayback";
 import type { Status } from "@/lib/state/status";
-import { useResetOn } from "@/lib/state/useResetOn";
+import {
+  clearSeriesReviewCache,
+  getSeriesReview,
+  seriesReviewEntries,
+  setSeriesReview,
+  type SeriesReviewSnapshot,
+} from "./seriesReviewCache";
 import {
   defaultColor,
   defaultPaletteId,
@@ -39,10 +45,11 @@ function downloadJson(name: string, text: string) {
  */
 export function useReviewProject(opts: {
   demo: LoadedDemo | null;
+  series: DemoSeries | null;
   status: Status;
   playback: Playback;
 }) {
-  const { demo, status, playback } = opts;
+  const { demo, series, status, playback } = opts;
   const [saved, setSaved] = useState<ReviewProject[]>([]);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [canUndo, setCanUndo] = useState(false);
@@ -57,6 +64,8 @@ export function useReviewProject(opts: {
   strokesRef.current = strokes;
   const demoRef = useRef(demo);
   demoRef.current = demo;
+  /** Previous demo id — used to detect series file switches vs first load. */
+  const prevDemoIdRef = useRef<string | null>(null);
   const overlayRef = useRef({ summaryFilter, floorMode, paletteId, color });
   overlayRef.current = { summaryFilter, floorMode, paletteId, color };
   const playbackRef = useRef(playback);
@@ -110,6 +119,18 @@ export function useReviewProject(opts: {
     syncHistoryButtons();
   }, []);
 
+  const applySnapshot = useCallback(
+    (snap: SeriesReviewSnapshot, jumpTick: boolean) => {
+      commitStrokes(snap.strokes, true);
+      setSummaryFilter(snap.summaryFilter);
+      setFloorMode(snap.floorMode);
+      setPaletteId(snap.paletteId);
+      setColor(snap.color);
+      if (jumpTick && snap.tick > 0) playbackRef.current.jump(snap.tick, true);
+    },
+    [commitStrokes],
+  );
+
   const applyProject = useCallback(
     (p: ReviewProject, jumpTick: boolean) => {
       commitStrokes(p.strokes, true);
@@ -121,6 +142,21 @@ export function useReviewProject(opts: {
     },
     [commitStrokes],
   );
+
+  const snapshotNow = useCallback((): SeriesReviewSnapshot | null => {
+    const target = demoRef.current;
+    if (!target) return null;
+    const overlay = overlayRef.current;
+    return {
+      demo: target,
+      tick: playbackRef.current.tickRef.current,
+      strokes: strokesRef.current,
+      summaryFilter: overlay.summaryFilter,
+      floorMode: overlay.floorMode,
+      paletteId: overlay.paletteId,
+      color: overlay.color,
+    };
+  }, []);
 
   const exportNotes = useCallback(async () => {
     try {
@@ -169,13 +205,27 @@ export function useReviewProject(opts: {
   );
 
   const persist = useCallback(
-    (target: LoadedDemo | null) => {
-      if (!target) return Promise.resolve();
+    async (
+      target: LoadedDemo | null,
+      opts?: { stats?: boolean; refreshList?: boolean },
+    ) => {
+      if (!target) return;
       const overlay = overlayRef.current;
+      const key = matchKey(target.replay, target.fileName);
       const endTick = matchEndTick(target.replay);
-      return saveProject({
+      let scorecard = undefined;
+      let playerStats = undefined;
+      if (opts?.stats !== false) {
+        scorecard = matchScorecard(target.replay, endTick);
+        playerStats = savedPlayerSnapshots(target.replay, endTick);
+      } else {
+        const existing = await loadProject(key);
+        scorecard = existing?.scorecard;
+        playerStats = existing?.playerStats;
+      }
+      await saveProject({
         schema: PROJECT_SCHEMA,
-        key: matchKey(target.replay, target.fileName),
+        key,
         savedAt: Date.now(),
         fileName: target.fileName,
         mapName: target.replay.header.map_name,
@@ -185,39 +235,104 @@ export function useReviewProject(opts: {
         floorMode: overlay.floorMode,
         paletteId: overlay.paletteId,
         color: overlay.color,
-        scorecard: matchScorecard(target.replay, endTick),
-        playerStats: savedPlayerSnapshots(target.replay, endTick),
-      })
-        .then(refreshSaved)
-        .catch(() => undefined);
+        scorecard,
+        playerStats,
+      });
+      if (opts?.refreshList !== false) refreshSaved();
     },
     [refreshSaved],
   );
 
   /** Save the demo currently on screen, e.g. before the tab closes. */
-  const persistNow = useCallback(() => persist(demoRef.current), [persist]);
+  const persistNow = useCallback(
+    () => persist(demoRef.current).catch(() => undefined),
+    [persist],
+  );
 
   useEffect(() => {
     refreshSaved();
   }, [refreshSaved]);
 
-  // Drop the outgoing demo's drawings before the new one paints a frame.
-  useResetOn(demo, () => {
+  // Drop the outgoing demo's drawings before a new one paints — except series hops.
+  useLayoutEffect(() => {
+    if (!demo?.id) return;
+    const switchingSeries =
+      series != null &&
+      prevDemoIdRef.current != null &&
+      prevDemoIdRef.current !== demo.id;
     restoredRef.current = false;
+    if (switchingSeries) return;
     commitStrokes([], true);
     setSummaryFilter(DEFAULT_SUMMARY_FILTER);
     setFloorMode("auto");
-  });
+  }, [demo?.id, series, commitStrokes]);
+
+  const flushSeriesCache = useCallback(async () => {
+    for (const entry of seriesReviewEntries()) {
+      await saveProject({
+        schema: PROJECT_SCHEMA,
+        key: matchKey(entry.demo.replay, entry.demo.fileName),
+        savedAt: Date.now(),
+        fileName: entry.demo.fileName,
+        mapName: entry.demo.replay.header.map_name,
+        tick: entry.tick,
+        strokes: entry.strokes,
+        summaryFilter: entry.summaryFilter,
+        floorMode: entry.floorMode,
+        paletteId: entry.paletteId,
+        color: entry.color,
+      });
+    }
+    clearSeriesReviewCache();
+  }, []);
+
+  /** Call before swapping the active file in a series (refs still point at the outgoing demo). */
+  const stashForSeriesSwitch = useCallback(() => {
+    const snap = snapshotNow();
+    if (snap) setSeriesReview(snap);
+  }, [snapshotNow]);
 
   // Restore this demo's review on load, and save it again on the way out.
   useEffect(() => {
-    if (!demo) return;
+    if (!demo) {
+      prevDemoIdRef.current = null;
+      return;
+    }
+    const isSwitch =
+      prevDemoIdRef.current !== null && prevDemoIdRef.current !== demo.id;
+    prevDemoIdRef.current = demo.id;
     let cancelled = false;
+
+    const inSeries = series?.demos.some((d) => d.id === demo.id) ?? false;
+    const cached = inSeries ? getSeriesReview(demo.id) : undefined;
+
+    if (cached) {
+      applySnapshot(cached, false);
+      restoredRef.current = true;
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (inSeries && isSwitch) {
+      restoredRef.current = true;
+      void loadProject(matchKey(demo.replay, demo.fileName))
+        .then((project) => {
+          if (cancelled || !project) return;
+          applyProject(project, false);
+          playbackRef.current.setPlaying(false);
+        })
+        .catch(() => undefined);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const settle = (project: ReviewProject | null) => {
       if (cancelled) return;
       restoredRef.current = true;
       if (!project) {
-        playbackRef.current.setPlaying(true);
+        if (!isSwitch) playbackRef.current.setPlaying(true);
         return;
       }
       applyProject(project, true);
@@ -231,9 +346,16 @@ export function useReviewProject(opts: {
       .catch(() => settle(null));
     return () => {
       cancelled = true;
-      void persist(demo);
+      if (!inSeries) {
+        void persist(demo, { stats: false, refreshList: false }).catch(() => undefined);
+      }
     };
-  }, [demo, applyProject, persist]);
+  }, [demo, series, applyProject, applySnapshot, persist]);
+
+  useEffect(() => {
+    if (series) return;
+    void flushSeriesCache().catch(() => undefined);
+  }, [series, flushSeriesCache]);
 
   useEffect(() => {
     if (!demo || !restoredRef.current) return;
@@ -273,6 +395,7 @@ export function useReviewProject(opts: {
     exportNotes,
     importNotesText,
     persistNow,
+    stashForSeriesSwitch,
   };
 }
 

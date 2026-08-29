@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { getSeriesReviewTick } from "@/lib/notes/seriesReviewCache";
 import { tickRate } from "@/lib/shared/constants";
-import { useResetOn } from "@/lib/state/useResetOn";
 import type { Replay } from "@/lib/replay/replayTypes";
 
 /**
@@ -12,7 +12,7 @@ import type { Replay } from "@/lib/replay/replayTypes";
  * re-renders 16 times a second instead of 60 and the per-tick caches in
  * `lib/stats` keep hitting.
  */
-export function usePlayback(replay: Replay | null) {
+export function usePlayback(replay: Replay | null, demoId: string | null) {
   const [tick, setTick] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -28,21 +28,43 @@ export function usePlayback(replay: Replay | null) {
     (t: number, pause = true) => {
       tickRef.current = t;
       publish(t);
-      if (pause) setPlaying(false);
+      if (pause) {
+        playingRef.current = false;
+        setPlaying(false);
+      }
     },
     [publish],
   );
 
+  /** Stop the transport immediately (refs update before the next render). */
+  const pauseNow = useCallback(() => {
+    playingRef.current = false;
+    setPlaying(false);
+  }, []);
+
   /** Scrubbing keeps the transport state: dragging the bar does not pause. */
   const scrub = useCallback((t: number) => jump(t, false), [jump]);
 
-  // A new demo lands on the first non-knife freeze end, paused. Whoever
-  // restores a saved review may move the playhead again from there.
-  useResetOn(replay, () => {
-    if (!replay) return;
+  const prevDemoIdRef = useRef<string | null>(null);
+
+  // Layout effect, not render-phase reset: avoids a setState storm when swapping
+  // series files (Firefox slow-script warning with several useResetOn hooks).
+  useLayoutEffect(() => {
+    if (!demoId || !replay) {
+      prevDemoIdRef.current = null;
+      return;
+    }
+    if (prevDemoIdRef.current === demoId) return;
+    prevDemoIdRef.current = demoId;
+
+    playingRef.current = false;
+    setPlaying(false);
+    const cached = getSeriesReviewTick(demoId);
     const first = replay.rounds.find((r) => !r.is_knife) ?? replay.rounds[0];
-    jump(first?.freeze_end_tick ?? replay.ticks.ticks[0] ?? 0);
-  });
+    const land = cached ?? first?.freeze_end_tick ?? replay.ticks.ticks[0] ?? 0;
+    tickRef.current = land;
+    setTick(Math.floor(land));
+  }, [demoId, replay]);
 
   useEffect(() => {
     if (!replay || !playing) return;
@@ -59,6 +81,7 @@ export function usePlayback(replay: Replay | null) {
       if (tickRef.current >= max) {
         tickRef.current = max;
         publish(max);
+        playingRef.current = false;
         setPlaying(false);
         return;
       }
@@ -66,6 +89,7 @@ export function usePlayback(replay: Replay | null) {
         tickRef.current = min;
         publish(min);
         if (speed < 0) {
+          playingRef.current = false;
           setPlaying(false);
           return;
         }
@@ -77,7 +101,18 @@ export function usePlayback(replay: Replay | null) {
     return () => cancelAnimationFrame(id);
   }, [replay, playing, speed, publish]);
 
-  return { tick, tickRef, playing, setPlaying, playingRef, speed, setSpeed, jump, scrub };
+  return {
+    tick,
+    tickRef,
+    playing,
+    setPlaying,
+    playingRef,
+    speed,
+    setSpeed,
+    jump,
+    scrub,
+    pauseNow,
+  };
 }
 
 export type Playback = ReturnType<typeof usePlayback>;

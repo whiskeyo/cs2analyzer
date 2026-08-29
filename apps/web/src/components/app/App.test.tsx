@@ -89,7 +89,7 @@ describe("App", () => {
   it("starts on the splash and asks for a demo", () => {
     render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Drop a Counter-Strike 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Drop one Counter-Strike 2/)).toBeInTheDocument();
   });
 
   it("shows the parsed match on the radar, HUD, and scoreboard", async () => {
@@ -128,7 +128,7 @@ describe("App", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "New demo" }));
     expect(screen.queryByText(/match\.dem/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Drop a Counter-Strike 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Drop one Counter-Strike 2/)).toBeInTheDocument();
   });
 
   it("keeps the scoreboard selection in step with the radar", async () => {
