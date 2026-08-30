@@ -15,6 +15,16 @@ export interface ParsePoolProgress {
   total: number;
   /** Sum of in-flight worker progress fractions (0–poolSize). */
   inFlightFraction: number;
+  files: ParseFileProgress[];
+}
+
+export type ParseFileState = "queued" | "parsing" | "done" | "error";
+
+export interface ParseFileProgress {
+  name: string;
+  index: number;
+  state: ParseFileState;
+  pct: number;
 }
 
 /** Worker count: cap RAM use; queue the rest. */
@@ -108,38 +118,48 @@ export async function runParsePool(
   const results: ParseFileResult[] = new Array(total);
   let completed = 0;
   const inFlight = new Map<number, { current: number; total: number }>();
+  const fileProgress: ParseFileProgress[] = files.map((file, index) => ({
+    name: file.name,
+    index,
+    state: "queued",
+    pct: 0,
+  }));
 
   const poolSize = parsePoolSize(total);
   const queue = files.map((file, index) => ({ file, index }));
 
   let progressRaf = 0;
   let progressDirty = false;
+  const emitProgress = (): ParsePoolProgress => {
+    let inFlightFraction = 0;
+    for (const slot of inFlight.values()) {
+      inFlightFraction += slot.total > 0 ? slot.current / slot.total : 0;
+    }
+    return { completed, total, inFlightFraction, files: fileProgress.map((f) => ({ ...f })) };
+  };
   const scheduleProgress = () => {
     if (progressDirty) return;
     progressDirty = true;
     progressRaf = requestAnimationFrame(() => {
       progressDirty = false;
       progressRaf = 0;
-      let inFlightFraction = 0;
-      for (const slot of inFlight.values()) {
-        inFlightFraction += slot.total > 0 ? slot.current / slot.total : 0;
-      }
-      onProgress({ completed, total, inFlightFraction });
+      onProgress(emitProgress());
     });
   };
 
-  // Final progress flush when the pool drains (may fall between animation frames).
   const flushProgress = () => {
     if (progressRaf) {
       cancelAnimationFrame(progressRaf);
       progressRaf = 0;
       progressDirty = false;
     }
-    let inFlightFraction = 0;
-    for (const slot of inFlight.values()) {
-      inFlightFraction += slot.total > 0 ? slot.current / slot.total : 0;
-    }
-    onProgress({ completed, total, inFlightFraction });
+    onProgress(emitProgress());
+  };
+
+  const setFile = (index: number, patch: Partial<ParseFileProgress>) => {
+    const row = fileProgress[index];
+    if (!row) return;
+    Object.assign(row, patch);
   };
 
   await new Promise<void>((resolve) => {
@@ -153,16 +173,22 @@ export async function runParsePool(
         if (!job) break;
         active += 1;
         inFlight.set(job.index, { current: 0, total: 1 });
+        setFile(job.index, { state: "parsing", pct: 0 });
         report();
 
         void parseOneFile(createWorker, job.file, (current, workerTotal) => {
           inFlight.set(job.index, { current, total: workerTotal });
+          const pct =
+            workerTotal > 0 ? Math.min(100, Math.round((100 * current) / workerTotal)) : 0;
+          setFile(job.index, { state: "parsing", pct });
           report();
         }).then((result) => {
           inFlight.delete(job.index);
           results[job.index] = result;
           completed += 1;
           active -= 1;
+          if (result.error) setFile(job.index, { state: "error", pct: 100 });
+          else setFile(job.index, { state: "done", pct: 100 });
           report();
           if (queue.length > 0) pump();
           else if (active === 0) {
@@ -185,9 +211,11 @@ export async function runParsePool(
 
 /** Map parse-pool progress to a single `{ current, total }` pair for the splash bar. */
 export function parsePoolBar(progress: ParsePoolProgress): { current: number; total: number } {
-  const current = Math.min(
-    progress.total,
-    progress.completed + progress.inFlightFraction,
-  );
+  const current = Math.min(progress.total, progress.completed + progress.inFlightFraction);
   return { current: Math.round(current * 100), total: progress.total * 100 };
+}
+
+export function parsePoolOverallPct(progress: ParsePoolProgress): number {
+  const bar = parsePoolBar(progress);
+  return bar.total > 0 ? Math.min(100, Math.round((100 * bar.current) / bar.total)) : 0;
 }

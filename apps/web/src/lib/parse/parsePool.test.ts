@@ -35,7 +35,7 @@ describe("buildSeriesDemos", () => {
 
 describe("parsePoolBar", () => {
   it("blends completed files with in-flight progress", () => {
-    expect(parsePoolBar({ completed: 1, total: 3, inFlightFraction: 0.5 })).toEqual({
+    expect(parsePoolBar({ completed: 1, total: 3, inFlightFraction: 0.5, files: [] })).toEqual({
       current: 150,
       total: 300,
     });
