@@ -236,7 +236,7 @@ export interface MatchHalfScore {
   t: number;
 }
 
-/** Starting-side scorecard for a saved-note card (team A started CT). */
+/** Starting-side scorecard for a saved note. `teamA`/`teamB` are who was on CT/T at pistol. */
 export interface MatchScorecard {
   teamA: string;
   teamB: string;
@@ -311,8 +311,7 @@ export function matchScorecard(replay: Replay, tick: number): MatchScorecard {
       addHalfWin(secondHalf, r, toA);
     } else {
       hasOt = true;
-      if (toA) overtime.a += 1;
-      else overtime.b += 1;
+      addHalfWin(overtime, r, toA);
     }
   }
   return {

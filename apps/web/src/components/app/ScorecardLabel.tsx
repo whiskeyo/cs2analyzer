@@ -5,20 +5,19 @@ import { formatScorecard, type MatchHalfScore, type MatchScorecard } from "@/lib
 const WIN_COLOR = "#6ecf8a";
 const LOSS_COLOR = "#e07070";
 
-function halfCtT(half: MatchHalfScore): { ct: number; t: number } {
-  return {
-    ct: half.ct ?? half.a,
-    t: half.t ?? half.b,
-  };
+/** Color for starting-side slot `a` (started CT) / `b` (started T) per half. */
+function halfSlotColor(slot: "a" | "b", half: "first" | "second"): string {
+  if (half === "first") return slot === "a" ? CT_COLOR : T_COLOR;
+  return slot === "a" ? T_COLOR : CT_COLOR;
 }
 
-function HalfScore({ half }: { half: MatchHalfScore }) {
-  const { ct, t } = halfCtT(half);
+/** Half line: slot `a`/`b` wins with CT:T (H1) or T:CT (H2) side colors. */
+function HalfScore({ half, which }: { half: MatchHalfScore; which: "first" | "second" }) {
   return (
     <>
-      <span style={{ color: CT_COLOR }}>{ct}</span>
+      <span style={{ color: halfSlotColor("a", which) }}>{half.a}</span>
       <span>:</span>
-      <span style={{ color: T_COLOR }}>{t}</span>
+      <span style={{ color: halfSlotColor("b", which) }}>{half.b}</span>
     </>
   );
 }
@@ -37,10 +36,10 @@ export function ScorecardLabel({ mapLabel, scorecard }: Props) {
 
   const halves: ReactNode[] = [];
   if (scorecard.firstHalf) {
-    halves.push(<HalfScore key="h1" half={scorecard.firstHalf} />);
+    halves.push(<HalfScore key="h1" half={scorecard.firstHalf} which="first" />);
   }
   if (scorecard.secondHalf) {
-    halves.push(<HalfScore key="h2" half={scorecard.secondHalf} />);
+    halves.push(<HalfScore key="h2" half={scorecard.secondHalf} which="second" />);
   }
   if (scorecard.overtime) {
     halves.push(

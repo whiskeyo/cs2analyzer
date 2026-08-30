@@ -262,7 +262,7 @@ describe("matchScorecard", () => {
       scoreB: 2,
       firstHalf: { a: 1, b: 1, ct: 1, t: 1 },
       secondHalf: { a: 1, b: 1, ct: 1, t: 1 },
-      overtime: { a: 1, b: 0, ct: 0, t: 0 },
+      overtime: { a: 1, b: 0, ct: 1, t: 0 },
     });
     expect(formatScorecard(card)).toBe("EYEBALLERS - Phantom, 3:2 (1:1, 1:1, OT 1:0)");
   });
