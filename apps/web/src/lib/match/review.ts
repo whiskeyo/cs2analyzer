@@ -4,6 +4,7 @@ import {
   TRADE_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
+import { isPistolRoundNumber } from "@/lib/parse/roundTags";
 import { samplePlayers } from "@/lib/replay/sample";
 import { currentSide, isEnemyKill } from "@/lib/stats/stats";
 import type { Kill, Replay, Round } from "@/lib/replay/replayTypes";
@@ -210,10 +211,12 @@ export function matchHighlights(replay: Replay, untilTick: number): MatchHighlig
     if (r.end_tick <= untilTick && r.winner) {
       const snap = samplePlayers(replay, freeze);
       let eco: { index: number; equip: number } | null = null;
-      for (const p of snap) {
-        if (!p.present || p.equip >= ECO_MAX_EQUIPMENT) continue;
-        if ((p.ct ? "CT" : "T") !== r.winner) continue;
-        if (!eco || p.equip < eco.equip) eco = { index: p.index, equip: p.equip };
+      if (!isPistolRoundNumber(r.number)) {
+        for (const p of snap) {
+          if (!p.present || p.equip >= ECO_MAX_EQUIPMENT) continue;
+          if ((p.ct ? "CT" : "T") !== r.winner) continue;
+          if (!eco || p.equip < eco.equip) eco = { index: p.index, equip: p.equip };
+        }
       }
       if (eco) {
         out.push({
@@ -415,7 +418,13 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
 
     const freeze = r.freeze_end_tick || r.start_tick;
     const me = samplePlayers(replay, freeze).find((p) => p.index === player);
-    if (me && me.equip < ECO_MAX_EQUIPMENT && r.end_tick <= untilTick && r.winner === side) {
+    if (
+      !isPistolRoundNumber(r.number) &&
+      me &&
+      me.equip < ECO_MAX_EQUIPMENT &&
+      r.end_tick <= untilTick &&
+      r.winner === side
+    ) {
       ecoWins += 1;
       notes.push({
         tick: freeze,

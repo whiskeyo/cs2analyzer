@@ -87,3 +87,15 @@ describe("matchHighlights", () => {
     expect(ecos).toEqual([]);
   });
 });
+
+describe("playerReview eco", () => {
+  it("does not call a pistol round win an eco", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT", freeze_end_tick: 64, end_tick: 700 })],
+      kills: [makeKill(100, 0, 1)],
+    });
+    const review = playerReview(m, 0, 700);
+    expect(review.notes.some((n) => n.title.includes("eco"))).toBe(false);
+  });
+});
