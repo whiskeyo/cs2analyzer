@@ -1,6 +1,8 @@
 import { useApp } from "@/lib/state/appState";
 import { seriesTeamCandidates } from "@/lib/parse/session";
 import type { RoundKind } from "@/lib/parse/roundTags";
+import { filterHabitsNades } from "@/lib/parse/seriesOverlay";
+import { HabitsNadeLegend } from "./HabitsNadeLegend";
 
 const KINDS: { id: RoundKind; label: string }[] = [
   { id: "pistol", label: "Pistol" },
@@ -16,7 +18,10 @@ export function SeriesFilters() {
   if (!series || series.demos.length <= 1) return null;
 
   const teams = seriesTeamCandidates(series.demos);
-  const { filter, overlayOn, focalPlayers, playerKey } = habits;
+  const { filter, overlayOn, focalPlayers, playerKey, aggregated, bucketOverlay } = habits;
+  const overlayActive = overlayOn && aggregated && bucketOverlay != null;
+  const visibleNades =
+    habits.overlay == null ? 0 : filterHabitsNades(habits.overlay.nades, habits.nadeFilter).length;
 
   return (
     <div className="series-filters">
@@ -80,18 +85,48 @@ export function SeriesFilters() {
           </select>
         </>
       )}
-      <label className="series-overlay-toggle">
-        <input
-          type="checkbox"
-          checked={overlayOn}
-          onChange={(e) => habits.setOverlayOn(e.target.checked)}
-        />
-        Trails
-      </label>
+      {aggregated && (
+        <>
+          <label className="series-overlay-toggle">
+            <input
+              type="checkbox"
+              checked={overlayOn}
+              onChange={(e) => habits.setOverlayOn(e.target.checked)}
+            />
+            Overlay
+          </label>
+          {overlayActive && (
+            <div className="filters" role="toolbar" aria-label="Habits path display">
+              {(
+                [
+                  { id: "trails", label: "Paths" },
+                  { id: "heatmap", label: "Heatmap" },
+                ] as const
+              ).map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  className={`filter${habits.overlayDisplay === mode.id ? " on" : ""}`}
+                  onClick={() => habits.setOverlayDisplay(mode.id)}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {overlayActive && (
+            <HabitsNadeLegend filter={habits.nadeFilter} onKind={habits.setNadeKind} />
+          )}
+        </>
+      )}
       {habits.overlay && (
         <span className="series-bucket-meta">
-          {habits.overlay.roundCount} rounds ·{" "}
-          {habits.overlay.mode === "heatmap" ? "heatmap" : `${habits.overlay.trails.length} trails`}
+          {habits.overlay.roundCount} rounds · freeze +{habits.bucketPlaySec.toFixed(1)}s /{" "}
+          {habits.overlay.windowSec.toFixed(0)}s ·{" "}
+          {habits.overlayDisplay === "heatmap"
+            ? "heatmap"
+            : `${habits.overlay.trails.length} paths`}{" "}
+          · {visibleNades} nades
         </span>
       )}
     </div>

@@ -62,3 +62,24 @@ export function markLabelShift(at: number): string {
   if (at >= 0.98) return "-100%";
   return "-50%";
 }
+
+export interface BucketTimelineMark {
+  sec: number;
+  label: string;
+  /** 0–1 along the scrubber (0 → maxSec). */
+  at: number;
+}
+
+/** Freeze-relative clock marks for aggregated bucket playback. */
+export function bucketTimelineMarks(maxSec: number): BucketTimelineMark[] {
+  if (maxSec <= 0) return [];
+  const out: BucketTimelineMark[] = [];
+  for (let sec = 0; sec <= maxSec; sec += ROUND_TIMELINE_STEP_SECONDS) {
+    out.push({
+      sec,
+      label: formatClock(sec),
+      at: sec / maxSec,
+    });
+  }
+  return out;
+}

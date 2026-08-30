@@ -225,6 +225,8 @@ export interface FrameInput {
   cal: MapCalibration | undefined;
   /** Current pan-zoom scale; 1 is the fitted view. */
   scale: number;
+  /** Hide live playback layers; habits overlay paints on a blank map. */
+  habitsOnly?: boolean;
 }
 
 function sideColor(ct: boolean): string {
@@ -279,6 +281,90 @@ function summaryDiscs(replay: Replay, filter: SummaryFilter, zoom: number): Summ
  * and a molly whose occupancy died early stops drawing instead of leaving an
  * envelope circle behind.
  */
+export function nadeRenderAt(
+  g: GrenadeThrow,
+  tick: number,
+  tps: number,
+  zoom: number,
+  roundEnd?: number,
+): NadeRender | null {
+  const color = NADE_COLORS[g.kind] ?? "#fff";
+  const popAt = nadePopTick(g);
+  const visibleEnd = nadeVisibleEnd(g, tps, roundEnd);
+  const inFlight = tick >= g.start_tick && tick < popAt && tick <= visibleEnd;
+  const lingering =
+    tick >= popAt &&
+    tick <= visibleEnd &&
+    (g.kind === "smoke" || g.kind === "molotov" || g.kind === "decoy");
+  const burstSpan = nadeBurstSpan(g.kind, tps);
+  const burst = burstSpan > 0 && tick >= popAt && tick <= popAt + burstSpan && tick <= visibleEnd;
+
+  if (inFlight) {
+    const trail: Point[] = [];
+    for (const p of g.points) {
+      if (p.tick > tick) break;
+      trail.push({ x: p.x, y: p.y });
+    }
+    const head = grenadePosAt(g.points, tick);
+    return {
+      phase: "flight",
+      kind: g.kind,
+      color,
+      trail,
+      head: head ? { x: head.x, y: head.y } : null,
+    };
+  }
+  if (!lingering && !burst) return null;
+
+  const cells = g.kind === "molotov" ? firesAt(g.fires, tick) : [];
+  if (lingering && cells.length > 0) {
+    const centroid = { x: 0, y: 0 };
+    for (const cell of cells) {
+      centroid.x += cell.x;
+      centroid.y += cell.y;
+    }
+    centroid.x /= cells.length;
+    centroid.y /= cells.length;
+    return {
+      phase: "fires",
+      kind: g.kind,
+      color,
+      cells: cells.map((cell) => ({ x: cell.x, y: cell.y })),
+      cellRadius: FIRE_CELL_RADIUS * zoom,
+      centroid,
+      dialRadius: Math.max(5, 6 * zoom),
+      left: lingerRemaining(popAt, visibleEnd, tick),
+    };
+  }
+  if (lingering && g.kind === "molotov" && (g.fires?.length ?? 0) > 0) return null;
+
+  const last = g.points[g.points.length - 1];
+  if (!last) return null;
+  const at = { x: last.x, y: last.y };
+  const radius = LINGER_RADIUS[g.kind] * zoom;
+  if (lingering && (g.kind === "smoke" || g.kind === "molotov")) {
+    return {
+      phase: "linger",
+      kind: g.kind,
+      color,
+      at,
+      radius,
+      dialRadius: Math.max(7, 8 * zoom),
+      left: lingerRemaining(popAt, visibleEnd, tick),
+    };
+  }
+  if (burst && g.kind === "he") {
+    return {
+      phase: "burst",
+      kind: g.kind,
+      color,
+      at,
+      progress: (tick - popAt) / (nadeBurstSpan("he", tps) || 1),
+    };
+  }
+  return { phase: "puff", kind: g.kind, color, at, radius, alpha: burst ? 0.45 : 0.28 };
+}
+
 export function nadeRenders(
   replay: Replay,
   tick: number,
@@ -291,86 +377,8 @@ export function nadeRenders(
     ? inTickWindow(replay.grenades, throwTick, round.start_tick, round.end_tick)
     : replay.grenades;
   for (const g of throws) {
-    const color = NADE_COLORS[g.kind] ?? "#fff";
-    const popAt = nadePopTick(g);
-    const visibleEnd = nadeVisibleEnd(g, tps, round?.end_tick);
-    const inFlight = tick >= g.start_tick && tick < popAt && tick <= visibleEnd;
-    const lingering =
-      tick >= popAt &&
-      tick <= visibleEnd &&
-      (g.kind === "smoke" || g.kind === "molotov" || g.kind === "decoy");
-    const burstSpan = nadeBurstSpan(g.kind, tps);
-    const burst = burstSpan > 0 && tick >= popAt && tick <= popAt + burstSpan && tick <= visibleEnd;
-
-    if (inFlight) {
-      const trail: Point[] = [];
-      for (const p of g.points) {
-        if (p.tick > tick) break;
-        trail.push({ x: p.x, y: p.y });
-      }
-      const head = grenadePosAt(g.points, tick);
-      out.push({
-        phase: "flight",
-        kind: g.kind,
-        color,
-        trail,
-        head: head ? { x: head.x, y: head.y } : null,
-      });
-      continue;
-    }
-    if (!lingering && !burst) continue;
-
-    const cells = g.kind === "molotov" ? firesAt(g.fires, tick) : [];
-    if (lingering && cells.length > 0) {
-      const centroid = { x: 0, y: 0 };
-      for (const cell of cells) {
-        centroid.x += cell.x;
-        centroid.y += cell.y;
-      }
-      centroid.x /= cells.length;
-      centroid.y /= cells.length;
-      out.push({
-        phase: "fires",
-        kind: g.kind,
-        color,
-        cells: cells.map((cell) => ({ x: cell.x, y: cell.y })),
-        cellRadius: FIRE_CELL_RADIUS * zoom,
-        centroid,
-        dialRadius: Math.max(5, 6 * zoom),
-        left: lingerRemaining(popAt, visibleEnd, tick),
-      });
-      continue;
-    }
-    // Occupancy was sampled but has burned out: the molly hole is empty.
-    if (lingering && g.kind === "molotov" && (g.fires?.length ?? 0) > 0) continue;
-
-    const last = g.points[g.points.length - 1];
-    if (!last) continue;
-    const at = { x: last.x, y: last.y };
-    const radius = LINGER_RADIUS[g.kind] * zoom;
-    if (lingering && (g.kind === "smoke" || g.kind === "molotov")) {
-      out.push({
-        phase: "linger",
-        kind: g.kind,
-        color,
-        at,
-        radius,
-        dialRadius: Math.max(7, 8 * zoom),
-        left: lingerRemaining(popAt, visibleEnd, tick),
-      });
-      continue;
-    }
-    if (burst && g.kind === "he") {
-      out.push({
-        phase: "burst",
-        kind: g.kind,
-        color,
-        at,
-        progress: (tick - popAt) / (nadeBurstSpan("he", tps) || 1),
-      });
-      continue;
-    }
-    out.push({ phase: "puff", kind: g.kind, color, at, radius, alpha: burst ? 0.45 : 0.28 });
+    const render = nadeRenderAt(g, tick, tps, zoom, round?.end_tick);
+    if (render) out.push(render);
   }
   return out;
 }
@@ -462,6 +470,26 @@ function viewCone(
 
 export function buildRadarFrame(input: FrameInput): RadarFrame {
   const { replay, tick, layers, selected, cal, scale } = input;
+  if (input.habitsOnly) {
+    return {
+      tick,
+      round: null,
+      players: [],
+      useLowerFloor: false,
+      heatmap: [],
+      summary: [],
+      nades: [],
+      tracers: [],
+      bomb: null,
+      deaths: [],
+      opening: null,
+      trails: [],
+      cone: null,
+      hits: [],
+      flashes: [],
+      pawns: [],
+    };
+  }
   const tps = tickRate(replay);
   const round = currentRound(replay, tick);
   const players = samplePlayers(replay, tick);

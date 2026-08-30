@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { MutableRefObject } from "react";
 import { getSeriesReviewTick } from "@/lib/notes/seriesReviewCache";
 import { tickRate } from "@/lib/shared/constants";
 import type { Replay } from "@/lib/replay/replayTypes";
@@ -12,7 +13,11 @@ import type { Replay } from "@/lib/replay/replayTypes";
  * re-renders 16 times a second instead of 60 and the per-tick caches in
  * `lib/stats` keep hitting.
  */
-export function usePlayback(replay: Replay | null, demoId: string | null) {
+export function usePlayback(
+  replay: Replay | null,
+  demoId: string | null,
+  freezeTransportRef?: MutableRefObject<boolean>,
+) {
   const [tick, setTick] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -67,7 +72,7 @@ export function usePlayback(replay: Replay | null, demoId: string | null) {
   }, [demoId, replay]);
 
   useEffect(() => {
-    if (!replay || !playing) return;
+    if (!replay || !playing || freezeTransportRef?.current) return;
     let last = performance.now();
     let id = 0;
     const max =
@@ -75,6 +80,11 @@ export function usePlayback(replay: Replay | null, demoId: string | null) {
     const tps = tickRate(replay);
     const min = replay.ticks.ticks[0] ?? 0;
     const loop = (now: number) => {
+      if (freezeTransportRef?.current) {
+        last = now;
+        id = requestAnimationFrame(loop);
+        return;
+      }
       const dt = (now - last) / 1000;
       last = now;
       tickRef.current += dt * tps * speed;
@@ -99,7 +109,7 @@ export function usePlayback(replay: Replay | null, demoId: string | null) {
     };
     id = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(id);
-  }, [replay, playing, speed, publish]);
+  }, [replay, playing, speed, publish, freezeTransportRef]);
 
   return {
     tick,

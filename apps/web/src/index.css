@@ -46,7 +46,7 @@ body,
   gap: 1.5rem;
   align-items: start;
   width: min(1100px, 94vw);
-  margin: auto auto 0;
+  margin: 0 auto;
 }
 
 .drop {
@@ -161,6 +161,7 @@ body,
 .home-notes {
   width: 100%;
   text-align: left;
+  align-self: start;
 }
 .home-notes-actions {
   display: flex;
@@ -185,6 +186,7 @@ body,
   border: 1px solid #1e2732;
   border-radius: 8px;
   background: #12171d;
+  min-height: 22rem;
 }
 .saved-demos li {
   display: flex;
@@ -524,6 +526,41 @@ code {
   color: #8b98a5;
   white-space: nowrap;
   line-height: 1;
+}
+.series-trail-window {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: var(--series-control-h);
+  color: #8b98a5;
+  white-space: nowrap;
+  line-height: 1;
+}
+.series-trail-window input {
+  box-sizing: border-box;
+  width: 2.6rem;
+  height: var(--series-control-h);
+  background: #151c24;
+  border: 1px solid #243040;
+  border-radius: 4px;
+  color: #c8d0da;
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  padding: 0 0.25rem;
+}
+.series-filters .series-nade-legend {
+  position: static;
+  transform: none;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  gap: 0.25rem;
+}
+.series-filters .series-nade-legend button {
+  min-height: var(--series-control-h);
+  padding: 0 0.35rem;
+  border-radius: 4px;
 }
 .series-bucket-meta {
   margin-left: auto;
@@ -978,6 +1015,10 @@ body.sidebar-resizing {
   border-color: #6aa4d8;
   background: #243040;
   color: #fff;
+}
+.tabs button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
 }
 .tab-hint {
   margin: 0.5rem 0 0.4rem;
@@ -2034,6 +2075,11 @@ button.link {
 .rs.series-round-chip.on {
   outline: 1px solid #fff;
   color: #fff;
+}
+.rs.series-round-chip.bucket {
+  font-weight: 700;
+  min-width: 22px;
+  padding: 0 4px;
 }
 
 .radar-hud {

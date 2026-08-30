@@ -33,17 +33,19 @@ export const SERIES_MAX_FILES = 12;
 /** Concurrent WASM parse workers (queue the rest). */
 export const PARSE_POOL_MAX = 3;
 
-/** Habits overlay: seconds after freeze end to draw aligned paths. */
+/** Habits overlay: default seconds after freeze end when round length is unknown. */
 export const SERIES_HABITS_WINDOW_SECONDS = 20;
+
+/** Habits overlay trail window control range (legacy manual setting). */
+export const SERIES_HABITS_WINDOW_MIN_SECONDS = 5;
+export const SERIES_HABITS_WINDOW_MAX_SECONDS = 60;
+export const SERIES_HABITS_WINDOW_STORAGE_KEY = "cs2analyzer.seriesTrailWindowSec";
 
 /** First-wave util multiset window after freeze (util-set chips). */
 export const SERIES_FIRST_WAVE_SECONDS = 8;
 
 /** Min matching Steam IDs to merge "X" and "Team X" roster aliases. */
 export const SERIES_TEAM_MERGE_MIN_STEAM_OVERLAP = 3;
-
-/** Above this many habit trails, switch the overlay to a heatmap. */
-export const SERIES_OVERLAY_MAX_TRAILS = 48;
 
 /** Overtime side-swap block length. */
 export const OVERTIME_BLOCK_ROUNDS = 3;

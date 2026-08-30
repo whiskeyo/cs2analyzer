@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { radarUrl, worldToScreen } from "@/lib/radar/maps";
 import { overlayVisible } from "@/lib/notes";
@@ -11,7 +11,13 @@ import {
   paintViewCone,
   paintHabitsOverlay,
 } from "@/lib/radar/paintRadarFrame";
-import { habitsTrailAtScreen, type SeriesOverlay } from "@/lib/parse/seriesOverlay";
+import {
+  DEFAULT_HABITS_NADE_FILTER,
+  habitsTrailAtScreen,
+  type HabitsNadeFilter,
+  type SeriesOverlay,
+  type SeriesOverlayDisplay,
+} from "@/lib/parse/seriesOverlay";
 import { TextNoteEditor, useTextNotes, type TextMove } from "@/components/radar/TextNoteEditor";
 import { useRadarPointer, type RadarPanView } from "@/lib/radar/useRadarPointer";
 import { samplePlayers } from "@/lib/replay/sample";
@@ -39,6 +45,10 @@ interface Props {
   viewEpoch: number;
   floorMode: FloorMode;
   habitsOverlay?: SeriesOverlay | null;
+  habitsOverlayDisplay?: SeriesOverlayDisplay;
+  habitsNadeFilter?: HabitsNadeFilter;
+  habitsPlaySecRef?: RefObject<number>;
+  habitsOnly?: boolean;
   onHabitsJump?: (target: { demoId: string; jumpTick: number }) => void;
 }
 
@@ -62,6 +72,10 @@ export function RadarCanvas({
   viewEpoch,
   floorMode,
   habitsOverlay = null,
+  habitsOverlayDisplay = "trails",
+  habitsNadeFilter = DEFAULT_HABITS_NADE_FILTER,
+  habitsPlaySecRef,
+  habitsOnly = false,
   onHabitsJump,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -102,6 +116,14 @@ export function RadarCanvas({
   calRef.current = cal;
   const habitsOverlayRef = useRef(habitsOverlay);
   habitsOverlayRef.current = habitsOverlay;
+  const habitsOverlayDisplayRef = useRef(habitsOverlayDisplay);
+  habitsOverlayDisplayRef.current = habitsOverlayDisplay;
+  const habitsNadeFilterRef = useRef(habitsNadeFilter);
+  habitsNadeFilterRef.current = habitsNadeFilter;
+  const habitsPlaySecRefProp = useRef(habitsPlaySecRef);
+  habitsPlaySecRefProp.current = habitsPlaySecRef;
+  const habitsOnlyRef = useRef(habitsOnly);
+  habitsOnlyRef.current = habitsOnly;
   const onHabitsJumpRef = useRef(onHabitsJump);
   onHabitsJumpRef.current = onHabitsJump;
   const images = useRef<{ upper: HTMLImageElement | null; lower: HTMLImageElement | null }>({
@@ -203,6 +225,7 @@ export function RadarCanvas({
         floorMode: floorModeRef.current,
         cal: calNow,
         scale: v.scale,
+        habitsOnly: habitsOnlyRef.current,
       });
 
       if (followRef.current && selectedRef.current != null && calNow) {
@@ -242,7 +265,18 @@ export function RadarCanvas({
 
       paintRadarFrame(ctx, frame, toScreen, { scale: v.scale, c4Icon: c4Icon.current });
       const habitsNow = habitsOverlayRef.current;
-      if (habitsNow) paintHabitsOverlay(ctx, habitsNow, toScreen);
+      if (habitsNow) {
+        const playSec = habitsPlaySecRefProp.current?.current;
+        paintHabitsOverlay(
+          ctx,
+          habitsNow,
+          habitsOverlayDisplayRef.current,
+          habitsNadeFilterRef.current,
+          toScreen,
+          v.scale,
+          playSec,
+        );
+      }
 
       const drawStroke = (st: Stroke, alpha = 1, live = false) => {
         if (st.type === "bookmark") return;
@@ -352,7 +386,16 @@ export function RadarCanvas({
     const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, view.current, wx, wy);
     const habitsNow = habitsOverlayRef.current;
     if (habitsNow && onHabitsJumpRef.current) {
-      const hit = habitsTrailAtScreen(habitsNow, mx, my, toScreen);
+      const playSec = habitsPlaySecRefProp.current?.current;
+      const hit = habitsTrailAtScreen(
+        habitsNow,
+        habitsOverlayDisplayRef.current,
+        mx,
+        my,
+        toScreen,
+        14,
+        playSec,
+      );
       if (hit) {
         onHabitsJumpRef.current({ demoId: hit.demoId, jumpTick: hit.jumpTick });
         return;

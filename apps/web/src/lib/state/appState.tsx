@@ -41,6 +41,7 @@ function useAppState(createWorker?: CreateWorker): AppState {
   const status = useStatus();
   const stashSeriesReviewRef = useRef<() => void>(() => undefined);
   const pausePlaybackRef = useRef<() => void>(() => undefined);
+  const bucketTransportRef = useRef(false);
   const session = useDemoSession({
     status,
     createWorker,
@@ -49,7 +50,7 @@ function useAppState(createWorker?: CreateWorker): AppState {
       stashSeriesReviewRef.current();
     },
   });
-  const playback = usePlayback(session.replay, session.demo?.id ?? null);
+  const playback = usePlayback(session.replay, session.demo?.id ?? null, bucketTransportRef);
   const review = useReviewProject({
     demo: session.demo,
     series: session.series,
@@ -97,6 +98,10 @@ function useAppState(createWorker?: CreateWorker): AppState {
     selectDemo: session.selectDemo,
     jump: playback.jump,
   });
+
+  const multiDemoSeries = Boolean(session.series && session.series.demos.length > 1);
+  bucketTransportRef.current =
+    multiDemoSeries && habits.aggregated && habits.bucketOverlay != null && habits.overlayOn;
 
   usePlayerSync({
     series: session.series,

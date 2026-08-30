@@ -1,7 +1,9 @@
+import { useEffect, useRef } from "react";
 import { Controls } from "@/components/playback/Controls";
-import { RadarStage } from "@/components/radar/RadarStage";
 import { RoundStrip } from "@/components/playback/RoundStrip";
 import { SeriesAggregatedRoundStrip } from "@/components/playback/SeriesAggregatedRoundStrip";
+import { BucketControls } from "@/components/playback/BucketControls";
+import { RadarStage } from "@/components/radar/RadarStage";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useApp } from "@/lib/state/appState";
 import { ViewerHeader } from "./ViewerHeader";
@@ -11,10 +13,58 @@ import { SeriesFilters } from "./SeriesFilters";
 export function Viewer() {
   const { session, playback, review, view, places, habits } = useApp();
   const replay = session.replay;
+  const aggregated =
+    habits.aggregated &&
+    session.series != null &&
+    session.series.demos.length > 1 &&
+    replay != null;
+  const bucketMode = aggregated && habits.bucketOverlay != null && habits.overlayOn;
+  const bucketPlayingRef = useRef(playback.playing);
+  bucketPlayingRef.current = bucketMode ? playback.playing : false;
+
+  useEffect(() => {
+    if (!bucketMode || !playback.playing) return;
+    let last = performance.now();
+    let lastUi = last;
+    let id = 0;
+    const maxSec = habits.bucketWindowSec;
+    const playRef = habits.bucketPlaySecRef;
+    const setPlaySec = habits.setBucketPlaySec;
+    const loop = (now: number) => {
+      if (!bucketPlayingRef.current) return;
+      const dt = (now - last) / 1000;
+      last = now;
+      const next = Math.min(maxSec, playRef.current + dt * playback.speed);
+      playRef.current = next;
+      if (next >= maxSec) {
+        playback.setPlaying(false);
+        setPlaySec(next);
+      } else if (now - lastUi >= 100) {
+        lastUi = now;
+        setPlaySec(next);
+      }
+      id = requestAnimationFrame(loop);
+    };
+    id = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(id);
+      if (bucketPlayingRef.current === false && bucketMode) {
+        setPlaySec(playRef.current);
+      }
+    };
+  }, [
+    bucketMode,
+    playback.playing,
+    playback.speed,
+    playback.setPlaying,
+    habits.bucketWindowSec,
+    habits.bucketPlaySecRef,
+    habits.setBucketPlaySec,
+  ]);
+
   if (!replay) return null;
   const { tick, jump } = playback;
   const switching = session.switching;
-  const aggregated = habits.aggregated && session.series != null && session.series.demos.length > 1;
 
   return (
     <div className="app">
@@ -54,21 +104,35 @@ export function Viewer() {
                 groups={habits.seriesRoundsByKind}
                 demoColors={habits.demoColors}
                 activeDemoId={session.demo?.id ?? null}
+                bucketOverlay={habits.bucketOverlay}
                 replay={replay}
                 tick={tick}
-                onJump={habits.jumpHabits}
+                onBucketOverlay={habits.selectBucketOverlay}
+                onRoundJump={habits.playRound}
               />
             )}
-            <Controls
-              replay={replay}
-              tick={tick}
-              strokes={review.strokes}
-              playing={playback.playing}
-              speed={playback.speed}
-              onTick={playback.scrub}
-              onPlaying={playback.setPlaying}
-              onSpeed={playback.setSpeed}
-            />
+            {bucketMode ? (
+              <BucketControls
+                playSec={habits.bucketPlaySec}
+                maxSec={habits.bucketWindowSec}
+                playing={playback.playing}
+                speed={playback.speed}
+                onPlaySec={habits.setBucketPlaySec}
+                onPlaying={playback.setPlaying}
+                onSpeed={playback.setSpeed}
+              />
+            ) : (
+              <Controls
+                replay={replay}
+                tick={tick}
+                strokes={review.strokes}
+                playing={playback.playing}
+                speed={playback.speed}
+                onTick={playback.scrub}
+                onPlaying={playback.setPlaying}
+                onSpeed={playback.setSpeed}
+              />
+            )}
           </>
         )}
       </div>

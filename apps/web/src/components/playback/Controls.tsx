@@ -120,7 +120,7 @@ export const Controls = memo(function Controls({
         </button>
       )}
       <label className="speed">
-        {speed}×
+        Speed
         <select
           value={Math.abs(speed)}
           onChange={(e) => {

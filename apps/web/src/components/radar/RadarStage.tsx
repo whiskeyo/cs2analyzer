@@ -19,6 +19,7 @@ export function RadarStage() {
   const replay = session.replay;
   if (!replay) return null;
   const { tick } = playback;
+  const habitsOnly = habits.overlay != null;
 
   return (
     <div className="radar-col">
@@ -100,19 +101,25 @@ export function RadarStage() {
           viewEpoch={view.viewEpoch}
           floorMode={review.floorMode}
           habitsOverlay={habits.overlay}
-          onHabitsJump={habits.jumpHabits}
+          habitsOverlayDisplay={habits.overlayDisplay}
+          habitsNadeFilter={habits.nadeFilter}
+          habitsPlaySecRef={habitsOnly ? habits.bucketPlaySecRef : undefined}
+          habitsOnly={habitsOnly}
+          onHabitsJump={habits.playRound}
         />
-        <Hud replay={replay} tick={tick} />
+        {!habitsOnly && <Hud replay={replay} tick={tick} />}
         {view.layers.summary && (
           <NadeLegend filter={review.summaryFilter} onFilter={review.setSummaryFilter} />
         )}
-        <SpectatorEconomy
-          replay={replay}
-          tick={tick}
-          selected={view.selected}
-          onSelect={view.select}
-        />
-        <KillFeed replay={replay} tick={tick} onJump={playback.jump} />
+        {!habitsOnly && (
+          <SpectatorEconomy
+            replay={replay}
+            tick={tick}
+            selected={view.selected}
+            onSelect={view.select}
+          />
+        )}
+        {!habitsOnly && <KillFeed replay={replay} tick={tick} onJump={playback.jump} />}
       </div>
     </div>
   );

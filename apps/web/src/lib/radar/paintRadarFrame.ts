@@ -4,10 +4,21 @@
  */
 
 import { drawArrow, drawC4, drawHeBurst, yawToCanvas } from "@/lib/radar/draw";
-import type { SeriesOverlay } from "@/lib/parse/seriesOverlay";
+import type {
+  HabitsNadeFilter,
+  SeriesOverlay,
+  SeriesOverlayDisplay,
+} from "@/lib/parse/seriesOverlay";
+import { habitsNadeVisible, habitsNadeViewTick, overlayAtPlaySec } from "@/lib/parse/seriesOverlay";
 import { formatBlindLeft, NADE_COLORS } from "@/lib/radar/radarFx";
 import { FULL_HEALTH } from "@/lib/shared/constants";
-import { RADAR_STYLE, type NadeRender, type Point, type RadarFrame } from "./radarFrame";
+import {
+  nadeRenderAt,
+  RADAR_STYLE,
+  type NadeRender,
+  type Point,
+  type RadarFrame,
+} from "./radarFrame";
 
 /** Projects a world position onto the canvas. */
 export type ToScreen = (x: number, y: number) => Point;
@@ -18,6 +29,20 @@ const TRACER_GLOW_LENGTH = 62;
 const TRACER_CORE_LENGTH = 48;
 const DIAL_START = -Math.PI / 2;
 const DIAL_BACKDROP = "#12181f";
+
+function paintDeathCross(ctx: CanvasRenderingContext2D, toScreen: ToScreen, x: number, y: number) {
+  const s = toScreen(x, y);
+  ctx.strokeStyle = RADAR_STYLE.deathMarkColor;
+  ctx.globalAlpha = 0.85;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(s.x - 4, s.y - 4);
+  ctx.lineTo(s.x + 4, s.y + 4);
+  ctx.moveTo(s.x + 4, s.y - 4);
+  ctx.lineTo(s.x - 4, s.y + 4);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
 
 function circle(ctx: CanvasRenderingContext2D, at: Point, radius: number) {
   ctx.beginPath();
@@ -253,35 +278,56 @@ export function paintRadarFrame(
   }
 }
 
-/** Habits overlay: freeze-aligned paths or a density heatmap when the bucket is large. */
+/** Habits overlay: freeze-aligned paths, optional heatmap, and util arcs. */
 export function paintHabitsOverlay(
   ctx: CanvasRenderingContext2D,
   overlay: SeriesOverlay,
+  display: SeriesOverlayDisplay,
+  nadeFilter: HabitsNadeFilter,
   toScreen: ToScreen,
+  scale: number,
+  playSec?: number,
 ) {
-  if (overlay.mode === "heatmap") {
-    for (const dot of overlay.heatDots) {
+  const visible = playSec != null ? overlayAtPlaySec(overlay, playSec) : overlay;
+  if (display === "heatmap") {
+    for (const dot of visible.heatDots) {
       const s = toScreen(dot.x, dot.y);
       ctx.fillStyle = `rgba(255, 210, 90, ${dot.alpha})`;
       ctx.beginPath();
       ctx.arc(s.x, s.y, 10, 0, Math.PI * 2);
       ctx.fill();
     }
-    return;
+  } else {
+    for (const trail of visible.trails) {
+      ctx.strokeStyle = trail.color;
+      ctx.lineWidth = 2.2;
+      ctx.globalAlpha = 0.38;
+      ctx.beginPath();
+      trail.points.forEach((pt, i) => {
+        const s = toScreen(pt.x, pt.y);
+        if (i === 0) ctx.moveTo(s.x, s.y);
+        else ctx.lineTo(s.x, s.y);
+      });
+      ctx.stroke();
+    }
   }
-  for (const trail of overlay.trails) {
-    ctx.strokeStyle = trail.color;
-    ctx.lineWidth = 2.2;
-    ctx.globalAlpha = 0.38;
-    ctx.beginPath();
-    trail.points.forEach((pt, i) => {
-      const s = toScreen(pt.x, pt.y);
-      if (i === 0) ctx.moveTo(s.x, s.y);
-      else ctx.lineTo(s.x, s.y);
-    });
-    ctx.stroke();
-    ctx.globalAlpha = 1;
+  ctx.globalAlpha = 1;
+  for (const trail of visible.trails) {
+    if (trail.deathAt) paintDeathCross(ctx, toScreen, trail.deathAt.x, trail.deathAt.y);
   }
+
+  for (const nade of visible.nades) {
+    if (!habitsNadeVisible(nade.kind, nadeFilter)) continue;
+    const viewTick =
+      playSec != null
+        ? habitsNadeViewTick(nade, playSec)
+        : habitsNadeViewTick(nade, overlay.windowSec);
+    const render = nadeRenderAt(nade.grenade, viewTick, nade.tps, scale, nade.roundEndTick);
+    if (!render) continue;
+    ctx.globalAlpha = display === "heatmap" ? 0.28 : 1;
+    paintNade(ctx, render, toScreen, scale);
+  }
+  ctx.globalAlpha = 1;
 }
 
 /** The view cone sits under the drawings; pawns and FX sit on top of them. */
