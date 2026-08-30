@@ -4,6 +4,7 @@
  */
 
 import { drawArrow, drawC4, drawHeBurst, yawToCanvas } from "@/lib/radar/draw";
+import type { SeriesOverlay } from "@/lib/parse/seriesOverlay";
 import { formatBlindLeft, NADE_COLORS } from "@/lib/radar/radarFx";
 import { FULL_HEALTH } from "@/lib/shared/constants";
 import { RADAR_STYLE, type NadeRender, type Point, type RadarFrame } from "./radarFrame";
@@ -241,6 +242,37 @@ export function paintRadarFrame(
     ctx.strokeStyle = trail.color;
     ctx.lineWidth = 2;
     ctx.globalAlpha = 0.45;
+    ctx.beginPath();
+    trail.points.forEach((pt, i) => {
+      const s = toScreen(pt.x, pt.y);
+      if (i === 0) ctx.moveTo(s.x, s.y);
+      else ctx.lineTo(s.x, s.y);
+    });
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+/** Habits overlay: freeze-aligned paths or a density heatmap when the bucket is large. */
+export function paintHabitsOverlay(
+  ctx: CanvasRenderingContext2D,
+  overlay: SeriesOverlay,
+  toScreen: ToScreen,
+) {
+  if (overlay.mode === "heatmap") {
+    for (const dot of overlay.heatDots) {
+      const s = toScreen(dot.x, dot.y);
+      ctx.fillStyle = `rgba(255, 210, 90, ${dot.alpha})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
+  for (const trail of overlay.trails) {
+    ctx.strokeStyle = trail.color;
+    ctx.lineWidth = 2.2;
+    ctx.globalAlpha = 0.38;
     ctx.beginPath();
     trail.points.forEach((pt, i) => {
       const s = toScreen(pt.x, pt.y);

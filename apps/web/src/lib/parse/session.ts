@@ -1,5 +1,10 @@
 import type { Replay } from "@/lib/replay/replayTypes";
 import { tagSeries, type RoundTag } from "./roundTags";
+import {
+  aliasesForTeamName,
+  mergeSeriesTeamCandidates,
+  type SeriesTeamCandidate,
+} from "./seriesTeams";
 
 /**
  * One parsed GOTV file. The viewer plays a single active demo today.
@@ -18,8 +23,10 @@ export interface LoadedDemo {
 export interface DemoSeries {
   mapName: string;
   demos: LoadedDemo[];
-  /** Team name shared across files (`header.team_ct` or `team_t`). */
+  /** Canonical team label in the habits UI. */
   focalTeam: string;
+  /** Header spellings for the focal team (e.g. Spirit + Team Spirit). */
+  focalTeamNames: readonly string[];
   /** Built once at parse time; switching files does not re-tag. */
   tagsByDemo: Map<string, RoundTag[]>;
 }
@@ -38,22 +45,72 @@ export function loadedDemo(replay: Replay, fileName: string, file: File): Loaded
 
 /** Team name that appears in every demo (either side). Falls back to first demo CT. */
 export function inferFocalTeam(demos: LoadedDemo[]): string {
-  if (demos.length === 0) return "";
-  const first = demos[0].replay.header;
-  const candidates = new Set<string>([first.team_ct, first.team_t]);
-  for (const name of candidates) {
-    if (
-      demos.every(
-        (d) => d.replay.header.team_ct === name || d.replay.header.team_t === name,
-      )
-    ) {
-      return name;
-    }
-  }
-  return first.team_ct;
+  return defaultFocalTeam(demos);
 }
 
-export function buildSeries(mapName: string, demos: LoadedDemo[]): DemoSeries {
-  const focalTeam = inferFocalTeam(demos);
-  return { mapName, demos, focalTeam, tagsByDemo: tagSeries(demos, focalTeam) };
+/** Teams in the series ranked by how many demos include them (aliases merged). */
+export function seriesTeamCandidates(demos: LoadedDemo[]): SeriesTeamCandidate[] {
+  return mergeSeriesTeamCandidates(demos);
+}
+
+/** Default habits team: the name that shows up in the most demos. */
+export function defaultFocalTeam(demos: LoadedDemo[]): string {
+  const candidates = seriesTeamCandidates(demos);
+  if (candidates.length === 0) return demos[0]?.replay.header.team_ct ?? "";
+  const max = candidates[0].demoCount;
+  const tied = candidates.filter((c) => c.demoCount === max);
+  if (tied.length === 1) return tied[0].name;
+  const first = demos[0].replay.header;
+  for (const group of tied) {
+    if (group.aliases.includes(first.team_ct)) return group.name;
+  }
+  for (const group of tied) {
+    if (group.aliases.includes(first.team_t)) return group.name;
+  }
+  return tied[0].name;
+}
+
+function focalNamesFor(demos: LoadedDemo[], focalTeam: string): readonly string[] {
+  return aliasesForTeamName(demos, focalTeam);
+}
+
+/** Canonical habits label for a header team name in this series. */
+export function canonicalSeriesTeam(series: DemoSeries, teamName: string): string {
+  return (
+    seriesTeamCandidates(series.demos).find(
+      (c) => c.name === teamName || c.aliases.includes(teamName),
+    )?.name ?? teamName
+  );
+}
+
+export function buildSeries(mapName: string, demos: LoadedDemo[], focalTeam?: string): DemoSeries {
+  const team = focalTeam ?? defaultFocalTeam(demos);
+  const focalTeamNames = focalNamesFor(demos, team);
+  const canonical =
+    seriesTeamCandidates(demos).find((c) => c.name === team || c.aliases.includes(team))?.name ??
+    team;
+  return {
+    mapName,
+    demos,
+    focalTeam: canonical,
+    focalTeamNames,
+    tagsByDemo: tagSeries(demos, focalTeamNames),
+  };
+}
+
+export function withFocalTeam(series: DemoSeries, focalTeam: string): DemoSeries {
+  const focalTeamNames = focalNamesFor(series.demos, focalTeam);
+  const canonical =
+    seriesTeamCandidates(series.demos).find(
+      (c) => c.name === focalTeam || c.aliases.includes(focalTeam),
+    )?.name ?? focalTeam;
+  if (series.focalTeam === canonical && series.focalTeamNames.join() === focalTeamNames.join()) {
+    return series;
+  }
+  return {
+    ...series,
+    focalTeam: canonical,
+    focalTeamNames,
+    tagsByDemo: tagSeries(series.demos, focalTeamNames),
+  };
 }

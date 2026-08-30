@@ -33,6 +33,18 @@ export const SERIES_MAX_FILES = 12;
 /** Concurrent WASM parse workers (queue the rest). */
 export const PARSE_POOL_MAX = 3;
 
+/** Habits overlay: seconds after freeze end to draw aligned paths. */
+export const SERIES_HABITS_WINDOW_SECONDS = 20;
+
+/** First-wave util multiset window after freeze (util-set chips). */
+export const SERIES_FIRST_WAVE_SECONDS = 8;
+
+/** Min matching Steam IDs to merge "X" and "Team X" roster aliases. */
+export const SERIES_TEAM_MERGE_MIN_STEAM_OVERLAP = 3;
+
+/** Above this many habit trails, switch the overlay to a heatmap. */
+export const SERIES_OVERLAY_MAX_TRAILS = 48;
+
 /** Overtime side-swap block length. */
 export const OVERTIME_BLOCK_ROUNDS = 3;
 
@@ -100,7 +112,7 @@ export const KILL_FEED_SECONDS = 10;
 export const KILL_FEED_MAX_ROWS = 6;
 
 /** Saved-note cards per page on the home screen. */
-export const SAVED_NOTES_PAGE_SIZE = 10;
+export const SAVED_NOTES_PAGE_SIZE = 5;
 
 /** Skip a kill line when attacker and victim are closer than this (world units). */
 export const KILL_LINE_MIN_LENGTH = 24;

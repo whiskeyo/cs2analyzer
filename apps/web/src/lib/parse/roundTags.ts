@@ -4,7 +4,9 @@ import {
   ECO_MAX_EQUIPMENT,
   FIRST_OVERTIME_ROUND,
   FORCE_BUY_MAX_EQUIPMENT,
+  OVERTIME_BLOCK_ROUNDS,
   REGULATION_ROUNDS,
+  REGULATION_ROUNDS_PER_HALF,
 } from "@/lib/shared/constants";
 
 export type RoundKind = "pistol" | "eco" | "force" | "full";
@@ -21,10 +23,16 @@ export interface RoundTag {
   layoutGroup?: string;
 }
 
-export function demoHasFocalTeam(replay: Replay, focalTeamName: string): boolean {
-  return (
-    replay.header.team_ct === focalTeamName || replay.header.team_t === focalTeamName
-  );
+function normalizeTeamNames(nameOrNames: string | readonly string[]): readonly string[] {
+  return typeof nameOrNames === "string" ? [nameOrNames] : nameOrNames;
+}
+
+export function demoHasFocalTeam(
+  replay: Replay,
+  focalTeamNames: string | readonly string[],
+): boolean {
+  const names = new Set(normalizeTeamNames(focalTeamNames));
+  return names.has(replay.header.team_ct) || names.has(replay.header.team_t);
 }
 
 function teamNames(replay: Replay, round: Round): { ct: string; t: string } {
@@ -38,11 +46,12 @@ function teamNames(replay: Replay, round: Round): { ct: string; t: string } {
 export function focalSideAtFreeze(
   replay: Replay,
   round: Round,
-  focalTeamName: string,
+  focalTeamNames: string | readonly string[],
 ): Side | null {
+  const names = new Set(normalizeTeamNames(focalTeamNames));
   const { ct, t } = teamNames(replay, round);
-  if (ct === focalTeamName) return "CT";
-  if (t === focalTeamName) return "T";
+  if (names.has(ct)) return "CT";
+  if (names.has(t)) return "T";
   return null;
 }
 
@@ -63,6 +72,16 @@ function isRegulation(round: Round): boolean {
   return round.number >= 1 && round.number <= REGULATION_ROUNDS;
 }
 
+/** MR12 pistol round numbers (R1, R13, and the first round of each OT block). */
+export function isPistolRoundNumber(roundNumber: number): boolean {
+  if (roundNumber === 1) return true;
+  if (roundNumber === REGULATION_ROUNDS_PER_HALF + 1) return true;
+  if (roundNumber >= FIRST_OVERTIME_ROUND) {
+    return (roundNumber - FIRST_OVERTIME_ROUND) % OVERTIME_BLOCK_ROUNDS === 0;
+  }
+  return false;
+}
+
 /**
  * Tag every competitive round for series filters. Knife rounds are omitted.
  * Pistol = first regulation round on each focal side (not round number).
@@ -71,9 +90,9 @@ function isRegulation(round: Round): boolean {
 export function tagRounds(
   replay: Replay,
   demoId: string,
-  focalTeamName: string,
+  focalTeamNames: string | readonly string[],
 ): RoundTag[] {
-  if (!demoHasFocalTeam(replay, focalTeamName)) return [];
+  if (!demoHasFocalTeam(replay, focalTeamNames)) return [];
 
   const tags: RoundTag[] = [];
   const pistolSeen: Record<Side, boolean> = { T: false, CT: false };
@@ -81,7 +100,7 @@ export function tagRounds(
   for (const round of replay.rounds) {
     if (round.is_knife) continue;
 
-    const sideForFocal = focalSideAtFreeze(replay, round, focalTeamName);
+    const sideForFocal = focalSideAtFreeze(replay, round, focalTeamNames);
     if (!sideForFocal) continue;
 
     const freeze = round.freeze_end_tick || round.start_tick;
@@ -114,11 +133,11 @@ export function tagRounds(
 /** Tags for every demo in a series, keyed by demo id. */
 export function tagSeries(
   demos: { id: string; replay: Replay }[],
-  focalTeamName: string,
+  focalTeamNames: string | readonly string[],
 ): Map<string, RoundTag[]> {
   const out = new Map<string, RoundTag[]>();
   for (const demo of demos) {
-    out.set(demo.id, tagRounds(demo.replay, demo.id, focalTeamName));
+    out.set(demo.id, tagRounds(demo.replay, demo.id, focalTeamNames));
   }
   return out;
 }
