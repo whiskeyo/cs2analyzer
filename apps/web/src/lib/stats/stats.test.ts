@@ -260,9 +260,9 @@ describe("matchScorecard", () => {
       teamB: "Phantom",
       scoreA: 3,
       scoreB: 2,
-      firstHalf: { a: 1, b: 1 },
-      secondHalf: { a: 1, b: 1 },
-      overtime: { a: 1, b: 0 },
+      firstHalf: { a: 1, b: 1, ct: 1, t: 1 },
+      secondHalf: { a: 1, b: 1, ct: 1, t: 1 },
+      overtime: { a: 1, b: 0, ct: 0, t: 0 },
     });
     expect(formatScorecard(card)).toBe("EYEBALLERS - Phantom, 3:2 (1:1, 1:1, OT 1:0)");
   });
@@ -287,10 +287,28 @@ describe("matchScorecard", () => {
     const card = matchScorecard(m, 300);
     expect(card.scoreA).toBe(1);
     expect(card.scoreB).toBe(1);
-    expect(card.firstHalf).toEqual({ a: 1, b: 1 });
+    expect(card.firstHalf).toEqual({ a: 1, b: 1, ct: 1, t: 1 });
     expect(card.secondHalf).toBeNull();
     expect(card.overtime).toBeNull();
     expect(formatScorecard(card)).toBe("Astralis - Vitality, 1:1 (1:1)");
+  });
+
+  it("tracks CT/T side wins separately from starting-team slots", () => {
+    const m = makeReplay({
+      header: { team_ct: "Astralis", team_t: "Vitality" },
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [
+        makeRound({
+          number: 13,
+          winner: "CT",
+          start_tick: 201,
+          freeze_end_tick: 210,
+          end_tick: 300,
+        }),
+      ],
+    });
+    const card = matchScorecard(m, 300);
+    expect(card.secondHalf).toEqual({ a: 0, b: 1, ct: 1, t: 0 });
   });
 });
 

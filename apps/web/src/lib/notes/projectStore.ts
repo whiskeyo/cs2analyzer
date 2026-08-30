@@ -7,7 +7,7 @@ import { DEFAULT_SUMMARY_FILTER, type FloorMode, type Stroke, type SummaryFilter
 export const PROJECT_SCHEMA = 2;
 const MIN_PROJECT_SCHEMA = 1;
 const DB_NAME = "cs2analyzer";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE = "projects";
 const HANDLE_STORE = "demoHandles";
 
@@ -148,10 +148,12 @@ function isProjectSchema(v: unknown): v is number {
 
 function parseHalf(v: unknown): MatchScorecard["firstHalf"] {
   if (!v || typeof v !== "object") return null;
-  const o = v as { a?: unknown; b?: unknown };
+  const o = v as { a?: unknown; b?: unknown; ct?: unknown; t?: unknown };
   if (typeof o.a !== "number" || typeof o.b !== "number") return null;
   if (!Number.isFinite(o.a) || !Number.isFinite(o.b)) return null;
-  return { a: o.a, b: o.b };
+  const ct = typeof o.ct === "number" && Number.isFinite(o.ct) ? o.ct : o.a;
+  const t = typeof o.t === "number" && Number.isFinite(o.t) ? o.t : o.b;
+  return { a: o.a, b: o.b, ct, t };
 }
 
 function parseScorecard(v: unknown): MatchScorecard | undefined {
@@ -277,6 +279,10 @@ function idbAvailable(): boolean {
   return typeof indexedDB !== "undefined";
 }
 
+function hasHandleStore(db: IDBDatabase): boolean {
+  return db.objectStoreNames.contains(HANDLE_STORE);
+}
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -360,9 +366,12 @@ export async function deleteProject(key: string): Promise<void> {
   if (!idbAvailable()) return;
   const db = await openDb();
   try {
-    const tx = db.transaction([STORE, HANDLE_STORE], "readwrite");
+    const tx = db.transaction(STORE, "readwrite");
     await requestOf(tx.objectStore(STORE).delete(key));
-    await requestOf(tx.objectStore(HANDLE_STORE).delete(key));
+    if (hasHandleStore(db)) {
+      const handleTx = db.transaction(HANDLE_STORE, "readwrite");
+      await requestOf(handleTx.objectStore(HANDLE_STORE).delete(key));
+    }
   } finally {
     db.close();
   }
@@ -375,9 +384,12 @@ export async function deleteAllProjects(): Promise<number> {
   if (existing.length === 0) return 0;
   const db = await openDb();
   try {
-    const tx = db.transaction([STORE, HANDLE_STORE], "readwrite");
+    const tx = db.transaction(STORE, "readwrite");
     await requestOf(tx.objectStore(STORE).clear());
-    await requestOf(tx.objectStore(HANDLE_STORE).clear());
+    if (hasHandleStore(db)) {
+      const handleTx = db.transaction(HANDLE_STORE, "readwrite");
+      await requestOf(handleTx.objectStore(HANDLE_STORE).clear());
+    }
   } finally {
     db.close();
   }
@@ -399,6 +411,7 @@ export async function saveDemoFileHandle(key: string, handle: FileSystemFileHand
   if (!idbAvailable()) return;
   const db = await openDb();
   try {
+    if (!hasHandleStore(db)) return;
     const tx = db.transaction(HANDLE_STORE, "readwrite");
     await requestOf(tx.objectStore(HANDLE_STORE).put({ key, handle, linkedAt: Date.now() }));
   } finally {
@@ -410,6 +423,7 @@ export async function loadDemoFileHandle(key: string): Promise<FileSystemFileHan
   if (!idbAvailable()) return null;
   const db = await openDb();
   try {
+    if (!hasHandleStore(db)) return null;
     const tx = db.transaction(HANDLE_STORE, "readonly");
     const row = (await requestOf(tx.objectStore(HANDLE_STORE).get(key))) as
       { handle?: FileSystemFileHandle } | undefined;

@@ -228,8 +228,12 @@ function computeLiveTeams(replay: Replay, tick: number): LiveTeams {
 }
 
 export interface MatchHalfScore {
+  /** Wins for the team that started on CT / T. */
   a: number;
   b: number;
+  /** Wins for the CT / T side in this half (for colored display). */
+  ct: number;
+  t: number;
 }
 
 /** Starting-side scorecard for a saved-note card (team A started CT). */
@@ -254,7 +258,14 @@ export interface SavedPlayerSnapshot {
 }
 
 function emptyHalf(): MatchHalfScore {
-  return { a: 0, b: 0 };
+  return { a: 0, b: 0, ct: 0, t: 0 };
+}
+
+function addHalfWin(half: MatchHalfScore, round: Round, toA: boolean): void {
+  if (toA) half.a += 1;
+  else half.b += 1;
+  if (round.winner === "CT") half.ct += 1;
+  else if (round.winner === "T") half.t += 1;
 }
 
 /** Last tick that still belongs to a played round (or the last sampled frame). */
@@ -294,12 +305,10 @@ export function matchScorecard(replay: Replay, tick: number): MatchScorecard {
     if (n <= 0) continue;
     if (n <= REGULATION_ROUNDS_PER_HALF) {
       hasFirst = true;
-      if (toA) firstHalf.a += 1;
-      else firstHalf.b += 1;
+      addHalfWin(firstHalf, r, toA);
     } else if (n <= REGULATION_ROUNDS) {
       hasSecond = true;
-      if (toA) secondHalf.a += 1;
-      else secondHalf.b += 1;
+      addHalfWin(secondHalf, r, toA);
     } else {
       hasOt = true;
       if (toA) overtime.a += 1;

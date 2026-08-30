@@ -101,9 +101,9 @@ describe("DropZone", () => {
                 teamB: "Phantom",
                 scoreA: 17,
                 scoreB: 19,
-                firstHalf: { a: 6, b: 6 },
-                secondHalf: { a: 6, b: 6 },
-                overtime: { a: 5, b: 7 },
+                firstHalf: { a: 6, b: 6, ct: 6, t: 6 },
+                secondHalf: { a: 6, b: 6, ct: 6, t: 6 },
+                overtime: { a: 5, b: 7, ct: 5, t: 7 },
               },
               playerStats: [
                 {
@@ -132,7 +132,7 @@ describe("DropZone", () => {
     );
 
     expect(
-      screen.getByText("Inferno: EYEBALLERS - Phantom, 17:19 (6:6, 6:6, OT 5:7)"),
+      screen.getByLabelText("Inferno: EYEBALLERS - Phantom, 17:19 (6:6, 6:6, OT 5:7)"),
     ).toBeInTheDocument();
     const rows = screen.getAllByRole("row");
     expect(rows[1]).toHaveTextContent(/^s1mple/);

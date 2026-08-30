@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import { ImportNotesButton } from "@/components/sidebar/ImportNotesButton";
 import { ParseProgressPanel } from "@/components/app/ParseProgressPanel";
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
@@ -6,13 +6,9 @@ import { SAVED_NOTES_PAGE_SIZE } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import type { ReviewProject } from "@/lib/notes/projectStore";
 import { demoFilePickerAvailable } from "@/lib/notes/projectStore";
-import {
-  formatAdr,
-  formatKast,
-  formatScorecard,
-  type SavedPlayerSnapshot,
-} from "@/lib/stats/stats";
+import { formatAdr, formatKast, type SavedPlayerSnapshot } from "@/lib/stats/stats";
 import { prettyMap } from "@/lib/weapons/weapons";
+import { ScorecardLabel } from "./ScorecardLabel";
 
 const REPO_URL = "https://github.com/whiskeyo/cs2analyzer";
 const ISSUES_URL = `${REPO_URL}/issues`;
@@ -47,10 +43,10 @@ function formatDemoSize(bytes: number): string {
   return `${(mb / 1024).toFixed(1)} GB`;
 }
 
-function noteTitle(p: ReviewProject): string {
+function noteTitle(p: ReviewProject): ReactNode {
   const map = prettyMap(p.mapName);
   if (!p.scorecard) return map;
-  return `${map}: ${formatScorecard(p.scorecard)}`;
+  return <ScorecardLabel mapLabel={map} scorecard={p.scorecard} />;
 }
 
 function sortedSnapshots(rows: SavedPlayerSnapshot[]): SavedPlayerSnapshot[] {
