@@ -154,6 +154,109 @@ function attachDamage(rows: UtilThrowRow[], replay: Replay, untilTick: number): 
   }
 }
 
+let utilBaseCache: WeakMap<Replay, Map<string, UtilThrowRow[]>> | null = null;
+let utilRoundCache: WeakMap<Replay, Map<string, Map<number, UtilThrowRow[]>>> | null = null;
+
+function utilBaseCacheFor(replay: Replay): Map<string, UtilThrowRow[]> {
+  if (!utilBaseCache) utilBaseCache = new WeakMap();
+  let byPlaces = utilBaseCache.get(replay);
+  if (!byPlaces) {
+    byPlaces = new Map();
+    utilBaseCache.set(replay, byPlaces);
+  }
+  return byPlaces;
+}
+
+function utilRoundCacheFor(replay: Replay): Map<string, Map<number, UtilThrowRow[]>> {
+  if (!utilRoundCache) utilRoundCache = new WeakMap();
+  let byPlaces = utilRoundCache.get(replay);
+  if (!byPlaces) {
+    byPlaces = new Map();
+    utilRoundCache.set(replay, byPlaces);
+  }
+  return byPlaces;
+}
+
+/** Drop cached util rows for one replay (tests). */
+export function clearUtilCache(replay?: Replay): void {
+  if (!utilBaseCache && !utilRoundCache) return;
+  if (replay) {
+    utilBaseCache?.delete(replay);
+    utilRoundCache?.delete(replay);
+    return;
+  }
+  utilBaseCache = new WeakMap();
+  utilRoundCache = new WeakMap();
+}
+
+function placesCacheKey(places: MapPlaces | null | undefined): string {
+  if (!places || places.layout.callouts.length === 0) return "";
+  return `${places.layout.map}:${places.layout.callouts.length}`;
+}
+
+function cloneUtilRow(row: UtilThrowRow): UtilThrowRow {
+  return { ...row, blinds: [], hits: [] };
+}
+
+function buildBaseUtilThrows(replay: Replay, places?: MapPlaces | null): UtilThrowRow[] {
+  const throws: UtilThrowRow[] = [];
+  for (const nade of replay.grenades) {
+    if (inKnifeRound(replay, nade.start_tick)) continue;
+    throws.push(fromThrow(replay, nade, places));
+  }
+  throws.sort((a, b) => a.tick - b.tick || a.detonateTick - b.detonateTick);
+  return throws;
+}
+
+function baseUtilThrows(replay: Replay, places?: MapPlaces | null): UtilThrowRow[] {
+  const key = placesCacheKey(places);
+  const byPlaces = utilBaseCacheFor(replay);
+  const hit = byPlaces.get(key);
+  if (hit) return hit;
+  const out = buildBaseUtilThrows(replay, places);
+  byPlaces.set(key, out);
+  return out;
+}
+
+function buildRoundUtilCache(
+  replay: Replay,
+  places?: MapPlaces | null,
+): Map<number, UtilThrowRow[]> {
+  const grouped = new Map<number, UtilThrowRow[]>();
+  for (const row of baseUtilThrows(replay, places)) {
+    let list = grouped.get(row.round);
+    if (!list) {
+      list = [];
+      grouped.set(row.round, list);
+    }
+    list.push(cloneUtilRow(row));
+  }
+  for (const round of replay.rounds) {
+    if (round.is_knife) continue;
+    const rows = grouped.get(round.number);
+    if (!rows || rows.length === 0) continue;
+    attachBlinds(rows, replay, round.end_tick);
+    attachDamage(rows, replay, round.end_tick);
+  }
+  return grouped;
+}
+
+/** All util throws in one round, with blinds/damage through round end (cached per replay). */
+export function utilThrowsForRound(
+  replay: Replay,
+  roundNumber: number,
+  places?: MapPlaces | null,
+): UtilThrowRow[] {
+  const key = placesCacheKey(places);
+  const byPlaces = utilRoundCacheFor(replay);
+  let byRound = byPlaces.get(key);
+  if (!byRound) {
+    byRound = buildRoundUtilCache(replay, places);
+    byPlaces.set(key, byRound);
+  }
+  return byRound.get(roundNumber) ?? [];
+}
+
 function fromThrow(replay: Replay, nade: GrenadeThrow, places?: MapPlaces | null): UtilThrowRow {
   const land = nadeLandPos(nade);
   const z = nade.points[nade.points.length - 1]?.z;
@@ -184,15 +287,12 @@ export function utilityThrough(
 ): UtilitySummary {
   const throws: UtilThrowRow[] = [];
   const byKind = emptyKindCounts();
-  for (const nade of replay.grenades) {
-    if (nade.start_tick > untilTick) continue;
-    if (inKnifeRound(replay, nade.start_tick)) continue;
-    if (player != null && nade.thrower !== player) continue;
-    const row = fromThrow(replay, nade, places);
+  for (const row of baseUtilThrows(replay, places)) {
+    if (row.tick > untilTick) continue;
+    if (player != null && row.thrower !== player) continue;
     byKind[row.kind] += 1;
-    throws.push(row);
+    throws.push(cloneUtilRow(row));
   }
-  throws.sort((a, b) => a.tick - b.tick || a.detonateTick - b.detonateTick);
   attachBlinds(throws, replay, untilTick);
   attachDamage(throws, replay, untilTick);
 

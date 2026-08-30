@@ -1,6 +1,6 @@
 import { NADE_LABEL } from "@/lib/match/roundEvents";
 import { calloutsForUtilRow, matchingTags, type SeriesFilter } from "@/lib/parse/seriesAnalysis";
-import { utilityThrough, type UtilThrowRow } from "@/lib/match/utility";
+import { utilThrowsForRound, type UtilThrowRow } from "@/lib/match/utility";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { DemoSeries } from "@/lib/parse/session";
 import { samplePlayer } from "@/lib/replay/sample";
@@ -29,10 +29,8 @@ function firstWaveThrows(
 ): UtilThrowRow[] {
   const tps = tickRate(replay);
   const until = tag.freezeEndTick + Math.round(tps * windowSeconds);
-  const summary = utilityThrough(replay, until, null, places);
-  return summary.throws.filter(
+  return utilThrowsForRound(replay, tag.roundNumber, places).filter(
     (row) =>
-      row.round === tag.roundNumber &&
       row.tick >= tag.freezeEndTick &&
       row.tick <= until &&
       row.thrower >= 0 &&

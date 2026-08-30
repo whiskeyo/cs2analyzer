@@ -1,6 +1,6 @@
 import { findExecutes, type ExecuteBeat } from "@/lib/match/execute";
 import { calloutsInLocation, type MapPlaces } from "@/lib/match/sites";
-import { utilityThrough, type UtilThrowRow } from "@/lib/match/utility";
+import { utilThrowsForRound, type UtilThrowRow } from "@/lib/match/utility";
 import type { DemoSeries } from "@/lib/parse/session";
 import { playerIdentityKey } from "@/lib/parse/seriesRoster";
 import { tagSeries, type RoundKind, type RoundTag } from "@/lib/parse/roundTags";
@@ -23,19 +23,12 @@ export function matchingTags(tags: RoundTag[], filter: SeriesFilter): RoundTag[]
   });
 }
 
-function roundEndTick(replay: Replay, tag: RoundTag): number {
-  const round = replay.rounds.find((r) => r.number === tag.roundNumber);
-  return round?.end_tick ?? tag.freezeEndTick;
-}
-
 function utilInTaggedRound(
   replay: Replay,
   tag: RoundTag,
   places: MapPlaces | null,
 ): UtilThrowRow[] {
-  const until = roundEndTick(replay, tag);
-  const summary = utilityThrough(replay, until, null, places);
-  return summary.throws.filter((row) => row.round === tag.roundNumber);
+  return utilThrowsForRound(replay, tag.roundNumber, places);
 }
 
 function executesInTaggedRound(

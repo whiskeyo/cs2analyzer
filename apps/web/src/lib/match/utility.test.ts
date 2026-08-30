@@ -18,6 +18,7 @@ import {
   utilKindSummary,
   utilMatchesCallout,
   utilMatchesPlace,
+  utilThrowsForRound,
   utilityThrough,
 } from "./utility";
 
@@ -170,5 +171,50 @@ describe("utilityThrough", () => {
     const aSide = chips[0];
     expect(aSide).toBeDefined();
     expect(u.throws.filter((row) => utilMatchesPlace(row, aSide!))).toHaveLength(2);
+  });
+});
+
+describe("utilThrowsForRound", () => {
+  it("matches utilityThrough for a full round", () => {
+    const m = replay({
+      rounds: [
+        {
+          number: 1,
+          team_ct: "CT",
+          team_t: "T",
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 640,
+          winner: "CT",
+          win_reason: 0,
+          is_knife: false,
+        },
+        {
+          number: 2,
+          team_ct: "CT",
+          team_t: "T",
+          start_tick: 700,
+          freeze_end_tick: 764,
+          end_tick: 1400,
+          winner: "T",
+          win_reason: 0,
+          is_knife: false,
+        },
+      ],
+      grenades: [
+        nade("smoke", 100, 0),
+        nade("flash", 800, 1),
+        nade("he", 850, 1),
+      ],
+      blinds: [makeBlind(820, 1, 0, MIN_REVIEW_FLASH_SECONDS)],
+    });
+    const round1 = utilThrowsForRound(m, 1, null);
+    const round2 = utilThrowsForRound(m, 2, null);
+    expect(round1.map((row) => row.kind)).toEqual(["smoke"]);
+    expect(round2.map((row) => row.kind)).toEqual(["flash", "he"]);
+    expect(round2[0]?.blinds).toHaveLength(1);
+
+    const throughRound1 = utilityThrough(m, 640, null).throws.filter((row) => row.round === 1);
+    expect(round1.map((row) => row.tick)).toEqual(throughRound1.map((row) => row.tick));
   });
 });
