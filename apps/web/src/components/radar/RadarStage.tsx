@@ -15,7 +15,7 @@ import { SpectatorEconomy } from "./SpectatorEconomy";
  * prop-driven so they can be rendered without a provider.
  */
 export function RadarStage() {
-  const { session, playback, review, view, cal } = useApp();
+  const { session, playback, review, view, cal, habits } = useApp();
   const replay = session.replay;
   if (!replay) return null;
   const { tick } = playback;
@@ -99,6 +99,8 @@ export function RadarStage() {
           summaryFilter={review.summaryFilter}
           viewEpoch={view.viewEpoch}
           floorMode={review.floorMode}
+          habitsOverlay={habits.overlay}
+          onHabitsJump={habits.jumpHabits}
         />
         <Hud replay={replay} tick={tick} />
         {view.layers.summary && (

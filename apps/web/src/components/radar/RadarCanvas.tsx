@@ -5,7 +5,13 @@ import { overlayVisible } from "@/lib/notes";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { drawArrow, drawTextLabel } from "@/lib/radar/draw";
 import { buildRadarFrame } from "@/lib/radar/radarFrame";
-import { paintPawns, paintRadarFrame, paintViewCone } from "@/lib/radar/paintRadarFrame";
+import {
+  paintPawns,
+  paintRadarFrame,
+  paintViewCone,
+  paintHabitsOverlay,
+} from "@/lib/radar/paintRadarFrame";
+import { habitsTrailAtScreen, type SeriesOverlay } from "@/lib/parse/seriesOverlay";
 import { TextNoteEditor, useTextNotes, type TextMove } from "@/components/radar/TextNoteEditor";
 import { useRadarPointer, type RadarPanView } from "@/lib/radar/useRadarPointer";
 import { samplePlayers } from "@/lib/replay/sample";
@@ -32,6 +38,8 @@ interface Props {
   summaryFilter: SummaryFilter;
   viewEpoch: number;
   floorMode: FloorMode;
+  habitsOverlay?: SeriesOverlay | null;
+  onHabitsJump?: (target: { demoId: string; jumpTick: number }) => void;
 }
 
 export function RadarCanvas({
@@ -53,6 +61,8 @@ export function RadarCanvas({
   summaryFilter,
   viewEpoch,
   floorMode,
+  habitsOverlay = null,
+  onHabitsJump,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -90,6 +100,10 @@ export function RadarCanvas({
   floorModeRef.current = floorMode;
   const calRef = useRef(cal);
   calRef.current = cal;
+  const habitsOverlayRef = useRef(habitsOverlay);
+  habitsOverlayRef.current = habitsOverlay;
+  const onHabitsJumpRef = useRef(onHabitsJump);
+  onHabitsJumpRef.current = onHabitsJump;
   const images = useRef<{ upper: HTMLImageElement | null; lower: HTMLImageElement | null }>({
     upper: null,
     lower: null,
@@ -227,6 +241,8 @@ export function RadarCanvas({
       }
 
       paintRadarFrame(ctx, frame, toScreen, { scale: v.scale, c4Icon: c4Icon.current });
+      const habitsNow = habitsOverlayRef.current;
+      if (habitsNow) paintHabitsOverlay(ctx, habitsNow, toScreen);
 
       const drawStroke = (st: Stroke, alpha = 1, live = false) => {
         if (st.type === "bookmark") return;
@@ -333,10 +349,19 @@ export function RadarCanvas({
     const players = samplePlayers(replay, tickRef.current);
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
+    const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, view.current, wx, wy);
+    const habitsNow = habitsOverlayRef.current;
+    if (habitsNow && onHabitsJumpRef.current) {
+      const hit = habitsTrailAtScreen(habitsNow, mx, my, toScreen);
+      if (hit) {
+        onHabitsJumpRef.current({ demoId: hit.demoId, jumpTick: hit.jumpTick });
+        return;
+      }
+    }
     let best: { i: number; d: number } | null = null;
     for (const p of players) {
       if (!p.present) continue;
-      const s = worldToScreen(calNow, w, h, view.current, p.x, p.y);
+      const s = toScreen(p.x, p.y);
       const d = (s.x - mx) ** 2 + (s.y - my) ** 2;
       if (!best || d < best.d) best = { i: p.index, d };
     }

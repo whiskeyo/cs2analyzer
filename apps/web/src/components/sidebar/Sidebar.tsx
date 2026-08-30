@@ -1,6 +1,7 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
+import { useApp } from "@/lib/state/appState";
 import { Action } from "./Action";
 import { Clutch } from "./Clutch";
 import { Review } from "./Review";
@@ -14,6 +15,11 @@ import type { MapPlaces } from "@/lib/match/sites";
 import type { Stroke } from "@/lib/notes/types";
 import { Utility } from "./Utility";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
+import { SeriesBucketPanel } from "./SeriesBucketPanel";
+import { SeriesUtilList } from "./SeriesUtilList";
+import { SeriesActionList } from "./SeriesActionList";
+import { SeriesPlayerReview } from "./SeriesPlayerReview";
+import { seriesPlayerReview } from "@/lib/parse/seriesPlayerReview";
 
 type Tab = "score" | "player" | "notes" | "action" | "util" | "clutch" | "rounds" | "weapons";
 
@@ -49,6 +55,21 @@ export const Sidebar = memo(function Sidebar({
   onStrokes,
   places,
 }: Props) {
+  const { session, habits } = useApp();
+  const multiDemo = Boolean(session.series && session.series.demos.length > 1);
+  const seriesMode = multiDemo && habits.aggregated;
+  const playerKey = habits.playerKey;
+  const playerName = playerKey
+    ? (habits.focalPlayers.find((p) => p.key === playerKey)?.name ?? null)
+    : null;
+  const showSeriesUtil = multiDemo && (seriesMode || playerKey != null);
+  const showSeriesAction = seriesMode;
+  const showSeriesReview = multiDemo && playerKey != null;
+  const seriesReview = useMemo(() => {
+    if (!showSeriesReview || !session.series || !playerKey || !playerName) return null;
+    return seriesPlayerReview(session.series, playerKey, playerName);
+  }, [showSeriesReview, session.series, playerKey, playerName]);
+
   const [tab, setTab] = useState<Tab>("score");
   const [width, setWidth] = useState(loadSidebarWidth);
   const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
@@ -155,15 +176,18 @@ export const Sidebar = memo(function Sidebar({
       {tab === "score" && (
         <Scoreboard replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
       )}
-      {tab === "player" && (
-        <Review
-          replay={replay}
-          tick={tick}
-          selected={selected}
-          onJump={onJump}
-          onSelect={(i) => onSelect(i)}
-        />
-      )}
+      {tab === "player" &&
+        (showSeriesReview && seriesReview ? (
+          <SeriesPlayerReview review={seriesReview} onJump={habits.jumpHabits} />
+        ) : (
+          <Review
+            replay={replay}
+            tick={tick}
+            selected={selected}
+            onJump={onJump}
+            onSelect={(i) => onSelect(i)}
+          />
+        ))}
       {tab === "notes" && (
         <Notes
           replay={replay}
@@ -173,16 +197,36 @@ export const Sidebar = memo(function Sidebar({
           onStrokes={onStrokes}
         />
       )}
-      {tab === "action" && <Action replay={replay} tick={tick} onJump={onJump} places={places} />}
+      {tab === "action" && (
+        <>
+          {seriesMode && <SeriesBucketPanel />}
+          {showSeriesAction ? (
+            <SeriesActionList beats={habits.seriesActionBeats} onJump={habits.jumpHabits} />
+          ) : (
+            <Action replay={replay} tick={tick} onJump={onJump} places={places} />
+          )}
+        </>
+      )}
       {tab === "util" && (
-        <Utility
-          replay={replay}
-          tick={tick}
-          selected={selected}
-          onJump={onJump}
-          onSelect={(i) => onSelect(i)}
-          places={places}
-        />
+        <>
+          {seriesMode && <SeriesBucketPanel />}
+          {showSeriesUtil ? (
+            <SeriesUtilList
+              rows={habits.seriesUtilThrows}
+              playerName={playerName}
+              onJump={habits.jumpHabits}
+            />
+          ) : (
+            <Utility
+              replay={replay}
+              tick={tick}
+              selected={selected}
+              onJump={onJump}
+              onSelect={(i) => onSelect(i)}
+              places={places}
+            />
+          )}
+        </>
       )}
       {tab === "clutch" && (
         <Clutch

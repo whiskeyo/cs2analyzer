@@ -11,6 +11,8 @@ import type { MapPlaces } from "@/lib/match/sites";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import { useStatus, type Status } from "./status";
 import { useViewState, type ViewState } from "./viewState";
+import { useSeriesHabits, type SeriesHabitsState } from "./useSeriesHabits";
+import { usePlayerSync } from "./usePlayerSync";
 
 export interface AppState {
   status: Status;
@@ -18,6 +20,7 @@ export interface AppState {
   playback: Playback;
   review: ReviewStore;
   view: ViewState;
+  habits: SeriesHabitsState;
   /** Radar calibration for the loaded map, or undefined until it is fetched. */
   cal: MapCalibration | undefined;
   /** Callout layout for the loaded map. Null when the map has no callouts. */
@@ -87,6 +90,26 @@ function useAppState(createWorker?: CreateWorker): AppState {
     return { layout, cal };
   }, [replay, cal, layout]);
 
+  const habits = useSeriesHabits({
+    series: session.series,
+    places,
+    activeDemoId: session.demo?.id ?? null,
+    selectDemo: session.selectDemo,
+    jump: playback.jump,
+  });
+
+  usePlayerSync({
+    series: session.series,
+    replay: session.replay,
+    activeDemoId: session.demo?.id ?? null,
+    tick: playback.tick,
+    selected: view.selected,
+    select: view.select,
+    playerKey: habits.playerKey,
+    setPlayerKey: habits.setPlayerKey,
+    setFocalTeam: session.setFocalTeam,
+  });
+
   const placesRef = useRef(places);
   placesRef.current = places;
   const replayRef = useRef(replay);
@@ -119,7 +142,7 @@ function useAppState(createWorker?: CreateWorker): AppState {
     else void session.parseDemos(demos);
   };
 
-  return { status, session, playback, review, view, cal, places, onFiles };
+  return { status, session, playback, review, view, habits, cal, places, onFiles };
 }
 
 export function AppStateProvider({

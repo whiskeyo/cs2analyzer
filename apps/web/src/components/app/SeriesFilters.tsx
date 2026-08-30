@@ -1,0 +1,99 @@
+import { useApp } from "@/lib/state/appState";
+import { seriesTeamCandidates } from "@/lib/parse/session";
+import type { RoundKind } from "@/lib/parse/roundTags";
+
+const KINDS: { id: RoundKind; label: string }[] = [
+  { id: "pistol", label: "Pistol" },
+  { id: "eco", label: "Eco" },
+  { id: "force", label: "Force" },
+  { id: "full", label: "Full" },
+];
+
+/** Team, side, buy, and optional player filters for the habits overlay. */
+export function SeriesFilters() {
+  const { session, habits } = useApp();
+  const series = session.series;
+  if (!series || series.demos.length <= 1) return null;
+
+  const teams = seriesTeamCandidates(series.demos);
+  const { filter, overlayOn, focalPlayers, playerKey } = habits;
+
+  return (
+    <div className="series-filters">
+      <span className="series-filters-label">Team</span>
+      <select
+        className="series-team-select"
+        aria-label="Focal team for habits"
+        value={series.focalTeam}
+        onChange={(e) => session.setFocalTeam(e.target.value)}
+      >
+        {teams.map((team) => (
+          <option key={team.name} value={team.name}>
+            {team.name} ({team.demoCount}/{series.demos.length})
+          </option>
+        ))}
+      </select>
+      <span className="series-filters-label">Side</span>
+      <div className="filters" role="toolbar" aria-label="Habits side">
+        {(["CT", "T"] as const).map((side) => (
+          <button
+            key={side}
+            type="button"
+            className={`filter${filter.side === side ? " on" : ""}`}
+            onClick={() => habits.setSide(side)}
+          >
+            {side}
+          </button>
+        ))}
+      </div>
+      <span className="series-filters-label">Buy</span>
+      <div className="filters" role="toolbar" aria-label="Habits buy type">
+        {KINDS.map((k) => (
+          <button
+            key={k.id}
+            type="button"
+            className={`filter${filter.kind === k.id ? " on" : ""}`}
+            onClick={() => habits.setKind(k.id)}
+          >
+            {k.label}
+          </button>
+        ))}
+      </div>
+      {focalPlayers.length > 0 && (
+        <>
+          <span className="series-filters-label">Player</span>
+          <select
+            className="series-player-select"
+            aria-label="Filter habits by player"
+            value={playerKey ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              habits.setPlayerKey(v || null);
+            }}
+          >
+            <option value="">All players</option>
+            {focalPlayers.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+      <label className="series-overlay-toggle">
+        <input
+          type="checkbox"
+          checked={overlayOn}
+          onChange={(e) => habits.setOverlayOn(e.target.checked)}
+        />
+        Trails
+      </label>
+      {habits.overlay && (
+        <span className="series-bucket-meta">
+          {habits.overlay.roundCount} rounds ·{" "}
+          {habits.overlay.mode === "heatmap" ? "heatmap" : `${habits.overlay.trails.length} trails`}
+        </span>
+      )}
+    </div>
+  );
+}
