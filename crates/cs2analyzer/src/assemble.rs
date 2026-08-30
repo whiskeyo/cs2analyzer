@@ -1,6 +1,8 @@
 //! Turn the streaming collector into a compact [`Match`].
 
-use crate::analysis::{compute_stats, starting_team_scores};
+#[cfg(feature = "match-stats")]
+use crate::analysis::compute_stats;
+use crate::analysis::starting_team_scores;
 use crate::constants::{
     DEFAULT_TICK_RATE, FLASH_POP_SECONDS, HE_DECOY_SECONDS, KNIFE_ROUND_MAX_EQUIPMENT,
     KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_SECONDS, SMOKE_SECONDS,
@@ -150,7 +152,10 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         bomb_events,
         stats: Vec::new(),
     };
-    m.stats = compute_stats(&m);
+    #[cfg(feature = "match-stats")]
+    {
+        m.stats = compute_stats(&m);
+    }
     let (score_ct, score_t) = starting_team_scores(&m, u32::MAX);
     m.header.score_ct = score_ct;
     m.header.score_t = score_t;

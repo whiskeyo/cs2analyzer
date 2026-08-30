@@ -1,19 +1,23 @@
 //! Per-player stats derived from events and rounds.
 
 use crate::constants::{
-    FIRST_OVERTIME_ROUND, FULL_HEALTH, OVERTIME_BLOCK_ROUNDS, REGULATION_ROUNDS,
-    REGULATION_ROUNDS_PER_HALF, TRADE_SECONDS,
+    FIRST_OVERTIME_ROUND, OVERTIME_BLOCK_ROUNDS, REGULATION_ROUNDS, REGULATION_ROUNDS_PER_HALF,
 };
+#[cfg(feature = "match-stats")]
+use crate::constants::{FULL_HEALTH, TRADE_SECONDS};
+#[cfg(feature = "match-stats")]
 use crate::props::is_utility_weapon;
 use crate::types::*;
 use crate::{FLAG_CT, FLAG_PRESENT};
 
 /// Compute MVP scoreboard stats from an assembled match (kills/hurts/rounds).
+#[cfg(feature = "match-stats")]
 pub fn compute_stats(m: &Match) -> Vec<PlayerStats> {
     compute_stats_until(m, u32::MAX)
 }
 
 /// Like [`compute_stats`], but only count events at or before `until_tick`.
+#[cfg(feature = "match-stats")]
 pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
     let n = m.players.len();
     let mut stats: Vec<PlayerStats> = (0..n).map(|i| PlayerStats::empty(i as u8)).collect();
@@ -235,6 +239,7 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
     stats
 }
 
+#[cfg(feature = "match-stats")]
 fn apply_damage(m: &Match, until_tick: u32, stats: &mut [PlayerStats]) {
     let n = stats.len();
     let competitive: Vec<&Round> = m.rounds.iter().filter(|r| !r.is_knife).collect();
@@ -280,6 +285,7 @@ fn apply_damage(m: &Match, until_tick: u32, stats: &mut [PlayerStats]) {
     }
 }
 
+#[cfg(feature = "match-stats")]
 fn apply_trades(
     round_kills: &[&Kill],
     trade_ticks: u32,
@@ -416,6 +422,7 @@ fn present_at(m: &Match, player: usize, tick: u32) -> bool {
         .is_some_and(|tp| tp.flags & FLAG_PRESENT != 0)
 }
 
+#[cfg(feature = "match-stats")]
 fn in_knife_round(m: &Match, tick: u32) -> bool {
     m.rounds
         .iter()
@@ -424,6 +431,7 @@ fn in_knife_round(m: &Match, tick: u32) -> bool {
         .unwrap_or(false)
 }
 
+#[cfg(feature = "match-stats")]
 fn is_suicide(k: &Kill) -> bool {
     if k.attacker == k.victim {
         return true;
@@ -435,6 +443,7 @@ fn is_suicide(k: &Kill) -> bool {
     w == "world" || w == "suicide" || w.contains("trigger_hurt")
 }
 
+#[cfg(feature = "match-stats")]
 fn is_enemy(m: &Match, a: usize, b: usize, tick: u32) -> bool {
     a != b
         && a < m.players.len()
@@ -442,6 +451,7 @@ fn is_enemy(m: &Match, a: usize, b: usize, tick: u32) -> bool {
         && side_at(m, a, tick) != side_at(m, b, tick)
 }
 
+#[cfg(feature = "match-stats")]
 fn is_enemy_kill(m: &Match, k: &Kill) -> bool {
     k.attacker >= 0 && k.victim >= 0 && is_enemy(m, k.attacker as usize, k.victim as usize, k.tick)
 }

@@ -229,6 +229,7 @@ pub(crate) fn is_knife_weapon(weapon: &str) -> bool {
         || w.contains("butterfly")
 }
 
+#[cfg(feature = "match-stats")]
 pub(crate) fn is_utility_weapon(weapon: &str) -> bool {
     let w = weapon.to_ascii_lowercase();
     w.contains("hegrenade")

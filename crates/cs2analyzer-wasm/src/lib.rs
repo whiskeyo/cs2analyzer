@@ -1,9 +1,10 @@
 use cs2analyzer::{parse_demo_with_progress, Match, ParseOptions};
-use js_sys::Function;
+use js_sys::{Float32Array, Function, Uint16Array, Uint32Array, Uint8Array};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(start)]
 pub fn start() {
+    #[cfg(feature = "panic-hook")]
     console_error_panic_hook::set_once();
 }
 
@@ -75,56 +76,56 @@ impl ParsedMatch {
         self.inner.ticks.frame_count
     }
 
-    pub fn ticks(&self) -> Vec<u32> {
-        self.inner.ticks.ticks.clone()
+    pub fn ticks(&self) -> Uint32Array {
+        typed_view_u32(&self.inner.ticks.ticks)
     }
 
-    pub fn x(&self) -> Vec<f32> {
-        self.inner.ticks.x.clone()
+    pub fn x(&self) -> Float32Array {
+        typed_view_f32(&self.inner.ticks.x)
     }
 
-    pub fn y(&self) -> Vec<f32> {
-        self.inner.ticks.y.clone()
+    pub fn y(&self) -> Float32Array {
+        typed_view_f32(&self.inner.ticks.y)
     }
 
-    pub fn z(&self) -> Vec<f32> {
-        self.inner.ticks.z.clone()
+    pub fn z(&self) -> Float32Array {
+        typed_view_f32(&self.inner.ticks.z)
     }
 
-    pub fn yaw(&self) -> Vec<f32> {
-        self.inner.ticks.yaw.clone()
+    pub fn yaw(&self) -> Float32Array {
+        typed_view_f32(&self.inner.ticks.yaw)
     }
 
-    pub fn health(&self) -> Vec<u8> {
-        self.inner.ticks.health.clone()
+    pub fn health(&self) -> Uint8Array {
+        typed_view_u8(&self.inner.ticks.health)
     }
 
-    pub fn armor(&self) -> Vec<u8> {
-        self.inner.ticks.armor.clone()
+    pub fn armor(&self) -> Uint8Array {
+        typed_view_u8(&self.inner.ticks.armor)
     }
 
-    pub fn flags(&self) -> Vec<u8> {
-        self.inner.ticks.flags.clone()
+    pub fn flags(&self) -> Uint8Array {
+        typed_view_u8(&self.inner.ticks.flags)
     }
 
-    pub fn money(&self) -> Vec<u16> {
-        self.inner.ticks.money.clone()
+    pub fn money(&self) -> Uint16Array {
+        typed_view_u16(&self.inner.ticks.money)
     }
 
-    pub fn equip(&self) -> Vec<u16> {
-        self.inner.ticks.equip.clone()
+    pub fn equip(&self) -> Uint16Array {
+        typed_view_u16(&self.inner.ticks.equip)
     }
 
-    pub fn gear(&self) -> Vec<u16> {
-        self.inner.ticks.gear.clone()
+    pub fn gear(&self) -> Uint16Array {
+        typed_view_u16(&self.inner.ticks.gear)
     }
 
-    pub fn primary(&self) -> Vec<u8> {
-        self.inner.ticks.primary.clone()
+    pub fn primary(&self) -> Uint8Array {
+        typed_view_u8(&self.inner.ticks.primary)
     }
 
-    pub fn secondary(&self) -> Vec<u8> {
-        self.inner.ticks.secondary.clone()
+    pub fn secondary(&self) -> Uint8Array {
+        typed_view_u8(&self.inner.ticks.secondary)
     }
 }
 
@@ -155,4 +156,32 @@ pub fn parse_demo(
 
 fn js_err(e: serde_json::Error) -> JsValue {
     JsValue::from_str(&e.to_string())
+}
+
+fn typed_view_u32(data: &[u32]) -> Uint32Array {
+    if data.is_empty() {
+        return Uint32Array::new_with_length(0);
+    }
+    unsafe { Uint32Array::view(data) }
+}
+
+fn typed_view_f32(data: &[f32]) -> Float32Array {
+    if data.is_empty() {
+        return Float32Array::new_with_length(0);
+    }
+    unsafe { Float32Array::view(data) }
+}
+
+fn typed_view_u8(data: &[u8]) -> Uint8Array {
+    if data.is_empty() {
+        return Uint8Array::new_with_length(0);
+    }
+    unsafe { Uint8Array::view(data) }
+}
+
+fn typed_view_u16(data: &[u16]) -> Uint16Array {
+    if data.is_empty() {
+        return Uint16Array::new_with_length(0);
+    }
+    unsafe { Uint16Array::view(data) }
 }

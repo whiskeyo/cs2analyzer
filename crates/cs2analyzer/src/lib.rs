@@ -10,6 +10,7 @@ mod props;
 mod radar;
 mod types;
 
+#[cfg(feature = "match-stats")]
 pub use analysis::{compute_stats, compute_stats_until};
 pub use constants::*;
 pub use error::ParseError;

@@ -20,7 +20,7 @@ Parser pipeline: `observer.rs` (tick walk) → `assemble.rs` (`Match`) → `anal
 
 The worker validates every JSON payload in `lib/parse/decode.ts`, so a serde rename in `types.rs` fails with a named error instead of a blank radar. Update the shapes there when a required field changes.
 
-Do not edit `apps/web/src/parser/` by hand. Keep `wasm-bindgen-cli` at **0.2.127** (same as the `wasm-bindgen` crate). WASM disables the `mimalloc` feature (`default-features = false`).
+Do not edit `apps/web/src/parser/` by hand. Keep `wasm-bindgen-cli` at **0.2.127** (same as the `wasm-bindgen` crate). WASM disables the `mimalloc` and `match-stats` features (`default-features = false`). Release builds use the `wasm-release` profile (LTO, `panic = abort`); optional `wasm-opt` pass in `scripts/build-wasm.sh`.
 
 ## Commands
 

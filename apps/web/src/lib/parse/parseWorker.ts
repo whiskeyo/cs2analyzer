@@ -34,6 +34,23 @@ function ensureWasm(): Promise<void> {
   return wasmReady;
 }
 
+/** Copy tick buffers out of Wasm linear memory before ParsedMatch is freed. */
+function copyU32(view: Uint32Array): Uint32Array {
+  return view.length === 0 ? new Uint32Array(0) : view.slice();
+}
+
+function copyF32(view: Float32Array): Float32Array {
+  return view.length === 0 ? new Float32Array(0) : view.slice();
+}
+
+function copyU8(view: Uint8Array): Uint8Array {
+  return view.length === 0 ? new Uint8Array(0) : view.slice();
+}
+
+function copyU16(view: Uint16Array): Uint16Array {
+  return view.length === 0 ? new Uint16Array(0) : view.slice();
+}
+
 self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
   try {
     const t0 = performance.now();
@@ -74,19 +91,19 @@ self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
       ticks: {
         frameCount: parsed.frameCount(),
         playerCount: parsed.playerCount(),
-        ticks: parsed.ticks(),
-        x: parsed.x(),
-        y: parsed.y(),
-        z: parsed.z(),
-        yaw: parsed.yaw(),
-        health: parsed.health(),
-        armor: parsed.armor(),
-        flags: parsed.flags(),
-        money: parsed.money(),
-        equip: parsed.equip(),
-        gear: parsed.gear(),
-        primary: parsed.primary(),
-        secondary: parsed.secondary(),
+        ticks: copyU32(parsed.ticks()),
+        x: copyF32(parsed.x()),
+        y: copyF32(parsed.y()),
+        z: copyF32(parsed.z()),
+        yaw: copyF32(parsed.yaw()),
+        health: copyU8(parsed.health()),
+        armor: copyU8(parsed.armor()),
+        flags: copyU8(parsed.flags()),
+        money: copyU16(parsed.money()),
+        equip: copyU16(parsed.equip()),
+        gear: copyU16(parsed.gear()),
+        primary: copyU8(parsed.primary()),
+        secondary: copyU8(parsed.secondary()),
       },
     };
     parsed.free();

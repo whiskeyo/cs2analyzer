@@ -12,8 +12,9 @@ thiserror = { workspace = true }
 source2-demo = { workspace = true }
 
 [features]
-default = ["mimalloc"]
+default = ["mimalloc", "match-stats"]
 mimalloc = ["source2-demo/mimalloc"]
+match-stats = []
 
 [lints]
 workspace = true
