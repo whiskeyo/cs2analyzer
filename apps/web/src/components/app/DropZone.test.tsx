@@ -12,9 +12,13 @@ function props(overrides: Partial<Parameters<typeof DropZone>[0]> = {}) {
   return {
     onFiles: noop,
     onExportNotes: noop,
+    onRemoveAllNotes: noop,
     onDeleteNotes: noop,
+    onTryOpenSaved: async () => null,
+    onLinkDemoFile: noop,
     parsing: false,
     progress: null,
+    parseFiles: null,
     error: null,
     notice: null,
     saved: [],
@@ -151,7 +155,7 @@ describe("DropZone", () => {
     expect(screen.getByRole("button", { name: "Export notes" })).toBeEnabled();
   });
 
-  it("paginates saved notes ten at a time", async () => {
+  it("paginates saved notes five at a time", async () => {
     const saved = Array.from({ length: 11 }, (_, i) =>
       savedProject({
         key: `de_mirage|1|50,100|${i}.dem`,
@@ -161,13 +165,13 @@ describe("DropZone", () => {
     render(<DropZone {...props({ saved })} />);
 
     expect(screen.getByText("0.dem")).toBeInTheDocument();
-    expect(screen.queryByText("10.dem")).not.toBeInTheDocument();
-    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    expect(screen.queryByText("5.dem")).not.toBeInTheDocument();
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("10.dem")).toBeInTheDocument();
+    expect(screen.getByText("5.dem")).toBeInTheDocument();
     expect(screen.queryByText("0.dem")).not.toBeInTheDocument();
-    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    expect(screen.getByText("2 / 3")).toBeInTheDocument();
   });
 
   it("links GitHub, Issues, and Donate in the footer", () => {

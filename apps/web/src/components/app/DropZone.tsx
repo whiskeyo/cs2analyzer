@@ -1,22 +1,35 @@
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { ImportNotesButton } from "@/components/sidebar/ImportNotesButton";
+import { ParseProgressPanel } from "@/components/app/ParseProgressPanel";
+import type { ParseFileProgress } from "@/lib/parse/parsePool";
 import { SAVED_NOTES_PAGE_SIZE } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import type { ReviewProject } from "@/lib/notes/projectStore";
-import { formatScorecard, type SavedPlayerSnapshot } from "@/lib/stats/stats";
+import { demoFilePickerAvailable } from "@/lib/notes/projectStore";
+import {
+  formatAdr,
+  formatKast,
+  formatScorecard,
+  type SavedPlayerSnapshot,
+} from "@/lib/stats/stats";
 import { prettyMap } from "@/lib/weapons/weapons";
 
 const REPO_URL = "https://github.com/whiskeyo/cs2analyzer";
 const ISSUES_URL = `${REPO_URL}/issues`;
 const STEAM_TRADE_URL =
   "https://steamcommunity.com/tradeoffer/new/?partner=69520211&token=YCinud5X";
+const REMOVE_NOTES_CONFIRM = "yes, remove notes";
 
 interface Props {
   onFiles: (files: File[]) => void;
   onExportNotes: () => void;
+  onRemoveAllNotes: () => void;
   onDeleteNotes: (key: string) => void;
+  onTryOpenSaved: (project: ReviewProject) => Promise<File | null>;
+  onLinkDemoFile: (project: ReviewProject) => void;
   parsing: boolean;
   progress: { current: number; total: number } | null;
+  parseFiles: ParseFileProgress[] | null;
   error: string | null;
   notice: string | null;
   saved: ReviewProject[];
@@ -25,6 +38,13 @@ interface Props {
 function savedWhen(savedAt: number): string {
   if (!savedAt) return "unknown time";
   return new Date(savedAt).toLocaleString();
+}
+
+function formatDemoSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const mb = bytes / (1024 * 1024);
+  if (mb < 1024) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+  return `${(mb / 1024).toFixed(1)} GB`;
 }
 
 function noteTitle(p: ReviewProject): string {
@@ -46,16 +66,22 @@ function takeDroppedFiles(e: DragEvent, onFiles: (files: File[]) => void): void 
 export function DropZone({
   onFiles,
   onExportNotes,
+  onRemoveAllNotes,
   onDeleteNotes,
+  onTryOpenSaved,
+  onLinkDemoFile,
   parsing,
   progress,
+  parseFiles,
   error,
   notice,
   saved,
 }: Props) {
   const [page, setPage] = useState(0);
   const [wantedDemo, setWantedDemo] = useState<string | null>(null);
-  const pct =
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeConfirm, setRemoveConfirm] = useState("");
+  const overallPct =
     progress && progress.total > 0
       ? Math.min(100, Math.round((100 * progress.current) / progress.total))
       : 0;
@@ -75,6 +101,18 @@ export function DropZone({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [wantedDemo]);
+
+  useEffect(() => {
+    if (!removeOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setRemoveOpen(false);
+        setRemoveConfirm("");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [removeOpen]);
 
   return (
     <div className="home">
@@ -113,9 +151,8 @@ export function DropZone({
             <li>Kill feed, death lines, opening duels, nade summary, CSV export</li>
           </ul>
           {parsing && (
-            <div className="progress">
-              <div className="bar" style={{ width: `${pct}%` }} />
-              <span>{pct}%</span>
+            <div className="drop-parse">
+              <ParseProgressPanel overallPct={overallPct} files={parseFiles} />
             </div>
           )}
           {error && <p className="error">{error}</p>}
@@ -137,6 +174,14 @@ export function DropZone({
               Export notes
             </button>
             <ImportNotesButton onFile={(file) => onFiles([file])} />
+            <button
+              type="button"
+              className="danger"
+              onClick={() => setRemoveOpen(true)}
+              disabled={saved.length === 0}
+            >
+              Remove notes
+            </button>
           </div>
           {saved.length > 0 && (
             <div className="saved-demos">
@@ -147,12 +192,19 @@ export function DropZone({
                     <button
                       type="button"
                       className="saved-demo"
-                      onClick={() => setWantedDemo(p.fileName || "unnamed.dem")}
+                      onClick={() => {
+                        void onTryOpenSaved(p).then((file) => {
+                          if (file) onFiles([file]);
+                          else setWantedDemo(p.fileName || "unnamed.dem");
+                        });
+                      }}
                     >
                       <span className="saved-demo-map">{noteTitle(p)}</span>
                       <span className="saved-demo-file">{p.fileName || "unnamed.dem"}</span>
                       <span className="saved-demo-meta">
-                        {p.strokes.length} drawing{p.strokes.length === 1 ? "" : "s"} -{" "}
+                        {p.strokes.length} drawing{p.strokes.length === 1 ? "" : "s"}
+                        {p.fileSizeBytes ? ` · ${formatDemoSize(p.fileSizeBytes)}` : ""}
+                        {p.linkedFileLabel ? ` · linked: ${p.linkedFileLabel}` : ""} ·{" "}
                         {savedWhen(p.savedAt)}
                       </span>
                       {p.playerStats && p.playerStats.length > 0 && (
@@ -174,8 +226,8 @@ export function DropZone({
                                   <td>{s.name}</td>
                                   <td>{s.kills}</td>
                                   <td>{s.deaths}</td>
-                                  <td>{s.adr}</td>
-                                  <td>{s.kast}</td>
+                                  <td>{formatAdr(s.adr)}</td>
+                                  <td>{formatKast(s.kast)}</td>
                                   <td>{s.rating.toFixed(2)}</td>
                                 </tr>
                               ))}
@@ -184,6 +236,16 @@ export function DropZone({
                         </div>
                       )}
                     </button>
+                    {demoFilePickerAvailable() && (
+                      <button
+                        type="button"
+                        className="ghost saved-demo-link"
+                        title="Link this demo file so Open can load it without re-dropping"
+                        onClick={() => onLinkDemoFile(p)}
+                      >
+                        Link demo
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="ghost saved-demo-del"
@@ -257,6 +319,65 @@ export function DropZone({
           .
         </p>
       </footer>
+      {removeOpen && (
+        <div
+          className="home-modal"
+          onClick={() => {
+            setRemoveOpen(false);
+            setRemoveConfirm("");
+          }}
+        >
+          <div
+            className="home-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-notes-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="remove-notes-title">Remove all saved notes?</h2>
+            <p>
+              This deletes every drawing project stored in this browser. Export a JSON backup first
+              if you might need them later.
+            </p>
+            <p>
+              Type <code>{REMOVE_NOTES_CONFIRM}</code> to confirm.
+            </p>
+            <input
+              className="remove-notes-input"
+              type="text"
+              value={removeConfirm}
+              autoComplete="off"
+              spellCheck={false}
+              aria-label="Confirmation phrase"
+              onChange={(e) => setRemoveConfirm(e.target.value)}
+            />
+            <div className="home-modal-actions">
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setRemoveOpen(false);
+                  setRemoveConfirm("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="danger"
+                disabled={removeConfirm !== REMOVE_NOTES_CONFIRM}
+                onClick={() => {
+                  setRemoveOpen(false);
+                  setRemoveConfirm("");
+                  onRemoveAllNotes();
+                }}
+              >
+                Remove all notes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {wantedDemo && (
         <div className="home-modal" onClick={() => setWantedDemo(null)}>
           <div

@@ -7,8 +7,9 @@ import { DEFAULT_SUMMARY_FILTER, type FloorMode, type Stroke, type SummaryFilter
 export const PROJECT_SCHEMA = 2;
 const MIN_PROJECT_SCHEMA = 1;
 const DB_NAME = "cs2analyzer";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = "projects";
+const HANDLE_STORE = "demoHandles";
 
 const KINDS: GrenadeKind[] = ["smoke", "flash", "he", "molotov", "decoy"];
 
@@ -24,6 +25,10 @@ export interface ReviewProject {
   floorMode: FloorMode;
   paletteId: string;
   color: string;
+  /** Last seen `.dem` size in bytes (for saved-notes list). */
+  fileSizeBytes?: number;
+  /** Browser-linked demo file (Chrome/Edge File System Access API). */
+  linkedFileLabel?: string;
   scorecard?: MatchScorecard;
   playerStats?: SavedPlayerSnapshot[];
 }
@@ -209,6 +214,12 @@ export function parseProject(raw: unknown): ReviewProject | null {
   const color = typeof o.color === "string" ? o.color : defaultColor();
   const scorecard = parseScorecard(o.scorecard);
   const playerStats = parsePlayerStats(o.playerStats);
+  const fileSizeBytes =
+    typeof o.fileSizeBytes === "number" && o.fileSizeBytes > 0 ? o.fileSizeBytes : undefined;
+  const linkedFileLabel =
+    typeof o.linkedFileLabel === "string" && o.linkedFileLabel.length > 0
+      ? o.linkedFileLabel
+      : undefined;
   return {
     schema: PROJECT_SCHEMA,
     key: o.key,
@@ -221,6 +232,8 @@ export function parseProject(raw: unknown): ReviewProject | null {
     floorMode: parseFloor(o.floorMode),
     paletteId,
     color,
+    ...(fileSizeBytes != null ? { fileSizeBytes } : {}),
+    ...(linkedFileLabel != null ? { linkedFileLabel } : {}),
     ...(scorecard ? { scorecard } : {}),
     ...(playerStats ? { playerStats } : {}),
   };
@@ -271,6 +284,9 @@ function openDb(): Promise<IDBDatabase> {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE, { keyPath: "key" });
+      }
+      if (!db.objectStoreNames.contains(HANDLE_STORE)) {
+        db.createObjectStore(HANDLE_STORE, { keyPath: "key" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -344,11 +360,28 @@ export async function deleteProject(key: string): Promise<void> {
   if (!idbAvailable()) return;
   const db = await openDb();
   try {
-    const tx = db.transaction(STORE, "readwrite");
+    const tx = db.transaction([STORE, HANDLE_STORE], "readwrite");
     await requestOf(tx.objectStore(STORE).delete(key));
+    await requestOf(tx.objectStore(HANDLE_STORE).delete(key));
   } finally {
     db.close();
   }
+}
+
+/** Wipe every saved review project in this browser. Returns how many were removed. */
+export async function deleteAllProjects(): Promise<number> {
+  if (!idbAvailable()) return 0;
+  const existing = await loadAllProjects();
+  if (existing.length === 0) return 0;
+  const db = await openDb();
+  try {
+    const tx = db.transaction([STORE, HANDLE_STORE], "readwrite");
+    await requestOf(tx.objectStore(STORE).clear());
+    await requestOf(tx.objectStore(HANDLE_STORE).clear());
+  } finally {
+    db.close();
+  }
+  return existing.length;
 }
 
 export async function countProjects(): Promise<number> {
@@ -360,4 +393,60 @@ export async function countProjects(): Promise<number> {
   } finally {
     db.close();
   }
+}
+
+export async function saveDemoFileHandle(key: string, handle: FileSystemFileHandle): Promise<void> {
+  if (!idbAvailable()) return;
+  const db = await openDb();
+  try {
+    const tx = db.transaction(HANDLE_STORE, "readwrite");
+    await requestOf(tx.objectStore(HANDLE_STORE).put({ key, handle, linkedAt: Date.now() }));
+  } finally {
+    db.close();
+  }
+}
+
+export async function loadDemoFileHandle(key: string): Promise<FileSystemFileHandle | null> {
+  if (!idbAvailable()) return null;
+  const db = await openDb();
+  try {
+    const tx = db.transaction(HANDLE_STORE, "readonly");
+    const row = (await requestOf(tx.objectStore(HANDLE_STORE).get(key))) as
+      { handle?: FileSystemFileHandle } | undefined;
+    return row?.handle ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+/** Read the linked demo when the browser still has permission. */
+export async function readLinkedDemoFile(key: string): Promise<File | null> {
+  const handle = await loadDemoFileHandle(key);
+  if (!handle) return null;
+  try {
+    return await handle.getFile();
+  } catch {
+    return null;
+  }
+}
+
+export function demoFilePickerAvailable(): boolean {
+  return typeof window !== "undefined" && "showOpenFilePicker" in window;
+}
+
+export async function pickDemoFileHandle(): Promise<FileSystemFileHandle | null> {
+  if (!demoFilePickerAvailable()) return null;
+  const open = (
+    window as unknown as {
+      showOpenFilePicker: (options: {
+        types: { accept: Record<string, string[]> }[];
+        multiple: boolean;
+      }) => Promise<FileSystemFileHandle[]>;
+    }
+  ).showOpenFilePicker;
+  const handles = await open({
+    types: [{ accept: { "application/octet-stream": [".dem"] } }],
+    multiple: false,
+  });
+  return handles[0] ?? null;
 }

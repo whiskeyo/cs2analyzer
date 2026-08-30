@@ -14,12 +14,17 @@ import {
 import {
   defaultColor,
   defaultPaletteId,
+  deleteAllProjects,
+  demoFilePickerAvailable,
   importProjects,
   loadAllProjects,
   loadProject,
   matchKey,
   parseBundle,
+  pickDemoFileHandle,
   PROJECT_SCHEMA,
+  readLinkedDemoFile,
+  saveDemoFileHandle,
   saveProject,
   serializeBundle,
   type ReviewProject,
@@ -174,6 +179,20 @@ export function useReviewProject(opts: {
     }
   }, []);
 
+  const removeAllNotes = useCallback(async () => {
+    try {
+      const n = await deleteAllProjects();
+      refreshSaved();
+      if (n === 0) statusRef.current.setNotice("No saved notes in this browser.");
+      else
+        statusRef.current.setNotice(
+          `Removed ${n} saved match${n === 1 ? "" : "es"} from this browser.`,
+        );
+    } catch {
+      statusRef.current.setError("Could not remove saved notes.");
+    }
+  }, [refreshSaved]);
+
   const importNotesText = useCallback(
     async (text: string) => {
       let raw: unknown;
@@ -205,23 +224,18 @@ export function useReviewProject(opts: {
   );
 
   const persist = useCallback(
-    async (
-      target: LoadedDemo | null,
-      opts?: { stats?: boolean; refreshList?: boolean },
-    ) => {
+    async (target: LoadedDemo | null, opts?: { stats?: boolean; refreshList?: boolean }) => {
       if (!target) return;
       const overlay = overlayRef.current;
       const key = matchKey(target.replay, target.fileName);
+      const existing = await loadProject(key);
       const endTick = matchEndTick(target.replay);
-      let scorecard = undefined;
-      let playerStats = undefined;
-      if (opts?.stats !== false) {
+      const withStats = opts?.stats !== false;
+      let scorecard = existing?.scorecard;
+      let playerStats = existing?.playerStats;
+      if (withStats) {
         scorecard = matchScorecard(target.replay, endTick);
         playerStats = savedPlayerSnapshots(target.replay, endTick);
-      } else {
-        const existing = await loadProject(key);
-        scorecard = existing?.scorecard;
-        playerStats = existing?.playerStats;
       }
       await saveProject({
         schema: PROJECT_SCHEMA,
@@ -237,29 +251,72 @@ export function useReviewProject(opts: {
         color: overlay.color,
         scorecard,
         playerStats,
+        fileSizeBytes: target.file.size > 0 ? target.file.size : undefined,
       });
       if (opts?.refreshList !== false) refreshSaved();
     },
     [refreshSaved],
   );
 
+  /** Scorecard + player table for saved-notes list; keeps any existing drawings. */
+  const seedDemoStats = useCallback(async (target: LoadedDemo) => {
+    const key = matchKey(target.replay, target.fileName);
+    const existing = await loadProject(key);
+    const endTick = matchEndTick(target.replay);
+    await saveProject({
+      schema: PROJECT_SCHEMA,
+      key,
+      savedAt: Date.now(),
+      fileName: target.fileName,
+      mapName: target.replay.header.map_name,
+      tick: existing?.tick ?? 0,
+      strokes: existing?.strokes ?? [],
+      summaryFilter: existing?.summaryFilter ?? DEFAULT_SUMMARY_FILTER,
+      floorMode: existing?.floorMode ?? "auto",
+      paletteId: existing?.paletteId ?? defaultPaletteId(),
+      color: existing?.color ?? defaultColor(),
+      scorecard: matchScorecard(target.replay, endTick),
+      playerStats: savedPlayerSnapshots(target.replay, endTick),
+      fileSizeBytes: target.file.size > 0 ? target.file.size : undefined,
+    });
+  }, []);
+
+  const seededSeriesRef = useRef<string | null>(null);
+
   /** Save the demo currently on screen, e.g. before the tab closes. */
-  const persistNow = useCallback(
-    () => persist(demoRef.current).catch(() => undefined),
-    [persist],
-  );
+  const persistNow = useCallback(() => persist(demoRef.current).catch(() => undefined), [persist]);
 
   useEffect(() => {
     refreshSaved();
   }, [refreshSaved]);
 
+  // After a multi-demo parse, fill scorecard + player stats for every file (not only the active one).
+  useEffect(() => {
+    if (!series || series.demos.length <= 1) {
+      if (!series) seededSeriesRef.current = null;
+      return;
+    }
+    const key = series.demos.map((d) => d.id).join("\0");
+    if (seededSeriesRef.current === key) return;
+    seededSeriesRef.current = key;
+    let cancelled = false;
+    void (async () => {
+      for (const d of series.demos) {
+        if (cancelled) return;
+        await seedDemoStats(d);
+      }
+      if (!cancelled) refreshSaved();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [series, seedDemoStats, refreshSaved]);
+
   // Drop the outgoing demo's drawings before a new one paints — except series hops.
   useLayoutEffect(() => {
     if (!demo?.id) return;
     const switchingSeries =
-      series != null &&
-      prevDemoIdRef.current != null &&
-      prevDemoIdRef.current !== demo.id;
+      series != null && prevDemoIdRef.current != null && prevDemoIdRef.current !== demo.id;
     restoredRef.current = false;
     if (switchingSeries) return;
     commitStrokes([], true);
@@ -269,6 +326,7 @@ export function useReviewProject(opts: {
 
   const flushSeriesCache = useCallback(async () => {
     for (const entry of seriesReviewEntries()) {
+      const endTick = matchEndTick(entry.demo.replay);
       await saveProject({
         schema: PROJECT_SCHEMA,
         key: matchKey(entry.demo.replay, entry.demo.fileName),
@@ -281,6 +339,9 @@ export function useReviewProject(opts: {
         floorMode: entry.floorMode,
         paletteId: entry.paletteId,
         color: entry.color,
+        scorecard: matchScorecard(entry.demo.replay, endTick),
+        playerStats: savedPlayerSnapshots(entry.demo.replay, endTick),
+        fileSizeBytes: entry.demo.file.size > 0 ? entry.demo.file.size : undefined,
       });
     }
     clearSeriesReviewCache();
@@ -298,8 +359,7 @@ export function useReviewProject(opts: {
       prevDemoIdRef.current = null;
       return;
     }
-    const isSwitch =
-      prevDemoIdRef.current !== null && prevDemoIdRef.current !== demo.id;
+    const isSwitch = prevDemoIdRef.current !== null && prevDemoIdRef.current !== demo.id;
     prevDemoIdRef.current = demo.id;
     let cancelled = false;
 
@@ -307,8 +367,11 @@ export function useReviewProject(opts: {
     const cached = inSeries ? getSeriesReview(demo.id) : undefined;
 
     if (cached) {
-      applySnapshot(cached, false);
-      restoredRef.current = true;
+      queueMicrotask(() => {
+        if (cancelled) return;
+        applySnapshot(cached, false);
+        restoredRef.current = true;
+      });
       return () => {
         cancelled = true;
       };
@@ -373,6 +436,53 @@ export function useReviewProject(opts: {
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [persistNow]);
 
+  const tryOpenSaved = useCallback(async (project: ReviewProject): Promise<File | null> => {
+    const file = await readLinkedDemoFile(project.key);
+    if (!file) return null;
+    if (file.name !== project.fileName) {
+      statusRef.current.setError(
+        `Linked file is ${file.name}, expected ${project.fileName}. Re-link the demo.`,
+      );
+      return null;
+    }
+    return file;
+  }, []);
+
+  const linkDemoFile = useCallback(
+    async (project: ReviewProject) => {
+      if (!demoFilePickerAvailable()) {
+        statusRef.current.setNotice(
+          "Link demo file works in Chrome/Edge. Otherwise drop the .dem manually.",
+        );
+        return;
+      }
+      try {
+        const handle = await pickDemoFileHandle();
+        if (!handle) return;
+        if (handle.name !== project.fileName) {
+          statusRef.current.setError(
+            `Pick ${project.fileName} — selected ${handle.name}. Notes stay keyed by filename.`,
+          );
+          return;
+        }
+        await saveDemoFileHandle(project.key, handle);
+        const existing = await loadProject(project.key);
+        if (existing) {
+          await saveProject({
+            ...existing,
+            linkedFileLabel: handle.name,
+            savedAt: Date.now(),
+          });
+        }
+        refreshSaved();
+        statusRef.current.setNotice(`Linked ${handle.name} for saved notes.`);
+      } catch {
+        statusRef.current.setNotice("Demo link cancelled.");
+      }
+    },
+    [refreshSaved],
+  );
+
   return {
     saved,
     strokes,
@@ -394,8 +504,11 @@ export function useReviewProject(opts: {
     applyProject,
     exportNotes,
     importNotesText,
+    removeAllNotes,
     persistNow,
     stashForSeriesSwitch,
+    tryOpenSaved,
+    linkDemoFile,
   };
 }
 
