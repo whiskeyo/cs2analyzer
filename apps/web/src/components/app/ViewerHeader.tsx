@@ -15,9 +15,12 @@ function downloadCsv(replay: Replay, fileName: string, tick: number) {
 }
 
 export function ViewerHeader() {
-  const { session, playback, review, onFiles } = useApp();
+  const { session, playback, review, habits, onFiles } = useApp();
   const replay = session.replay;
   if (!replay) return null;
+
+  const aggregated =
+    Boolean(session.series && session.series.demos.length > 1) && habits.aggregated;
 
   return (
     <header className="top">
@@ -40,6 +43,8 @@ export function ViewerHeader() {
       <button
         type="button"
         className="ghost"
+        disabled={aggregated}
+        title={aggregated ? "Export CSV is per-demo; switch off Aggregated" : undefined}
         onClick={() => downloadCsv(replay, session.fileName, playback.tick)}
       >
         Export CSV

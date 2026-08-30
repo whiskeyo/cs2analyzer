@@ -188,6 +188,8 @@ describe("utilThrowsForRound", () => {
           winner: "CT",
           win_reason: 0,
           is_knife: false,
+          score_ct: 1,
+          score_t: 0,
         },
         {
           number: 2,
@@ -199,13 +201,11 @@ describe("utilThrowsForRound", () => {
           winner: "T",
           win_reason: 0,
           is_knife: false,
+          score_ct: 1,
+          score_t: 1,
         },
       ],
-      grenades: [
-        nade("smoke", 100, 0),
-        nade("flash", 800, 1),
-        nade("he", 850, 1),
-      ],
+      grenades: [nade("smoke", 100, 0), nade("flash", 800, 1), nade("he", 850, 1)],
       blinds: [makeBlind(820, 1, 0, MIN_REVIEW_FLASH_SECONDS)],
     });
     const round1 = utilThrowsForRound(m, 1, null);

@@ -23,6 +23,8 @@ import { seriesPlayerReview } from "@/lib/parse/seriesPlayerReview";
 
 type Tab = "score" | "player" | "notes" | "action" | "util" | "clutch" | "rounds" | "weapons";
 
+const DEMO_ONLY_TABS: Tab[] = ["score", "notes", "clutch", "rounds", "weapons"];
+
 const TAB_LABEL: Record<Tab, string> = {
   score: "Score",
   player: "Review",
@@ -65,12 +67,14 @@ export const Sidebar = memo(function Sidebar({
   const showSeriesUtil = multiDemo && (seriesMode || playerKey != null);
   const showSeriesAction = seriesMode;
   const showSeriesReview = multiDemo && playerKey != null;
+  const tabDisabled = (id: Tab) => seriesMode && DEMO_ONLY_TABS.includes(id);
   const seriesReview = useMemo(() => {
     if (!showSeriesReview || !session.series || !playerKey || !playerName) return null;
     return seriesPlayerReview(session.series, playerKey, playerName);
   }, [showSeriesReview, session.series, playerKey, playerName]);
 
   const [tab, setTab] = useState<Tab>("score");
+  const activeTab: Tab = seriesMode && DEMO_ONLY_TABS.includes(tab) ? "action" : tab;
   const [width, setWidth] = useState(loadSidebarWidth);
   const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
   const widthRef = useRef(width);
@@ -166,19 +170,21 @@ export const Sidebar = memo(function Sidebar({
           <button
             key={id}
             type="button"
-            className={tab === id ? "on" : ""}
+            className={activeTab === id ? "on" : ""}
+            disabled={tabDisabled(id)}
+            title={tabDisabled(id) ? "Not available in aggregated view" : undefined}
             onClick={() => setTab(id)}
           >
             {TAB_LABEL[id]}
           </button>
         ))}
       </div>
-      {tab === "score" && (
+      {activeTab === "score" && (
         <Scoreboard replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
       )}
-      {tab === "player" &&
+      {activeTab === "player" &&
         (showSeriesReview && seriesReview ? (
-          <SeriesPlayerReview review={seriesReview} onJump={habits.jumpHabits} />
+          <SeriesPlayerReview review={seriesReview} onJump={habits.playRound} />
         ) : (
           <Review
             replay={replay}
@@ -188,7 +194,7 @@ export const Sidebar = memo(function Sidebar({
             onSelect={(i) => onSelect(i)}
           />
         ))}
-      {tab === "notes" && (
+      {activeTab === "notes" && (
         <Notes
           replay={replay}
           tick={tick}
@@ -197,24 +203,24 @@ export const Sidebar = memo(function Sidebar({
           onStrokes={onStrokes}
         />
       )}
-      {tab === "action" && (
+      {activeTab === "action" && (
         <>
           {seriesMode && <SeriesBucketPanel />}
           {showSeriesAction ? (
-            <SeriesActionList beats={habits.seriesActionBeats} onJump={habits.jumpHabits} />
+            <SeriesActionList beats={habits.seriesActionBeats} onJump={habits.playRound} />
           ) : (
             <Action replay={replay} tick={tick} onJump={onJump} places={places} />
           )}
         </>
       )}
-      {tab === "util" && (
+      {activeTab === "util" && (
         <>
           {seriesMode && <SeriesBucketPanel />}
           {showSeriesUtil ? (
             <SeriesUtilList
               rows={habits.seriesUtilThrows}
               playerName={playerName}
-              onJump={habits.jumpHabits}
+              onJump={habits.playRound}
             />
           ) : (
             <Utility
@@ -228,7 +234,7 @@ export const Sidebar = memo(function Sidebar({
           )}
         </>
       )}
-      {tab === "clutch" && (
+      {activeTab === "clutch" && (
         <Clutch
           replay={replay}
           tick={tick}
@@ -237,18 +243,18 @@ export const Sidebar = memo(function Sidebar({
           onSelect={(i) => onSelect(i)}
         />
       )}
-      {tab === "rounds" && (
+      {activeTab === "rounds" && (
         <RoundList replay={replay} tick={tick} onJump={onJump} onSelect={onSelect} />
       )}
-      {tab === "weapons" && (
+      {activeTab === "weapons" && (
         <WeaponTable replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
       )}
-      {selected == null && tab === "score" && (
+      {selected == null && activeTab === "score" && (
         <p className="muted tab-hint">
           Click a player for full stats. Click again on the map to deselect.
         </p>
       )}
-      {tab === "score" && selected != null && (
+      {activeTab === "score" && selected != null && (
         <RatingHint replay={replay} tick={tick} selected={selected} />
       )}
     </aside>
