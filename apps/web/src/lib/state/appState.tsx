@@ -54,6 +54,7 @@ function useAppState(createWorker?: CreateWorker): AppState {
   const review = useReviewProject({
     demo: session.demo,
     series: session.series,
+    parsedDemos: session.parsedDemos,
     status,
     playback,
   });

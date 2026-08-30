@@ -51,6 +51,8 @@ export function useDemoSession(opts: {
   const [series, setSeries] = useState<DemoSeries | null>(null);
   const [mapGroups, setMapGroups] = useState<{ mapName: string; demos: LoadedDemo[] }[]>([]);
   const [selectedMapName, setSelectedMapName] = useState<string | null>(null);
+  /** Every demo from the last multi-file drop (all maps); cleared on single-file load / close. */
+  const [parsedDemos, setParsedDemos] = useState<LoadedDemo[]>([]);
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState<ParseProgress | null>(null);
   const [parseFiles, setParseFiles] = useState<ParseFileProgress[] | null>(null);
@@ -80,6 +82,7 @@ export function useDemoSession(opts: {
   const finishSingle = useCallback((next: LoadedDemo) => {
     setMapGroups([]);
     setSelectedMapName(null);
+    setParsedDemos([]);
     setSeries(null);
     setDemo(next);
   }, []);
@@ -101,6 +104,7 @@ export function useDemoSession(opts: {
       setSeries(null);
       setMapGroups([]);
       setSelectedMapName(null);
+      setParsedDemos([]);
       workerRef.current?.terminate();
       const worker = createWorkerRef.current();
       workerRef.current = worker;
@@ -167,6 +171,7 @@ export function useDemoSession(opts: {
       setSeries(null);
       setMapGroups([]);
       setSelectedMapName(null);
+      setParsedDemos([]);
       workerRef.current?.terminate();
       workerRef.current = null;
 
@@ -194,6 +199,7 @@ export function useDemoSession(opts: {
       }
 
       setMapGroups(groups);
+      setParsedDemos(groups.flatMap((g) => g.demos));
       loadMapGroup(groups[0]);
       const nextSeries = buildSeries(groups[0].mapName, groups[0].demos);
 
@@ -266,6 +272,7 @@ export function useDemoSession(opts: {
     setSeries(null);
     setMapGroups([]);
     setSelectedMapName(null);
+    setParsedDemos([]);
     setParsing(false);
     setProgress(null);
     setParseFiles(null);
@@ -277,6 +284,7 @@ export function useDemoSession(opts: {
     series,
     mapGroups,
     selectedMapName,
+    parsedDemos,
     replay: demo?.replay ?? null,
     fileName: demo?.fileName ?? "",
     parsing,

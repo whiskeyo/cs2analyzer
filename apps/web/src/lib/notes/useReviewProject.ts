@@ -51,10 +51,12 @@ function downloadJson(name: string, text: string) {
 export function useReviewProject(opts: {
   demo: LoadedDemo | null;
   series: DemoSeries | null;
+  /** All demos from a multi-file drop (every map); used to seed saved notes. */
+  parsedDemos: LoadedDemo[];
   status: Status;
   playback: Playback;
 }) {
-  const { demo, series, status, playback } = opts;
+  const { demo, series, parsedDemos, status, playback } = opts;
   const [saved, setSaved] = useState<ReviewProject[]>([]);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [canUndo, setCanUndo] = useState(false);
@@ -281,7 +283,7 @@ export function useReviewProject(opts: {
     });
   }, []);
 
-  const seededSeriesRef = useRef<string | null>(null);
+  const seededPoolRef = useRef<string | null>(null);
 
   /** Save the demo currently on screen, e.g. before the tab closes. */
   const persistNow = useCallback(() => persist(demoRef.current).catch(() => undefined), [persist]);
@@ -290,18 +292,18 @@ export function useReviewProject(opts: {
     refreshSaved();
   }, [refreshSaved]);
 
-  // After a multi-demo parse, fill scorecard + player stats for every file (not only the active one).
+  // After a multi-file parse, snapshot scorecard + player stats for every demo (all maps).
   useEffect(() => {
-    if (!series || series.demos.length <= 1) {
-      if (!series) seededSeriesRef.current = null;
+    if (parsedDemos.length === 0) {
+      seededPoolRef.current = null;
       return;
     }
-    const key = series.demos.map((d) => d.id).join("\0");
-    if (seededSeriesRef.current === key) return;
-    seededSeriesRef.current = key;
+    const key = parsedDemos.map((d) => d.id).join("\0");
+    if (seededPoolRef.current === key) return;
+    seededPoolRef.current = key;
     let cancelled = false;
     void (async () => {
-      for (const d of series.demos) {
+      for (const d of parsedDemos) {
         if (cancelled) return;
         await seedDemoStats(d);
       }
@@ -310,7 +312,7 @@ export function useReviewProject(opts: {
     return () => {
       cancelled = true;
     };
-  }, [series, seedDemoStats, refreshSaved]);
+  }, [parsedDemos, seedDemoStats, refreshSaved]);
 
   // Drop the outgoing demo's drawings before a new one paints — except series hops.
   useLayoutEffect(() => {
