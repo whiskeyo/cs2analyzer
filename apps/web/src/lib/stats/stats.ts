@@ -32,6 +32,14 @@ import {
 } from "@/lib/replay/replayTypes";
 import { prettyWeapon } from "@/lib/weapons/weapons";
 
+export function formatAdr(adr: number): string {
+  return adr.toFixed(2);
+}
+
+export function formatKast(kast: number): string {
+  return `${kast.toFixed(1)}%`;
+}
+
 function empty(player: number): PlayerStats {
   return {
     player,
@@ -912,8 +920,8 @@ export function exportStatsCsv(replay: Replay, stats: PlayerStats[], tick: numbe
       s.kills,
       s.deaths,
       s.assists,
-      s.adr.toFixed(1),
-      s.kast.toFixed(1),
+      s.adr.toFixed(2),
+      formatKast(s.kast),
       s.headshot_percent.toFixed(1),
       s.rating.toFixed(2),
       s.first_kills,

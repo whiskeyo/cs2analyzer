@@ -3,6 +3,8 @@ import {
   computeStats,
   currentSide,
   defuseClock,
+  formatAdr,
+  formatKast,
   formatScorecard,
   freezeRemaining,
   liveScore,
@@ -430,5 +432,12 @@ describe("liveTeams", () => {
   it("caches per replay and whole tick", () => {
     const teams = liveTeams(m, 640);
     expect(liveTeams(m, 640.5)).toBe(teams);
+  });
+});
+
+describe("formatAdr / formatKast", () => {
+  it("formats ADR with two decimals and KAST with one plus percent", () => {
+    expect(formatAdr(77.123)).toBe("77.12");
+    expect(formatKast(77.12)).toBe("77.1%");
   });
 });

@@ -1,5 +1,12 @@
 import { memo } from "react";
-import { computeStats, currentSide, liveTeams, teamEntryShare } from "@/lib/stats/stats";
+import {
+  computeStats,
+  currentSide,
+  formatAdr,
+  formatKast,
+  liveTeams,
+  teamEntryShare,
+} from "@/lib/stats/stats";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { PlayerStats, Replay } from "@/lib/replay/replayTypes";
 
@@ -60,8 +67,8 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
               <td>{s.kills}</td>
               <td>{s.deaths}</td>
               <td>{s.assists}</td>
-              <td>{s.adr.toFixed(1)}</td>
-              <td>{s.kast.toFixed(0)}</td>
+              <td>{formatAdr(s.adr)}</td>
+              <td>{formatKast(s.kast)}</td>
               <td>{s.rating.toFixed(2)}</td>
               <td>
                 {s.entry_attempts > 0 ? (
@@ -113,9 +120,9 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
             </dd>
             <dt>CT / T</dt>
             <dd>
-              {sel.kills_ct}/{sel.deaths_ct} · ADR {sel.adr_ct.toFixed(1)}
+              {sel.kills_ct}/{sel.deaths_ct} · ADR {formatAdr(sel.adr_ct)}
               {" · "}
-              {sel.kills_t}/{sel.deaths_t} · ADR {sel.adr_t.toFixed(1)}
+              {sel.kills_t}/{sel.deaths_t} · ADR {formatAdr(sel.adr_t)}
             </dd>
             <dt>Damage (taken)</dt>
             <dd>
