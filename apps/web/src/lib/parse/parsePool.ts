@@ -40,15 +40,14 @@ export function mapNameFromReplay(replay: Replay): string {
   return replay.header.map_name;
 }
 
-/** Keep demos that share the first successful file's map; skip mismatches. */
-export function buildSeriesDemos(results: ParseFileResult[]): {
-  demos: LoadedDemo[];
-  mapName: string;
+/** Group successful parses by map; drop order is preserved within each map. */
+export function groupParsedDemosByMap(results: ParseFileResult[]): {
+  groups: { mapName: string; demos: LoadedDemo[] }[];
   skipped: string[];
 } {
-  const demos: LoadedDemo[] = [];
   const skipped: string[] = [];
-  let mapName = "";
+  const order: string[] = [];
+  const byMap = new Map<string, LoadedDemo[]>();
 
   for (const result of results) {
     if (result.error) {
@@ -57,15 +56,15 @@ export function buildSeriesDemos(results: ParseFileResult[]): {
     }
     if (!result.demo) continue;
     const map = mapNameFromReplay(result.demo.replay);
-    if (!mapName) mapName = map;
-    if (map !== mapName) {
-      skipped.push(`${result.file.name}: map ${map} (expected ${mapName})`);
-      continue;
-    }
-    demos.push(result.demo);
+    if (!byMap.has(map)) order.push(map);
+    const list = byMap.get(map) ?? [];
+    list.push(result.demo);
+    byMap.set(map, list);
   }
 
-  return { demos, mapName, skipped };
+  const groups = order.map((mapName) => ({ mapName, demos: byMap.get(mapName)! }));
+  groups.sort((a, b) => b.demos.length - a.demos.length || a.mapName.localeCompare(b.mapName));
+  return { groups, skipped };
 }
 
 function parseOneFile(

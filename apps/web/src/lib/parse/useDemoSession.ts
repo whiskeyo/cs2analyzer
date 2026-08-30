@@ -3,7 +3,7 @@ import type { WorkerOut } from "@/lib/replay/replayTypes";
 import type { Status } from "@/lib/state/status";
 import { SERIES_MAX_FILES } from "@/lib/shared/constants";
 import {
-  buildSeriesDemos,
+  groupParsedDemosByMap,
   parsePoolBar,
   parsePoolSize,
   runParsePool,
@@ -49,6 +49,8 @@ export function useDemoSession(opts: {
 
   const [demo, setDemo] = useState<LoadedDemo | null>(null);
   const [series, setSeries] = useState<DemoSeries | null>(null);
+  const [mapGroups, setMapGroups] = useState<{ mapName: string; demos: LoadedDemo[] }[]>([]);
+  const [selectedMapName, setSelectedMapName] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState<ParseProgress | null>(null);
   const [parseFiles, setParseFiles] = useState<ParseFileProgress[] | null>(null);
@@ -76,8 +78,16 @@ export function useDemoSession(opts: {
   }, []);
 
   const finishSingle = useCallback((next: LoadedDemo) => {
+    setMapGroups([]);
+    setSelectedMapName(null);
     setSeries(null);
     setDemo(next);
+  }, []);
+
+  const loadMapGroup = useCallback((group: { mapName: string; demos: LoadedDemo[] }) => {
+    setSelectedMapName(group.mapName);
+    setSeries(buildSeries(group.mapName, group.demos));
+    setDemo(group.demos[0]);
   }, []);
 
   const parseDemo = useCallback(
@@ -89,6 +99,8 @@ export function useDemoSession(opts: {
       setParseFiles(null);
       setDemo(null);
       setSeries(null);
+      setMapGroups([]);
+      setSelectedMapName(null);
       workerRef.current?.terminate();
       const worker = createWorkerRef.current();
       workerRef.current = worker;
@@ -153,6 +165,8 @@ export function useDemoSession(opts: {
       );
       setDemo(null);
       setSeries(null);
+      setMapGroups([]);
+      setSelectedMapName(null);
       workerRef.current?.terminate();
       workerRef.current = null;
 
@@ -171,17 +185,17 @@ export function useDemoSession(opts: {
       const wallMs = performance.now() - wall0;
       setParsing(false);
       setParseFiles(null);
-      const { demos, mapName, skipped } = buildSeriesDemos(results);
+      const { groups, skipped } = groupParsedDemosByMap(results);
       for (const line of skipped) statusRef.current.setNotice(line);
 
-      if (demos.length === 0) {
+      if (groups.length === 0) {
         statusRef.current.setError("No demos parsed for this series.");
         return;
       }
 
-      const nextSeries = buildSeries(mapName, demos);
-      setSeries(nextSeries);
-      setDemo(demos[0]);
+      setMapGroups(groups);
+      loadMapGroup(groups[0]);
+      const nextSeries = buildSeries(groups[0].mapName, groups[0].demos);
 
       const ok = results.filter((r) => r.demo && !r.error);
       if (ok.length > 0) {
@@ -190,6 +204,7 @@ export function useDemoSession(opts: {
           wallMs,
           poolWorkers,
           files: ok.length,
+          maps: groups.map((g) => ({ map: g.mapName, demos: g.demos.length })),
           maxWasmMs: maxWasm,
           perFile: ok.map((r) => ({
             name: r.file.name,
@@ -198,11 +213,29 @@ export function useDemoSession(opts: {
           })),
         });
       }
+      const mapSummary =
+        groups.length > 1
+          ? `${groups.length} maps (${groups.map((g) => `${g.demos.length}× ${g.mapName}`).join(", ")})`
+          : groups[0].mapName;
       statusRef.current.setNotice(
-        `Series: ${demos.length} ${mapName} demo${demos.length === 1 ? "" : "s"} · ${nextSeries.focalTeam}`,
+        `Series: ${groups[0].demos.length} ${groups[0].mapName} demo${groups[0].demos.length === 1 ? "" : "s"} · ${nextSeries.focalTeam}${groups.length > 1 ? ` · ${mapSummary}` : ""}`,
       );
     },
-    [parseDemo, scheduleProgress],
+    [loadMapGroup, parseDemo, scheduleProgress],
+  );
+
+  const selectMap = useCallback(
+    (mapName: string) => {
+      if (mapName === selectedMapName) return;
+      const group = mapGroups.find((g) => g.mapName === mapName);
+      if (!group) return;
+      onBeforeSelectRef.current?.();
+      clearSeriesReviewCache();
+      setSwitching(true);
+      loadMapGroup(group);
+      requestAnimationFrame(() => requestAnimationFrame(() => setSwitching(false)));
+    },
+    [loadMapGroup, mapGroups, selectedMapName],
   );
 
   const selectDemo = useCallback(
@@ -231,6 +264,8 @@ export function useDemoSession(opts: {
     workerRef.current = null;
     setDemo(null);
     setSeries(null);
+    setMapGroups([]);
+    setSelectedMapName(null);
     setParsing(false);
     setProgress(null);
     setParseFiles(null);
@@ -240,6 +275,8 @@ export function useDemoSession(opts: {
   return {
     demo,
     series,
+    mapGroups,
+    selectedMapName,
     replay: demo?.replay ?? null,
     fileName: demo?.fileName ?? "",
     parsing,
@@ -249,6 +286,7 @@ export function useDemoSession(opts: {
     parseDemo,
     parseDemos,
     selectDemo,
+    selectMap,
     setFocalTeam,
     close,
   };

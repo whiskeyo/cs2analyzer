@@ -503,6 +503,7 @@ code {
   line-height: 1;
 }
 .series-team-select,
+.series-map-select,
 .series-player-select {
   box-sizing: border-box;
   height: var(--series-control-h);
@@ -515,8 +516,14 @@ code {
   line-height: 1.2;
   padding: 0 0.35rem;
 }
-.series-team-select {
+.series-team-select,
+.series-map-select {
   max-width: 14rem;
+}
+.series-bar-map {
+  color: #c8d0da;
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 .series-overlay-toggle {
   display: inline-flex;

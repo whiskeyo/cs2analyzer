@@ -137,8 +137,8 @@ export function DropZone({
           />
           <div className="drop-title">CS2 Analyzer</div>
           <p>
-            Drop one Counter-Strike 2 <code>.dem</code> to watch, or several on the same map for
-            habits.
+            Drop one Counter-Strike 2 <code>.dem</code> to watch, or several for habits (same map,
+            or mixed maps with a map picker).
           </p>
           <p className="muted">Parsed entirely in your browser. Nothing is uploaded.</p>
           <ul className="feature-list">

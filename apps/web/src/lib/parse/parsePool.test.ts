@@ -7,7 +7,12 @@ import {
   REGULATION_ROUNDS_PER_HALF,
 } from "@/lib/shared/constants";
 import { makeFreezeTicks, makeReplay, makeRound } from "@/lib/testing/fixtures";
-import { buildSeriesDemos, parsePoolBar, parsePoolSize, type ParseFileResult } from "./parsePool";
+import {
+  groupParsedDemosByMap,
+  parsePoolBar,
+  parsePoolSize,
+  type ParseFileResult,
+} from "./parsePool";
 import { loadedDemo } from "./session";
 import { tagRounds } from "./roundTags";
 
@@ -18,18 +23,22 @@ describe("parsePoolSize", () => {
   });
 });
 
-describe("buildSeriesDemos", () => {
-  it("drops files on a different map", () => {
+describe("groupParsedDemosByMap", () => {
+  it("groups files by map and prefers the largest bucket first", () => {
     const mirage = makeReplay({ header: { map_name: "de_mirage" } });
-    const inferno = makeReplay({ header: { map_name: "de_inferno" } });
+    const ancient = makeReplay({ header: { map_name: "de_ancient" } });
     const results: ParseFileResult[] = [
       { file: new File([], "a.dem"), demo: loadedDemo(mirage, "a.dem", new File([], "a.dem")) },
-      { file: new File([], "b.dem"), demo: loadedDemo(inferno, "b.dem", new File([], "b.dem")) },
+      { file: new File([], "b.dem"), demo: loadedDemo(ancient, "b.dem", new File([], "b.dem")) },
+      { file: new File([], "c.dem"), demo: loadedDemo(ancient, "c.dem", new File([], "c.dem")) },
     ];
-    const { demos, mapName, skipped } = buildSeriesDemos(results);
-    expect(mapName).toBe("de_mirage");
-    expect(demos).toHaveLength(1);
-    expect(skipped[0]).toContain("de_inferno");
+    const { groups, skipped } = groupParsedDemosByMap(results);
+    expect(skipped).toEqual([]);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].mapName).toBe("de_ancient");
+    expect(groups[0].demos).toHaveLength(2);
+    expect(groups[1].mapName).toBe("de_mirage");
+    expect(groups[1].demos).toHaveLength(1);
   });
 });
 
