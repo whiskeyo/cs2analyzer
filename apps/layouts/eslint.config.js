@@ -37,4 +37,16 @@ export default tseslint.config(
     },
   },
   prettier,
+  {
+    files: ["src/components/**/*.{ts,tsx}"],
+    rules: {
+      "max-lines": ["warn", { max: 400, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    files: ["src/lib/**/*.{ts,tsx}"],
+    rules: {
+      "max-lines": ["warn", { max: 600, skipBlankLines: true, skipComments: true }],
+    },
+  },
 );
