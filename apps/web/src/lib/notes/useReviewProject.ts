@@ -1,37 +1,33 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { parseJson } from "@shared/validate/json.ts";
-import { downloadBlob } from "@/lib/shared/download";
-import { DRAW_HISTORY_LIMIT, PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
-import { matchEndTick, matchScorecard, savedPlayerSnapshots } from "@/lib/stats/stats";
+import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import type { LoadedDemo, DemoSeries } from "@/lib/parse/session";
 import type { Playback } from "@/lib/playback/usePlayback";
 import type { Status } from "@/lib/state/status";
-import {
-  clearSeriesReviewCache,
-  getSeriesReview,
-  seriesReviewEntries,
-  setSeriesReview,
-  type SeriesReviewSnapshot,
-} from "./seriesReviewCache";
+import { getSeriesReview, setSeriesReview, type SeriesReviewSnapshot } from "./seriesReviewCache";
 import {
   defaultColor,
   defaultPaletteId,
-  deleteAllProjects,
-  demoFilePickerAvailable,
-  importProjects,
   loadAllProjects,
   loadProject,
   matchKey,
-  parseBundle,
-  pickDemoFileHandle,
-  PROJECT_SCHEMA,
-  readLinkedDemoFile,
-  saveDemoFileHandle,
   saveProject,
-  serializeBundle,
   type ReviewProject,
 } from "./projectStore";
-import { DEFAULT_SUMMARY_FILTER, type FloorMode, type Stroke, type SummaryFilter } from "./types";
+import { DEFAULT_SUMMARY_FILTER, type FloorMode, type SummaryFilter } from "./types";
+import { useStrokeHistory } from "./reviewHistory";
+import {
+  exportSavedNotes,
+  importNotesFromText,
+  linkDemoFile,
+  removeAllSavedNotes,
+  tryOpenLinkedDemo,
+} from "./reviewImportExport";
+import {
+  flushSeriesReviewCache,
+  projectFromDemo,
+  reviewSnapshot,
+  seedDemoStats,
+} from "./reviewPersistence";
 
 /**
  * Owns the review of the loaded demo: drawings, their undo history, the
@@ -51,17 +47,11 @@ export function useReviewProject(opts: {
 }) {
   const { demo, series, parsedDemos, status, playback } = opts;
   const [saved, setSaved] = useState<ReviewProject[]>([]);
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
+  const { strokes, strokesRef, canUndo, canRedo, commitStrokes, undo, redo } = useStrokeHistory();
   const [paletteId, setPaletteId] = useState(defaultPaletteId);
   const [color, setColor] = useState(defaultColor);
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>(DEFAULT_SUMMARY_FILTER);
   const [floorMode, setFloorMode] = useState<FloorMode>("auto");
-  const historyRef = useRef<Stroke[][]>([[]]);
-  const histIdxRef = useRef(0);
-  const strokesRef = useRef(strokes);
-  strokesRef.current = strokes;
   const demoRef = useRef(demo);
   demoRef.current = demo;
   /** Previous demo id — used to detect series file switches vs first load. */
@@ -84,41 +74,6 @@ export function useReviewProject(opts: {
       .catch(() => undefined);
   }, []);
 
-  const syncHistoryButtons = () => {
-    setCanUndo(histIdxRef.current > 0);
-    setCanRedo(histIdxRef.current < historyRef.current.length - 1);
-  };
-
-  const commitStrokes = useCallback((next: Stroke[], reset = false) => {
-    if (reset) {
-      historyRef.current = [next];
-      histIdxRef.current = 0;
-    } else {
-      const trimmed = historyRef.current.slice(0, histIdxRef.current + 1);
-      trimmed.push(next);
-      if (trimmed.length > DRAW_HISTORY_LIMIT) trimmed.shift();
-      historyRef.current = trimmed;
-      histIdxRef.current = trimmed.length - 1;
-    }
-    setStrokes(next);
-    setCanUndo(histIdxRef.current > 0);
-    setCanRedo(histIdxRef.current < historyRef.current.length - 1);
-  }, []);
-
-  const undo = useCallback(() => {
-    if (histIdxRef.current <= 0) return;
-    histIdxRef.current -= 1;
-    setStrokes(historyRef.current[histIdxRef.current] ?? []);
-    syncHistoryButtons();
-  }, []);
-
-  const redo = useCallback(() => {
-    if (histIdxRef.current >= historyRef.current.length - 1) return;
-    histIdxRef.current += 1;
-    setStrokes(historyRef.current[histIdxRef.current] ?? []);
-    syncHistoryButtons();
-  }, []);
-
   const applySnapshot = useCallback(
     (snap: SeriesReviewSnapshot, jumpTick: boolean) => {
       commitStrokes(snap.strokes, true);
@@ -126,7 +81,9 @@ export function useReviewProject(opts: {
       setFloorMode(snap.floorMode);
       setPaletteId(snap.paletteId);
       setColor(snap.color);
-      if (jumpTick && snap.tick > 0) playbackRef.current.jump(snap.tick, true);
+      if (jumpTick && snap.tick > 0) {
+        playbackRef.current.jump(snap.tick, true);
+      }
     },
     [commitStrokes],
   );
@@ -138,143 +95,69 @@ export function useReviewProject(opts: {
       setFloorMode(p.floorMode);
       setPaletteId(p.paletteId);
       setColor(p.color);
-      if (jumpTick && p.tick > 0) playbackRef.current.jump(p.tick, true);
+      if (jumpTick && p.tick > 0) {
+        playbackRef.current.jump(p.tick, true);
+      }
     },
     [commitStrokes],
   );
 
   const snapshotNow = useCallback((): SeriesReviewSnapshot | null => {
     const target = demoRef.current;
-    if (!target) return null;
-    const overlay = overlayRef.current;
-    return {
-      demo: target,
-      tick: playbackRef.current.tickRef.current,
-      strokes: strokesRef.current,
-      summaryFilter: overlay.summaryFilter,
-      floorMode: overlay.floorMode,
-      paletteId: overlay.paletteId,
-      color: overlay.color,
-    };
-  }, []);
+    if (!target) {
+      return null;
+    }
+    return reviewSnapshot(
+      target,
+      playbackRef.current.tickRef.current,
+      strokesRef.current,
+      overlayRef.current,
+    );
+  }, [strokesRef]);
 
   const exportNotes = useCallback(async () => {
-    try {
-      const projects = await loadAllProjects();
-      if (projects.length === 0) {
-        statusRef.current.setNotice("No saved notes in this browser yet.");
-        return;
-      }
-      downloadBlob("cs2analyzer-notes.json", "application/json", serializeBundle(projects));
-      statusRef.current.setNotice(
-        `Exported ${projects.length} saved match${projects.length === 1 ? "" : "es"}.`,
-      );
-    } catch {
-      statusRef.current.setError("Could not export notes.");
-    }
+    await exportSavedNotes(loadAllProjects, statusRef.current);
   }, []);
 
   const removeAllNotes = useCallback(async () => {
-    try {
-      const n = await deleteAllProjects();
-      refreshSaved();
-      if (n === 0) statusRef.current.setNotice("No saved notes in this browser.");
-      else
-        statusRef.current.setNotice(
-          `Removed ${n} saved match${n === 1 ? "" : "es"} from this browser.`,
-        );
-    } catch {
-      statusRef.current.setError("Could not remove saved notes.");
-    }
+    await removeAllSavedNotes(refreshSaved, statusRef.current);
   }, [refreshSaved]);
 
   const importNotesText = useCallback(
     async (text: string) => {
-      let raw: unknown;
-      try {
-        raw = parseJson(text);
-      } catch {
-        statusRef.current.setError("Notes file is not valid JSON.");
-        return;
-      }
-      const bundle = parseBundle(raw);
-      if (!bundle || bundle.projects.length === 0) {
-        statusRef.current.setError("Notes file has no valid reviews.");
-        return;
-      }
-      const n = await importProjects(bundle);
-      refreshSaved();
-      statusRef.current.setError(null);
-      statusRef.current.setNotice(
-        `Imported ${n} saved match${n === 1 ? "" : "es"}. Drop the demo to restore drawings.`,
-      );
-      const current = demoRef.current;
-      if (!current) return;
-      const mine = bundle.projects.find(
-        (p) => p.key === matchKey(current.replay, current.fileName),
-      );
-      if (mine) applyProject(mine, false);
+      await importNotesFromText(text, {
+        demo: demoRef.current,
+        applyProject,
+        refreshSaved,
+        status: statusRef.current,
+      });
     },
     [applyProject, refreshSaved],
   );
 
   const persist = useCallback(
     async (target: LoadedDemo | null, opts?: { stats?: boolean; refreshList?: boolean }) => {
-      if (!target) return;
-      const overlay = overlayRef.current;
+      if (!target) {
+        return;
+      }
       const key = matchKey(target.replay, target.fileName);
       const existing = await loadProject(key);
-      const endTick = matchEndTick(target.replay);
-      const withStats = opts?.stats !== false;
-      let scorecard = existing?.scorecard;
-      let playerStats = existing?.playerStats;
-      if (withStats) {
-        scorecard = matchScorecard(target.replay, endTick);
-        playerStats = savedPlayerSnapshots(target.replay, endTick);
+      await saveProject(
+        projectFromDemo(
+          target,
+          playbackRef.current.tickRef.current,
+          strokesRef.current,
+          overlayRef.current,
+          existing,
+          { withStats: opts?.stats !== false },
+        ),
+      );
+      if (opts?.refreshList !== false) {
+        refreshSaved();
       }
-      await saveProject({
-        schema: PROJECT_SCHEMA,
-        key,
-        savedAt: Date.now(),
-        fileName: target.fileName,
-        mapName: target.replay.header.map_name,
-        tick: playbackRef.current.tickRef.current,
-        strokes: strokesRef.current,
-        summaryFilter: overlay.summaryFilter,
-        floorMode: overlay.floorMode,
-        paletteId: overlay.paletteId,
-        color: overlay.color,
-        scorecard,
-        playerStats,
-        fileSizeBytes: target.file.size > 0 ? target.file.size : undefined,
-      });
-      if (opts?.refreshList !== false) refreshSaved();
     },
-    [refreshSaved],
+    [refreshSaved, strokesRef],
   );
-
-  /** Scorecard + player table for saved-notes list; keeps any existing drawings. */
-  const seedDemoStats = useCallback(async (target: LoadedDemo) => {
-    const key = matchKey(target.replay, target.fileName);
-    const existing = await loadProject(key);
-    const endTick = matchEndTick(target.replay);
-    await saveProject({
-      schema: PROJECT_SCHEMA,
-      key,
-      savedAt: Date.now(),
-      fileName: target.fileName,
-      mapName: target.replay.header.map_name,
-      tick: existing?.tick ?? 0,
-      strokes: existing?.strokes ?? [],
-      summaryFilter: existing?.summaryFilter ?? DEFAULT_SUMMARY_FILTER,
-      floorMode: existing?.floorMode ?? "auto",
-      paletteId: existing?.paletteId ?? defaultPaletteId(),
-      color: existing?.color ?? defaultColor(),
-      scorecard: matchScorecard(target.replay, endTick),
-      playerStats: savedPlayerSnapshots(target.replay, endTick),
-      fileSizeBytes: target.file.size > 0 ? target.file.size : undefined,
-    });
-  }, []);
 
   const seededPoolRef = useRef<string | null>(null);
 
@@ -292,60 +175,49 @@ export function useReviewProject(opts: {
       return;
     }
     const key = parsedDemos.map((d) => d.id).join("\0");
-    if (seededPoolRef.current === key) return;
+    if (seededPoolRef.current === key) {
+      return;
+    }
     seededPoolRef.current = key;
     let cancelled = false;
     void (async () => {
       for (const d of parsedDemos) {
-        if (cancelled) return;
-        await seedDemoStats(d);
+        if (cancelled) {
+          return;
+        }
+        await saveProject(await seedDemoStats(d));
       }
-      if (!cancelled) refreshSaved();
+      if (!cancelled) {
+        refreshSaved();
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [parsedDemos, seedDemoStats, refreshSaved]);
+  }, [parsedDemos, refreshSaved]);
 
   // Drop the outgoing demo's drawings before a new one paints — except series hops.
   useLayoutEffect(() => {
-    if (!demo?.id) return;
+    if (!demo?.id) {
+      return;
+    }
     const switchingSeries =
       series != null && prevDemoIdRef.current != null && prevDemoIdRef.current !== demo.id;
     restoredRef.current = false;
-    if (switchingSeries) return;
+    if (switchingSeries) {
+      return;
+    }
     commitStrokes([], true);
     setSummaryFilter(DEFAULT_SUMMARY_FILTER);
     setFloorMode("auto");
   }, [demo?.id, series, commitStrokes]);
 
-  const flushSeriesCache = useCallback(async () => {
-    for (const entry of seriesReviewEntries()) {
-      const endTick = matchEndTick(entry.demo.replay);
-      await saveProject({
-        schema: PROJECT_SCHEMA,
-        key: matchKey(entry.demo.replay, entry.demo.fileName),
-        savedAt: Date.now(),
-        fileName: entry.demo.fileName,
-        mapName: entry.demo.replay.header.map_name,
-        tick: entry.tick,
-        strokes: entry.strokes,
-        summaryFilter: entry.summaryFilter,
-        floorMode: entry.floorMode,
-        paletteId: entry.paletteId,
-        color: entry.color,
-        scorecard: matchScorecard(entry.demo.replay, endTick),
-        playerStats: savedPlayerSnapshots(entry.demo.replay, endTick),
-        fileSizeBytes: entry.demo.file.size > 0 ? entry.demo.file.size : undefined,
-      });
-    }
-    clearSeriesReviewCache();
-  }, []);
-
   /** Call before swapping the active file in a series (refs still point at the outgoing demo). */
   const stashForSeriesSwitch = useCallback(() => {
     const snap = snapshotNow();
-    if (snap) setSeriesReview(snap);
+    if (snap) {
+      setSeriesReview(snap);
+    }
   }, [snapshotNow]);
 
   // Restore this demo's review on load, and save it again on the way out.
@@ -363,7 +235,9 @@ export function useReviewProject(opts: {
 
     if (cached) {
       queueMicrotask(() => {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
         applySnapshot(cached, false);
         restoredRef.current = true;
       });
@@ -376,7 +250,9 @@ export function useReviewProject(opts: {
       restoredRef.current = true;
       void loadProject(matchKey(demo.replay, demo.fileName))
         .then((project) => {
-          if (cancelled || !project) return;
+          if (cancelled || !project) {
+            return;
+          }
           applyProject(project, false);
           playbackRef.current.setPlaying(false);
         })
@@ -387,10 +263,14 @@ export function useReviewProject(opts: {
     }
 
     const settle = (project: ReviewProject | null) => {
-      if (cancelled) return;
+      if (cancelled) {
+        return;
+      }
       restoredRef.current = true;
       if (!project) {
-        if (!isSwitch) playbackRef.current.setPlaying(true);
+        if (!isSwitch) {
+          playbackRef.current.setPlaying(true);
+        }
         return;
       }
       applyProject(project, true);
@@ -411,12 +291,16 @@ export function useReviewProject(opts: {
   }, [demo, series, applyProject, applySnapshot, persist]);
 
   useEffect(() => {
-    if (series) return;
-    void flushSeriesCache().catch(() => undefined);
-  }, [series, flushSeriesCache]);
+    if (series) {
+      return;
+    }
+    void flushSeriesReviewCache().catch(() => undefined);
+  }, [series]);
 
   useEffect(() => {
-    if (!demo || !restoredRef.current) return;
+    if (!demo || !restoredRef.current) {
+      return;
+    }
     const id = window.setTimeout(() => {
       void persistNow();
     }, PROJECT_SAVE_DEBOUNCE_MS);
@@ -431,49 +315,14 @@ export function useReviewProject(opts: {
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [persistNow]);
 
-  const tryOpenSaved = useCallback(async (project: ReviewProject): Promise<File | null> => {
-    const file = await readLinkedDemoFile(project.key);
-    if (!file) return null;
-    if (file.name !== project.fileName) {
-      statusRef.current.setError(
-        `Linked file is ${file.name}, expected ${project.fileName}. Re-link the demo.`,
-      );
-      return null;
-    }
-    return file;
-  }, []);
+  const tryOpenSaved = useCallback(
+    async (project: ReviewProject) => tryOpenLinkedDemo(project, statusRef.current),
+    [],
+  );
 
-  const linkDemoFile = useCallback(
+  const linkDemoFileForProject = useCallback(
     async (project: ReviewProject) => {
-      if (!demoFilePickerAvailable()) {
-        statusRef.current.setNotice(
-          "Link demo file works in Chrome/Edge. Otherwise drop the .dem manually.",
-        );
-        return;
-      }
-      try {
-        const handle = await pickDemoFileHandle();
-        if (!handle) return;
-        if (handle.name !== project.fileName) {
-          statusRef.current.setError(
-            `Pick ${project.fileName} — selected ${handle.name}. Notes stay keyed by filename.`,
-          );
-          return;
-        }
-        await saveDemoFileHandle(project.key, handle);
-        const existing = await loadProject(project.key);
-        if (existing) {
-          await saveProject({
-            ...existing,
-            linkedFileLabel: handle.name,
-            savedAt: Date.now(),
-          });
-        }
-        refreshSaved();
-        statusRef.current.setNotice(`Linked ${handle.name} for saved notes.`);
-      } catch {
-        statusRef.current.setNotice("Demo link cancelled.");
-      }
+      await linkDemoFile(project, refreshSaved, statusRef.current);
     },
     [refreshSaved],
   );
@@ -503,7 +352,7 @@ export function useReviewProject(opts: {
     persistNow,
     stashForSeriesSwitch,
     tryOpenSaved,
-    linkDemoFile,
+    linkDemoFile: linkDemoFileForProject,
   };
 }
 
