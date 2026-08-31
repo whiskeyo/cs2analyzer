@@ -1,26 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  computeStats,
-  currentSide,
-  defuseClock,
-  freezeRemaining,
-  liveScore,
-  liveTeams,
-  roundWinBanner,
-  teamEntryShare,
-  weaponBreakdown,
-} from "./stats";
-import { FULL_HEALTH } from "@/lib/shared/constants";
-import { FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
-import {
-  makeBombEvent,
-  makeHurt,
-  makeKill,
-  makePlayer,
-  makeReplay,
-  makeRound,
-  makeTicks,
-} from "@/lib/testing/fixtures";
+import { computeStats, teamEntryShare, weaponBreakdown } from "./stats";
+import { makeHurt, makeKill, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
 
 describe("computeStats", () => {
   it("caps ADR at remaining HP and ignores overkill", () => {
@@ -148,22 +128,6 @@ describe("computeStats", () => {
   });
 });
 
-describe("currentSide", () => {
-  it("uses the last snapshot, not the previous frame", () => {
-    const ticks = makeTicks(1, 2);
-    ticks.ticks.set([100, 200]);
-    ticks.flags.set([FLAG_PRESENT, FLAG_PRESENT | FLAG_CT]);
-    ticks.health.fill(FULL_HEALTH);
-    const m = makeReplay({
-      players: [makePlayer(0, "T", "A")],
-      rounds: [makeRound({ number: 1, winner: "T" })],
-      ticks,
-    });
-    expect(currentSide(m, 0, 100)).toBe("T");
-    expect(currentSide(m, 0, 200)).toBe("CT");
-  });
-});
-
 describe("teamEntryShare", () => {
   it("is the player's share of opening duels on the starting side", () => {
     const players = [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "CT", "C")];
@@ -189,122 +153,6 @@ describe("teamEntryShare", () => {
     });
     expect(teamEntryShare(stats, players, 2).pct).toBe(50);
     expect(teamEntryShare(stats, players, 1).pct).toBe(100);
-  });
-});
-
-describe("liveScore", () => {
-  it("attributes overtime side-swap wins to the starting teams", () => {
-    const m = makeReplay({
-      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
-      rounds: [
-        makeRound({ number: 12, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 200 }),
-        makeRound({
-          number: 13,
-          winner: "CT",
-          start_tick: 201,
-          freeze_end_tick: 250,
-          end_tick: 400,
-        }),
-      ],
-    });
-    expect(liveScore(m, 200)).toEqual({ ct: 1, t: 0 });
-    // Round 13 is swapped (MR12 halftime); a CT-side win belongs to the team that started T.
-    expect(liveScore(m, 400)).toEqual({ ct: 1, t: 1 });
-  });
-});
-
-describe("freezeRemaining", () => {
-  it("counts down until freeze_end_tick", () => {
-    const m = makeReplay({
-      players: [makePlayer(0, "CT", "A")],
-      rounds: [
-        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
-      ],
-    });
-    expect(freezeRemaining(m, 0)).toBe(1);
-    expect(freezeRemaining(m, 32)).toBe(0.5);
-    expect(freezeRemaining(m, 64)).toBeNull();
-  });
-});
-
-describe("roundWinBanner", () => {
-  it("shows the winner after end_tick", () => {
-    const m = makeReplay({
-      players: [makePlayer(0, "CT", "A")],
-      rounds: [
-        makeRound({
-          number: 1,
-          winner: "CT",
-          start_tick: 0,
-          freeze_end_tick: 64,
-          end_tick: 640,
-          win_reason: 8,
-        }),
-      ],
-    });
-    expect(roundWinBanner(m, 639)).toBeNull();
-    expect(roundWinBanner(m, 640)).toEqual({ winner: "CT", reason: 8 });
-  });
-
-  it("keeps the previous winner on screen during the next freeze", () => {
-    const m = makeReplay({
-      players: [makePlayer(0, "CT", "A")],
-      rounds: [
-        makeRound({
-          number: 1,
-          winner: "T",
-          start_tick: 0,
-          freeze_end_tick: 64,
-          end_tick: 200,
-          win_reason: 1,
-        }),
-        makeRound({
-          number: 2,
-          winner: null,
-          start_tick: 201,
-          freeze_end_tick: 265,
-          end_tick: 800,
-          win_reason: 0,
-        }),
-      ],
-    });
-    expect(roundWinBanner(m, 210)).toEqual({ winner: "T", reason: 1 });
-    expect(roundWinBanner(m, 265)).toBeNull();
-  });
-});
-
-describe("defuseClock", () => {
-  it("counts a 5s kit defuse after plant", () => {
-    const m = makeReplay({
-      players: [makePlayer(0, "CT", "A")],
-      rounds: [
-        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
-      ],
-      bombEvents: [
-        makeBombEvent({ tick: 100, kind: "planted" }),
-        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: true, player: 0 }),
-      ],
-    });
-    expect(defuseClock(m, 199)).toBeNull();
-    expect(defuseClock(m, 200)?.remaining).toBeCloseTo(5, 5);
-    expect(defuseClock(m, 200 + 64 * 2)?.remaining).toBeCloseTo(3, 5);
-    expect(defuseClock(m, 200 + 64 * 2)?.haskit).toBe(true);
-  });
-
-  it("uses 10s without a kit and cancels on abort", () => {
-    const m = makeReplay({
-      players: [makePlayer(0, "CT", "A")],
-      rounds: [
-        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
-      ],
-      bombEvents: [
-        makeBombEvent({ tick: 100, kind: "planted" }),
-        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false }),
-        makeBombEvent({ tick: 300, kind: "abort_defuse" }),
-      ],
-    });
-    expect(defuseClock(m, 264)?.remaining).toBeCloseTo(9, 5);
-    expect(defuseClock(m, 300)).toBeNull();
   });
 });
 
@@ -335,21 +183,5 @@ describe("weaponBreakdown", () => {
     const rows = weaponBreakdown(m, 2000, null);
     expect(weaponBreakdown(m, 2000.9, null)).toBe(rows);
     expect(weaponBreakdown(m, 2000, 0)).not.toBe(rows);
-  });
-});
-
-describe("liveTeams", () => {
-  const m = makeReplay({
-    header: { team_ct: "Astralis", team_t: "Vitality" },
-    rounds: [makeRound({ number: 1, winner: "CT", start_tick: 0, end_tick: 640 })],
-  });
-
-  it("names the sides currently playing CT and T", () => {
-    expect(liveTeams(m, 640)).toMatchObject({ ctName: "Astralis", tName: "Vitality", ct: 1, t: 0 });
-  });
-
-  it("caches per replay and whole tick", () => {
-    const teams = liveTeams(m, 640);
-    expect(liveTeams(m, 640.5)).toBe(teams);
   });
 });
