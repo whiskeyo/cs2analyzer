@@ -50,6 +50,7 @@ pub(crate) struct Collector {
     pub round_starts: Vec<u32>,
     pub freeze_ends: Vec<u32>,
     pub official_ends: Vec<(u32, Option<Side>, i32)>,
+    pub pre_restarts: Vec<u32>,
     pub synth_ends: Vec<(u32, Option<Side>, i32)>,
     pub prev_win_status: i32,
     pub grenade_dets: Vec<(u32, GrenadeKind, i32, f32, f32, f32)>,
@@ -119,6 +120,7 @@ impl Collector {
             round_starts: Vec::new(),
             freeze_ends: Vec::new(),
             official_ends: Vec::new(),
+            pre_restarts: Vec::new(),
             synth_ends: Vec::new(),
             prev_win_status: 0,
             grenade_dets: Vec::new(),
@@ -477,6 +479,11 @@ impl Collector {
                 let winner = gamerules_i32(ctx, "m_pGameRules.m_iRoundWinStatus").and_then(side_of);
                 let reason = gamerules_i32(ctx, "m_pGameRules.m_eRoundWinReason").unwrap_or(0);
                 self.official_ends.push((tick, winner, reason));
+            }
+            "cs_pre_restart" => {
+                if !in_warmup(ctx) {
+                    self.pre_restarts.push(tick);
+                }
             }
             "cs_win_panel_match" => {
                 self.final_winner =

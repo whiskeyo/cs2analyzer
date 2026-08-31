@@ -493,6 +493,7 @@ mod tests {
                 start_tick: 0,
                 freeze_end_tick: 64,
                 end_tick: 640,
+                playback_end_tick: 0,
                 winner: Some(Side::Ct),
                 win_reason: 8,
                 score_ct: 1,

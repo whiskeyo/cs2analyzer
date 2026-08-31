@@ -267,6 +267,7 @@ fn build_rounds(c: &Collector) -> Vec<Round> {
             .copied()
             .or_else(|| c.freeze_ends.get(i + 1).copied());
         let (end_tick, winner, reason) = round_conclusion(c, start, next_start);
+        let playback_end_tick = playback_end_tick(c, start, end_tick, next_start);
         let (score_ct, score_t) = c.round_scores.get(&freeze).copied().unwrap_or((0, 0));
         let max_ev = c.round_equip.get(&freeze).copied().unwrap_or(0);
         let gun_kill = c.kills.iter().any(|k| {
@@ -279,6 +280,7 @@ fn build_rounds(c: &Collector) -> Vec<Round> {
             start_tick: start,
             freeze_end_tick: freeze,
             end_tick,
+            playback_end_tick,
             winner,
             win_reason: reason,
             score_ct,
@@ -325,6 +327,16 @@ fn build_rounds(c: &Collector) -> Vec<Round> {
         }
     }
     rounds
+}
+
+/// First `cs_pre_restart` after live play ends — GOTV post-round / win panel beat.
+fn playback_end_tick(c: &Collector, start: u32, end_tick: u32, next_start: Option<u32>) -> u32 {
+    let bound = next_start.unwrap_or(c.last_cap);
+    c.pre_restarts
+        .iter()
+        .find(|&&t| t > end_tick && t >= start && t <= bound)
+        .copied()
+        .unwrap_or(0)
 }
 
 /// Prefer the tick when `m_iRoundWinStatus` flips (in-game round over).
@@ -622,6 +634,24 @@ mod tests {
             }],
             fires: Vec::new(),
         }
+    }
+
+    #[test]
+    fn playback_end_tick_from_pre_restart() {
+        let mut c = Collector::new(ParseOptions::default());
+        c.last_cap = 2000;
+        c.freeze_ends.push(100);
+        c.freeze_ends.push(1000);
+        c.synth_ends.push((500, Some(Side::T), 1));
+        c.synth_ends.push((1500, Some(Side::Ct), 7));
+        c.pre_restarts.push(520);
+        c.pre_restarts.push(1520);
+        let rounds = build_rounds(&c);
+        assert_eq!(rounds.len(), 2);
+        assert_eq!(rounds[0].end_tick, 500);
+        assert_eq!(rounds[0].playback_end_tick, 520);
+        assert_eq!(rounds[1].end_tick, 1500);
+        assert_eq!(rounds[1].playback_end_tick, 1520);
     }
 
     #[test]

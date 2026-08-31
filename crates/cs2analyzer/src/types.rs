@@ -67,6 +67,9 @@ pub struct Round {
     pub start_tick: u32,
     pub freeze_end_tick: u32,
     pub end_tick: u32,
+    /// `cs_pre_restart` after live play; 0 when not seen (web falls back to a short cap).
+    #[serde(default)]
+    pub playback_end_tick: u32,
     pub winner: Option<Side>,
     pub win_reason: i32,
     pub score_ct: i32,
