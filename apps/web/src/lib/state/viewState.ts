@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState, useLayoutEffect } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useResetOnDemoChange } from "@/lib/state/demoReset";
 import { DEFAULT_LAYERS, type DrawTool, type MapLayers } from "@/lib/notes/types";
 
 /**
@@ -16,19 +17,12 @@ export function useViewState(demoId: string | null) {
   const [viewEpoch, setViewEpoch] = useState(0);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
-  const prevDemoIdRef = useRef<string | null>(null);
 
-  useLayoutEffect(() => {
-    if (!demoId) {
-      prevDemoIdRef.current = null;
-      return;
-    }
-    if (prevDemoIdRef.current === demoId) return;
-    prevDemoIdRef.current = demoId;
+  useResetOnDemoChange(demoId, () => {
     setSelected(null);
     setFollow(false);
     setLayers(DEFAULT_LAYERS);
-  }, [demoId]);
+  });
 
   /** Selecting a player also starts tracking them; deselecting stops. */
   const select = useCallback((index: number | null) => {

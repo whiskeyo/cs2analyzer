@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
+import { useResetOnDemoChange } from "@/lib/state/demoReset";
 import { getSeriesReviewTick } from "@/lib/notes/seriesReviewCache";
 import { tickRate } from "@/lib/shared/constants";
 import type { Replay } from "@/lib/replay/replayTypes";
@@ -50,26 +51,22 @@ export function usePlayback(
   /** Scrubbing keeps the transport state: dragging the bar does not pause. */
   const scrub = useCallback((t: number) => jump(t, false), [jump]);
 
-  const prevDemoIdRef = useRef<string | null>(null);
-
-  // Layout effect, not render-phase reset: avoids a setState storm when swapping
-  // series files (Firefox slow-script warning with several useResetOn hooks).
-  useLayoutEffect(() => {
-    if (!demoId || !replay) {
-      prevDemoIdRef.current = null;
-      return;
-    }
-    if (prevDemoIdRef.current === demoId) return;
-    prevDemoIdRef.current = demoId;
-
-    playingRef.current = false;
-    setPlaying(false);
-    const cached = getSeriesReviewTick(demoId);
-    const first = replay.rounds.find((r) => !r.is_knife) ?? replay.rounds[0];
-    const land = cached ?? first?.freeze_end_tick ?? replay.ticks.ticks[0] ?? 0;
-    tickRef.current = land;
-    setTick(Math.floor(land));
-  }, [demoId, replay]);
+  useResetOnDemoChange(
+    demoId,
+    () => {
+      if (!replay || !demoId) {
+        return;
+      }
+      playingRef.current = false;
+      setPlaying(false);
+      const cached = getSeriesReviewTick(demoId);
+      const first = replay.rounds.find((r) => !r.is_knife) ?? replay.rounds[0];
+      const land = cached ?? first?.freeze_end_tick ?? replay.ticks.ticks[0] ?? 0;
+      tickRef.current = land;
+      setTick(Math.floor(land));
+    },
+    Boolean(demoId && replay),
+  );
 
   useEffect(() => {
     if (!replay || !playing || freezeTransportRef?.current) return;
