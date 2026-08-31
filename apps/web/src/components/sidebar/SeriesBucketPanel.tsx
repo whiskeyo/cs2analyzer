@@ -1,11 +1,12 @@
 import { NADE_LABEL, NADE_WEAPON } from "@/lib/match/roundEvents";
 import { useApp } from "@/lib/state/appState";
+import { isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
 
 /** Series util / action / util-set counts for the active habits bucket. */
 export function SeriesBucketPanel() {
   const { session, habits } = useApp();
-  if (!session.series || session.series.demos.length <= 1) return null;
+  if (!isMultiDemoSeries(session.series)) return null;
 
   const { util, action, utilSets, filter } = habits;
   const bucket = `${filter.side} ${filter.kind}`;

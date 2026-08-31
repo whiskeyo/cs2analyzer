@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Replay } from "@/lib/replay/replayTypes";
+import { isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { canonicalSeriesTeam, type DemoSeries } from "@/lib/parse/session";
 import { playerIdentityKey, playerIndexForKey, playerTeamNameAt } from "@/lib/parse/seriesRoster";
 
@@ -51,7 +52,7 @@ export function usePlayerSync(opts: {
     setFocalTeam,
   } = opts;
   const lastRef = useRef<SyncSnapshot | null>(null);
-  const multi = Boolean(series && series.demos.length > 1);
+  const multi = isMultiDemoSeries(series);
 
   useEffect(() => {
     if (!multi || !replay || !series) {

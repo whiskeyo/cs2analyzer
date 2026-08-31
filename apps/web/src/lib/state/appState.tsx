@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { isNotesFile } from "@/lib/notes/projectStore";
+import { isBucketOverlayActive } from "@/lib/parse/seriesMode";
 import { useReviewProject, type ReviewStore } from "@/lib/notes/useReviewProject";
 import { useDemoSession, type CreateWorker, type DemoSession } from "@/lib/parse/useDemoSession";
 import { useHotkeys } from "@/lib/playback/useHotkeys";
@@ -100,9 +101,7 @@ function useAppState(createWorker?: CreateWorker): AppState {
     jump: playback.jump,
   });
 
-  const multiDemoSeries = Boolean(session.series && session.series.demos.length > 1);
-  bucketTransportRef.current =
-    multiDemoSeries && habits.aggregated && habits.bucketOverlay != null && habits.overlayOn;
+  bucketTransportRef.current = isBucketOverlayActive(session.series, habits);
 
   usePlayerSync({
     series: session.series,

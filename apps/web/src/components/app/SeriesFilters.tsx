@@ -1,5 +1,6 @@
 import { useApp } from "@/lib/state/appState";
 import { seriesTeamCandidates } from "@/lib/parse/session";
+import { isBucketOverlayActive, isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import type { RoundKind } from "@/lib/parse/roundTags";
 import { filterHabitsNades } from "@/lib/parse/seriesOverlay";
 import { HabitsNadeLegend } from "./HabitsNadeLegend";
@@ -15,11 +16,11 @@ const KINDS: { id: RoundKind; label: string }[] = [
 export function SeriesFilters() {
   const { session, habits } = useApp();
   const series = session.series;
-  if (!series || series.demos.length <= 1) return null;
+  if (!isMultiDemoSeries(series)) return null;
 
   const teams = seriesTeamCandidates(series.demos);
-  const { filter, overlayOn, focalPlayers, playerKey, aggregated, bucketOverlay } = habits;
-  const overlayActive = overlayOn && aggregated && bucketOverlay != null;
+  const { filter, overlayOn, focalPlayers, playerKey, aggregated } = habits;
+  const overlayActive = isBucketOverlayActive(series, habits);
   const visibleNades =
     habits.overlay == null ? 0 : filterHabitsNades(habits.overlay.nades, habits.nadeFilter).length;
 

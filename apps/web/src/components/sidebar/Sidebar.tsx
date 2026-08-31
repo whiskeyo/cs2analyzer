@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
+import { isAggregatedView, isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { Action } from "./Action";
 import { Clutch } from "./Clutch";
 import { Review } from "./Review";
@@ -58,8 +59,8 @@ export const Sidebar = memo(function Sidebar({
   places,
 }: Props) {
   const { session, habits } = useApp();
-  const multiDemo = Boolean(session.series && session.series.demos.length > 1);
-  const seriesMode = multiDemo && habits.aggregated;
+  const multiDemo = isMultiDemoSeries(session.series);
+  const seriesMode = isAggregatedView(session.series, habits);
   const playerKey = habits.playerKey;
   const playerName = playerKey
     ? (habits.focalPlayers.find((p) => p.key === playerKey)?.name ?? null)

@@ -3,6 +3,7 @@ import { downloadBlob } from "@/lib/shared/download";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { computeStats, exportStatsCsv } from "@/lib/stats/stats";
 import { useApp } from "@/lib/state/appState";
+import { isAggregatedView } from "@/lib/parse/seriesMode";
 import { prettyMap } from "@/lib/weapons/weapons";
 import type { Replay } from "@/lib/replay/replayTypes";
 
@@ -17,8 +18,7 @@ export function ViewerHeader() {
   const replay = session.replay;
   if (!replay) return null;
 
-  const aggregated =
-    Boolean(session.series && session.series.demos.length > 1) && habits.aggregated;
+  const aggregated = isAggregatedView(session.series, habits);
 
   return (
     <header className="top">

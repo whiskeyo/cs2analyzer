@@ -6,6 +6,7 @@ import { BucketControls } from "@/components/playback/BucketControls";
 import { RadarStage } from "@/components/radar/RadarStage";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useApp } from "@/lib/state/appState";
+import { isAggregatedView, isBucketOverlayActive } from "@/lib/parse/seriesMode";
 import { ViewerHeader } from "./ViewerHeader";
 import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
@@ -13,12 +14,8 @@ import { SeriesFilters } from "./SeriesFilters";
 export function Viewer() {
   const { session, playback, review, view, places, habits } = useApp();
   const replay = session.replay;
-  const aggregated =
-    habits.aggregated &&
-    session.series != null &&
-    session.series.demos.length > 1 &&
-    replay != null;
-  const bucketMode = aggregated && habits.bucketOverlay != null && habits.overlayOn;
+  const aggregated = replay != null && isAggregatedView(session.series, habits);
+  const bucketMode = replay != null && isBucketOverlayActive(session.series, habits);
   const bucketPlayingRef = useRef(playback.playing);
   bucketPlayingRef.current = bucketMode ? playback.playing : false;
 

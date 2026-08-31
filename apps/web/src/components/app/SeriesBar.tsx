@@ -1,13 +1,14 @@
 import type { CSSProperties } from "react";
 import { useApp } from "@/lib/state/appState";
+import { showSeriesBar } from "@/lib/parse/seriesMode";
 import { prettyMap } from "@/lib/weapons/weapons";
 
 /** File list + focal team when several demos are loaded for habits. */
 export function SeriesBar() {
   const { session, habits } = useApp();
-  const series = session.series;
+  if (!showSeriesBar(session)) return null;
 
-  if (!series || (series.demos.length <= 1 && session.mapGroups.length <= 1)) return null;
+  const series = session.series;
 
   const activeId = session.demo?.id ?? "";
   const { aggregated } = habits;
