@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { parseJson } from "@shared/validate/json.ts";
+import { downloadBlob } from "@/lib/shared/download";
 import { DRAW_HISTORY_LIMIT, PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { matchEndTick, matchScorecard, savedPlayerSnapshots } from "@/lib/stats/stats";
 import type { LoadedDemo, DemoSeries } from "@/lib/parse/session";
@@ -31,15 +32,6 @@ import {
   type ReviewProject,
 } from "./projectStore";
 import { DEFAULT_SUMMARY_FILTER, type FloorMode, type Stroke, type SummaryFilter } from "./types";
-
-function downloadJson(name: string, text: string) {
-  const blob = new Blob([text], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
 
 /**
  * Owns the review of the loaded demo: drawings, their undo history, the
@@ -173,7 +165,7 @@ export function useReviewProject(opts: {
         statusRef.current.setNotice("No saved notes in this browser yet.");
         return;
       }
-      downloadJson("cs2analyzer-notes.json", serializeBundle(projects));
+      downloadBlob("cs2analyzer-notes.json", "application/json", serializeBundle(projects));
       statusRef.current.setNotice(
         `Exported ${projects.length} saved match${projects.length === 1 ? "" : "es"}.`,
       );

@@ -1,4 +1,5 @@
 import { ImportNotesButton } from "@/components/sidebar/ImportNotesButton";
+import { downloadBlob } from "@/lib/shared/download";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { computeStats, exportStatsCsv } from "@/lib/stats/stats";
 import { useApp } from "@/lib/state/appState";
@@ -7,11 +8,8 @@ import type { Replay } from "@/lib/replay/replayTypes";
 
 function downloadCsv(replay: Replay, fileName: string, tick: number) {
   const csv = exportStatsCsv(replay, computeStats(replay, tick), tick);
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  a.download = `${fileName.replace(/\.dem$/i, "") || "demo"}-stats.csv`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  const base = fileName.replace(/\.dem$/i, "") || "demo";
+  downloadBlob(`${base}-stats.csv`, "text/csv", csv);
 }
 
 export function ViewerHeader() {
