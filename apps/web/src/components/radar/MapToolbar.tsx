@@ -1,33 +1,5 @@
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
-import type { DrawTool, FloorMode, MapLayers } from "@/lib/notes/types";
-
-interface Props {
-  tool: DrawTool;
-  color: string;
-  paletteId: string;
-  follow: boolean;
-  trails: boolean;
-  moment: boolean;
-  canFollow: boolean;
-  layers: MapLayers;
-  floorMode: FloorMode;
-  hasFloors: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
-  onTool: (t: DrawTool) => void;
-  onColor: (c: string) => void;
-  onPalette: (id: string) => void;
-  onFollow: (v: boolean) => void;
-  onTrails: (v: boolean) => void;
-  onMoment: (v: boolean) => void;
-  onLayers: (next: MapLayers) => void;
-  onFloorMode: (mode: FloorMode) => void;
-  onUndo: () => void;
-  onRedo: () => void;
-  onClear: () => void;
-  onResetView: () => void;
-  onStampBookmark: () => void;
-}
+import type { MapToolbarProps } from "./mapToolbarTypes";
 
 function Icon({ d }: { d: string }) {
   return (
@@ -79,7 +51,7 @@ const I = {
   erase: "M4.5 11.5 10 6l2.5 2.5-5.5 5.5H4.5v-2.5Z M6.5 13.5h6",
   undo: "M5 5 2 8l3 3M2 8h7.5a3.5 3.5 0 1 1 0 7",
   redo: "M11 5 14 8l-3 3M14 8H6.5a3.5 3.5 0 1 0 0 7",
-  clear: "M5 5.5h6M6 5.5V4h4v1.5M6.5 5.5 7 13h2l.5-7.5",
+  clear: "M5 5.5h6M6 5.5V4h4v1.5M6 5.5 7 13h2l.5-7.5",
   reset: "M3 8a5 5 0 1 0 1.5-3.5M3 3v3h3",
   track: "M8 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 3.5V2M8 14v-1.5M3.5 8H2M14 8h-1.5",
   trail: "M3 12c2-1 3-4 5-4s3 3 5 2",
@@ -87,34 +59,14 @@ const I = {
   bookmark: "M4.5 2h7v12l-3.5-2.2L4.5 14Z",
 };
 
-export function MapToolbar({
-  tool,
-  color,
-  paletteId,
-  follow,
-  trails,
-  moment,
-  canFollow,
-  layers,
-  floorMode,
-  hasFloors,
-  canUndo,
-  canRedo,
-  onTool,
-  onColor,
-  onPalette,
-  onFollow,
-  onTrails,
-  onMoment,
-  onLayers,
-  onFloorMode,
-  onUndo,
-  onRedo,
-  onClear,
-  onResetView,
-  onStampBookmark,
-}: Props) {
-  const toggle = (key: keyof MapLayers) => onLayers({ ...layers, [key]: !layers[key] });
+export function MapToolbar({ review, view, reviewActions, viewActions }: MapToolbarProps) {
+  const { tool, color, paletteId, floorMode, hasFloors, canUndo, canRedo } = review;
+  const { follow, trails, moment, canFollow, layers } = view;
+  const { onTool, onColor, onPalette, onFloorMode, onUndo, onRedo, onClear, onStampBookmark } =
+    reviewActions;
+  const { onFollow, onTrails, onMoment, onLayers, onResetView } = viewActions;
+
+  const toggle = (key: keyof typeof layers) => onLayers({ ...layers, [key]: !layers[key] });
   const preset = COLOR_PRESETS.find((p) => p.id === paletteId) ?? COLOR_PRESETS[0];
   return (
     <div className="map-toolbar">

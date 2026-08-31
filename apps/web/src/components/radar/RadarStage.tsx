@@ -24,60 +24,72 @@ export function RadarStage() {
   return (
     <div className="radar-col">
       <MapToolbar
-        tool={view.tool}
-        color={review.color}
-        paletteId={review.paletteId}
-        follow={view.follow}
-        trails={view.trails}
-        moment={view.moment}
-        canFollow={view.selected != null}
-        layers={view.layers}
-        floorMode={review.floorMode}
-        hasFloors={Boolean(cal?.lower_radar)}
-        canUndo={review.canUndo}
-        canRedo={review.canRedo}
-        onTool={view.setTool}
-        onColor={review.setColor}
-        onPalette={(id) => {
-          review.setPaletteId(id);
-          const preset = COLOR_PRESETS.find((p) => p.id === id);
-          if (preset && !(preset.colors as readonly string[]).includes(review.color)) {
-            review.setColor(preset.colors[0]);
-          }
+        review={{
+          tool: view.tool,
+          color: review.color,
+          paletteId: review.paletteId,
+          floorMode: review.floorMode,
+          hasFloors: Boolean(cal?.lower_radar),
+          canUndo: review.canUndo,
+          canRedo: review.canRedo,
         }}
-        onFollow={view.setFollow}
-        onTrails={view.setTrails}
-        onMoment={view.setMoment}
-        onLayers={(next) => {
-          if (next.summary && !view.layers.summary) playback.setPlaying(false);
-          view.setLayers(next);
+        view={{
+          follow: view.follow,
+          trails: view.trails,
+          moment: view.moment,
+          canFollow: view.selected != null,
+          layers: view.layers,
         }}
-        onFloorMode={review.setFloorMode}
-        onUndo={review.undo}
-        onRedo={review.redo}
-        onClear={() => {
-          const round = currentRound(replay, tick)?.number;
-          review.commitStrokes(
-            round == null
-              ? []
-              : review.strokes.filter((st) => st.round !== round || st.type === "bookmark"),
-          );
+        reviewActions={{
+          onTool: view.setTool,
+          onColor: review.setColor,
+          onPalette: (id) => {
+            review.setPaletteId(id);
+            const preset = COLOR_PRESETS.find((p) => p.id === id);
+            if (preset && !(preset.colors as readonly string[]).includes(review.color)) {
+              review.setColor(preset.colors[0]);
+            }
+          },
+          onFloorMode: review.setFloorMode,
+          onUndo: review.undo,
+          onRedo: review.redo,
+          onClear: () => {
+            const round = currentRound(replay, tick)?.number;
+            review.commitStrokes(
+              round == null
+                ? []
+                : review.strokes.filter((st) => st.round !== round || st.type === "bookmark"),
+            );
+          },
+          onStampBookmark: () => {
+            const round = currentRound(replay, tick);
+            if (!round) {
+              return;
+            }
+            review.commitStrokes([
+              ...review.strokes,
+              makeBookmarkStroke(
+                review.color,
+                round.number,
+                tick,
+                view.moment,
+                round.end_tick,
+                tickRate(replay),
+              ),
+            ]);
+          },
         }}
-        onResetView={view.resetView}
-        onStampBookmark={() => {
-          const round = currentRound(replay, tick);
-          if (!round) return;
-          review.commitStrokes([
-            ...review.strokes,
-            makeBookmarkStroke(
-              review.color,
-              round.number,
-              tick,
-              view.moment,
-              round.end_tick,
-              tickRate(replay),
-            ),
-          ]);
+        viewActions={{
+          onFollow: view.setFollow,
+          onTrails: view.setTrails,
+          onMoment: view.setMoment,
+          onLayers: (next) => {
+            if (next.summary && !view.layers.summary) {
+              playback.setPlaying(false);
+            }
+            view.setLayers(next);
+          },
+          onResetView: view.resetView,
         }}
       />
       <div className="radar-stage">
