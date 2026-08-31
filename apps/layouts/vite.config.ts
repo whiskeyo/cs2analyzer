@@ -6,7 +6,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import { errorMessage, parseJson } from "../shared/validate/json.ts";
-import { formatLayout, parseMapLayout } from "./src/lib/layout";
+import { formatLayout } from "../shared/layout/format.ts";
+import { parseMapLayout } from "../shared/layout/schema.ts";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const webPublic = path.resolve(root, "../web/public");

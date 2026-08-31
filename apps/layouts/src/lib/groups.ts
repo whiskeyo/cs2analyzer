@@ -1,4 +1,6 @@
 import { LAYOUT_GROUP_NAME_MAX } from "./constants";
+import { dissolveSmallGroups, syncGroupOrder } from "@shared/layout/schema.ts";
+export { dissolveSmallGroups, syncGroupOrder };
 import type { LayoutCallout } from "./types";
 
 function groupSerial(id: string): number {
@@ -28,23 +30,12 @@ function stripGroup(callout: LayoutCallout): LayoutCallout {
   return next;
 }
 
-export function dissolveSmallGroups(callouts: LayoutCallout[]): LayoutCallout[] {
-  const counts = new Map<string, number>();
-  for (const c of callouts) {
-    if (!c.group) continue;
-    counts.set(c.group, (counts.get(c.group) ?? 0) + 1);
-  }
-  return callouts.map((c) => {
-    if (!c.group) return c;
-    if ((counts.get(c.group) ?? 0) >= 2) return c;
-    return stripGroup(c);
-  });
-}
-
 export function groupCallouts(callouts: LayoutCallout[], ids: string[]): LayoutCallout[] {
   const want = new Set(ids);
   const unique = callouts.filter((c) => want.has(c.id)).map((c) => c.id);
-  if (unique.length < 2) return callouts;
+  if (unique.length < 2) {
+    return callouts;
+  }
   const group = nextGroupId(callouts);
   return callouts.map((c) => (want.has(c.id) ? { ...c, group } : c));
 }
@@ -71,41 +62,6 @@ export function renameGroup(
 
 export function renameGroupOrder(order: readonly string[], fromId: string, toId: string): string[] {
   return order.map((id) => (id === fromId ? toId : id));
-}
-
-/** Live group ids in first-appearance order (singletons already dissolved). */
-export function liveGroupIds(callouts: readonly LayoutCallout[]): string[] {
-  const seen = new Set<string>();
-  const order: string[] = [];
-  for (const callout of callouts) {
-    const id = callout.group;
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    order.push(id);
-  }
-  return order;
-}
-
-/** Keep `preferred` names that still exist; append any new live groups. */
-export function syncGroupOrder(
-  preferred: readonly string[] | undefined,
-  callouts: readonly LayoutCallout[],
-): string[] | undefined {
-  const live = liveGroupIds(callouts);
-  if (live.length === 0) return undefined;
-  const liveSet = new Set(live);
-  const seen = new Set<string>();
-  const next: string[] = [];
-  for (const id of preferred ?? []) {
-    if (!liveSet.has(id) || seen.has(id)) continue;
-    seen.add(id);
-    next.push(id);
-  }
-  for (const id of live) {
-    if (seen.has(id)) continue;
-    next.push(id);
-  }
-  return next;
 }
 
 export function nudgeGroupOrder(order: readonly string[], id: string, delta: -1 | 1): string[] {

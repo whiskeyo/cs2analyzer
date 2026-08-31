@@ -28,7 +28,7 @@ export const CIRCLE_SEGMENTS = 32;
 export const LAYOUT_GROUP_NAME_MAX = 40;
 
 /** Same as `.prettierrc.json` printWidth so Save to folder passes `format:check`. */
-export const LAYOUT_JSON_PRINT_WIDTH = 100;
+export { LAYOUT_JSON_PRINT_WIDTH } from "@shared/layout/format.ts";
 
 export const CALLOUT_PALETTE = [
   "#ff2d6a",
