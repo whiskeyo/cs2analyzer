@@ -1,4 +1,5 @@
 import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
+import { isFiniteNumber, isRecord } from "@shared/validate/guards.ts";
 import { COLOR_PRESETS } from "./palettes";
 import type { GrenadeKind, Replay } from "@/lib/replay/replayTypes";
 import type { MatchScorecard, SavedPlayerSnapshot } from "@/lib/stats/stats";
@@ -57,9 +58,10 @@ export function defaultColor(): string {
 }
 
 function isPoint(v: unknown): v is { x: number; y: number } {
-  if (!v || typeof v !== "object") return false;
-  const o = v as { x?: unknown; y?: unknown };
-  return typeof o.x === "number" && typeof o.y === "number";
+  if (!isRecord(v)) {
+    return false;
+  }
+  return isFiniteNumber(v.x) && isFiniteNumber(v.y);
 }
 
 function optionalTick(v: unknown): number | undefined {
@@ -85,8 +87,10 @@ function withWindow<T extends Stroke>(base: T, o: Record<string, unknown>): T {
 }
 
 function parseStroke(v: unknown): Stroke | null {
-  if (!v || typeof v !== "object") return null;
-  const o = v as Record<string, unknown>;
+  if (!isRecord(v)) {
+    return null;
+  }
+  const o = v;
   if (typeof o.round !== "number" || typeof o.color !== "string") return null;
   if (o.type === "pen" && Array.isArray(o.points) && o.points.every(isPoint)) {
     return withWindow({ type: "pen", round: o.round, color: o.color, points: o.points }, o);
@@ -199,8 +203,10 @@ function parsePlayerStats(v: unknown): SavedPlayerSnapshot[] | undefined {
 }
 
 export function parseProject(raw: unknown): ReviewProject | null {
-  if (!raw || typeof raw !== "object") return null;
-  const o = raw as Record<string, unknown>;
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const o = raw;
   if (!isProjectSchema(o.schema) || typeof o.key !== "string") return null;
   if (typeof o.fileName !== "string" || typeof o.mapName !== "string") return null;
   if (!Array.isArray(o.strokes)) return null;
@@ -242,8 +248,10 @@ export function parseProject(raw: unknown): ReviewProject | null {
 }
 
 export function parseBundle(raw: unknown): ProjectBundle | null {
-  if (!raw || typeof raw !== "object") return null;
-  const o = raw as Record<string, unknown>;
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const o = raw;
   if (Array.isArray(o.projects)) {
     if (!isProjectSchema(o.schema)) return null;
     const projects: ReviewProject[] = [];
