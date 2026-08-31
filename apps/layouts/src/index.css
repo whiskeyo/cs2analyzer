@@ -1,11 +1,5 @@
-:root {
-  color-scheme: dark;
-  font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  line-height: 1.4;
-  font-weight: 450;
-  color: #e8eef4;
-  background: #0b0e12;
-}
+@import "../../shared/css/tokens.css";
+@import "../../shared/css/map-toolbar.css";
 
 * {
   box-sizing: border-box;
@@ -105,48 +99,6 @@ body,
   flex-direction: column;
 }
 
-.map-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.6rem;
-  background: #10151b;
-  border-bottom: 1px solid #1e2732;
-}
-.map-toolbar button {
-  background: #1c242e;
-  color: #e8eef4;
-  border: 1px solid #2c3846;
-  border-radius: 6px;
-  padding: 0.22rem 0.45rem;
-  cursor: pointer;
-  font-size: 0.75rem;
-}
-.map-toolbar button.icon-btn {
-  width: 1.85rem;
-  height: 1.85rem;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.map-toolbar button.icon-btn svg {
-  display: block;
-}
-.map-toolbar button.on {
-  border-color: #6aa4d8;
-  background: #243040;
-}
-.floor-picks {
-  display: flex;
-  gap: 0.2rem;
-  margin: 0 0.15rem;
-}
-.floor-picks button {
-  font-size: 0.7rem;
-  padding: 0.2rem 0.4rem;
-}
 .map-toolbar .hint {
   color: #6b7785;
   font-size: 0.72rem;
