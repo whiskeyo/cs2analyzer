@@ -1,3 +1,4 @@
+import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { copyFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -5,6 +6,7 @@ import { defineConfig } from "vitest/config";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const src = fileURLToPath(new URL("./src", import.meta.url));
+const shared = path.resolve(root, "../shared");
 
 /** Vite's public copy can skip dotfiles; Apache on OVH still needs this name. */
 function copyHtaccess() {
@@ -24,6 +26,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": src,
+      "@shared": shared,
     },
   },
   worker: {
@@ -38,7 +41,7 @@ export default defineConfig({
         test: {
           name: "logic",
           environment: "node",
-          include: ["src/**/*.test.ts"],
+          include: ["src/**/*.test.ts", "../shared/**/*.test.ts"],
         },
       },
       {

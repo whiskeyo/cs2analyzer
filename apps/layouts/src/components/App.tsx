@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { errorMessage, parseJson } from "@shared/validate/json.ts";
 import { CalloutPanel } from "@/components/CalloutPanel";
 import { LayoutCanvas } from "@/components/LayoutCanvas";
 import { LayoutToolbar } from "@/components/LayoutToolbar";
@@ -123,7 +124,7 @@ export function App() {
         setMapId(initial);
       })
       .catch((err: unknown) => {
-        setLoadError(err instanceof Error ? err.message : "failed to load maps");
+        setLoadError(errorMessage(err) || "failed to load maps");
       });
   }, []);
 
@@ -144,7 +145,9 @@ export function App() {
         setSaveNote(null);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : "failed to load layout");
+        if (!cancelled) {
+          setLoadError(errorMessage(err) || "failed to load layout");
+        }
       });
     return () => {
       cancelled = true;
@@ -264,8 +267,8 @@ export function App() {
       setJsonText(text);
       setSaveNote(`Wrote ${path}`);
       setJsonError(null);
-    } catch (err) {
-      setSaveNote(err instanceof Error ? err.message : "save failed");
+    } catch (err: unknown) {
+      setSaveNote(errorMessage(err) || "save failed");
     }
   }
 
@@ -285,7 +288,14 @@ export function App() {
   }
 
   function applyJson() {
-    const parsed = parseMapLayout(JSON.parse(jsonText) as unknown);
+    let raw: unknown;
+    try {
+      raw = parseJson(jsonText);
+    } catch {
+      setJsonError("JSON must be schema 1 with map and callouts[]");
+      return;
+    }
+    const parsed = parseMapLayout(raw);
     if (!parsed) {
       setJsonError("JSON must be schema 1 with map and callouts[]");
       return;
@@ -297,7 +307,7 @@ export function App() {
   function importFile(file: File) {
     void file.text().then((text) => {
       try {
-        const parsed = parseMapLayout(JSON.parse(text) as unknown);
+        const parsed = parseMapLayout(parseJson(text));
         if (!parsed) {
           setJsonError("That file is not a schema 1 layout");
           return;

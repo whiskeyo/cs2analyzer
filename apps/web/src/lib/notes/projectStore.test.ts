@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseJson } from "@shared/validate/json.ts";
 import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
 import { COLOR_PRESETS } from "./palettes";
 import {
@@ -48,7 +49,7 @@ describe("matchKey", () => {
 
 describe("parseBundle", () => {
   it("round-trips a bundle and rejects a bad schema", () => {
-    const raw = JSON.parse(serializeBundle([project()])) as unknown;
+    const raw = parseJson(serializeBundle([project()]));
     const bundle = parseBundle(raw);
     expect(bundle?.projects).toHaveLength(1);
     expect(bundle?.projects[0]?.strokes[0]?.type).toBe("arrow");

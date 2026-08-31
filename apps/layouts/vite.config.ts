@@ -5,12 +5,14 @@ import { fileURLToPath } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+import { errorMessage, parseJson } from "../shared/validate/json.ts";
 import { formatLayout, parseMapLayout } from "./src/lib/layout";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const webPublic = path.resolve(root, "../web/public");
 const layoutsDir = path.join(webPublic, "layouts");
 const src = path.join(root, "src");
+const shared = path.resolve(root, "../shared");
 
 const MAP_FILE = /^de_[a-z0-9]+\.json$/;
 const MAX_BODY_BYTES = 1_000_000;
@@ -57,7 +59,7 @@ function writeLayoutPlugin(): Plugin {
         }
         const map = file.slice(0, -".json".length);
         try {
-          const parsed: unknown = JSON.parse(await readBody(req as IncomingMessage));
+          const parsed = parseJson(await readBody(req as IncomingMessage));
           const layout = parseMapLayout(parsed, map);
           if (!layout) {
             send(res, 400, JSON.stringify({ error: "invalid layout JSON" }));
@@ -67,9 +69,8 @@ function writeLayoutPlugin(): Plugin {
           await mkdir(layoutsDir, { recursive: true });
           await writeFile(path.join(layoutsDir, file), formatLayout(layout), "utf8");
           send(res, 200, JSON.stringify({ ok: true, path: `apps/web/public/layouts/${file}` }));
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "save failed";
-          send(res, 400, JSON.stringify({ error: message }));
+        } catch (err: unknown) {
+          send(res, 400, JSON.stringify({ error: errorMessage(err) || "save failed" }));
         }
       });
     },
@@ -81,6 +82,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": src,
+      "@shared": shared,
     },
   },
   publicDir: webPublic,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { parseJson } from "@shared/validate/json.ts";
 import { DRAW_HISTORY_LIMIT, PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { matchEndTick, matchScorecard, savedPlayerSnapshots } from "@/lib/stats/stats";
 import type { LoadedDemo, DemoSeries } from "@/lib/parse/session";
@@ -199,7 +200,7 @@ export function useReviewProject(opts: {
     async (text: string) => {
       let raw: unknown;
       try {
-        raw = JSON.parse(text) as unknown;
+        raw = parseJson(text);
       } catch {
         statusRef.current.setError("Notes file is not valid JSON.");
         return;

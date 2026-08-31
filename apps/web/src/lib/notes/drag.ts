@@ -1,4 +1,5 @@
 import type { Stroke } from "@/lib/notes/types";
+import { parseJson } from "@shared/validate/json.ts";
 
 export interface NoteDrag {
   round: number;
@@ -58,7 +59,7 @@ export function unlockNoteDrag(cluster: HTMLElement, folder: boolean) {
 
 export function parseDrag(raw: string): NoteDrag | null {
   try {
-    const v = JSON.parse(raw) as NoteDrag;
+    const v = parseJson(raw) as NoteDrag;
     if (typeof v.round === "number" && Array.isArray(v.indexes)) return v;
   } catch {
     return null;

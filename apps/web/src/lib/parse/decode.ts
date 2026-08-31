@@ -8,6 +8,8 @@
  * radar. These checks turn that into a named error on the drop screen.
  */
 
+import { parseJson as parseJsonText } from "@shared/validate/json.ts";
+
 export class PayloadError extends Error {
   constructor(message: string) {
     super(message);
@@ -115,7 +117,7 @@ export type PayloadName = keyof typeof PAYLOAD_SHAPES;
 
 function parseJson(name: string, json: string): unknown {
   try {
-    return JSON.parse(json) as unknown;
+    return parseJsonText(json);
   } catch {
     throw new PayloadError(`Parser sent invalid JSON for "${name}".`);
   }

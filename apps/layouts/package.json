@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
-    "format": "prettier --write . --config ../shared/config/prettier.json",
-    "format:check": "prettier --check . --config ../shared/config/prettier.json",
+    "format": "prettier --write . ../shared --config ../shared/config/prettier.json",
+    "format:check": "prettier --check . ../shared --config ../shared/config/prettier.json",
     "test": "vitest run"
   },
   "dependencies": {

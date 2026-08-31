@@ -1,3 +1,5 @@
+import { parseJson } from "@shared/validate/json.ts";
+
 export interface CalloutDrag {
   ids: string[];
 }
@@ -46,7 +48,7 @@ export function unlockCalloutDrag(cluster: HTMLElement, folder: boolean) {
 
 export function parseDrag(raw: string): CalloutDrag | null {
   try {
-    const v = JSON.parse(raw) as CalloutDrag;
+    const v = parseJson(raw) as CalloutDrag;
     if (Array.isArray(v.ids) && v.ids.every((id) => typeof id === "string")) return v;
   } catch {
     return null;

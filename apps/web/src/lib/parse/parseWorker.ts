@@ -1,4 +1,5 @@
 import init, { parseDemo } from "@/parser/cs2analyzer_wasm.js";
+import { errorMessage } from "@shared/validate/json.ts";
 import { decodeList, decodeObject } from "./decode";
 import type {
   Blind,
@@ -134,8 +135,8 @@ self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
     ];
     const msg: WorkerOut = { type: "done", replay, timings };
     self.postMessage(msg, { transfer });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+  } catch (err: unknown) {
+    const message = errorMessage(err);
     const msg: WorkerOut = { type: "error", message };
     self.postMessage(msg);
   }
