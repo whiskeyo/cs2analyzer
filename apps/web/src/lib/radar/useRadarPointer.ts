@@ -6,6 +6,7 @@ import {
   type SetStateAction,
 } from "react";
 import { NOTE_TEXT_DRAG_PX, PEN_MIN_SAMPLE_DISTANCE, tickRate } from "@/lib/shared/constants";
+import { clampViewScale, wheelZoomFactor } from "@shared/radar/panZoom.ts";
 import { screenToWorld, worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { makeBookmarkStroke, overlayVisible, withMoment } from "@/lib/notes";
 import { findTextIndex, hitStroke, hitTextLabel } from "./draw";
@@ -92,8 +93,7 @@ export function useRadarPointer(opts: RadarPointerOpts) {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const v = view.current;
-      const factor = e.deltaY < 0 ? 1.08 : 0.92;
-      v.scale = Math.min(6, Math.max(0.4, v.scale * factor));
+      v.scale = clampViewScale(v.scale * wheelZoomFactor(e.deltaY));
     };
 
     const onDown = (e: MouseEvent) => {

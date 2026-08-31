@@ -1,15 +1,7 @@
 import { useCallback, useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from "react";
-import {
-  CLOSE_LOOP_HIT_PX,
-  EDGE_HIT_PX,
-  MIN_POLYGON_VERTICES,
-  VERTEX_HIT_PX,
-  VIEW_SCALE_MAX,
-  VIEW_SCALE_MIN,
-  VIEW_ZOOM_IN,
-  VIEW_ZOOM_OUT,
-} from "./constants";
+import { zoomViewAtCursor, wheelZoomFactor } from "@shared/radar/panZoom.ts";
+import { CLOSE_LOOP_HIT_PX, EDGE_HIT_PX, MIN_POLYGON_VERTICES, VERTEX_HIT_PX } from "./constants";
 import {
   circlePolygon,
   nearestPolygonEdge,
@@ -260,12 +252,8 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
       e.preventDefault();
       const v = view.current;
       const { x, y } = pos(wrap, e.nativeEvent);
-      const before = screenToRadar(wrap.clientWidth, wrap.clientHeight, v, x, y);
-      const factor = e.deltaY < 0 ? VIEW_ZOOM_IN : VIEW_ZOOM_OUT;
-      v.scale = Math.min(VIEW_SCALE_MAX, Math.max(VIEW_SCALE_MIN, v.scale * factor));
-      const after = radarToScreen(wrap.clientWidth, wrap.clientHeight, v, before.x, before.y);
-      v.ox += x - after.x;
-      v.oy += y - after.y;
+      const factor = wheelZoomFactor(e.deltaY);
+      zoomViewAtCursor(v, wrap.clientWidth, wrap.clientHeight, x, y, factor);
     },
     [view, wrapRef],
   );
