@@ -119,6 +119,9 @@ export const KILL_LINE_MIN_LENGTH = 24;
 /** Round-clock marks on the scrubber (seconds after freeze). */
 export const ROUND_TIMELINE_STEP_SECONDS = 10;
 
+/** GOTV beat after bomb/win before the next round's freeze (round_out ~5s). */
+export const ROUND_POST_ROUND_MAX_SECONDS = 5;
+
 /** World units: skip pen samples closer than this (keep letter-sized strokes). */
 export const PEN_MIN_SAMPLE_DISTANCE = 4;
 

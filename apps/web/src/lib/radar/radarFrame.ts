@@ -11,7 +11,7 @@
  */
 
 import { tickRate } from "@/lib/shared/constants";
-import { radarFloor } from "@/lib/radar/maps";
+import { radarFloor, worldOnRadar } from "@/lib/radar/maps";
 import { grenadePosAt } from "@/lib/radar/draw";
 import {
   blindsAt,
@@ -439,12 +439,15 @@ function playerTrails(
   players: SampledPlayer[],
   selected: number | null,
   tps: number,
+  cal: MapCalibration | undefined,
 ): Trail[] {
   const lookback = tps * TRAIL_SECONDS;
   const ids = selected != null ? [selected] : players.map((p) => p.index);
   const out: Trail[] = [];
   for (const id of ids) {
-    const points = sampleTrail(replay, id, tick, lookback);
+    const points = sampleTrail(replay, id, tick, lookback).filter((pt) =>
+      worldOnRadar(cal, pt.x, pt.y),
+    );
     if (points.length < 2) continue;
     out.push({ points, color: sideColor(players.find((p) => p.index === id)?.ct ?? false) });
   }
@@ -502,6 +505,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
   const pawns: Pawn[] = [];
   for (const p of players) {
     if (!p.present) continue;
+    if (!worldOnRadar(cal, p.x, p.y)) continue;
     const hit = hits.get(p.index);
     if (hit) {
       const age = Math.min(1, hit.age / HIT_SECONDS);
@@ -550,7 +554,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
     bomb: activeBomb(replay, tick),
     deaths: layers.deaths ? deathMarks(replay, tick, round) : [],
     opening: layers.openings ? openingArrow(replay, tick, round) : null,
-    trails: input.trails ? playerTrails(replay, tick, players, selected, tps) : [],
+    trails: input.trails ? playerTrails(replay, tick, players, selected, tps, cal) : [],
     cone: layers.cone ? viewCone(players, selected, Math.min(MAX_CONE_ZOOM, scale)) : null,
     hits: hitPulses,
     flashes: flashPulses,

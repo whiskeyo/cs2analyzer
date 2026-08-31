@@ -1,4 +1,5 @@
 import { publicUrl } from "@/lib/shared/publicUrl";
+import { RADAR_OVERVIEW_SIZE } from "@shared/radar/constants.ts";
 import { radarLayout, screenToRadar, type RadarView } from "@shared/radar/viewport.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import type { FloorMode } from "@/lib/notes/types";
@@ -36,6 +37,19 @@ export function worldToRadar(c: MapCalibration, x: number, y: number): { x: numb
     x: (x - c.pos_x) / c.scale,
     y: (c.pos_y - y) / c.scale,
   };
+}
+
+/** False when GOTV parks a pawn off the overview (common after round end). */
+export function worldOnRadar(
+  cal: MapCalibration | undefined,
+  x: number,
+  y: number,
+  margin = 32,
+): boolean {
+  if (!cal) return true;
+  const { x: rx, y: ry } = worldToRadar(cal, x, y);
+  const edge = RADAR_OVERVIEW_SIZE;
+  return rx >= -margin && rx <= edge + margin && ry >= -margin && ry <= edge + margin;
 }
 
 export function floorForZ(c: MapCalibration, z: number): "default" | "lower" {

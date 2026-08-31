@@ -1685,8 +1685,12 @@ button.link {
 }
 .entry-pct {
   display: block;
+  min-height: 1em;
   font-size: 0.62rem;
   color: #6e7c8a;
+}
+.sb-entry .entry-main {
+  display: block;
 }
 .sb-split {
   white-space: nowrap;
@@ -1923,6 +1927,26 @@ button.link {
   font-variant-numeric: tabular-nums;
   color: #a9b6c3;
   font-size: 0.85rem;
+}
+.clock-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+.controls button.icon-btn {
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.controls button.icon-btn svg {
+  display: block;
+}
+.controls button.round-autoplay:not(.on) {
+  color: #8b98a5;
 }
 .speed,
 .round {

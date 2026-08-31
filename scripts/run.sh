@@ -15,7 +15,7 @@ fi
 
 usage() {
   cat <<'EOF'
-Usage: scripts/run [flags]
+Usage: scripts/run.sh [flags]
 
   --prepare      Install Rust toolchain, wasm-bindgen-cli, and npm deps
   --build-wasm   Compile WASM and emit JS bindings into apps/web/src/parser/
@@ -55,7 +55,7 @@ have_node() {
 
 ensure_node() {
   load_nvm || true
-  have_node || die "node/npm not found; run scripts/run --prepare"
+  have_node || die "node/npm not found; run scripts/run.sh --prepare"
 }
 
 install_node() {

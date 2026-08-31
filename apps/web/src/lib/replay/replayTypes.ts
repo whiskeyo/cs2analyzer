@@ -42,6 +42,8 @@ export interface Round {
   start_tick: number;
   freeze_end_tick: number;
   end_tick: number;
+  /** `cs_pre_restart` after live play; 0 when not seen (web falls back to a short cap). */
+  playback_end_tick?: number;
   winner: Side | null;
   win_reason: number;
   score_ct: number;

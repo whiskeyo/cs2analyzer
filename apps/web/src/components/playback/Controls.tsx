@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import { tickRate } from "@/lib/shared/constants";
 import { roundBookmarkMarks } from "@/lib/notes";
 import {
@@ -15,15 +15,35 @@ import { formatClock } from "@/lib/weapons/weapons";
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
+function RoundAutoplayIcon({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path d="M3 4v8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M7 5.5 12 8 7 10.5V5.5z" fill="currentColor" />
+      {on && (
+        <path
+          d="M13 4v8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
+  );
+}
+
 interface Props {
   replay: Replay;
   tick: number;
   strokes: Stroke[];
   playing: boolean;
   speed: number;
+  roundAutoplay: boolean;
   onTick: (tick: number) => void;
   onPlaying: (v: boolean) => void;
   onSpeed: (v: number) => void;
+  onRoundAutoplay: (enabled: boolean) => void;
 }
 
 export const Controls = memo(function Controls({
@@ -32,9 +52,11 @@ export const Controls = memo(function Controls({
   strokes,
   playing,
   speed,
+  roundAutoplay,
   onTick,
   onPlaying,
   onSpeed,
+  onRoundAutoplay,
 }: Props) {
   const round = currentRound(replay, tick);
   const fallback = {
@@ -42,6 +64,28 @@ export const Controls = memo(function Controls({
     max: replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0,
   };
   const { min, max } = roundScrubRange(round ?? undefined, replay.rounds, fallback);
+  const [scrubLock, setScrubLock] = useState<{ min: number; max: number } | null>(null);
+  const resumePlayRef = useRef(false);
+  const rangeRef = useRef({ min, max });
+  const playingRef = useRef(playing);
+  rangeRef.current = { min, max };
+  playingRef.current = playing;
+  const activeRange = scrubLock ?? { min, max };
+
+  const endScrub = useCallback(() => {
+    setScrubLock(null);
+    if (resumePlayRef.current) {
+      onPlaying(true);
+    }
+    resumePlayRef.current = false;
+  }, [onPlaying]);
+
+  const startScrub = useCallback(() => {
+    setScrubLock({ ...rangeRef.current });
+    resumePlayRef.current = playingRef.current;
+    onPlaying(false);
+  }, [onPlaying]);
+
   const tps = tickRate(replay);
   const inFreeze = !!round && tick < round.freeze_end_tick;
   const freezeLeft =
@@ -51,11 +95,14 @@ export const Controls = memo(function Controls({
     : formatClock(Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps));
   const roundIdx = replay.rounds.findIndex((r) => r.start_tick === round?.start_tick);
   const killTicks = replay.kills.map((k) => k.tick);
-  const marks = round ? roundTimelineMarks(round, tps, { min, max }) : [];
-  const bookmarks = round ? roundBookmarkMarks(strokes, round, { min, max }) : [];
-  const freezeAt = round ? freezeWidth(round, { min, max }) : 0;
-  const span = max - min;
-  const progress = span > 0 ? (Math.min(max, Math.max(min, tick)) - min) / span : 0;
+  const marks = round ? roundTimelineMarks(round, tps, activeRange) : [];
+  const bookmarks = round ? roundBookmarkMarks(strokes, round, activeRange) : [];
+  const freezeAt = round ? freezeWidth(round, activeRange) : 0;
+  const span = activeRange.max - activeRange.min;
+  const progress =
+    span > 0
+      ? (Math.min(activeRange.max, Math.max(activeRange.min, tick)) - activeRange.min) / span
+      : 0;
 
   const gotoRound = (dir: number) => {
     const r = replay.rounds[roundIdx + dir];
@@ -172,10 +219,21 @@ export const Controls = memo(function Controls({
           <input
             className="timeline"
             type="range"
-            min={min}
-            max={max}
+            min={activeRange.min}
+            max={activeRange.max}
             aria-label="Round timeline"
-            value={Math.min(max, Math.max(min, tick))}
+            value={Math.min(activeRange.max, Math.max(activeRange.min, tick))}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              startScrub();
+            }}
+            onPointerUp={(e) => {
+              if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+              }
+              endScrub();
+            }}
+            onPointerCancel={endScrub}
             onChange={(e) => onTick(Number(e.target.value))}
           />
           <div className="timeline-bookmarks">
@@ -221,9 +279,29 @@ export const Controls = memo(function Controls({
           ))}
         </div>
       </div>
-      <span className="clock">
-        {round ? (round.is_knife ? "Knife" : `R${round.number}`) : "—"} {clock}
-      </span>
+      <div className="clock-wrap">
+        <span className="clock">
+          {round ? (round.is_knife ? "Knife" : `R${round.number}`) : "—"} {clock}
+        </span>
+        <button
+          type="button"
+          className={`icon-btn round-autoplay${roundAutoplay ? " on" : ""}`}
+          title={
+            roundAutoplay
+              ? "Round autoplay on — continue to the next round"
+              : "Round autoplay off — stop at the end of each round"
+          }
+          aria-label={
+            roundAutoplay
+              ? "Round autoplay on — continue to the next round"
+              : "Round autoplay off — stop at the end of each round"
+          }
+          aria-pressed={roundAutoplay}
+          onClick={() => onRoundAutoplay(!roundAutoplay)}
+        >
+          <RoundAutoplayIcon on={roundAutoplay} />
+        </button>
+      </div>
     </div>
   );
 });

@@ -9,9 +9,10 @@ import {
   makeReplay,
   makeRound,
   makeShot,
+  makeTicks,
   UNIT_CALIBRATION,
 } from "@/lib/testing/fixtures";
-import type { Replay } from "@/lib/replay/replayTypes";
+import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type Replay } from "@/lib/replay/replayTypes";
 import { TRACER_SECONDS } from "./radarFx";
 import { buildRadarFrame, CT_COLOR, T_COLOR, type FrameInput } from "./radarFrame";
 
@@ -273,5 +274,32 @@ describe("buildRadarFrame view", () => {
 
   it("stays on the upper radar when the map has no lower floor", () => {
     expect(frame(matchReplay(), 64).useLowerFloor).toBe(false);
+  });
+
+  it("hides off-radar pawns during post-round scrub", () => {
+    const ticks = makeTicks(2, 2);
+    ticks.ticks[0] = 500;
+    ticks.ticks[1] = 600;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[2] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[3] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.x[0] = 100;
+    ticks.y[0] = 200;
+    ticks.x[1] = 9000;
+    ticks.y[1] = 9000;
+    ticks.x[2] = 150;
+    ticks.y[2] = 250;
+    ticks.x[3] = 9000;
+    ticks.y[3] = 9000;
+    const replay = matchReplay({
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 500 })],
+      ticks,
+    });
+    const pawns = frame(replay, 600).pawns;
+    expect(pawns).toHaveLength(1);
+    expect(pawns[0]?.index).toBe(0);
+    expect(pawns[0]?.x).toBe(150);
+    expect(pawns[0]?.y).toBe(250);
   });
 });

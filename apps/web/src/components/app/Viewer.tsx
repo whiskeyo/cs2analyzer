@@ -125,9 +125,11 @@ export function Viewer() {
                 strokes={review.strokes}
                 playing={playback.playing}
                 speed={playback.speed}
+                roundAutoplay={playback.roundAutoplay}
                 onTick={playback.scrub}
                 onPlaying={playback.setPlaying}
                 onSpeed={playback.setSpeed}
+                onRoundAutoplay={playback.setRoundAutoplay}
               />
             )}
           </>

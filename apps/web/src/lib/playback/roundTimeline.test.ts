@@ -11,18 +11,41 @@ function round(partial: Partial<Round> = {}): Round {
 const fallback = { min: 0, max: 50_000 };
 
 describe("roundScrubRange", () => {
-  it("uses the current round, not the whole demo", () => {
+  it("starts at freeze end and extends through demo end on the last round", () => {
     const r = round();
-    expect(roundScrubRange(r, [r], fallback)).toEqual({
-      min: 0,
-      max: 50_000,
-    });
+    const end = 64 + 64 * 25;
+    expect(roundScrubRange(r, [r], { min: 0, max: end })).toEqual({ min: 64, max: end });
   });
 
-  it("stops before the next round starts", () => {
+  it("includes post-round through playback_end_tick when present", () => {
+    const a = round({
+      start_tick: 0,
+      freeze_end_tick: 64,
+      end_tick: 2000,
+      playback_end_tick: 2050,
+    });
+    const b = round({ number: 2, start_tick: 2100, freeze_end_tick: 2164, end_tick: 4000 });
+    expect(roundScrubRange(a, [a, b], fallback)).toEqual({ min: 64, max: 2050 });
+  });
+
+  it("extends through post-round cap but not into the next round", () => {
     const a = round({ start_tick: 0, freeze_end_tick: 64, end_tick: 2000 });
     const b = round({ number: 2, start_tick: 2100, freeze_end_tick: 2164, end_tick: 4000 });
-    expect(roundScrubRange(a, [a, b], fallback)).toEqual({ min: 0, max: 2099 });
+    expect(roundScrubRange(a, [a, b], fallback)).toEqual({ min: 64, max: 2099 });
+  });
+
+  it("matches spirit-vs-big R1: cs_pre_restart, not next freeze", () => {
+    const a = round({
+      start_tick: 1275,
+      freeze_end_tick: 1275,
+      end_tick: 6222,
+      playback_end_tick: 6522,
+    });
+    const b = round({ number: 2, start_tick: 7821, freeze_end_tick: 7821, end_tick: 14551 });
+    const { max } = roundScrubRange(a, [a, b], { min: 0, max: 200_000 });
+    expect(max).toBe(6522);
+    expect(max).toBeLessThan(7821);
+    expect((max - 1275) / 64).toBeCloseTo(81.98, 0);
   });
 });
 
@@ -39,7 +62,12 @@ describe("roundTimelineMarks", () => {
 });
 
 describe("freezeWidth", () => {
-  it("is the freeze share of the round bar", () => {
+  it("is zero when freeze is excluded from the scrub range", () => {
+    const r = round({ start_tick: 0, freeze_end_tick: 100, end_tick: 1000 });
+    expect(freezeWidth(r, { min: 100, max: 1000 })).toBe(0);
+  });
+
+  it("is the freeze share when the range still includes freeze", () => {
     const r = round({ start_tick: 0, freeze_end_tick: 100, end_tick: 1000 });
     expect(freezeWidth(r, { min: 0, max: 1000 })).toBeCloseTo(0.1, 5);
   });

@@ -4,6 +4,7 @@ import { useResetOnDemoChange } from "@/lib/state/demoReset";
 import { getSeriesReviewTick } from "@/lib/notes/seriesReviewCache";
 import { tickRate } from "@/lib/shared/constants";
 import type { Replay } from "@/lib/replay/replayTypes";
+import { advanceAtRoundEnd, loadRoundAutoplay, saveRoundAutoplay } from "./roundAutoplay";
 
 /**
  * Playback clock for the active demo. Overlay demos do not drive this loop.
@@ -22,9 +23,18 @@ export function usePlayback(
   const [tick, setTick] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [roundAutoplay, setRoundAutoplayState] = useState(loadRoundAutoplay);
   const tickRef = useRef(0);
   const playingRef = useRef(playing);
+  const roundAutoplayRef = useRef(roundAutoplay);
   playingRef.current = playing;
+  roundAutoplayRef.current = roundAutoplay;
+
+  const setRoundAutoplay = useCallback((enabled: boolean) => {
+    roundAutoplayRef.current = enabled;
+    setRoundAutoplayState(enabled);
+    saveRoundAutoplay(enabled);
+  }, []);
 
   const publish = useCallback((t: number) => {
     setTick((prev) => (Math.floor(t) === prev ? prev : Math.floor(t)));
@@ -85,6 +95,20 @@ export function usePlayback(
       const dt = (now - last) / 1000;
       last = now;
       tickRef.current += dt * tps * speed;
+      if (speed > 0) {
+        const roundEnd = advanceAtRoundEnd(tickRef.current, replay, roundAutoplayRef.current);
+        if (roundEnd) {
+          tickRef.current = roundEnd.tick;
+          publish(roundEnd.tick);
+          if (!roundEnd.playing) {
+            playingRef.current = false;
+            setPlaying(false);
+            return;
+          }
+          id = requestAnimationFrame(loop);
+          return;
+        }
+      }
       if (tickRef.current >= max) {
         tickRef.current = max;
         publish(max);
@@ -116,6 +140,8 @@ export function usePlayback(
     playingRef,
     speed,
     setSpeed,
+    roundAutoplay,
+    setRoundAutoplay,
     jump,
     scrub,
     pauseNow,

@@ -70,15 +70,13 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
               <td>{formatAdr(s.adr)}</td>
               <td>{formatKast(s.kast)}</td>
               <td>{s.rating.toFixed(2)}</td>
-              <td>
-                {s.entry_attempts > 0 ? (
-                  <>
-                    {s.first_kills}/{s.entry_attempts}
-                    <span className="entry-pct">{s.entry_success.toFixed(0)}%</span>
-                  </>
-                ) : (
-                  "—"
-                )}
+              <td className="sb-entry">
+                <span className="entry-main">
+                  {s.entry_attempts > 0 ? `${s.first_kills}/${s.entry_attempts}` : "—"}
+                </span>
+                <span className="entry-pct">
+                  {s.entry_attempts > 0 ? `${s.entry_success.toFixed(0)}%` : "\u00a0"}
+                </span>
               </td>
               <td className="sb-split">
                 {s.kills_ct}-{s.deaths_ct}
