@@ -12,6 +12,7 @@ crates/cs2analyzer-cli   `cs2analyzer` binary: dump a demo as JSON (fixtures, cr
 crates/cs2analyzer-wasm  wasm-bindgen wrapper (no mimalloc)
 apps/web                 Vite + React viewer (dev: http://localhost:5173/)
 apps/layouts             Callout overlay editor, not deployed (dev: http://localhost:5174/)
+apps/shared              Cross-app TS, CSS, eslint/prettier config (`@shared/*` alias)
 scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored; never commit)
 ```
@@ -110,6 +111,24 @@ FACEIT-style targets for a 30-round OT game: team score follows sides (e.g. 14�
 4. After WASM rebuild, tell whiskeyo to **re-drop the demo**. UI-only work: verify the affected flow in the browser (behavior, not a single screenshot). No browser tools: say what you could not click through.
 5. Do not add README/docs unless asked. Do not edit plan files. Do not commit `.demos/`, `.env`, or secrets. `apps/web/src/parser/` is generated — commit it only together with the parser change that produced it.
 6. Do not commit unless asked. When asked: one commit per functionality, follow repo commit style, HEREDOC message focused on **why**, no `--no-verify`. Push only when asked.
+
+## Verification (run before every commit)
+
+Do not commit until the checks for **every touched app** pass. If a step fails, fix it in the same change set (or split the change smaller) — never commit with red lint/tests “to fix later”.
+
+| Area touched | Required commands (from repo root or app dir) |
+|---|---|
+| `apps/web/**` | `cd apps/web && npm run format:check && npm run lint && npm run typecheck && npm test` |
+| `apps/layouts/**` | `cd apps/layouts && npm run format:check && npm run lint && npm run typecheck && npm test` |
+| `apps/shared/**` | Run **both** web and layouts rows above (shared config affects both) |
+| `crates/**` | `cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` |
+| WASM / parser types | Above Rust checks **and** `./scripts/build-wasm.sh`, then web row |
+
+**Refactor / behavior-preserving commits** (`todos/WEB-REFACTOR.md`): same commands; diff must not change stats formulas, parse output, or replay timing unless that commit’s goal says otherwise. Add or extend unit tests when extracting pure logic; run the test file you touched.
+
+**Mechanical style commits** (eslint `--fix` braces, prettier): web + layouts lint/format/typecheck/test must still pass; no new test required unless you moved code.
+
+**After commit:** state which commands ran and their result in the handoff (e.g. “web: 285 tests passed”).
 
 ## Web notes
 
