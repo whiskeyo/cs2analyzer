@@ -77,9 +77,6 @@ export const NADE_SITE_SEPARATION = 2000;
 /** World-unit gap: execute pulses farther than this stay separate. */
 export const PULSE_SITE_SEPARATION = 2400;
 
-/** Valve overview texture size. Layout polygons are drawn on this. */
-export const RADAR_OVERVIEW_SIZE = 1024;
-
 /** Radar pixels: a landing this close to a drawn callout still counts as near it. */
 export const CALLOUT_NEAR_RADIUS = 80;
 

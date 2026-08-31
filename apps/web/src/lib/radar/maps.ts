@@ -1,6 +1,10 @@
 import { publicUrl } from "@/lib/shared/publicUrl";
+import { radarLayout, screenToRadar, type RadarView } from "@shared/radar/viewport.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import type { FloorMode } from "@/lib/notes/types";
+
+export type { RadarView };
+export { radarLayout, screenToRadar };
 
 let cache: Record<string, MapCalibration> | null = null;
 
@@ -71,20 +75,6 @@ export function radarToWorld(c: MapCalibration, px: number, py: number): { x: nu
   };
 }
 
-export interface RadarView {
-  scale: number;
-  ox: number;
-  oy: number;
-}
-
-export function radarLayout(w: number, h: number, view: RadarView) {
-  const pad = 16;
-  const fit = Math.min(w, h) - pad * 2;
-  const baseX = (w - fit) / 2 + view.ox;
-  const baseY = (h - fit) / 2 + view.oy;
-  return { pad, fit, baseX, baseY, imgSize: 1024 };
-}
-
 export function worldToScreen(
   cal: MapCalibration | undefined,
   w: number,
@@ -95,7 +85,10 @@ export function worldToScreen(
 ): { x: number; y: number } {
   const { fit, baseX, baseY, imgSize } = radarLayout(w, h, view);
   if (!cal) {
-    return { x: w / 2 + wx * 0.05 * view.scale, y: h / 2 - wy * 0.05 * view.scale };
+    return {
+      x: w / 2 + wx * 0.05 * view.scale,
+      y: h / 2 - wy * 0.05 * view.scale,
+    };
   }
   const r = worldToRadar(cal, wx, wy);
   return {
