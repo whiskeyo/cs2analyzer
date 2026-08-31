@@ -1,0 +1,7 @@
+{
+  "name": "@cs2analyzer/shared",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Cross-app radar math, layout schema, CSS tokens, and tooling config for apps/web and apps/layouts."
+}
