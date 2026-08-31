@@ -1,9 +1,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { radarUrl, worldToScreen } from "@/lib/radar/maps";
-import { overlayVisible } from "@/lib/notes";
 import { publicUrl } from "@/lib/shared/publicUrl";
-import { drawArrow, drawTextLabel } from "@/lib/radar/draw";
 import { buildRadarFrame } from "@/lib/radar/radarFrame";
 import {
   paintPawns,
@@ -11,6 +9,7 @@ import {
   paintViewCone,
   paintHabitsOverlay,
 } from "@/lib/radar/paintRadarFrame";
+import { paintMapImage, paintNoteStrokes } from "@/lib/radar/staticMapPaint";
 import {
   DEFAULT_HABITS_NADE_FILTER,
   habitsTrailAtScreen,
@@ -21,7 +20,6 @@ import {
 import { TextNoteEditor, useTextNotes, type TextMove } from "@/components/radar/TextNoteEditor";
 import { useRadarPointer, type RadarPanView } from "@/lib/radar/useRadarPointer";
 import { samplePlayers } from "@/lib/replay/sample";
-import { drawSmoothLine, simplifyStroke } from "@/lib/radar/strokes";
 import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
 import type { DrawTool, FloorMode, MapLayers, Stroke, SummaryFilter } from "@/lib/notes/types";
 
@@ -249,20 +247,7 @@ export function RadarCanvas({
       ctx.beginPath();
       ctx.rect(0, 0, w, h);
       ctx.clip();
-      const pad = 16;
-      const fit = Math.min(w, h) - pad * 2;
-      const baseX = (w - fit) / 2 + v.ox;
-      const baseY = (h - fit) / 2 + v.oy;
-      if (img && img.complete && img.naturalWidth > 0) {
-        ctx.drawImage(img, baseX, baseY, fit * v.scale, fit * v.scale);
-      } else if (!calNow) {
-        ctx.fillStyle = "#1a222c";
-        ctx.fillRect(baseX, baseY, fit * v.scale, fit * v.scale);
-        ctx.fillStyle = "#8b98a5";
-        ctx.font = "13px ui-sans-serif, system-ui";
-        ctx.fillText("No radar for this map — showing world XY", pad, 24);
-      }
-
+      paintMapImage(ctx, w, h, v, img, calNow);
       paintRadarFrame(ctx, frame, toScreen, { scale: v.scale, c4Icon: c4Icon.current });
       const habitsNow = habitsOverlayRef.current;
       if (habitsNow) {
@@ -278,45 +263,13 @@ export function RadarCanvas({
         );
       }
 
-      const drawStroke = (st: Stroke, alpha = 1, live = false) => {
-        if (st.type === "bookmark") return;
-        if (st.type === "text") {
-          if (alpha < 1) return;
-          drawTextLabel(ctx, st, toScreen(st.x, st.y));
-          return;
-        }
-        ctx.globalAlpha = alpha;
-        ctx.strokeStyle = st.color;
-        ctx.fillStyle = st.color;
-        ctx.lineWidth = st.type === "arrow" ? 3.2 : 2.8;
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-        if (st.type === "pen") {
-          const worldPts = live ? st.points : simplifyStroke(st.points);
-          const pts = worldPts.map((pt) => toScreen(pt.x, pt.y));
-          drawSmoothLine(ctx, pts);
-        } else {
-          const a = toScreen(st.from.x, st.from.y);
-          const b = toScreen(st.to.x, st.to.y);
-          drawArrow(ctx, a, b, st.color, 3.2);
-        }
-        ctx.globalAlpha = 1;
-      };
-      const roundNow = frame.round?.number ?? 0;
-      const skipText = editingRef.current?.index;
-      const moving = textMoveRef.current;
-      strokesRef.current.forEach((st, i) => {
-        if (!overlayVisible(st, tickNow, roundNow, strokesRef.current)) return;
-        if (st.type === "text" && skipText === i) return;
-        if (st.type === "text" && moving && moving.index === i && moving.moved) {
-          drawStroke({ ...st, x: moving.x, y: moving.y });
-          return;
-        }
-        drawStroke(st);
+      paintNoteStrokes(ctx, strokesRef.current, toScreen, {
+        tick: tickNow,
+        round: frame.round?.number ?? 0,
+        skipTextIndex: editingRef.current?.index,
+        textMove: textMoveRef.current,
+        draft: draft.current,
       });
-      if (draft.current && overlayVisible(draft.current, tickNow, roundNow, strokesRef.current)) {
-        drawStroke(draft.current, 0.85, true);
-      }
       const ed = editingRef.current;
       const wrapBox = editWrapRef.current;
       if (ed && wrapBox && calNow) {
