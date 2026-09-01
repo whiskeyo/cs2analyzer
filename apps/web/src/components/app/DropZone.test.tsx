@@ -1,10 +1,17 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PROJECT_SCHEMA, type ReviewProject } from "@/lib/notes/projectStore";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import { DropZone } from "./DropZone";
+
+vi.mock("@/lib/notes/projectStore", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/notes/projectStore")>();
+  return { ...actual, demoFilePickerAvailable: vi.fn(() => false) };
+});
+
+import { demoFilePickerAvailable } from "@/lib/notes/projectStore";
 
 const noop = () => {};
 
@@ -44,6 +51,10 @@ function savedProject(overrides: Partial<ReviewProject> = {}): ReviewProject {
 }
 
 describe("DropZone", () => {
+  beforeEach(() => {
+    vi.mocked(demoFilePickerAvailable).mockReturnValue(false);
+  });
+
   it("hands a picked demo to the parser", async () => {
     const onFiles = vi.fn();
     const { container } = render(<DropZone {...props({ onFiles })} />);
@@ -188,5 +199,123 @@ describe("DropZone", () => {
       "href",
       "https://steamcommunity.com/tradeoffer/new/?partner=69520211&token=YCinud5X",
     );
+  });
+
+  it("accepts dropped demos on the main drop zone", () => {
+    const onFiles = vi.fn();
+    const { container } = render(<DropZone {...props({ onFiles })} />);
+    const drop = container.querySelector(".drop") as HTMLElement;
+    const demo = new File(["fake"], "drop.dem");
+    fireEvent.drop(drop, { dataTransfer: { files: [demo] } });
+    expect(onFiles).toHaveBeenCalledTimes(1);
+    expect(onFiles.mock.calls[0][0][0].name).toBe("drop.dem");
+  });
+
+  it("exports notes when the button is enabled", async () => {
+    const onExportNotes = vi.fn();
+    render(<DropZone {...props({ saved: [savedProject()], onExportNotes })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Export notes" }));
+    expect(onExportNotes).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the remove-notes modal and requires confirmation", async () => {
+    const onRemoveAllNotes = vi.fn();
+    render(<DropZone {...props({ saved: [savedProject()], onRemoveAllNotes })} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Remove all saved notes?");
+
+    const removeBtn = screen.getByRole("button", { name: "Remove all notes" });
+    expect(removeBtn).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText("Confirmation phrase"), "yes, remove notes");
+    expect(removeBtn).toBeEnabled();
+
+    await userEvent.click(removeBtn);
+    expect(onRemoveAllNotes).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the remove-notes modal on cancel or Escape", async () => {
+    render(<DropZone {...props({ saved: [savedProject()] })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("restores notes when the matching demo is dropped in the modal", async () => {
+    const onFiles = vi.fn();
+    const onTryOpenSaved = vi.fn(async () => null);
+    render(<DropZone {...props({ saved: [savedProject()], onFiles, onTryOpenSaved })} />);
+
+    await userEvent.click(screen.getByText("a.dem"));
+    const dialog = screen.getByRole("dialog");
+    const demo = new File(["fake"], "a.dem");
+    fireEvent.drop(dialog, { dataTransfer: { files: [demo] } });
+
+    expect(onFiles).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("loads a linked demo without opening the restore modal", async () => {
+    const onFiles = vi.fn();
+    const file = new File(["fake"], "a.dem");
+    const onTryOpenSaved = vi.fn(async () => file);
+    render(<DropZone {...props({ saved: [savedProject()], onFiles, onTryOpenSaved })} />);
+
+    await userEvent.click(screen.getByText("a.dem"));
+    expect(onFiles).toHaveBeenCalledWith([file]);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("shows link-demo when the file picker API is available", async () => {
+    vi.mocked(demoFilePickerAvailable).mockReturnValue(true);
+    const onLinkDemoFile = vi.fn();
+    render(<DropZone {...props({ saved: [savedProject()], onLinkDemoFile })} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Link demo" }));
+    expect(onLinkDemoFile).toHaveBeenCalledWith(expect.objectContaining({ fileName: "a.dem" }));
+  });
+
+  it("shows saved metadata and paginates backward", async () => {
+    const saved = Array.from({ length: 6 }, (_, i) =>
+      savedProject({
+        key: `de_mirage|1|50,100|${i}.dem`,
+        fileName: i === 0 ? "" : `${i}.dem`,
+        fileSizeBytes: 2 * 1024 * 1024,
+        linkedFileLabel: "linked.dem",
+        savedAt: 0,
+        strokes: [{ type: "pen", round: 1, color: "#fff", points: [{ x: 0, y: 0 }] }],
+      }),
+    );
+    render(<DropZone {...props({ saved })} />);
+
+    expect(screen.getByText("unnamed.dem")).toBeInTheDocument();
+    expect(screen.getAllByText(/1 drawing/)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/2(\.0)? MB/)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/linked: linked\.dem/)[0]).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(screen.getByText("unnamed.dem")).toBeInTheDocument();
+  });
+
+  it("dismisses the restore modal when clicking the backdrop", async () => {
+    render(<DropZone {...props({ saved: [savedProject()] })} />);
+    await userEvent.click(screen.getByText("a.dem"));
+    await userEvent.click(screen.getByRole("dialog").parentElement as HTMLElement);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("dismisses the remove-notes modal from the backdrop", async () => {
+    render(<DropZone {...props({ saved: [savedProject()] })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
+    await userEvent.click(screen.getByRole("dialog").parentElement as HTMLElement);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
