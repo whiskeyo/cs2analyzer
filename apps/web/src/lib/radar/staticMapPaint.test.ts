@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { paintMapImage, paintNoteStrokes, paintStroke } from "./staticMapPaint";
+import { paintMapImage, paintNoteStrokes, paintStaticMap, paintStroke } from "./staticMapPaint";
 import type { Stroke } from "@/lib/notes/types";
 
 function mockCtx() {
@@ -49,6 +49,25 @@ describe("paintMapImage", () => {
 describe("paintNoteStrokes", () => {
   const toScreen = (x: number, y: number) => ({ x, y });
 
+  it("skips the text stroke currently being edited", () => {
+    const ctx = mockCtx();
+    const strokes: Stroke[] = [
+      { type: "text", round: 1, color: "#fff", x: 0, y: 0, text: "edit me" },
+      {
+        type: "pen",
+        round: 1,
+        color: "#fff",
+        points: [
+          { x: 0, y: 0 },
+          { x: 5, y: 5 },
+        ],
+      },
+    ];
+    paintNoteStrokes(ctx, strokes, toScreen, { tick: 100, round: 1, skipTextIndex: 0 });
+    expect(ctx.stroke).toHaveBeenCalled();
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+
   it("skips bookmarks and hidden strokes", () => {
     const ctx = mockCtx();
     const strokes: Stroke[] = [
@@ -76,6 +95,47 @@ describe("paintNoteStrokes", () => {
     ];
     paintNoteStrokes(ctx, strokes, toScreen, { tick: 100, round: 1 });
     expect(ctx.stroke).toHaveBeenCalledTimes(1);
+  });
+
+  it("moves a text note while dragging and paints static maps", () => {
+    const ctx = mockCtx();
+    const strokes: Stroke[] = [
+      {
+        type: "text",
+        round: 1,
+        color: "#fff",
+        x: 10,
+        y: 20,
+        text: "note",
+        box_w: 80,
+        box_h: 40,
+      },
+    ];
+    paintNoteStrokes(ctx, strokes, toScreen, {
+      tick: 100,
+      round: 1,
+      textMove: {
+        index: 0,
+        x: 30,
+        y: 40,
+        moved: true,
+      },
+    });
+    expect(ctx.fillText).toHaveBeenCalled();
+
+    const img = { complete: true, naturalWidth: 1024 } as HTMLImageElement;
+    paintStaticMap(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      img,
+      undefined,
+      strokes,
+      { tick: 100, round: 1 },
+      toScreen,
+    );
+    expect(ctx.drawImage).toHaveBeenCalled();
   });
 });
 

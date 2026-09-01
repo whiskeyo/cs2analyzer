@@ -2,6 +2,16 @@ import type { GrenadeKind } from "@/lib/replay/replayTypes";
 
 export type DrawTool = "pan" | "pen" | "arrow" | "text" | "bookmark" | "eraser";
 
+/** Canvas cursor per draw tool — keep exhaustive when adding a tool. */
+export const RADAR_TOOL_CURSOR = {
+  pan: "grab",
+  pen: "crosshair",
+  arrow: "crosshair",
+  text: "crosshair",
+  bookmark: "pointer",
+  eraser: "cell",
+} satisfies Record<DrawTool, string>;
+
 export type FloorMode = "auto" | "upper" | "lower";
 
 export interface MapLayers {

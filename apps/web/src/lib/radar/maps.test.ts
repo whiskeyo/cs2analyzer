@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { floorForZ, radarFloor } from "./maps";
+import { describe, expect, it, vi } from "vitest";
+import { calibrationFor, floorForZ, loadCalibrations, radarFloor, worldOnRadar } from "./maps";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
 const nuke: MapCalibration = {
@@ -47,5 +47,39 @@ describe("radarFloor", () => {
       player(4, 20),
     ];
     expect(radarFloor(nuke, players, null)).toBe("lower");
+  });
+});
+
+describe("loadCalibrations", () => {
+  it("fetches once and caches map calibrations", async () => {
+    const payload = { de_test: nuke };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal("fetch", fetchMock);
+    const first = await loadCalibrations();
+    const second = await loadCalibrations();
+    expect(first).toEqual(payload);
+    expect(second).toBe(first);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("calibrationFor", () => {
+  it("normalizes workshop and scrimmage map paths", () => {
+    const maps = { de_mirage: nuke };
+    expect(calibrationFor(maps, "workshop/de_mirage")).toBe(nuke);
+    expect(calibrationFor(maps, "de_mirage_scrimmagemap")).toBe(nuke);
+    expect(calibrationFor(maps, "de_unknown")).toBeUndefined();
+  });
+});
+
+describe("worldOnRadar", () => {
+  it("accepts positions inside the overview margin", () => {
+    expect(worldOnRadar(nuke, 0, 0)).toBe(true);
+    expect(worldOnRadar(undefined, 0, 0)).toBe(true);
+  });
+
+  it("rejects positions far outside the overview", () => {
+    expect(worldOnRadar(nuke, 1_000_000, 1_000_000)).toBe(false);
   });
 });

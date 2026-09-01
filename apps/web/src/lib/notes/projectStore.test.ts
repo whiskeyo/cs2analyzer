@@ -1,12 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parseJson } from "@shared/validate/json.ts";
 import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
 import { COLOR_PRESETS } from "./palettes";
 import {
   PROJECT_SCHEMA,
+  defaultColor,
+  defaultPaletteId,
+  demoFilePickerAvailable,
+  isNotesFile,
   matchKey,
   parseBundle,
   parseProject,
+  pickDemoFileHandle,
   serializeBundle,
   type ReviewProject,
 } from "./projectStore";
@@ -193,5 +198,48 @@ describe("parseBundle", () => {
       start_tick: 80,
       end_tick: 80,
     });
+  });
+});
+
+describe("defaultPaletteId / defaultColor", () => {
+  it("returns the first preset", () => {
+    expect(defaultPaletteId()).toBe(COLOR_PRESETS[0].id);
+    expect(defaultColor()).toBe(COLOR_PRESETS[0].colors[0]);
+  });
+});
+
+describe("isNotesFile", () => {
+  it("accepts json filenames and mime types", () => {
+    expect(isNotesFile(new File([], "notes.json"))).toBe(true);
+    expect(isNotesFile(new File([], "notes.JSON"))).toBe(true);
+    expect(isNotesFile(new File([], "notes.txt", { type: "application/json" }))).toBe(true);
+    expect(isNotesFile(new File([], "match.dem"))).toBe(false);
+  });
+});
+
+describe("serializeBundle", () => {
+  it("wraps projects with schema and exportedAt", () => {
+    const raw = parseJson(serializeBundle([project()]));
+    expect(raw).toMatchObject({
+      schema: PROJECT_SCHEMA,
+      projects: [expect.objectContaining({ key: project().key })],
+    });
+    expect(typeof (raw as { exportedAt: number }).exportedAt).toBe("number");
+  });
+});
+
+describe("demo file picker", () => {
+  it("returns null when the picker API is unavailable", async () => {
+    expect(demoFilePickerAvailable()).toBe(false);
+    await expect(pickDemoFileHandle()).resolves.toBeNull();
+  });
+
+  it("returns the first selected handle", async () => {
+    const handle = { name: "match.dem" } as FileSystemFileHandle;
+    const open = vi.fn().mockResolvedValue([handle]);
+    vi.stubGlobal("window", { showOpenFilePicker: open });
+    expect(demoFilePickerAvailable()).toBe(true);
+    await expect(pickDemoFileHandle()).resolves.toBe(handle);
+    vi.unstubAllGlobals();
   });
 });

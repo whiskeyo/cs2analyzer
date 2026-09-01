@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { computeStats } from "./computeStats";
-import { makeHurt, makeKill, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
+import {
+  makeBlind,
+  makeBombEvent,
+  makeFreezeTicks,
+  makeGrenade,
+  makeHurt,
+  makeKill,
+  makePlayer,
+  makeReplay,
+  makeRound,
+} from "@/lib/testing/fixtures";
 
 describe("computeStats", () => {
   it("caps ADR at remaining HP and ignores overkill", () => {
@@ -125,5 +135,116 @@ describe("computeStats", () => {
     });
     const stats = computeStats(m, 640);
     expect(stats[0].adr).toBe(40);
+  });
+
+  it("credits flash assists and enemy blinds", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "CT", "C")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 1, { assister: 2, assisted_flash: true })],
+      blinds: [makeBlind(90, 0, 1, 2.5)],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[2].flash_assists).toBe(1);
+    expect(stats[0].enemies_flashed).toBe(1);
+    expect(stats[0].flash_time).toBeCloseTo(2.5);
+  });
+
+  it("counts utility damage, grenades, and bomb plants", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      hurts: [makeHurt(90, 0, 1, 30, { weapon: "hegrenade" })],
+      grenades: [makeGrenade({ kind: "smoke", thrower: 0 })],
+      bombEvents: [makeBombEvent({ tick: 200, kind: "planted", player: 1 })],
+      kills: [makeKill(250, 0, 1, { weapon: "hegrenade" })],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[0].utility_damage).toBe(30);
+    expect(stats[0].nades).toBe(1);
+    expect(stats[0].he_kills).toBe(1);
+    expect(stats[1].plants).toBe(1);
+  });
+
+  it("records defuses and multi-kill rounds", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "T", "C")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 1), makeKill(110, 0, 2), makeKill(120, 2, 0)],
+      bombEvents: [makeBombEvent({ tick: 300, kind: "defused", player: 0 })],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[0].defuses).toBe(1);
+    expect(stats[0].multi_kills_2).toBe(1);
+  });
+
+  it("tracks clutch wins for 1v1 and 1v3 situations", () => {
+    const m1 = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64 })],
+      ticks: makeFreezeTicks(2, 1, 64),
+      kills: [],
+    });
+    expect(computeStats(m1, 640)[0].clutch_1v1).toBe(1);
+
+    const m3 = makeReplay({
+      players: [
+        makePlayer(0, "CT", "A"),
+        makePlayer(1, "T", "B"),
+        makePlayer(2, "T", "C"),
+        makePlayer(3, "T", "D"),
+      ],
+      rounds: [makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64 })],
+      ticks: makeFreezeTicks(4, 1, 64),
+      kills: [],
+    });
+    expect(computeStats(m3, 640)[0].clutch_1v3).toBe(1);
+  });
+
+  it("reuses cached stats for the same replay and tick", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 1)],
+    });
+    const first = computeStats(m, 640);
+    first[0].kills = 999;
+    const second = computeStats(m, 640);
+    expect(second[0].kills).toBe(999);
+  });
+
+  it("counts triples, quads, and aces in one round", () => {
+    const quad = makeReplay({
+      players: [
+        makePlayer(0, "CT", "A"),
+        makePlayer(1, "T", "B"),
+        makePlayer(2, "T", "C"),
+        makePlayer(3, "T", "D"),
+        makePlayer(4, "T", "E"),
+      ],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 1), makeKill(110, 0, 2), makeKill(120, 0, 3), makeKill(130, 0, 4)],
+    });
+    expect(computeStats(quad, 640)[0].multi_kills_4).toBe(1);
+
+    const ace = makeReplay({
+      players: [
+        makePlayer(0, "CT", "A"),
+        makePlayer(1, "T", "B"),
+        makePlayer(2, "T", "C"),
+        makePlayer(3, "T", "D"),
+        makePlayer(4, "T", "E"),
+        makePlayer(5, "T", "F"),
+      ],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [
+        makeKill(100, 0, 1),
+        makeKill(110, 0, 2),
+        makeKill(120, 0, 3),
+        makeKill(130, 0, 4),
+        makeKill(140, 0, 5),
+      ],
+    });
+    expect(computeStats(ace, 640)[0].aces).toBe(1);
   });
 });

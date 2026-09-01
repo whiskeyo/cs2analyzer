@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Replay } from "@/lib/replay/replayTypes";
 import {
   FIRST_OVERTIME_ROUND,
@@ -9,8 +9,11 @@ import {
 import { makeFreezeTicks, makeReplay, makeRound } from "@/lib/testing/fixtures";
 import {
   groupParsedDemosByMap,
+  mapNameFromReplay,
   parsePoolBar,
+  parsePoolOverallPct,
   parsePoolSize,
+  runParsePool,
   type ParseFileResult,
 } from "./parsePool";
 import { loadedDemo } from "./session";
@@ -48,6 +51,148 @@ describe("parsePoolBar", () => {
       current: 150,
       total: 300,
     });
+  });
+});
+
+describe("parsePoolOverallPct", () => {
+  it("returns zero for an empty pool", () => {
+    expect(parsePoolOverallPct({ completed: 0, total: 0, inFlightFraction: 0, files: [] })).toBe(0);
+  });
+
+  it("rounds blended progress to a percentage", () => {
+    expect(parsePoolOverallPct({ completed: 1, total: 2, inFlightFraction: 0.5, files: [] })).toBe(
+      75,
+    );
+  });
+});
+
+describe("mapNameFromReplay", () => {
+  it("reads the header map name", () => {
+    expect(mapNameFromReplay(makeReplay({ header: { map_name: "de_inferno" } }))).toBe(
+      "de_inferno",
+    );
+  });
+});
+
+describe("groupParsedDemosByMap errors", () => {
+  it("collects parse errors in skipped", () => {
+    const { groups, skipped } = groupParsedDemosByMap([
+      { file: new File([], "bad.dem"), error: "corrupt" },
+    ]);
+    expect(groups).toEqual([]);
+    expect(skipped).toEqual(["bad.dem: corrupt"]);
+  });
+});
+
+describe("runParsePool", () => {
+  beforeEach(() => {
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function mockWorker(
+    replay: Replay,
+    outcome: "done" | "error" | "fail" | "unknown" = "done",
+    message = "Parse failed",
+  ) {
+    let onmessage: ((ev: MessageEvent) => void) | null = null;
+    let onerror: ((ev: ErrorEvent) => void) | null = null;
+    return {
+      set onmessage(fn: ((ev: MessageEvent) => void) | null) {
+        onmessage = fn;
+      },
+      get onmessage() {
+        return onmessage;
+      },
+      set onerror(fn: ((ev: ErrorEvent) => void) | null) {
+        onerror = fn;
+      },
+      get onerror() {
+        return onerror;
+      },
+      terminate: vi.fn(),
+      postMessage: vi.fn(() => {
+        if (outcome === "fail") {
+          onerror?.({ message: "Worker failed" } as ErrorEvent);
+          return;
+        }
+        onmessage?.({
+          data: { type: "progress", current: 1, total: 2 },
+        } as MessageEvent);
+        if (outcome === "done") {
+          onmessage?.({
+            data: {
+              type: "done",
+              replay,
+              timings: { initMs: 1, parseMs: 2, jsonMs: 3, buffersMs: 4, totalMs: 10 },
+            },
+          } as MessageEvent);
+          return;
+        }
+        if (outcome === "error") {
+          onmessage?.({ data: { type: "error", message } } as MessageEvent);
+          return;
+        }
+        onmessage?.({ data: { type: "cancelled" } } as MessageEvent);
+      }),
+    } as unknown as Worker;
+  }
+
+  it("returns an empty array for no files", async () => {
+    const onProgress = vi.fn();
+    await expect(runParsePool(() => mockWorker(makeReplay()), [], onProgress)).resolves.toEqual([]);
+    expect(onProgress).not.toHaveBeenCalled();
+  });
+
+  it("parses files in order and reports per-file progress", async () => {
+    const replayA = makeReplay({ header: { map_name: "de_a" } });
+    const replayB = makeReplay({ header: { map_name: "de_b" } });
+    let n = 0;
+    const createWorker = () => mockWorker(n++ === 0 ? replayA : replayB);
+    const onProgress = vi.fn();
+    const files = [new File([], "a.dem"), new File([], "b.dem")];
+    const results = await runParsePool(createWorker, files, onProgress);
+    expect(results).toHaveLength(2);
+    expect(results[0].demo?.replay.header.map_name).toBe("de_a");
+    expect(results[1].demo?.replay.header.map_name).toBe("de_b");
+    const last = onProgress.mock.calls.at(-1)?.[0];
+    expect(last?.completed).toBe(2);
+    expect(last?.files.every((f: { state: string }) => f.state === "done")).toBe(true);
+  });
+
+  it("records worker errors on the matching file row", async () => {
+    const onProgress = vi.fn();
+    const results = await runParsePool(
+      () => mockWorker(makeReplay(), "error", "bad header"),
+      [new File([], "broken.dem")],
+      onProgress,
+    );
+    expect(results[0].error).toBe("bad header");
+    const last = onProgress.mock.calls.at(-1)?.[0];
+    expect(last?.files[0]).toMatchObject({ name: "broken.dem", state: "error", pct: 100 });
+  });
+
+  it("handles worker onerror and unknown message types", async () => {
+    const onProgress = vi.fn();
+    const fail = await runParsePool(
+      () => mockWorker(makeReplay(), "fail"),
+      [new File([], "fail.dem")],
+      onProgress,
+    );
+    expect(fail[0].error).toBe("Worker failed");
+    const unknown = await runParsePool(
+      () => mockWorker(makeReplay(), "unknown"),
+      [new File([], "weird.dem")],
+      onProgress,
+    );
+    expect(unknown[0].error).toBe("Parse failed");
   });
 });
 

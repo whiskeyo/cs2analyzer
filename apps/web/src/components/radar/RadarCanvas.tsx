@@ -22,7 +22,14 @@ import { TextNoteEditor, useTextNotes, type TextMove } from "@/components/radar/
 import { useRadarPointer, type RadarPanView } from "@/lib/radar/useRadarPointer";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
-import type { DrawTool, FloorMode, MapLayers, Stroke, SummaryFilter } from "@/lib/notes/types";
+import {
+  RADAR_TOOL_CURSOR,
+  type DrawTool,
+  type FloorMode,
+  type MapLayers,
+  type Stroke,
+  type SummaryFilter,
+} from "@/lib/notes/types";
 
 interface Props {
   replay: Replay;
@@ -402,17 +409,8 @@ export function RadarCanvas({
     }
   };
 
-  const cursor =
-    tool === "pan"
-      ? "grab"
-      : tool === "eraser"
-        ? "cell"
-        : tool === "bookmark"
-          ? "pointer"
-          : "crosshair";
-
   return (
-    <div className="radar-wrap" ref={wrapRef} style={{ cursor }}>
+    <div className="radar-wrap" ref={wrapRef} style={{ cursor: RADAR_TOOL_CURSOR[tool] }}>
       <canvas ref={canvasRef} onClick={onClick} onDoubleClick={onDoubleClick} />
       {editing && (
         <TextNoteEditor

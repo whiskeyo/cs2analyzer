@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { simplifyStroke, spacePoints } from "./strokes";
+import { createMockCanvas } from "@/lib/testing/mockCanvas";
+import { drawSmoothLine, simplifyStroke, spacePoints } from "./strokes";
 
 describe("spacePoints", () => {
   it("keeps endpoints and drops stacked samples", () => {
@@ -52,5 +53,51 @@ describe("simplifyStroke", () => {
     expect(out.length).toBe(pts.length);
     const nearCorner = out.some((p) => p.x >= 90 && p.y <= 30);
     expect(nearCorner).toBe(true);
+  });
+});
+
+describe("drawSmoothLine", () => {
+  it("no-ops on an empty path", () => {
+    const ctx = createMockCanvas();
+    drawSmoothLine(ctx, []);
+    expect(ctx.beginPath).not.toHaveBeenCalled();
+  });
+
+  it("strokes a single point", () => {
+    const ctx = createMockCanvas();
+    drawSmoothLine(ctx, [{ x: 5, y: 10 }]);
+    expect(ctx.beginPath).toHaveBeenCalledTimes(1);
+    expect(ctx.moveTo).toHaveBeenCalledWith(5, 10);
+    expect(ctx.lineTo).not.toHaveBeenCalled();
+    expect(ctx.quadraticCurveTo).not.toHaveBeenCalled();
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws a straight segment for two points", () => {
+    const ctx = createMockCanvas();
+    drawSmoothLine(ctx, [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+    ]);
+    expect(ctx.moveTo).toHaveBeenCalledWith(0, 0);
+    expect(ctx.lineTo).toHaveBeenCalledWith(20, 0);
+    expect(ctx.quadraticCurveTo).not.toHaveBeenCalled();
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses quadratic midpoints for longer strokes", () => {
+    const ctx = createMockCanvas();
+    const pts = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 20, y: 10 },
+      { x: 30, y: 10 },
+    ];
+    drawSmoothLine(ctx, pts);
+    expect(ctx.moveTo).toHaveBeenCalledWith(0, 0);
+    expect(ctx.quadraticCurveTo).toHaveBeenCalledWith(10, 0, 15, 5);
+    expect(ctx.quadraticCurveTo).toHaveBeenCalledWith(20, 10, 25, 10);
+    expect(ctx.lineTo).toHaveBeenCalledWith(30, 10);
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
   });
 });
