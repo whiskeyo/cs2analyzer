@@ -54,7 +54,10 @@ export function SeriesBar() {
                 className={demo.id === activeId ? "series-file active" : "series-file"}
                 style={demoColor ? ({ "--demo-color": demoColor } as CSSProperties) : undefined}
                 title={`${roundCount} tagged rounds · already parsed`}
-                onClick={() => session.selectDemo(demo.id)}
+                onClick={() => {
+                  if (aggregated) habits.setSeriesView("demos");
+                  session.selectDemo(demo.id);
+                }}
               >
                 {demo.fileName}
               </button>

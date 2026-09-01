@@ -3,7 +3,9 @@
  * mechanics: if something looks wrong on the radar, the frame model says why.
  */
 
+import type { MapCalibration } from "@/lib/replay/replayTypes";
 import { drawArrow, drawC4, drawHeBurst, yawToCanvas } from "@/lib/radar/draw";
+import { worldOnRadar } from "@/lib/radar/maps";
 import type {
   HabitsNadeFilter,
   SeriesOverlay,
@@ -56,18 +58,19 @@ function dial(
   radius: number,
   left: number,
   color: string,
+  opacity = 1,
 ) {
-  ctx.globalAlpha = 0.85;
+  ctx.globalAlpha = 0.85 * opacity;
   ctx.fillStyle = DIAL_BACKDROP;
   circle(ctx, at, radius + 1.2);
   ctx.fill();
-  ctx.globalAlpha = 0.35;
+  ctx.globalAlpha = 0.35 * opacity;
   ctx.strokeStyle = color;
   ctx.lineWidth = 1.3;
   circle(ctx, at, radius);
   ctx.stroke();
   if (left <= 0) return;
-  ctx.globalAlpha = 0.95;
+  ctx.globalAlpha = 0.95 * opacity;
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(at.x, at.y);
@@ -81,13 +84,14 @@ function paintNade(
   nade: NadeRender,
   toScreen: ToScreen,
   scale: number,
+  opacity = 1,
 ) {
   const color = nade.color;
   if (nade.phase === "flight") {
     ctx.strokeStyle = color;
     ctx.lineWidth = nade.kind === "he" ? 2.2 : 1.8;
     ctx.setLineDash(nade.kind === "he" ? [6, 4] : []);
-    ctx.globalAlpha = 0.9;
+    ctx.globalAlpha = 0.9 * opacity;
     ctx.beginPath();
     nade.trail.forEach((p, i) => {
       const s = toScreen(p.x, p.y);
@@ -103,7 +107,7 @@ function paintNade(
     if (nade.trail.length > 0) ctx.lineTo(s.x, s.y);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = opacity;
     ctx.fillStyle = color;
     ctx.beginPath();
     if (nade.kind === "he") {
@@ -121,13 +125,20 @@ function paintNade(
 
   if (nade.phase === "fires") {
     ctx.fillStyle = color;
-    ctx.globalAlpha = 0.42;
+    ctx.globalAlpha = 0.42 * opacity;
     for (const cell of nade.cells) {
       const s = toScreen(cell.x, cell.y);
       circle(ctx, s, nade.cellRadius);
       ctx.fill();
     }
-    dial(ctx, toScreen(nade.centroid.x, nade.centroid.y), nade.dialRadius, nade.left, color);
+    dial(
+      ctx,
+      toScreen(nade.centroid.x, nade.centroid.y),
+      nade.dialRadius,
+      nade.left,
+      color,
+      opacity,
+    );
     return;
   }
 
@@ -135,21 +146,21 @@ function paintNade(
   if (nade.phase === "linger") {
     ctx.fillStyle = color;
     ctx.strokeStyle = color;
-    ctx.globalAlpha = 0.22;
+    ctx.globalAlpha = 0.22 * opacity;
     circle(ctx, at, nade.radius);
     ctx.fill();
-    ctx.globalAlpha = 0.4;
+    ctx.globalAlpha = 0.4 * opacity;
     ctx.lineWidth = 1.4;
     circle(ctx, at, nade.radius);
     ctx.stroke();
-    dial(ctx, at, nade.dialRadius, nade.left, color);
+    dial(ctx, at, nade.dialRadius, nade.left, color, opacity);
     return;
   }
   if (nade.phase === "burst") {
-    drawHeBurst(ctx, at, color, nade.progress, scale);
+    drawHeBurst(ctx, at, color, nade.progress, scale, opacity);
     return;
   }
-  ctx.globalAlpha = nade.alpha;
+  ctx.globalAlpha = nade.alpha * opacity;
   ctx.fillStyle = color;
   circle(ctx, at, nade.radius);
   ctx.fill();
@@ -278,7 +289,33 @@ export function paintRadarFrame(
   }
 }
 
-/** Habits overlay: freeze-aligned paths, optional heatmap, and util arcs. */
+function paintHabitsArrow(
+  ctx: CanvasRenderingContext2D,
+  toScreen: ToScreen,
+  x: number,
+  y: number,
+  yaw: number,
+  color: string,
+) {
+  const s = toScreen(x, y);
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  ctx.rotate(yawToCanvas(yaw));
+  ctx.beginPath();
+  const size = 7;
+  ctx.moveTo(size + 2, 0);
+  ctx.lineTo(-size * 0.7, size * 0.7);
+  ctx.lineTo(-size * 0.35, 0);
+  ctx.lineTo(-size * 0.7, -size * 0.7);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.92;
+  ctx.fill();
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+/** Habits overlay: freeze-aligned paths, optional heatmap, util, and player arrows. */
 export function paintHabitsOverlay(
   ctx: CanvasRenderingContext2D,
   overlay: SeriesOverlay,
@@ -286,10 +323,23 @@ export function paintHabitsOverlay(
   nadeFilter: HabitsNadeFilter,
   toScreen: ToScreen,
   scale: number,
-  playSec?: number,
+  opts: {
+    showTrails?: boolean;
+    showArrows?: boolean;
+    nadesOn?: boolean;
+    nadeOpacity?: number;
+    playSec?: number;
+    cal?: MapCalibration;
+  } = {},
 ) {
+  const showTrails = opts.showTrails ?? true;
+  const showArrows = opts.showArrows ?? false;
+  const nadesOn = opts.nadesOn ?? true;
+  const nadeOpacity = opts.nadeOpacity ?? 1;
+  const playSec = opts.playSec;
+  const cal = opts.cal;
   const visible = playSec != null ? overlayAtPlaySec(overlay, playSec) : overlay;
-  if (display === "heatmap") {
+  if (showTrails && display === "heatmap") {
     for (const dot of visible.heatDots) {
       const s = toScreen(dot.x, dot.y);
       ctx.fillStyle = `rgba(255, 210, 90, ${dot.alpha})`;
@@ -297,7 +347,7 @@ export function paintHabitsOverlay(
       ctx.arc(s.x, s.y, 10, 0, Math.PI * 2);
       ctx.fill();
     }
-  } else {
+  } else if (showTrails && display === "trails") {
     for (const trail of visible.trails) {
       ctx.strokeStyle = trail.color;
       ctx.lineWidth = 2.2;
@@ -310,10 +360,24 @@ export function paintHabitsOverlay(
       });
       ctx.stroke();
     }
+    ctx.globalAlpha = 1;
+    for (const trail of visible.trails) {
+      if (trail.deathAt) paintDeathCross(ctx, toScreen, trail.deathAt.x, trail.deathAt.y);
+    }
   }
-  ctx.globalAlpha = 1;
-  for (const trail of visible.trails) {
-    if (trail.deathAt) paintDeathCross(ctx, toScreen, trail.deathAt.x, trail.deathAt.y);
+
+  if (showArrows) {
+    for (const trail of visible.trails) {
+      const head = trail.points.at(-1);
+      if (!head) continue;
+      if (cal && !worldOnRadar(cal, head.x, head.y)) continue;
+      paintHabitsArrow(ctx, toScreen, head.x, head.y, head.yaw, trail.color);
+    }
+  }
+
+  if (!nadesOn) {
+    ctx.globalAlpha = 1;
+    return;
   }
 
   for (const nade of visible.nades) {
@@ -324,8 +388,8 @@ export function paintHabitsOverlay(
         : habitsNadeViewTick(nade, overlay.windowSec);
     const render = nadeRenderAt(nade.grenade, viewTick, nade.tps, scale, nade.roundEndTick);
     if (!render) continue;
-    ctx.globalAlpha = display === "heatmap" ? 0.28 : 1;
-    paintNade(ctx, render, toScreen, scale);
+    const opacity = (display === "heatmap" ? 0.28 : 1) * nadeOpacity;
+    paintNade(ctx, render, toScreen, scale, opacity);
   }
   ctx.globalAlpha = 1;
 }

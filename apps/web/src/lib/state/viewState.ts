@@ -24,10 +24,10 @@ export function useViewState(demoId: string | null) {
     setLayers(DEFAULT_LAYERS);
   });
 
-  /** Selecting a player also starts tracking them; deselecting stops. */
+  /** Selecting a player highlights them; tracking is opt-in (Track / F). */
   const select = useCallback((index: number | null) => {
     setSelected(index);
-    setFollow(index != null);
+    if (index == null) setFollow(false);
   }, []);
 
   const resetView = useCallback(() => setViewEpoch((n) => n + 1), []);

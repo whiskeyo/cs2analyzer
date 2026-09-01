@@ -557,6 +557,32 @@ code {
   background: transparent;
   border: 0;
   gap: 0.25rem;
+  flex-wrap: wrap;
+}
+.habits-nade-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.habits-nade-opacity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.habits-nade-opacity input[type="range"] {
+  width: 72px;
+}
+.series-nade-legend button.habits-nade-all {
+  min-width: 24px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+.series-nade-legend button.habits-nade-all.on,
+.series-nade-legend button.habits-nade-all:hover {
+  opacity: 1;
 }
 .series-filters .series-nade-legend button {
   min-height: var(--series-control-h);
@@ -1723,11 +1749,12 @@ button.link {
 }
 
 .controls {
+  --ctrl-btn-h: 1.85rem;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem 0.7rem;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 1rem calc(0.5rem + 14px);
   background: #10151b;
   border-top: 1px solid #1e2732;
 }
@@ -1738,6 +1765,16 @@ button.link {
   border: 1px solid #2c3846;
   border-radius: 6px;
   padding: 0.3rem 0.6rem;
+  box-sizing: border-box;
+}
+.controls button:not(.timeline-event):not(.timeline-bookmark):not(.icon-btn) {
+  height: var(--ctrl-btn-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.controls select {
+  height: var(--ctrl-btn-h);
 }
 .controls button {
   cursor: pointer;
@@ -1749,24 +1786,62 @@ button.link {
 .timeline-wrap {
   flex: 1 1 220px;
   min-width: 160px;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  height: var(--ctrl-btn-h);
+  position: relative;
 }
 .timeline-bar {
   position: relative;
-  height: 22px;
+  height: 100%;
 }
 .timeline-bookmarks {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100%;
   pointer-events: none;
   z-index: 2;
+}
+.timeline-events {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+.controls button.timeline-event {
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  width: calc(var(--ctrl-btn-h) * 0.85);
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.controls button.timeline-event svg,
+.controls button.timeline-event img {
+  display: block;
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
 }
 .controls button.timeline-bookmark {
   pointer-events: auto;
   position: absolute;
-  top: 8px;
+  top: 0;
   width: 12px;
   height: 12px;
   margin: 0;
@@ -1799,7 +1874,8 @@ button.link {
 .controls button.timeline-bookmark.round {
   transform: none;
   height: 2px;
-  top: 16px;
+  top: calc(100% - 2px);
+  bottom: auto;
   border-radius: 1px;
   background: currentColor;
   opacity: 0.95;
@@ -1832,39 +1908,48 @@ button.link {
   right: 0;
   transform: translateX(50%);
 }
-.timeline-rail {
+.timeline-track {
   position: absolute;
   left: 0;
   right: 0;
-  top: 5px;
-  height: 8px;
-  border-radius: 4px;
-  background: #1c242e;
-  overflow: hidden;
+  top: 0;
+  height: 100%;
+  border-radius: 6px;
+  background: #121820;
+  border: 1px solid #2a3542;
+  overflow: visible;
   pointer-events: none;
 }
 .timeline-freeze {
   height: 100%;
-  background: #2a3a4d;
+  background: #1c2836;
 }
-.timeline-fill {
+.timeline-playhead {
   position: absolute;
   top: 0;
-  left: 0;
   height: 100%;
-  background: #3d6a94;
+  width: 2px;
+  background: #e8eef4;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 4;
 }
 .timeline-marks {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100%;
   pointer-events: none;
 }
 .timeline-tick {
   position: absolute;
-  top: 3px;
+  top: 0;
   width: 1px;
-  height: 12px;
-  background: #4a5d70;
+  height: 100%;
+  background: #3a4d60;
+  opacity: 0.55;
   transform: translateX(-50%);
 }
 .timeline {
@@ -1872,43 +1957,44 @@ button.link {
   left: 0;
   right: 0;
   top: 0;
-  height: 18px;
+  height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
   background: transparent;
   appearance: none;
   cursor: pointer;
-  z-index: 1;
+  z-index: 5;
 }
 .timeline::-webkit-slider-runnable-track {
-  height: 8px;
+  height: 100%;
   background: transparent;
   border: none;
 }
 .timeline::-webkit-slider-thumb {
   appearance: none;
-  width: 12px;
-  height: 12px;
-  margin-top: -2px;
-  border-radius: 50%;
-  background: #6aa4d8;
-  border: 1px solid #8ec0ea;
+  width: 0;
+  height: 0;
+  margin-top: 0;
+  border: none;
+  background: transparent;
 }
 .timeline::-moz-range-track {
-  height: 8px;
+  height: 100%;
   background: transparent;
   border: none;
 }
 .timeline::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #6aa4d8;
-  border: 1px solid #8ec0ea;
+  width: 0;
+  height: 0;
+  border: none;
+  background: transparent;
 }
 .timeline-labels {
-  position: relative;
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
   height: 14px;
   overflow: hidden;
   pointer-events: none;
@@ -1935,8 +2021,8 @@ button.link {
   flex: 0 0 auto;
 }
 .controls button.icon-btn {
-  width: 1.85rem;
-  height: 1.85rem;
+  width: var(--ctrl-btn-h);
+  height: var(--ctrl-btn-h);
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -1953,6 +2039,7 @@ button.link {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  height: var(--ctrl-btn-h);
   font-size: 0.85rem;
   color: #a9b6c3;
 }

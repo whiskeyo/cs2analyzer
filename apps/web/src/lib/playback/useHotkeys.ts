@@ -1,4 +1,5 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
+import { roundJumpTick } from "./roundAutoplay";
 import { roundScrubRange } from "./roundTimeline";
 import { findExecutes, nextExecuteTick } from "@/lib/match/execute";
 import type { MapPlaces } from "@/lib/match/sites";
@@ -58,7 +59,7 @@ export function useHotkeys(opts: {
       }
       if (e.key === "[" || e.key === "]") {
         const n = r.rounds[roundIdx + (e.key === "]" ? 1 : -1)];
-        if (n) o.jump(n.freeze_end_tick || n.start_tick);
+        if (n) o.jump(roundJumpTick(n));
         return;
       }
       if (e.key === "," || e.key === ".") {
@@ -76,7 +77,7 @@ export function useHotkeys(opts: {
         return;
       }
       if (e.key === "Home") {
-        o.jump(round?.freeze_end_tick || round?.start_tick || min);
+        o.jump(round ? roundJumpTick(round) : min);
         return;
       }
       if (e.key === "f" || e.key === "F") {

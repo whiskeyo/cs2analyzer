@@ -114,7 +114,11 @@ export function RadarStage() {
           floorMode={review.floorMode}
           habitsOverlay={habits.overlay}
           habitsOverlayDisplay={habits.overlayDisplay}
+          habitsShowTrails={habits.overlayTrails}
+          habitsShowArrows={habits.overlayArrows}
           habitsNadeFilter={habits.nadeFilter}
+          habitsNadesOn={habits.nadesOn}
+          habitsNadeOpacity={habits.nadeOpacity}
           habitsPlaySecRef={habitsOnly ? habits.bucketPlaySecRef : undefined}
           habitsOnly={habitsOnly}
           onHabitsJump={habits.playRound}

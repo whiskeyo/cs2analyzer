@@ -40,6 +40,7 @@ export function drawHeBurst(
   color: string,
   progress: number,
   scale: number,
+  opacity = 1,
 ) {
   const t = Math.min(1, Math.max(0, progress));
   const zoom = Math.min(1.4, scale);
@@ -47,21 +48,21 @@ export function drawHeBurst(
   ctx.save();
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.globalAlpha = 0.28 * (1 - t);
+  ctx.globalAlpha = 0.28 * (1 - t) * opacity;
   ctx.beginPath();
   ctx.arc(at.x, at.y, r * 0.55, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = 0.85 * (1 - t * 0.65);
+  ctx.globalAlpha = 0.85 * (1 - t * 0.65) * opacity;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(at.x, at.y, r, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.globalAlpha = 0.45 * (1 - t);
+  ctx.globalAlpha = 0.45 * (1 - t) * opacity;
   ctx.lineWidth = 1.3;
   ctx.beginPath();
   ctx.arc(at.x, at.y, r * 0.62, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.globalAlpha = 0.9 * (1 - t * 0.5);
+  ctx.globalAlpha = 0.9 * (1 - t * 0.5) * opacity;
   ctx.lineWidth = 1.6;
   const spike = r + 6 * zoom;
   const inner = r * 0.35;

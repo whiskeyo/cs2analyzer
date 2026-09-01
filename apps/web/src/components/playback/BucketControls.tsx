@@ -62,9 +62,12 @@ export const BucketControls = memo(function BucketControls({
       </label>
       <div className="timeline-wrap">
         <div className="timeline-bar">
-          <div className="timeline-rail" aria-hidden="true">
-            <div className="timeline-fill" style={{ width: `${progress * 100}%` }} />
-          </div>
+          <div className="timeline-track" aria-hidden="true" />
+          <div
+            className="timeline-playhead"
+            style={{ left: `${progress * 100}%` }}
+            aria-hidden="true"
+          />
           <div className="timeline-marks" aria-hidden="true">
             {marks.map((m) => (
               <span key={m.sec} className="timeline-tick" style={{ left: `${m.at * 100}%` }} />

@@ -1,11 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { freezeWidth, markLabelShift, roundScrubRange, roundTimelineMarks } from "./roundTimeline";
+import {
+  freezeWidth,
+  markLabelShift,
+  roundScrubEventMarks,
+  roundScrubRange,
+  roundTimelineMarks,
+} from "./roundTimeline";
 import type { Round } from "@/lib/replay/replayTypes";
-import { makeRound } from "@/lib/testing/fixtures";
+import { makeBombEvent, makeKill, makeReplay, makeRound } from "@/lib/testing/fixtures";
 
 /** A full 25s round so the 10s timeline marks have somewhere to land. */
 function round(partial: Partial<Round> = {}): Round {
-  return makeRound({ number: 1, end_tick: 64 + 64 * 25, score_ct: 1, ...partial });
+  return makeRound({
+    number: 1,
+    end_tick: 64 + 64 * 25,
+    score_ct: 1,
+    ...partial,
+  });
 }
 
 const fallback = { min: 0, max: 50_000 };
@@ -14,7 +25,10 @@ describe("roundScrubRange", () => {
   it("starts at freeze end and extends through demo end on the last round", () => {
     const r = round();
     const end = 64 + 64 * 25;
-    expect(roundScrubRange(r, [r], { min: 0, max: end })).toEqual({ min: 64, max: end });
+    expect(roundScrubRange(r, [r], { min: 0, max: end })).toEqual({
+      min: 64,
+      max: end,
+    });
   });
 
   it("includes post-round through playback_end_tick when present", () => {
@@ -24,14 +38,30 @@ describe("roundScrubRange", () => {
       end_tick: 2000,
       playback_end_tick: 2050,
     });
-    const b = round({ number: 2, start_tick: 2100, freeze_end_tick: 2164, end_tick: 4000 });
-    expect(roundScrubRange(a, [a, b], fallback)).toEqual({ min: 64, max: 2050 });
+    const b = round({
+      number: 2,
+      start_tick: 2100,
+      freeze_end_tick: 2164,
+      end_tick: 4000,
+    });
+    expect(roundScrubRange(a, [a, b], fallback)).toEqual({
+      min: 64,
+      max: 2050,
+    });
   });
 
   it("extends through post-round cap but not into the next round", () => {
     const a = round({ start_tick: 0, freeze_end_tick: 64, end_tick: 2000 });
-    const b = round({ number: 2, start_tick: 2100, freeze_end_tick: 2164, end_tick: 4000 });
-    expect(roundScrubRange(a, [a, b], fallback)).toEqual({ min: 64, max: 2099 });
+    const b = round({
+      number: 2,
+      start_tick: 2100,
+      freeze_end_tick: 2164,
+      end_tick: 4000,
+    });
+    expect(roundScrubRange(a, [a, b], fallback)).toEqual({
+      min: 64,
+      max: 2099,
+    });
   });
 
   it("matches spirit-vs-big R1: cs_pre_restart, not next freeze", () => {
@@ -41,7 +71,12 @@ describe("roundScrubRange", () => {
       end_tick: 6222,
       playback_end_tick: 6522,
     });
-    const b = round({ number: 2, start_tick: 7821, freeze_end_tick: 7821, end_tick: 14551 });
+    const b = round({
+      number: 2,
+      start_tick: 7821,
+      freeze_end_tick: 7821,
+      end_tick: 14551,
+    });
     const { max } = roundScrubRange(a, [a, b], { min: 0, max: 200_000 });
     expect(max).toBe(6522);
     expect(max).toBeLessThan(7821);
@@ -70,6 +105,29 @@ describe("freezeWidth", () => {
   it("is the freeze share when the range still includes freeze", () => {
     const r = round({ start_tick: 0, freeze_end_tick: 100, end_tick: 1000 });
     expect(freezeWidth(r, { min: 0, max: 1000 })).toBeCloseTo(0.1, 5);
+  });
+});
+
+describe("roundScrubEventMarks", () => {
+  it("places kill and bomb icons within the round scrub range", () => {
+    const r = round({ start_tick: 0, freeze_end_tick: 64, end_tick: 2000 });
+    const replay = makeReplay({
+      kills: [makeKill(500, 0, 1, { weapon: "ak47" })],
+      bombEvents: [
+        makeBombEvent({ tick: 800, kind: "planted" }),
+        makeBombEvent({ tick: 1200, kind: "defused" }),
+      ],
+      players: [
+        { index: 0, steam_id: 1, name: "A", start_side: "T" },
+        { index: 1, steam_id: 2, name: "B", start_side: "CT" },
+      ],
+    });
+    const range = { min: 64, max: 2100 };
+    const marks = roundScrubEventMarks(replay, r, range);
+    expect(marks.map((m) => m.kind)).toEqual(["kill", "bomb_plant", "bomb_defuse"]);
+    expect(marks[0]?.at).toBeCloseTo((500 - 64) / (2100 - 64), 3);
+    expect(marks[0]?.victimSide).toBe("CT");
+    expect(marks[0]?.color).toBe("#5b9fd6");
   });
 });
 

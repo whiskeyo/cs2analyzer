@@ -4,16 +4,67 @@ import { roundBookmarkMarks } from "@/lib/notes";
 import {
   freezeWidth,
   markLabelShift,
+  roundScrubEventMarks,
   roundScrubRange,
   roundTimelineMarks,
+  type RoundScrubEventMark,
 } from "@/lib/playback/roundTimeline";
+import { roundJumpTick } from "@/lib/playback/roundAutoplay";
 import { currentRound } from "@/lib/replay/sample";
 import { nextEventTick } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";
 import type { Stroke } from "@/lib/notes/types";
 import { formatClock } from "@/lib/weapons/weapons";
+import { publicUrl } from "@/lib/shared/publicUrl";
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
+
+function ScrubEventIcon({ mark }: { mark: RoundScrubEventMark }) {
+  const color = mark.color ?? "#8b98a5";
+  switch (mark.kind) {
+    case "kill":
+      return (
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="8" cy="6.5" r="3.2" fill="none" stroke={color} strokeWidth="1.4" />
+          <path
+            d="M5.5 10.5c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5"
+            fill="none"
+            stroke={color}
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+        </svg>
+      );
+    case "bomb_plant":
+      return (
+        <img
+          src={publicUrl("weapons/planted_c4.svg")}
+          alt=""
+          aria-hidden="true"
+          style={{ filter: "brightness(1.15)" }}
+        />
+      );
+    case "bomb_defuse":
+      return (
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path
+            d="M4 8h8M8 4v8"
+            fill="none"
+            stroke={color}
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <circle cx="8" cy="8" r="5.5" fill="none" stroke={color} strokeWidth="1.2" />
+        </svg>
+      );
+    case "bomb_explode":
+      return (
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 1.5 9.6 6.4 14.5 8 9.6 9.6 8 14.5 6.4 9.6 1.5 8 6.4 6.4Z" fill={color} />
+        </svg>
+      );
+  }
+}
 
 function RoundAutoplayIcon({ on }: { on: boolean }) {
   return (
@@ -64,13 +115,20 @@ export const Controls = memo(function Controls({
     max: replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0,
   };
   const { min, max } = roundScrubRange(round ?? undefined, replay.rounds, fallback);
-  const [scrubLock, setScrubLock] = useState<{ min: number; max: number } | null>(null);
+  const [scrubLock, setScrubLock] = useState<{
+    min: number;
+    max: number;
+    roundStart: number;
+  } | null>(null);
   const resumePlayRef = useRef(false);
   const rangeRef = useRef({ min, max });
   const playingRef = useRef(playing);
   rangeRef.current = { min, max };
   playingRef.current = playing;
-  const activeRange = scrubLock ?? { min, max };
+  const activeRange =
+    scrubLock && scrubLock.roundStart === (round?.start_tick ?? 0)
+      ? { min: scrubLock.min, max: scrubLock.max }
+      : { min, max };
 
   const endScrub = useCallback(() => {
     setScrubLock(null);
@@ -81,10 +139,10 @@ export const Controls = memo(function Controls({
   }, [onPlaying]);
 
   const startScrub = useCallback(() => {
-    setScrubLock({ ...rangeRef.current });
+    setScrubLock({ ...rangeRef.current, roundStart: round?.start_tick ?? 0 });
     resumePlayRef.current = playingRef.current;
     onPlaying(false);
-  }, [onPlaying]);
+  }, [onPlaying, round?.start_tick]);
 
   const tps = tickRate(replay);
   const inFreeze = !!round && tick < round.freeze_end_tick;
@@ -97,6 +155,7 @@ export const Controls = memo(function Controls({
   const killTicks = replay.kills.map((k) => k.tick);
   const marks = round ? roundTimelineMarks(round, tps, activeRange) : [];
   const bookmarks = round ? roundBookmarkMarks(strokes, round, activeRange) : [];
+  const eventMarks = round ? roundScrubEventMarks(replay, round, activeRange) : [];
   const freezeAt = round ? freezeWidth(round, activeRange) : 0;
   const span = activeRange.max - activeRange.min;
   const progress =
@@ -107,7 +166,8 @@ export const Controls = memo(function Controls({
   const gotoRound = (dir: number) => {
     const r = replay.rounds[roundIdx + dir];
     if (!r) return;
-    onTick(r.freeze_end_tick || r.start_tick);
+    setScrubLock(null);
+    onTick(roundJumpTick(r));
     onPlaying(false);
   };
 
@@ -190,7 +250,8 @@ export const Controls = memo(function Controls({
             const start = Number(e.target.value);
             const r = replay.rounds.find((x) => x.start_tick === start);
             if (r) {
-              onTick(r.freeze_end_tick || r.start_tick);
+              setScrubLock(null);
+              onTick(roundJumpTick(r));
               onPlaying(false);
             }
           }}
@@ -205,12 +266,16 @@ export const Controls = memo(function Controls({
       </label>
       <div className="timeline-wrap">
         <div className="timeline-bar">
-          <div className="timeline-rail" aria-hidden="true">
+          <div className="timeline-track" aria-hidden="true">
             {freezeAt > 0 && (
               <div className="timeline-freeze" style={{ width: `${freezeAt * 100}%` }} />
             )}
-            <div className="timeline-fill" style={{ width: `${progress * 100}%` }} />
           </div>
+          <div
+            className="timeline-playhead"
+            style={{ left: `${progress * 100}%` }}
+            aria-hidden="true"
+          />
           <div className="timeline-marks" aria-hidden="true">
             {marks.map((m) => (
               <span key={m.tick} className="timeline-tick" style={{ left: `${m.at * 100}%` }} />
@@ -236,6 +301,27 @@ export const Controls = memo(function Controls({
             onPointerCancel={endScrub}
             onChange={(e) => onTick(Number(e.target.value))}
           />
+          <div className="timeline-events">
+            {eventMarks.map((m) => (
+              <button
+                key={`${m.kind}-${m.tick}`}
+                type="button"
+                className={`timeline-event ${m.kind}`}
+                title={m.label}
+                aria-label={m.label}
+                style={{ left: `${m.at * 100}%`, color: m.color }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onTick(m.tick);
+                  onPlaying(false);
+                }}
+              >
+                <ScrubEventIcon mark={m} />
+              </button>
+            ))}
+          </div>
           <div className="timeline-bookmarks">
             {bookmarks.map((m) => {
               const span = m.kind !== "pin";

@@ -4,7 +4,8 @@ import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execu
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay } from "@/lib/replay/replayTypes";
 import type { Stroke } from "@/lib/notes/types";
-import { noteRounds, overlayJumpTick } from "@/lib/notes";
+import { noteRounds } from "@/lib/notes";
+import { roundJumpTick } from "@/lib/playback/roundAutoplay";
 import type { MapPlaces } from "@/lib/match/sites";
 
 interface Props {
@@ -68,7 +69,7 @@ export const RoundStrip = memo(function RoundStrip({
                     .filter(Boolean)
                     .join(" · ")
             }
-            onClick={() => onJump(overlayJumpTick(strokes, r))}
+            onClick={() => onJump(roundJumpTick(r))}
           >
             {r.is_knife ? "K" : r.number}
           </button>

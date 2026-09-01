@@ -7,6 +7,8 @@ import {
   buildSeriesOverlay,
   clampSeriesTrailWindowSec,
   filterHabitsNades,
+  habitsArrowAtScreen,
+  habitsArrowJumpTick,
   habitsNadeViewTick,
   overlayAtPlaySec,
 } from "./seriesOverlay";
@@ -255,6 +257,60 @@ describe("buildSeriesOverlay", () => {
     if (early?.phase === "flight" && late?.phase === "flight") {
       expect(early.trail.length).toBeLessThan(late.trail.length);
     }
+  });
+});
+
+describe("habitsArrowAtScreen", () => {
+  it("hits the head of a visible trail", () => {
+    const overlay = {
+      trails: [
+        {
+          demoId: "a",
+          roundNumber: 1,
+          jumpTick: 64,
+          tps: 64,
+          steamId: 1,
+          playerName: "A",
+          color: "#fff",
+          points: [
+            { x: 0, y: 0, z: 0, tick: 64, yaw: 90 },
+            { x: 100, y: 100, z: 0, tick: 128, yaw: 45 },
+          ],
+          deathAt: null,
+          deathTick: null,
+        },
+      ],
+      heatDots: [],
+      nades: [],
+      roundCount: 1,
+      windowSec: 20,
+    };
+    const toScreen = (x: number, y: number) => ({ x, y });
+    const hit = habitsArrowAtScreen(overlay, true, 100, 100, toScreen, 20);
+    expect(hit?.demoId).toBe("a");
+    expect(habitsArrowAtScreen(overlay, false, 100, 100, toScreen)).toBeNull();
+  });
+});
+
+describe("habitsArrowJumpTick", () => {
+  it("uses the head point tick when present", () => {
+    const trail = {
+      demoId: "a",
+      roundNumber: 1,
+      jumpTick: 64,
+      tps: 64,
+      steamId: 1,
+      playerName: "A",
+      color: "#fff",
+      points: [
+        { x: 0, y: 0, z: 0, tick: 64, yaw: 90 },
+        { x: 100, y: 100, z: 0, tick: 320, yaw: 45 },
+      ],
+      deathAt: null,
+      deathTick: null,
+    };
+    expect(habitsArrowJumpTick(trail)).toBe(320);
+    expect(habitsArrowJumpTick({ ...trail, points: [] })).toBe(64);
   });
 });
 

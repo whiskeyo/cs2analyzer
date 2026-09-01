@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import type { DemoSeries } from "@/lib/parse/session";
 import {
@@ -67,8 +67,18 @@ export interface SeriesHabitsState {
   /** Player-path display: individual trails or a density heatmap. */
   overlayDisplay: SeriesOverlayDisplay;
   setOverlayDisplay: (display: SeriesOverlayDisplay) => void;
+  /** Freeze-relative path polylines (default off). */
+  overlayTrails: boolean;
+  setOverlayTrails: (on: boolean) => void;
+  /** Player arrow at each path head (default on). */
+  overlayArrows: boolean;
+  setOverlayArrows: (on: boolean) => void;
   nadeFilter: HabitsNadeFilter;
   setNadeKind: (kind: HabitsNadeKind, on: boolean) => void;
+  nadesOn: boolean;
+  setNadesOn: (on: boolean) => void;
+  nadeOpacity: number;
+  setNadeOpacity: (opacity: number) => void;
   bucketFilter: SeriesFilter;
   overlay: SeriesOverlay | null;
   util: ReturnType<typeof aggregateSeriesUtil> | null;
@@ -99,7 +109,11 @@ export function useSeriesHabits(opts: {
   const bucketPlaySecRef = useRef(0);
   const bucketWindowSecRef = useRef(0);
   const [overlayDisplay, setOverlayDisplay] = useState<SeriesOverlayDisplay>("trails");
+  const [overlayTrails, setOverlayTrails] = useState(false);
+  const [overlayArrows, setOverlayArrows] = useState(true);
   const [nadeFilter, setNadeFilter] = useState<HabitsNadeFilter>(DEFAULT_HABITS_NADE_FILTER);
+  const [nadesOn, setNadesOn] = useState(true);
+  const [nadeOpacity, setNadeOpacity] = useState(0.4);
   const [seriesView, setSeriesView] = useState<SeriesViewMode>("demos");
   const aggregated = seriesView === "aggregated";
   const pendingJumpRef = useRef<{ demoId: string; tick: number } | null>(null);
@@ -170,7 +184,7 @@ export function useSeriesHabits(opts: {
     return aggregateUtilSets(series, bucketFilter, places);
   }, [series, aggregated, bucketFilter, places]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const pending = pendingJumpRef.current;
     if (!pending || activeDemoId !== pending.demoId) return;
     jump(pending.tick);
@@ -269,8 +283,16 @@ export function useSeriesHabits(opts: {
     bucketWindowSec,
     overlayDisplay,
     setOverlayDisplay,
+    overlayTrails,
+    setOverlayTrails,
+    overlayArrows,
+    setOverlayArrows,
     nadeFilter,
     setNadeKind,
+    nadesOn,
+    setNadesOn,
+    nadeOpacity,
+    setNadeOpacity,
     bucketFilter,
     overlay,
     util,

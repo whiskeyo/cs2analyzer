@@ -21,7 +21,9 @@ export type SeriesOverlayDisplay = "trails" | "heatmap";
 export interface HabitsTrailPoint {
   x: number;
   y: number;
+  z: number;
   tick: number;
+  yaw: number;
 }
 
 export interface HabitsTrail {
@@ -179,7 +181,7 @@ function sampleForwardTrail(
     if (t < fromTick || t > untilTick) continue;
     const i = f * pc + player;
     if ((buf.flags[i] & FLAG_PRESENT) === 0) continue;
-    out.push({ x: buf.x[i], y: buf.y[i], tick: t });
+    out.push({ x: buf.x[i], y: buf.y[i], z: buf.z[i], tick: t, yaw: buf.yaw[i] });
   }
   return out;
 }
@@ -359,6 +361,37 @@ export function habitsTrailAtScreen(
       const d2 = dx * dx + dy * dy;
       if (d2 <= r2 && (!best || d2 < best.d2)) best = { trail, d2 };
     }
+  }
+  return best?.trail ?? null;
+}
+
+/** Tick to land on when jumping from a habits arrow (head of the visible path). */
+export function habitsArrowJumpTick(trail: HabitsTrail): number {
+  return trail.points.at(-1)?.tick ?? trail.jumpTick;
+}
+
+/** Head-of-path hit test for habits player arrows (double-click to jump). */
+export function habitsArrowAtScreen(
+  overlay: SeriesOverlay,
+  showArrows: boolean,
+  screenX: number,
+  screenY: number,
+  toScreen: (x: number, y: number) => { x: number; y: number },
+  radiusPx = 16,
+  playSec?: number,
+): HabitsTrail | null {
+  if (!showArrows) return null;
+  const visible = playSec != null ? overlayAtPlaySec(overlay, playSec) : overlay;
+  const r2 = radiusPx * radiusPx;
+  let best: { trail: HabitsTrail; d2: number } | null = null;
+  for (const trail of visible.trails) {
+    const head = trail.points.at(-1);
+    if (!head) continue;
+    const s = toScreen(head.x, head.y);
+    const dx = s.x - screenX;
+    const dy = s.y - screenY;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= r2 && (!best || d2 < best.d2)) best = { trail, d2 };
   }
   return best?.trail ?? null;
 }

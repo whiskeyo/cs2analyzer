@@ -3,7 +3,9 @@ import {
   ROUND_POST_ROUND_MAX_SECONDS,
   ROUND_TIMELINE_STEP_SECONDS,
 } from "@/lib/shared/constants";
-import type { Round } from "@/lib/replay/replayTypes";
+import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
+import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
+import { currentSide } from "@/lib/stats/stats";
 import { formatClock } from "@/lib/weapons/weapons";
 
 /** Live round plus post-round beat; excludes the next round's freeze. */
@@ -98,5 +100,55 @@ export function bucketTimelineMarks(maxSec: number): BucketTimelineMark[] {
       at: sec / maxSec,
     });
   }
+  return out;
+}
+
+export type RoundScrubEventKind = "kill" | "bomb_plant" | "bomb_defuse" | "bomb_explode";
+
+export interface RoundScrubEventMark {
+  tick: number;
+  kind: RoundScrubEventKind;
+  label: string;
+  /** 0–1 along the scrubber. */
+  at: number;
+  /** Victim side for kill icons (CT = blue, T = yellow). */
+  victimSide?: Side;
+  color?: string;
+}
+
+/** Kill and bomb icons for the round scrubber (live play only). */
+export function roundScrubEventMarks(
+  replay: Replay,
+  round: Round,
+  range: { min: number; max: number },
+): RoundScrubEventMark[] {
+  const { min, max } = range;
+  const span = max - min;
+  if (span <= 0) return [];
+  const liveMin = Math.max(min, round.freeze_end_tick);
+  const liveMax = Math.min(max, round.end_tick);
+  const out: RoundScrubEventMark[] = [];
+  const push = (
+    tick: number,
+    kind: RoundScrubEventKind,
+    label: string,
+    extra?: Pick<RoundScrubEventMark, "victimSide" | "color">,
+  ) => {
+    if (tick < liveMin || tick > liveMax) return;
+    out.push({ tick, kind, label, at: (tick - min) / span, ...extra });
+  };
+  for (const k of replay.kills) {
+    const victimSide = k.victim >= 0 ? currentSide(replay, k.victim, k.tick) : undefined;
+    const color = victimSide === "CT" ? CT_COLOR : victimSide === "T" ? T_COLOR : undefined;
+    push(k.tick, "kill", k.weapon, { victimSide, color });
+  }
+  for (const e of replay.bombEvents) {
+    if (e.kind === "planted") push(e.tick, "bomb_plant", "Bomb planted", { color: "#e8a030" });
+    else if (e.kind === "defused")
+      push(e.tick, "bomb_defuse", "Bomb defused", { color: "#5b9fd6" });
+    else if (e.kind === "exploded")
+      push(e.tick, "bomb_explode", "Bomb exploded", { color: "#e05c5c" });
+  }
+  out.sort((a, b) => a.tick - b.tick || a.kind.localeCompare(b.kind));
   return out;
 }

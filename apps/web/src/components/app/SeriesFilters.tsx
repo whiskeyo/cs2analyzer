@@ -97,26 +97,51 @@ export function SeriesFilters() {
             Overlay
           </label>
           {overlayActive && (
-            <div className="filters" role="toolbar" aria-label="Habits path display">
-              {(
-                [
-                  { id: "trails", label: "Paths" },
-                  { id: "heatmap", label: "Heatmap" },
-                ] as const
-              ).map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  className={`filter${habits.overlayDisplay === mode.id ? " on" : ""}`}
-                  onClick={() => habits.setOverlayDisplay(mode.id)}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
+            <>
+              <label className="series-overlay-toggle">
+                <input
+                  type="checkbox"
+                  checked={habits.overlayArrows}
+                  onChange={(e) => habits.setOverlayArrows(e.target.checked)}
+                />
+                Arrows
+              </label>
+              <label className="series-overlay-toggle">
+                <input
+                  type="checkbox"
+                  checked={habits.overlayTrails}
+                  onChange={(e) => habits.setOverlayTrails(e.target.checked)}
+                />
+                Trails
+              </label>
+              <div className="filters" role="toolbar" aria-label="Habits path display">
+                {(
+                  [
+                    { id: "trails", label: "Paths" },
+                    { id: "heatmap", label: "Heatmap" },
+                  ] as const
+                ).map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    className={`filter${habits.overlayDisplay === mode.id ? " on" : ""}`}
+                    onClick={() => habits.setOverlayDisplay(mode.id)}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
           {overlayActive && (
-            <HabitsNadeLegend filter={habits.nadeFilter} onKind={habits.setNadeKind} />
+            <HabitsNadeLegend
+              filter={habits.nadeFilter}
+              nadesOn={habits.nadesOn}
+              nadeOpacity={habits.nadeOpacity}
+              onKind={habits.setNadeKind}
+              onNadesOn={habits.setNadesOn}
+              onOpacity={habits.setNadeOpacity}
+            />
           )}
         </>
       )}
@@ -126,8 +151,11 @@ export function SeriesFilters() {
           {habits.overlay.windowSec.toFixed(0)}s ·{" "}
           {habits.overlayDisplay === "heatmap"
             ? "heatmap"
-            : `${habits.overlay.trails.length} paths`}{" "}
-          · {visibleNades} nades
+            : habits.overlayTrails
+              ? `${habits.overlay.trails.length} paths`
+              : "paths off"}{" "}
+          · {habits.overlayArrows ? `${habits.overlay.trails.length} arrows` : "arrows off"} · ·{" "}
+          {visibleNades} nades
         </span>
       )}
     </div>
