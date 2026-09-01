@@ -86,6 +86,7 @@ export function Viewer() {
                 onJump={jump}
                 onStrokes={review.commitStrokes}
                 places={places}
+                activeRound={playback.activeRound}
               />
             </main>
             {!aggregated ? (
@@ -93,8 +94,8 @@ export function Viewer() {
                 replay={replay}
                 tick={tick}
                 strokes={review.strokes}
-                onJump={jump}
                 places={places}
+                activeRound={playback.activeRound}
               />
             ) : (
               <SeriesAggregatedRoundStrip
@@ -116,6 +117,7 @@ export function Viewer() {
                 speed={playback.speed}
                 onPlaySec={habits.setBucketPlaySec}
                 onPlaying={playback.setPlaying}
+                onTogglePlay={playback.togglePlaying}
                 onSpeed={playback.setSpeed}
               />
             ) : (
@@ -127,9 +129,12 @@ export function Viewer() {
                 speed={playback.speed}
                 roundAutoplay={playback.roundAutoplay}
                 onTick={playback.scrub}
+                onJump={playback.jump}
+                onTogglePlay={playback.togglePlaying}
                 onPlaying={playback.setPlaying}
                 onSpeed={playback.setSpeed}
                 onRoundAutoplay={playback.setRoundAutoplay}
+                activeRound={playback.activeRound}
               />
             )}
           </>

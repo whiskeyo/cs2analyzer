@@ -2031,6 +2031,10 @@ button.link {
 .controls button.icon-btn svg {
   display: block;
 }
+.controls button.transport-btn svg {
+  width: calc(var(--ctrl-btn-h) * 0.72);
+  height: calc(var(--ctrl-btn-h) * 0.72);
+}
 .controls button.round-autoplay:not(.on) {
   color: #8b98a5;
 }

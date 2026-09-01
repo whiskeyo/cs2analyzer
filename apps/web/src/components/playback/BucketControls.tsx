@@ -1,6 +1,8 @@
 import { memo, useMemo } from "react";
 import { bucketTimelineMarks, markLabelShift } from "@/lib/playback/roundTimeline";
 import { formatClock } from "@/lib/weapons/weapons";
+import { TransportButton } from "./TransportButton";
+import { TransportButtonish } from "./TransportButtonish";
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
@@ -11,6 +13,7 @@ interface Props {
   speed: number;
   onPlaySec: (sec: number) => void;
   onPlaying: (v: boolean) => void;
+  onTogglePlay: () => void;
   onSpeed: (v: number) => void;
 }
 
@@ -22,6 +25,7 @@ export const BucketControls = memo(function BucketControls({
   speed,
   onPlaySec,
   onPlaying,
+  onTogglePlay,
   onSpeed,
 }: Props) {
   const span = Math.max(maxSec, 0.001);
@@ -35,24 +39,16 @@ export const BucketControls = memo(function BucketControls({
 
   return (
     <div className="controls">
-      <button type="button" onClick={() => onPlaying(!playing)}>
-        {playing ? "Pause" : "Play"}
-      </button>
-      <button type="button" title="Step back 1s" onClick={() => step(-1)}>
+      <TransportButton playing={playing} onToggle={onTogglePlay} />
+      <TransportButtonish title="Step back 1s" onClick={() => step(-1)}>
         −
-      </button>
-      <button type="button" title="Step forward 1s" onClick={() => step(1)}>
+      </TransportButtonish>
+      <TransportButtonish title="Step forward 1s" onClick={() => step(1)}>
         +
-      </button>
+      </TransportButtonish>
       <label className="speed">
         Speed
-        <select
-          value={Math.abs(speed)}
-          onChange={(e) => {
-            const n = Number(e.target.value);
-            onSpeed(n);
-          }}
-        >
+        <select value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>
           {SPEEDS.map((s) => (
             <option key={s} value={s}>
               {s}×
@@ -89,7 +85,10 @@ export const BucketControls = memo(function BucketControls({
             <span
               key={m.sec}
               className="timeline-label"
-              style={{ left: `${m.at * 100}%`, transform: `translateX(${markLabelShift(m.at)})` }}
+              style={{
+                left: `${m.at * 100}%`,
+                transform: `translateX(${markLabelShift(m.at)})`,
+              }}
             >
               {m.label}
             </span>

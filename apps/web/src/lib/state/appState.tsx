@@ -130,6 +130,7 @@ function useAppState(createWorker?: CreateWorker): AppState {
     undo: review.undo,
     redo: review.redo,
     setPlaying: playback.setPlaying,
+    togglePlaying: playback.togglePlaying,
     setFollow: view.setFollow,
     setTrails: view.setTrails,
     setSelected: view.setSelected,

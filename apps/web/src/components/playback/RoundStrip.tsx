@@ -1,29 +1,30 @@
 import { memo, useEffect, useState } from "react";
+import { blockTransportFocus } from "@/lib/playback/transportFocus";
 import { tickRate } from "@/lib/shared/constants";
 import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execute";
 import { currentRound } from "@/lib/replay/sample";
-import type { Replay } from "@/lib/replay/replayTypes";
+import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { Stroke } from "@/lib/notes/types";
 import { noteRounds } from "@/lib/notes";
-import { roundJumpTick } from "@/lib/playback/roundAutoplay";
+import { sendPlaybackCommand } from "@/lib/playback/playbackCommands";
 import type { MapPlaces } from "@/lib/match/sites";
 
 interface Props {
   replay: Replay;
   tick: number;
   strokes: Stroke[];
-  onJump: (tick: number) => void;
   places: MapPlaces | null;
+  activeRound?: Round | null;
 }
 
 export const RoundStrip = memo(function RoundStrip({
   replay,
   tick,
   strokes,
-  onJump,
   places,
+  activeRound,
 }: Props) {
-  const current = currentRound(replay, tick);
+  const current = activeRound ?? currentRound(replay, tick);
   const [beats, setBeats] = useState<ExecuteBeat[]>([]);
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export const RoundStrip = memo(function RoundStrip({
           <button
             key={r.start_tick}
             type="button"
+            tabIndex={-1}
             role="listitem"
             className={`rs${current?.start_tick === r.start_tick ? " on" : ""}${hasAction ? " has-action" : ""}${hasNotes ? " has-notes" : ""}${liveAction ? " live-action" : ""} ${
               r.winner === "CT" ? "ct" : r.winner === "T" ? "t" : "none"
@@ -69,7 +71,8 @@ export const RoundStrip = memo(function RoundStrip({
                     .filter(Boolean)
                     .join(" · ")
             }
-            onClick={() => onJump(roundJumpTick(r))}
+            onMouseDown={blockTransportFocus}
+            onClick={() => sendPlaybackCommand({ type: "jump", tick: 0, round: r })}
           >
             {r.is_knife ? "K" : r.number}
           </button>

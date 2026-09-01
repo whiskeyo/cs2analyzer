@@ -3,8 +3,17 @@ import type { MutableRefObject } from "react";
 import { useResetOnDemoChange } from "@/lib/state/demoReset";
 import { getSeriesReviewTick } from "@/lib/notes/seriesReviewCache";
 import { tickRate } from "@/lib/shared/constants";
-import type { Replay } from "@/lib/replay/replayTypes";
-import { advanceAtRoundEnd, loadRoundAutoplay, saveRoundAutoplay } from "./roundAutoplay";
+import type { Replay, Round } from "@/lib/replay/replayTypes";
+import { currentRound } from "@/lib/replay/sample";
+import {
+  advanceAtRoundEnd,
+  clampTickToRound,
+  jumpToRound,
+  loadRoundAutoplay,
+  roundPlaybackFallback,
+  saveRoundAutoplay,
+} from "./roundAutoplay";
+import { roundScrubRange } from "./roundTimeline";
 
 /**
  * Playback clock for the active demo. Overlay demos do not drive this loop.
@@ -14,6 +23,10 @@ import { advanceAtRoundEnd, loadRoundAutoplay, saveRoundAutoplay } from "./round
  * published when the whole tick changes, so at 0.25x speed the React tree
  * re-renders 16 times a second instead of 60 and the per-tick caches in
  * `lib/stats` keep hitting.
+ *
+ * `activeRoundRef` is the round the user jumped to (or scrubbed into). Round-end
+ * detection uses that pin, not `currentRound(tick)` — those disagree at
+ * freeze/start boundaries and autoplay-off would snap to the previous round.
  */
 export function usePlayback(
   replay: Replay | null,
@@ -21,13 +34,15 @@ export function usePlayback(
   freezeTransportRef?: MutableRefObject<boolean>,
 ) {
   const [tick, setTick] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlayingState] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [roundAutoplay, setRoundAutoplayState] = useState(loadRoundAutoplay);
+  const [activeRound, setActiveRound] = useState<Round | null>(null);
   const tickRef = useRef(0);
   const playingRef = useRef(playing);
+  const rafRef = useRef(0);
+  const activeRoundRef = useRef<Round | null>(null);
   const roundAutoplayRef = useRef(roundAutoplay);
-  playingRef.current = playing;
   roundAutoplayRef.current = roundAutoplay;
 
   const setRoundAutoplay = useCallback((enabled: boolean) => {
@@ -36,27 +51,107 @@ export function usePlayback(
     saveRoundAutoplay(enabled);
   }, []);
 
+  const replayRef = useRef(replay);
+  replayRef.current = replay;
+
   const publish = useCallback((t: number) => {
-    setTick((prev) => (Math.floor(t) === prev ? prev : Math.floor(t)));
+    let next = t;
+    const pin = activeRoundRef.current;
+    const r = replayRef.current;
+    // A stale timeline event can publish the previous round's last tick after a
+    // round jump. Never let the UI tick go back before the pinned start.
+    if (r && pin && next < pin.start_tick) {
+      next = jumpToRound(r, pin);
+      tickRef.current = next;
+    }
+    setTick((prev) => (Math.floor(next) === prev ? prev : Math.floor(next)));
   }, []);
 
-  const jump = useCallback(
-    (t: number, pause = true) => {
-      tickRef.current = t;
-      publish(t);
-      if (pause) {
-        playingRef.current = false;
-        setPlaying(false);
+  const pinRound = useCallback(
+    (round: Round | null | undefined, atTick: number) => {
+      if (!replay) {
+        activeRoundRef.current = null;
+        return;
       }
+      const wanted = round ?? currentRound(replay, atTick);
+      const resolved = wanted
+        ? (replay.rounds.find((r) => r.start_tick === wanted.start_tick) ?? wanted)
+        : null;
+      activeRoundRef.current = resolved;
+      setActiveRound((prev) => (prev?.start_tick === resolved?.start_tick ? prev : resolved));
     },
-    [publish],
+    [replay],
+  );
+
+  const stopPlaybackLoop = useCallback(() => {
+    playingRef.current = false;
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+  }, []);
+
+  const setPlaying = useCallback(
+    (v: boolean) => {
+      if (v && replay) {
+        const round = activeRoundRef.current ?? currentRound(replay, tickRef.current);
+        if (round) {
+          activeRoundRef.current = round;
+          setActiveRound((prev) => (prev?.start_tick === round.start_tick ? prev : round));
+          const { max } = roundScrubRange(round, replay.rounds, roundPlaybackFallback(replay));
+          const idx = replay.rounds.indexOf(round);
+          const next = idx >= 0 ? replay.rounds[idx + 1] : undefined;
+          const atThisRoundEnd =
+            tickRef.current >= max && (next == null || tickRef.current < next.start_tick);
+          if (atThisRoundEnd) {
+            const land = jumpToRound(replay, round);
+            tickRef.current = land;
+            publish(land);
+          }
+        }
+      }
+      playingRef.current = v;
+      if (!v) {
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = 0;
+        }
+      }
+      setPlayingState(v);
+    },
+    [replay, publish],
+  );
+
+  const togglePlaying = useCallback(() => {
+    setPlaying(!playingRef.current);
+  }, [setPlaying]);
+
+  const jump = useCallback(
+    (t: number, pause = true, round?: Round | null) => {
+      if (pause) {
+        stopPlaybackLoop();
+        setPlayingState(false);
+      }
+      const pin = activeRoundRef.current;
+      const target = replay
+        ? round != null
+          ? jumpToRound(replay, round)
+          : clampTickToRound(replay, t, pause ? undefined : pin)
+        : t;
+      tickRef.current = target;
+      if (round != null || pause) {
+        pinRound(round, target);
+      }
+      publish(target);
+    },
+    [replay, publish, stopPlaybackLoop, pinRound],
   );
 
   /** Stop the transport immediately (refs update before the next render). */
   const pauseNow = useCallback(() => {
-    playingRef.current = false;
-    setPlaying(false);
-  }, []);
+    stopPlaybackLoop();
+    setPlayingState(false);
+  }, [stopPlaybackLoop]);
 
   /** Scrubbing keeps the transport state: dragging the bar does not pause. */
   const scrub = useCallback((t: number) => jump(t, false), [jump]);
@@ -68,11 +163,13 @@ export function usePlayback(
         return;
       }
       playingRef.current = false;
-      setPlaying(false);
+      setPlayingState(false);
       const cached = getSeriesReviewTick(demoId);
       const first = replay.rounds.find((r) => !r.is_knife) ?? replay.rounds[0];
       const land = cached ?? first?.freeze_end_tick ?? replay.ticks.ticks[0] ?? 0;
       tickRef.current = land;
+      activeRoundRef.current = first ?? null;
+      setActiveRound(first ?? null);
       setTick(Math.floor(land));
     },
     Boolean(demoId && replay),
@@ -81,62 +178,72 @@ export function usePlayback(
   useEffect(() => {
     if (!replay || !playing || freezeTransportRef?.current) return;
     let last = performance.now();
-    let id = 0;
     const max =
       replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0;
     const tps = tickRate(replay);
     const min = replay.ticks.ticks[0] ?? 0;
     const loop = (now: number) => {
+      if (!playingRef.current) return;
       if (freezeTransportRef?.current) {
         last = now;
-        id = requestAnimationFrame(loop);
+        rafRef.current = requestAnimationFrame(loop);
         return;
       }
       const dt = (now - last) / 1000;
       last = now;
       tickRef.current += dt * tps * speed;
       if (speed > 0) {
-        const roundEnd = advanceAtRoundEnd(tickRef.current, replay, roundAutoplayRef.current);
+        const roundEnd = advanceAtRoundEnd(
+          tickRef.current,
+          replay,
+          roundAutoplayRef.current,
+          activeRoundRef.current,
+        );
         if (roundEnd) {
           tickRef.current = roundEnd.tick;
+          if (roundEnd.nextRound) {
+            activeRoundRef.current = roundEnd.nextRound;
+            setActiveRound(roundEnd.nextRound);
+          }
           publish(roundEnd.tick);
           if (!roundEnd.playing) {
-            playingRef.current = false;
-            setPlaying(false);
+            stopPlaybackLoop();
+            setPlayingState(false);
             return;
           }
-          id = requestAnimationFrame(loop);
+          rafRef.current = requestAnimationFrame(loop);
           return;
         }
       }
       if (tickRef.current >= max) {
         tickRef.current = max;
         publish(max);
-        playingRef.current = false;
-        setPlaying(false);
+        stopPlaybackLoop();
+        setPlayingState(false);
         return;
       }
       if (tickRef.current <= min) {
         tickRef.current = min;
         publish(min);
-        if (speed < 0) {
-          playingRef.current = false;
-          setPlaying(false);
-          return;
-        }
       }
       publish(tickRef.current);
-      id = requestAnimationFrame(loop);
+      rafRef.current = requestAnimationFrame(loop);
     };
-    id = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(id);
-  }, [replay, playing, speed, publish, freezeTransportRef]);
+    rafRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+    };
+  }, [replay, playing, speed, publish, freezeTransportRef, stopPlaybackLoop]);
 
   return {
     tick,
     tickRef,
     playing,
     setPlaying,
+    togglePlaying,
     playingRef,
     speed,
     setSpeed,
@@ -145,6 +252,7 @@ export function usePlayback(
     jump,
     scrub,
     pauseNow,
+    activeRound,
   };
 }
 

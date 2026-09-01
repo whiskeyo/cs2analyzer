@@ -24,9 +24,9 @@ export function roundScrubRange(
   fallback: { min: number; max: number },
 ): { min: number; max: number } {
   if (!round) return fallback;
-  const i = rounds.findIndex((r) => r.start_tick === round.start_tick);
+  const i = rounds.indexOf(round);
   const next = i >= 0 ? rounds[i + 1] : undefined;
-  const min = round.freeze_end_tick || round.start_tick;
+  const min = Math.max(round.freeze_end_tick, round.start_tick);
   const playEnd = roundPlaybackEnd(round);
   const max = next
     ? Math.max(min + 1, Math.min(next.start_tick - 1, playEnd))
@@ -51,7 +51,7 @@ export function roundTimelineMarks(
   const span = max - min;
   if (span <= 0) return [];
   const rate = tickRate || DEFAULT_TICK_RATE;
-  const origin = round.freeze_end_tick || round.start_tick;
+  const origin = Math.max(round.freeze_end_tick, round.start_tick);
   const step = Math.round(ROUND_TIMELINE_STEP_SECONDS * rate);
   if (step <= 0) return [];
   const out: RoundTimelineMark[] = [];
@@ -70,7 +70,7 @@ export function freezeWidth(round: Round, range: { min: number; max: number }): 
   const { min, max } = range;
   const span = max - min;
   if (span <= 0) return 0;
-  const freezeEnd = round.freeze_end_tick || min;
+  const freezeEnd = Math.max(round.freeze_end_tick, round.start_tick);
   if (min >= freezeEnd) return 0;
   const freeze = Math.min(max, Math.max(min, freezeEnd));
   return (freeze - min) / span;

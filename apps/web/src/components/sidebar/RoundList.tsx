@@ -28,10 +28,11 @@ interface Props {
   tick: number;
   onJump: (tick: number) => void;
   onSelect: (index: number | null) => void;
+  activeRound?: Round | null;
 }
 
-export function RoundList({ replay, tick, onJump, onSelect }: Props) {
-  const live = currentRound(replay, tick);
+export function RoundList({ replay, tick, onJump, onSelect, activeRound }: Props) {
+  const live = activeRound ?? currentRound(replay, tick);
   const liveStart = live?.start_tick;
   const [override, setOverride] = useState<Map<number, boolean>>(() => new Map());
   const [leadIn, setLeadIn] = useState(loadLeadInSec);

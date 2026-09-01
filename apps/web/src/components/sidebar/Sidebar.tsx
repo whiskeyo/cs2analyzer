@@ -11,7 +11,7 @@ import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
 import { clampSidebarWidth, loadSidebarWidth, saveSidebarWidth } from "@/lib/shared/sidebarWidth";
 import { computeStats, weaponBreakdown } from "@/lib/stats/stats";
-import type { Replay } from "@/lib/replay/replayTypes";
+import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { Stroke } from "@/lib/notes/types";
 import { Utility } from "./Utility";
@@ -46,6 +46,7 @@ interface Props {
   onJump: (tick: number) => void;
   onStrokes: (next: Stroke[]) => void;
   places: MapPlaces | null;
+  activeRound?: Round | null;
 }
 
 export const Sidebar = memo(function Sidebar({
@@ -57,6 +58,7 @@ export const Sidebar = memo(function Sidebar({
   onJump,
   onStrokes,
   places,
+  activeRound,
 }: Props) {
   const { session, habits } = useApp();
   const multiDemo = isMultiDemoSeries(session.series);
@@ -245,7 +247,13 @@ export const Sidebar = memo(function Sidebar({
         />
       )}
       {activeTab === "rounds" && (
-        <RoundList replay={replay} tick={tick} onJump={onJump} onSelect={onSelect} />
+        <RoundList
+          replay={replay}
+          tick={tick}
+          onJump={onJump}
+          onSelect={onSelect}
+          activeRound={activeRound}
+        />
       )}
       {activeTab === "weapons" && (
         <WeaponTable replay={replay} tick={tick} selected={selected} onSelect={onSelect} />

@@ -9,13 +9,14 @@ import {
   roundTimelineMarks,
   type RoundScrubEventMark,
 } from "@/lib/playback/roundTimeline";
-import { roundJumpTick } from "@/lib/playback/roundAutoplay";
+import { sendPlaybackCommand } from "@/lib/playback/playbackCommands";
 import { currentRound } from "@/lib/replay/sample";
-import { nextEventTick } from "@/lib/stats/stats";
-import type { Replay } from "@/lib/replay/replayTypes";
+import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { Stroke } from "@/lib/notes/types";
 import { formatClock } from "@/lib/weapons/weapons";
 import { publicUrl } from "@/lib/shared/publicUrl";
+import { TransportButton } from "./TransportButton";
+import { TransportButtonish } from "./TransportButtonish";
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
@@ -92,9 +93,12 @@ interface Props {
   speed: number;
   roundAutoplay: boolean;
   onTick: (tick: number) => void;
+  onJump: (tick: number) => void;
+  onTogglePlay: () => void;
   onPlaying: (v: boolean) => void;
   onSpeed: (v: number) => void;
   onRoundAutoplay: (enabled: boolean) => void;
+  activeRound?: Round | null;
 }
 
 export const Controls = memo(function Controls({
@@ -105,11 +109,14 @@ export const Controls = memo(function Controls({
   speed,
   roundAutoplay,
   onTick,
+  onJump,
+  onTogglePlay,
   onPlaying,
   onSpeed,
   onRoundAutoplay,
+  activeRound,
 }: Props) {
-  const round = currentRound(replay, tick);
+  const round = activeRound ?? currentRound(replay, tick);
   const fallback = {
     min: replay.ticks.ticks[0] ?? 0,
     max: replay.header.playback_ticks || replay.ticks.ticks[replay.ticks.ticks.length - 1] || 0,
@@ -121,6 +128,7 @@ export const Controls = memo(function Controls({
     roundStart: number;
   } | null>(null);
   const resumePlayRef = useRef(false);
+  const scrubbingRef = useRef(false);
   const rangeRef = useRef({ min, max });
   const playingRef = useRef(playing);
   rangeRef.current = { min, max };
@@ -131,6 +139,7 @@ export const Controls = memo(function Controls({
       : { min, max };
 
   const endScrub = useCallback(() => {
+    scrubbingRef.current = false;
     setScrubLock(null);
     if (resumePlayRef.current) {
       onPlaying(true);
@@ -139,6 +148,7 @@ export const Controls = memo(function Controls({
   }, [onPlaying]);
 
   const startScrub = useCallback(() => {
+    scrubbingRef.current = true;
     setScrubLock({ ...rangeRef.current, roundStart: round?.start_tick ?? 0 });
     resumePlayRef.current = playingRef.current;
     onPlaying(false);
@@ -151,8 +161,6 @@ export const Controls = memo(function Controls({
   const clock = inFreeze
     ? `Freeze ${freezeLeft.toFixed(1)}s`
     : formatClock(Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps));
-  const roundIdx = replay.rounds.findIndex((r) => r.start_tick === round?.start_tick);
-  const killTicks = replay.kills.map((k) => k.tick);
   const marks = round ? roundTimelineMarks(round, tps, activeRange) : [];
   const bookmarks = round ? roundBookmarkMarks(strokes, round, activeRange) : [];
   const eventMarks = round ? roundScrubEventMarks(replay, round, activeRange) : [];
@@ -163,76 +171,59 @@ export const Controls = memo(function Controls({
       ? (Math.min(activeRange.max, Math.max(activeRange.min, tick)) - activeRange.min) / span
       : 0;
 
-  const gotoRound = (dir: number) => {
-    const r = replay.rounds[roundIdx + dir];
-    if (!r) return;
-    setScrubLock(null);
-    onTick(roundJumpTick(r));
-    onPlaying(false);
-  };
-
-  const gotoKill = (dir: 1 | -1) => {
-    const t = nextEventTick(killTicks, tick, dir);
-    if (t != null) {
-      onTick(t);
-      onPlaying(false);
-    }
-  };
-
   const step = (dir: number) => {
-    onTick(Math.min(max, Math.max(min, tick + dir * 8)));
-    onPlaying(false);
+    onJump(Math.min(max, Math.max(min, tick + dir * 8)));
   };
 
   return (
     <div className="controls">
-      <button type="button" onClick={() => onPlaying(!playing)}>
-        {playing ? "Pause" : "Play"}
-      </button>
-      <button
-        type="button"
-        className={speed < 0 ? "on" : ""}
-        onClick={() => onSpeed(speed < 0 ? Math.abs(speed) : -Math.abs(speed) || -1)}
+      <TransportButton playing={playing} onToggle={onTogglePlay} />
+      <TransportButtonish
+        title="Previous round ([)"
+        onClick={() => sendPlaybackCommand({ type: "jump-round", dir: -1 })}
       >
-        Reverse
-      </button>
-      <button type="button" title="Previous round ([)" onClick={() => gotoRound(-1)}>
         ◀ R
-      </button>
-      <button type="button" title="Next round (])" onClick={() => gotoRound(1)}>
+      </TransportButtonish>
+      <TransportButtonish
+        title="Next round (])"
+        onClick={() => sendPlaybackCommand({ type: "jump-round", dir: 1 })}
+      >
         R ▶
-      </button>
-      <button type="button" title="Previous kill (,)" onClick={() => gotoKill(-1)}>
+      </TransportButtonish>
+      <TransportButtonish
+        title="Previous kill (,)"
+        onClick={() => sendPlaybackCommand({ type: "jump-kill", dir: -1 })}
+      >
         ◀ K
-      </button>
-      <button type="button" title="Next kill (.)" onClick={() => gotoKill(1)}>
+      </TransportButtonish>
+      <TransportButtonish
+        title="Next kill (.)"
+        onClick={() => sendPlaybackCommand({ type: "jump-kill", dir: 1 })}
+      >
         K ▶
-      </button>
-      <button type="button" title="Step back" onClick={() => step(-1)}>
+      </TransportButtonish>
+      <TransportButtonish title="Step back" onClick={() => step(-1)}>
         −
-      </button>
-      <button type="button" title="Step forward" onClick={() => step(1)}>
+      </TransportButtonish>
+      <TransportButtonish title="Step forward" onClick={() => step(1)}>
         +
-      </button>
+      </TransportButtonish>
       {inFreeze && round && (
-        <button
-          type="button"
+        <TransportButtonish
           title="Skip freeze (Home)"
           onClick={() => {
-            onTick(round.freeze_end_tick);
-            onPlaying(false);
+            onJump(round.freeze_end_tick);
           }}
         >
           Skip freeze
-        </button>
+        </TransportButtonish>
       )}
       <label className="speed">
         Speed
         <select
-          value={Math.abs(speed)}
+          value={speed}
           onChange={(e) => {
-            const n = Number(e.target.value);
-            onSpeed(speed < 0 ? -n : n);
+            onSpeed(Number(e.target.value));
           }}
         >
           {SPEEDS.map((s) => (
@@ -249,11 +240,7 @@ export const Controls = memo(function Controls({
           onChange={(e) => {
             const start = Number(e.target.value);
             const r = replay.rounds.find((x) => x.start_tick === start);
-            if (r) {
-              setScrubLock(null);
-              onTick(roundJumpTick(r));
-              onPlaying(false);
-            }
+            if (r) sendPlaybackCommand({ type: "jump", tick: 0, pause: true, round: r });
           }}
         >
           {replay.rounds.map((r) => (
@@ -282,6 +269,7 @@ export const Controls = memo(function Controls({
             ))}
           </div>
           <input
+            key={round?.start_tick ?? "none"}
             className="timeline"
             type="range"
             min={activeRange.min}
@@ -299,7 +287,10 @@ export const Controls = memo(function Controls({
               endScrub();
             }}
             onPointerCancel={endScrub}
-            onChange={(e) => onTick(Number(e.target.value))}
+            onChange={(e) => {
+              if (!scrubbingRef.current) return;
+              onTick(Number(e.target.value));
+            }}
           />
           <div className="timeline-events">
             {eventMarks.map((m) => (
@@ -314,8 +305,7 @@ export const Controls = memo(function Controls({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onTick(m.tick);
-                  onPlaying(false);
+                  onJump(m.tick);
                 }}
               >
                 <ScrubEventIcon mark={m} />
@@ -345,8 +335,7 @@ export const Controls = memo(function Controls({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onTick(m.tick);
-                    onPlaying(false);
+                    onJump(m.tick);
                   }}
                 />
               );
