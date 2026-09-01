@@ -33,6 +33,8 @@ export default defineConfig({
     format: "es",
   },
   test: {
+    // Compact locally; print the describe/it tree on CI (GitHub sets CI=true).
+    reporters: process.env.CI ? ["verbose"] : ["default"],
     // `.test.ts` is pure logic and stays on the fast node path;
     // `.test.tsx` renders components and needs a DOM.
     projects: [
