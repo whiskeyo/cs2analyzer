@@ -1,7 +1,6 @@
 import { useEffect, useRef, type RefObject } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { radarUrl, worldToScreen } from "@/lib/radar/maps";
-import { publicUrl } from "@/lib/shared/publicUrl";
+import { worldToScreen } from "@/lib/radar/maps";
 import { buildRadarFrame } from "@/lib/radar/radarFrame";
 import {
   paintPawns,
@@ -12,12 +11,16 @@ import {
 import { paintMapImage, paintNoteStrokes } from "@/lib/radar/staticMapPaint";
 import {
   DEFAULT_HABITS_NADE_FILTER,
-  habitsArrowAtScreen,
-  habitsArrowJumpTick,
   type HabitsNadeFilter,
   type SeriesOverlay,
   type SeriesOverlayDisplay,
 } from "@/lib/parse/seriesOverlay";
+import {
+  canvasLocalPoint,
+  habitsJumpAtScreen,
+  nearestPlayerIndexAtScreen,
+} from "@/lib/radar/radarHits";
+import { useRadarImages } from "@/lib/radar/useRadarImages";
 import { TextNoteEditor, useTextNotes, type TextMove } from "@/components/radar/TextNoteEditor";
 import { useRadarPointer, type RadarPanView } from "@/lib/radar/useRadarPointer";
 import { samplePlayers } from "@/lib/replay/sample";
@@ -148,10 +151,7 @@ export function RadarCanvas({
   habitsOnlyRef.current = habitsOnly;
   const onHabitsJumpRef = useRef(onHabitsJump);
   onHabitsJumpRef.current = onHabitsJump;
-  const images = useRef<{ upper: HTMLImageElement | null; lower: HTMLImageElement | null }>({
-    upper: null,
-    lower: null,
-  });
+  const { images, c4Icon } = useRadarImages(cal);
   const view = useRef<RadarPanView>({
     scale: 1,
     ox: 0,
@@ -164,7 +164,6 @@ export function RadarCanvas({
   });
   const draft = useRef<Stroke | null>(null);
   const penTip = useRef<{ x: number; y: number } | null>(null);
-  const c4Icon = useRef<HTMLImageElement | null>(null);
   const suppressClickRef = useRef(false);
   const textMoveRef = useRef<TextMove | null>(null);
   const notes = useTextNotes(strokesRef, onStrokes);
@@ -180,31 +179,6 @@ export function RadarCanvas({
     beginEditingRef,
     commitEditingRef,
   } = notes;
-
-  useEffect(() => {
-    const img = new Image();
-    img.src = publicUrl("weapons/c4.svg");
-    img.onload = () => {
-      c4Icon.current = img;
-    };
-  }, []);
-
-  useEffect(() => {
-    images.current = { upper: null, lower: null };
-    if (!cal) return;
-    const up = new Image();
-    up.src = radarUrl(cal.radar);
-    up.onload = () => {
-      images.current.upper = up;
-    };
-    if (cal.lower_radar) {
-      const lo = new Image();
-      lo.src = radarUrl(cal.lower_radar);
-      lo.onload = () => {
-        images.current.lower = lo;
-      };
-    }
-  }, [cal]);
 
   useEffect(() => {
     view.current.scale = 1;
@@ -362,21 +336,12 @@ export function RadarCanvas({
       onSelectRef.current(null);
       return;
     }
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const { x: mx, y: my } = canvasLocalPoint(canvas, e.clientX, e.clientY);
     const players = samplePlayers(replay, tickRef.current);
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
     const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, view.current, wx, wy);
-    let best: { i: number; d: number } | null = null;
-    for (const p of players) {
-      if (!p.present) continue;
-      const s = toScreen(p.x, p.y);
-      const d = (s.x - mx) ** 2 + (s.y - my) ** 2;
-      if (!best || d < best.d) best = { i: p.index, d };
-    }
-    onSelectRef.current(best && best.d < 18 * 18 ? best.i : null);
+    onSelectRef.current(nearestPlayerIndexAtScreen(players, mx, my, toScreen));
   };
 
   const onDoubleClick = (e: ReactMouseEvent<HTMLCanvasElement>) => {
@@ -387,25 +352,22 @@ export function RadarCanvas({
     if (!canvas || !wrap || !calNow || !onHabitsJumpRef.current) return;
     const habitsNow = habitsOverlayRef.current;
     if (!habitsNow) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const { x: mx, y: my } = canvasLocalPoint(canvas, e.clientX, e.clientY);
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
     const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, view.current, wx, wy);
     const playSec = habitsPlaySecRefProp.current?.current;
-    const hit = habitsArrowAtScreen(
+    const jump = habitsJumpAtScreen(
       habitsNow,
       habitsShowArrowsRef.current,
       mx,
       my,
       toScreen,
-      16,
       playSec,
     );
-    if (hit) {
+    if (jump) {
       e.preventDefault();
-      onHabitsJumpRef.current({ demoId: hit.demoId, jumpTick: habitsArrowJumpTick(hit) });
+      onHabitsJumpRef.current(jump);
     }
   };
 
