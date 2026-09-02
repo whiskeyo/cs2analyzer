@@ -7,6 +7,7 @@ apps/web/coverage
 apps/layouts/node_modules
 apps/layouts/dist
 apps/layouts/*.tsbuildinfo
+apps/layouts/coverage
 .DS_Store
 .demos/
 testdata/*.dem

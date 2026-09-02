@@ -60,6 +60,7 @@ export default defineConfig({
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/parser/**", "src/lib/testing/**", "src/**/*.test.{ts,tsx}", "src/main.tsx"],
+      reporter: ["text", "html", "lcov"],
     },
   },
 });
