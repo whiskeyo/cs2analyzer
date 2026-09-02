@@ -199,6 +199,8 @@ describe("DropZone", () => {
       "href",
       "https://steamcommunity.com/tradeoffer/new/?partner=69520211&token=YCinud5X",
     );
+    expect(screen.getByText(`cs2analyzer version: ${__APP_VERSION__}`)).toBeInTheDocument();
+    expect(screen.getByText(/Made by whiskeyo/)).toBeInTheDocument();
   });
 
   it("accepts dropped demos on the main drop zone", () => {

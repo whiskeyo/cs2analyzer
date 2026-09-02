@@ -1,4 +1,5 @@
 import path from "node:path";
+import { execSync } from "node:child_process";
 import react from "@vitejs/plugin-react";
 import { copyFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -7,6 +8,17 @@ import { defineConfig } from "vitest/config";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const src = fileURLToPath(new URL("./src", import.meta.url));
 const shared = path.resolve(root, "../shared");
+
+function gitShortHash(): string {
+  try {
+    return execSync("git rev-parse --short HEAD", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "dev";
+  }
+}
 
 /** Vite's public copy can skip dotfiles; Apache on OVH still needs this name. */
 function copyHtaccess() {
@@ -22,6 +34,9 @@ function copyHtaccess() {
 
 export default defineConfig({
   base: process.env.VITE_BASE || "/",
+  define: {
+    __APP_VERSION__: JSON.stringify(gitShortHash()),
+  },
   plugins: [react(), copyHtaccess()],
   resolve: {
     alias: {
