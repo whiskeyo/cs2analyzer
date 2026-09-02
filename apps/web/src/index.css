@@ -106,6 +106,9 @@ body,
 .credits a {
   color: #8b98a5;
 }
+.credits a:hover {
+  color: #e8eef4;
+}
 .credits-links {
   display: flex;
   justify-content: center;
@@ -116,6 +119,9 @@ body,
 }
 .credits-links a {
   color: #c5d0da;
+}
+.credits-links a:hover {
+  color: #e8eef4;
 }
 .home-modal {
   position: fixed;
@@ -180,7 +186,6 @@ body,
   border: 1px solid #1e2732;
   border-radius: 8px;
   background: #12171d;
-  min-height: 22rem;
 }
 .saved-demos li {
   display: flex;
@@ -189,6 +194,9 @@ body,
 }
 .saved-demos li:last-child {
   border-bottom: none;
+}
+.saved-demos li:hover {
+  background: #1a222c;
 }
 .saved-demo {
   flex: 1;
@@ -201,12 +209,18 @@ body,
   background: transparent;
   border: none;
   color: inherit;
-  padding: 0.55rem 0.7rem;
+  padding: 0.32rem 0.6rem;
   cursor: pointer;
   text-align: left;
 }
-.saved-demo:hover {
-  background: #1a222c;
+.saved-demo:hover,
+.round-item:hover,
+.kill-item:hover,
+.round-event:hover,
+.round-story:hover,
+.review-note:hover,
+.spec-card:hover {
+  filter: none;
 }
 .saved-demo-map {
   font-size: 0.82rem;
@@ -260,12 +274,19 @@ body,
   color: #8b98a5;
   font-weight: 550;
 }
-.saved-demo-del {
+.saved-demo-actions {
+  display: flex;
   flex-shrink: 0;
-  align-self: center;
-  margin-right: 0.45rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.45rem 0 0.25rem;
+}
+.saved-demo-del,
+.saved-demo-link {
+  flex-shrink: 0;
   font-size: 0.72rem;
   padding: 0.2rem 0.45rem;
+  min-height: 0;
 }
 .saved-demos-pager {
   display: flex;
@@ -427,10 +448,6 @@ code {
 }
 .series-round-side-gap {
   flex: 0 0 0.55rem;
-}
-.saved-demo-link {
-  font-size: 0.72rem;
-  margin-left: 0.35rem;
 }
 .series-file {
   box-sizing: border-box;
@@ -731,6 +748,12 @@ code {
   opacity: 0.4;
   cursor: not-allowed;
 }
+.ghost:hover:not(:disabled) {
+  background: #1a222c;
+  border-color: #4a5a6c;
+  color: #e8eef4;
+  filter: none;
+}
 .danger {
   display: inline-flex;
   align-items: center;
@@ -901,6 +924,9 @@ code {
 }
 .nade-legend button:not(.on) {
   opacity: 0.45;
+}
+.nade-legend button:hover:not(:disabled) {
+  opacity: 1;
 }
 .nade-legend i {
   width: 9px;
@@ -1096,6 +1122,11 @@ button.link {
   cursor: pointer;
   padding: 0;
   font-size: inherit;
+}
+button.link:hover:not(:disabled) {
+  color: #8ec0ee;
+  text-decoration: underline;
+  filter: none;
 }
 .steam {
   margin: 0 0 0.5rem;

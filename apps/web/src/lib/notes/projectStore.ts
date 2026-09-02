@@ -456,19 +456,110 @@ export function demoFilePickerAvailable(): boolean {
   return typeof window !== "undefined" && "showOpenFilePicker" in window;
 }
 
-export async function pickDemoFileHandle(): Promise<FileSystemFileHandle | null> {
+type OpenFilePicker = (options: {
+  types: { description?: string; accept: Record<string, string[]> }[];
+  multiple: boolean;
+}) => Promise<FileSystemFileHandle[]>;
+
+function openFilePicker(): OpenFilePicker | null {
   if (!demoFilePickerAvailable()) return null;
-  const open = (
-    window as unknown as {
-      showOpenFilePicker: (options: {
-        types: { accept: Record<string, string[]> }[];
-        multiple: boolean;
-      }) => Promise<FileSystemFileHandle[]>;
+  const open = (window as unknown as { showOpenFilePicker?: OpenFilePicker }).showOpenFilePicker;
+  return typeof open === "function" ? open : null;
+}
+
+const pendingDemoHandles = new Map<string, FileSystemFileHandle>();
+
+/** Stash File System Access handles from a drop or picker until notes persist. */
+export function rememberDemoFileHandles(handles: Iterable<FileSystemFileHandle>): void {
+  for (const handle of handles) {
+    pendingDemoHandles.set(handle.name, handle);
+  }
+}
+
+export function pendingDemoFileHandle(fileName: string): FileSystemFileHandle | undefined {
+  return pendingDemoHandles.get(fileName);
+}
+
+export function clearPendingDemoFileHandles(): void {
+  pendingDemoHandles.clear();
+}
+
+type DropItem = DataTransferItem & {
+  getAsFileSystemHandle?: () => Promise<FileSystemHandle | null>;
+};
+
+async function fileHandleFromDropItem(
+  item: DataTransferItem,
+): Promise<FileSystemFileHandle | null> {
+  const getter = (item as DropItem).getAsFileSystemHandle;
+  if (typeof getter !== "function") return null;
+  try {
+    const handle = await getter.call(item);
+    if (!handle || handle.kind !== "file") return null;
+    return handle as FileSystemFileHandle;
+  } catch {
+    return null;
+  }
+}
+
+/** Files from a drop, plus persistent handles when Chrome/Edge exposes them. */
+export async function filesFromDataTransfer(
+  dt: DataTransfer,
+): Promise<{ files: File[]; handles: FileSystemFileHandle[] }> {
+  const handles: FileSystemFileHandle[] = [];
+  const items = dt.items;
+  if (items && items.length > 0) {
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind !== "file") continue;
+      const handle = await fileHandleFromDropItem(item);
+      if (handle) {
+        handles.push(handle);
+        files.push(await handle.getFile());
+      } else {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
     }
-  ).showOpenFilePicker;
+    if (files.length > 0) return { files, handles };
+  }
+  return { files: [...dt.files], handles };
+}
+
+export async function pickDemoFileHandle(): Promise<FileSystemFileHandle | null> {
+  const open = openFilePicker();
+  if (!open) return null;
   const handles = await open({
     types: [{ accept: { "application/octet-stream": [".dem"] } }],
     multiple: false,
   });
   return handles[0] ?? null;
+}
+
+/** Click-to-open on the home drop zone (demos and notes JSON). */
+export async function pickOpenFiles(): Promise<{
+  files: File[];
+  handles: FileSystemFileHandle[];
+} | null> {
+  const open = openFilePicker();
+  if (!open) return null;
+  try {
+    const handles = await open({
+      types: [
+        {
+          description: "CS2 demo or notes",
+          accept: {
+            "application/octet-stream": [".dem"],
+            "application/json": [".json"],
+          },
+        },
+      ],
+      multiple: true,
+    });
+    const files = await Promise.all(handles.map((h) => h.getFile()));
+    return { files, handles };
+  } catch {
+    return null;
+  }
 }

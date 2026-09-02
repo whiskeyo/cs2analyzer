@@ -6,3 +6,7 @@
   color: #e8eef4;
   background: #0b0e12;
 }
+
+button:hover:not(:disabled) {
+  filter: brightness(1.14);
+}

@@ -1,10 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { loadedDemo } from "@/lib/parse/session";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
 import { COLOR_PRESETS } from "./palettes";
-import { matchKey, PROJECT_SCHEMA, type ReviewProject } from "./projectStore";
+import {
+  clearPendingDemoFileHandles,
+  matchKey,
+  PROJECT_SCHEMA,
+  rememberDemoFileHandles,
+  type ReviewProject,
+} from "./projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
-import { projectFromDemo, reviewSnapshot } from "./reviewPersistence";
+import { applyPendingDemoLink, projectFromDemo, reviewSnapshot } from "./reviewPersistence";
 
 function demo(fileName = "match.dem") {
   const replay = makeReplay({
@@ -75,6 +81,54 @@ describe("projectFromDemo", () => {
     expect(row.scorecard).toEqual(existing.scorecard);
     expect(row.playerStats).toEqual(existing.playerStats);
     expect(row.tick).toBe(200);
+  });
+
+  it("keeps an existing linked-file label", () => {
+    const target = demo();
+    const existing: ReviewProject = {
+      schema: PROJECT_SCHEMA,
+      key: matchKey(target.replay, target.fileName),
+      savedAt: 1,
+      fileName: target.fileName,
+      mapName: "de_mirage",
+      tick: 100,
+      strokes: [],
+      summaryFilter: DEFAULT_SUMMARY_FILTER,
+      floorMode: "auto",
+      paletteId: overlay.paletteId,
+      color: overlay.color,
+      linkedFileLabel: "match.dem",
+    };
+    const row = projectFromDemo(target, 200, [], overlay, existing, { withStats: false });
+    expect(row.linkedFileLabel).toBe("match.dem");
+  });
+});
+
+describe("applyPendingDemoLink", () => {
+  afterEach(() => {
+    clearPendingDemoFileHandles();
+  });
+
+  it("is a no-op when no handle was captured", async () => {
+    const target = demo();
+    const row = projectFromDemo(target, 0, [], overlay, undefined);
+    await expect(applyPendingDemoLink(row)).resolves.toEqual(row);
+  });
+
+  it("labels the project when a matching handle is pending", async () => {
+    const handle = { name: "match.dem", getFile: async () => new File([], "match.dem") };
+    rememberDemoFileHandles([handle as FileSystemFileHandle]);
+    const target = demo();
+    const row = projectFromDemo(target, 0, [], overlay, undefined);
+    const linked = await applyPendingDemoLink(row);
+    expect(linked.linkedFileLabel).toBe("match.dem");
+  });
+
+  it("ignores a pending handle with a different filename", async () => {
+    rememberDemoFileHandles([{ name: "other.dem" } as FileSystemFileHandle]);
+    const target = demo();
+    const row = projectFromDemo(target, 0, [], overlay, undefined);
+    await expect(applyPendingDemoLink(row)).resolves.toEqual(row);
   });
 });
 

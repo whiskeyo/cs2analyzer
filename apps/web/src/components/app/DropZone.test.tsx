@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PROJECT_SCHEMA, type ReviewProject } from "@/lib/notes/projectStore";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
@@ -8,10 +8,14 @@ import { DropZone } from "./DropZone";
 
 vi.mock("@/lib/notes/projectStore", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/notes/projectStore")>();
-  return { ...actual, demoFilePickerAvailable: vi.fn(() => false) };
+  return {
+    ...actual,
+    demoFilePickerAvailable: vi.fn(() => false),
+    pickOpenFiles: vi.fn(),
+  };
 });
 
-import { demoFilePickerAvailable } from "@/lib/notes/projectStore";
+import { demoFilePickerAvailable, pickOpenFiles } from "@/lib/notes/projectStore";
 
 const noop = () => {};
 
@@ -53,6 +57,7 @@ function savedProject(overrides: Partial<ReviewProject> = {}): ReviewProject {
 describe("DropZone", () => {
   beforeEach(() => {
     vi.mocked(demoFilePickerAvailable).mockReturnValue(false);
+    vi.mocked(pickOpenFiles).mockResolvedValue(null);
   });
 
   it("hands a picked demo to the parser", async () => {
@@ -203,13 +208,13 @@ describe("DropZone", () => {
     expect(screen.getByText(/Made by whiskeyo/)).toBeInTheDocument();
   });
 
-  it("accepts dropped demos on the main drop zone", () => {
+  it("accepts dropped demos on the main drop zone", async () => {
     const onFiles = vi.fn();
     const { container } = render(<DropZone {...props({ onFiles })} />);
     const drop = container.querySelector(".drop") as HTMLElement;
     const demo = new File(["fake"], "drop.dem");
     fireEvent.drop(drop, { dataTransfer: { files: [demo] } });
-    expect(onFiles).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onFiles).toHaveBeenCalledTimes(1));
     expect(onFiles.mock.calls[0][0][0].name).toBe("drop.dem");
   });
 
@@ -260,7 +265,7 @@ describe("DropZone", () => {
     const demo = new File(["fake"], "a.dem");
     fireEvent.drop(dialog, { dataTransfer: { files: [demo] } });
 
-    expect(onFiles).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onFiles).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -282,6 +287,19 @@ describe("DropZone", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Link demo" }));
     expect(onLinkDemoFile).toHaveBeenCalledWith(expect.objectContaining({ fileName: "a.dem" }));
+  });
+
+  it("uses the file picker on the drop zone when it is available", async () => {
+    vi.mocked(demoFilePickerAvailable).mockReturnValue(true);
+    const file = new File(["fake"], "picked.dem");
+    const handle = { name: "picked.dem" } as FileSystemFileHandle;
+    vi.mocked(pickOpenFiles).mockResolvedValue({ files: [file], handles: [handle] });
+    const onFiles = vi.fn();
+    const { container } = render(<DropZone {...props({ onFiles })} />);
+
+    await userEvent.click(container.querySelector(".drop") as HTMLElement);
+    expect(pickOpenFiles).toHaveBeenCalled();
+    expect(onFiles).toHaveBeenCalledWith([file]);
   });
 
   it("shows saved metadata and paginates backward", async () => {

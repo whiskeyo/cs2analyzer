@@ -5,8 +5,13 @@ import { Credits } from "@/components/app/Credits";
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
 import { SAVED_NOTES_PAGE_SIZE } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
-import type { ReviewProject } from "@/lib/notes/projectStore";
-import { demoFilePickerAvailable } from "@/lib/notes/projectStore";
+import {
+  demoFilePickerAvailable,
+  filesFromDataTransfer,
+  pickOpenFiles,
+  rememberDemoFileHandles,
+  type ReviewProject,
+} from "@/lib/notes/projectStore";
 import { formatAdr, formatKast, type SavedPlayerSnapshot } from "@/lib/stats/stats";
 import { prettyMap } from "@/lib/weapons/weapons";
 import { ScorecardLabel } from "./ScorecardLabel";
@@ -50,9 +55,19 @@ function sortedSnapshots(rows: SavedPlayerSnapshot[]): SavedPlayerSnapshot[] {
   return [...rows].sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
 }
 
-function takeDroppedFiles(e: DragEvent, onFiles: (files: File[]) => void): void {
+async function takeDroppedFiles(e: DragEvent, onFiles: (files: File[]) => void): Promise<void> {
   e.preventDefault();
-  const files = [...e.dataTransfer.files];
+  const { files, handles } = await filesFromDataTransfer(e.dataTransfer);
+  rememberDemoFileHandles(handles);
+  if (files.length > 0) onFiles(files);
+}
+
+function takePickedFiles(
+  files: File[],
+  handles: Iterable<FileSystemFileHandle>,
+  onFiles: (files: File[]) => void,
+): void {
+  rememberDemoFileHandles(handles);
   if (files.length > 0) onFiles(files);
 }
 
@@ -113,7 +128,15 @@ export function DropZone({
         <label
           className="drop"
           onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => takeDroppedFiles(e, onFiles)}
+          onDrop={(e) => void takeDroppedFiles(e, onFiles)}
+          onClick={(e) => {
+            if (!demoFilePickerAvailable()) return;
+            e.preventDefault();
+            void pickOpenFiles().then((picked) => {
+              if (!picked) return;
+              takePickedFiles(picked.files, picked.handles, onFiles);
+            });
+          }}
         >
           <input
             type="file"
@@ -229,24 +252,26 @@ export function DropZone({
                         </div>
                       )}
                     </button>
-                    {demoFilePickerAvailable() && (
+                    <div className="saved-demo-actions">
+                      {demoFilePickerAvailable() && (
+                        <button
+                          type="button"
+                          className="ghost saved-demo-link"
+                          title="Link this demo file so Open can load it without re-dropping"
+                          onClick={() => onLinkDemoFile(p)}
+                        >
+                          Link demo
+                        </button>
+                      )}
                       <button
                         type="button"
-                        className="ghost saved-demo-link"
-                        title="Link this demo file so Open can load it without re-dropping"
-                        onClick={() => onLinkDemoFile(p)}
+                        className="ghost saved-demo-del"
+                        title="Remove notes for this match"
+                        onClick={() => onDeleteNotes(p.key)}
                       >
-                        Link demo
+                        Delete
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      className="ghost saved-demo-del"
-                      title="Remove notes for this match"
-                      onClick={() => onDeleteNotes(p.key)}
-                    >
-                      Delete
-                    </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -347,7 +372,7 @@ export function DropZone({
             onClick={(e) => e.stopPropagation()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
-              takeDroppedFiles(e, (files) => {
+              void takeDroppedFiles(e, (files) => {
                 setWantedDemo(null);
                 onFiles(files);
               });

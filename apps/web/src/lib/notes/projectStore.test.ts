@@ -7,11 +7,16 @@ import {
   defaultColor,
   defaultPaletteId,
   demoFilePickerAvailable,
+  filesFromDataTransfer,
   isNotesFile,
   matchKey,
   parseBundle,
   parseProject,
   pickDemoFileHandle,
+  pickOpenFiles,
+  rememberDemoFileHandles,
+  pendingDemoFileHandle,
+  clearPendingDemoFileHandles,
   serializeBundle,
   type ReviewProject,
 } from "./projectStore";
@@ -232,6 +237,7 @@ describe("demo file picker", () => {
   it("returns null when the picker API is unavailable", async () => {
     expect(demoFilePickerAvailable()).toBe(false);
     await expect(pickDemoFileHandle()).resolves.toBeNull();
+    await expect(pickOpenFiles()).resolves.toBeNull();
   });
 
   it("returns the first selected handle", async () => {
@@ -241,5 +247,51 @@ describe("demo file picker", () => {
     expect(demoFilePickerAvailable()).toBe(true);
     await expect(pickDemoFileHandle()).resolves.toBe(handle);
     vi.unstubAllGlobals();
+  });
+
+  it("picks multiple files for the home drop zone", async () => {
+    const file = new File(["x"], "match.dem");
+    const handle = { name: "match.dem", getFile: async () => file } as FileSystemFileHandle;
+    const open = vi.fn().mockResolvedValue([handle]);
+    vi.stubGlobal("window", { showOpenFilePicker: open });
+    await expect(pickOpenFiles()).resolves.toEqual({ files: [file], handles: [handle] });
+    vi.unstubAllGlobals();
+  });
+
+  it("returns null when the open picker is cancelled", async () => {
+    const open = vi.fn().mockRejectedValue(new Error("AbortError"));
+    vi.stubGlobal("window", { showOpenFilePicker: open });
+    await expect(pickOpenFiles()).resolves.toBeNull();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("drop file handles", () => {
+  it("falls back to dataTransfer.files when items are empty", async () => {
+    const file = new File(["x"], "a.dem");
+    const dt = { files: [file], items: [] } as unknown as DataTransfer;
+    await expect(filesFromDataTransfer(dt)).resolves.toEqual({ files: [file], handles: [] });
+  });
+
+  it("reads persistent handles from drop items when exposed", async () => {
+    const file = new File(["x"], "a.dem");
+    const handle = { name: "a.dem", kind: "file", getFile: async () => file };
+    const item = {
+      kind: "file",
+      getAsFile: () => file,
+      getAsFileSystemHandle: async () => handle,
+    };
+    const dt = { files: [file], items: [item] } as unknown as DataTransfer;
+    const out = await filesFromDataTransfer(dt);
+    expect(out.files).toEqual([file]);
+    expect(out.handles).toEqual([handle]);
+  });
+
+  it("remembers handles by file name", () => {
+    const handle = { name: "a.dem" } as FileSystemFileHandle;
+    rememberDemoFileHandles([handle]);
+    expect(pendingDemoFileHandle("a.dem")).toBe(handle);
+    clearPendingDemoFileHandles();
+    expect(pendingDemoFileHandle("a.dem")).toBeUndefined();
   });
 });

@@ -23,6 +23,7 @@ import {
   tryOpenLinkedDemo,
 } from "./reviewImportExport";
 import {
+  applyPendingDemoLink,
   flushSeriesReviewCache,
   projectFromDemo,
   reviewSnapshot,
@@ -143,13 +144,15 @@ export function useReviewProject(opts: {
       const key = matchKey(target.replay, target.fileName);
       const existing = await loadProject(key);
       await saveProject(
-        projectFromDemo(
-          target,
-          playbackRef.current.tickRef.current,
-          strokesRef.current,
-          overlayRef.current,
-          existing,
-          { withStats: opts?.stats !== false },
+        await applyPendingDemoLink(
+          projectFromDemo(
+            target,
+            playbackRef.current.tickRef.current,
+            strokesRef.current,
+            overlayRef.current,
+            existing,
+            { withStats: opts?.stats !== false },
+          ),
         ),
       );
       if (opts?.refreshList !== false) {
