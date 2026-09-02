@@ -3,6 +3,7 @@ import { liveClutch } from "@/lib/match/clutches";
 import { playerReview } from "@/lib/match/review";
 import { matchEndTick } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";
+import { ReviewNoteFlow } from "./ReviewNoteFlow";
 
 interface Props {
   replay: Replay;
@@ -10,10 +11,6 @@ interface Props {
   selected: number | null;
   onJump: (tick: number) => void;
   onSelect: (index: number) => void;
-}
-
-function noteClass(severity: string, pending: boolean): string {
-  return `review-note ${severity}${pending ? " pending" : ""}`.trim();
 }
 
 export function Review({ replay, tick, selected, onJump, onSelect }: Props) {
@@ -70,23 +67,11 @@ export function Review({ replay, tick, selected, onJump, onSelect }: Props) {
               ))}
             </ul>
           )}
-          <ul className="review-notes">
-            {review.notes.map((n) => (
-              <li key={`${n.tick}-${n.title}`}>
-                <button
-                  type="button"
-                  className={noteClass(n.severity, n.tick > tick)}
-                  onClick={() => onJump(n.tick)}
-                >
-                  <span className="pill review-round">{n.roundLabel}</span>
-                  <span className="review-copy">
-                    <span className="review-title">{n.title}</span>
-                    <span className="review-detail">{n.detail}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <ReviewNoteFlow
+            notes={review.notes}
+            pendingAtTick={tick}
+            onJump={(note) => onJump(note.tick)}
+          />
         </>
       )}
     </div>

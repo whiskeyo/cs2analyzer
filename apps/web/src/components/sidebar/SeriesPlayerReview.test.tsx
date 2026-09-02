@@ -31,9 +31,9 @@ describe("SeriesPlayerReview", () => {
     expect(screen.getByText(/1 demos/)).toBeInTheDocument();
   });
 
-  it("shows every note without review filters", () => {
+  it("shows every note with a round/severity sort", () => {
     render(<SeriesPlayerReview review={reviewFixture()} onJump={() => {}} />);
-    expect(screen.queryByRole("toolbar", { name: "Review filters" })).not.toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Review sort" })).toBeInTheDocument();
     expect(screen.getByText(/Won the opening/)).toBeInTheDocument();
   });
 
@@ -47,5 +47,16 @@ describe("SeriesPlayerReview", () => {
         expect.objectContaining({ demoId: expect.any(String), jumpTick: expect.any(Number) }),
       );
     }
+  });
+
+  it("shows an empty hint when the series has no notes", () => {
+    render(
+      <SeriesPlayerReview
+        review={{ playerName: "Donk", demoCount: 0, headlines: [], notesByDemo: [] }}
+        onJump={() => {}}
+      />,
+    );
+    expect(screen.getByText(/No player notes across the series/)).toBeInTheDocument();
+    expect(screen.queryByRole("toolbar", { name: "Review sort" })).not.toBeInTheDocument();
   });
 });

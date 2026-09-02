@@ -1,5 +1,6 @@
-import type { SeriesPlayerReviewResult } from "@/lib/parse/seriesPlayerReview";
 import type { HabitsTrail } from "@/lib/parse/seriesOverlay";
+import type { SeriesPlayerReviewResult } from "@/lib/parse/seriesPlayerReview";
+import { ReviewNoteFlow } from "./ReviewNoteFlow";
 
 interface Props {
   review: SeriesPlayerReviewResult;
@@ -45,23 +46,10 @@ export function SeriesPlayerReview({ review, onJump }: Props) {
                 {group.fileName}
                 <span className="muted"> · {group.notes.length} notes</span>
               </h3>
-              <ul className="review-notes">
-                {group.notes.map((n) => (
-                  <li key={`${n.demoId}-${n.tick}-${n.title}`}>
-                    <button
-                      type="button"
-                      className={`review-note ${n.severity}`}
-                      onClick={() => onJump({ demoId: n.demoId, jumpTick: n.jumpTick })}
-                    >
-                      <span className="pill review-round">{n.roundLabel}</span>
-                      <span className="review-copy">
-                        <span className="review-title">{n.title}</span>
-                        <span className="review-detail">{n.detail}</span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <ReviewNoteFlow
+                notes={group.notes}
+                onJump={(note) => onJump({ demoId: note.demoId, jumpTick: note.jumpTick })}
+              />
             </section>
           ))}
         </>

@@ -210,14 +210,14 @@ describe("Sidebar", () => {
     render(<Sidebar {...sidebarProps()} />);
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByText(/Donk/)).toBeInTheDocument();
-    expect(screen.queryByRole("toolbar", { name: "Review filters" })).not.toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Review sort" })).toBeInTheDocument();
   });
 
   it("opens single-demo review from the sidebar", async () => {
     render(<Sidebar {...sidebarProps({ selected: 0 })} />);
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByText(/Alice/)).toBeInTheDocument();
-    expect(screen.queryByRole("toolbar", { name: "Review filters" })).not.toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Review sort" })).toBeInTheDocument();
     expect(screen.queryByRole("toolbar", { name: "Review note kinds" })).not.toBeInTheDocument();
   });
 

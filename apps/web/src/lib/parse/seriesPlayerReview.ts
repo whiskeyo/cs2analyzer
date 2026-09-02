@@ -203,10 +203,7 @@ export function seriesPlayerReview(
     .map(({ demoId, fileName, notes }) => ({
       demoId,
       fileName,
-      notes: notes.sort((a, b) => {
-        const rank = { good: 0, high: 1, mid: 2, low: 3 };
-        return rank[a.severity] - rank[b.severity] || a.tick - b.tick;
-      }),
+      notes: notes.sort((a, b) => a.tick - b.tick),
     }))
     .sort((a, b) => a.fileName.localeCompare(b.fileName));
 
