@@ -67,9 +67,12 @@ pub(crate) struct Collector {
     pub hurts: Vec<HurtRec>,
     pub shots: Vec<(u32, Option<u64>, f32, f32, f32)>,
     pub kills: Vec<RawKill>,
-    pub blinds: Vec<(u32, i32, f32, Option<i32>)>,
+    /// `(tick, victim_steam, duration_s, attacker_steam)`.
+    pub blinds: Vec<(u32, Option<u64>, f32, Option<u64>)>,
     pub bomb_events: Vec<BombRec>,
     pub userid_to_steam: HashMap<i32, u64>,
+    flash_duration: HashMap<u64, f32>,
+    last_flash_thrower: Option<u64>,
     pub frames: Vec<RawFrame>,
     pub pawn_to_steam: HashMap<u32, u64>,
     pub last_cap: u32,
@@ -139,6 +142,8 @@ impl Collector {
             blinds: Vec::new(),
             bomb_events: Vec::new(),
             userid_to_steam: HashMap::new(),
+            flash_duration: HashMap::new(),
+            last_flash_thrower: None,
             frames: Vec::new(),
             pawn_to_steam: HashMap::new(),
             last_cap: 0,
@@ -154,6 +159,53 @@ impl Collector {
         let ents: Vec<u32> = self.inferno_live.keys().copied().collect();
         for entity in ents {
             self.close_inferno(entity, tick);
+        }
+    }
+
+    fn record_blind(&mut self, tick: u32, victim: u64, duration: f32, attacker: Option<u64>) {
+        if duration <= 0.0 {
+            return;
+        }
+        if self
+            .blinds
+            .iter()
+            .rev()
+            .take(32)
+            .any(|(t, v, _, _)| *t == tick && *v == Some(victim))
+        {
+            return;
+        }
+        self.blinds.push((
+            tick,
+            Some(victim),
+            duration,
+            attacker.or(self.last_flash_thrower),
+        ));
+        let prev = self.flash_duration.get(&victim).copied().unwrap_or(0.0);
+        if duration > prev {
+            self.flash_duration.insert(victim, duration);
+        }
+    }
+
+    fn sample_flash_blinds(&mut self, ctx: &Context, tick: u32) {
+        for ctrl in ctx.entities().iter() {
+            if ctrl.class().name() != "CCSPlayerController" {
+                continue;
+            }
+            let steam = prop_u64(ctrl, "m_steamID");
+            if steam == 0 {
+                continue;
+            }
+            let handle = prop_u32(ctrl, "m_hPlayerPawn");
+            let Ok(pawn) = ctx.entities().get_by_handle(handle as usize) else {
+                continue;
+            };
+            let dur = prop_f32(pawn, "m_flFlashDuration");
+            let prev = self.flash_duration.get(&steam).copied().unwrap_or(0.0);
+            if let Some(next) = new_flash_duration(prev, dur) {
+                self.record_blind(tick, steam, next, self.last_flash_thrower);
+            }
+            self.flash_duration.insert(steam, dur);
         }
     }
 
@@ -264,7 +316,64 @@ fn steam_from_pawn_handle(c: &Collector, ctx: &Context, handle: i32) -> Option<u
 fn steam_from_game_event(c: &Collector, ctx: &Context, ge: &GameEvent<'_>) -> Option<u64> {
     ev_i32(ge, "userid_pawn")
         .and_then(|h| steam_from_pawn_handle(c, ctx, h))
-        .or_else(|| ev_i32(ge, "userid").and_then(|uid| c.userid_to_steam.get(&uid).copied()))
+        .or_else(|| ev_i32(ge, "userid").and_then(|uid| steam_from_userid(c, ctx, uid)))
+}
+
+fn steam_from_userid(c: &Collector, ctx: &Context, uid: i32) -> Option<u64> {
+    if uid <= 0 {
+        return None;
+    }
+    if let Some(&steam) = c.userid_to_steam.get(&uid) {
+        return Some(steam);
+    }
+    if let Ok(ent) = ctx.entities().get_by_index(uid as usize) {
+        if ent.class().name() == "CCSPlayerController" {
+            let steam = prop_u64(ent, "m_steamID");
+            if steam != 0 {
+                return Some(steam);
+            }
+        }
+    }
+    let slot = uid & 0xff;
+    if slot != uid {
+        if let Some(&steam) = c.userid_to_steam.get(&slot) {
+            return Some(steam);
+        }
+    }
+    None
+}
+
+fn steam_from_event_player(
+    c: &Collector,
+    ctx: &Context,
+    ge: &GameEvent<'_>,
+    pawn_key: &str,
+    userid_key: &str,
+) -> Option<u64> {
+    ev_i32(ge, pawn_key)
+        .and_then(|h| steam_from_pawn_handle(c, ctx, h))
+        .or_else(|| ev_i32(ge, userid_key).and_then(|uid| steam_from_userid(c, ctx, uid)))
+}
+
+fn thrower_from_nade_entity(c: &Collector, ctx: &Context, entityid: i32) -> Option<u64> {
+    if entityid <= 0 {
+        return None;
+    }
+    let ent = ctx
+        .entities()
+        .get_by_index(entityid as usize)
+        .or_else(|_| ctx.entities().get_by_handle(entityid as usize))
+        .ok()?;
+    steam_from_pawn_handle(c, ctx, prop_u32(ent, "m_hThrower") as i32)
+}
+
+/// True when `next` is a new flash on this pawn (duration jumped up).
+pub(crate) fn new_flash_duration(prev: f32, next: f32) -> Option<f32> {
+    if next > 0.0 && next > prev + 0.05 {
+        Some(next)
+    } else {
+        None
+    }
 }
 
 fn ev_haskit(ge: &GameEvent<'_>) -> bool {
@@ -318,6 +427,7 @@ impl Collector {
                 let steam = prop_u64(ctrl, "m_steamID");
                 if steam != 0 {
                     self.pawn_to_steam.insert(pawn.index(), steam);
+                    self.userid_to_steam.insert(ctrl.index() as i32, steam);
                 }
             }
         }
@@ -336,6 +446,7 @@ impl Collector {
         self.prev_win_status = win_status;
 
         self.sample_infernos(ctx, tick);
+        self.sample_flash_blinds(ctx, tick);
 
         if tick.wrapping_sub(self.last_cap) < self.opts.tick_stride && self.last_cap != 0 {
             return Ok(());
@@ -572,6 +683,11 @@ impl Collector {
                     _ => GrenadeKind::Decoy,
                 };
                 let id = ev_i32(ge, "entityid").unwrap_or(0);
+                if kind == GrenadeKind::Flash {
+                    if let Some(thrower) = thrower_from_nade_entity(self, ctx, id) {
+                        self.last_flash_thrower = Some(thrower);
+                    }
+                }
                 self.grenade_dets.push((
                     tick,
                     kind,
@@ -605,11 +721,16 @@ impl Collector {
             }
             "player_blind" => {
                 let dur = ev_f32(ge, "blind_duration");
-                if dur > 0.0 {
-                    if let Some(uid) = ev_i32(ge, "userid") {
-                        let flasher = ev_i32(ge, "attacker");
-                        self.blinds.push((tick, uid, dur, flasher));
+                if let Some(victim) =
+                    steam_from_event_player(self, ctx, ge, "userid_pawn", "userid")
+                {
+                    let attacker =
+                        steam_from_event_player(self, ctx, ge, "attacker_pawn", "attacker")
+                            .or(self.last_flash_thrower);
+                    if let Some(thrower) = attacker {
+                        self.last_flash_thrower = Some(thrower);
                     }
+                    self.record_blind(tick, victim, dur, attacker);
                 }
             }
             _ => {}

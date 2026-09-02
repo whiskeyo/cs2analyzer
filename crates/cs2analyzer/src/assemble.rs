@@ -84,25 +84,11 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     let blinds: Vec<Blind> = c
         .blinds
         .iter()
-        .map(|(tick, uid, dur, flasher)| {
-            let victim = c
-                .userid_to_steam
-                .get(uid)
-                .copied()
-                .and_then(|s| steam_to_idx.get(&s).copied())
-                .map(|v| v as i8)
-                .unwrap_or(-1);
-            let attacker = flasher
-                .and_then(|u| c.userid_to_steam.get(&u).copied())
-                .and_then(|s| steam_to_idx.get(&s).copied())
-                .map(|v| v as i8)
-                .unwrap_or(-1);
-            Blind {
-                tick: *tick,
-                attacker,
-                victim,
-                duration: *dur,
-            }
+        .map(|(tick, victim, dur, attacker)| Blind {
+            tick: *tick,
+            attacker: idx_of(*attacker),
+            victim: idx_of(*victim),
+            duration: *dur,
         })
         .collect();
     let mut bomb_events: Vec<BombEvent> = c
@@ -616,7 +602,7 @@ fn fill_missing_bomb_positions(events: &mut [BombEvent], ticks: &TickBuffer) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::observer::{Collector, FireSpan};
+    use crate::observer::{new_flash_duration, Collector, FireSpan};
     use crate::ParseOptions;
 
     fn molly(detonate: u32, x: f32, y: f32) -> GrenadeThrow {
@@ -672,5 +658,14 @@ mod tests {
         assert!(grenades[1].fires.is_empty());
         assert_eq!(grenades[0].end_tick, 500);
         assert_eq!(grenades[0].fires[0].x, 100.0);
+    }
+
+    #[test]
+    fn new_flash_duration_only_on_increase() {
+        assert_eq!(new_flash_duration(0.0, 2.4), Some(2.4));
+        assert_eq!(new_flash_duration(2.4, 2.4), None);
+        assert_eq!(new_flash_duration(2.4, 1.1), None);
+        assert_eq!(new_flash_duration(0.0, 0.0), None);
+        assert_eq!(new_flash_duration(0.02, 0.04), None);
     }
 }

@@ -40,6 +40,15 @@ pub(crate) fn prop_truthy(e: &Entity, name: &str) -> bool {
     }
 }
 
+pub(crate) fn prop_f32(e: &Entity, name: &str) -> f32 {
+    match e.get_property(name) {
+        Ok(FieldValue::Float(v)) => *v,
+        Ok(FieldValue::Signed32(v)) => *v as f32,
+        Ok(FieldValue::Unsigned32(v)) => *v as f32,
+        _ => 0.0,
+    }
+}
+
 pub(crate) fn prop_u64(e: &Entity, name: &str) -> u64 {
     match e.get_property(name) {
         Ok(FieldValue::Unsigned64(v)) => *v,
@@ -179,10 +188,16 @@ pub(crate) fn ev_i32(ge: &GameEvent<'_>, key: &str) -> Option<i32> {
 }
 
 pub(crate) fn ev_f32(ge: &GameEvent<'_>, key: &str) -> f32 {
-    ge.get_value(key)
-        .ok()
-        .and_then(|v| TryInto::<f32>::try_into(v).ok())
-        .unwrap_or(0.0)
+    let Ok(v) = ge.get_value(key) else {
+        return 0.0;
+    };
+    if let Ok(f) = TryInto::<f32>::try_into(v) {
+        return f;
+    }
+    if let Ok(n) = TryInto::<i32>::try_into(v) {
+        return n as f32;
+    }
+    0.0
 }
 
 pub(crate) fn ev_str(ge: &GameEvent<'_>, key: &str) -> Option<String> {
