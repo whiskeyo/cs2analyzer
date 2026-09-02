@@ -1,9 +1,14 @@
 import { memo } from "react";
 import { KILL_FEED_MAX_ROWS, KILL_FEED_SECONDS, tickRate } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
-import { recentKills } from "@/lib/stats/stats";
+import { currentSide, recentKills } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { GearIcon, WeaponIcon } from "@/components/weapons/WeaponIcon";
+
+function sideClass(replay: Replay, index: number, tick: number): string {
+  if (index < 0) return "";
+  return currentSide(replay, index, tick) === "CT" ? "ct" : "t";
+}
 
 interface Props {
   replay: Replay;
@@ -20,7 +25,9 @@ export const KillFeed = memo(function KillFeed({ replay, tick, onJump }: Props) 
       {kills.map((k, i) => (
         <li key={`${k.tick}-${i}`}>
           <button type="button" onClick={() => onJump(k.tick)}>
-            <span className="att">{replay.players[k.attacker]?.name ?? "World"}</span>
+            <span className={`att ${sideClass(replay, k.attacker, k.tick)}`.trim()}>
+              {replay.players[k.attacker]?.name ?? "World"}
+            </span>
             {k.assisted_flash && <GearIcon name="flashbang_assist" title="Flash assist" />}
             <span className="gun">
               <WeaponIcon weapon={k.weapon} />
@@ -33,7 +40,9 @@ export const KillFeed = memo(function KillFeed({ replay, tick, onJump }: Props) 
                 />
               )}
             </span>
-            <span className="vic">{replay.players[k.victim]?.name ?? "?"}</span>
+            <span className={`vic ${sideClass(replay, k.victim, k.tick)}`.trim()}>
+              {replay.players[k.victim]?.name ?? "?"}
+            </span>
           </button>
         </li>
       ))}

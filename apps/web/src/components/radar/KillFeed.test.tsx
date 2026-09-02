@@ -21,6 +21,8 @@ describe("KillFeed", () => {
     render(<KillFeed replay={replay} tick={2000} onJump={() => {}} />);
 
     expect(screen.getByText("Dave")).toBeInTheDocument();
+    expect(screen.getByText("Alice")).toHaveClass("att", "ct");
+    expect(screen.getByText("Dave")).toHaveClass("vic", "t");
     // The 1000-tick frag is more than KILL_FEED_SECONDS old by now.
     expect(screen.queryByText("Bob")).not.toBeInTheDocument();
   });
@@ -48,6 +50,8 @@ describe("KillFeed", () => {
       kills: [makeKill(1000, -1, 0, { weapon: "world" })],
     });
     render(<KillFeed replay={replay} tick={1000} onJump={() => {}} />);
-    expect(screen.getByText("World")).toBeInTheDocument();
+    expect(screen.getByText("World")).toHaveClass("att");
+    expect(screen.getByText("World")).not.toHaveClass("ct", "t");
+    expect(screen.getByText("Alice")).toHaveClass("vic", "ct");
   });
 });
