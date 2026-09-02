@@ -21,9 +21,6 @@ export const MIN_POLYGON_VERTICES = 3;
 /** Skip a dragged rect/circle smaller than this (radar pixels). */
 export const MIN_SHAPE_SIZE = 8;
 
-/** Vertices used when a drawn circle is stored as a polygon. */
-export const CIRCLE_SEGMENTS = 32;
-
 /** Same cap as notes layers (`NOTE_GROUP_NAME_MAX`). */
 export const LAYOUT_GROUP_NAME_MAX = 40;
 

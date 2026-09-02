@@ -57,6 +57,7 @@ export function renameGroup(
 ): LayoutCallout[] {
   const nextName = name.trim().slice(0, LAYOUT_GROUP_NAME_MAX);
   if (!fromId || nextName === "" || nextName === fromId) return callouts;
+  if (!callouts.some((c) => c.group === fromId)) return callouts;
   return callouts.map((c) => (c.group === fromId ? { ...c, group: nextName } : c));
 }
 

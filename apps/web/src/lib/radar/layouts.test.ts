@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { polygonCallout } from "@shared/layout/regions.ts";
 import {
   calloutAtRadar,
   calloutAtWorld,
@@ -10,43 +11,39 @@ import {
 } from "./layouts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
+const box = [
+  { x: 0, y: 0 },
+  { x: 4, y: 0 },
+  { x: 4, y: 4 },
+];
+
 const layout: MapLayout = {
   schema: 1,
   map: "de_dust2",
   callouts: [
-    {
-      id: "yard",
-      name: "Yard",
-      floor: "default",
-      polygon: [
+    polygonCallout("yard", "Yard", [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 100 },
+      { x: 0, y: 100 },
+    ]),
+    polygonCallout("car", "Car", [
+      { x: 40, y: 40 },
+      { x: 60, y: 40 },
+      { x: 60, y: 60 },
+      { x: 40, y: 60 },
+    ]),
+    polygonCallout(
+      "secret",
+      "Secret",
+      [
         { x: 0, y: 0 },
         { x: 100, y: 0 },
         { x: 100, y: 100 },
         { x: 0, y: 100 },
       ],
-    },
-    {
-      id: "car",
-      name: "Car",
-      floor: "default",
-      polygon: [
-        { x: 40, y: 40 },
-        { x: 60, y: 40 },
-        { x: 60, y: 60 },
-        { x: 40, y: 60 },
-      ],
-    },
-    {
-      id: "secret",
-      name: "Secret",
-      floor: "lower",
-      polygon: [
-        { x: 0, y: 0 },
-        { x: 100, y: 0 },
-        { x: 100, y: 100 },
-        { x: 0, y: 100 },
-      ],
-    },
+      { floor: "lower" },
+    ),
   ],
 };
 
@@ -68,6 +65,23 @@ describe("calloutAtRadar", () => {
     expect(calloutAtRadar(layout, 10, 10, "default")?.id).toBe("yard");
     expect(calloutAtRadar(layout, 50, 50, "lower")?.id).toBe("secret");
     expect(calloutAtRadar(layout, 200, 200, "default")).toBeNull();
+  });
+
+  it("hits a circle by center and radius", () => {
+    const circled: MapLayout = {
+      schema: 1,
+      map: "de_dust2",
+      callouts: [
+        {
+          id: "pit",
+          name: "Pit",
+          floor: "default",
+          regions: [{ kind: "circle", x: 50, y: 50, radius: 10 }],
+        },
+      ],
+    };
+    expect(calloutAtRadar(circled, 50, 50)?.id).toBe("pit");
+    expect(calloutAtRadar(circled, 80, 50)).toBeNull();
   });
 });
 
@@ -156,20 +170,14 @@ describe("parseMapLayout", () => {
 });
 
 describe("orderedLayoutCallouts", () => {
-  const box = [
-    { x: 0, y: 0 },
-    { x: 4, y: 0 },
-    { x: 4, y: 4 },
-  ];
-
   it("clusters groups by first appearance and leaves ungrouped last", () => {
     const grouped: MapLayout = {
       schema: 1,
       map: "de_mirage",
       callouts: [
-        { id: "mid", name: "Mid", floor: "default", polygon: box },
-        { id: "site", name: "A Site", floor: "default", group: "A", polygon: box },
-        { id: "tetris", name: "Tetris", floor: "default", group: "A", polygon: box },
+        polygonCallout("mid", "Mid", box),
+        polygonCallout("site", "A Site", box, { group: "A" }),
+        polygonCallout("tetris", "Tetris", box, { group: "A" }),
       ],
     };
     expect(orderedLayoutCallouts(grouped).map((c) => c.name)).toEqual(["A Site", "Tetris", "Mid"]);
@@ -181,22 +189,16 @@ describe("orderedLayoutCallouts", () => {
 });
 
 describe("layoutGroupFilters", () => {
-  const box = [
-    { x: 0, y: 0 },
-    { x: 4, y: 0 },
-    { x: 4, y: 4 },
-  ];
-
   it("lists named groups in first-appearance order", () => {
     const grouped: MapLayout = {
       schema: 1,
       map: "de_mirage",
       callouts: [
-        { id: "mid", name: "Mid", floor: "default", polygon: box },
-        { id: "site", name: "A Site", floor: "default", group: "A side", polygon: box },
-        { id: "tetris", name: "Tetris", floor: "default", group: "A side", polygon: box },
-        { id: "apps", name: "Apps", floor: "default", group: "B side", polygon: box },
-        { id: "b", name: "B Site", floor: "default", group: "B side", polygon: box },
+        polygonCallout("mid", "Mid", box),
+        polygonCallout("site", "A Site", box, { group: "A side" }),
+        polygonCallout("tetris", "Tetris", box, { group: "A side" }),
+        polygonCallout("apps", "Apps", box, { group: "B side" }),
+        polygonCallout("b", "B Site", box, { group: "B side" }),
       ],
     };
     expect(layoutGroupFilters(grouped)).toEqual([

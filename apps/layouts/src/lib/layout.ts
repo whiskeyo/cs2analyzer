@@ -2,7 +2,7 @@ import { CALLOUT_PALETTE } from "./constants";
 import { formatLayout } from "@shared/layout/format.ts";
 export { formatLayout };
 import { emptyMapLayout, LAYOUT_SCHEMA, parseMapLayout } from "@shared/layout/schema.ts";
-import type { LayoutCallout, MapLayout } from "./types";
+import type { LayoutCallout, LayoutRegion, MapLayout } from "./types";
 import { nudgeGroupOrder, renameGroup, renameGroupOrder } from "./groups";
 import { syncGroupOrder } from "@shared/layout/schema.ts";
 
@@ -63,6 +63,54 @@ export function nudgeLayoutGroup(layout: MapLayout, id: string, delta: -1 | 1): 
 
 export function nextCalloutName(callouts: LayoutCallout[]): string {
   return `Callout ${callouts.length + 1}`;
+}
+
+export function regionLabel(region: LayoutRegion): string {
+  if (region.kind === "circle") return `Circle r${Math.round(region.radius)}`;
+  return `Polygon (${region.points.length})`;
+}
+
+export function calloutShapeSummary(callout: LayoutCallout): string {
+  if (callout.regions.length !== 1) return `${callout.regions.length} regions`;
+  const only = callout.regions[0];
+  if (only?.kind === "circle") return "Circle";
+  if (only?.kind === "polygon") return `${only.points.length} vertices`;
+  return "Empty";
+}
+
+export function appendCalloutRegion(
+  callouts: LayoutCallout[],
+  id: string,
+  region: LayoutCallout["regions"][number],
+): LayoutCallout[] {
+  return callouts.map((c) => (c.id === id ? { ...c, regions: [...c.regions, region] } : c));
+}
+
+export function removeCalloutRegion(
+  callouts: LayoutCallout[],
+  id: string,
+  regionIndex: number,
+): LayoutCallout[] {
+  return callouts.map((c) => {
+    if (c.id !== id || c.regions.length <= 1) return c;
+    if (regionIndex < 0 || regionIndex >= c.regions.length) return c;
+    return { ...c, regions: c.regions.filter((_, i) => i !== regionIndex) };
+  });
+}
+
+export function replaceCalloutRegion(
+  callouts: LayoutCallout[],
+  id: string,
+  regionIndex: number,
+  region: LayoutCallout["regions"][number],
+): LayoutCallout[] {
+  return callouts.map((c) => {
+    if (c.id !== id) return c;
+    return {
+      ...c,
+      regions: c.regions.map((current, i) => (i === regionIndex ? region : current)),
+    };
+  });
 }
 
 export function moveCallout(callouts: LayoutCallout[], from: number, to: number): LayoutCallout[] {

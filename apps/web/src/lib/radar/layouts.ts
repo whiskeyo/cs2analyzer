@@ -5,9 +5,30 @@ import {
   parseMapLayout,
   syncGroupOrder,
 } from "@shared/layout/schema.ts";
+import {
+  calloutArea,
+  calloutCentroid,
+  distanceToCallout,
+  distanceToRegion,
+  pointInCallout,
+  polygonCentroid,
+} from "@shared/layout/regions.ts";
 import type { LayoutCallout, LayoutFloor, LayoutPoint, MapLayout } from "@shared/layout/types.ts";
-export type { LayoutCallout, LayoutFloor, LayoutPoint, MapLayout };
-export { emptyMapLayout, LAYOUT_SCHEMA, parseMapLayout };
+export type {
+  LayoutCallout,
+  LayoutFloor,
+  LayoutPoint,
+  LayoutRegion,
+  MapLayout,
+} from "@shared/layout/types.ts";
+export {
+  emptyMapLayout,
+  LAYOUT_SCHEMA,
+  parseMapLayout,
+  calloutCentroid,
+  distanceToCallout,
+  polygonCentroid,
+};
 import { floorForZ, worldToRadar } from "@/lib/radar/maps";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
@@ -20,72 +41,12 @@ export function mapKey(mapName: string): string {
   );
 }
 
-function pointInPolygon(x: number, y: number, polygon: LayoutPoint[]): boolean {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const a = polygon[i];
-    const b = polygon[j];
-    if (!a || !b) continue;
-    const intersect =
-      a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y || Number.EPSILON) + a.x;
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-export function polygonCentroid(polygon: LayoutPoint[]): LayoutPoint {
-  if (polygon.length === 0) return { x: 0, y: 0 };
-  let x = 0;
-  let y = 0;
-  for (const p of polygon) {
-    x += p.x;
-    y += p.y;
-  }
-  return { x: x / polygon.length, y: y / polygon.length };
-}
-
-function distanceToSegment(
-  px: number,
-  py: number,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-): number {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const len2 = dx * dx + dy * dy;
-  if (len2 === 0) return Math.hypot(px - ax, py - ay);
-  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-}
-
 /** 0 if the point is inside; otherwise the shortest radar-pixel distance to an edge. */
 export function distanceToPolygon(x: number, y: number, polygon: LayoutPoint[]): number {
-  if (polygon.length === 0) return Number.POSITIVE_INFINITY;
-  if (pointInPolygon(x, y, polygon)) return 0;
-  let best = Number.POSITIVE_INFINITY;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const a = polygon[i];
-    const b = polygon[j];
-    if (!a || !b) continue;
-    best = Math.min(best, distanceToSegment(x, y, a.x, a.y, b.x, b.y));
-  }
-  return best;
+  return distanceToRegion(x, y, { kind: "polygon", points: polygon });
 }
 
-function polygonArea(polygon: LayoutPoint[]): number {
-  let area = 0;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const a = polygon[i];
-    const b = polygon[j];
-    if (!a || !b) continue;
-    area += b.x * a.y - a.x * b.y;
-  }
-  return Math.abs(area) / 2;
-}
-
-/** Smallest covering polygon on that floor wins when regions overlap. */
+/** Smallest covering callout on that floor wins when regions overlap. */
 export function calloutAtRadar(
   layout: MapLayout,
   radarX: number,
@@ -93,10 +54,10 @@ export function calloutAtRadar(
   floor: LayoutFloor = "default",
 ): LayoutCallout | null {
   const hits = layout.callouts.filter(
-    (c) => c.floor === floor && pointInPolygon(radarX, radarY, c.polygon),
+    (c) => c.floor === floor && pointInCallout(radarX, radarY, c),
   );
   if (hits.length === 0) return null;
-  hits.sort((a, b) => polygonArea(a.polygon) - polygonArea(b.polygon));
+  hits.sort((a, b) => calloutArea(a) - calloutArea(b));
   return hits[0] ?? null;
 }
 

@@ -6,21 +6,17 @@ import {
   dropCalloutsOn,
   groupCallouts,
   groupLabel,
+  idsForDrag,
   nudgeGroupOrder,
   renameGroup,
   syncGroupOrder,
   ungroupCallouts,
 } from "./groups";
 import type { LayoutCallout } from "./types";
-
-const triangle = [
-  { x: 0, y: 0 },
-  { x: 4, y: 0 },
-  { x: 4, y: 4 },
-];
+import { poly } from "@/lib/testing/callouts";
 
 function callout(id: string, name = id, group?: string): LayoutCallout {
-  return { id, name, floor: "default", polygon: triangle, ...(group ? { group } : {}) };
+  return poly(id, name, group ? { group } : {});
 }
 
 describe("groupCallouts", () => {
@@ -125,5 +121,25 @@ describe("clusterCallouts", () => {
     expect(canUngroupIds(grouped, ["a"])).toBe(false);
     expect(canUngroupIds(grouped, ["a", "b"])).toBe(true);
     expect(canUngroupIds([callout("a"), callout("b")], ["a", "b"])).toBe(false);
+  });
+});
+
+describe("idsForDrag and rename no-ops", () => {
+  it("drags the whole selection when the grabbed row is selected", () => {
+    expect(idsForDrag("a", ["a", "b"])).toEqual(["a", "b"]);
+    expect(idsForDrag("c", ["a"])).toEqual(["c"]);
+  });
+
+  it("ignores an empty rename and an unknown drop", () => {
+    const list = [callout("a"), callout("b")];
+    expect(renameGroup(list, "A", "")).toBe(list);
+    expect(dropCalloutsOn(list, [], { kind: "ungroup" })).toBe(list);
+    expect(dropCalloutsOn(list, ["nope"], { kind: "into", group: "gone" })).toBe(list);
+  });
+
+  it("labels legacy gN ids", () => {
+    expect(groupLabel("g3")).toBe("Group 3");
+    const next = groupCallouts([callout("a", "A", "g1"), callout("b"), callout("c")], ["b", "c"]);
+    expect(next[1]?.group).toBe("Group 2");
   });
 });

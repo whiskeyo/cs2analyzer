@@ -1,41 +1,8 @@
-import { CIRCLE_SEGMENTS, MIN_POLYGON_VERTICES, MIN_SHAPE_SIZE } from "./constants";
+import { MIN_POLYGON_VERTICES, MIN_SHAPE_SIZE } from "./constants";
 import type { LayoutDraft, Point } from "./types";
+import type { LayoutRegion } from "@shared/layout/types.ts";
 
-/** Even-odd ray cast. Vertices on the edge count as inside. */
-export function pointInPolygon(x: number, y: number, polygon: Point[]): boolean {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const a = polygon[i];
-    const b = polygon[j];
-    if (!a || !b) continue;
-    const intersect =
-      a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y || Number.EPSILON) + a.x;
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-export function polygonArea(polygon: Point[]): number {
-  let area = 0;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const a = polygon[i];
-    const b = polygon[j];
-    if (!a || !b) continue;
-    area += b.x * a.y - a.x * b.y;
-  }
-  return Math.abs(area) / 2;
-}
-
-export function polygonCentroid(polygon: Point[]): Point {
-  if (polygon.length === 0) return { x: 0, y: 0 };
-  let x = 0;
-  let y = 0;
-  for (const p of polygon) {
-    x += p.x;
-    y += p.y;
-  }
-  return { x: x / polygon.length, y: y / polygon.length };
-}
+export { pointInPolygon, polygonArea, polygonCentroid } from "@shared/layout/regions.ts";
 
 export function translatePolygon(polygon: Point[], dx: number, dy: number): Point[] {
   return polygon.map((p) => ({ x: p.x + dx, y: p.y + dy }));
@@ -54,22 +21,8 @@ export function rectPolygon(a: Point, b: Point): Point[] {
   ];
 }
 
-export function circlePolygon(
-  center: Point,
-  edge: Point,
-  segments: number = CIRCLE_SEGMENTS,
-): Point[] {
-  const radius = Math.hypot(edge.x - center.x, edge.y - center.y);
-  const count = Math.max(MIN_POLYGON_VERTICES, segments);
-  const out: Point[] = [];
-  for (let i = 0; i < count; i++) {
-    const t = (i / count) * Math.PI * 2;
-    out.push({
-      x: center.x + Math.cos(t) * radius,
-      y: center.y + Math.sin(t) * radius,
-    });
-  }
-  return out;
+export function circleRadius(center: Point, edge: Point): number {
+  return Math.hypot(edge.x - center.x, edge.y - center.y);
 }
 
 export function shapeIsLargeEnough(draft: Exclude<LayoutDraft, { kind: "polygon" }>): boolean {
@@ -79,7 +32,7 @@ export function shapeIsLargeEnough(draft: Exclude<LayoutDraft, { kind: "polygon"
       Math.abs(draft.end.y - draft.start.y) >= MIN_SHAPE_SIZE
     );
   }
-  return Math.hypot(draft.end.x - draft.start.x, draft.end.y - draft.start.y) >= MIN_SHAPE_SIZE;
+  return circleRadius(draft.start, draft.end) >= MIN_SHAPE_SIZE;
 }
 
 export function distanceToSegment(
@@ -139,12 +92,29 @@ export function splitPolygonEdge(polygon: Point[], edgeIndex: number): Point[] {
   ];
 }
 
-export function draftToPolygon(draft: LayoutDraft, cursor?: Point | null): Point[] {
+export function draftToRegion(draft: LayoutDraft): LayoutRegion | null {
+  if (draft.kind === "polygon") {
+    if (draft.points.length < MIN_POLYGON_VERTICES) return null;
+    return { kind: "polygon", points: draft.points.map((p) => ({ ...p })) };
+  }
+  if (!shapeIsLargeEnough(draft)) return null;
+  if (draft.kind === "rect") {
+    return { kind: "polygon", points: rectPolygon(draft.start, draft.end) };
+  }
+  return {
+    kind: "circle",
+    x: draft.start.x,
+    y: draft.start.y,
+    radius: circleRadius(draft.start, draft.end),
+  };
+}
+
+export function draftPreviewPoints(draft: LayoutDraft, cursor?: Point | null): Point[] {
   if (draft.kind === "polygon") {
     return cursor ? [...draft.points, cursor] : draft.points;
   }
   if (draft.kind === "rect") {
     return rectPolygon(draft.start, draft.end);
   }
-  return circlePolygon(draft.start, draft.end);
+  return [];
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage, parseJson } from "@shared/validate/json.ts";
+import { errorMessage } from "@shared/validate/json.ts";
 import { CalloutPanel } from "@/components/CalloutPanel";
 import { LayoutCanvas } from "@/components/LayoutCanvas";
 import { LayoutToolbar } from "@/components/LayoutToolbar";
@@ -9,18 +9,14 @@ import {
   formatLayout,
   layoutWithCallouts,
   moveCallout,
-  parseMapLayout,
+  removeCalloutRegion,
   renameLayoutGroup,
   nudgeLayoutGroup,
 } from "@/lib/layout";
-import {
-  dissolveSmallGroups,
-  canGroupIds,
-  canUngroupIds,
-  groupCallouts,
-  ungroupCallouts,
-} from "@/lib/groups";
+import { parseLayoutText, triggerLayoutDownload } from "@/lib/layoutIo";
+import { dissolveSmallGroups } from "@/lib/groups";
 import { loadCalibrations } from "@/lib/maps";
+import { useLayoutHotkeys } from "@/lib/useLayoutHotkeys";
 import type {
   LayoutCallout,
   LayoutDraft,
@@ -30,11 +26,6 @@ import type {
   Point,
 } from "@/lib/types";
 import { useLayoutPointer, type LayoutTool, type PanView } from "@/lib/useLayoutPointer";
-
-function typingInField(): boolean {
-  const el = document.activeElement;
-  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
-}
 
 export function App() {
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
@@ -115,6 +106,49 @@ export function App() {
       onSelect: selectCallout,
     });
 
+  const deleteCallouts = useCallback(
+    (ids: string[]) => {
+      const drop = new Set(ids);
+      if (drop.size === 0) return;
+      const next = dissolveSmallGroups(layoutRef.current.callouts.filter((c) => !drop.has(c.id)));
+      replaceLayout(layoutWithCallouts(layoutRef.current, next));
+      setSelectedIds((cur) => cur.filter((id) => !drop.has(id)));
+    },
+    [replaceLayout],
+  );
+
+  const pickTool = useCallback((next: LayoutTool) => {
+    draftRef.current = null;
+    setTool(next);
+  }, []);
+
+  const saveToFolder = useCallback(async () => {
+    try {
+      const path = await saveLayoutFile(layoutRef.current);
+      const text = formatLayout(layoutRef.current);
+      setSavedJson(text);
+      setJsonText(text);
+      setSaveNote(`Wrote ${path}`);
+      setJsonError(null);
+    } catch (err: unknown) {
+      setSaveNote(errorMessage(err) || "save failed");
+    }
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedIds([]), []);
+
+  useLayoutHotkeys({
+    closeDraft,
+    cancelDraft,
+    save: () => void saveToFolder(),
+    selectedIdsRef,
+    layoutRef,
+    onCallouts,
+    clearSelection,
+    deleteCallouts,
+    pickTool,
+  });
+
   useEffect(() => {
     loadCalibrations()
       .then((next) => {
@@ -155,56 +189,6 @@ export function App() {
   }, [mapId]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        void saveToFolder();
-        return;
-      }
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (typingInField()) return;
-      if (e.key === "Enter") {
-        e.preventDefault();
-        closeDraft();
-      }
-      if (e.key === "Escape") {
-        cancelDraft();
-        setSelectedIds([]);
-      }
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedIdsRef.current.length > 0) {
-        e.preventDefault();
-        deleteCallouts(selectedIdsRef.current);
-      }
-      if (e.key.toLowerCase() === "g") {
-        const ids = selectedIdsRef.current;
-        if (canGroupIds(layoutRef.current.callouts, ids)) {
-          e.preventDefault();
-          onCallouts(groupCallouts(layoutRef.current.callouts, ids));
-          setSelectedIds([]);
-        }
-        return;
-      }
-      if (e.key.toLowerCase() === "u") {
-        const ids = selectedIdsRef.current;
-        if (canUngroupIds(layoutRef.current.callouts, ids)) {
-          e.preventDefault();
-          onCallouts(ungroupCallouts(layoutRef.current.callouts, ids));
-          setSelectedIds([]);
-        }
-        return;
-      }
-      if (e.key === "1") pickTool("pan");
-      if (e.key === "2") pickTool("polygon");
-      if (e.key === "3") pickTool("rect");
-      if (e.key === "4") pickTool("circle");
-      if (e.key === "5") pickTool("select");
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers read refs
-  }, [closeDraft, cancelDraft]);
-
-  useEffect(() => {
     const onLeave = (e: BeforeUnloadEvent) => {
       if (!dirty) return;
       e.preventDefault();
@@ -216,14 +200,6 @@ export function App() {
 
   const cal = maps?.[mapId];
   const mapIds = maps ? Object.keys(maps).sort() : [];
-
-  function deleteCallouts(ids: string[]) {
-    const drop = new Set(ids);
-    if (drop.size === 0) return;
-    const next = dissolveSmallGroups(layoutRef.current.callouts.filter((c) => !drop.has(c.id)));
-    replaceLayout(layoutWithCallouts(layoutRef.current, next));
-    setSelectedIds((cur) => cur.filter((id) => !drop.has(id)));
-  }
 
   function renameCallout(id: string, name: string) {
     if (name.length === 0) return;
@@ -254,33 +230,9 @@ export function App() {
     replaceLayout(nudgeLayoutGroup(layoutRef.current, id, delta));
   }
 
-  function pickTool(next: LayoutTool) {
-    draftRef.current = null;
-    setTool(next);
-  }
-
-  async function saveToFolder() {
-    try {
-      const path = await saveLayoutFile(layoutRef.current);
-      const text = formatLayout(layoutRef.current);
-      setSavedJson(text);
-      setJsonText(text);
-      setSaveNote(`Wrote ${path}`);
-      setJsonError(null);
-    } catch (err: unknown) {
-      setSaveNote(errorMessage(err) || "save failed");
-    }
-  }
-
   function download() {
     const text = formatLayout(layoutRef.current);
-    const blob = new Blob([text], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${mapId}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    triggerLayoutDownload(mapId, text);
     setSavedJson(text);
     setJsonText(text);
     setSaveNote(`Downloaded ${mapId}.json — usually Save to folder is enough`);
@@ -288,35 +240,28 @@ export function App() {
   }
 
   function applyJson() {
-    let raw: unknown;
-    try {
-      raw = parseJson(jsonText);
-    } catch {
+    const parsed = parseLayoutText(jsonText);
+    if (!parsed.ok) {
       setJsonError("JSON must be schema 1 with map and callouts[]");
       return;
     }
-    const parsed = parseMapLayout(raw);
-    if (!parsed) {
-      setJsonError("JSON must be schema 1 with map and callouts[]");
-      return;
-    }
-    parsed.map = mapId;
-    replaceLayout(parsed);
+    parsed.layout.map = mapId;
+    replaceLayout(parsed.layout);
   }
 
   function importFile(file: File) {
     void file.text().then((text) => {
-      try {
-        const parsed = parseMapLayout(parseJson(text));
-        if (!parsed) {
-          setJsonError("That file is not a schema 1 layout");
-          return;
-        }
-        parsed.map = mapId;
-        replaceLayout(parsed);
-      } catch {
-        setJsonError("Could not parse that JSON file");
+      const parsed = parseLayoutText(text);
+      if (!parsed.ok) {
+        setJsonError(
+          parsed.reason === "json"
+            ? "Could not parse that JSON file"
+            : "That file is not a schema 1 layout",
+        );
+        return;
       }
+      parsed.layout.map = mapId;
+      replaceLayout(parsed.layout);
     });
   }
 
@@ -403,17 +348,19 @@ export function App() {
           onNudge={nudgeCallout}
           onNudgeGroup={nudgeGroup}
           onDelete={deleteCallouts}
+          onRemoveRegion={(id, index) => {
+            replaceLayout(
+              layoutWithCallouts(
+                layoutRef.current,
+                removeCalloutRegion(layoutRef.current.callouts, id, index),
+              ),
+            );
+          }}
           onJsonText={(text) => {
             setJsonText(text);
             setJsonError(null);
           }}
-          onApplyJson={() => {
-            try {
-              applyJson();
-            } catch {
-              setJsonError("Could not parse JSON");
-            }
-          }}
+          onApplyJson={applyJson}
           onSave={saveToFolder}
           onDownload={download}
           onImportFile={importFile}

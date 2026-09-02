@@ -106,7 +106,8 @@ export function LayoutToolbar({ tool, floor, hasFloors, onTool, onFloor, onReset
         </span>
       )}
       <span className="hint">
-        Double-click an edge · Ctrl+click multi-select · G group · U ungroup · Ctrl+S saves
+        Draw while a callout is selected to add another region · Double-click an edge · Ctrl+click
+        multi-select · G group · U ungroup · Ctrl+S saves
       </span>
     </div>
   );

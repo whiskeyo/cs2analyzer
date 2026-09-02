@@ -5,14 +5,22 @@ export interface LayoutPoint {
   y: number;
 }
 
+/** One connected area of a callout: a polygon or a true circle. */
+export type LayoutRegion =
+  | { kind: "polygon"; points: LayoutPoint[] }
+  | { kind: "circle"; x: number; y: number; radius: number };
+
 export interface LayoutCallout {
   id: string;
   name: string;
   floor: LayoutFloor;
   /** Members with the same id share one Util filter, like notes layers. */
   group?: string;
-  /** Radar pixels on the 1024 Valve overview. */
-  polygon: LayoutPoint[];
+  /**
+   * Radar pixels on the 1024 Valve overview. One callout may cover two
+   * disconnected spots (two polygons, or a polygon plus a circle).
+   */
+  regions: LayoutRegion[];
 }
 
 export interface MapLayout {

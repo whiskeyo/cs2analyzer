@@ -5,8 +5,8 @@ import {
 } from "@/lib/shared/constants";
 import {
   calloutAtWorld,
-  distanceToPolygon,
-  polygonCentroid,
+  calloutCentroid,
+  distanceToCallout,
   type LayoutCallout,
   type MapLayout,
 } from "@/lib/radar/layouts";
@@ -96,8 +96,8 @@ export function nearerBombsite(
   const b = bombsitePolygon(places.layout, "B");
   if (!a || !b) return null;
   const radar = worldToRadar(places.cal, x, y);
-  const ca = polygonCentroid(a.polygon);
-  const cb = polygonCentroid(b.polygon);
+  const ca = calloutCentroid(a);
+  const cb = calloutCentroid(b);
   const distA = Math.hypot(radar.x - ca.x, radar.y - ca.y);
   const distB = Math.hypot(radar.x - cb.x, radar.y - cb.y);
   return distA <= distB ? "A" : "B";
@@ -114,7 +114,7 @@ function nearbyCallouts(
   const rows: { name: string; dist: number }[] = [];
   for (const callout of places.layout.callouts) {
     if (callout.floor !== floor || isSpawnName(callout.name)) continue;
-    const dist = distanceToPolygon(radar.x, radar.y, callout.polygon);
+    const dist = distanceToCallout(radar.x, radar.y, callout);
     if (dist > CALLOUT_NEAR_RADIUS) continue;
     rows.push({ name: callout.name, dist });
   }

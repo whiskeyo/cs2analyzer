@@ -1,4 +1,23 @@
-import type { MapLayout } from "./types.ts";
+import type { LayoutCallout, MapLayout } from "./types.ts";
+
+/** Persist a single polygon as `polygon` so existing map JSON stays stable. */
+export function serializeCallout(callout: LayoutCallout): Record<string, unknown> {
+  const row: Record<string, unknown> = {
+    id: callout.id,
+    name: callout.name,
+    floor: callout.floor,
+  };
+  const only = callout.regions[0];
+  if (callout.regions.length === 1 && only?.kind === "polygon") {
+    row.polygon = only.points;
+  } else {
+    row.regions = callout.regions;
+  }
+  if (callout.group) {
+    row.group = callout.group;
+  }
+  return row;
+}
 
 /** Same as `.prettierrc.json` printWidth so Save to folder passes `format:check`. */
 export const LAYOUT_JSON_PRINT_WIDTH = 100;
@@ -48,14 +67,15 @@ function formatJson(value: unknown, depth = 0, prefixLen = 0): string {
 }
 
 export function formatLayout(layout: MapLayout): string {
+  const callouts = layout.callouts.map(serializeCallout);
   const body =
     layout.groups && layout.groups.length > 0
       ? {
           schema: layout.schema,
           map: layout.map,
           groups: layout.groups,
-          callouts: layout.callouts,
+          callouts,
         }
-      : { schema: layout.schema, map: layout.map, callouts: layout.callouts };
+      : { schema: layout.schema, map: layout.map, callouts };
   return `${formatJson(body)}\n`;
 }

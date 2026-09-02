@@ -407,6 +407,21 @@ body,
 .selected input {
   color: #e8eef4;
 }
+.callout-regions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.callout-regions li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
 
 .json {
   width: 100%;

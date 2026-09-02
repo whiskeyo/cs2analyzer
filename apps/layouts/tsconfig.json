@@ -23,5 +23,6 @@
       "@shared/*": ["../shared/*"]
     }
   },
-  "include": ["src", "../shared/validate/json.ts"]
+  "include": ["src", "../shared/**/*.ts"],
+  "exclude": ["../shared/**/*.test.ts"]
 }

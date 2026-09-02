@@ -1,8 +1,12 @@
-import type { LayoutCallout, LayoutFloor, LayoutPoint, MapLayout } from "./types.ts";
+import { MIN_POLYGON_VERTICES } from "./regions.ts";
+import type { LayoutCallout, LayoutFloor, LayoutPoint, LayoutRegion, MapLayout } from "./types.ts";
 
 export const LAYOUT_SCHEMA = 1 as const;
 export const LAYOUT_GROUP_NAME_MAX = 40;
-const MIN_POLYGON_VERTICES = 3;
+export { MIN_POLYGON_VERTICES };
+
+/** Smallest stored circle; matches the editor rim-drag floor. */
+export const MIN_CIRCLE_RADIUS = 1;
 
 export function emptyMapLayout(map: string): MapLayout {
   return { schema: LAYOUT_SCHEMA, map, callouts: [] };
@@ -20,6 +24,66 @@ function isFloor(value: unknown): value is LayoutFloor {
   return value === "default" || value === "lower";
 }
 
+function parsePolygonPoints(value: unknown): LayoutPoint[] | null {
+  if (!Array.isArray(value) || value.length < MIN_POLYGON_VERTICES) {
+    return null;
+  }
+  const points: LayoutPoint[] = [];
+  for (const p of value) {
+    if (!isPoint(p)) {
+      return null;
+    }
+    points.push({ x: p.x, y: p.y });
+  }
+  return points;
+}
+
+function parseCircle(value: unknown): LayoutRegion | null {
+  if (typeof value !== "object" || value == null) {
+    return null;
+  }
+  const row = value as { x?: unknown; y?: unknown; radius?: unknown };
+  if (!Number.isFinite(row.x) || !Number.isFinite(row.y) || !Number.isFinite(row.radius)) {
+    return null;
+  }
+  const radius = row.radius as number;
+  if (radius < MIN_CIRCLE_RADIUS) {
+    return null;
+  }
+  return { kind: "circle", x: row.x as number, y: row.y as number, radius };
+}
+
+function parseRegion(value: unknown): LayoutRegion | null {
+  if (typeof value !== "object" || value == null) {
+    return null;
+  }
+  const row = value as { kind?: unknown; points?: unknown };
+  if (row.kind === "circle") {
+    return parseCircle(value);
+  }
+  if (row.kind === "polygon" || row.kind == null) {
+    const points = parsePolygonPoints(row.points);
+    return points ? { kind: "polygon", points } : null;
+  }
+  return null;
+}
+
+function parseCalloutRegions(row: { polygon?: unknown; regions?: unknown }): LayoutRegion[] | null {
+  if (Array.isArray(row.regions)) {
+    const regions: LayoutRegion[] = [];
+    for (const item of row.regions) {
+      const region = parseRegion(item);
+      if (!region) {
+        return null;
+      }
+      regions.push(region);
+    }
+    return regions.length > 0 ? regions : null;
+  }
+  const points = parsePolygonPoints(row.polygon);
+  return points ? [{ kind: "polygon", points }] : null;
+}
+
 function parseCallout(value: unknown): LayoutCallout | null {
   if (typeof value !== "object" || value == null) {
     return null;
@@ -30,6 +94,7 @@ function parseCallout(value: unknown): LayoutCallout | null {
     floor?: unknown;
     group?: unknown;
     polygon?: unknown;
+    regions?: unknown;
   };
   if (typeof row.id !== "string" || row.id.length === 0) {
     return null;
@@ -40,15 +105,9 @@ function parseCallout(value: unknown): LayoutCallout | null {
   if (!isFloor(row.floor)) {
     return null;
   }
-  if (!Array.isArray(row.polygon) || row.polygon.length < MIN_POLYGON_VERTICES) {
+  const regions = parseCalloutRegions(row);
+  if (!regions) {
     return null;
-  }
-  const polygon: LayoutPoint[] = [];
-  for (const p of row.polygon) {
-    if (!isPoint(p)) {
-      return null;
-    }
-    polygon.push({ x: p.x, y: p.y });
   }
   const group =
     typeof row.group === "string" ? row.group.trim().slice(0, LAYOUT_GROUP_NAME_MAX) : "";
@@ -56,7 +115,7 @@ function parseCallout(value: unknown): LayoutCallout | null {
     id: row.id,
     name: row.name,
     floor: row.floor,
-    polygon,
+    regions,
     ...(group ? { group } : {}),
   };
 }

@@ -188,11 +188,16 @@ export function makeCallout(
     id,
     name,
     floor: "default",
-    polygon: [
-      { x, y },
-      { x: x + w, y },
-      { x: x + w, y: y + h },
-      { x, y: y + h },
+    regions: [
+      {
+        kind: "polygon",
+        points: [
+          { x, y },
+          { x: x + w, y },
+          { x: x + w, y: y + h },
+          { x, y: y + h },
+        ],
+      },
     ],
   };
 }

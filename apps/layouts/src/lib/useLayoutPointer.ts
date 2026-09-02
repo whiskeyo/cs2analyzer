@@ -1,20 +1,19 @@
 import { useCallback, useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from "react";
 import { zoomViewAtCursor, wheelZoomFactor } from "@shared/radar/panZoom.ts";
-import { CLOSE_LOOP_HIT_PX, EDGE_HIT_PX, MIN_POLYGON_VERTICES, VERTEX_HIT_PX } from "./constants";
+import { CLOSE_LOOP_HIT_PX, MIN_POLYGON_VERTICES } from "./constants";
+import { draftToRegion, splitPolygonEdge } from "./geometry";
 import {
-  circlePolygon,
-  nearestPolygonEdge,
-  pointInPolygon,
-  polygonArea,
-  rectPolygon,
-  shapeIsLargeEnough,
-  splitPolygonEdge,
-  translatePolygon,
-} from "./geometry";
+  applyHandleDrag,
+  hitCalloutAtRadar,
+  hitHandle,
+  hitPolygonEdge,
+  type LayoutHandle,
+} from "./layoutHit";
 import { nextCalloutName, slugId, uniqueId } from "./layout";
 import { radarToScreen, screenToRadar, type RadarView } from "./maps";
-import type { LayoutCallout, LayoutDraft, LayoutFloor, Point } from "./types";
+import type { LayoutCallout, LayoutDraft, LayoutFloor, LayoutRegion, Point } from "./types";
+import { translateCallout } from "@shared/layout/regions.ts";
 
 export type LayoutTool = "pan" | "polygon" | "rect" | "circle" | "select";
 
@@ -26,7 +25,7 @@ export type PanView = RadarView & {
 };
 
 type Drag =
-  | { kind: "vertex"; id: string; index: number }
+  | { kind: "handle"; id: string; handle: LayoutHandle }
   | { kind: "body"; id: string; last: Point }
   | { kind: "shape" };
 
@@ -48,68 +47,6 @@ function pos(wrap: HTMLDivElement, e: MouseEvent): Point {
   return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
-function visible(callouts: LayoutCallout[], floor: LayoutFloor): LayoutCallout[] {
-  return callouts.filter((c) => c.floor === floor);
-}
-
-function hitVertex(
-  wrap: HTMLDivElement,
-  view: RadarView,
-  polygon: Point[],
-  sx: number,
-  sy: number,
-): number {
-  const w = wrap.clientWidth;
-  const h = wrap.clientHeight;
-  for (let i = 0; i < polygon.length; i++) {
-    const p = polygon[i];
-    if (!p) continue;
-    const s = radarToScreen(w, h, view, p.x, p.y);
-    if (Math.hypot(s.x - sx, s.y - sy) <= VERTEX_HIT_PX) return i;
-  }
-  return -1;
-}
-
-function hitCallout(
-  wrap: HTMLDivElement,
-  view: RadarView,
-  callouts: LayoutCallout[],
-  floor: LayoutFloor,
-  sx: number,
-  sy: number,
-): LayoutCallout | null {
-  const radar = screenToRadar(wrap.clientWidth, wrap.clientHeight, view, sx, sy);
-  const hits = visible(callouts, floor).filter((c) => pointInPolygon(radar.x, radar.y, c.polygon));
-  if (hits.length === 0) return null;
-  hits.sort((a, b) => polygonArea(a.polygon) - polygonArea(b.polygon));
-  return hits[0] ?? null;
-}
-
-function hitEdge(
-  wrap: HTMLDivElement,
-  view: RadarView,
-  callouts: LayoutCallout[],
-  floor: LayoutFloor,
-  preferredId: string | null,
-  sx: number,
-  sy: number,
-): { callout: LayoutCallout; index: number } | null {
-  const w = wrap.clientWidth;
-  const h = wrap.clientHeight;
-  const toScreen = (p: Point) => radarToScreen(w, h, view, p.x, p.y);
-  const layer = visible(callouts, floor);
-  const preferred = preferredId ? layer.find((c) => c.id === preferredId) : undefined;
-  const ordered = preferred ? [preferred, ...layer.filter((c) => c.id !== preferred.id)] : layer;
-  let best: { callout: LayoutCallout; index: number; dist: number } | null = null;
-  for (const callout of ordered) {
-    const hit = nearestPolygonEdge(callout.polygon, toScreen, sx, sy);
-    if (!hit || hit.dist > EDGE_HIT_PX) continue;
-    if (!best || hit.dist < best.dist) best = { callout, index: hit.index, dist: hit.dist };
-    if (preferred && callout.id === preferred.id) break;
-  }
-  return best ? { callout: best.callout, index: best.index } : null;
-}
-
 export function useLayoutPointer(opts: LayoutPointerOpts) {
   const {
     wrapRef,
@@ -129,39 +66,46 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
-  const commitPolygon = useCallback(
-    (polygon: Point[]) => {
-      if (polygon.length < MIN_POLYGON_VERTICES) return false;
+  const commitRegion = useCallback(
+    (region: LayoutRegion) => {
       const callouts = calloutsRef.current;
+      const selected = callouts.find((c) => c.id === selectedIdRef.current);
+      if (selected && selected.floor === floorRef.current) {
+        onCalloutsRef.current(
+          callouts.map((c) =>
+            c.id === selected.id ? { ...c, regions: [...c.regions, region] } : c,
+          ),
+        );
+        onSelectRef.current(selected.id);
+        draftRef.current = null;
+        return true;
+      }
       const name = nextCalloutName(callouts);
       const id = uniqueId(
         slugId(name),
         callouts.map((c) => c.id),
       );
-      onCalloutsRef.current([...callouts, { id, name, floor: floorRef.current, polygon }]);
+      onCalloutsRef.current([
+        ...callouts,
+        { id, name, floor: floorRef.current, regions: [region] },
+      ]);
       onSelectRef.current(id);
       draftRef.current = null;
       return true;
     },
-    [calloutsRef, draftRef, floorRef],
+    [calloutsRef, draftRef, floorRef, selectedIdRef],
   );
 
   const closeDraft = useCallback(() => {
     const draft = draftRef.current;
     if (!draft) return false;
-    if (draft.kind === "polygon") {
-      return commitPolygon(draft.points.map((p) => ({ ...p })));
-    }
-    if (!shapeIsLargeEnough(draft)) {
-      draftRef.current = null;
+    const region = draftToRegion(draft);
+    if (!region) {
+      if (draft.kind !== "polygon") draftRef.current = null;
       return false;
     }
-    const polygon =
-      draft.kind === "rect"
-        ? rectPolygon(draft.start, draft.end)
-        : circlePolygon(draft.start, draft.end);
-    return commitPolygon(polygon);
-  }, [commitPolygon, draftRef]);
+    return commitRegion(region);
+  }, [commitRegion, draftRef]);
 
   const cancelDraft = useCallback(() => {
     draftRef.current = null;
@@ -197,7 +141,7 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
       const floor = floorRef.current;
       const additive = native.ctrlKey || native.metaKey;
       if (additive) {
-        const hit = hitCallout(wrap, view.current, calloutsRef.current, floor, x, y);
+        const hit = hitCalloutAtRadar(calloutsRef.current, floor, radar.x, radar.y);
         onSelectRef.current(hit?.id ?? null, true);
         return;
       }
@@ -228,14 +172,14 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
 
       const selected = calloutsRef.current.find((c) => c.id === selectedIdRef.current);
       if (selected && selected.floor === floor) {
-        const vertex = hitVertex(wrap, view.current, selected.polygon, x, y);
-        if (vertex >= 0) {
-          dragRef.current = { kind: "vertex", id: selected.id, index: vertex };
+        const handle = hitHandle(wrap, view.current, selected, x, y);
+        if (handle) {
+          dragRef.current = { kind: "handle", id: selected.id, handle };
           view.current.dragged = false;
           return;
         }
       }
-      const hit = hitCallout(wrap, view.current, calloutsRef.current, floor, x, y);
+      const hit = hitCalloutAtRadar(calloutsRef.current, floor, radar.x, radar.y);
       onSelectRef.current(hit?.id ?? null);
       if (hit) {
         dragRef.current = { kind: "body", id: hit.id, last: radar };
@@ -270,11 +214,10 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
       const { x, y } = pos(wrap, e.nativeEvent);
       const floor = floorRef.current;
       const selected = calloutsRef.current.find((c) => c.id === selectedIdRef.current);
-      if (selected && selected.floor === floor) {
-        const vertex = hitVertex(wrap, view.current, selected.polygon, x, y);
-        if (vertex >= 0) return;
+      if (selected && selected.floor === floor && hitHandle(wrap, view.current, selected, x, y)) {
+        return;
       }
-      const edge = hitEdge(
+      const edge = hitPolygonEdge(
         wrap,
         view.current,
         calloutsRef.current,
@@ -284,9 +227,20 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
         y,
       );
       if (!edge) return;
-      const polygon = splitPolygonEdge(edge.callout.polygon, edge.index);
+      const region = edge.callout.regions[edge.region];
+      if (!region || region.kind !== "polygon") return;
+      const points = splitPolygonEdge(region.points, edge.index);
       onCalloutsRef.current(
-        calloutsRef.current.map((c) => (c.id === edge.callout.id ? { ...c, polygon } : c)),
+        calloutsRef.current.map((c) =>
+          c.id === edge.callout.id
+            ? {
+                ...c,
+                regions: c.regions.map((current, i) =>
+                  i === edge.region ? { kind: "polygon", points } : current,
+                ),
+              }
+            : c,
+        ),
       );
       onSelectRef.current(edge.callout.id);
     },
@@ -323,33 +277,22 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
       const callouts = calloutsRef.current;
       const target = callouts.find((c) => c.id === drag.id);
       if (!target) return;
-      if (drag.kind === "vertex") {
-        const polygon = target.polygon.map((p, i) => (i === drag.index ? { ...radar } : p));
-        onCalloutsRef.current(callouts.map((c) => (c.id === target.id ? { ...c, polygon } : c)));
+      if (drag.kind === "handle") {
+        const next = applyHandleDrag(target, drag.handle, radar);
+        onCalloutsRef.current(callouts.map((c) => (c.id === target.id ? next : c)));
         return;
       }
       const dx = radar.x - drag.last.x;
       const dy = radar.y - drag.last.y;
       drag.last = radar;
       onCalloutsRef.current(
-        callouts.map((c) =>
-          c.id === target.id ? { ...c, polygon: translatePolygon(c.polygon, dx, dy) } : c,
-        ),
+        callouts.map((c) => (c.id === target.id ? translateCallout(c, dx, dy) : c)),
       );
     };
 
     const onUp = () => {
       if (dragRef.current?.kind === "shape") {
-        const draft = draftRef.current;
-        if (draft && draft.kind !== "polygon" && shapeIsLargeEnough(draft)) {
-          const polygon =
-            draft.kind === "rect"
-              ? rectPolygon(draft.start, draft.end)
-              : circlePolygon(draft.start, draft.end);
-          commitPolygon(polygon);
-        } else if (draft && draft.kind !== "polygon") {
-          draftRef.current = null;
-        }
+        closeDraft();
       }
       view.current.panning = false;
       dragRef.current = null;
@@ -361,7 +304,7 @@ export function useLayoutPointer(opts: LayoutPointerOpts) {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [calloutsRef, commitPolygon, cursorRef, draftRef, view, wrapRef]);
+  }, [calloutsRef, closeDraft, cursorRef, draftRef, view, wrapRef]);
 
   return { closeDraft, cancelDraft, onMouseDown, onDoubleClick, onWheel, onContextMenu };
 }

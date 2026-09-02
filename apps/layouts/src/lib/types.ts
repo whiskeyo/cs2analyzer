@@ -1,6 +1,6 @@
 import type { LayoutPoint } from "@shared/layout/types.ts";
 
-export type { LayoutCallout, LayoutFloor, MapLayout } from "@shared/layout/types.ts";
+export type { LayoutCallout, LayoutFloor, LayoutRegion, MapLayout } from "@shared/layout/types.ts";
 export type Point = LayoutPoint;
 
 export type LayoutDraft =
