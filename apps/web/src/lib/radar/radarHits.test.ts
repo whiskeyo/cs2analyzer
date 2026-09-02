@@ -73,6 +73,8 @@ describe("habitsJumpAtScreen", () => {
             points: [{ x: 10, y: 10, z: 0, tick: 100, yaw: 0 }],
             deathAt: null,
             deathTick: null,
+            survivedAt: null,
+            survivedTick: null,
           },
         ],
       },

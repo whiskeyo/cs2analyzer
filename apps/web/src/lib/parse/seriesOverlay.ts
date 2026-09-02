@@ -38,6 +38,9 @@ export interface HabitsTrail {
   /** Death location when the player was eliminated before round end. */
   deathAt: { x: number; y: number } | null;
   deathTick: number | null;
+  /** Last in-round position when the player survived; no line into the next freeze. */
+  survivedAt: { x: number; y: number } | null;
+  survivedTick: number | null;
 }
 
 export interface HabitsHeatDot {
@@ -166,6 +169,17 @@ function throwerOnFocalSide(replay: Replay, tag: RoundTag, thrower: number): boo
   return Boolean(snap?.present && snap.ct === wantCt);
 }
 
+/** Inclusive last tick to sample: this round only, never the next freeze/spawn. */
+function trailStopTick(replay: Replay, round: Round, windowUntil: number): number {
+  let stop = Math.min(windowUntil, round.end_tick);
+  for (const other of replay.rounds) {
+    if (other.start_tick <= round.start_tick) continue;
+    const lastBeforeNext = other.start_tick - 1;
+    if (lastBeforeNext < stop) stop = lastBeforeNext;
+  }
+  return stop;
+}
+
 function sampleForwardTrail(
   replay: Replay,
   player: number,
@@ -272,11 +286,15 @@ export function buildSeriesOverlay(
         const key = playerIdentityKey(demo.replay, player);
         if (playerKey != null && key !== playerKey) continue;
         const sid = meta?.steam_id ?? 0;
-        const death = playerDeathInRound(demo.replay, player, round, tag.freezeEndTick, until);
-        const trailUntil = death ? death.tick : until;
+        const stop = trailStopTick(demo.replay, round, until);
+        const death = playerDeathInRound(demo.replay, player, round, tag.freezeEndTick, stop);
+        const trailUntil = death ? Math.min(death.tick, stop) : stop;
         const points = sampleForwardTrail(demo.replay, player, tag.freezeEndTick, trailUntil);
         const deathAt = death ? { x: death.x, y: death.y } : null;
         const deathTick = death ? death.tick : null;
+        const last = points.at(-1);
+        const survivedAt = death || !last ? null : { x: last.x, y: last.y };
+        const survivedTick = death || !last ? null : round.end_tick;
         if (points.length < 2 && !deathAt) continue;
         trails.push({
           demoId: demo.id,
@@ -289,6 +307,8 @@ export function buildSeriesOverlay(
           points,
           deathAt,
           deathTick,
+          survivedAt,
+          survivedTick,
         });
       }
     }
@@ -309,12 +329,19 @@ function clipTrailsForPlaySec(trails: HabitsTrail[], playSec: number): HabitsTra
     const until = trail.jumpTick + Math.round(trail.tps * playSec);
     const points = trail.points.filter((p) => p.tick <= until);
     const showDeath = trail.deathAt != null && trail.deathTick != null && trail.deathTick <= until;
+    const showSurvived =
+      !showDeath &&
+      trail.survivedAt != null &&
+      trail.survivedTick != null &&
+      trail.survivedTick <= until;
     if (points.length < 2 && !showDeath) continue;
     out.push({
       ...trail,
       points,
       deathAt: showDeath ? trail.deathAt : null,
       deathTick: showDeath ? trail.deathTick : null,
+      survivedAt: showSurvived ? trail.survivedAt : null,
+      survivedTick: showSurvived ? trail.survivedTick : null,
     });
   }
   return out;

@@ -49,6 +49,7 @@ const HEADSHOT_HEAT = "#ff8a8a";
 const ATTACKER_HEAT = "#ee6c4d";
 const VICTIM_HEAT = "#5b9fd6";
 const DEATH_MARK_COLOR = "#e04b4b";
+const SURVIVE_MARK_COLOR = "#3dba6a";
 const OPENING_T_COLOR = "#ffd24a";
 const TRACER_COLOR = "#ffe9a8";
 
@@ -568,5 +569,6 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
 export const RADAR_STYLE = {
   heatmapAlpha: 0.22,
   deathMarkColor: DEATH_MARK_COLOR,
+  surviveMarkColor: SURVIVE_MARK_COLOR,
   tracerColor: TRACER_COLOR,
 } as const;

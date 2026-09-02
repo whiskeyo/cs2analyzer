@@ -48,6 +48,21 @@ function paintDeathCross(ctx: CanvasRenderingContext2D, toScreen: ToScreen, x: n
   ctx.globalAlpha = 1;
 }
 
+function paintSurviveTick(ctx: CanvasRenderingContext2D, toScreen: ToScreen, x: number, y: number) {
+  const s = toScreen(x, y);
+  ctx.strokeStyle = RADAR_STYLE.surviveMarkColor;
+  ctx.globalAlpha = 0.92;
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(s.x - 4, s.y + 0.5);
+  ctx.lineTo(s.x - 1, s.y + 4);
+  ctx.lineTo(s.x + 5, s.y - 4);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
 function circle(ctx: CanvasRenderingContext2D, at: Point, radius: number) {
   ctx.beginPath();
   ctx.arc(at.x, at.y, radius, 0, Math.PI * 2);
@@ -365,11 +380,15 @@ export function paintHabitsOverlay(
     ctx.globalAlpha = 1;
     for (const trail of visible.trails) {
       if (trail.deathAt) paintDeathCross(ctx, toScreen, trail.deathAt.x, trail.deathAt.y);
+      else if (trail.survivedAt) {
+        paintSurviveTick(ctx, toScreen, trail.survivedAt.x, trail.survivedAt.y);
+      }
     }
   }
 
   if (showArrows) {
     for (const trail of visible.trails) {
+      if (trail.survivedAt) continue;
       const head = trail.points.at(-1);
       if (!head) continue;
       if (cal && !worldOnRadar(cal, head.x, head.y)) continue;

@@ -157,8 +157,73 @@ describe("buildSeriesOverlay", () => {
     const trail = overlay.trails.find((t) => t.playerName !== "?") ?? overlay.trails[0];
     expect(trail?.deathAt).toEqual({ x: 150, y: 200 });
     expect(trail?.deathTick).toBe(64 + 64 * 5);
+    expect(trail?.survivedAt).toBeNull();
     const clipped = overlayAtPlaySec(overlay, 3);
     expect(clipped.trails[0]?.deathAt).toBeNull();
+  });
+
+  it("stops a trail at round end instead of drawing into the next spawn", () => {
+    const focal = "Team A";
+    const playerCount = 10;
+    const ctCount = 5;
+    const inRound = 8;
+    const spawnTick = 800;
+    const buf = makeTicks(playerCount, inRound + 2);
+    for (let f = 0; f < inRound; f++) {
+      buf.ticks[f] = 64 + f * 64;
+      for (let i = 0; i < playerCount; i++) {
+        const slot = f * playerCount + i;
+        buf.flags[slot] = FLAG_PRESENT | FLAG_ALIVE | (i < ctCount ? FLAG_CT : 0);
+        buf.x[slot] = 100 + f * 12;
+        buf.y[slot] = 200;
+      }
+    }
+    for (let f = inRound; f < inRound + 2; f++) {
+      buf.ticks[f] = spawnTick + (f - inRound) * 64;
+      for (let i = 0; i < playerCount; i++) {
+        const slot = f * playerCount + i;
+        buf.flags[slot] = FLAG_PRESENT | FLAG_ALIVE | (i < ctCount ? FLAG_CT : 0);
+        buf.x[slot] = 10;
+        buf.y[slot] = 5000;
+      }
+    }
+    const roundEnd = 64 + (inRound - 1) * 64 + 32;
+    const replay = makeReplay({
+      header: { team_ct: focal, team_t: "B" },
+      ticks: buf,
+      rounds: [
+        makeRound({
+          number: 1,
+          team_ct: focal,
+          team_t: "B",
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: roundEnd,
+        }),
+        makeRound({
+          number: 2,
+          team_ct: focal,
+          team_t: "B",
+          start_tick: spawnTick,
+          freeze_end_tick: spawnTick,
+          end_tick: 5000,
+        }),
+      ],
+    });
+    const demo = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const series = buildSeries("de_mirage", [demo], focal);
+    const overlay = buildSeriesOverlay(series, { side: "CT", kind: "pistol" }, null, 20);
+    const trail = overlay.trails.find((t) => t.playerName === "A") ?? overlay.trails[0];
+    expect(trail).toBeDefined();
+    expect(trail!.points.every((p) => p.y !== 5000)).toBe(true);
+    expect(trail!.points.at(-1)?.y).toBe(200);
+    expect(trail!.survivedAt).toEqual({ x: 100 + (inRound - 1) * 12, y: 200 });
+    expect(trail!.survivedTick).toBe(roundEnd);
+    expect(trail!.deathAt).toBeNull();
+    const midRound = overlayAtPlaySec(overlay, 2);
+    expect(midRound.trails[0]?.survivedAt).toBeNull();
+    const afterRound = overlayAtPlaySec(overlay, 20);
+    expect(afterRound.trails[0]?.survivedAt).toEqual(trail!.survivedAt);
   });
 
   it("includes focal-team util arcs inside the trail window", () => {
@@ -278,6 +343,8 @@ describe("habitsArrowAtScreen", () => {
           ],
           deathAt: null,
           deathTick: null,
+          survivedAt: null,
+          survivedTick: null,
         },
       ],
       heatDots: [],
@@ -308,6 +375,8 @@ describe("habitsArrowJumpTick", () => {
       ],
       deathAt: null,
       deathTick: null,
+      survivedAt: null,
+      survivedTick: null,
     };
     expect(habitsArrowJumpTick(trail)).toBe(320);
     expect(habitsArrowJumpTick({ ...trail, points: [] })).toBe(64);

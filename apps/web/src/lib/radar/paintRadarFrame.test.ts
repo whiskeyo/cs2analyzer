@@ -454,6 +454,40 @@ describe("paintHabitsOverlay", () => {
     expect(ctx.stroke.mock.calls.length).toBeGreaterThan(1);
   });
 
+  it("paints a survive tick at round end and skips the movement arrow", () => {
+    const ctx = createMockCanvas();
+    const overlay = {
+      ...habitsOverlay(),
+      trails: [
+        {
+          demoId: "a",
+          roundNumber: 1,
+          jumpTick: 64,
+          tps: 64,
+          steamId: 1,
+          playerName: "A",
+          color: "#fff",
+          points: [
+            { x: 0, y: 0, z: 0, tick: 64, yaw: 0 },
+            { x: 40, y: 40, z: 0, tick: 200, yaw: 45 },
+          ],
+          deathAt: null,
+          deathTick: null,
+          survivedAt: { x: 40, y: 40 },
+          survivedTick: 200,
+        },
+      ],
+    };
+    paintHabitsOverlay(ctx, overlay, "trails", nadeFilter, toScreen, 1, {
+      showTrails: true,
+      showArrows: true,
+      nadesOn: false,
+      cal: UNIT_CALIBRATION,
+    });
+    expect(ctx.strokeStyle).toBe(RADAR_STYLE.surviveMarkColor);
+    expect(ctx.rotate).not.toHaveBeenCalled();
+  });
+
   it("paints player arrows when showArrows is on", () => {
     const ctx = createMockCanvas();
     const overlay = habitsOverlay();
@@ -484,6 +518,8 @@ describe("paintHabitsOverlay", () => {
           points: [{ x: 99999, y: 99999, z: 0, tick: 64, yaw: 0 }],
           deathAt: null,
           deathTick: null,
+          survivedAt: null,
+          survivedTick: null,
         },
       ],
     };
