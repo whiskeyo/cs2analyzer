@@ -1,13 +1,5 @@
-import { useMemo, useState } from "react";
-import type { ReviewSeverity } from "@/lib/match/review";
 import type { SeriesPlayerReviewResult } from "@/lib/parse/seriesPlayerReview";
 import type { HabitsTrail } from "@/lib/parse/seriesOverlay";
-
-type Tone = "all" | "good" | "bad";
-
-function isGood(severity: ReviewSeverity): boolean {
-  return severity === "good";
-}
 
 interface Props {
   review: SeriesPlayerReviewResult;
@@ -16,24 +8,7 @@ interface Props {
 
 /** Cross-demo player review with per-game grouping and jump targets. */
 export function SeriesPlayerReview({ review, onJump }: Props) {
-  const [tone, setTone] = useState<Tone>("all");
-
-  const headlines = useMemo(() => {
-    if (tone === "all") return review.headlines;
-    return review.headlines.filter((h) => (tone === "good") === isGood(h.severity));
-  }, [review.headlines, tone]);
-
-  const notesByDemo = useMemo(() => {
-    if (tone === "all") return review.notesByDemo;
-    return review.notesByDemo
-      .map((group) => ({
-        ...group,
-        notes: group.notes.filter((n) => (tone === "good") === isGood(n.severity)),
-      }))
-      .filter((group) => group.notes.length > 0);
-  }, [review.notesByDemo, tone]);
-
-  const noteCount = notesByDemo.reduce((n, g) => n + g.notes.length, 0);
+  const noteCount = review.notesByDemo.reduce((n, g) => n + g.notes.length, 0);
 
   return (
     <div className="review">
@@ -41,40 +16,13 @@ export function SeriesPlayerReview({ review, onJump }: Props) {
         <strong>{review.playerName}</strong> — mistakes and highlights across {review.demoCount}{" "}
         demos.
       </p>
-      <div className="filters" role="toolbar" aria-label="Review filters">
-        <button
-          type="button"
-          className={`filter${tone === "all" ? " on" : ""}`}
-          onClick={() => setTone("all")}
-        >
-          All
-        </button>
-        <button
-          type="button"
-          className={`filter${tone === "good" ? " on" : ""}`}
-          onClick={() => setTone("good")}
-        >
-          Good
-        </button>
-        <button
-          type="button"
-          className={`filter${tone === "bad" ? " on" : ""}`}
-          onClick={() => setTone("bad")}
-        >
-          Bad
-        </button>
-      </div>
-      {headlines.length === 0 && noteCount === 0 ? (
-        <p className="muted tab-hint">
-          {tone === "all"
-            ? "No player notes across the series."
-            : `No ${tone} plays across the series.`}
-        </p>
+      {review.headlines.length === 0 && noteCount === 0 ? (
+        <p className="muted tab-hint">No player notes across the series.</p>
       ) : (
         <>
-          {headlines.length > 0 && (
+          {review.headlines.length > 0 && (
             <ul className="review-heads">
-              {headlines.map((h) => (
+              {review.headlines.map((h) => (
                 <li key={`${h.severity}|${h.text}`} className={`review-head ${h.severity}`}>
                   <span>{h.text}</span>
                   {h.byDemo.length > 0 && (
@@ -91,7 +39,7 @@ export function SeriesPlayerReview({ review, onJump }: Props) {
               ))}
             </ul>
           )}
-          {notesByDemo.map((group) => (
+          {review.notesByDemo.map((group) => (
             <section key={group.demoId} className="series-review-demo">
               <h3 className="series-review-demo-head">
                 {group.fileName}

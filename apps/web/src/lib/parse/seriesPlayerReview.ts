@@ -2,6 +2,7 @@ import {
   playerReview,
   type PlayerReview,
   type ReviewHeadline,
+  type ReviewKind,
   type ReviewNote,
   type ReviewSeverity,
 } from "@/lib/match/review";
@@ -18,6 +19,7 @@ export interface SeriesReviewDemoSlice {
 
 export interface SeriesReviewHeadline {
   severity: ReviewSeverity;
+  kind: ReviewKind;
   text: string;
   totalCount: number;
   byDemo: SeriesReviewDemoSlice[];
@@ -117,6 +119,7 @@ function mergeHeadlines(
     string,
     {
       severity: ReviewSeverity;
+      kind: ReviewKind;
       template: string;
       total: number;
       teamLostSub: number;
@@ -142,6 +145,7 @@ function mergeHeadlines(
       } else {
         merged.set(key, {
           severity: headline.severity,
+          kind: headline.kind,
           template: headline.text,
           total: headline.count,
           teamLostSub: teamLostSubcount(headline.text),
@@ -153,8 +157,9 @@ function mergeHeadlines(
 
   const rank = { good: 0, high: 1, mid: 2, low: 3 };
   return [...merged.entries()]
-    .map(([, { severity, template, total, teamLostSub, byDemo }]) => ({
+    .map(([, { severity, kind, template, total, teamLostSub, byDemo }]) => ({
       severity,
+      kind,
       text: formatHeadlineTotal(template, total, teamLostSub),
       totalCount: total,
       byDemo: byDemo.sort((a, b) => a.fileName.localeCompare(b.fileName)),

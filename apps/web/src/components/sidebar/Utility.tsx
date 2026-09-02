@@ -11,6 +11,7 @@ import {
 } from "@/lib/match/utility";
 import { placesReady, type MapPlaces } from "@/lib/match/sites";
 import type { GrenadeKind, Replay } from "@/lib/replay/replayTypes";
+import { matchEndTick } from "@/lib/stats/stats";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
   selected: number | null;
   onJump: (tick: number) => void;
   onSelect: (index: number) => void;
+  onClearFollow?: () => void;
   places: MapPlaces | null;
 }
 
@@ -30,8 +32,16 @@ function kept<T>(selected: T[], available: T[]): T[] {
   return selected.filter((id) => available.includes(id));
 }
 
-export function Utility({ replay, tick, selected, onJump, onSelect, places }: Props) {
-  const u = utilityThrough(replay, tick, selected, places);
+export function Utility({
+  replay,
+  tick,
+  selected,
+  onJump,
+  onSelect,
+  onClearFollow,
+  places,
+}: Props) {
+  const u = utilityThrough(replay, matchEndTick(replay), selected, places);
   const who = selected != null ? (replay.players[selected]?.name ?? "Player") : "Match";
   const hasPlaces = placesReady(places);
   const kinds = usedUtilKinds(u.throws);
@@ -118,7 +128,7 @@ export function Utility({ replay, tick, selected, onJump, onSelect, places }: Pr
       {rows.length === 0 ? (
         <p className="muted tab-hint">
           {u.throws.length === 0
-            ? "No nades thrown through this tick."
+            ? "No nades thrown in this match."
             : "No nades match these filters."}
         </p>
       ) : (
@@ -130,8 +140,9 @@ export function Utility({ replay, tick, selected, onJump, onSelect, places }: Pr
               <li key={`${row.tick}-${row.thrower}-${row.kind}-${i}`}>
                 <button
                   type="button"
-                  className={`review-note${tone ? ` ${tone}` : ""}`}
+                  className={`review-note${tone ? ` ${tone}` : ""}${row.tick > tick ? " pending" : ""}`}
                   onClick={() => {
+                    onClearFollow?.();
                     if (row.thrower >= 0) onSelect(row.thrower);
                     onJump(row.tick);
                   }}

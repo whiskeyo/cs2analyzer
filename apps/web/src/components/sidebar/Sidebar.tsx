@@ -4,13 +4,12 @@ import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
 import { isAggregatedView, isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { Action } from "./Action";
-import { Clutch } from "./Clutch";
 import { Review } from "./Review";
 import { Notes } from "./Notes";
 import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
 import { clampSidebarWidth, loadSidebarWidth, saveSidebarWidth } from "@/lib/shared/sidebarWidth";
-import { computeStats, weaponBreakdown } from "@/lib/stats/stats";
+import { computeStats, matchEndTick, weaponBreakdown } from "@/lib/stats/stats";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { Stroke } from "@/lib/notes/types";
@@ -22,17 +21,16 @@ import { SeriesActionList } from "./SeriesActionList";
 import { SeriesPlayerReview } from "./SeriesPlayerReview";
 import { seriesPlayerReview } from "@/lib/parse/seriesPlayerReview";
 
-type Tab = "score" | "player" | "notes" | "action" | "util" | "clutch" | "rounds" | "weapons";
+type Tab = "score" | "player" | "notes" | "action" | "util" | "rounds" | "weapons";
 
-const DEMO_ONLY_TABS: Tab[] = ["score", "notes", "clutch", "rounds", "weapons"];
+const DEMO_ONLY_TABS: Tab[] = ["score", "notes", "rounds", "weapons"];
 
 const TAB_LABEL: Record<Tab, string> = {
   score: "Score",
   player: "Review",
   notes: "Notes",
   action: "Action",
-  util: "Util",
-  clutch: "Clutch",
+  util: "Utility",
   rounds: "Rounds",
   weapons: "Weapons",
 };
@@ -60,7 +58,7 @@ export const Sidebar = memo(function Sidebar({
   places,
   activeRound,
 }: Props) {
-  const { session, habits } = useApp();
+  const { session, habits, view } = useApp();
   const multiDemo = isMultiDemoSeries(session.series);
   const seriesMode = isAggregatedView(session.series, habits);
   const playerKey = habits.playerKey;
@@ -167,105 +165,100 @@ export const Sidebar = memo(function Sidebar({
         onKeyDown={onResizeKeyDown}
       />
       <div className="tabs">
-        {(
-          ["score", "player", "notes", "action", "util", "clutch", "rounds", "weapons"] as const
-        ).map((id) => (
-          <button
-            key={id}
-            type="button"
-            className={activeTab === id ? "on" : ""}
-            disabled={tabDisabled(id)}
-            title={tabDisabled(id) ? "Not available in aggregated view" : undefined}
-            onClick={() => setTab(id)}
-          >
-            {TAB_LABEL[id]}
-          </button>
-        ))}
+        {(["score", "player", "notes", "action", "util", "rounds", "weapons"] as const).map(
+          (id) => (
+            <button
+              key={id}
+              type="button"
+              className={activeTab === id ? "on" : ""}
+              disabled={tabDisabled(id)}
+              title={tabDisabled(id) ? "Not available in aggregated view" : undefined}
+              onClick={() => setTab(id)}
+            >
+              {TAB_LABEL[id]}
+            </button>
+          ),
+        )}
       </div>
-      {activeTab === "score" && (
-        <Scoreboard replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
-      )}
-      {activeTab === "player" &&
-        (showSeriesReview && seriesReview ? (
-          <SeriesPlayerReview review={seriesReview} onJump={habits.playRound} />
-        ) : (
-          <Review
-            replay={replay}
-            tick={tick}
-            selected={selected}
-            onJump={onJump}
-            onSelect={(i) => onSelect(i)}
-          />
-        ))}
-      {activeTab === "notes" && (
-        <Notes
-          replay={replay}
-          tick={tick}
-          strokes={strokes}
-          onJump={onJump}
-          onStrokes={onStrokes}
-        />
-      )}
-      {activeTab === "action" && (
-        <>
-          {seriesMode && <SeriesBucketPanel />}
-          {showSeriesAction ? (
-            <SeriesActionList beats={habits.seriesActionBeats} onJump={habits.playRound} />
+      <div className="sidebar-body">
+        {activeTab === "score" && (
+          <Scoreboard replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
+        )}
+        {activeTab === "player" &&
+          (showSeriesReview && seriesReview ? (
+            <SeriesPlayerReview review={seriesReview} onJump={habits.playRound} />
           ) : (
-            <Action replay={replay} tick={tick} onJump={onJump} places={places} />
-          )}
-        </>
-      )}
-      {activeTab === "util" && (
-        <>
-          {seriesMode && <SeriesBucketPanel />}
-          {showSeriesUtil ? (
-            <SeriesUtilList
-              rows={habits.seriesUtilThrows}
-              playerName={playerName}
-              onJump={habits.playRound}
-            />
-          ) : (
-            <Utility
+            <Review
               replay={replay}
               tick={tick}
               selected={selected}
               onJump={onJump}
               onSelect={(i) => onSelect(i)}
-              places={places}
             />
-          )}
-        </>
-      )}
-      {activeTab === "clutch" && (
-        <Clutch
-          replay={replay}
-          tick={tick}
-          selected={selected}
-          onJump={onJump}
-          onSelect={(i) => onSelect(i)}
-        />
-      )}
-      {activeTab === "rounds" && (
-        <RoundList
-          replay={replay}
-          tick={tick}
-          onJump={onJump}
-          onSelect={onSelect}
-          activeRound={activeRound}
-        />
-      )}
-      {activeTab === "weapons" && (
-        <WeaponTable replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
-      )}
-      {selected == null && activeTab === "score" && (
-        <p className="muted tab-hint">
-          Click a player for full stats. Click again on the map to deselect.
-        </p>
-      )}
-      {activeTab === "score" && selected != null && (
-        <RatingHint replay={replay} tick={tick} selected={selected} />
-      )}
+          ))}
+        {activeTab === "notes" && (
+          <Notes
+            replay={replay}
+            tick={tick}
+            strokes={strokes}
+            onJump={onJump}
+            onStrokes={onStrokes}
+          />
+        )}
+        {activeTab === "action" && (
+          <>
+            {seriesMode && <SeriesBucketPanel />}
+            {showSeriesAction ? (
+              <SeriesActionList beats={habits.seriesActionBeats} onJump={habits.playRound} />
+            ) : (
+              <Action replay={replay} tick={tick} onJump={onJump} places={places} />
+            )}
+          </>
+        )}
+        {activeTab === "util" && (
+          <>
+            {seriesMode && <SeriesBucketPanel />}
+            {showSeriesUtil ? (
+              <SeriesUtilList
+                rows={habits.seriesUtilThrows}
+                playerName={playerName}
+                onJump={habits.playRound}
+                onClearFollow={() => view?.setFollow(false)}
+              />
+            ) : (
+              <Utility
+                replay={replay}
+                tick={tick}
+                selected={selected}
+                onJump={onJump}
+                onSelect={(i) => onSelect(i)}
+                onClearFollow={() => view?.setFollow(false)}
+                places={places}
+              />
+            )}
+          </>
+        )}
+        {activeTab === "rounds" && (
+          <RoundList
+            replay={replay}
+            tick={tick}
+            onJump={onJump}
+            onSelect={onSelect}
+            activeRound={activeRound}
+          />
+        )}
+        {activeTab === "weapons" && (
+          <WeaponTable replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
+        )}
+        {selected == null && activeTab === "score" && (
+          <p className="muted tab-hint">
+            Click a player for full stats. Click again on the map to deselect.
+          </p>
+        )}
+        {activeTab === "score" && selected != null && (
+          <RatingHint replay={replay} tick={tick} selected={selected} />
+        )}
+      </div>
     </aside>
   );
 });
@@ -282,7 +275,9 @@ function WeaponTable({
   selected: number | null;
   onSelect: (index: number | null) => void;
 }) {
-  const weapons = weaponBreakdown(replay, tick, selected);
+  const [allGame, setAllGame] = useState(true);
+  const until = allGame ? matchEndTick(replay) : tick;
+  const weapons = weaponBreakdown(replay, until, selected);
   return (
     <div>
       <p className="muted tab-hint">
@@ -296,6 +291,22 @@ function WeaponTable({
           </>
         )}
       </p>
+      <div className="filters" role="toolbar" aria-label="Weapons range">
+        <button
+          type="button"
+          className={`filter${allGame ? "" : " on"}`}
+          onClick={() => setAllGame(false)}
+        >
+          Until now
+        </button>
+        <button
+          type="button"
+          className={`filter${allGame ? " on" : ""}`}
+          onClick={() => setAllGame(true)}
+        >
+          All game
+        </button>
+      </div>
       <table>
         <thead>
           <tr>

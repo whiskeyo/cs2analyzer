@@ -33,8 +33,17 @@ describe("SeriesUtilList", () => {
 
   it("calls onJump when a row is clicked", async () => {
     const onJump = vi.fn();
-    render(<SeriesUtilList rows={[row]} playerName={null} onJump={onJump} />);
+    const onClearFollow = vi.fn();
+    render(
+      <SeriesUtilList
+        rows={[row]}
+        playerName={null}
+        onJump={onJump}
+        onClearFollow={onClearFollow}
+      />,
+    );
     await userEvent.click(screen.getByRole("button", { name: /a\.dem · Alice/ }));
+    expect(onClearFollow).toHaveBeenCalled();
     expect(onJump).toHaveBeenCalledWith({ demoId: "d1", jumpTick: 100 });
   });
 

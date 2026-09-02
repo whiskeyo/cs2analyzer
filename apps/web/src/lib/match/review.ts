@@ -22,10 +22,13 @@ const NADE_GEAR = GEAR_HE | GEAR_FLASH | GEAR_FLASH2 | GEAR_SMOKE | GEAR_MOLLY |
 
 export type ReviewSeverity = "good" | "high" | "mid" | "low";
 
+export type ReviewKind = "opening" | "clutch" | "death" | "multi" | "eco";
+
 export interface ReviewHeadline {
   text: string;
   severity: ReviewSeverity;
   count: number;
+  kind: ReviewKind;
 }
 
 export interface ReviewNote {
@@ -34,6 +37,7 @@ export interface ReviewNote {
   title: string;
   detail: string;
   severity: ReviewSeverity;
+  kind: ReviewKind;
 }
 
 export interface PlayerReview {
@@ -153,102 +157,6 @@ function clutchVs(
   return maxVs;
 }
 
-export interface MatchHighlight {
-  tick: number;
-  roundLabel: string;
-  title: string;
-  detail: string;
-  player: number;
-}
-
-/** Match-level jump targets: traded openers, 4k/ace, eco wins, clutch wins. */
-export function matchHighlights(replay: Replay, untilTick: number): MatchHighlight[] {
-  const name = (i: number) => (i < 0 ? "World" : (replay.players[i]?.name ?? "?"));
-  const out: MatchHighlight[] = [];
-
-  for (const r of replay.rounds) {
-    if (r.is_knife) continue;
-    const end = Math.min(r.end_tick, untilTick);
-    if (r.freeze_end_tick > untilTick) continue;
-    const roundKills = replay.kills.filter((k) => k.tick >= r.freeze_end_tick && k.tick <= end);
-    const first = roundKills.find((k) => isEnemyKill(replay, k));
-    const freeze = r.freeze_end_tick || r.start_tick;
-
-    if (first && r.end_tick <= untilTick) {
-      const tps = tickRate(replay);
-      const window = Math.round(TRADE_SECONDS * tps);
-      const trade = roundKills.find(
-        (k) =>
-          isEnemyKill(replay, k) &&
-          k.victim === first.attacker &&
-          k.tick > first.tick &&
-          k.tick <= first.tick + window,
-      );
-      if (trade) {
-        out.push({
-          tick: trade.tick,
-          roundLabel: roundLabel(r),
-          title: `${name(trade.attacker)} traded the opener`,
-          detail: `${name(first.victim)} → ${name(first.attacker)} · ${prettyWeapon(trade.weapon)}`,
-          player: trade.attacker,
-        });
-      }
-    }
-
-    for (let p = 0; p < replay.players.length; p++) {
-      const myFrags = roundKills.filter((k) => isEnemyKill(replay, k) && k.attacker === p);
-      if (myFrags.length < 4) continue;
-      const last = myFrags[myFrags.length - 1];
-      out.push({
-        tick: last.tick,
-        roundLabel: roundLabel(r),
-        title: myFrags.length >= 5 ? `${name(p)} ace` : `${name(p)} ${myFrags.length}k`,
-        detail: myFrags.map((k) => prettyWeapon(k.weapon)).join(", "),
-        player: p,
-      });
-    }
-
-    if (r.end_tick <= untilTick && r.winner) {
-      const snap = samplePlayers(replay, freeze);
-      let eco: { index: number; equip: number } | null = null;
-      if (!isPistolRoundNumber(r.number)) {
-        for (const p of snap) {
-          if (!p.present || p.equip >= ECO_MAX_EQUIPMENT) continue;
-          if ((p.ct ? "CT" : "T") !== r.winner) continue;
-          if (!eco || p.equip < eco.equip) eco = { index: p.index, equip: p.equip };
-        }
-      }
-      if (eco) {
-        out.push({
-          tick: freeze,
-          roundLabel: roundLabel(r),
-          title: "Eco round win",
-          detail: `${name(eco.index)} eq $${eco.equip}`,
-          player: eco.index,
-        });
-      }
-
-      for (let p = 0; p < replay.players.length; p++) {
-        const side = currentSide(replay, p, freeze);
-        if (side !== r.winner) continue;
-        const vs = clutchVs(replay, r, roundKills, p, side);
-        if (vs < 1) continue;
-        const last = [...roundKills].reverse().find((k) => k.attacker === p);
-        out.push({
-          tick: last?.tick ?? freeze,
-          roundLabel: roundLabel(r),
-          title: `${name(p)} won a 1v${vs}`,
-          detail: "clutch",
-          player: p,
-        });
-      }
-    }
-  }
-
-  out.sort((a, b) => a.tick - b.tick);
-  return out;
-}
-
 export function playerReview(replay: Replay, player: number, untilTick: number): PlayerReview {
   const notes: ReviewNote[] = [];
   const name = (i: number) => (i < 0 ? "World" : (replay.players[i]?.name ?? "?"));
@@ -351,9 +259,10 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
 
       if (teamLost) bits.push("round lost");
 
+      const clutchDeath = teammates === 0 && enemies >= 1;
       const title = openingDeath
         ? `Lost the opening to ${killer}`
-        : teammates === 0 && enemies >= 1
+        : clutchDeath
           ? `Lost a 1v${enemies} to ${killer}`
           : `Died to ${killer}`;
 
@@ -363,6 +272,7 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
         title,
         detail: [gun + (k.headshot ? " HS" : ""), ...bits].join(" · "),
         severity,
+        kind: openingDeath ? "opening" : clutchDeath ? "clutch" : "death",
       });
     }
 
@@ -374,6 +284,7 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
         title: `Won the opening vs ${name(first.victim)}`,
         detail: prettyWeapon(first.weapon) + (first.headshot ? " HS" : ""),
         severity: "good",
+        kind: "opening",
       });
     } else if (
       first &&
@@ -399,6 +310,7 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
           title: `Traded the opener (${name(first.victim)})`,
           detail: prettyWeapon(trade.weapon) + (trade.headshot ? " HS" : ""),
           severity: "good",
+          kind: "opening",
         });
       }
     }
@@ -413,6 +325,7 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
         title: myFrags.length >= 5 ? "Ace" : `${myFrags.length}k this round`,
         detail: myFrags.map((k) => prettyWeapon(k.weapon)).join(", "),
         severity: "good",
+        kind: "multi",
       });
     }
 
@@ -432,6 +345,7 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
         title: "Won the round on an eco",
         detail: `eq $${me.equip}`,
         severity: "good",
+        kind: "eco",
       });
     }
 
@@ -446,40 +360,59 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
           title: `Won a 1v${vs}`,
           detail: "clutch",
           severity: "good",
+          kind: "clutch",
         });
       }
     }
   }
 
   const headlines: ReviewHeadline[] = [];
-  const push = (count: number, severity: ReviewSeverity, text: string) => {
-    if (count > 0) headlines.push({ count, severity, text });
+  const push = (count: number, severity: ReviewSeverity, kind: ReviewKind, text: string) => {
+    if (count > 0) headlines.push({ count, severity, kind, text });
   };
-  push(openingWin, "good", `Won ${openingWin} opening duel${openingWin === 1 ? "" : "s"}`);
-  push(clutchWin, "good", `Won ${clutchWin} clutch${clutchWin === 1 ? "" : "es"}`);
-  push(tradedOpeners, "good", `Traded ${tradedOpeners} opener${tradedOpeners === 1 ? "" : "s"}`);
-  push(multi, "good", `${multi} round${multi === 1 ? "" : "s"} with 4k+`);
-  push(ecoWins, "good", `Won ${ecoWins} eco round${ecoWins === 1 ? "" : "s"}`);
+  push(
+    openingWin,
+    "good",
+    "opening",
+    `Won ${openingWin} opening duel${openingWin === 1 ? "" : "s"}`,
+  );
+  push(clutchWin, "good", "clutch", `Won ${clutchWin} clutch${clutchWin === 1 ? "" : "es"}`);
+  push(
+    tradedOpeners,
+    "good",
+    "opening",
+    `Traded ${tradedOpeners} opener${tradedOpeners === 1 ? "" : "s"}`,
+  );
+  push(multi, "good", "multi", `${multi} round${multi === 1 ? "" : "s"} with 4k+`);
+  push(ecoWins, "good", "eco", `Won ${ecoWins} eco round${ecoWins === 1 ? "" : "s"}`);
   push(
     opening,
     "high",
+    "opening",
     openingLoss
       ? `Lost ${opening} opening duel${opening === 1 ? "" : "s"} (${openingLoss} in rounds the team lost)`
       : `Lost ${opening} opening duel${opening === 1 ? "" : "s"}`,
   );
-  push(flashed, "high", `Died flashed ${flashed} time${flashed === 1 ? "" : "s"}`);
-  push(clutchLoss, "high", `Lost ${clutchLoss} clutch${clutchLoss === 1 ? "" : "es"}`);
-  push(untraded, "mid", `${untraded} untraded death${untraded === 1 ? "" : "s"}`);
+  push(flashed, "high", "death", `Died flashed ${flashed} time${flashed === 1 ? "" : "s"}`);
+  push(clutchLoss, "high", "clutch", `Lost ${clutchLoss} clutch${clutchLoss === 1 ? "" : "es"}`);
+  push(untraded, "mid", "death", `${untraded} untraded death${untraded === 1 ? "" : "s"}`);
   push(
     noReturn,
     "mid",
+    "death",
     `${noReturn} gunfight${noReturn === 1 ? "" : "s"} with almost no damage back`,
   );
-  push(fedMulti, "mid", `Fed ${fedMulti} multi-kill${fedMulti === 1 ? "" : "s"}`);
-  push(utilDeaths, "mid", `Died to utility ${utilDeaths} time${utilDeaths === 1 ? "" : "s"}`);
+  push(fedMulti, "mid", "death", `Fed ${fedMulti} multi-kill${fedMulti === 1 ? "" : "s"}`);
+  push(
+    utilDeaths,
+    "mid",
+    "death",
+    `Died to utility ${utilDeaths} time${utilDeaths === 1 ? "" : "s"}`,
+  );
   push(
     nadesLeft,
     "low",
+    "death",
     `Died holding unused nades ${nadesLeft} time${nadesLeft === 1 ? "" : "s"}`,
   );
 

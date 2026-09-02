@@ -63,6 +63,7 @@ function sidebarProps(overrides: Partial<Parameters<typeof Sidebar>[0]> = {}) {
 function sidebarAppState(overrides: Record<string, unknown> = {}) {
   return {
     session: { series: null },
+    view: { setFollow: vi.fn() },
     habits: {
       aggregated: false,
       playerKey: null,
@@ -102,11 +103,9 @@ describe("Sidebar", () => {
     expect(screen.getByText("Select a player or view match totals")).toBeInTheDocument();
   });
 
-  it("opens clutch, rounds, and review tabs", async () => {
+  it("opens rounds and review tabs and has no clutch tab", async () => {
     render(<Sidebar {...sidebarProps()} />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Clutch" }));
-    expect(screen.getByRole("button", { name: "Clutch" })).toHaveClass("on");
+    expect(screen.queryByRole("button", { name: "Clutch" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Rounds" }));
     expect(screen.getByRole("button", { name: "Rounds" })).toHaveClass("on");
@@ -114,6 +113,7 @@ describe("Sidebar", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByRole("button", { name: "Review" })).toHaveClass("on");
+    expect(screen.getByText(/Select a player/)).toBeInTheDocument();
   });
 
   it("shows weapon rows and clears the selected player", async () => {
@@ -123,6 +123,9 @@ describe("Sidebar", () => {
     await userEvent.click(screen.getByRole("button", { name: "Weapons" }));
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.getByText("AK-47")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "All game" })).toHaveClass("on");
+    await userEvent.click(screen.getByRole("button", { name: "Until now" }));
+    expect(screen.getByRole("button", { name: "Until now" })).toHaveClass("on");
 
     await userEvent.click(screen.getByRole("button", { name: "(all)" }));
     expect(onSelect).toHaveBeenCalledWith(null);
@@ -168,10 +171,10 @@ describe("Sidebar", () => {
     expect(screen.getByText("A execute")).toBeInTheDocument();
   });
 
-  it("opens the util tab for single-demo matches", async () => {
+  it("opens the utility tab for single-demo matches", async () => {
     render(<Sidebar {...sidebarProps()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Util" }));
-    expect(screen.getByRole("button", { name: "Util" })).toHaveClass("on");
+    await userEvent.click(screen.getByRole("button", { name: "Utility" }));
+    expect(screen.getByRole("button", { name: "Utility" })).toHaveClass("on");
   });
 
   it("shows player review when a series player is selected", async () => {
@@ -207,14 +210,15 @@ describe("Sidebar", () => {
     render(<Sidebar {...sidebarProps()} />);
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByText(/Donk/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Good" })).toBeInTheDocument();
+    expect(screen.queryByRole("toolbar", { name: "Review filters" })).not.toBeInTheDocument();
   });
 
   it("opens single-demo review from the sidebar", async () => {
     render(<Sidebar {...sidebarProps({ selected: 0 })} />);
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByText(/Alice/)).toBeInTheDocument();
-    expect(screen.getByRole("toolbar", { name: "Review filters" })).toBeInTheDocument();
+    expect(screen.queryByRole("toolbar", { name: "Review filters" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("toolbar", { name: "Review note kinds" })).not.toBeInTheDocument();
   });
 
   it("resizes with the separator handle", () => {

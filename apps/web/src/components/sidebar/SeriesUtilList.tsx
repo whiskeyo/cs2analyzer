@@ -8,10 +8,11 @@ interface Props {
   rows: SeriesUtilThrow[];
   playerName: string | null;
   onJump: (target: Pick<HabitsTrail, "demoId" | "jumpTick">) => void;
+  onClearFollow?: () => void;
 }
 
 /** Cross-demo util throws for the habits bucket (optional single player). */
-export function SeriesUtilList({ rows, playerName, onJump }: Props) {
+export function SeriesUtilList({ rows, playerName, onJump, onClearFollow }: Props) {
   const who = playerName ?? "Focal team";
   const summary = `${rows.length} thrown across ${new Set(rows.map((r) => r.demoId)).size} demos`;
 
@@ -33,7 +34,10 @@ export function SeriesUtilList({ rows, playerName, onJump }: Props) {
                 <button
                   type="button"
                   className={`review-note${tone ? ` ${tone}` : ""}`}
-                  onClick={() => onJump({ demoId: row.demoId, jumpTick: row.jumpTick })}
+                  onClick={() => {
+                    onClearFollow?.();
+                    onJump({ demoId: row.demoId, jumpTick: row.jumpTick });
+                  }}
                 >
                   <span className="pill review-round">{row.roundLabel}</span>
                   <span className="review-copy">

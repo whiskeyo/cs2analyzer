@@ -31,10 +31,10 @@ describe("SeriesPlayerReview", () => {
     expect(screen.getByText(/1 demos/)).toBeInTheDocument();
   });
 
-  it("activates the good-only filter", async () => {
+  it("shows every note without review filters", () => {
     render(<SeriesPlayerReview review={reviewFixture()} onJump={() => {}} />);
-    await userEvent.click(screen.getByRole("button", { name: "Good" }));
-    expect(screen.getByRole("button", { name: "Good" })).toHaveClass("on");
+    expect(screen.queryByRole("toolbar", { name: "Review filters" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Won the opening/)).toBeInTheDocument();
   });
 
   it("jumps when a note row is clicked", async () => {
