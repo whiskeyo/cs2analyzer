@@ -94,14 +94,43 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "node",
-    include: ["src/**/*.test.ts"],
     reporters: process.env.CI ? ["verbose"] : ["default"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "logic",
+          environment: "node",
+          include: ["src/**/*.test.ts", "../shared/**/*.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "dom",
+          environment: "jsdom",
+          include: ["src/**/*.test.tsx"],
+          setupFiles: ["src/lib/testing/setup.ts"],
+        },
+      },
+    ],
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/**/*.test.{ts,tsx}", "src/main.tsx"],
+      exclude: [
+        "src/**/*.test.{ts,tsx}",
+        "src/main.tsx",
+        "src/lib/testing/**",
+        "src/lib/types.ts",
+        "src/vite-env.d.ts",
+      ],
       reporter: ["text", "html", "lcov"],
+      thresholds: {
+        lines: 90,
+        statements: 90,
+        functions: 90,
+        branches: 90,
+      },
     },
   },
 });

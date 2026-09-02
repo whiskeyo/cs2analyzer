@@ -8,7 +8,7 @@ import { sharedRules } from "../shared/config/eslint.base.js";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "*.tsbuildinfo"],
+    ignores: ["dist/**", "coverage/**", "*.tsbuildinfo"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
