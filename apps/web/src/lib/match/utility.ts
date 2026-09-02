@@ -1,4 +1,9 @@
-import { MIN_REVIEW_FLASH_SECONDS } from "@/lib/shared/constants";
+import {
+  FLASH_FULL_SECONDS,
+  MIN_REVIEW_FLASH_SECONDS,
+  MOLOTOV_SECONDS,
+  tickRate,
+} from "@/lib/shared/constants";
 import { nadeLandPos } from "@/lib/radar/radarFx";
 import { NADE_LABEL } from "@/lib/match/roundEvents";
 import { currentRound } from "@/lib/replay/sample";
@@ -69,7 +74,12 @@ function isHeGrenade(weapon: string): boolean {
 
 function isMollyWeapon(weapon: string): boolean {
   const w = weapon.toLowerCase();
-  return w.includes("inferno") || w.includes("molotov") || w.includes("incgrenade");
+  return (
+    w.includes("inferno") ||
+    w.includes("molotov") ||
+    w.includes("incgrenade") ||
+    w.includes("incendiary")
+  );
 }
 
 function rowDamage(row: UtilThrowRow): number {
@@ -96,11 +106,27 @@ function addHit(
   });
 }
 
-function nearestThrow(rows: UtilThrowRow[], attacker: number, tick: number): UtilThrowRow | null {
+function attachEndTick(row: UtilThrowRow, tps: number): number {
+  if (row.kind === "molotov") {
+    return Math.max(row.endTick, row.detonateTick + Math.round(MOLOTOV_SECONDS * tps));
+  }
+  if (row.kind === "flash") {
+    return Math.max(row.endTick, row.detonateTick + Math.round(FLASH_FULL_SECONDS * tps));
+  }
+  return row.endTick;
+}
+
+function nearestThrow(
+  rows: UtilThrowRow[],
+  attacker: number,
+  tick: number,
+  tps: number,
+): UtilThrowRow | null {
   let best: UtilThrowRow | null = null;
   let bestDist = Number.POSITIVE_INFINITY;
   for (const row of rows) {
-    if (row.thrower !== attacker || !coversTick(row, tick)) continue;
+    if (tick < row.tick || tick > attachEndTick(row, tps)) continue;
+    if (attacker >= 0 && row.thrower >= 0 && row.thrower !== attacker) continue;
     const dist = Math.abs(tick - row.detonateTick);
     if (dist < bestDist) {
       best = row;
@@ -114,26 +140,22 @@ function nameOf(replay: Replay, i: number): string {
   return i < 0 ? "World" : (replay.players[i]?.name ?? "?");
 }
 
-function coversTick(row: UtilThrowRow, tick: number): boolean {
-  return tick >= row.tick && tick <= row.endTick;
-}
-
 function attachBlinds(rows: UtilThrowRow[], replay: Replay, untilTick: number): void {
   const flashes = rows.filter((row) => row.kind === "flash");
   if (flashes.length === 0) return;
+  const tps = tickRate(replay);
   for (const blind of replay.blinds ?? []) {
     if (blind.tick > untilTick || blind.duration < MIN_REVIEW_FLASH_SECONDS) continue;
     if (inKnifeRound(replay, blind.tick)) continue;
-    const best = nearestThrow(flashes, blind.attacker, blind.tick);
+    const best = nearestThrow(flashes, blind.attacker, blind.tick, tps);
     if (!best) continue;
+    const flasher = blind.attacker >= 0 ? blind.attacker : best.thrower;
     best.blinds.push({
       victim: blind.victim,
       victimName: nameOf(replay, blind.victim),
       duration: blind.duration,
       enemy:
-        blind.attacker >= 0 &&
-        blind.victim >= 0 &&
-        isEnemy(replay, blind.attacker, blind.victim, blind.tick),
+        flasher >= 0 && blind.victim >= 0 && isEnemy(replay, flasher, blind.victim, blind.tick),
     });
   }
 }
@@ -142,6 +164,7 @@ function attachDamage(rows: UtilThrowRow[], replay: Replay, untilTick: number): 
   const hes = rows.filter((row) => row.kind === "he");
   const mollys = rows.filter((row) => row.kind === "molotov");
   if (hes.length === 0 && mollys.length === 0) return;
+  const tps = tickRate(replay);
   for (const hurt of replay.hurts ?? []) {
     if (hurt.tick > untilTick || hurt.damage <= 0) continue;
     if (inKnifeRound(replay, hurt.tick)) continue;
@@ -149,7 +172,7 @@ function attachDamage(rows: UtilThrowRow[], replay: Replay, untilTick: number): 
     if (!isEnemy(replay, hurt.attacker, hurt.victim, hurt.tick)) continue;
     const pool = isHeGrenade(hurt.weapon) ? hes : isMollyWeapon(hurt.weapon) ? mollys : null;
     if (!pool) continue;
-    const best = nearestThrow(pool, hurt.attacker, hurt.tick);
+    const best = nearestThrow(pool, hurt.attacker, hurt.tick, tps);
     if (best) addHit(best, replay, hurt.victim, hurt.damage, hurt.tick);
   }
 }
@@ -316,12 +339,37 @@ export function utilKindSummary(byKind: Record<GrenadeKind, number>): string {
     .join(" · ");
 }
 
+function formatBlind(blind: UtilBlind): string {
+  return `${blind.victimName} ${blind.duration.toFixed(1)}s`;
+}
+
+function flashBlindDetail(blinds: UtilBlind[]): string {
+  const enemies = blinds.filter((blind) => blind.enemy);
+  const team = blinds.filter((blind) => !blind.enemy);
+  if (enemies.length > 0 && team.length > 0) {
+    return `Enemy: ${enemies.map(formatBlind).join(" · ")} · Team: ${team.map(formatBlind).join(" · ")}`;
+  }
+  return blinds.map(formatBlind).join(" · ");
+}
+
+/** Colour only from who was hit or flashed. Misses stay white (site is already on the row). */
+export function utilRowTone(row: UtilThrowRow): "" | "good" | "high" | "mixed" {
+  if (row.kind === "flash") {
+    const enemies = row.blinds.some((blind) => blind.enemy);
+    const team = row.blinds.some((blind) => !blind.enemy);
+    if (enemies && team) return "mixed";
+    if (enemies) return "good";
+    if (team) return "high";
+    return "";
+  }
+  if (row.hits.some((hit) => hit.enemy)) return "good";
+  return "";
+}
+
 export function throwDetail(row: UtilThrowRow): string {
   const parts: string[] = [];
   if (row.blinds.length > 0) {
-    parts.push(
-      row.blinds.map((blind) => `${blind.victimName} ${blind.duration.toFixed(1)}s`).join(" · "),
-    );
+    parts.push(flashBlindDetail(row.blinds));
   }
   if (row.hits.length > 0) {
     parts.push(row.hits.map((hit) => `${hit.victimName} (${hit.damage})`).join(", "));

@@ -18,6 +18,7 @@ import {
   utilKindSummary,
   utilMatchesCallout,
   utilMatchesPlace,
+  utilRowTone,
   utilThrowsForRound,
   utilityThrough,
 } from "./utility";
@@ -83,7 +84,35 @@ describe("utilityThrough", () => {
     expect(u.throws[0]?.blinds).toHaveLength(2);
     expect(u.enemyFlashCount).toBe(1);
     expect(u.throws[0]?.blinds[0]?.victimName).toBe("Bob");
-    expect(throwDetail(u.throws[0]!)).toMatch(/Bob/);
+    expect(throwDetail(u.throws[0]!)).toBe("Enemy: Bob 0.4s · Team: Alice 1.2s");
+    expect(utilRowTone(u.throws[0]!)).toBe("mixed");
+  });
+
+  it("colours flashes by who was blinded, not by site", () => {
+    const m = replay({
+      grenades: [
+        nade("flash", 90, 0, 50, 974),
+        nade("flash", 200, 0, 50, 974),
+        nade("flash", 300, 0, 50, 974),
+        nade("flash", 400, 0, 50, 974),
+      ],
+      blinds: [
+        makeBlind(220, 0, 1, 1.2),
+        makeBlind(320, 0, 2, 0.8),
+        makeBlind(322, 0, 0, 1.1),
+        makeBlind(420, 0, 0, 1.4),
+      ],
+    });
+    const u = utilityThrough(m, 640, null, layoutPlaces);
+    expect(u.throws[0]?.inSite).toBe(true);
+    expect(utilRowTone(u.throws[0]!)).toBe("");
+    expect(throwDetail(u.throws[0]!)).toBe("");
+    expect(utilRowTone(u.throws[1]!)).toBe("good");
+    expect(throwDetail(u.throws[1]!)).toBe("Bob 1.2s");
+    expect(utilRowTone(u.throws[2]!)).toBe("mixed");
+    expect(throwDetail(u.throws[2]!)).toBe("Enemy: Dave 0.8s · Team: Alice 1.1s");
+    expect(utilRowTone(u.throws[3]!)).toBe("high");
+    expect(throwDetail(u.throws[3]!)).toBe("Alice 1.4s");
   });
 
   it("lists who an HE actually hit", () => {
@@ -114,6 +143,32 @@ describe("utilityThrough", () => {
     expect(throwDetail(u.throws[0]!)).toBe("Bob (22)");
   });
 
+  it("attaches blinds after the flash pop end_tick and with an unknown attacker", () => {
+    const m = replay({
+      grenades: [nade("flash", 90, 0, 50, 974)],
+      blinds: [makeBlind(200, -1, 1, 1.8)],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 1, victimName: "Bob", duration: 1.8, enemy: true },
+    ]);
+    expect(throwDetail(u.throws[0]!)).toBe("Bob 1.8s");
+  });
+
+  it("keeps molly burns that land after a short projectile end_tick", () => {
+    const m = replay({
+      grenades: [nade("molotov", 80, 0, 50, 974)],
+      hurts: [
+        makeHurt(300, 0, 1, 18, { weapon: "inferno" }),
+        makeHurt(310, 0, 2, 9, { weapon: "incendiarygrenade" }),
+      ],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.endTick).toBe(160);
+    expect(throwDetail(u.throws[0]!)).toBe("Bob (18), Dave (9)");
+    expect(utilRowTone(u.throws[0]!)).toBe("good");
+  });
+
   it("labels landings and counts A/B only when a layout exists", () => {
     const m = replay({
       grenades: [
@@ -131,6 +186,7 @@ describe("utilityThrough", () => {
     expect(u.inSite).toBe(2);
     expect(u.nadesA).toBe(1);
     expect(u.nadesB).toBe(1);
+    expect(u.throws.every((row) => utilRowTone(row) === "")).toBe(true);
     expect(u.throws[0]?.location).toBe("A Site");
     expect(u.throws[1]?.location).toBe("B Site");
     const onlyBob = utilityThrough(m, 640, 1, layoutPlaces);

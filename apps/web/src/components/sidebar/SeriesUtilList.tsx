@@ -1,5 +1,5 @@
 import { NADE_WEAPON } from "@/lib/match/roundEvents";
-import { throwDetail } from "@/lib/match/utility";
+import { throwDetail, utilRowTone } from "@/lib/match/utility";
 import type { SeriesUtilThrow } from "@/lib/parse/seriesAnalysis";
 import type { HabitsTrail } from "@/lib/parse/seriesOverlay";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
@@ -27,15 +27,12 @@ export function SeriesUtilList({ rows, playerName, onJump }: Props) {
           {rows.map((row, i) => {
             const detail = throwDetail(row);
             const callout = row.location ?? row.site ?? "—";
-            const lit =
-              row.inSite ||
-              row.blinds.some((blind) => blind.enemy) ||
-              row.hits.some((hit) => hit.enemy);
+            const tone = utilRowTone(row);
             return (
               <li key={`${row.demoId}-${row.tick}-${row.thrower}-${row.kind}-${i}`}>
                 <button
                   type="button"
-                  className={`review-note ${lit ? "good" : ""}`}
+                  className={`review-note${tone ? ` ${tone}` : ""}`}
                   onClick={() => onJump({ demoId: row.demoId, jumpTick: row.jumpTick })}
                 >
                   <span className="pill review-round">{row.roundLabel}</span>

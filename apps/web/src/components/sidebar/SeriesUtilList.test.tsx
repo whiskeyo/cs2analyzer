@@ -28,6 +28,7 @@ describe("SeriesUtilList", () => {
     render(<SeriesUtilList rows={[row]} playerName="Alice" onJump={() => {}} />);
     expect(screen.getByText(/1 thrown across 1 demos/)).toBeInTheDocument();
     expect(screen.getByText(/a\.dem · Alice · A site/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /a\.dem · Alice/ })).not.toHaveClass("good");
   });
 
   it("calls onJump when a row is clicked", async () => {
@@ -35,5 +36,26 @@ describe("SeriesUtilList", () => {
     render(<SeriesUtilList rows={[row]} playerName={null} onJump={onJump} />);
     await userEvent.click(screen.getByRole("button", { name: /a\.dem · Alice/ }));
     expect(onJump).toHaveBeenCalledWith({ demoId: "d1", jumpTick: 100 });
+  });
+
+  it("marks a teamflash red", () => {
+    render(
+      <SeriesUtilList
+        rows={[
+          {
+            ...row,
+            kind: "flash",
+            inSite: true,
+            blinds: [{ victim: 1, victimName: "Bob", duration: 1.2, enemy: false }],
+          },
+        ]}
+        playerName="Alice"
+        onJump={() => {}}
+      />,
+    );
+    const note = screen.getByRole("button", { name: /a\.dem · Alice/ });
+    expect(note).toHaveClass("high");
+    expect(note).not.toHaveClass("good");
+    expect(screen.getByText("Bob 1.2s")).toBeInTheDocument();
   });
 });

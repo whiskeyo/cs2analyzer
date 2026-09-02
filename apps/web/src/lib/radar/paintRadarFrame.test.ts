@@ -192,6 +192,38 @@ describe("paintRadarFrame", () => {
     expect(ctx.setLineDash).toHaveBeenCalledWith([]);
     expect(ctx.stroke).toHaveBeenCalled();
     expect(ctx.fill).toHaveBeenCalled();
+    expect(ctx.globalAlpha).toBe(1);
+  });
+
+  it("draws the nade flight trail at 0.4 and the head at full opacity", () => {
+    const ctx = createMockCanvas();
+    const alphas: number[] = [];
+    Object.defineProperty(ctx, "globalAlpha", {
+      configurable: true,
+      set(value: number) {
+        alphas.push(value);
+      },
+      get() {
+        return alphas.at(-1) ?? 1;
+      },
+    });
+    const nade = frame(
+      matchReplay({
+        grenades: [
+          makeGrenade({
+            kind: "smoke",
+            points: [
+              { tick: 80, x: 0, y: 0, z: 0 },
+              { tick: 100, x: 10, y: 10, z: 0 },
+            ],
+          }),
+        ],
+      }),
+      90,
+    ).nades[0];
+    paintRadarFrame(ctx, minimalFrame({ nades: nade ? [nade] : [] }), toScreen, paintOpts);
+    expect(alphas).toContain(0.4);
+    expect(alphas.at(-1)).toBe(1);
   });
 
   it("paints HE flight as a rotated square head", () => {
@@ -556,8 +588,12 @@ describe("paintPawns", () => {
     paintPawns(ctx, f, toScreen, false);
     expect(f.hits.length).toBeGreaterThan(0);
     expect(f.flashes.length).toBeGreaterThan(0);
+    expect(f.flashes[0]?.left).toBeGreaterThan(0);
     expect(ctx.fill.mock.calls.length).toBeGreaterThan(0);
     expect(ctx.stroke.mock.calls.length).toBeGreaterThan(0);
+    const pawn = f.pawns.find((p) => p.flash > 0);
+    expect(pawn).toBeDefined();
+    expect(arcCountAt(ctx, pawn!.x, pawn!.y)).toBeGreaterThan(0);
   });
 
   it("paints pawn arrows, selection ring, and health bars", () => {
@@ -633,6 +669,43 @@ describe("paintPawns", () => {
     paintPawns(ctx, f, toScreen, false);
     const blindLabel = ctx.fillText.mock.calls.find((call) => String(call[0]).includes("s"));
     expect(blindLabel).toBeDefined();
+  });
+
+  it("keeps the team colour on a flashed pawn", () => {
+    const ctx = createMockCanvas();
+    const styles: string[] = [];
+    Object.defineProperty(ctx, "fillStyle", {
+      configurable: true,
+      set(value: string) {
+        styles.push(String(value));
+      },
+      get() {
+        return styles.at(-1) ?? "";
+      },
+    });
+    paintPawns(
+      ctx,
+      minimalFrame({
+        pawns: [
+          {
+            index: 0,
+            x: 50,
+            y: 50,
+            yaw: 0,
+            color: CT_COLOR,
+            alive: true,
+            selected: false,
+            flash: 2,
+            name: "Alice",
+            health: 100,
+          },
+        ],
+      }),
+      toScreen,
+      false,
+    );
+    expect(styles).toContain(CT_COLOR);
+    expect(styles.some((s) => s.includes("255, 252, 230"))).toBe(false);
   });
 
   it("strokes a white outline on the selected pawn", () => {

@@ -10,7 +10,7 @@
  * `measureText`, loaded images, and the text editor's DOM box.
  */
 
-import { tickRate } from "@/lib/shared/constants";
+import { FLASH_FULL_SECONDS, tickRate } from "@/lib/shared/constants";
 import { radarFloor, worldOnRadar } from "@/lib/radar/maps";
 import { grenadePosAt } from "@/lib/radar/draw";
 import {
@@ -135,6 +135,8 @@ export interface FlashPulse extends Point {
   /** 0..1 brightness of the flash still on the player. */
   intensity: number;
   pulseRadius: number;
+  /** 1 at a full-face flash, 0 when the blind expires. */
+  left: number;
 }
 
 export interface Pawn extends Point {
@@ -526,6 +528,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
         y: p.y,
         intensity,
         pulseRadius: 13 + intensity * 6 + Math.sin((tick / tps) * 10) * 1.4,
+        left: Math.min(1, flash / FLASH_FULL_SECONDS),
       });
     }
     pawns.push({

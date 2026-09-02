@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_TICK_RATE, MOLOTOV_SECONDS, SMOKE_SECONDS } from "@/lib/shared/constants";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER, type MapLayers } from "@/lib/notes/types";
 import {
+  makeBlind,
   makeFreezeTicks,
   makeGrenade,
   makeKill,
@@ -259,6 +260,18 @@ describe("buildRadarFrame view", () => {
     dead.ticks.health[0] = 0;
     dead.ticks.flags[0] &= ~2; // clear FLAG_ALIVE
     expect(frame(dead, 64, { selected: 0 }).cone).toBeNull();
+  });
+
+  it("puts a countdown flash pulse on a blinded alive pawn", () => {
+    const replay = matchReplay({
+      blinds: [makeBlind(64, 2, 0, 3)],
+    });
+    const f = frame(replay, 64 + 64);
+    const flash = f.flashes.find((pulse) => pulse.x === f.pawns.find((p) => p.index === 0)?.x);
+    expect(flash).toBeDefined();
+    expect(flash?.left).toBeGreaterThan(0);
+    expect(flash?.left).toBeLessThan(1);
+    expect(f.pawns.find((p) => p.index === 0)?.flash).toBeCloseTo(2, 5);
   });
 
   it("carries the player's name, health and side colour onto the pawn", () => {

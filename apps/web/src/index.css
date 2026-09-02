@@ -1596,6 +1596,9 @@ button.link {
 .review-note.good .review-title {
   color: #7dcea0;
 }
+.review-note.mixed .review-title {
+  color: #e8c04a;
+}
 .review-note.on {
   background: #1a222c;
 }

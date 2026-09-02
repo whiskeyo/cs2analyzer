@@ -6,6 +6,7 @@ import {
   usedUtilPlaces,
   utilKindSummary,
   utilMatchesPlace,
+  utilRowTone,
   utilityThrough,
 } from "@/lib/match/utility";
 import { placesReady, type MapPlaces } from "@/lib/match/sites";
@@ -124,15 +125,12 @@ export function Utility({ replay, tick, selected, onJump, onSelect, places }: Pr
         <ul className="review-notes">
           {rows.map((row, i) => {
             const detail = throwDetail(row);
-            const lit =
-              row.inSite ||
-              row.blinds.some((blind) => blind.enemy) ||
-              row.hits.some((hit) => hit.enemy);
+            const tone = utilRowTone(row);
             return (
               <li key={`${row.tick}-${row.thrower}-${row.kind}-${i}`}>
                 <button
                   type="button"
-                  className={`review-note ${lit ? "good" : ""}`}
+                  className={`review-note${tone ? ` ${tone}` : ""}`}
                   onClick={() => {
                     if (row.thrower >= 0) onSelect(row.thrower);
                     onJump(row.tick);

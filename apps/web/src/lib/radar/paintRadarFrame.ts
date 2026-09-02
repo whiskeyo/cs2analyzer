@@ -31,6 +31,8 @@ const TRACER_GLOW_LENGTH = 62;
 const TRACER_CORE_LENGTH = 48;
 const DIAL_START = -Math.PI / 2;
 const DIAL_BACKDROP = "#12181f";
+/** Flight-path line; effects (smoke, molly, HE, flash pop) stay at full paint alpha. */
+const NADE_TRAIL_OPACITY = 0.4;
 
 function paintDeathCross(ctx: CanvasRenderingContext2D, toScreen: ToScreen, x: number, y: number) {
   const s = toScreen(x, y);
@@ -91,7 +93,7 @@ function paintNade(
     ctx.strokeStyle = color;
     ctx.lineWidth = nade.kind === "he" ? 2.2 : 1.8;
     ctx.setLineDash(nade.kind === "he" ? [6, 4] : []);
-    ctx.globalAlpha = 0.9 * opacity;
+    ctx.globalAlpha = NADE_TRAIL_OPACITY * opacity;
     ctx.beginPath();
     nade.trail.forEach((p, i) => {
       const s = toScreen(p.x, p.y);
@@ -442,6 +444,8 @@ export function paintPawns(
     ctx.lineWidth = 2;
     circle(ctx, s, flash.pulseRadius);
     ctx.stroke();
+    dial(ctx, s, 10 + flash.intensity * 2, flash.left, NADE_COLORS.flash);
+    ctx.globalAlpha = 1;
   }
   ctx.globalAlpha = 1;
 
@@ -460,10 +464,6 @@ export function paintPawns(
     ctx.closePath();
     ctx.fillStyle = pawn.color;
     ctx.fill();
-    if (pawn.flash > 0 && pawn.alive) {
-      ctx.fillStyle = `rgba(255, 252, 230, ${Math.min(0.88, 0.4 + pawn.flash * 0.35)})`;
-      ctx.fill();
-    }
     if (pawn.selected) {
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 1.4;
