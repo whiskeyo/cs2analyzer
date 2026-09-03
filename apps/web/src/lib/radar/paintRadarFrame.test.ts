@@ -269,8 +269,9 @@ describe("paintRadarFrame", () => {
       ...paintOpts,
       nadeIcons: { smoke: icon },
     });
+    // Backdrop circle is painted before the icon.
+    expect(ctx.fill).toHaveBeenCalled();
     expect(ctx.drawImage).toHaveBeenCalled();
-    expect(ctx.fill).not.toHaveBeenCalled();
   });
 
   it("uses the incendiary SVG for an in-flight incendiary, not the molotov bottle", () => {
@@ -724,44 +725,17 @@ describe("paintPawns", () => {
     expect(arcCountAt(ctx, pawn!.x, pawn!.y)).toBeGreaterThan(0);
   });
 
-  it("paints pawn arrows, selection ring, and health bars", () => {
+  it("paints pawn arrows, selection ring, and nickname labels", () => {
     const ctx = createMockCanvas();
     const f = frame(matchReplay(), 64, { ...allLayers, names: true });
     paintPawns(ctx, f, toScreen, true);
     expect(f.pawns.length).toBe(4);
     expect(ctx.fill).toHaveBeenCalled();
-    expect(ctx.fillRect).toHaveBeenCalled();
+    expect(ctx.fillRect).not.toHaveBeenCalled();
     expect(ctx.fillText).toHaveBeenCalled();
   });
 
-  it("uses the low-health colour below the threshold", () => {
-    const ctx = createMockCanvas();
-    paintPawns(
-      ctx,
-      minimalFrame({
-        pawns: [
-          {
-            index: 0,
-            x: 50,
-            y: 50,
-            yaw: 0,
-            color: CT_COLOR,
-            alive: true,
-            selected: false,
-            flash: 0,
-            name: "LowHP",
-            health: 15,
-          },
-        ],
-      }),
-      toScreen,
-      false,
-    );
-    expect(ctx.fillStyle).toBe(RADAR_STYLE.deathMarkColor);
-    expect(ctx.fillRect).toHaveBeenCalled();
-  });
-
-  it("dims dead pawns and skips their health bar", () => {
+  it("dims dead pawns and skips their nickname label", () => {
     const ctx = createMockCanvas();
     paintPawns(
       ctx,

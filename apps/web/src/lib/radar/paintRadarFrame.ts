@@ -20,7 +20,6 @@ import type {
 } from "@/lib/parse/seriesOverlay";
 import { habitsNadeVisible, habitsNadeViewTick, overlayAtPlaySec } from "@/lib/parse/seriesOverlay";
 import { formatBlindLeft, NADE_COLORS } from "@/lib/radar/radarFx";
-import { FULL_HEALTH } from "@/lib/shared/constants";
 import {
   nadeRenderAt,
   RADAR_STYLE,
@@ -32,14 +31,23 @@ import {
 /** Projects a world position onto the canvas. */
 export type ToScreen = (x: number, y: number) => Point;
 
-const LOW_HEALTH = 20;
-const HEALTH_BAR_WIDTH = 20;
 const TRACER_GLOW_LENGTH = 62;
 const TRACER_CORE_LENGTH = 48;
 const DIAL_START = -Math.PI / 2;
 const DIAL_BACKDROP = "#12181f";
 /** Flight-path line; effects (smoke, molly, HE, flash pop) stay at full paint alpha. */
 const NADE_TRAIL_OPACITY = 0.4;
+
+function darkenHexColor(color: string, factor: number): string {
+  if (!color.startsWith("#") || color.length !== 7) return color;
+  const f = Math.max(0, Math.min(1, factor));
+  const r = Math.round(parseInt(color.slice(1, 3), 16) * f);
+  const g = Math.round(parseInt(color.slice(3, 5), 16) * f);
+  const b = Math.round(parseInt(color.slice(5, 7), 16) * f);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b
+    .toString(16)
+    .padStart(2, "0")}`;
+}
 
 function paintDeathCross(ctx: CanvasRenderingContext2D, toScreen: ToScreen, x: number, y: number) {
   const s = toScreen(x, y);
@@ -184,7 +192,11 @@ export function paintRadarFrame(
   ctx: CanvasRenderingContext2D,
   frame: RadarFrame,
   toScreen: ToScreen,
-  opts: { scale: number; c4Icon: HTMLImageElement | null; nadeIcons?: NadeIcons },
+  opts: {
+    scale: number;
+    c4Icon: HTMLImageElement | null;
+    nadeIcons?: NadeIcons;
+  },
 ) {
   if (frame.heatmap.length > 0) {
     ctx.globalAlpha = RADAR_STYLE.heatmapAlpha;
@@ -275,6 +287,9 @@ export function paintRadarFrame(
   if (frame.opening) {
     const from = toScreen(frame.opening.from.x, frame.opening.from.y);
     const to = toScreen(frame.opening.to.x, frame.opening.to.y);
+    const borderColor = darkenHexColor(frame.opening.color, 0.7);
+    // Draw a slightly thicker dark outline first, then the real arrow on top.
+    drawArrow(ctx, from, to, borderColor, 5);
     drawArrow(ctx, from, to, frame.opening.color, 3.2);
     ctx.fillStyle = frame.opening.color;
     ctx.strokeStyle = DIAL_BACKDROP;
@@ -325,6 +340,10 @@ function paintHabitsArrow(
   ctx.fillStyle = color;
   ctx.globalAlpha = 0.92;
   ctx.fill();
+  // Add outline so the arrow is visible over bright radar backgrounds.
+  ctx.strokeStyle = darkenHexColor(color, 0.7);
+  ctx.lineWidth = 2;
+  ctx.stroke();
   ctx.restore();
   ctx.globalAlpha = 1;
 }
@@ -479,6 +498,10 @@ export function paintPawns(
     ctx.lineTo(-size * 0.35, 0);
     ctx.lineTo(-size * 0.7, -size * 0.7);
     ctx.closePath();
+    // Stroke behind the pawn arrow to improve readability.
+    ctx.strokeStyle = darkenHexColor(pawn.color, 0.7);
+    ctx.lineWidth = 2;
+    ctx.stroke();
     ctx.fillStyle = pawn.color;
     ctx.fill();
     if (pawn.selected) {
@@ -496,15 +519,31 @@ export function paintPawns(
       ctx.fillText(formatBlindLeft(pawn.flash), s.x + 12, s.y);
     }
 
-    if (pawn.alive) {
-      if (showNames) {
-        ctx.fillStyle = "#e8eef4";
-        ctx.font = "11px ui-sans-serif, system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText(pawn.name.slice(0, 12), s.x, s.y + 16);
-      }
-      ctx.fillStyle = pawn.health > LOW_HEALTH ? "#3dba6a" : RADAR_STYLE.deathMarkColor;
-      ctx.fillRect(s.x - 10, s.y + 18, HEALTH_BAR_WIDTH * (pawn.health / FULL_HEALTH), 3);
+    if (pawn.alive && showNames) {
+      const name = pawn.name.slice(0, 12);
+      const fontSize = name.length > 9 ? 9 : 10;
+      const labelY = s.y + 20;
+      ctx.font = `${fontSize}px ui-sans-serif, system-ui`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      const textW = ctx.measureText(name).width;
+      const boxW = Math.max(24, textW + 12);
+      const boxH = 17;
+      const boxX = s.x - boxW / 2;
+      const boxY = labelY - boxH / 2;
+      const borderColor = darkenHexColor(pawn.color, 0.65);
+
+      ctx.fillStyle = "rgba(11, 14, 18, 0.78)";
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#e8eef4";
+      ctx.fillText(name, s.x, labelY);
     }
     ctx.globalAlpha = 1;
   }

@@ -43,6 +43,17 @@ function iconReady(icon: HTMLImageElement | null | undefined): icon is HTMLImage
   return Boolean(icon && icon.complete && icon.naturalWidth > 0);
 }
 
+function darkenHexColor(color: string, factor: number): string {
+  if (!color.startsWith("#") || color.length !== 7) return color;
+  const f = Math.max(0, Math.min(1, factor));
+  const r = Math.round(parseInt(color.slice(1, 3), 16) * f);
+  const g = Math.round(parseInt(color.slice(3, 5), 16) * f);
+  const b = Math.round(parseInt(color.slice(5, 7), 16) * f);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b
+    .toString(16)
+    .padStart(2, "0")}`;
+}
+
 /** In-flight grenade: weapon SVG, or the old colored dot/diamond if the icon is not ready. */
 export function drawNadeFlightHead(
   ctx: CanvasRenderingContext2D,
@@ -57,7 +68,21 @@ export function drawNadeFlightHead(
     const scale = NADE_FLIGHT_ICON_SIZE / Math.max(iw, ih);
     const w = iw * scale;
     const h = ih * scale;
-    ctx.drawImage(icon, at.x - w / 2, at.y - h / 2, w, h);
+    const x = at.x - w / 2;
+    const y = at.y - h / 2;
+
+    // Draw a filled circle backdrop so the SVG stands out on any radar colour.
+    // shadowBlur on drawImage is unreliable across browsers for SVG sources.
+    const pad = 3;
+    const r = Math.max(w, h) / 2 + pad;
+    ctx.beginPath();
+    ctx.arc(at.x, at.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = darkenHexColor(color, 0.45);
+    ctx.globalAlpha = 0.72;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.drawImage(icon, x, y, w, h);
     return;
   }
   ctx.fillStyle = color;

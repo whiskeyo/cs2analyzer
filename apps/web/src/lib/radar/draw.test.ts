@@ -110,9 +110,16 @@ describe("drawC4", () => {
 describe("drawNadeFlightHead", () => {
   it("draws the weapon SVG when the icon is complete", () => {
     const ctx = createMockCanvas();
-    const icon = { complete: true, naturalWidth: 15, naturalHeight: 32 } as HTMLImageElement;
+    const icon = {
+      complete: true,
+      naturalWidth: 15,
+      naturalHeight: 32,
+    } as HTMLImageElement;
     drawNadeFlightHead(ctx, { x: 40, y: 50 }, "smoke", "#aaa", icon);
     const scale = NADE_FLIGHT_ICON_SIZE / 32;
+    // Backdrop circle is drawn first, then the icon on top.
+    expect(ctx.arc).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalled();
     expect(ctx.drawImage).toHaveBeenCalledWith(
       icon,
       40 - (15 * scale) / 2,
@@ -120,7 +127,6 @@ describe("drawNadeFlightHead", () => {
       15 * scale,
       NADE_FLIGHT_ICON_SIZE,
     );
-    expect(ctx.fill).not.toHaveBeenCalled();
     expect(ctx.fillRect).not.toHaveBeenCalled();
   });
 
@@ -199,7 +205,9 @@ describe("drawTextLabel", () => {
 
   it("wraps long lines using measureText", () => {
     const ctx = createMockCanvas();
-    ctx.measureText.mockImplementation((text: string) => ({ width: text.length * 4 }));
+    ctx.measureText.mockImplementation((text: string) => ({
+      width: text.length * 4,
+    }));
     const long: typeof stroke = {
       ...stroke,
       text: "one two three four five six seven eight nine ten",
