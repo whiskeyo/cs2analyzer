@@ -441,15 +441,41 @@ export async function loadDemoFileHandle(key: string): Promise<FileSystemFileHan
   }
 }
 
-/** Read the linked demo when the browser still has permission. */
-export async function readLinkedDemoFile(key: string): Promise<File | null> {
-  const handle = await loadDemoFileHandle(key);
-  if (!handle) return null;
+type FileHandleAccess = FileSystemFileHandle & {
+  queryPermission?: (descriptor?: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
+  requestPermission?: (descriptor?: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
+};
+
+const FILE_READ = { mode: "read" as const };
+
+/**
+ * Chrome keeps the IndexedDB handle after a reload, but read permission goes
+ * back to "prompt". `getFile()` then throws unless we `requestPermission` from
+ * the click. Previously granted access is usually restored without a picker.
+ */
+export async function readFileFromHandle(handle: FileSystemFileHandle): Promise<File | null> {
+  const access = handle as FileHandleAccess;
   try {
+    if (typeof access.queryPermission === "function") {
+      const state = await access.queryPermission(FILE_READ);
+      if (state === "granted") return await handle.getFile();
+      if (state === "denied") return null;
+    }
+    if (typeof access.requestPermission === "function") {
+      const state = await access.requestPermission(FILE_READ);
+      if (state !== "granted") return null;
+    }
     return await handle.getFile();
   } catch {
     return null;
   }
+}
+
+/** Read the linked demo, re-requesting read access after a page reload. */
+export async function readLinkedDemoFile(key: string): Promise<File | null> {
+  const handle = await loadDemoFileHandle(key);
+  if (!handle) return null;
+  return readFileFromHandle(handle);
 }
 
 export function demoFilePickerAvailable(): boolean {

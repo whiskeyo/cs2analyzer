@@ -17,6 +17,7 @@ import {
   rememberDemoFileHandles,
   pendingDemoFileHandle,
   clearPendingDemoFileHandles,
+  readFileFromHandle,
   serializeBundle,
   type ReviewProject,
 } from "./projectStore";
@@ -293,5 +294,46 @@ describe("drop file handles", () => {
     expect(pendingDemoFileHandle("a.dem")).toBe(handle);
     clearPendingDemoFileHandles();
     expect(pendingDemoFileHandle("a.dem")).toBeUndefined();
+  });
+});
+
+describe("readFileFromHandle", () => {
+  it("reads when the handle already has access", async () => {
+    const file = new File(["x"], "a.dem");
+    const handle = { getFile: async () => file } as unknown as FileSystemFileHandle;
+    await expect(readFileFromHandle(handle)).resolves.toBe(file);
+  });
+
+  it("re-requests read permission after a reload-style prompt", async () => {
+    const file = new File(["x"], "a.dem");
+    const handle = {
+      queryPermission: vi.fn().mockResolvedValue("prompt"),
+      requestPermission: vi.fn().mockResolvedValue("granted"),
+      getFile: vi.fn().mockResolvedValue(file),
+    };
+    await expect(readFileFromHandle(handle as unknown as FileSystemFileHandle)).resolves.toBe(file);
+    expect(handle.requestPermission).toHaveBeenCalledWith({ mode: "read" });
+    expect(handle.getFile).toHaveBeenCalledOnce();
+  });
+
+  it("returns null when permission is denied", async () => {
+    const getFile = vi.fn().mockResolvedValue(new File(["x"], "a.dem"));
+    const handle = {
+      queryPermission: async () => "denied",
+      requestPermission: vi.fn(),
+      getFile,
+    };
+    await expect(readFileFromHandle(handle as unknown as FileSystemFileHandle)).resolves.toBeNull();
+    expect(handle.requestPermission).not.toHaveBeenCalled();
+    expect(getFile).not.toHaveBeenCalled();
+  });
+
+  it("returns null when getFile throws", async () => {
+    const handle = {
+      getFile: async () => {
+        throw new Error("NotAllowedError");
+      },
+    } as unknown as FileSystemFileHandle;
+    await expect(readFileFromHandle(handle)).resolves.toBeNull();
   });
 });
