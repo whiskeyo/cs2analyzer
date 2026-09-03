@@ -214,12 +214,17 @@ body,
   text-align: left;
 }
 .saved-demo:hover,
+.saved-demo:focus-visible,
 .round-item:hover,
 .kill-item:hover,
 .round-event:hover,
 .round-story:hover,
 .review-note:hover,
 .spec-card:hover {
+  filter: none;
+}
+button.saved-demo:hover:not(:disabled),
+button.saved-demo:focus-visible:not(:disabled) {
   filter: none;
 }
 .saved-demo-map {
@@ -243,13 +248,17 @@ body,
   position: absolute;
   left: 0;
   top: calc(100% - 2px);
-  z-index: 6;
+  z-index: 8;
+  isolation: isolate;
   min-width: 280px;
   padding: 0.45rem 0.5rem;
   border: 1px solid #2c3846;
   border-radius: 6px;
+  background-color: #10151b;
   background: #10151b;
+  color: #e8eef4;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
 }
 .saved-demo:hover .saved-demo-stats,
 .saved-demo:focus-visible .saved-demo-stats {
