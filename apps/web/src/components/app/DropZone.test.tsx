@@ -204,8 +204,13 @@ describe("DropZone", () => {
       "href",
       "https://steamcommunity.com/tradeoffer/new/?partner=69520211&token=YCinud5X",
     );
-    expect(screen.getByText(`cs2analyzer version: ${__APP_VERSION__}`)).toBeInTheDocument();
-    expect(screen.getByText(/Made by whiskeyo/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, el) =>
+          el?.textContent ===
+          `Made by whiskeyo. Version: ${__APP_VERSION__}. Fan project — not affiliated with Valve or FACEIT. Radar overviews are Valve's, vendored from cs2-map-icons. Weapon icons from cs2-killfeed-generator (MIT) and counter-strike-icons.`,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("accepts dropped demos on the main drop zone", async () => {

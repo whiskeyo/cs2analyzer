@@ -19,10 +19,9 @@ export function Credits() {
           Donate
         </a>
       </p>
-      <p>Made by whiskeyo. Fan project — not affiliated with Valve or FACEIT.</p>
-      <p>cs2analyzer version: {__APP_VERSION__}</p>
       <p>
-        Radar overviews are Valve’s, vendored from{" "}
+        Made by whiskeyo. Version: {__APP_VERSION__}. Fan project — not affiliated with Valve or
+        FACEIT. Radar overviews are Valve's, vendored from{" "}
         <a href="https://github.com/MurkyYT/cs2-map-icons" target="_blank" rel="noreferrer">
           cs2-map-icons
         </a>
