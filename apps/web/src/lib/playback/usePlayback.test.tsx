@@ -235,6 +235,7 @@ describe("usePlayback", () => {
           flash: true,
           he: true,
           molotov: true,
+          incendiary: true,
           decoy: true,
         },
         t: true,

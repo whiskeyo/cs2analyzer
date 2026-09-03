@@ -52,6 +52,7 @@ export const NADE_WEAPON: Record<GrenadeKind, string> = {
   flash: "flashbang",
   he: "hegrenade",
   molotov: "molotov",
+  incendiary: "incgrenade",
   decoy: "decoy",
 };
 
@@ -60,6 +61,7 @@ export const NADE_LABEL: Record<GrenadeKind, string> = {
   flash: "Flash",
   he: "HE",
   molotov: "Molly",
+  incendiary: "Incendiary",
   decoy: "Decoy",
 };
 

@@ -220,13 +220,26 @@ pub(crate) fn controller_name(ctrl: &Entity) -> String {
     }
 }
 
-pub(crate) fn proj_kind(class: &str) -> Option<GrenadeKind> {
+pub(crate) fn proj_kind(e: &Entity) -> Option<GrenadeKind> {
+    proj_kind_from_class(e.class().name(), prop_truthy(e, "m_bIsIncGrenade"))
+}
+
+pub(crate) fn proj_kind_from_class(class: &str, is_incendiary: bool) -> Option<GrenadeKind> {
     match class {
-        "CSmokeGrenadeProjectile" => Some(GrenadeKind::Smoke),
-        "CMolotovProjectile" | "CIncendiaryGrenadeProjectile" => Some(GrenadeKind::Molotov),
-        "CHEGrenadeProjectile" => Some(GrenadeKind::He),
-        "CFlashbangProjectile" => Some(GrenadeKind::Flash),
-        "CDecoyProjectile" => Some(GrenadeKind::Decoy),
+        "CSmokeGrenadeProjectile" | "C_SmokeGrenadeProjectile" => Some(GrenadeKind::Smoke),
+        "CMolotovProjectile" | "C_MolotovProjectile" => {
+            if is_incendiary {
+                Some(GrenadeKind::Incendiary)
+            } else {
+                Some(GrenadeKind::Molotov)
+            }
+        }
+        "CIncendiaryGrenadeProjectile" | "C_IncendiaryGrenadeProjectile" => {
+            Some(GrenadeKind::Incendiary)
+        }
+        "CHEGrenadeProjectile" | "C_HEGrenadeProjectile" => Some(GrenadeKind::He),
+        "CFlashbangProjectile" | "C_FlashbangProjectile" => Some(GrenadeKind::Flash),
+        "CDecoyProjectile" | "C_DecoyProjectile" => Some(GrenadeKind::Decoy),
         _ => None,
     }
 }
@@ -276,4 +289,25 @@ pub(crate) fn is_bullet_weapon(weapon: &str) -> bool {
 
 pub(crate) fn side_of(team: i32) -> Option<Side> {
     Side::from_team_num(team)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn molotov_projectile_uses_incendiary_flag() {
+        assert_eq!(
+            proj_kind_from_class("CMolotovProjectile", false),
+            Some(GrenadeKind::Molotov)
+        );
+        assert_eq!(
+            proj_kind_from_class("CMolotovProjectile", true),
+            Some(GrenadeKind::Incendiary)
+        );
+        assert_eq!(
+            proj_kind_from_class("CIncendiaryGrenadeProjectile", false),
+            Some(GrenadeKind::Incendiary)
+        );
+    }
 }

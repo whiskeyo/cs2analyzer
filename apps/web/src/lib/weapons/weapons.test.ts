@@ -35,6 +35,8 @@ describe("weaponKey", () => {
   it("normalizes aliases and rejects non-weapons", () => {
     expect(weaponKey("m4a4")).toBe("m4a1");
     expect(weaponKey("inferno")).toBe("molotov");
+    expect(weaponKey("incgrenade")).toBe("incgrenade");
+    expect(weaponIconSrc("incgrenade")).toContain("/weapons/incgrenade.svg");
     expect(weaponKey("world")).toBeNull();
     expect(weaponKey("trigger_hurt")).toBeNull();
     expect(weaponKey("butterfly_knife")).toBe("knife");

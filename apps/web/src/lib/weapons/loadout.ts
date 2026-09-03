@@ -7,6 +7,7 @@ import {
   GEAR_FLASH2,
   GEAR_HE,
   GEAR_HELMET,
+  GEAR_INC,
   GEAR_KEVLAR,
   GEAR_MOLLY,
   GEAR_SMOKE,
@@ -31,6 +32,7 @@ export function gearItems(p: SampledPlayer): GearItem[] {
   if (g & GEAR_FLASH2) icons.push({ name: "flashbang", title: "Flash" });
   if (g & GEAR_SMOKE) icons.push({ name: "smokegrenade", title: "Smoke" });
   if (g & GEAR_MOLLY) icons.push({ name: "molotov", title: "Molly" });
+  if (g & GEAR_INC) icons.push({ name: "incgrenade", title: "Incendiary" });
   if (g & GEAR_DECOY) icons.push({ name: "decoy", title: "Decoy" });
   return icons;
 }

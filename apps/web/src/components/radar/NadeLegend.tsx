@@ -5,6 +5,7 @@ import type { GrenadeKind } from "@/lib/replay/replayTypes";
 const KINDS: [GrenadeKind, string][] = [
   ["smoke", "Smoke"],
   ["molotov", "Molly"],
+  ["incendiary", "Inc"],
   ["flash", "Flash"],
   ["he", "HE"],
   ["decoy", "Decoy"],

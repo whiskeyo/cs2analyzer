@@ -51,7 +51,7 @@ const NAMES: Record<string, string> = {
   hegrenade: "HE",
   inferno: "Molly",
   molotov: "Molly",
-  incgrenade: "Molly",
+  incgrenade: "Incendiary",
   flashbang: "Flash",
   smokegrenade: "Smoke",
   decoy: "Decoy",

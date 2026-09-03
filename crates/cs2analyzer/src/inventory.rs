@@ -15,6 +15,7 @@ pub const GEAR_DEFUSER: u16 = 1 << 7;
 pub const GEAR_ZEUS: u16 = 1 << 8;
 pub const GEAR_C4: u16 = 1 << 9;
 pub const GEAR_KEVLAR: u16 = 1 << 10;
+pub const GEAR_INC: u16 = 1 << 11;
 
 #[allow(dead_code)]
 pub const WID_NONE: u8 = 0;
@@ -144,7 +145,8 @@ fn add_nade(gear: &mut u16, wid: u8) {
             }
         }
         WID_SMOKE => *gear |= GEAR_SMOKE,
-        WID_MOLLY | WID_INC => *gear |= GEAR_MOLLY,
+        WID_MOLLY => *gear |= GEAR_MOLLY,
+        WID_INC => *gear |= GEAR_INC,
         WID_DECOY => *gear |= GEAR_DECOY,
         _ => {}
     }
@@ -348,6 +350,14 @@ mod tests {
             Some((WID_M4A4, Slot::Primary))
         );
         assert_eq!(classify_class("CFlashbang"), Some((WID_FLASH, Slot::Nade)));
+        assert_eq!(
+            classify_class("CIncendiaryGrenade"),
+            Some((WID_INC, Slot::Nade))
+        );
+        assert_eq!(
+            classify_class("CMolotovGrenade"),
+            Some((WID_MOLLY, Slot::Nade))
+        );
         assert_eq!(classify_class("CSmokeGrenadeProjectile"), None);
         assert_eq!(classify_class("CPlantedC4"), None);
     }
@@ -357,5 +367,17 @@ mod tests {
         assert_eq!(classify_def_index(7), Some((WID_AK47, Slot::Primary)));
         assert_eq!(classify_def_index(60), Some((WID_M4A1S, Slot::Primary)));
         assert_eq!(classify_def_index(507), Some((WID_KNIFE, Slot::Gear)));
+        assert_eq!(classify_def_index(46), Some((WID_MOLLY, Slot::Nade)));
+        assert_eq!(classify_def_index(48), Some((WID_INC, Slot::Nade)));
+    }
+
+    #[test]
+    fn incendiary_gear_is_not_molotov() {
+        let mut gear = 0u16;
+        add_nade(&mut gear, WID_INC);
+        assert_eq!(gear, GEAR_INC);
+        assert_eq!(gear & GEAR_MOLLY, 0);
+        add_nade(&mut gear, WID_MOLLY);
+        assert_eq!(gear, GEAR_INC | GEAR_MOLLY);
     }
 }

@@ -442,9 +442,9 @@ fn build_grenades(
         if used_dets[i] {
             continue;
         }
-        if det.1 == GrenadeKind::Molotov {
+        if det.1.is_fire() {
             let nearby = out.iter().any(|g| {
-                g.kind == GrenadeKind::Molotov
+                g.kind.is_fire()
                     && g.detonate_tick.abs_diff(det.0) <= 48
                     && g.points
                         .last()
@@ -504,7 +504,7 @@ fn split_proj_track(points: Vec<ProjSample>, gap: u32) -> Vec<Vec<ProjSample>> {
 fn default_end(kind: GrenadeKind, detonate: u32, tick_rate: f32) -> u32 {
     let secs = match kind {
         GrenadeKind::Smoke => SMOKE_SECONDS,
-        GrenadeKind::Molotov => MOLOTOV_SECONDS,
+        GrenadeKind::Molotov | GrenadeKind::Incendiary => MOLOTOV_SECONDS,
         GrenadeKind::He | GrenadeKind::Decoy => HE_DECOY_SECONDS,
         GrenadeKind::Flash => FLASH_POP_SECONDS,
     };
@@ -536,13 +536,13 @@ fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow]) {
         let det_tick = c
             .grenade_dets
             .iter()
-            .find(|d| d.1 == GrenadeKind::Molotov && d.2 as u32 == entity)
+            .find(|d| d.1.is_fire() && d.2 as u32 == entity)
             .map(|d| d.0);
 
         let mut best = None;
         let mut best_score = f32::MAX;
         for (i, g) in grenades.iter().enumerate() {
-            if claimed[i] || g.kind != GrenadeKind::Molotov {
+            if claimed[i] || !g.kind.is_fire() {
                 continue;
             }
             let Some(last) = g.points.last() else {
@@ -658,6 +658,37 @@ mod tests {
         assert!(grenades[1].fires.is_empty());
         assert_eq!(grenades[0].end_tick, 500);
         assert_eq!(grenades[0].fires[0].x, 100.0);
+    }
+
+    #[test]
+    fn attach_fires_to_incendiary() {
+        let mut c = Collector::new(ParseOptions::default());
+        c.fire_spans.push(FireSpan {
+            entity: 11,
+            x: 50.0,
+            y: 60.0,
+            start_tick: 200,
+            end_tick: 400,
+        });
+        c.grenade_dets
+            .push((200, GrenadeKind::Incendiary, 11, 50.0, 60.0, 0.0));
+        let mut grenades = vec![GrenadeThrow {
+            thrower: 0,
+            kind: GrenadeKind::Incendiary,
+            start_tick: 168,
+            detonate_tick: 200,
+            end_tick: 200 + 64 * 7,
+            points: vec![GrenadePoint {
+                tick: 200,
+                x: 50.0,
+                y: 60.0,
+                z: 0.0,
+            }],
+            fires: Vec::new(),
+        }];
+        attach_molotov_fires(&c, &mut grenades);
+        assert_eq!(grenades[0].fires.len(), 1);
+        assert_eq!(grenades[0].end_tick, 400);
     }
 
     #[test]

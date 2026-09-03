@@ -163,6 +163,7 @@ pub enum GrenadeKind {
     Flash,
     He,
     Molotov,
+    Incendiary,
     Decoy,
 }
 
@@ -173,8 +174,13 @@ impl GrenadeKind {
             GrenadeKind::Flash => "flash",
             GrenadeKind::He => "he",
             GrenadeKind::Molotov => "molotov",
+            GrenadeKind::Incendiary => "incendiary",
             GrenadeKind::Decoy => "decoy",
         }
+    }
+
+    pub fn is_fire(self) -> bool {
+        matches!(self, GrenadeKind::Molotov | GrenadeKind::Incendiary)
     }
 }
 

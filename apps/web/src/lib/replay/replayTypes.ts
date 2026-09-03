@@ -15,6 +15,7 @@ export const GEAR_DEFUSER = 1 << 7;
 export const GEAR_ZEUS = 1 << 8;
 export const GEAR_C4 = 1 << 9;
 export const GEAR_KEVLAR = 1 << 10;
+export const GEAR_INC = 1 << 11;
 
 export type Side = "T" | "CT";
 
@@ -53,7 +54,11 @@ export interface Round {
   team_t?: string;
 }
 
-export type GrenadeKind = "smoke" | "flash" | "he" | "molotov" | "decoy";
+export type GrenadeKind = "smoke" | "flash" | "he" | "molotov" | "incendiary" | "decoy";
+
+export function isFireGrenade(kind: GrenadeKind): boolean {
+  return kind === "molotov" || kind === "incendiary";
+}
 
 export interface GrenadePoint {
   tick: number;

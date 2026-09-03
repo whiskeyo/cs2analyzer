@@ -543,7 +543,7 @@ impl Collector {
         self.frames.push(RawFrame { tick, players });
 
         for e in ctx.entities().iter() {
-            if let Some(kind) = proj_kind(e.class().name()) {
+            if let Some(kind) = proj_kind(e) {
                 let (x, y, z) = entity_xyz(e);
                 let thrower = steam_from_pawn_handle(self, ctx, prop_u32(e, "m_hThrower") as i32);
                 self.proj_points

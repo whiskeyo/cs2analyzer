@@ -114,6 +114,22 @@ describe("buildRadarFrame nades", () => {
     expect(nade.centroid).toEqual({ x: 200, y: 300 });
   });
 
+  it("draws an incendiary as its burning cells, same as a molotov", () => {
+    const inc = makeGrenade({
+      kind: "incendiary",
+      start_tick: 80,
+      detonate_tick: 100,
+      end_tick: 0,
+      points: [{ tick: 100, x: 500, y: 500, z: 0 }],
+      fires: [{ x: 80, y: 90, start_tick: 100, end_tick: 100 + MOLOTOV_SECONDS * tps }],
+    });
+    const nade = frame(matchReplay({ grenades: [inc] }), 200).nades[0];
+    expect(nade.phase).toBe("fires");
+    if (nade.phase !== "fires") return;
+    expect(nade.cells).toHaveLength(1);
+    expect(nade.kind).toBe("incendiary");
+  });
+
   it("stops drawing a molotov whose cells burned out early", () => {
     const molly = makeGrenade({
       kind: "molotov",

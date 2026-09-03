@@ -9,6 +9,7 @@ describe("NadeLegend", () => {
     render(<NadeLegend filter={DEFAULT_SUMMARY_FILTER} onFilter={() => {}} />);
     expect(screen.getByRole("button", { name: "T" })).toHaveClass("on");
     expect(screen.getByRole("button", { name: "Smoke" })).toHaveClass("on");
+    expect(screen.getByRole("button", { name: "Inc" })).toHaveClass("on");
   });
 
   it("toggles CT visibility", async () => {

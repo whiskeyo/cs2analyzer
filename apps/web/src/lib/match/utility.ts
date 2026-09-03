@@ -11,8 +11,9 @@ import { calloutsInLocation, placeAt, type MapPlaces, type SiteCallout } from ".
 import { clusterLayoutCallouts, groupLabel, type MapLayout } from "@/lib/radar/layouts";
 import { inKnifeRound, isEnemy } from "@/lib/stats/stats";
 import type { GrenadeKind, GrenadeThrow, Replay, Round } from "@/lib/replay/replayTypes";
+import { isFireGrenade } from "@/lib/replay/replayTypes";
 
-const KIND_ORDER: GrenadeKind[] = ["smoke", "flash", "he", "molotov", "decoy"];
+const KIND_ORDER: GrenadeKind[] = ["smoke", "flash", "he", "molotov", "incendiary", "decoy"];
 
 export interface UtilBlind {
   victim: number;
@@ -55,7 +56,7 @@ export interface UtilitySummary {
 }
 
 function emptyKindCounts(): Record<GrenadeKind, number> {
-  return { smoke: 0, flash: 0, he: 0, molotov: 0, decoy: 0 };
+  return { smoke: 0, flash: 0, he: 0, molotov: 0, incendiary: 0, decoy: 0 };
 }
 
 function roundLabel(r: Round): string {
@@ -107,7 +108,7 @@ function addHit(
 }
 
 function attachEndTick(row: UtilThrowRow, tps: number): number {
-  if (row.kind === "molotov") {
+  if (isFireGrenade(row.kind)) {
     return Math.max(row.endTick, row.detonateTick + Math.round(MOLOTOV_SECONDS * tps));
   }
   if (row.kind === "flash") {
@@ -162,7 +163,7 @@ function attachBlinds(rows: UtilThrowRow[], replay: Replay, untilTick: number): 
 
 function attachDamage(rows: UtilThrowRow[], replay: Replay, untilTick: number): void {
   const hes = rows.filter((row) => row.kind === "he");
-  const mollys = rows.filter((row) => row.kind === "molotov");
+  const mollys = rows.filter((row) => isFireGrenade(row.kind));
   if (hes.length === 0 && mollys.length === 0) return;
   const tps = tickRate(replay);
   for (const hurt of replay.hurts ?? []) {

@@ -1280,7 +1280,8 @@ button.link:hover:not(:disabled) {
 .round-event .nade-kind.he {
   color: #9ecb3c;
 }
-.round-event .nade-kind.molotov {
+.round-event .nade-kind.molotov,
+.round-event .nade-kind.incendiary {
   color: #ff6a2a;
 }
 .round-event .bomb-kind {

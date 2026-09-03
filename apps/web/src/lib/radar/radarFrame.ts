@@ -40,6 +40,7 @@ import type {
   Replay,
   Round,
 } from "@/lib/replay/replayTypes";
+import { isFireGrenade } from "@/lib/replay/replayTypes";
 import type { FloorMode, MapLayers, SummaryFilter } from "@/lib/notes/types";
 
 /** Side colours and marker sizes. Pixels, so they are visual constants. */
@@ -59,6 +60,7 @@ const MAX_CONE_ZOOM = 1.6;
 const SUMMARY_RADIUS: Record<GrenadeKind, number> = {
   smoke: 16,
   molotov: 12,
+  incendiary: 12,
   he: 10,
   flash: 8,
   decoy: 8,
@@ -66,6 +68,7 @@ const SUMMARY_RADIUS: Record<GrenadeKind, number> = {
 const LINGER_RADIUS: Record<GrenadeKind, number> = {
   smoke: 32,
   molotov: 24,
+  incendiary: 24,
   he: 18,
   flash: 12,
   decoy: 12,
@@ -298,7 +301,7 @@ export function nadeRenderAt(
   const lingering =
     tick >= popAt &&
     tick <= visibleEnd &&
-    (g.kind === "smoke" || g.kind === "molotov" || g.kind === "decoy");
+    (g.kind === "smoke" || isFireGrenade(g.kind) || g.kind === "decoy");
   const burstSpan = nadeBurstSpan(g.kind, tps);
   const burst = burstSpan > 0 && tick >= popAt && tick <= popAt + burstSpan && tick <= visibleEnd;
 
@@ -319,7 +322,7 @@ export function nadeRenderAt(
   }
   if (!lingering && !burst) return null;
 
-  const cells = g.kind === "molotov" ? firesAt(g.fires, tick) : [];
+  const cells = isFireGrenade(g.kind) ? firesAt(g.fires, tick) : [];
   if (lingering && cells.length > 0) {
     const centroid = { x: 0, y: 0 };
     for (const cell of cells) {
@@ -339,13 +342,13 @@ export function nadeRenderAt(
       left: lingerRemaining(popAt, visibleEnd, tick),
     };
   }
-  if (lingering && g.kind === "molotov" && (g.fires?.length ?? 0) > 0) return null;
+  if (lingering && isFireGrenade(g.kind) && (g.fires?.length ?? 0) > 0) return null;
 
   const last = g.points[g.points.length - 1];
   if (!last) return null;
   const at = { x: last.x, y: last.y };
   const radius = LINGER_RADIUS[g.kind] * zoom;
-  if (lingering && (g.kind === "smoke" || g.kind === "molotov")) {
+  if (lingering && (g.kind === "smoke" || isFireGrenade(g.kind))) {
     return {
       phase: "linger",
       kind: g.kind,

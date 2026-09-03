@@ -4,13 +4,15 @@ import {
   GEAR_FLASH,
   GEAR_FLASH2,
   GEAR_HE,
+  GEAR_INC,
   GEAR_MOLLY,
   GEAR_SMOKE,
 } from "@/lib/replay/replayTypes";
 import type { ReviewItem } from "../review";
 import { countHeadline, plural } from "./support";
 
-const NADE_GEAR = GEAR_HE | GEAR_FLASH | GEAR_FLASH2 | GEAR_SMOKE | GEAR_MOLLY | GEAR_DECOY;
+const NADE_GEAR =
+  GEAR_HE | GEAR_FLASH | GEAR_FLASH2 | GEAR_SMOKE | GEAR_MOLLY | GEAR_INC | GEAR_DECOY;
 const MIN_UNUSED_NADES = 2;
 
 function nadeCount(gear: number): number {
@@ -20,6 +22,7 @@ function nadeCount(gear: number): number {
   if (gear & GEAR_FLASH2) n += 1;
   if (gear & GEAR_SMOKE) n += 1;
   if (gear & GEAR_MOLLY) n += 1;
+  if (gear & GEAR_INC) n += 1;
   if (gear & GEAR_DECOY) n += 1;
   return n;
 }

@@ -72,6 +72,7 @@ export const DEFAULT_HABITS_NADE_FILTER: HabitsNadeFilter = {
 
 export function habitsNadeVisible(kind: GrenadeKind, filter: HabitsNadeFilter): boolean {
   if (kind === "decoy") return false;
+  if (kind === "incendiary") return filter.molotov;
   return filter[kind as HabitsNadeKind] ?? false;
 }
 

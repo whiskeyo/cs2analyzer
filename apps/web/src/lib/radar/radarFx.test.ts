@@ -214,6 +214,27 @@ describe("nadesForSummary", () => {
       ["smoke"],
     );
   });
+
+  it("filters incendiary independently of molotov", () => {
+    const m = makeReplay({
+      grenades: [
+        makeGrenade({ kind: "molotov", start_tick: 200, detonate_tick: 220, end_tick: 240 }),
+        makeGrenade({ kind: "incendiary", start_tick: 200, detonate_tick: 220, end_tick: 240 }),
+      ],
+    });
+    expect(
+      nadesForSummary(m, {
+        ...DEFAULT_SUMMARY_FILTER,
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, incendiary: false },
+      }).map((g) => g.kind),
+    ).toEqual(["molotov"]);
+    expect(
+      nadesForSummary(m, {
+        ...DEFAULT_SUMMARY_FILTER,
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, molotov: false },
+      }).map((g) => g.kind),
+    ).toEqual(["incendiary"]);
+  });
 });
 
 describe("killLineEnds", () => {

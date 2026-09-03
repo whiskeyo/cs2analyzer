@@ -21,7 +21,14 @@ import {
   type SiteCallout,
 } from "./sites";
 import { currentSide, isEnemyKill, plantedBombPos } from "@/lib/stats/stats";
-import type { GrenadeThrow, Kill, Replay, Round, Side } from "@/lib/replay/replayTypes";
+import {
+  isFireGrenade,
+  type GrenadeThrow,
+  type Kill,
+  type Replay,
+  type Round,
+  type Side,
+} from "@/lib/replay/replayTypes";
 import { formatClock } from "@/lib/weapons/weapons";
 import type { MapLayout } from "@/lib/radar/layouts";
 
@@ -41,7 +48,7 @@ export interface ExecuteBeat {
   detail: string;
 }
 
-const UTIL = new Set(["smoke", "molotov", "flash", "he"]);
+const UTIL = new Set(["smoke", "molotov", "incendiary", "flash", "he"]);
 
 function tps(replay: Replay): number {
   return tickRate(replay);
@@ -128,7 +135,7 @@ function utilScore(nades: GrenadeThrow[]): { smokes: number; mollys: number; tot
   let mollys = 0;
   for (const g of nades) {
     if (g.kind === "smoke") smokes += 1;
-    if (g.kind === "molotov") mollys += 1;
+    if (isFireGrenade(g.kind)) mollys += 1;
   }
   return { smokes, mollys, total: nades.length };
 }

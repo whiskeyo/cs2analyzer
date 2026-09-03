@@ -67,7 +67,7 @@ export interface SummaryFilter {
 }
 
 export const DEFAULT_SUMMARY_FILTER: SummaryFilter = {
-  kinds: { smoke: true, flash: true, he: true, molotov: true, decoy: true },
+  kinds: { smoke: true, flash: true, he: true, molotov: true, incendiary: true, decoy: true },
   t: true,
   ct: true,
 };

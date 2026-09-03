@@ -12,7 +12,7 @@ const DB_VERSION = 3;
 const STORE = "projects";
 const HANDLE_STORE = "demoHandles";
 
-const KINDS: GrenadeKind[] = ["smoke", "flash", "he", "molotov", "decoy"];
+const KINDS: GrenadeKind[] = ["smoke", "flash", "he", "molotov", "incendiary", "decoy"];
 
 export interface ReviewProject {
   schema: number;

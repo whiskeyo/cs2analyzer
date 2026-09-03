@@ -19,12 +19,14 @@ import type {
   Replay,
   Round,
 } from "@/lib/replay/replayTypes";
+import { isFireGrenade } from "@/lib/replay/replayTypes";
 import type { SummaryFilter } from "@/lib/notes/types";
 
 /** Must match `default_end` in assemble.rs. */
 const NADE_SECS: Record<string, number> = {
   smoke: SMOKE_SECONDS,
   molotov: MOLOTOV_SECONDS,
+  incendiary: MOLOTOV_SECONDS,
   decoy: HE_DECOY_SECONDS,
   he: HE_DECOY_SECONDS,
   flash: FLASH_POP_SECONDS,
@@ -35,6 +37,7 @@ export const NADE_COLORS: Record<GrenadeKind, string> = {
   flash: "#f4e27a",
   he: "#9ecb3c",
   molotov: "#ff6a2a",
+  incendiary: "#ff8a4a",
   decoy: "#9aa0a6",
 };
 
@@ -48,6 +51,7 @@ export function nadeBurstSpan(kind: GrenadeKind, tickRate: number): number {
 const NADE_SUMMARY_ORDER: Record<GrenadeKind, number> = {
   smoke: 0,
   molotov: 1,
+  incendiary: 1,
   he: 2,
   decoy: 3,
   flash: 4,
@@ -116,7 +120,7 @@ export function firesAt(fires: FireCell[] | undefined, tick: number): FireCell[]
 }
 
 function occupancyOf(g: GrenadeThrow): FireCell[] | undefined {
-  if (g.kind === "molotov") return g.fires;
+  if (isFireGrenade(g.kind)) return g.fires;
   return undefined;
 }
 
@@ -179,10 +183,15 @@ function throwerIsCt(replay: Replay, g: GrenadeThrow): boolean {
   return replay.players[g.thrower]?.start_side === "CT";
 }
 
+function kindEnabled(filter: SummaryFilter, kind: GrenadeKind): boolean {
+  if (kind === "incendiary") return filter.kinds.incendiary ?? filter.kinds.molotov;
+  return filter.kinds[kind];
+}
+
 export function nadesForSummary(replay: Replay, filter?: SummaryFilter): GrenadeThrow[] {
   const out = replay.grenades.filter((g) => {
     if (currentRound(replay, g.start_tick)?.is_knife) return false;
-    if (filter && !filter.kinds[g.kind]) return false;
+    if (filter && !kindEnabled(filter, g.kind)) return false;
     if (filter && (!filter.t || !filter.ct)) {
       const ct = throwerIsCt(replay, g);
       if (ct && !filter.ct) return false;
