@@ -1,8 +1,13 @@
 import { NOTE_TEXT_MAX_WIDTH } from "@/lib/shared/constants";
 import { worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { overlayVisible } from "@/lib/notes";
-import type { MapCalibration } from "@/lib/replay/replayTypes";
+import type { GrenadeKind, MapCalibration } from "@/lib/replay/replayTypes";
 import type { Stroke } from "@/lib/notes/types";
+
+/** Canvas pixels: flying nade silhouettes (longest SVG side). */
+export const NADE_FLIGHT_ICON_SIZE = 20;
+
+export type NadeIcons = Partial<Record<GrenadeKind, HTMLImageElement | null>>;
 
 export function yawToCanvas(yaw: number): number {
   // CS2 eye yaw 0 is +X, but the pawn forward used on radar is 180° from that.
@@ -32,6 +37,41 @@ export function drawC4(
     ctx.textBaseline = "middle";
     ctx.fillText("C4", at.x, at.y);
   }
+}
+
+function iconReady(icon: HTMLImageElement | null | undefined): icon is HTMLImageElement {
+  return Boolean(icon && icon.complete && icon.naturalWidth > 0);
+}
+
+/** In-flight grenade: weapon SVG, or the old colored dot/diamond if the icon is not ready. */
+export function drawNadeFlightHead(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  kind: GrenadeKind,
+  color: string,
+  icon: HTMLImageElement | null | undefined,
+) {
+  if (iconReady(icon)) {
+    const iw = icon.naturalWidth;
+    const ih = icon.naturalHeight || 1;
+    const scale = NADE_FLIGHT_ICON_SIZE / Math.max(iw, ih);
+    const w = iw * scale;
+    const h = ih * scale;
+    ctx.drawImage(icon, at.x - w / 2, at.y - h / 2, w, h);
+    return;
+  }
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  if (kind === "he") {
+    ctx.save();
+    ctx.translate(at.x, at.y);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillRect(-3.4, -3.4, 6.8, 6.8);
+    ctx.restore();
+    return;
+  }
+  ctx.arc(at.x, at.y, 4, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 export function drawHeBurst(

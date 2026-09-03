@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
+import { NADE_WEAPON } from "@/lib/match/roundEvents";
+import type { NadeIcons } from "@/lib/radar/draw";
 import { radarUrl } from "@/lib/radar/maps";
+import type { GrenadeKind, MapCalibration } from "@/lib/replay/replayTypes";
 import { publicUrl } from "@/lib/shared/publicUrl";
-import type { MapCalibration } from "@/lib/replay/replayTypes";
+import { weaponIconSrc } from "@/lib/weapons/weapons";
 
 export function useRadarImages(cal: MapCalibration | undefined) {
   const images = useRef<{ upper: HTMLImageElement | null; lower: HTMLImageElement | null }>({
@@ -9,6 +12,7 @@ export function useRadarImages(cal: MapCalibration | undefined) {
     lower: null,
   });
   const c4Icon = useRef<HTMLImageElement | null>(null);
+  const nadeIcons = useRef<NadeIcons>({});
 
   useEffect(() => {
     const img = new Image();
@@ -16,6 +20,15 @@ export function useRadarImages(cal: MapCalibration | undefined) {
     img.onload = () => {
       c4Icon.current = img;
     };
+    for (const kind of Object.keys(NADE_WEAPON) as GrenadeKind[]) {
+      const src = weaponIconSrc(NADE_WEAPON[kind]);
+      if (!src) continue;
+      const nade = new Image();
+      nade.src = src;
+      nade.onload = () => {
+        nadeIcons.current[kind] = nade;
+      };
+    }
   }, []);
 
   useEffect(() => {
@@ -35,5 +48,5 @@ export function useRadarImages(cal: MapCalibration | undefined) {
     }
   }, [cal]);
 
-  return { images, c4Icon };
+  return { images, c4Icon, nadeIcons };
 }

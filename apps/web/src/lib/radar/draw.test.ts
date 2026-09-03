@@ -8,11 +8,13 @@ import {
   drawArrow,
   drawC4,
   drawHeBurst,
+  drawNadeFlightHead,
   drawTextLabel,
   findTextIndex,
   grenadePosAt,
   hitStroke,
   hitTextLabel,
+  NADE_FLIGHT_ICON_SIZE,
   yawToCanvas,
 } from "./draw";
 
@@ -101,6 +103,42 @@ describe("drawC4", () => {
     const icon = { complete: false, naturalWidth: 32 } as HTMLImageElement;
     drawC4(ctx, { x: 0, y: 0 }, icon);
     expect(ctx.fillText).toHaveBeenCalledWith("C4", 0, 0);
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+});
+
+describe("drawNadeFlightHead", () => {
+  it("draws the weapon SVG when the icon is complete", () => {
+    const ctx = createMockCanvas();
+    const icon = { complete: true, naturalWidth: 15, naturalHeight: 32 } as HTMLImageElement;
+    drawNadeFlightHead(ctx, { x: 40, y: 50 }, "smoke", "#aaa", icon);
+    const scale = NADE_FLIGHT_ICON_SIZE / 32;
+    expect(ctx.drawImage).toHaveBeenCalledWith(
+      icon,
+      40 - (15 * scale) / 2,
+      50 - NADE_FLIGHT_ICON_SIZE / 2,
+      15 * scale,
+      NADE_FLIGHT_ICON_SIZE,
+    );
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(ctx.fillRect).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a colored circle when the icon is missing", () => {
+    const ctx = createMockCanvas();
+    drawNadeFlightHead(ctx, { x: 10, y: 20 }, "smoke", "#8ec8e8", null);
+    expect(ctx.fillStyle).toBe("#8ec8e8");
+    expect(ctx.arc).toHaveBeenCalledWith(10, 20, 4, 0, Math.PI * 2);
+    expect(ctx.fill).toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a rotated square for HE when the icon is missing", () => {
+    const ctx = createMockCanvas();
+    drawNadeFlightHead(ctx, { x: 5, y: 6 }, "he", "#9ecb3c", null);
+    expect(ctx.save).toHaveBeenCalled();
+    expect(ctx.rotate).toHaveBeenCalledWith(Math.PI / 4);
+    expect(ctx.fillRect).toHaveBeenCalledWith(-3.4, -3.4, 6.8, 6.8);
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 });

@@ -226,7 +226,7 @@ describe("paintRadarFrame", () => {
     expect(alphas.at(-1)).toBe(1);
   });
 
-  it("paints HE flight as a rotated square head", () => {
+  it("paints HE flight as a rotated square head when no icon is loaded", () => {
     const ctx = createMockCanvas();
     const nade = frame(
       matchReplay({
@@ -246,6 +246,64 @@ describe("paintRadarFrame", () => {
     expect(ctx.setLineDash).toHaveBeenCalledWith([6, 4]);
     expect(ctx.save).toHaveBeenCalled();
     expect(ctx.fillRect).toHaveBeenCalled();
+  });
+
+  it("paints a grenade SVG at the flight head when the icon is loaded", () => {
+    const ctx = createMockCanvas();
+    const icon = { complete: true, naturalWidth: 15, naturalHeight: 32 } as HTMLImageElement;
+    const nade = frame(
+      matchReplay({
+        grenades: [
+          makeGrenade({
+            kind: "smoke",
+            points: [
+              { tick: 80, x: 0, y: 0, z: 0 },
+              { tick: 100, x: 10, y: 10, z: 0 },
+            ],
+          }),
+        ],
+      }),
+      90,
+    ).nades[0];
+    paintRadarFrame(ctx, minimalFrame({ nades: nade ? [nade] : [] }), toScreen, {
+      ...paintOpts,
+      nadeIcons: { smoke: icon },
+    });
+    expect(ctx.drawImage).toHaveBeenCalled();
+    expect(ctx.fill).not.toHaveBeenCalled();
+  });
+
+  it("uses the incendiary SVG for an in-flight incendiary, not the molotov bottle", () => {
+    const ctx = createMockCanvas();
+    const molotov = {
+      complete: true,
+      naturalWidth: 10,
+      naturalHeight: 10,
+    } as HTMLImageElement;
+    const incendiary = {
+      complete: true,
+      naturalWidth: 20,
+      naturalHeight: 20,
+    } as HTMLImageElement;
+    const nade = frame(
+      matchReplay({
+        grenades: [
+          makeGrenade({
+            kind: "incendiary",
+            points: [
+              { tick: 80, x: 0, y: 0, z: 0 },
+              { tick: 100, x: 10, y: 10, z: 0 },
+            ],
+          }),
+        ],
+      }),
+      90,
+    ).nades[0];
+    paintRadarFrame(ctx, minimalFrame({ nades: nade ? [nade] : [] }), toScreen, {
+      ...paintOpts,
+      nadeIcons: { molotov, incendiary },
+    });
+    expect(ctx.drawImage.mock.calls[0]?.[0]).toBe(incendiary);
   });
 
   it("paints molotov fire cells and a dial", () => {
@@ -452,6 +510,40 @@ describe("paintHabitsOverlay", () => {
     const hasDeathCross = overlay.trails.some((t) => t.deathAt != null);
     expect(hasDeathCross).toBe(true);
     expect(ctx.stroke.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("paints a survive tick at round end and skips the movement arrow", () => {
+    const ctx = createMockCanvas();
+    const overlay = {
+      ...habitsOverlay(),
+      trails: [
+        {
+          demoId: "a",
+          roundNumber: 1,
+          jumpTick: 64,
+          tps: 64,
+          steamId: 1,
+          playerName: "A",
+          color: "#fff",
+          points: [
+            { x: 0, y: 0, z: 0, tick: 64, yaw: 0 },
+            { x: 40, y: 40, z: 0, tick: 200, yaw: 45 },
+          ],
+          deathAt: null,
+          deathTick: null,
+          survivedAt: { x: 40, y: 40 },
+          survivedTick: 200,
+        },
+      ],
+    };
+    paintHabitsOverlay(ctx, overlay, "trails", nadeFilter, toScreen, 1, {
+      showTrails: true,
+      showArrows: true,
+      nadesOn: false,
+      cal: UNIT_CALIBRATION,
+    });
+    expect(ctx.strokeStyle).toBe(RADAR_STYLE.surviveMarkColor);
+    expect(ctx.rotate).not.toHaveBeenCalled();
   });
 
   it("paints a survive tick at round end and skips the movement arrow", () => {

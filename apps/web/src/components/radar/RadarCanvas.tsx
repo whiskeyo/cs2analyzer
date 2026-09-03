@@ -151,7 +151,7 @@ export function RadarCanvas({
   habitsOnlyRef.current = habitsOnly;
   const onHabitsJumpRef = useRef(onHabitsJump);
   onHabitsJumpRef.current = onHabitsJump;
-  const { images, c4Icon } = useRadarImages(cal);
+  const { images, c4Icon, nadeIcons } = useRadarImages(cal);
   const view = useRef<RadarPanView>({
     scale: 1,
     ox: 0,
@@ -246,7 +246,11 @@ export function RadarCanvas({
       ctx.rect(0, 0, w, h);
       ctx.clip();
       paintMapImage(ctx, w, h, v, img, calNow);
-      paintRadarFrame(ctx, frame, toScreen, { scale: v.scale, c4Icon: c4Icon.current });
+      paintRadarFrame(ctx, frame, toScreen, {
+        scale: v.scale,
+        c4Icon: c4Icon.current,
+        nadeIcons: nadeIcons.current,
+      });
       const habitsNow = habitsOverlayRef.current;
       if (habitsNow) {
         const playSec = habitsPlaySecRefProp.current?.current;
@@ -264,6 +268,7 @@ export function RadarCanvas({
             nadeOpacity: habitsNadeOpacityRef.current,
             playSec,
             cal: calNow,
+            nadeIcons: nadeIcons.current,
           },
         );
       }
