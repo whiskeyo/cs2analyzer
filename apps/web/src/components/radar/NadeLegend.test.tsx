@@ -9,7 +9,8 @@ describe("NadeLegend", () => {
     render(<NadeLegend filter={DEFAULT_SUMMARY_FILTER} onFilter={() => {}} />);
     expect(screen.getByRole("button", { name: "T" })).toHaveClass("on");
     expect(screen.getByRole("button", { name: "Smoke" })).toHaveClass("on");
-    expect(screen.getByRole("button", { name: "Inc" })).toHaveClass("on");
+    expect(screen.getByRole("button", { name: "Molly" })).toHaveClass("on");
+    expect(screen.queryByRole("button", { name: "Inc" })).toBeNull();
   });
 
   it("toggles CT visibility", async () => {
@@ -37,6 +38,8 @@ describe("NadeLegend", () => {
     const kindUpdater = onFilter.mock.calls[1][0] as (
       prev: typeof DEFAULT_SUMMARY_FILTER,
     ) => typeof DEFAULT_SUMMARY_FILTER;
-    expect(kindUpdater(DEFAULT_SUMMARY_FILTER).kinds.molotov).toBe(false);
+    const next = kindUpdater(DEFAULT_SUMMARY_FILTER);
+    expect(next.kinds.molotov).toBe(false);
+    expect(next.kinds.incendiary).toBe(false);
   });
 });

@@ -184,7 +184,7 @@ function throwerIsCt(replay: Replay, g: GrenadeThrow): boolean {
 }
 
 function kindEnabled(filter: SummaryFilter, kind: GrenadeKind): boolean {
-  if (kind === "incendiary") return filter.kinds.incendiary ?? filter.kinds.molotov;
+  if (isFireGrenade(kind)) return filter.kinds.molotov;
   return filter.kinds[kind];
 }
 

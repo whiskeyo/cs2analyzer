@@ -215,7 +215,7 @@ describe("nadesForSummary", () => {
     );
   });
 
-  it("filters incendiary independently of molotov", () => {
+  it("filters molotov and incendiary together under the Molly control", () => {
     const m = makeReplay({
       grenades: [
         makeGrenade({ kind: "molotov", start_tick: 200, detonate_tick: 220, end_tick: 240 }),
@@ -225,15 +225,15 @@ describe("nadesForSummary", () => {
     expect(
       nadesForSummary(m, {
         ...DEFAULT_SUMMARY_FILTER,
-        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, incendiary: false },
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, molotov: false, incendiary: false },
       }).map((g) => g.kind),
-    ).toEqual(["molotov"]);
+    ).toEqual([]);
     expect(
       nadesForSummary(m, {
         ...DEFAULT_SUMMARY_FILTER,
-        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, molotov: false },
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, molotov: true, incendiary: false },
       }).map((g) => g.kind),
-    ).toEqual(["incendiary"]);
+    ).toEqual(["molotov", "incendiary"]);
   });
 });
 

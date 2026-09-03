@@ -60,6 +60,11 @@ export function isFireGrenade(kind: GrenadeKind): boolean {
   return kind === "molotov" || kind === "incendiary";
 }
 
+/** Filter / chip key for fire nades — molly and inc share one control. */
+export function nadeFilterKind(kind: GrenadeKind): GrenadeKind {
+  return isFireGrenade(kind) ? "molotov" : kind;
+}
+
 export interface GrenadePoint {
   tick: number;
   x: number;

@@ -15,6 +15,7 @@ import {
   throwDetail,
   usedUtilKinds,
   usedUtilPlaces,
+  utilKindSelected,
   utilKindSummary,
   utilMatchesCallout,
   utilMatchesPlace,
@@ -68,6 +69,18 @@ describe("utilityThrough", () => {
     const u = utilityThrough(m, 640, null);
     expect(u.throws.map((row) => row.kind)).toEqual(["flash", "he", "molotov", "smoke"]);
     expect(utilKindSummary(u.byKind)).toBe("1 Smoke · 1 Flash · 1 HE · 1 Molly");
+  });
+
+  it("counts molotov and incendiary as one Molly chip/summary entry", () => {
+    const m = replay({
+      grenades: [nade("molotov", 100, 0), nade("incendiary", 200, 1)],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws.map((row) => row.kind)).toEqual(["molotov", "incendiary"]);
+    expect(utilKindSummary(u.byKind)).toBe("2 Molly");
+    expect(usedUtilKinds(u.throws)).toEqual(["molotov"]);
+    expect(utilKindSelected(["molotov"], "incendiary")).toBe(true);
+    expect(utilKindSelected(["molotov"], "smoke")).toBe(false);
   });
 
   it("attaches blinds that actually land and drops pop-flashes", () => {

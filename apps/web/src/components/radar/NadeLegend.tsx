@@ -1,15 +1,26 @@
 import { NADE_COLORS } from "@/lib/radar/radarFx";
 import type { SummaryFilter } from "@/lib/notes/types";
-import type { GrenadeKind } from "@/lib/replay/replayTypes";
+import { type GrenadeKind } from "@/lib/replay/replayTypes";
 
 const KINDS: [GrenadeKind, string][] = [
   ["smoke", "Smoke"],
   ["molotov", "Molly"],
-  ["incendiary", "Inc"],
   ["flash", "Flash"],
   ["he", "HE"],
   ["decoy", "Decoy"],
 ];
+
+function kindOn(filter: SummaryFilter, kind: GrenadeKind): boolean {
+  return filter.kinds[kind];
+}
+
+function toggleKind(filter: SummaryFilter, kind: GrenadeKind): SummaryFilter {
+  const on = !filter.kinds[kind];
+  if (kind === "molotov") {
+    return { ...filter, kinds: { ...filter.kinds, molotov: on, incendiary: on } };
+  }
+  return { ...filter, kinds: { ...filter.kinds, [kind]: on } };
+}
 
 interface Props {
   filter: SummaryFilter;
@@ -38,8 +49,8 @@ export function NadeLegend({ filter, onFilter }: Props) {
         <button
           key={kind}
           type="button"
-          className={filter.kinds[kind] ? "on" : ""}
-          onClick={() => onFilter((f) => ({ ...f, kinds: { ...f.kinds, [kind]: !f.kinds[kind] } }))}
+          className={kindOn(filter, kind) ? "on" : ""}
+          onClick={() => onFilter((f) => toggleKind(f, kind))}
         >
           <i style={{ background: NADE_COLORS[kind] }} />
           {label}

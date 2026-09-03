@@ -4,6 +4,7 @@ import {
   throwDetail,
   usedUtilKinds,
   usedUtilPlaces,
+  utilKindSelected,
   utilKindSummary,
   utilMatchesPlace,
   utilRowTone,
@@ -52,7 +53,7 @@ export function Utility({
   const placeKeys = placeChips.map((chip) => chip.key);
   const placesOn = kept(placeSel, placeKeys);
   const rows = u.throws.filter((row) => {
-    if (kindsOn.length > 0 && !kindsOn.includes(row.kind)) return false;
+    if (!utilKindSelected(kindsOn, row.kind)) return false;
     if (placesOn.length > 0) {
       const active = placeChips.filter((chip) => placesOn.includes(chip.key));
       if (!active.some((chip) => utilMatchesPlace(row, chip))) return false;

@@ -135,6 +135,8 @@ function parseFilter(v: unknown): SummaryFilter {
   for (const k of KINDS) {
     if (typeof o.kinds?.[k] === "boolean") kinds[k] = o.kinds[k];
   }
+  // Molly chip owns both; keep the stored pair aligned.
+  kinds.incendiary = kinds.molotov;
   return {
     kinds,
     t: typeof o.t === "boolean" ? o.t : true,

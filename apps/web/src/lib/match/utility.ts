@@ -11,9 +11,10 @@ import { calloutsInLocation, placeAt, type MapPlaces, type SiteCallout } from ".
 import { clusterLayoutCallouts, groupLabel, type MapLayout } from "@/lib/radar/layouts";
 import { inKnifeRound, isEnemy } from "@/lib/stats/stats";
 import type { GrenadeKind, GrenadeThrow, Replay, Round } from "@/lib/replay/replayTypes";
-import { isFireGrenade } from "@/lib/replay/replayTypes";
+import { isFireGrenade, nadeFilterKind } from "@/lib/replay/replayTypes";
 
-const KIND_ORDER: GrenadeKind[] = ["smoke", "flash", "he", "molotov", "incendiary", "decoy"];
+/** Chip / summary order — fire nades collapse to a single Molly entry. */
+const FILTER_KIND_ORDER: GrenadeKind[] = ["smoke", "flash", "he", "molotov", "decoy"];
 
 export interface UtilBlind {
   victim: number;
@@ -335,8 +336,14 @@ export function utilityThrough(
 }
 
 export function utilKindSummary(byKind: Record<GrenadeKind, number>): string {
-  return KIND_ORDER.filter((kind) => byKind[kind] > 0)
-    .map((kind) => `${byKind[kind]} ${NADE_LABEL[kind]}`)
+  return FILTER_KIND_ORDER.filter((kind) => {
+    if (kind === "molotov") return byKind.molotov + byKind.incendiary > 0;
+    return byKind[kind] > 0;
+  })
+    .map((kind) => {
+      const n = kind === "molotov" ? byKind.molotov + byKind.incendiary : byKind[kind];
+      return `${n} ${NADE_LABEL[kind]}`;
+    })
     .join(" · ");
 }
 
@@ -379,7 +386,13 @@ export function throwDetail(row: UtilThrowRow): string {
 }
 
 export function usedUtilKinds(rows: UtilThrowRow[]): GrenadeKind[] {
-  return KIND_ORDER.filter((kind) => rows.some((row) => row.kind === kind));
+  return FILTER_KIND_ORDER.filter((kind) => rows.some((row) => nadeFilterKind(row.kind) === kind));
+}
+
+/** True when the util kind chips include this throw (Molly chip covers Incendiary). */
+export function utilKindSelected(selected: GrenadeKind[], kind: GrenadeKind): boolean {
+  if (selected.length === 0) return true;
+  return selected.includes(nadeFilterKind(kind));
 }
 
 export interface UtilPlaceChip {
