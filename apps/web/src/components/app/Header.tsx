@@ -74,23 +74,34 @@ export function Header() {
   return (
     <>
       <header className="top">
-        <button type="button" className="brand" onClick={session.close} aria-label="Home">
-          <img
-            className="brand-mark"
-            src={publicUrl("favicon.svg")}
-            width={28}
-            height={28}
-            alt=""
-          />
-          <h1>CS2 Analyzer</h1>
-        </button>
-        {replay ? (
-          <span className="file-meta">
-            {prettyMap(replay.header.map_name)}
-            {session.fileName ? ` · ${session.fileName}` : ""} · {replay.kills.length} kills ·{" "}
-            {replay.grenades.length} nades
+        <div className="brand-row">
+          <button type="button" className="brand" onClick={session.close} aria-label="Home">
+            <img
+              className="brand-mark"
+              src={publicUrl("favicon.svg")}
+              width={28}
+              height={28}
+              alt=""
+            />
+            <h1>CS2 Analyzer</h1>
+          </button>
+          <span className="pre-release" tabIndex={0}>
+            [pre-release testing]
+            <span className="pre-release-tip" role="tooltip">
+              Changes may not be backward compatible. Notes saved in this browser might stop working
+              after newer versions.
+            </span>
           </span>
-        ) : null}
+        </div>
+        <div className="top-center">
+          {replay ? (
+            <span className="file-meta">
+              {prettyMap(replay.header.map_name)}
+              {session.fileName ? ` · ${session.fileName}` : ""} · {replay.kills.length} kills ·{" "}
+              {replay.grenades.length} nades
+            </span>
+          ) : null}
+        </div>
         <div className="top-actions">
           {replay ? (
             <button type="button" className="ghost" onClick={session.close}>

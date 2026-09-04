@@ -28,7 +28,7 @@ body,
   align-items: stretch;
   gap: 1.5rem;
   flex: 1 0 auto;
-  min-height: 100%;
+  min-height: 0;
   width: 100%;
   margin: 0;
   padding: 1.5rem 0 1.25rem;
@@ -327,12 +327,21 @@ code {
 }
 
 .top {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 1rem;
   padding: 0.55rem 1rem;
   background: #10151b;
   border-bottom: 1px solid #1e2732;
+  flex-shrink: 0;
+}
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  justify-self: start;
 }
 .brand {
   display: flex;
@@ -370,17 +379,79 @@ code {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+.pre-release {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.4rem;
+  border: 1px solid #3a4654;
+  border-radius: 4px;
+  background: #161c24;
+  color: #9aa8b6;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  line-height: 1.2;
+  cursor: help;
+}
+.pre-release:hover,
+.pre-release:focus-visible {
+  border-color: #5a6a7c;
+  color: #c5d0da;
+  outline: none;
+}
+.pre-release-tip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 50;
+  width: max-content;
+  max-width: min(20rem, 70vw);
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #2c3846;
+  border-radius: 6px;
+  background: #12171d;
+  color: #c5d0da;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+}
+.pre-release:hover .pre-release-tip,
+.pre-release:focus-visible .pre-release-tip {
+  opacity: 1;
+  visibility: visible;
+}
 .file-meta {
+  display: block;
   color: #8b98a5;
   font-size: 0.85rem;
   min-width: 0;
+  max-width: min(42vw, 28rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+.top-center {
+  justify-self: center;
+  min-width: 0;
 }
 .top-actions {
-  margin-left: auto;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
   flex-shrink: 0;
+  justify-self: end;
 }
 .settings {
   position: relative;

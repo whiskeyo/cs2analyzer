@@ -78,6 +78,8 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
     render(<Header />);
     expect(screen.getByRole("button", { name: "Home" })).toBeInTheDocument();
+    expect(screen.getByText("[pre-release testing]")).toBeInTheDocument();
+    expect(screen.getByRole("tooltip")).toHaveTextContent(/backward compatible/);
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
