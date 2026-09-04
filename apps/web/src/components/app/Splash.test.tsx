@@ -76,18 +76,4 @@ describe("Splash", () => {
     expect(deleteProject).toHaveBeenCalledWith("notes-key");
     await waitFor(() => expect(state.refreshSaved).toHaveBeenCalled());
   });
-
-  it("wires export and remove actions from the drop zone", async () => {
-    const state = splashState([savedProject()]);
-    vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<Splash />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Export notes" }));
-    expect(state.review.exportNotes).toHaveBeenCalled();
-
-    await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
-    await userEvent.type(screen.getByLabelText("Confirmation phrase"), "yes, remove notes");
-    await userEvent.click(screen.getByRole("button", { name: "Remove all notes" }));
-    expect(state.review.removeAllNotes).toHaveBeenCalled();
-  });
 });

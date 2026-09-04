@@ -7,7 +7,6 @@ import { RadarStage } from "@/components/radar/RadarStage";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useApp } from "@/lib/state/appState";
 import { isAggregatedView, isBucketOverlayActive } from "@/lib/parse/seriesMode";
-import { ViewerHeader } from "./ViewerHeader";
 import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
 
@@ -64,8 +63,7 @@ export function Viewer() {
   const switching = session.switching;
 
   return (
-    <div className="app">
-      <ViewerHeader />
+    <>
       <SeriesBar />
       <SeriesFilters />
       <div className="viewer-body">
@@ -144,6 +142,6 @@ export function Viewer() {
         Space play · ←/→ scrub · [ ] rounds · e E executes · , . kills · F track · T trail · Ctrl+Z
         undo · Esc deselect
       </p>
-    </div>
+    </>
   );
 }

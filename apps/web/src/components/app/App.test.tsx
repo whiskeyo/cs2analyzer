@@ -69,7 +69,7 @@ async function loadDemo(replay: Replay = fixtureReplay()) {
   };
   const { container } = render(<App createWorker={createWorker} />);
 
-  const input = container.querySelector("input[type=file]") as HTMLInputElement;
+  const input = container.querySelector(".drop input[type=file]") as HTMLInputElement;
   await userEvent.upload(input, new File(["fake"], "match.dem"));
 
   const worker = workers[0];
@@ -114,7 +114,7 @@ describe("App", () => {
     };
     const { container } = render(<App createWorker={createWorker} />);
 
-    const input = container.querySelector("input[type=file]") as HTMLInputElement;
+    const input = container.querySelector(".drop input[type=file]") as HTMLInputElement;
     await userEvent.upload(input, new File(["fake"], "bad.dem"));
     await workers[0].posted;
     workers[0].emit({ type: "error", message: "Supports only Source 2 replays" });

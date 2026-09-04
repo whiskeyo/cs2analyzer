@@ -22,8 +22,6 @@ const noop = () => {};
 function props(overrides: Partial<Parameters<typeof DropZone>[0]> = {}) {
   return {
     onFiles: noop,
-    onExportNotes: noop,
-    onRemoveAllNotes: noop,
     onDeleteNotes: noop,
     onTryOpenSaved: async () => null,
     onLinkDemoFile: noop,
@@ -163,14 +161,6 @@ describe("DropZone", () => {
     expect(onDeleteNotes).toHaveBeenCalledWith("de_mirage|1|50,100|a.dem");
   });
 
-  it("disables the notes export until something is saved", () => {
-    const { rerender } = render(<DropZone {...props()} />);
-    expect(screen.getByRole("button", { name: "Export notes" })).toBeDisabled();
-
-    rerender(<DropZone {...props({ saved: [savedProject()] })} />);
-    expect(screen.getByRole("button", { name: "Export notes" })).toBeEnabled();
-  });
-
   it("paginates saved notes five at a time", async () => {
     const saved = Array.from({ length: 11 }, (_, i) =>
       savedProject({
@@ -221,43 +211,6 @@ describe("DropZone", () => {
     fireEvent.drop(drop, { dataTransfer: { files: [demo] } });
     await waitFor(() => expect(onFiles).toHaveBeenCalledTimes(1));
     expect(onFiles.mock.calls[0][0][0].name).toBe("drop.dem");
-  });
-
-  it("exports notes when the button is enabled", async () => {
-    const onExportNotes = vi.fn();
-    render(<DropZone {...props({ saved: [savedProject()], onExportNotes })} />);
-    await userEvent.click(screen.getByRole("button", { name: "Export notes" }));
-    expect(onExportNotes).toHaveBeenCalledTimes(1);
-  });
-
-  it("opens the remove-notes modal and requires confirmation", async () => {
-    const onRemoveAllNotes = vi.fn();
-    render(<DropZone {...props({ saved: [savedProject()], onRemoveAllNotes })} />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveTextContent("Remove all saved notes?");
-
-    const removeBtn = screen.getByRole("button", { name: "Remove all notes" });
-    expect(removeBtn).toBeDisabled();
-
-    await userEvent.type(screen.getByLabelText("Confirmation phrase"), "yes, remove notes");
-    expect(removeBtn).toBeEnabled();
-
-    await userEvent.click(removeBtn);
-    expect(onRemoveAllNotes).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("closes the remove-notes modal on cancel or Escape", async () => {
-    render(<DropZone {...props({ saved: [savedProject()] })} />);
-    await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
-    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("restores notes when the matching demo is dropped in the modal", async () => {
@@ -333,13 +286,6 @@ describe("DropZone", () => {
   it("dismisses the restore modal when clicking the backdrop", async () => {
     render(<DropZone {...props({ saved: [savedProject()] })} />);
     await userEvent.click(screen.getByText("a.dem"));
-    await userEvent.click(screen.getByRole("dialog").parentElement as HTMLElement);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("dismisses the remove-notes modal from the backdrop", async () => {
-    render(<DropZone {...props({ saved: [savedProject()] })} />);
-    await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
     await userEvent.click(screen.getByRole("dialog").parentElement as HTMLElement);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

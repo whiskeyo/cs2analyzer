@@ -163,12 +163,6 @@ body,
   text-align: left;
   align-self: start;
 }
-.home-notes-actions {
-  display: flex;
-  justify-content: flex-start;
-  gap: 0.5rem;
-  margin-top: 0.45rem;
-}
 .saved-demos {
   margin-top: 1rem;
   text-align: left;
@@ -345,6 +339,17 @@ code {
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.brand:hover h1 {
+  color: #e8eef4;
 }
 .brand-mark {
   display: block;
@@ -366,9 +371,42 @@ code {
   text-transform: uppercase;
 }
 .file-meta {
-  margin-left: auto;
   color: #8b98a5;
   font-size: 0.85rem;
+  min-width: 0;
+}
+.top-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.settings {
+  position: relative;
+}
+.settings-toggle {
+  padding: 0.3rem 0.45rem;
+}
+.settings-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 11rem;
+  padding: 0.45rem;
+  background: #12171d;
+  border: 1px solid #2c3846;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.settings-menu .ghost,
+.settings-menu .danger {
+  width: 100%;
+  justify-content: flex-start;
 }
 .series-bar {
   --series-control-h: 26px;

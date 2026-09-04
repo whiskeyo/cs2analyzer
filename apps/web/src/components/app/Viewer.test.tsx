@@ -9,7 +9,6 @@ vi.mock("@/lib/state/appState", () => ({
   useApp: vi.fn(),
 }));
 
-vi.mock("./ViewerHeader", () => ({ ViewerHeader: () => <div data-testid="viewer-header" /> }));
 vi.mock("./SeriesBar", () => ({ SeriesBar: () => <div data-testid="series-bar" /> }));
 vi.mock("./SeriesFilters", () => ({ SeriesFilters: () => <div data-testid="series-filters" /> }));
 vi.mock("@/components/radar/RadarStage", () => ({
@@ -88,7 +87,6 @@ describe("Viewer", () => {
   it("renders the viewer shell when a replay is loaded", () => {
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
     render(<Viewer />);
-    expect(screen.getByTestId("viewer-header")).toBeInTheDocument();
     expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
     expect(screen.getByTestId("sidebar")).toBeInTheDocument();
     expect(screen.getByTestId("round-strip")).toBeInTheDocument();

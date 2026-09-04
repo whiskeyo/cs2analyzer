@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { ImportNotesButton } from "@/components/sidebar/ImportNotesButton";
 import { ParseProgressPanel } from "@/components/app/ParseProgressPanel";
 import { Credits } from "@/components/app/Credits";
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
@@ -16,12 +15,8 @@ import { formatAdr, formatKast, type SavedPlayerSnapshot } from "@/lib/stats/sta
 import { prettyMap } from "@/lib/weapons/weapons";
 import { ScorecardLabel } from "./ScorecardLabel";
 
-const REMOVE_NOTES_CONFIRM = "yes, remove notes";
-
 interface Props {
   onFiles: (files: File[]) => void;
-  onExportNotes: () => void;
-  onRemoveAllNotes: () => void;
   onDeleteNotes: (key: string) => void;
   onTryOpenSaved: (project: ReviewProject) => Promise<File | null>;
   onLinkDemoFile: (project: ReviewProject) => void;
@@ -73,8 +68,6 @@ function takePickedFiles(
 
 export function DropZone({
   onFiles,
-  onExportNotes,
-  onRemoveAllNotes,
   onDeleteNotes,
   onTryOpenSaved,
   onLinkDemoFile,
@@ -87,8 +80,6 @@ export function DropZone({
 }: Props) {
   const [page, setPage] = useState(0);
   const [wantedDemo, setWantedDemo] = useState<string | null>(null);
-  const [removeOpen, setRemoveOpen] = useState(false);
-  const [removeConfirm, setRemoveConfirm] = useState("");
   const overallPct =
     progress && progress.total > 0
       ? Math.min(100, Math.round((100 * progress.current) / progress.total))
@@ -109,18 +100,6 @@ export function DropZone({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [wantedDemo]);
-
-  useEffect(() => {
-    if (!removeOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setRemoveOpen(false);
-        setRemoveConfirm("");
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [removeOpen]);
 
   return (
     <div className="home">
@@ -177,28 +156,9 @@ export function DropZone({
         <div className="home-notes">
           <p className="muted">
             Notes auto-save in this browser. The demo is not stored — drop the same{" "}
-            <code>.dem</code> to restore drawings. Export a JSON backup so a cache wipe does not eat
-            them.
+            <code>.dem</code> to restore drawings. Export a JSON backup from Settings so a cache
+            wipe does not eat them.
           </p>
-          <div className="home-notes-actions">
-            <button
-              type="button"
-              className="ghost"
-              onClick={onExportNotes}
-              disabled={saved.length === 0}
-            >
-              Export notes
-            </button>
-            <ImportNotesButton onFile={(file) => onFiles([file])} />
-            <button
-              type="button"
-              className="danger"
-              onClick={() => setRemoveOpen(true)}
-              disabled={saved.length === 0}
-            >
-              Remove notes
-            </button>
-          </div>
           {saved.length > 0 && (
             <div className="saved-demos">
               <h2>Saved notes</h2>
@@ -303,65 +263,6 @@ export function DropZone({
         </div>
       </div>
       <Credits />
-      {removeOpen && (
-        <div
-          className="home-modal"
-          onClick={() => {
-            setRemoveOpen(false);
-            setRemoveConfirm("");
-          }}
-        >
-          <div
-            className="home-modal-card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="remove-notes-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="remove-notes-title">Remove all saved notes?</h2>
-            <p>
-              This deletes every drawing project stored in this browser. Export a JSON backup first
-              if you might need them later.
-            </p>
-            <p>
-              Type <code>{REMOVE_NOTES_CONFIRM}</code> to confirm.
-            </p>
-            <input
-              className="remove-notes-input"
-              type="text"
-              value={removeConfirm}
-              autoComplete="off"
-              spellCheck={false}
-              aria-label="Confirmation phrase"
-              onChange={(e) => setRemoveConfirm(e.target.value)}
-            />
-            <div className="home-modal-actions">
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => {
-                  setRemoveOpen(false);
-                  setRemoveConfirm("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="danger"
-                disabled={removeConfirm !== REMOVE_NOTES_CONFIRM}
-                onClick={() => {
-                  setRemoveOpen(false);
-                  setRemoveConfirm("");
-                  onRemoveAllNotes();
-                }}
-              >
-                Remove all notes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {wantedDemo && (
         <div className="home-modal" onClick={() => setWantedDemo(null)}>
           <div
