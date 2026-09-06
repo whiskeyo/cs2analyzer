@@ -73,6 +73,9 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
             x: k.x,
             y: k.y,
             z: k.z,
+            attacker_x: k.attacker_x,
+            attacker_y: k.attacker_y,
+            attacker_z: k.attacker_z,
         })
         .collect();
     let hurts: Vec<Hurt> = c
@@ -719,6 +722,9 @@ mod tests {
             x: 1.0,
             y: 2.0,
             z: 3.0,
+            attacker_x: 10.0,
+            attacker_y: 20.0,
+            attacker_z: 30.0,
         });
         let m = assemble(&mut c, 200, 3.0);
         let k = &m.kills[0];
@@ -727,6 +733,9 @@ mod tests {
         assert!(k.through_smoke);
         assert!(k.attacker_blind);
         assert!(k.attacker_airborne);
+        assert_eq!(k.attacker_x, 10.0);
+        assert_eq!(k.attacker_y, 20.0);
+        assert_eq!(k.attacker_z, 30.0);
     }
 
     #[test]

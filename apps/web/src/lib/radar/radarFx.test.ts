@@ -254,6 +254,38 @@ describe("killLineEnds", () => {
     });
   });
 
+  it("prefers stored attacker xyz over the tick sample", () => {
+    const ticks = makeTicks(2, 1);
+    ticks.ticks[0] = 100;
+    ticks.x[0] = 0;
+    ticks.y[0] = 0;
+    ticks.x[1] = 200;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    const m = makeReplay({ ticks });
+    const line = killLineEnds(m, makeKill(100, 0, 1, { x: 200, attacker_x: 50, attacker_y: 10 }));
+    expect(line).toEqual({
+      from: { x: 50, y: 10 },
+      to: { x: 200, y: 0 },
+      ct: true,
+    });
+  });
+
+  it("uses stored attacker xyz when the tick sample is missing", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+    });
+    const line = killLineEnds(
+      m,
+      makeKill(100, 0, 1, { x: 200, attacker_x: 0, attacker_y: 40, attacker_z: 1 }),
+    );
+    expect(line).toEqual({
+      from: { x: 0, y: 40 },
+      to: { x: 200, y: 0 },
+      ct: true,
+    });
+  });
+
   it("skips suicides, teamkills, and point-blank overlap", () => {
     const ticks = makeTicks(2, 1);
     ticks.ticks[0] = 100;

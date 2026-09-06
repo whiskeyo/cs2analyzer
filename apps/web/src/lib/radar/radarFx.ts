@@ -209,18 +209,27 @@ export interface KillLineEnds {
   ct: boolean;
 }
 
-/** Attacker → victim in world XY at the kill tick. Null for suicides, teamkills, or missing pawns. */
+/** Attacker → victim in world XY. Prefers stored attacker xyz when set. */
 export function killLineEnds(replay: Replay, k: Kill): KillLineEnds | null {
   if (k.attacker < 0 || k.victim < 0 || k.attacker === k.victim) return null;
   const attacker = samplePlayer(replay, k.attacker, k.tick);
-  if (!attacker?.present) return null;
   const victim = samplePlayer(replay, k.victim, k.tick);
+  const attackerCt = attacker?.present
+    ? attacker.ct
+    : replay.players[k.attacker]?.start_side === "CT";
   const victimCt = victim?.present ? victim.ct : replay.players[k.victim]?.start_side === "CT";
-  if (attacker.ct === victimCt) return null;
-  const dx = attacker.x - k.x;
-  const dy = attacker.y - k.y;
+  if (attackerCt === victimCt) return null;
+  const stored =
+    k.attacker_x !== 0 || k.attacker_y !== 0 || k.attacker_z !== 0
+      ? { x: k.attacker_x, y: k.attacker_y }
+      : attacker?.present
+        ? { x: attacker.x, y: attacker.y }
+        : null;
+  if (!stored) return null;
+  const dx = stored.x - k.x;
+  const dy = stored.y - k.y;
   if (dx * dx + dy * dy < KILL_LINE_MIN_LENGTH * KILL_LINE_MIN_LENGTH) return null;
-  return { from: { x: attacker.x, y: attacker.y }, to: { x: k.x, y: k.y }, ct: attacker.ct };
+  return { from: stored, to: { x: k.x, y: k.y }, ct: attackerCt };
 }
 
 /** First enemy frag of the round through `untilTick`. */

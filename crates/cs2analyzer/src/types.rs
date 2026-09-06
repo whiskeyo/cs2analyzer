@@ -240,6 +240,9 @@ pub struct Kill {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+    pub attacker_x: f32,
+    pub attacker_y: f32,
+    pub attacker_z: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

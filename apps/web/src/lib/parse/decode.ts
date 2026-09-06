@@ -92,6 +92,9 @@ const KILL: Shape = {
   x: number,
   y: number,
   z: number,
+  attacker_x: number,
+  attacker_y: number,
+  attacker_z: number,
 };
 
 const HURT: Shape = {

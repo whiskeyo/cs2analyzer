@@ -31,6 +31,9 @@ const kill: Kill = {
   x: 1,
   y: 2,
   z: 3,
+  attacker_x: 4,
+  attacker_y: 5,
+  attacker_z: 6,
 };
 
 /** Serialised payload with one field gone, as a Rust rename would leave it. */

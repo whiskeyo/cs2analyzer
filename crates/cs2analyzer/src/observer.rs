@@ -126,6 +126,9 @@ pub(crate) struct RawKill {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+    pub attacker_x: f32,
+    pub attacker_y: f32,
+    pub attacker_z: f32,
 }
 
 impl Collector {
@@ -658,6 +661,12 @@ impl Collector {
                         (x, y, z) = entity_xyz(p);
                     }
                 }
+                let (mut attacker_x, mut attacker_y, mut attacker_z) = (0.0, 0.0, 0.0);
+                if let Some(h) = ev_i32(ge, "attacker_pawn") {
+                    if let Ok(p) = ctx.entities().get_by_handle(h as u32 as usize) {
+                        (attacker_x, attacker_y, attacker_z) = entity_xyz(p);
+                    }
+                }
                 self.kills.push(RawKill {
                     tick,
                     attacker,
@@ -674,6 +683,9 @@ impl Collector {
                     x,
                     y,
                     z,
+                    attacker_x,
+                    attacker_y,
+                    attacker_z,
                 });
             }
             name @ ("bomb_planted" | "bomb_defused" | "bomb_exploded" | "bomb_begindefuse"

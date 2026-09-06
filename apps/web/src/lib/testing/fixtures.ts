@@ -108,6 +108,9 @@ export function makeKill(
     x: 0,
     y: 0,
     z: 0,
+    attacker_x: 0,
+    attacker_y: 0,
+    attacker_z: 0,
     ...partial,
   };
 }

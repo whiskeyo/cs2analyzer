@@ -530,6 +530,9 @@ mod tests {
             x: 0.0,
             y: 0.0,
             z: 0.0,
+            attacker_x: 0.0,
+            attacker_y: 0.0,
+            attacker_z: 0.0,
         }
     }
 
@@ -566,6 +569,9 @@ mod tests {
             x: 0.0,
             y: 0.0,
             z: 0.0,
+            attacker_x: 0.0,
+            attacker_y: 0.0,
+            attacker_z: 0.0,
         });
         m.hurts.push(hurt(90, 0, 1, 110));
         let stats = compute_stats(&m);
@@ -653,6 +659,9 @@ mod tests {
             x: 0.0,
             y: 0.0,
             z: 0.0,
+            attacker_x: 0.0,
+            attacker_y: 0.0,
+            attacker_z: 0.0,
         });
         m.kills.push(kill(200, 0, 1));
         let stats = compute_stats(&m);
@@ -723,6 +732,9 @@ mod tests {
             x: 0.0,
             y: 0.0,
             z: 0.0,
+            attacker_x: 0.0,
+            attacker_y: 0.0,
+            attacker_z: 0.0,
         });
         let stats = compute_stats(&m);
         assert_eq!(stats[1].assists, 0);

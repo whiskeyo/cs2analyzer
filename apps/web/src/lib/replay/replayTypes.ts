@@ -113,6 +113,9 @@ export interface Kill {
   x: number;
   y: number;
   z: number;
+  attacker_x: number;
+  attacker_y: number;
+  attacker_z: number;
 }
 
 export interface Hurt {
