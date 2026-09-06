@@ -1,4 +1,3 @@
-import path from "node:path";
 import { execSync } from "node:child_process";
 import react from "@vitejs/plugin-react";
 import { copyFileSync, existsSync } from "node:fs";
@@ -7,7 +6,6 @@ import { defineConfig } from "vitest/config";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const src = fileURLToPath(new URL("./src", import.meta.url));
-const shared = path.resolve(root, "../shared");
 
 function gitShortHash(): string {
   try {
@@ -41,7 +39,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": src,
-      "@shared": shared,
     },
   },
   worker: {
@@ -58,7 +55,7 @@ export default defineConfig({
         test: {
           name: "logic",
           environment: "node",
-          include: ["src/**/*.test.ts", "../shared/**/*.test.ts"],
+          include: ["src/**/*.test.ts"],
         },
       },
       {

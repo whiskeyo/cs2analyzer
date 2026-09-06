@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseJson } from "@shared/validate/json.ts";
+import { parseJson } from "@/lib/validate/json.ts";
 import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
 import { COLOR_PRESETS } from "./palettes";
 import {

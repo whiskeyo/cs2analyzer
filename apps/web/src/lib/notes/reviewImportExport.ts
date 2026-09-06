@@ -1,4 +1,4 @@
-import { parseJson } from "@shared/validate/json.ts";
+import { parseJson } from "@/lib/validate/json.ts";
 import { downloadBlob } from "@/lib/shared/download";
 import type { LoadedDemo } from "@/lib/parse/session";
 import {

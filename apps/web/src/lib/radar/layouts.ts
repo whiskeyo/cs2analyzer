@@ -4,7 +4,7 @@ import {
   LAYOUT_SCHEMA,
   parseMapLayout,
   syncGroupOrder,
-} from "@shared/layout/schema.ts";
+} from "@/lib/layout/schema.ts";
 import {
   calloutArea,
   calloutCentroid,
@@ -12,15 +12,15 @@ import {
   distanceToRegion,
   pointInCallout,
   polygonCentroid,
-} from "@shared/layout/regions.ts";
-import type { LayoutCallout, LayoutFloor, LayoutPoint, MapLayout } from "@shared/layout/types.ts";
+} from "@/lib/layout/regions.ts";
+import type { LayoutCallout, LayoutFloor, LayoutPoint, MapLayout } from "@/lib/layout/types.ts";
 export type {
   LayoutCallout,
   LayoutFloor,
   LayoutPoint,
   LayoutRegion,
   MapLayout,
-} from "@shared/layout/types.ts";
+} from "@/lib/layout/types.ts";
 export {
   emptyMapLayout,
   LAYOUT_SCHEMA,

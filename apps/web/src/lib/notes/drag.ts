@@ -1,5 +1,5 @@
 import type { Stroke } from "@/lib/notes/types";
-import { parseJson } from "@shared/validate/json.ts";
+import { parseJson } from "@/lib/validate/json.ts";
 
 export interface NoteDrag {
   round: number;

@@ -4,8 +4,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, renderHook } from "@testing-library/react";
 import type { MutableRefObject, RefObject } from "react";
-import { VIEW_ZOOM_IN, VIEW_ZOOM_OUT } from "@shared/radar/constants.ts";
-import { clampViewScale } from "@shared/radar/panZoom.ts";
+import { VIEW_ZOOM_IN, VIEW_ZOOM_OUT } from "@/lib/radar/constants.ts";
+import { clampViewScale } from "@/lib/radar/panZoom.ts";
 import type { TextEdit, TextEditDrag, TextMove } from "@/components/radar/TextNoteEditor";
 import * as draw from "@/lib/radar/draw";
 import { worldToScreen } from "@/lib/radar/maps";

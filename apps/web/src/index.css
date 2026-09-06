@@ -1,5 +1,5 @@
-@import "../../shared/css/tokens.css";
-@import "../../shared/css/map-toolbar.css";
+@import "./styles/tokens.css";
+@import "./styles/map-toolbar.css";
 
 * {
   box-sizing: border-box;

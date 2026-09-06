@@ -8,7 +8,7 @@
  * radar. These checks turn that into a named error on the drop screen.
  */
 
-import { parseJson as parseJsonText } from "@shared/validate/json.ts";
+import { parseJson as parseJsonText } from "@/lib/validate/json.ts";
 
 export class PayloadError extends Error {
   constructor(message: string) {

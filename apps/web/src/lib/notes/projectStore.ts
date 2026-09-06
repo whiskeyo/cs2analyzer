@@ -1,5 +1,5 @@
 import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
-import { isFiniteNumber, isRecord } from "@shared/validate/guards.ts";
+import { isFiniteNumber, isRecord } from "@/lib/validate/guards.ts";
 import { COLOR_PRESETS } from "./palettes";
 import type { GrenadeKind, Replay } from "@/lib/replay/replayTypes";
 import type { MatchScorecard, SavedPlayerSnapshot } from "@/lib/stats/stats";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { polygonCallout } from "@shared/layout/regions.ts";
+import { polygonCallout } from "@/lib/layout/regions.ts";
 import {
   calloutAtRadar,
   calloutAtWorld,

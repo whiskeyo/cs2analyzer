@@ -1,5 +1,5 @@
 import init, { parseDemo } from "@/parser/cs2analyzer_wasm.js";
-import { errorMessage } from "@shared/validate/json.ts";
+import { errorMessage } from "@/lib/validate/json.ts";
 import { decodeList, decodeObject } from "./decode";
 import type {
   Blind,

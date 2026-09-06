@@ -1,0 +1,71 @@
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.6rem;
+  background: #10151b;
+  border-bottom: 1px solid #1e2732;
+}
+.map-toolbar button {
+  background: #1c242e;
+  color: #e8eef4;
+  border: 1px solid #2c3846;
+  border-radius: 6px;
+  padding: 0.22rem 0.45rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+.map-toolbar button.icon-btn {
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-toolbar button.icon-btn svg {
+  display: block;
+}
+.map-toolbar button.on {
+  border-color: #6aa4d8;
+  background: #243040;
+}
+.map-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.swatches {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0 0.4rem;
+}
+.swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 99px;
+  border: 2px solid #0008;
+  box-shadow: 0 0 0 1px #fff4;
+}
+.swatch.on {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px #000a;
+}
+.palette-picks,
+.floor-picks {
+  display: flex;
+  gap: 0.2rem;
+  margin: 0 0.15rem;
+}
+.palette-picks button,
+.floor-picks button {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
+}
+.toolbar-sep {
+  width: 1px;
+  height: 18px;
+  background: #2c3846;
+  margin: 0 0.25rem;
+}

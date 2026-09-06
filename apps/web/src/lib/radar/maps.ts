@@ -1,6 +1,6 @@
 import { publicUrl } from "@/lib/shared/publicUrl";
-import { RADAR_OVERVIEW_SIZE } from "@shared/radar/constants.ts";
-import { radarLayout, screenToRadar, type RadarView } from "@shared/radar/viewport.ts";
+import { RADAR_OVERVIEW_SIZE } from "@/lib/radar/constants.ts";
+import { radarLayout, screenToRadar, type RadarView } from "@/lib/radar/viewport.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import type { FloorMode } from "@/lib/notes/types";
 
