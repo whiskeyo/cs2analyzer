@@ -22,6 +22,7 @@ import { computeStats } from "./stats";
 import type {
   Blind,
   BombEvent,
+  BuyEvent,
   GrenadeThrow,
   Hurt,
   Kill,
@@ -83,6 +84,7 @@ interface RawReplay {
   hurts: Hurt[];
   blinds: Blind[];
   bomb_events: BombEvent[];
+  buy_events: BuyEvent[];
   ticks: RawTicks;
   stats: PlayerStats[];
 }
@@ -136,6 +138,7 @@ function toReplay(raw: RawReplay): Replay {
     hurts: raw.hurts,
     blinds: raw.blinds,
     bombEvents: raw.bomb_events,
+    buyEvents: raw.buy_events,
     ticks,
   };
 }
@@ -223,6 +226,9 @@ describe.skipIf(!ready)("the worker boundary shapes match real parser output", (
     expect(decodeList("blinds", JSON.stringify(raw.blinds))).toHaveLength(raw.blinds.length);
     expect(decodeList("bombEvents", JSON.stringify(raw.bomb_events))).toHaveLength(
       raw.bomb_events.length,
+    );
+    expect(decodeList("buyEvents", JSON.stringify(raw.buy_events))).toHaveLength(
+      raw.buy_events.length,
     );
     expect(decodeList("grenades", JSON.stringify(raw.grenades))).toHaveLength(raw.grenades.length);
     expect(decodeList("shots", JSON.stringify(raw.shots))).toHaveLength(raw.shots.length);

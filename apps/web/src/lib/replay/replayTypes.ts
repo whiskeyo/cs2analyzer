@@ -159,6 +159,13 @@ export interface BombEvent {
   site?: number;
 }
 
+export interface BuyEvent {
+  tick: number;
+  player: number;
+  weapon: number;
+  cost: number;
+}
+
 /**
  * Live scoreboard row. Computed in the browser by `lib/stats/stats.ts` through
  * the current tick; the parser's own `PlayerStats` is a whole-match snapshot and
@@ -256,6 +263,7 @@ export interface Replay {
   hurts: Hurt[];
   blinds: Blind[];
   bombEvents: BombEvent[];
+  buyEvents: BuyEvent[];
   ticks: TickBuffers;
 }
 

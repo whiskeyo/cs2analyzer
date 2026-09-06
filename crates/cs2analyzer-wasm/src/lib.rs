@@ -66,6 +66,11 @@ impl ParsedMatch {
         serde_json::to_string(&self.inner.bomb_events).map_err(js_err)
     }
 
+    #[wasm_bindgen(js_name = buyEventsJson)]
+    pub fn buy_events_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self.inner.buy_events).map_err(js_err)
+    }
+
     #[wasm_bindgen(js_name = playerCount)]
     pub fn player_count(&self) -> u32 {
         self.inner.ticks.player_count

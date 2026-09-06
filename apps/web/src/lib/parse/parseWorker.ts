@@ -4,6 +4,7 @@ import { decodeList, decodeObject } from "./decode";
 import type {
   Blind,
   BombEvent,
+  BuyEvent,
   GrenadeThrow,
   Hurt,
   Kill,
@@ -76,6 +77,7 @@ self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
     const hurts = decodeList<Hurt>("hurts", parsed.hurtsJson());
     const blinds = decodeList<Blind>("blinds", parsed.blindsJson());
     const bombEvents = decodeList<BombEvent>("bombEvents", parsed.bombEventsJson());
+    const buyEvents = decodeList<BuyEvent>("buyEvents", parsed.buyEventsJson());
     const jsonMs = performance.now() - tJson;
 
     const tBuffers = performance.now();
@@ -89,6 +91,7 @@ self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
       hurts,
       blinds,
       bombEvents,
+      buyEvents,
       ticks: {
         frameCount: parsed.frameCount(),
         playerCount: parsed.playerCount(),

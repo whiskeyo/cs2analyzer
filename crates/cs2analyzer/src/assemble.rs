@@ -7,6 +7,11 @@ use crate::constants::{
     DEFAULT_TICK_RATE, FLASH_POP_SECONDS, HE_DECOY_SECONDS, KNIFE_ROUND_MAX_EQUIPMENT,
     KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_SECONDS, SMOKE_SECONDS,
 };
+use crate::inventory::{
+    weapon_buy_cost, GEAR_DECOY, GEAR_DEFUSER, GEAR_FLASH, GEAR_FLASH2, GEAR_HE, GEAR_HELMET,
+    GEAR_INC, GEAR_KEVLAR, GEAR_MOLLY, GEAR_SMOKE, GEAR_ZEUS, WID_DECOY, WID_DEFUSER, WID_FLASH,
+    WID_HE, WID_HELMET, WID_INC, WID_KEVLAR, WID_MOLLY, WID_SMOKE, WID_TASER,
+};
 use crate::observer::Collector;
 use crate::types::*;
 use crate::{FLAG_PRESENT, MAX_PLAYERS};
@@ -137,6 +142,7 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         score_t: 0,
     };
 
+    let buy_events = freeze_buys(&ticks, &rounds);
     let mut m = Match {
         header,
         players,
@@ -148,6 +154,7 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         hurts,
         blinds,
         bomb_events,
+        buy_events,
         stats: Vec::new(),
     };
     #[cfg(feature = "match-stats")]
@@ -617,6 +624,99 @@ fn fill_missing_bomb_positions(events: &mut [BombEvent], ticks: &TickBuffer) {
     }
 }
 
+const GEAR_BUYS: [(u16, u8); 11] = [
+    (GEAR_KEVLAR, WID_KEVLAR),
+    (GEAR_HELMET, WID_HELMET),
+    (GEAR_DEFUSER, WID_DEFUSER),
+    (GEAR_ZEUS, WID_TASER),
+    (GEAR_HE, WID_HE),
+    (GEAR_FLASH, WID_FLASH),
+    (GEAR_FLASH2, WID_FLASH),
+    (GEAR_SMOKE, WID_SMOKE),
+    (GEAR_MOLLY, WID_MOLLY),
+    (GEAR_INC, WID_INC),
+    (GEAR_DECOY, WID_DECOY),
+];
+
+/// Freeze-time cart: new guns/gear while money drops. No `item_purchase` on GOTV.
+fn freeze_buys(ticks: &TickBuffer, rounds: &[Round]) -> Vec<BuyEvent> {
+    let mut out = Vec::new();
+    let pc = ticks.player_count as usize;
+    if pc == 0 || ticks.frame_count == 0 {
+        return out;
+    }
+    for round in rounds {
+        if round.is_knife {
+            continue;
+        }
+        let start = round.start_tick;
+        let end = round.freeze_end_tick.max(start);
+        for player in 0..pc {
+            let mut prev: Option<(u16, u8, u8, u16)> = None;
+            for f in 0..ticks.frame_count as usize {
+                let t = ticks.ticks[f];
+                if t > end {
+                    break;
+                }
+                let Some(p) = ticks.player_at(f, player) else {
+                    continue;
+                };
+                if t < start {
+                    prev = Some((p.money, p.primary, p.secondary, p.gear));
+                    continue;
+                }
+                if p.flags & FLAG_PRESENT == 0 {
+                    continue;
+                }
+                let Some((pm, pp, ps, pg)) = prev else {
+                    prev = Some((p.money, p.primary, p.secondary, p.gear));
+                    continue;
+                };
+                if p.money < pm {
+                    for wid in appeared_items(pp, ps, pg, p.primary, p.secondary, p.gear) {
+                        let cost = weapon_buy_cost(wid);
+                        if cost == 0 {
+                            continue;
+                        }
+                        out.push(BuyEvent {
+                            tick: t,
+                            player: player as i8,
+                            weapon: wid,
+                            cost,
+                        });
+                    }
+                }
+                prev = Some((p.money, p.primary, p.secondary, p.gear));
+            }
+        }
+    }
+    out.sort_by_key(|e| (e.tick, e.player, e.weapon));
+    out
+}
+
+fn appeared_items(
+    prev_primary: u8,
+    prev_secondary: u8,
+    prev_gear: u16,
+    primary: u8,
+    secondary: u8,
+    gear: u16,
+) -> Vec<u8> {
+    let mut out = Vec::new();
+    if primary != 0 && primary != prev_primary {
+        out.push(primary);
+    }
+    if secondary != 0 && secondary != prev_secondary && secondary != primary {
+        out.push(secondary);
+    }
+    for (bit, wid) in GEAR_BUYS {
+        if gear & bit != 0 && prev_gear & bit == 0 {
+            out.push(wid);
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -774,5 +874,89 @@ mod tests {
         assert_eq!(new_flash_duration(2.4, 1.1), None);
         assert_eq!(new_flash_duration(0.0, 0.0), None);
         assert_eq!(new_flash_duration(0.02, 0.04), None);
+    }
+
+    fn freeze_ticks(frames: &[u32]) -> TickBuffer {
+        let n = frames.len();
+        TickBuffer {
+            frame_count: n as u32,
+            player_count: 1,
+            ticks: frames.to_vec(),
+            x: vec![0.0; n],
+            y: vec![0.0; n],
+            z: vec![0.0; n],
+            yaw: vec![0.0; n],
+            health: vec![100; n],
+            armor: vec![0; n],
+            flags: vec![FLAG_PRESENT | crate::FLAG_ALIVE; n],
+            money: vec![0; n],
+            equip: vec![0; n],
+            gear: vec![0; n],
+            primary: vec![0; n],
+            secondary: vec![0; n],
+            active: vec![0; n],
+            clip: vec![0; n],
+            reserve: vec![0; n],
+        }
+    }
+
+    fn freeze_round() -> Round {
+        Round {
+            number: 1,
+            start_tick: 0,
+            freeze_end_tick: 64,
+            end_tick: 640,
+            playback_end_tick: 0,
+            winner: None,
+            win_reason: 0,
+            score_ct: 0,
+            score_t: 0,
+            is_knife: false,
+            team_ct: String::new(),
+            team_t: String::new(),
+        }
+    }
+
+    #[test]
+    fn freeze_buy_emits_new_gun_when_money_drops() {
+        let mut ticks = freeze_ticks(&[0, 32]);
+        ticks.money[0] = 4000;
+        ticks.money[1] = 1300;
+        ticks.primary[1] = crate::inventory::WID_AK47;
+        let buys = freeze_buys(&ticks, &[freeze_round()]);
+        assert_eq!(buys.len(), 1);
+        assert_eq!(buys[0].weapon, crate::inventory::WID_AK47);
+        assert_eq!(buys[0].cost, crate::constants::COST_AK47);
+        assert_eq!(buys[0].tick, 32);
+        assert_eq!(buys[0].player, 0);
+    }
+
+    #[test]
+    fn freeze_buy_skips_saved_rifle_and_knife_rounds() {
+        let mut ticks = freeze_ticks(&[0, 32]);
+        ticks.money[0] = 2700;
+        ticks.money[1] = 2700;
+        ticks.primary[0] = crate::inventory::WID_AK47;
+        ticks.primary[1] = crate::inventory::WID_AK47;
+        assert!(freeze_buys(&ticks, &[freeze_round()]).is_empty());
+
+        let mut knife = freeze_round();
+        knife.is_knife = true;
+        ticks.money[1] = 0;
+        ticks.primary[1] = crate::inventory::WID_AK47;
+        ticks.primary[0] = 0;
+        assert!(freeze_buys(&ticks, &[knife]).is_empty());
+    }
+
+    #[test]
+    fn freeze_buy_emits_new_flash_bit() {
+        let mut ticks = freeze_ticks(&[0, 32]);
+        ticks.money[0] = 800;
+        ticks.money[1] = 600;
+        ticks.gear[1] = GEAR_FLASH;
+        let buys = freeze_buys(&ticks, &[freeze_round()]);
+        assert_eq!(buys.len(), 1);
+        assert_eq!(buys[0].weapon, WID_FLASH);
+        assert_eq!(buys[0].cost, crate::constants::COST_FLASH);
     }
 }

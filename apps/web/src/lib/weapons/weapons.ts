@@ -60,6 +60,9 @@ const NAMES: Record<string, string> = {
   bayonet: "Knife",
   taser: "Zeus",
   c4: "C4",
+  kevlar: "Kevlar",
+  helmet: "Helmet",
+  defuser: "Kit",
 };
 
 /** Must stay aligned with `crates/cs2analyzer/src/inventory.rs` weapon ids. */
@@ -108,6 +111,9 @@ export const WEAPON_BY_ID = [
   "molotov",
   "incgrenade",
   "decoy",
+  "kevlar",
+  "helmet",
+  "defuser",
 ] as const;
 
 const ICON_ALIAS: Record<string, string> = {

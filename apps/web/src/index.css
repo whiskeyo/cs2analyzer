@@ -2625,7 +2625,8 @@ button.link:hover:not(:disabled) {
 }
 .spec-top,
 .spec-mid,
-.spec-gear {
+.spec-gear,
+.spec-buys {
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -2635,7 +2636,8 @@ button.link:hover:not(:disabled) {
 }
 .spec-eco.ct .spec-top,
 .spec-eco.ct .spec-mid,
-.spec-eco.ct .spec-gear {
+.spec-eco.ct .spec-gear,
+.spec-eco.ct .spec-buys {
   flex-direction: row-reverse;
 }
 .spec-name {
@@ -2721,7 +2723,8 @@ button.link:hover:not(:disabled) {
   color: #c5d0da;
   font-weight: 600;
 }
-.spec-gear {
+.spec-gear,
+.spec-buys {
   min-height: 12px;
   flex-wrap: wrap;
   gap: 0.15rem 0.22rem;

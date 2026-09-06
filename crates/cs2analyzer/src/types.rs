@@ -13,6 +13,7 @@ pub struct Match {
     pub hurts: Vec<Hurt>,
     pub blinds: Vec<Blind>,
     pub bomb_events: Vec<BombEvent>,
+    pub buy_events: Vec<BuyEvent>,
     pub stats: Vec<PlayerStats>,
 }
 
@@ -306,6 +307,14 @@ pub struct BombEvent {
     /// Bombsite index from `bomb_planted` (`0` = A, `1` = B).
     #[serde(default)]
     pub site: Option<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuyEvent {
+    pub tick: u32,
+    pub player: i8,
+    pub weapon: u8,
+    pub cost: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

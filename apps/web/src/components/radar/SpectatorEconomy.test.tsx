@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HITGROUP_HEAD } from "@/lib/shared/constants";
+import { HITGROUP_HEAD, COST_AK47 } from "@/lib/shared/constants";
 import {
   makeFreezeTicks,
   makeHurt,
@@ -88,5 +88,16 @@ describe("SpectatorEconomy", () => {
     m.ticks.reserve[2] = 90;
     render(<SpectatorEconomy replay={m} tick={64} selected={null} onSelect={() => {}} />);
     expect(screen.getByText("24/90")).toBeInTheDocument();
+  });
+
+  it("lists freeze buys on the card until freeze ends", () => {
+    const m = replay();
+    m.buyEvents = [{ tick: 32, player: 2, weapon: 23, cost: COST_AK47 }];
+    const { rerender } = render(
+      <SpectatorEconomy replay={m} tick={32} selected={null} onSelect={() => {}} />,
+    );
+    expect(screen.getByTitle("AK-47")).toBeInTheDocument();
+    rerender(<SpectatorEconomy replay={m} tick={64} selected={null} onSelect={() => {}} />);
+    expect(screen.queryByTitle("AK-47")).not.toBeInTheDocument();
   });
 });

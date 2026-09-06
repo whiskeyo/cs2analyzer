@@ -11,6 +11,7 @@ import {
   WID_KNIFE,
 } from "@/lib/weapons/loadout";
 import { samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
+import { freezeBuysForPlayer } from "@/lib/match/buys";
 import { computeStats, liveTeams } from "@/lib/stats/stats";
 import { formatLastHit, lastHitTaken } from "@/lib/stats/lastHit";
 import type { Replay } from "@/lib/replay/replayTypes";
@@ -28,6 +29,7 @@ function PlayerCard({
   name,
   kd,
   lastHit,
+  buys,
   selected,
   onSelect,
 }: {
@@ -35,6 +37,7 @@ function PlayerCard({
   name: string;
   kd: string;
   lastHit: string | null;
+  buys: ReturnType<typeof freezeBuysForPlayer>;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -95,6 +98,13 @@ function PlayerCard({
             />
           ))}
         </div>
+        {buys.length > 0 && (
+          <div className="spec-buys" title="Bought this freeze">
+            {buys.map((e, i) => (
+              <WeaponIcon key={`${e.tick}-${e.weapon}-${i}`} weapon={e.weapon} />
+            ))}
+          </div>
+        )}
         {lastHit && <div className="spec-last-hit">{lastHit}</div>}
       </div>
     </button>
@@ -147,6 +157,7 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
             lastHit={
               selected === p.index ? formatLastHit(lastHitTaken(replay, tick, p.index)) : null
             }
+            buys={freezeBuysForPlayer(replay, p.index, tick)}
             selected={selected === p.index}
             onSelect={() => onSelect(selected === p.index ? null : p.index)}
           />

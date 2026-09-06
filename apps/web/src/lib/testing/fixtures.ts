@@ -192,6 +192,7 @@ export function makeReplay(overrides: ReplayOverrides = {}): Replay {
     hurts: [],
     blinds: [],
     bombEvents: [],
+    buyEvents: [],
     ticks: makeTicks(),
     ...rest,
   };

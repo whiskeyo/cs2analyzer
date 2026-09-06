@@ -113,6 +113,8 @@ const BLIND: Shape = { tick: number, attacker: number, victim: number, duration:
 
 const BOMB_EVENT: Shape = { tick: number, kind: text, player: number, x: number, y: number };
 
+const BUY_EVENT: Shape = { tick: number, player: number, weapon: number, cost: number };
+
 export const PAYLOAD_SHAPES = {
   header: HEADER,
   players: PLAYER,
@@ -123,6 +125,7 @@ export const PAYLOAD_SHAPES = {
   hurts: HURT,
   blinds: BLIND,
   bombEvents: BOMB_EVENT,
+  buyEvents: BUY_EVENT,
 } as const;
 
 export type PayloadName = keyof typeof PAYLOAD_SHAPES;

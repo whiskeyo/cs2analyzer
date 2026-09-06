@@ -1,5 +1,6 @@
 //! Per-tick money, armor flags, and compact loadout ids.
 
+use crate::constants::*;
 use crate::props::{prop_i32, prop_truthy, prop_u32, prop_u64};
 use source2_demo::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -62,6 +63,9 @@ pub const WID_SMOKE: u8 = 40;
 pub const WID_MOLLY: u8 = 41;
 pub const WID_INC: u8 = 42;
 pub const WID_DECOY: u8 = 43;
+pub const WID_KEVLAR: u8 = 44;
+pub const WID_HELMET: u8 = 45;
+pub const WID_DEFUSER: u8 = 46;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Slot {
@@ -209,6 +213,57 @@ pub fn c4_arming_steams(ctx: &Context, pawn_to_steam: &HashMap<u32, u64>) -> Has
         }
     }
     out
+}
+
+/// Catalog price for a freeze buy, or 0 when the id is not a buy-menu item.
+pub fn weapon_buy_cost(wid: u8) -> u16 {
+    match wid {
+        WID_GLOCK => COST_GLOCK,
+        WID_USP => COST_USP,
+        WID_P2000 => COST_P2000,
+        WID_ELITE => COST_ELITE,
+        WID_P250 => COST_P250,
+        WID_TEC9 => COST_TEC9,
+        WID_FIVESEVEN => COST_FIVESEVEN,
+        WID_CZ75 => COST_CZ75,
+        WID_DEAGLE => COST_DEAGLE,
+        WID_REVOLVER => COST_REVOLVER,
+        WID_MAC10 => COST_MAC10,
+        WID_MP9 => COST_MP9,
+        WID_MP7 => COST_MP7,
+        WID_MP5SD => COST_MP5SD,
+        WID_UMP45 => COST_UMP45,
+        WID_P90 => COST_P90,
+        WID_BIZON => COST_BIZON,
+        WID_GALIL => COST_GALIL,
+        WID_FAMAS => COST_FAMAS,
+        WID_AK47 => COST_AK47,
+        WID_M4A4 => COST_M4A4,
+        WID_M4A1S => COST_M4A1S,
+        WID_SSG08 => COST_SSG08,
+        WID_AUG => COST_AUG,
+        WID_SG553 => COST_SG553,
+        WID_AWP => COST_AWP,
+        WID_SCAR20 => COST_SCAR20,
+        WID_G3SG1 => COST_G3SG1,
+        WID_NOVA => COST_NOVA,
+        WID_XM1014 => COST_XM1014,
+        WID_MAG7 => COST_MAG7,
+        WID_SAWEDOFF => COST_SAWEDOFF,
+        WID_M249 => COST_M249,
+        WID_NEGEV => COST_NEGEV,
+        WID_TASER => COST_TASER,
+        WID_HE => COST_HE,
+        WID_FLASH => COST_FLASH,
+        WID_SMOKE => COST_SMOKE,
+        WID_MOLLY => COST_MOLLY,
+        WID_INC => COST_INC,
+        WID_DECOY => COST_DECOY,
+        WID_KEVLAR => COST_KEVLAR,
+        WID_HELMET => COST_HELMET,
+        WID_DEFUSER => COST_DEFUSER,
+        _ => 0,
+    }
 }
 
 fn classify_entity(e: &Entity) -> Option<(u8, Slot)> {
@@ -406,6 +461,15 @@ fn classify_class(class: &str) -> Option<(u8, Slot)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn buy_menu_prices_match_named_costs() {
+        assert_eq!(weapon_buy_cost(WID_AK47), COST_AK47);
+        assert_eq!(weapon_buy_cost(WID_FLASH), COST_FLASH);
+        assert_eq!(weapon_buy_cost(WID_KEVLAR), COST_KEVLAR);
+        assert_eq!(weapon_buy_cost(WID_KNIFE), 0);
+        assert_eq!(weapon_buy_cost(WID_C4), 0);
+    }
 
     #[test]
     fn class_names() {

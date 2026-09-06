@@ -17,6 +17,7 @@ export class ParsedMatch {
     armor(): Uint8Array;
     blindsJson(): string;
     bombEventsJson(): string;
+    buyEventsJson(): string;
     clip(): Uint8Array;
     equip(): Uint16Array;
     flags(): Uint8Array;
@@ -59,6 +60,7 @@ export interface InitOutput {
     readonly parsedmatch_armor: (a: number) => number;
     readonly parsedmatch_blindsJson: (a: number, b: number) => void;
     readonly parsedmatch_bombEventsJson: (a: number, b: number) => void;
+    readonly parsedmatch_buyEventsJson: (a: number, b: number) => void;
     readonly parsedmatch_clip: (a: number) => number;
     readonly parsedmatch_equip: (a: number) => number;
     readonly parsedmatch_flags: (a: number) => number;

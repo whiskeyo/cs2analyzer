@@ -514,6 +514,7 @@ mod tests {
             hurts: vec![],
             blinds: vec![],
             bomb_events: vec![],
+            buy_events: vec![],
             stats: vec![],
         }
     }

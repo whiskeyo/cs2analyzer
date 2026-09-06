@@ -7,6 +7,7 @@ export const parsedmatch_active: (a: number) => number;
 export const parsedmatch_armor: (a: number) => number;
 export const parsedmatch_blindsJson: (a: number, b: number) => void;
 export const parsedmatch_bombEventsJson: (a: number, b: number) => void;
+export const parsedmatch_buyEventsJson: (a: number, b: number) => void;
 export const parsedmatch_clip: (a: number) => number;
 export const parsedmatch_equip: (a: number) => number;
 export const parsedmatch_flags: (a: number) => number;

@@ -27,10 +27,10 @@ SECTIONS:
     summary  Map, teams, score, and how much of everything was found
     replay   Everything in one object, for fixtures and cross-checks
     header, players, rounds, grenades, shots, kills, hurts, blinds,
-    bomb-events, stats, ticks
+    bomb-events, buy-events, stats, ticks
 ";
 
-const SECTIONS: [&str; 13] = [
+const SECTIONS: [&str; 14] = [
     "summary",
     "replay",
     "header",
@@ -42,6 +42,7 @@ const SECTIONS: [&str; 13] = [
     "hurts",
     "blinds",
     "bomb-events",
+    "buy-events",
     "stats",
     "ticks",
 ];
@@ -186,6 +187,7 @@ fn section_json(m: &Match, args: &Args) -> Result<String, String> {
         "hurts" => to_value(&m.hurts)?,
         "blinds" => to_value(&m.blinds)?,
         "bomb-events" => to_value(&m.bomb_events)?,
+        "buy-events" => to_value(&m.buy_events)?,
         "stats" => to_value(&compute_stats_until(m, args.tick))?,
         "ticks" => to_value(&m.ticks)?,
         other => return Err(format!("unknown section {other}")),
@@ -256,6 +258,7 @@ fn summary(m: &Match, until_tick: u32) -> serde_json::Value {
             "hurts": m.hurts.len(),
             "blinds": m.blinds.len(),
             "bomb_events": m.bomb_events.len(),
+            "buy_events": m.buy_events.len(),
         },
         "scoreboard": scoreboard,
     })
