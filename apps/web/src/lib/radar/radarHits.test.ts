@@ -16,6 +16,8 @@ function player(index: number, x: number, y: number, present = true): SampledPla
     ducked: false,
     scoped: false,
     ct: true,
+    planting: false,
+    defusing: false,
     money: 0,
     equip: 0,
     gear: 0,

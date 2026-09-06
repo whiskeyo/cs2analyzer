@@ -18,6 +18,8 @@ describe("LoadoutIcons", () => {
       ducked: false,
       scoped: false,
       ct: true,
+      planting: false,
+      defusing: false,
       money: 4000,
       equip: 5000,
       gear: 0b111,

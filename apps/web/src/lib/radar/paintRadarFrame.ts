@@ -24,6 +24,8 @@ import { formatBlindLeft, NADE_COLORS } from "@/lib/radar/radarFx";
 import {
   nadeRenderAt,
   RADAR_STYLE,
+  T_COLOR,
+  CT_COLOR,
   type NadeRender,
   type Point,
   type RadarFrame,
@@ -515,6 +517,15 @@ export function paintPawns(
       ctx.stroke();
     }
     ctx.restore();
+
+    if (pawn.alive && (pawn.planting || pawn.defusing)) {
+      ctx.strokeStyle = pawn.planting ? T_COLOR : CT_COLOR;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.9;
+      circle(ctx, s, pawn.selected ? 14 : 12);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
 
     if (pawn.alive && pawn.flash > 0) {
       ctx.fillStyle = NADE_COLORS.flash;

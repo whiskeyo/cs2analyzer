@@ -17,6 +17,8 @@ function player(gear: number): SampledPlayer {
     ducked: false,
     scoped: false,
     ct: true,
+    planting: false,
+    defusing: false,
     money: 0,
     equip: 0,
     gear,

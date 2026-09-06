@@ -82,6 +82,10 @@ pub const FLAG_DUCKED: u8 = 1 << 2;
 pub const FLAG_SCOPED: u8 = 1 << 3;
 /// Bit in [`TickBuffer::flags`]: player is currently on CT (unset = T).
 pub const FLAG_CT: u8 = 1 << 4;
+/// Bit in [`TickBuffer::flags`]: C4 `m_bStartedArming` on this pawn's bomb.
+pub const FLAG_PLANTING: u8 = 1 << 5;
+/// Bit in [`TickBuffer::flags`]: pawn `m_bIsDefusing`.
+pub const FLAG_DEFUSING: u8 = 1 << 6;
 
 /// Maximum player slots stored in the tick buffer.
 pub const MAX_PLAYERS: usize = 16;

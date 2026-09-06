@@ -1,7 +1,9 @@
 import {
   FLAG_ALIVE,
   FLAG_CT,
+  FLAG_DEFUSING,
   FLAG_DUCKED,
+  FLAG_PLANTING,
   FLAG_PRESENT,
   FLAG_SCOPED,
   type Replay,
@@ -20,6 +22,8 @@ export interface SampledPlayer {
   ducked: boolean;
   scoped: boolean;
   ct: boolean;
+  planting: boolean;
+  defusing: boolean;
   money: number;
   equip: number;
   gear: number;
@@ -79,6 +83,8 @@ export function samplePlayer(replay: Replay, player: number, tick: number): Samp
     ducked: (flags & FLAG_DUCKED) !== 0,
     scoped: (flags & FLAG_SCOPED) !== 0,
     ct: (flags & FLAG_CT) !== 0,
+    planting: (flags & FLAG_PLANTING) !== 0,
+    defusing: (flags & FLAG_DEFUSING) !== 0,
     money: buf.money?.[a] ?? 0,
     equip: buf.equip?.[a] ?? 0,
     gear: buf.gear?.[a] ?? 0,
@@ -139,6 +145,38 @@ export function currentRound(replay: Replay, tick: number) {
     else hi = mid - 1;
   }
   return rounds[lo];
+}
+
+/**
+ * Tick where the player's latest run of `flag` began, if that run still
+ * covers `toTick`. Frames before `fromTick` only seed whether the run was
+ * already on when the window opened (sparse GOTV samples).
+ */
+export function trailingFlagStart(
+  replay: Replay,
+  player: number,
+  flag: number,
+  fromTick: number,
+  toTick: number,
+): number | null {
+  const buf = replay.ticks;
+  const pc = buf.playerCount;
+  if (pc === 0 || player < 0 || player >= pc || buf.frameCount === 0) return null;
+  let start: number | null = null;
+  let on = false;
+  for (let f = 0; f < buf.frameCount; f++) {
+    const t = buf.ticks[f];
+    if (t > toTick) break;
+    const flags = buf.flags[f * pc + player];
+    if ((flags & flag) !== 0) {
+      if (!on) start = Math.max(t, fromTick);
+      on = true;
+    } else {
+      start = null;
+      on = false;
+    }
+  }
+  return on ? start : null;
 }
 
 export function sampleTrail(

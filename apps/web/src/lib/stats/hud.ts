@@ -5,8 +5,10 @@ import {
   PLANT_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
-import { currentRound, samplePlayers } from "@/lib/replay/sample";
+import { currentRound, samplePlayers, trailingFlagStart } from "@/lib/replay/sample";
 import {
+  FLAG_DEFUSING,
+  FLAG_PLANTING,
   GEAR_C4,
   GEAR_DEFUSER,
   type BombEvent,
@@ -291,8 +293,14 @@ export function defuseClock(
       begin = null;
     }
   }
-  if (!begin || plantTick < 0) {
+  if (plantTick < 0) {
     return null;
+  }
+  if (!begin) {
+    begin = defuseBeginFromFlags(replay, tick, plantTick);
+    if (!begin) {
+      return null;
+    }
   }
 
   const players = samplePlayers(replay, tick);
@@ -323,6 +331,7 @@ export function plantClock(replay: Replay, tick: number): { remaining: number } 
   }
 
   let begin: { tick: number; player: number } | null = null;
+  let cancelled = false;
   for (const e of replay.bombEvents) {
     if (e.tick > tick) {
       continue;
@@ -332,12 +341,20 @@ export function plantClock(replay: Replay, tick: number): { remaining: number } 
     }
     if (e.kind === "begin_plant") {
       begin = { tick: e.tick, player: e.player };
+      cancelled = false;
     } else if (e.kind === "planted" || e.kind === "dropped") {
       begin = null;
+      cancelled = true;
     }
   }
   if (!begin) {
-    return null;
+    if (cancelled) {
+      return null;
+    }
+    begin = plantBeginFromFlags(replay, tick, round.start_tick);
+    if (!begin) {
+      return null;
+    }
   }
 
   const players = samplePlayers(replay, tick);
@@ -353,4 +370,40 @@ export function plantClock(replay: Replay, tick: number): { remaining: number } 
     return null;
   }
   return { remaining: Math.max(0, remaining) };
+}
+
+function defuseBeginFromFlags(
+  replay: Replay,
+  tick: number,
+  plantTick: number,
+): { tick: number; haskit: boolean; player: number } | null {
+  const defuser = samplePlayers(replay, tick).find((p) => p.defusing && p.alive && p.present);
+  if (!defuser) {
+    return null;
+  }
+  const start = trailingFlagStart(replay, defuser.index, FLAG_DEFUSING, plantTick, tick);
+  if (start == null) {
+    return null;
+  }
+  return {
+    tick: start,
+    haskit: (defuser.gear & GEAR_DEFUSER) !== 0,
+    player: defuser.index,
+  };
+}
+
+function plantBeginFromFlags(
+  replay: Replay,
+  tick: number,
+  fromTick: number,
+): { tick: number; player: number } | null {
+  const planter = samplePlayers(replay, tick).find((p) => p.planting && p.alive && p.present);
+  if (!planter) {
+    return null;
+  }
+  const start = trailingFlagStart(replay, planter.index, FLAG_PLANTING, fromTick, tick);
+  if (start == null) {
+    return null;
+  }
+  return { tick: start, player: planter.index };
 }

@@ -155,6 +155,8 @@ export interface Pawn extends Point {
   health: number;
   /** True when this pawn holds the pack (`GEAR_C4`). */
   carriesC4?: boolean;
+  planting?: boolean;
+  defusing?: boolean;
 }
 
 /** A grenade in exactly one of its render phases, or absent from the frame. */
@@ -550,6 +552,8 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
       name: replay.players[p.index]?.name ?? "",
       health: p.health,
       carriesC4: bomb.state === "carried" && bomb.player === p.index,
+      planting: p.planting,
+      defusing: p.defusing,
     });
   }
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { currentRound, samplePlayer, samplePlayers } from "./sample";
-import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
+import {
+  FLAG_ALIVE,
+  FLAG_CT,
+  FLAG_DEFUSING,
+  FLAG_PLANTING,
+  FLAG_PRESENT,
+} from "@/lib/replay/replayTypes";
 import { makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
 
 describe("samplePlayer", () => {
@@ -9,13 +15,16 @@ describe("samplePlayer", () => {
     ticks.ticks[0] = 80;
     ticks.x[0] = 10;
     ticks.y[0] = 20;
-    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
-    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT | FLAG_DEFUSING;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE | FLAG_PLANTING;
     ticks.active[0] = 23;
     const m = makeReplay({ ticks });
     const a = samplePlayer(m, 0, 80);
     expect(a?.x).toBe(10);
     expect(a?.ct).toBe(true);
+    expect(a?.defusing).toBe(true);
+    expect(a?.planting).toBe(false);
+    expect(samplePlayer(m, 1, 80)?.planting).toBe(true);
     expect(a?.active).toBe(23);
     expect(a?.clip).toBe(0);
     expect(samplePlayer(m, 2, 80)).toBeNull();

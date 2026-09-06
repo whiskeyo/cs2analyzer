@@ -19,7 +19,15 @@ import {
   makeTicks,
   UNIT_CALIBRATION,
 } from "@/lib/testing/fixtures";
-import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, GEAR_C4, type Replay } from "@/lib/replay/replayTypes";
+import {
+  FLAG_ALIVE,
+  FLAG_CT,
+  FLAG_PRESENT,
+  FLAG_DEFUSING,
+  FLAG_PLANTING,
+  GEAR_C4,
+  type Replay,
+} from "@/lib/replay/replayTypes";
 import { TRACER_SECONDS } from "./radarFx";
 import { buildRadarFrame, CT_COLOR, T_COLOR, type FrameInput } from "./radarFrame";
 
@@ -361,6 +369,16 @@ describe("buildRadarFrame bomb", () => {
     const replay = matchReplay({ ticks });
     expect(frame(replay, 64).bomb).toEqual({ state: "carried", player: 2 });
     expect(frame(replay, 64).pawns.find((p) => p.index === 2)?.carriesC4).toBe(true);
+  });
+
+  it("marks planting and defusing pawns from tick flags", () => {
+    const ticks = makeFreezeTicks(4, 2);
+    ticks.flags[0] |= FLAG_DEFUSING;
+    ticks.flags[2] |= FLAG_PLANTING;
+    const replay = matchReplay({ ticks });
+    const pawns = frame(replay, 64).pawns;
+    expect(pawns.find((p) => p.index === 0)?.defusing).toBe(true);
+    expect(pawns.find((p) => p.index === 2)?.planting).toBe(true);
   });
 
   it("places a loose pack at the drop", () => {

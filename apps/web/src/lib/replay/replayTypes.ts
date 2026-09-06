@@ -3,6 +3,8 @@ export const FLAG_ALIVE = 1 << 1;
 export const FLAG_DUCKED = 1 << 2;
 export const FLAG_SCOPED = 1 << 3;
 export const FLAG_CT = 1 << 4;
+export const FLAG_PLANTING = 1 << 5;
+export const FLAG_DEFUSING = 1 << 6;
 
 export const GEAR_HE = 1 << 0;
 export const GEAR_FLASH = 1 << 1;

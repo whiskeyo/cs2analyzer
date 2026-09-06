@@ -2,7 +2,7 @@
 
 use crate::props::{prop_i32, prop_truthy, prop_u32, prop_u64};
 use source2_demo::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub const GEAR_HE: u16 = 1 << 0;
 pub const GEAR_FLASH: u16 = 1 << 1;
@@ -186,6 +186,29 @@ fn owner_steam(ctx: &Context, pawn_to_steam: &HashMap<u32, u64>, e: &Entity) -> 
         }
     }
     None
+}
+
+/// Steam IDs of pawns whose C4 currently has `m_bStartedArming`.
+pub fn c4_arming_steams(ctx: &Context, pawn_to_steam: &HashMap<u32, u64>) -> HashSet<u64> {
+    let mut out = HashSet::new();
+    for e in ctx.entities().iter() {
+        if !prop_truthy(e, "m_bStartedArming") {
+            continue;
+        }
+        let class = e.class().name().to_ascii_lowercase();
+        if class.contains("planted") {
+            continue;
+        }
+        let is_c4 =
+            class.contains("c4") || classify_entity(e).is_some_and(|(wid, _)| wid == WID_C4);
+        if !is_c4 {
+            continue;
+        }
+        if let Some(steam) = owner_steam(ctx, pawn_to_steam, e) {
+            out.insert(steam);
+        }
+    }
+    out
 }
 
 fn classify_entity(e: &Entity) -> Option<(u8, Slot)> {

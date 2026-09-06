@@ -1,13 +1,14 @@
 //! Streaming observer: walks the demo tick by tick and accumulates samples.
 
 use crate::inventory::{
-    armor_gear, collect_loadouts, controller_money, pawn_active_ammo, pawn_active_weapon,
-    pawn_equip_value,
+    armor_gear, c4_arming_steams, collect_loadouts, controller_money, pawn_active_ammo,
+    pawn_active_weapon, pawn_equip_value,
 };
 use crate::props::*;
 use crate::types::{BombKind, GrenadeKind, Side};
 use crate::{
-    ParseOptions, FLAG_ALIVE, FLAG_CT, FLAG_DUCKED, FLAG_PRESENT, FLAG_SCOPED, MAX_PLAYERS,
+    ParseOptions, FLAG_ALIVE, FLAG_CT, FLAG_DEFUSING, FLAG_DUCKED, FLAG_PLANTING, FLAG_PRESENT,
+    FLAG_SCOPED, MAX_PLAYERS,
 };
 use source2_demo::prelude::*;
 use source2_demo::proto::CSvcMsgServerInfo;
@@ -491,6 +492,7 @@ impl Collector {
         self.last_cap = tick;
 
         let inventory = collect_loadouts(ctx, &self.pawn_to_steam);
+        let planters = c4_arming_steams(ctx, &self.pawn_to_steam);
 
         let mut players = Vec::with_capacity(10);
         for ctrl in ctx.entities().iter() {
@@ -548,6 +550,12 @@ impl Collector {
             }
             if side == Side::Ct {
                 flags |= FLAG_CT;
+            }
+            if prop_bool(pawn, "m_bIsDefusing") {
+                flags |= FLAG_DEFUSING;
+            }
+            if planters.contains(&steam) {
+                flags |= FLAG_PLANTING;
             }
 
             let armor = prop_i32(pawn, "m_ArmorValue").clamp(0, 255) as u8;

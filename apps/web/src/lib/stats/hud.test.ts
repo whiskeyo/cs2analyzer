@@ -6,9 +6,18 @@ import {
   makePlayer,
   makeReplay,
   makeRound,
+  makeTicks,
 } from "@/lib/testing/fixtures";
 import { BOMB_SECONDS, PLANT_SECONDS } from "@/lib/shared/constants";
-import { GEAR_C4 } from "@/lib/replay/replayTypes";
+import {
+  FLAG_ALIVE,
+  FLAG_CT,
+  FLAG_DEFUSING,
+  FLAG_PLANTING,
+  FLAG_PRESENT,
+  GEAR_C4,
+  GEAR_DEFUSER,
+} from "@/lib/replay/replayTypes";
 
 describe("freezeRemaining", () => {
   it("counts down until freeze_end_tick", () => {
@@ -103,6 +112,26 @@ describe("defuseClock", () => {
     expect(defuseClock(m, 264)?.remaining).toBeCloseTo(9, 5);
     expect(defuseClock(m, 300)).toBeNull();
   });
+
+  it("starts from FLAG_DEFUSING when GOTV has no begin_defuse", () => {
+    const ticks = makeTicks(1, 2);
+    ticks.ticks[0] = 64;
+    ticks.ticks[1] = 200;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT | FLAG_DEFUSING;
+    ticks.gear[1] = GEAR_DEFUSER;
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A")],
+      rounds: [
+        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
+      ],
+      ticks,
+      bombEvents: [makeBombEvent({ tick: 100, kind: "planted" })],
+    });
+    expect(defuseClock(m, 199)).toBeNull();
+    expect(defuseClock(m, 200)?.remaining).toBeCloseTo(5, 5);
+    expect(defuseClock(m, 200)?.haskit).toBe(true);
+  });
 });
 
 describe("plantClock", () => {
@@ -133,6 +162,23 @@ describe("plantClock", () => {
     const plantTick = 200 + Math.round(PLANT_SECONDS * 64);
     expect(plantClock(m, plantTick - 1)?.remaining).toBeGreaterThan(0);
     expect(plantClock(m, plantTick)).toBeNull();
+  });
+
+  it("starts from FLAG_PLANTING when GOTV has no begin_plant", () => {
+    const ticks = makeTicks(1, 2);
+    ticks.ticks[0] = 64;
+    ticks.ticks[1] = 200;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE | FLAG_PLANTING;
+    const m = makeReplay({
+      players: [makePlayer(0, "T", "A")],
+      rounds: [
+        makeRound({ number: 1, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
+      ],
+      ticks,
+    });
+    expect(plantClock(m, 199)).toBeNull();
+    expect(plantClock(m, 200)?.remaining).toBeCloseTo(PLANT_SECONDS, 5);
   });
 });
 
