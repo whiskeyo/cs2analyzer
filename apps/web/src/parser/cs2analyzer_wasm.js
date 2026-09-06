@@ -28,6 +28,13 @@ export class ParsedMatch {
     /**
      * @returns {Uint8Array}
      */
+    active() {
+        const ret = wasm.parsedmatch_active(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+    /**
+     * @returns {Uint8Array}
+     */
     armor() {
         const ret = wasm.parsedmatch_armor(this.__wbg_ptr);
         return takeObject(ret);

@@ -11,10 +11,12 @@ describe("samplePlayer", () => {
     ticks.y[0] = 20;
     ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
     ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.active[0] = 23;
     const m = makeReplay({ ticks });
     const a = samplePlayer(m, 0, 80);
     expect(a?.x).toBe(10);
     expect(a?.ct).toBe(true);
+    expect(a?.active).toBe(23);
     expect(samplePlayer(m, 2, 80)).toBeNull();
     expect(samplePlayers(m, 80)).toHaveLength(2);
   });

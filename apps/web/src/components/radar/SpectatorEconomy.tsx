@@ -1,5 +1,14 @@
 import { memo } from "react";
-import { formatMoney, gearItems, mainWeaponId, sidearmId } from "@/lib/weapons/loadout";
+import {
+  formatMoney,
+  gearIconHeldClass,
+  gearItems,
+  heldIconClass,
+  heldWeaponId,
+  mainWeaponId,
+  sidearmId,
+  WID_KNIFE,
+} from "@/lib/weapons/loadout";
 import { samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
 import { computeStats, liveTeams } from "@/lib/stats/stats";
 import { formatLastHit, lastHitTaken } from "@/lib/stats/lastHit";
@@ -31,7 +40,15 @@ function PlayerCard({
   const hp = p.alive ? p.health : 0;
   const gun = mainWeaponId(p);
   const pistol = sidearmId(p);
+  const active = heldWeaponId(p);
   const items = gearItems(p);
+  if (active === WID_KNIFE && !items.some((ic) => ic.name === "knife")) {
+    items.unshift({ name: "knife", title: "Knife" });
+  }
+  const iconClass = (base: string, id: number) => {
+    const held = heldIconClass(id, active);
+    return held ? `${base} ${held}` : base;
+  };
   return (
     <button
       type="button"
@@ -56,15 +73,20 @@ function PlayerCard({
         <div className="spec-mid">
           <span className="spec-hp-n">{hp}</span>
           {gun > 0 ? (
-            <WeaponIcon weapon={gun} className="primary" />
+            <WeaponIcon weapon={gun} className={iconClass("primary", gun)} />
           ) : (
             <span className="spec-unarmed" />
           )}
         </div>
         <div className="spec-gear">
-          {pistol > 0 && <WeaponIcon weapon={pistol} className="sidearm" />}
+          {pistol > 0 && <WeaponIcon weapon={pistol} className={iconClass("sidearm", pistol)} />}
           {items.map((ic, i) => (
-            <GearIcon key={`${ic.name}-${i}`} name={ic.name} title={ic.title} />
+            <GearIcon
+              key={`${ic.name}-${i}`}
+              name={ic.name}
+              title={ic.title}
+              className={gearIconHeldClass(ic.name, active)}
+            />
           ))}
         </div>
         {lastHit && <div className="spec-last-hit">{lastHit}</div>}

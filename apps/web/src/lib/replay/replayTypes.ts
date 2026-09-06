@@ -239,6 +239,7 @@ export interface TickBuffers {
   gear: Uint16Array;
   primary: Uint8Array;
   secondary: Uint8Array;
+  active: Uint8Array;
 }
 
 export interface Replay {

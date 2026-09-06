@@ -68,6 +68,7 @@ interface RawTicks {
   gear: number[];
   primary: number[];
   secondary: number[];
+  active: number[];
 }
 
 interface RawReplay {
@@ -119,6 +120,7 @@ function toReplay(raw: RawReplay): Replay {
     gear: new Uint16Array(t.gear),
     primary: new Uint8Array(t.primary),
     secondary: new Uint8Array(t.secondary),
+    active: new Uint8Array(t.active),
   };
   return {
     header: raw.header,

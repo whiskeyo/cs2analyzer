@@ -1,3 +1,4 @@
+import { WEAPON_BY_ID } from "@/lib/weapons/weapons";
 import type { SampledPlayer } from "@/lib/replay/sample";
 import {
   GEAR_C4,
@@ -44,6 +45,26 @@ export function mainWeaponId(p: SampledPlayer): number {
 export function sidearmId(p: SampledPlayer): number {
   return p.primary && p.secondary ? p.secondary : 0;
 }
+
+/** Compact WID currently in hand. 0 when unknown. */
+export function heldWeaponId(p: SampledPlayer): number {
+  return p.active;
+}
+
+/** `held` / `stowed` when `active` is known; empty when it is not. */
+export function heldIconClass(weaponId: number, active: number): string {
+  if (!active || !weaponId) return "";
+  return weaponId === active ? "held" : "stowed";
+}
+
+export function gearIconHeldClass(name: string, active: number): string {
+  if (!active) return "";
+  const id = (WEAPON_BY_ID as readonly string[]).indexOf(name);
+  if (id <= 0) return "stowed";
+  return heldIconClass(id, active);
+}
+
+export const WID_KNIFE = WEAPON_BY_ID.indexOf("knife");
 
 export function formatMoney(n: number): string {
   return `$${n.toLocaleString("en-US")}`;

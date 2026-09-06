@@ -69,4 +69,14 @@ describe("SpectatorEconomy", () => {
     rerender(<SpectatorEconomy replay={m} tick={64} selected={null} onSelect={() => {}} />);
     expect(screen.queryByText(/Last hit:/)).not.toBeInTheDocument();
   });
+
+  it("highlights the weapon in hand", () => {
+    const m = replay();
+    m.ticks.primary[2] = 23;
+    m.ticks.secondary[2] = 4;
+    m.ticks.active[2] = 1;
+    render(<SpectatorEconomy replay={m} tick={64} selected={null} onSelect={() => {}} />);
+    expect(screen.getByTitle("Knife")).toHaveClass("held");
+    expect(screen.getByTitle("AK-47")).toHaveClass("stowed");
+  });
 });

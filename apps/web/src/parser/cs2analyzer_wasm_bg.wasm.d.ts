@@ -3,6 +3,7 @@
 export const memory: WebAssembly.Memory;
 export const __wbg_parsedmatch_free: (a: number, b: number) => void;
 export const parseDemo: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+export const parsedmatch_active: (a: number) => number;
 export const parsedmatch_armor: (a: number) => number;
 export const parsedmatch_blindsJson: (a: number, b: number) => void;
 export const parsedmatch_bombEventsJson: (a: number, b: number) => void;

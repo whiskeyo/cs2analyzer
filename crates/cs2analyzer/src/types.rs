@@ -107,6 +107,8 @@ pub struct TickBuffer {
     pub primary: Vec<u8>,
     #[serde(default)]
     pub secondary: Vec<u8>,
+    #[serde(default)]
+    pub active: Vec<u8>,
 }
 
 impl TickBuffer {
@@ -136,6 +138,7 @@ impl TickBuffer {
             gear: self.gear.get(i).copied().unwrap_or(0),
             primary: self.primary.get(i).copied().unwrap_or(0),
             secondary: self.secondary.get(i).copied().unwrap_or(0),
+            active: self.active.get(i).copied().unwrap_or(0),
         })
     }
 }
@@ -154,6 +157,7 @@ pub struct TickPlayer {
     pub gear: u16,
     pub primary: u8,
     pub secondary: u8,
+    pub active: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

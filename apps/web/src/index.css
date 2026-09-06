@@ -2705,6 +2705,15 @@ button.link:hover:not(:disabled) {
 .spec-eco.ct .wep-icon:not(.gear) {
   transform: scaleX(-1);
 }
+.spec-eco .wep-icon.held {
+  opacity: 1;
+  outline: 1px solid rgba(232, 238, 244, 0.7);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+.spec-eco .wep-icon.stowed {
+  opacity: 0.32;
+}
 .spec-gear {
   min-height: 12px;
   flex-wrap: wrap;

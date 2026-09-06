@@ -200,6 +200,21 @@ fn classify_entity(e: &Entity) -> Option<(u8, Slot)> {
     classify_class(class)
 }
 
+/// Weapon currently in hand (`m_hActiveWeapon`). 0 when missing or unresolved.
+pub fn pawn_active_weapon(ctx: &Context, pawn: &Entity) -> u8 {
+    let mut handle = prop_u32(pawn, "m_pWeaponServices.m_hActiveWeapon");
+    if handle == 0 || handle == u32::MAX {
+        handle = prop_u32(pawn, "m_hActiveWeapon");
+    }
+    if handle == 0 || handle == u32::MAX {
+        return 0;
+    }
+    let Ok(wep) = ctx.entities().get_by_handle(handle as usize) else {
+        return 0;
+    };
+    classify_entity(wep).map(|(wid, _)| wid).unwrap_or(0)
+}
+
 fn item_def_index(e: &Entity) -> i32 {
     for name in [
         "m_AttributeManager.m_Item.m_iItemDefinitionIndex",

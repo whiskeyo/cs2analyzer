@@ -25,6 +25,7 @@ export interface SampledPlayer {
   gear: number;
   primary: number;
   secondary: number;
+  active: number;
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -81,6 +82,7 @@ export function samplePlayer(replay: Replay, player: number, tick: number): Samp
     gear: buf.gear?.[a] ?? 0,
     primary: buf.primary?.[a] ?? 0,
     secondary: buf.secondary?.[a] ?? 0,
+    active: buf.active?.[a] ?? 0,
   };
 }
 

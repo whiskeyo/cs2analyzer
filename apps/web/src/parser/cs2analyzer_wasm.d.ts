@@ -13,6 +13,7 @@ export class ParsedMatch {
     private constructor();
     free(): void;
     [Symbol.dispose](): void;
+    active(): Uint8Array;
     armor(): Uint8Array;
     blindsJson(): string;
     bombEventsJson(): string;
@@ -52,6 +53,7 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_parsedmatch_free: (a: number, b: number) => void;
     readonly parseDemo: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly parsedmatch_active: (a: number) => number;
     readonly parsedmatch_armor: (a: number) => number;
     readonly parsedmatch_blindsJson: (a: number, b: number) => void;
     readonly parsedmatch_bombEventsJson: (a: number, b: number) => void;

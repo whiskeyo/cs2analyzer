@@ -21,6 +21,7 @@ function player(index: number, x: number, y: number, present = true): SampledPla
     gear: 0,
     primary: 0,
     secondary: 0,
+    active: 0,
   };
 }
 

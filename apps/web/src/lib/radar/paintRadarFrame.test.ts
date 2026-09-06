@@ -474,6 +474,7 @@ describe("paintRadarFrame", () => {
     wide.gear = new Uint16Array(8);
     wide.primary = new Uint8Array(8);
     wide.secondary = new Uint8Array(8);
+    wide.active = new Uint8Array(8);
     moving.ticks = wide;
     const f = frame(moving, 128);
     paintRadarFrame(ctx, f, toScreen, paintOpts);

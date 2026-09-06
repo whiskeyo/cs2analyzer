@@ -23,6 +23,7 @@ describe("LoadoutIcons", () => {
       gear: 0b111,
       primary: 7,
       secondary: 1,
+      active: 0,
     };
     const { container } = render(<LoadoutIcons p={p} />);
     expect(container.querySelectorAll("img, svg").length).toBeGreaterThan(0);
