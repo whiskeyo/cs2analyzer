@@ -10,9 +10,7 @@ Parse a `.dem` in the browser (Web Worker + WASM; the file never leaves the mach
 crates/cs2analyzer       Parse, assemble Match, stats, radar math
 crates/cs2analyzer-cli   `cs2analyzer` binary: dump a demo as JSON (fixtures, cross-checks)
 crates/cs2analyzer-wasm  wasm-bindgen wrapper (no mimalloc)
-apps/web                 Vite + React viewer (dev: http://localhost:5173/)
-apps/layouts             Callout overlay editor, not deployed (dev: http://localhost:5174/)
-apps/shared              Cross-app TS, CSS, eslint/prettier config (`@shared/*` alias)
+apps/web                 Vite + React viewer (dev: http://localhost:5173/; layouts editor: /layouts via Settings)
 scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored; never commit)
 ```
@@ -48,16 +46,11 @@ cd apps/web
 npm install          # first time
 npm run dev
 npm run format:check && npm run lint && npm run typecheck && npm test
-
-# Callout layouts (local editor, not deployed)
-cd apps/layouts
-npm install          # first time
-npm run dev          # http://localhost:5174/
-npm run format:check && npm run lint && npm run typecheck && npm test
-# Save to folder writes apps/web/public/layouts/{map}.json (local Vite; layouts is not deployed)
+# DEV: Settings → Layouts editor (http://localhost:5173/layouts)
+# Save to folder writes public/layouts/{map}.json via Vite middleware (not in production)
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same Rust, web, and layouts checks, plus `npm run build` for the viewer. Push to `master`/`main` also FTPs `apps/web/dist` to OVH: upload to `/cs2analyzer_staging/`, then rename over `/cs2analyzer/` (Vite `base` is `/` because that folder is the subdomain document root). Never wipe the live folder first.
+CI (`.github/workflows/ci.yml`) runs Rust and web checks (including the layouts editor tests), plus `npm run build` for the production viewer. Push to `master`/`main` also FTPs `apps/web/dist` to OVH: upload to `/cs2analyzer_staging/`, then rename over `/cs2analyzer/` (Vite `base` is `/` because that folder is the subdomain document root). Never wipe the live folder first.
 
 ## Where to change what
 
@@ -76,7 +69,7 @@ Web `src/` is view vs logic: `components/` (TSX) and `lib/<feature>/` (hooks + p
 | Playhead, hotkeys, round scrubber | `lib/playback/`, `components/playback/` |
 | Parse worker / drop | `lib/parse/` |
 | Executes, clutches, util, round story | `lib/match/` (site labels from layout JSON in `sites.ts`; empty layout → hide positions), matching tab in `components/sidebar/` |
-| Map callout overlays | `apps/layouts` editor; JSON in `apps/web/public/layouts/`; `lib/radar/layouts.ts` |
+| Map callout overlays | DEV layouts editor (`components/layouts/`, Settings → Layouts editor); JSON in `public/layouts/`; `lib/radar/layouts.ts` / `lib/layout/` |
 
 Tick buffers are structure-of-arrays: index = `frame * playerCount + player`. Flags: `PRESENT`, `ALIVE`, `DUCKED`, `SCOPED`, `CT` (`1<<4`). Max 16 player slots (`MAX_PLAYERS`).
 
@@ -121,14 +114,12 @@ Do not commit until the checks for **every touched app** pass. If a step fails, 
 | Area touched | Required commands (from repo root or app dir) |
 |---|---|
 | `apps/web/**` | `cd apps/web && npm run format:check && npm run lint && npm run typecheck && npm test` |
-| `apps/layouts/**` | `cd apps/layouts && npm run format:check && npm run lint && npm run typecheck && npm test` |
-| `apps/shared/**` | Run **both** web and layouts rows above (shared config affects both) |
 | `crates/**` | `cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` |
 | WASM / parser types | Above Rust checks **and** `./scripts/build-wasm.sh`, then web row |
 
 **Refactor / behavior-preserving commits** (`todos/WEB-REFACTOR.md`): same commands; diff must not change stats formulas, parse output, or replay timing unless that commit’s goal says otherwise. Add or extend unit tests when extracting pure logic; run the test file you touched.
 
-**Mechanical style commits** (eslint `--fix` braces, prettier): web + layouts lint/format/typecheck/test must still pass; no new test required unless you moved code.
+**Mechanical style commits** (eslint `--fix` braces, prettier): web lint/format/typecheck/test must still pass; no new test required unless you moved code.
 
 **After commit:** state which commands ran and their result in the handoff (e.g. “web: 285 tests passed”).
 

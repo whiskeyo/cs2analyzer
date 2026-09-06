@@ -1,5 +1,5 @@
 /**
- * Shared ESLint rules for apps/web and apps/layouts.
+ * Shared ESLint rules for the web app.
  * Import into each app's eslint.config.js flat config.
  */
 

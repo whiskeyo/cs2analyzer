@@ -14,7 +14,7 @@ The viewer (`apps/web`, http://localhost:5173/) is the product:
 - Sidebar: Review, Notes (drawings, clocks, bookmarks), Action (executes / round story), Util, Clutches, Rounds, Weapons
 - Callout names on Action/Util come from per-map layout JSON. Empty layout → positions stay hidden
 
-A second local app (`apps/layouts`, http://localhost:5174/) draws those callout polygons and writes `apps/web/public/layouts/{map}.json`. It is not deployed.
+In development, Settings → **Layouts editor** (`http://localhost:5173/layouts`) draws those callout polygons and writes `apps/web/public/layouts/{map}.json`. The editor is not included in production builds.
 
 ## Architecture
 
@@ -36,8 +36,7 @@ A second local app (`apps/layouts`, http://localhost:5174/) draws those callout 
 crates/cs2analyzer       Parse, assemble Match, stats, radar math
 crates/cs2analyzer-cli   `cs2analyzer` binary: dump a demo as JSON
 crates/cs2analyzer-wasm  wasm-bindgen wrapper
-apps/web                 Vite + React viewer
-apps/layouts             Callout overlay editor (local only)
+apps/web                 Vite + React viewer (+ DEV layouts editor at /layouts)
 scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored)
 ```
@@ -55,7 +54,7 @@ Web `src/` is view vs logic: `components/` (TSX) and `lib/<feature>/` (hooks + p
 | Playhead, hotkeys, round strip | `lib/playback/`, `components/playback/` |
 | Parse worker / drop | `lib/parse/` |
 | Executes, clutches, util | `lib/match/`, matching tab in `components/sidebar/` |
-| Callout overlays | `apps/layouts`; JSON in `apps/web/public/layouts/` |
+| Callout overlays | DEV Settings → Layouts editor; JSON in `apps/web/public/layouts/` |
 
 More domain rules (knife rounds, ADR caps, trades, OT score) are in `AGENTS.md`.
 
@@ -87,15 +86,10 @@ cargo run --release -p cs2analyzer-cli -- .demos/your.dem -s replay  # everythin
 cd apps/web
 npm run dev                                          # http://localhost:5173/
 npm run format:check && npm run lint && npm run typecheck && npm test
-
-# Callout editor (not deployed)
-cd apps/layouts
-npm install                                          # first time
-npm run dev                                          # http://localhost:5174/
-# Save to folder writes apps/web/public/layouts/{map}.json
+# DEV layouts editor: Settings → Layouts editor (http://localhost:5173/layouts)
 ```
 
-CI runs the same Rust, web, and layouts checks, plus a production build of the viewer.
+CI runs Rust and web checks (including layouts editor tests), then a production build of the viewer (editor excluded).
 
 Keep changes small and one concern per commit (parser vs UI vs stats). When a stats formula changes, update both Rust and `lib/stats/stats.ts` and add a test on the side you touched. Named CS2/FACEIT values belong in `apps/web/src/lib/shared/constants.ts` and `crates/cs2analyzer/src/constants.rs`, not magic numbers.
 
