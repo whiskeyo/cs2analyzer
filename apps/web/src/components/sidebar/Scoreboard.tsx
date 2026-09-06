@@ -146,20 +146,24 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
             <dd>
               {sel.enemies_flashed} ({sel.flash_time.toFixed(1)}s)
             </dd>
-            <dt>Flash assists / HE kills</dt>
+            <dt>Flash assists / utility damage per round</dt>
             <dd>
-              {sel.flash_assists} / {sel.he_kills}
+              {sel.flash_assists} /{" "}
+              {sel.rounds > 0 ? (sel.utility_damage / sel.rounds).toFixed(1) : "0.0"}
             </dd>
             <dt>Nades / survived</dt>
             <dd>
               {sel.nades} / {sel.survived}
             </dd>
-            <dt>Clutches (W/A)</dt>
+            <dt>1v1 / 1v2 / 1v3 / 1v4 / 1v5 (W/A)</dt>
             <dd>
-              {sel.clutch_wins}/{sel.clutch_attempts}
-              {sel.clutch_attempts > 0
-                ? ` · 1v1 ${sel.clutch_1v1} · 1v2 ${sel.clutch_1v2} · 1v3+ ${sel.clutch_1v3}`
-                : ""}
+              {[
+                `${sel.clutch_1v1}/${sel.clutch_1v1_attempts}`,
+                `${sel.clutch_1v2}/${sel.clutch_1v2_attempts}`,
+                `${sel.clutch_1v3}/${sel.clutch_1v3_attempts}`,
+                `${sel.clutch_1v4}/${sel.clutch_1v4_attempts}`,
+                `${sel.clutch_1v5}/${sel.clutch_1v5_attempts}`,
+              ].join(" / ")}
             </dd>
             <dt>2K / 3K / 4K / Ace</dt>
             <dd>

@@ -57,8 +57,8 @@ export function savedPlayerSnapshots(replay: Replay, tick: number): SavedPlayerS
       start_side: p?.start_side ?? "CT",
       kills: s.kills,
       deaths: s.deaths,
-      adr: Math.round(s.adr),
-      kast: Math.round(s.kast),
+      adr: s.adr,
+      kast: s.kast,
       rating: Math.round(s.rating * 100) / 100,
     };
   });

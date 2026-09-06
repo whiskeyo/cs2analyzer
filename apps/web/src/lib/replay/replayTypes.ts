@@ -193,6 +193,13 @@ export interface PlayerStats {
   clutch_1v1: number;
   clutch_1v2: number;
   clutch_1v3: number;
+  clutch_1v4: number;
+  clutch_1v5: number;
+  clutch_1v1_attempts: number;
+  clutch_1v2_attempts: number;
+  clutch_1v3_attempts: number;
+  clutch_1v4_attempts: number;
+  clutch_1v5_attempts: number;
   damage_taken: number;
 }
 

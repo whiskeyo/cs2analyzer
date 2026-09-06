@@ -178,14 +178,16 @@ describe("computeStats", () => {
     expect(stats[0].multi_kills_2).toBe(1);
   });
 
-  it("tracks clutch wins for 1v1 and 1v3 situations", () => {
+  it("tracks clutch wins and attempts for 1v1 and 1v3 situations", () => {
     const m1 = makeReplay({
       players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
       rounds: [makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64 })],
       ticks: makeFreezeTicks(2, 1, 64),
       kills: [],
     });
-    expect(computeStats(m1, 640)[0].clutch_1v1).toBe(1);
+    const s1 = computeStats(m1, 640)[0];
+    expect(s1.clutch_1v1).toBe(1);
+    expect(s1.clutch_1v1_attempts).toBe(1);
 
     const m3 = makeReplay({
       players: [
@@ -198,7 +200,23 @@ describe("computeStats", () => {
       ticks: makeFreezeTicks(4, 1, 64),
       kills: [],
     });
-    expect(computeStats(m3, 640)[0].clutch_1v3).toBe(1);
+    const s3 = computeStats(m3, 640)[0];
+    expect(s3.clutch_1v3).toBe(1);
+    expect(s3.clutch_1v3_attempts).toBe(1);
+  });
+
+  it("counts a lost 1v2 as an attempt without a win", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "T", "C")],
+      rounds: [makeRound({ number: 1, winner: "T", start_tick: 0, freeze_end_tick: 64 })],
+      ticks: makeFreezeTicks(3, 1, 64),
+      kills: [makeKill(200, 1, 0)],
+    });
+    const s = computeStats(m, 640)[0];
+    expect(s.clutch_1v2).toBe(0);
+    expect(s.clutch_1v2_attempts).toBe(1);
+    expect(s.clutch_wins).toBe(0);
+    expect(s.clutch_attempts).toBe(1);
   });
 
   it("reuses cached stats for the same replay and tick", () => {

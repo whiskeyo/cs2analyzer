@@ -69,6 +69,13 @@ function empty(player: number): PlayerStats {
     clutch_1v1: 0,
     clutch_1v2: 0,
     clutch_1v3: 0,
+    clutch_1v4: 0,
+    clutch_1v5: 0,
+    clutch_1v1_attempts: 0,
+    clutch_1v2_attempts: 0,
+    clutch_1v3_attempts: 0,
+    clutch_1v4_attempts: 0,
+    clutch_1v5_attempts: 0,
     damage_taken: 0,
   };
 }
@@ -453,15 +460,25 @@ function applyClutches(
       return;
     }
     stats[c.player].clutch_attempts += 1;
-    if (c.vs === 1) {
-      stats[c.player].clutch_1v1 += won ? 1 : 0;
-    } else if (c.vs === 2) {
-      stats[c.player].clutch_1v2 += won ? 1 : 0;
-    } else if (c.vs >= 3 && won) {
-      stats[c.player].clutch_1v3 += 1;
-    }
     if (won) {
       stats[c.player].clutch_wins += 1;
+    }
+    const vs = Math.min(Math.max(c.vs, 1), 5);
+    if (vs === 1) {
+      stats[c.player].clutch_1v1_attempts += 1;
+      if (won) stats[c.player].clutch_1v1 += 1;
+    } else if (vs === 2) {
+      stats[c.player].clutch_1v2_attempts += 1;
+      if (won) stats[c.player].clutch_1v2 += 1;
+    } else if (vs === 3) {
+      stats[c.player].clutch_1v3_attempts += 1;
+      if (won) stats[c.player].clutch_1v3 += 1;
+    } else if (vs === 4) {
+      stats[c.player].clutch_1v4_attempts += 1;
+      if (won) stats[c.player].clutch_1v4 += 1;
+    } else {
+      stats[c.player].clutch_1v5_attempts += 1;
+      if (won) stats[c.player].clutch_1v5 += 1;
     }
   };
 

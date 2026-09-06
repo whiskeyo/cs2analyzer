@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ImportNotesButton } from "@/components/sidebar/ImportNotesButton";
 import { downloadBlob } from "@/lib/shared/download";
 import { publicUrl } from "@/lib/shared/publicUrl";
-import { computeStats, exportStatsCsv } from "@/lib/stats/stats";
+import { computeStats, exportStatsCsv, matchEndTick } from "@/lib/stats/stats";
 import { useApp } from "@/lib/state/appState";
 import { isAggregatedView } from "@/lib/parse/seriesMode";
 import { prettyMap } from "@/lib/weapons/weapons";
@@ -10,8 +10,8 @@ import type { Replay } from "@/lib/replay/replayTypes";
 
 const REMOVE_NOTES_CONFIRM = "yes, remove notes";
 
-function downloadCsv(replay: Replay, fileName: string, tick: number) {
-  const csv = exportStatsCsv(replay, computeStats(replay, tick), tick);
+function downloadCsv(replay: Replay, fileName: string) {
+  const csv = exportStatsCsv(replay, computeStats(replay, matchEndTick(replay)));
   const base = fileName.replace(/\.dem$/i, "") || "demo";
   downloadBlob(`${base}-stats.csv`, "text/csv", csv);
 }
@@ -29,7 +29,7 @@ function GearIcon() {
 
 /** Shared top bar for splash and viewer. */
 export function Header() {
-  const { session, playback, review, habits, onFiles } = useApp();
+  const { session, review, habits, onFiles } = useApp();
   const replay = session.replay;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
   const canExportNotes = replay != null || review.saved.length > 0;
@@ -114,7 +114,7 @@ export function Header() {
               className="ghost"
               disabled={aggregated}
               title={aggregated ? "Export CSV is per-demo; switch off Aggregated" : undefined}
-              onClick={() => downloadCsv(replay, session.fileName, playback.tick)}
+              onClick={() => downloadCsv(replay, session.fileName)}
             >
               Export CSV
             </button>

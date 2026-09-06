@@ -55,6 +55,12 @@ describe("Scoreboard", () => {
     expect(within(detail as HTMLElement).getByText("1 / 0 / 0 (1.00)")).toBeInTheDocument();
     // Alice won the only opening duel of the round.
     expect(within(detail as HTMLElement).getByText(/1 \/ 0 · 100% entry/)).toBeInTheDocument();
+    expect(
+      within(detail as HTMLElement).getByText("Flash assists / utility damage per round"),
+    ).toBeInTheDocument();
+    expect(
+      within(detail as HTMLElement).getByText("1v1 / 1v2 / 1v3 / 1v4 / 1v5 (W/A)"),
+    ).toBeInTheDocument();
   });
 
   it("selects a player when their row is clicked", async () => {
