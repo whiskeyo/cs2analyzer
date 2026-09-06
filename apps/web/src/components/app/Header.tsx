@@ -179,16 +179,16 @@ export function Header() {
                 >
                   Remove notes
                 </button>
-                {import.meta.env.DEV ? (
+                {import.meta.env.DEV && !onLayouts ? (
                   <button
                     type="button"
                     className="ghost"
                     onClick={() => {
                       setSettingsOpen(false);
-                      navigate(onLayouts ? "/" : "/layouts");
+                      navigate("/layouts");
                     }}
                   >
-                    {onLayouts ? "Back to analyzer" : "Layouts editor"}
+                    Layouts editor
                   </button>
                 ) : null}
               </div>

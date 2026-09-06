@@ -189,7 +189,7 @@ describe("Header", () => {
     }
   });
 
-  it("shows Callout Layout Editor title and a [dev] badge on /layouts", () => {
+  it("shows Callout Layout Editor title and a [dev] badge on /layouts", async () => {
     if (!import.meta.env.DEV) return;
     window.history.replaceState({}, "", "/layouts");
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
@@ -197,5 +197,8 @@ describe("Header", () => {
     expect(screen.getByText("Callout Layout Editor")).toBeInTheDocument();
     expect(screen.getByText("[pre-release testing]")).toBeInTheDocument();
     expect(screen.getByText("[dev]")).toBeInTheDocument();
+    await openSettings();
+    expect(screen.queryByRole("button", { name: "Layouts editor" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back to analyzer" })).not.toBeInTheDocument();
   });
 });
