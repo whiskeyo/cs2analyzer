@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Local workflow: toolchain, WASM, CI checks, tests, and both Vite apps.
+# Local workflow: toolchain, WASM, CI checks, tests, and the Vite app.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BINDGEN_VERSION="0.2.127"
 WEB="$ROOT/apps/web"
-LAYOUTS="$ROOT/apps/layouts"
+PROD_PORT="${PROD_PORT:-4173}"
 
 export PATH="${HOME}/.cargo/bin:${HOME}/.local/bin:${PATH}"
 if [[ -f "${HOME}/.cargo/env" ]]; then
@@ -14,16 +14,18 @@ if [[ -f "${HOME}/.cargo/env" ]]; then
 fi
 
 usage() {
-  cat <<'EOF'
+  cat <<EOF
 Usage: scripts/run.sh [flags]
 
   --prepare      Install Rust toolchain, wasm-bindgen-cli, and npm deps
   --build-wasm   Compile WASM and emit JS bindings into apps/web/src/parser/
   --check        rustfmt, clippy, prettier, eslint, typecheck
-  --test         cargo test and both Vite apps' vitest suites
-  --dev          Start viewer (http://localhost:5173/) and layouts (http://localhost:5174/)
+  --test         cargo test and the web vitest suite
+  --dev          Start the Vite dev server (http://localhost:5173/; layouts at /layouts)
+  --prod         Build the production bundle and preview it (http://localhost:${PROD_PORT}/)
 
-Flags can be combined. They run in the order above; --dev is last and blocks.
+Flags can be combined. They run in the order above; --dev / --prod are last and block.
+Do not pass both --dev and --prod.
 EOF
 }
 
@@ -119,8 +121,6 @@ cmd_prepare() {
   log "node $(node -v), npm $(npm -v)"
   log "npm install (web)"
   npm_in "$WEB" install
-  log "npm install (layouts)"
-  npm_in "$LAYOUTS" install
   log "Prepare done"
 }
 
@@ -140,10 +140,6 @@ cmd_check() {
   npm_in "$WEB" run format:check
   npm_in "$WEB" run lint
   npm_in "$WEB" run typecheck
-  log "layouts format / lint / typecheck"
-  npm_in "$LAYOUTS" run format:check
-  npm_in "$LAYOUTS" run lint
-  npm_in "$LAYOUTS" run typecheck
   log "Checks passed"
 }
 
@@ -154,23 +150,22 @@ cmd_test() {
   cargo test --workspace --manifest-path "$ROOT/Cargo.toml"
   log "web tests"
   npm_in "$WEB" test
-  log "layouts tests"
-  npm_in "$LAYOUTS" test
   log "Tests passed"
 }
 
 cmd_dev() {
   ensure_node
   log "viewer  http://localhost:5173/"
-  log "layouts http://localhost:5174/"
-  (cd "$WEB" && npm run dev) &
-  local web_pid
-  web_pid=$!
-  (cd "$LAYOUTS" && npm run dev) &
-  local layouts_pid
-  layouts_pid=$!
-  trap "kill $web_pid $layouts_pid 2>/dev/null || true" EXIT INT TERM
-  wait "$web_pid" "$layouts_pid"
+  log "layouts http://localhost:5173/layouts (DEV Settings → Layouts editor)"
+  (cd "$WEB" && npm run dev)
+}
+
+cmd_prod() {
+  ensure_node
+  log "web production build"
+  npm_in "$WEB" run build
+  log "preview http://localhost:${PROD_PORT}/ (production bundle; no layouts editor)"
+  (cd "$WEB" && npm run preview -- --host --port "$PROD_PORT")
 }
 
 PREPARE=0
@@ -178,6 +173,7 @@ BUILD_WASM=0
 CHECK=0
 TEST=0
 DEV=0
+PROD=0
 
 if [[ $# -eq 0 ]]; then
   usage
@@ -191,6 +187,7 @@ for arg in "$@"; do
     --check) CHECK=1 ;;
     --test) TEST=1 ;;
     --dev) DEV=1 ;;
+    --prod) PROD=1 ;;
     -h | --help) usage; exit 0 ;;
     *)
       echo "unknown flag: $arg" >&2
@@ -200,8 +197,13 @@ for arg in "$@"; do
   esac
 done
 
+if [[ "$DEV" -eq 1 && "$PROD" -eq 1 ]]; then
+  die "pass either --dev or --prod, not both"
+fi
+
 [[ "$PREPARE" -eq 1 ]] && cmd_prepare
 [[ "$BUILD_WASM" -eq 1 ]] && cmd_build_wasm
 [[ "$CHECK" -eq 1 ]] && cmd_check
 [[ "$TEST" -eq 1 ]] && cmd_test
 [[ "$DEV" -eq 1 ]] && cmd_dev
+[[ "$PROD" -eq 1 ]] && cmd_prod
