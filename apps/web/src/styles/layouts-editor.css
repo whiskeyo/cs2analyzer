@@ -12,44 +12,14 @@
   padding: 2rem;
 }
 
-.layouts-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.55rem 1rem;
-  background: #10151b;
-  border-bottom: 1px solid #1e2732;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-.brand-mark {
-  display: block;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-}
-.layouts-top h1 {
-  font-size: 1rem;
-  margin: 0;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.layouts-top label {
+.panel-map {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   font-size: 0.8rem;
   color: #8b98a5;
-  margin-left: auto;
 }
-.layouts-top select,
+.panel-map select,
 .panel button:not(.callout-cluster-fold):not(.callout-cluster-nudge),
 .panel input:not([type="checkbox"]),
 .panel textarea,
@@ -61,6 +31,10 @@
   padding: 0.28rem 0.5rem;
   font: inherit;
   font-size: 0.8rem;
+}
+.panel-map select {
+  flex: 1;
+  min-width: 0;
 }
 .panel button {
   cursor: pointer;

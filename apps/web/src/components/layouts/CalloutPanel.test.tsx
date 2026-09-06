@@ -14,6 +14,9 @@ function props(overrides: Partial<Parameters<typeof CalloutPanel>[0]> = {}) {
   const layout = layoutWith([poly("a", "Palace"), poly("b", "Tetris")]);
   return {
     layout,
+    mapIds: ["de_dust2", "de_mirage"],
+    mapId: "de_mirage",
+    onMapChange: vi.fn(),
     selectedIds: ["a"],
     jsonText: formatLayout(layout),
     jsonError: null,
@@ -40,6 +43,9 @@ describe("CalloutPanel", () => {
   it("saves, downloads, and applies JSON", async () => {
     const p = props();
     render(<CalloutPanel {...p} />);
+    expect(screen.getByRole("combobox", { name: "Map" })).toHaveValue("de_mirage");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Map" }), "de_dust2");
+    expect(p.onMapChange).toHaveBeenCalledWith("de_dust2");
     await userEvent.click(screen.getByRole("button", { name: "Save to folder" }));
     expect(p.onSave).toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Download" }));

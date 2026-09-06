@@ -72,6 +72,7 @@ async function openSettings() {
 describe("Header", () => {
   beforeEach(() => {
     vi.mocked(useApp).mockReset();
+    window.history.replaceState({}, "", "/");
   });
 
   it("shows brand and settings on the splash", async () => {
@@ -186,5 +187,15 @@ describe("Header", () => {
     } else {
       expect(screen.queryByRole("button", { name: "Layouts editor" })).not.toBeInTheDocument();
     }
+  });
+
+  it("shows Callout Layout Editor title and a [dev] badge on /layouts", () => {
+    if (!import.meta.env.DEV) return;
+    window.history.replaceState({}, "", "/layouts");
+    vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
+    render(<Header />);
+    expect(screen.getByText("Callout Layout Editor")).toBeInTheDocument();
+    expect(screen.getByText("[pre-release testing]")).toBeInTheDocument();
+    expect(screen.getByText("[dev]")).toBeInTheDocument();
   });
 });

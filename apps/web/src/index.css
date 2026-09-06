@@ -379,7 +379,8 @@ code {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.pre-release {
+.pre-release,
+.dev-badge {
   position: relative;
   flex-shrink: 0;
   display: inline-flex;
@@ -395,6 +396,12 @@ code {
   text-transform: lowercase;
   line-height: 1.2;
   cursor: help;
+}
+.dev-badge {
+  border-color: #8a3a3a;
+  background: #1c1214;
+  color: #f0b4b4;
+  cursor: default;
 }
 .pre-release:hover,
 .pre-release:focus-visible {

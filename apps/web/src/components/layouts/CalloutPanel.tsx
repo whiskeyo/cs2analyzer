@@ -4,6 +4,9 @@ import { CalloutSelected } from "@/components/layouts/CalloutSelected";
 
 interface Props {
   layout: MapLayout;
+  mapIds: string[];
+  mapId: string;
+  onMapChange: (mapId: string) => void;
   selectedIds: string[];
   jsonText: string;
   jsonError: string | null;
@@ -26,6 +29,9 @@ interface Props {
 
 export function CalloutPanel({
   layout,
+  mapIds,
+  mapId,
+  onMapChange,
   selectedIds,
   jsonText,
   jsonError,
@@ -54,6 +60,16 @@ export function CalloutPanel({
 
   return (
     <aside className="panel">
+      <label className="panel-map">
+        Map
+        <select aria-label="Map" value={mapId} onChange={(e) => onMapChange(e.target.value)}>
+          {mapIds.map((id) => (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="panel-actions">
         <button type="button" className="primary" disabled={!dirty} onClick={onSave}>
           Save to folder

@@ -286,22 +286,6 @@ export function LayoutsApp() {
 
   return (
     <div className="layouts-app">
-      <header className="layouts-top">
-        <div className="brand">
-          <img className="brand-mark" src="/favicon.svg" width={28} height={28} alt="" />
-          <h1>CS2 Analyzer - callout layout editor</h1>
-        </div>
-        <label>
-          Map
-          <select value={mapId} onChange={(e) => changeMap(e.target.value)}>
-            {mapIds.map((id) => (
-              <option key={id} value={id}>
-                {id}
-              </option>
-            ))}
-          </select>
-        </label>
-      </header>
       <div className="main">
         <div className="radar-col">
           <LayoutToolbar
@@ -337,6 +321,9 @@ export function LayoutsApp() {
         </div>
         <CalloutPanel
           layout={layout}
+          mapIds={mapIds}
+          mapId={mapId}
+          onMapChange={changeMap}
           selectedIds={selectedIds}
           jsonText={jsonText}
           jsonError={jsonError}

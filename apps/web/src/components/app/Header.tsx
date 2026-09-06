@@ -103,9 +103,16 @@ export function Header() {
               after newer versions.
             </span>
           </span>
+          {onLayouts ? (
+            <span className="dev-badge" title="Development-only tool; not shipped in production">
+              [dev]
+            </span>
+          ) : null}
         </div>
         <div className="top-center">
-          {replay ? (
+          {onLayouts ? (
+            <span className="file-meta">Callout Layout Editor</span>
+          ) : replay ? (
             <span className="file-meta">
               {prettyMap(replay.header.map_name)}
               {session.fileName ? ` · ${session.fileName}` : ""} · {replay.kills.length} kills ·{" "}

@@ -62,7 +62,7 @@ describe("LayoutsApp", () => {
   it("picks another map when de_mirage is missing", async () => {
     vi.mocked(loadCalibrations).mockResolvedValue({ de_dust2: dust });
     render(<LayoutsApp />);
-    expect(await screen.findByRole("combobox")).toHaveValue("de_dust2");
+    expect(await screen.findByRole("combobox", { name: "Map" })).toHaveValue("de_dust2");
   });
 
   it("shows a boot error when calibrations fail", async () => {
@@ -79,7 +79,7 @@ describe("LayoutsApp", () => {
 
   it("loads the editor and switches tools", async () => {
     render(<LayoutsApp />);
-    expect(await screen.findByText("CS2 Analyzer - callout layout editor")).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Map" })).toHaveValue("de_mirage");
     await userEvent.click(screen.getByRole("button", { name: "Select (5)" }));
     expect(screen.getByRole("button", { name: "Select (5)" })).toHaveClass("on");
     await userEvent.click(screen.getByRole("button", { name: "Lower" }));
