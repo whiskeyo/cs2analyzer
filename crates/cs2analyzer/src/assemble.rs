@@ -65,6 +65,11 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
             weapon: k.weapon.clone(),
             headshot: k.headshot,
             assisted_flash: k.assisted_flash,
+            wallbang: k.wallbang,
+            noscope: k.noscope,
+            through_smoke: k.through_smoke,
+            attacker_blind: k.attacker_blind,
+            attacker_airborne: k.attacker_airborne,
             x: k.x,
             y: k.y,
             z: k.z,
@@ -602,7 +607,7 @@ fn fill_missing_bomb_positions(events: &mut [BombEvent], ticks: &TickBuffer) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::observer::{new_flash_duration, Collector, FireSpan};
+    use crate::observer::{new_flash_duration, Collector, FireSpan, RawKill};
     use crate::ParseOptions;
 
     fn molly(detonate: u32, x: f32, y: f32) -> GrenadeThrow {
@@ -689,6 +694,35 @@ mod tests {
         attach_molotov_fires(&c, &mut grenades);
         assert_eq!(grenades[0].fires.len(), 1);
         assert_eq!(grenades[0].end_tick, 400);
+    }
+
+    #[test]
+    fn assemble_copies_kill_modifier_flags() {
+        let mut c = Collector::new(ParseOptions::default());
+        c.kills.push(RawKill {
+            tick: 100,
+            attacker: None,
+            victim: None,
+            assister: None,
+            weapon: "awp".into(),
+            headshot: false,
+            assisted_flash: false,
+            wallbang: true,
+            noscope: true,
+            through_smoke: true,
+            attacker_blind: true,
+            attacker_airborne: true,
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+        });
+        let m = assemble(&mut c, 200, 3.0);
+        let k = &m.kills[0];
+        assert!(k.wallbang);
+        assert!(k.noscope);
+        assert!(k.through_smoke);
+        assert!(k.attacker_blind);
+        assert!(k.attacker_airborne);
     }
 
     #[test]

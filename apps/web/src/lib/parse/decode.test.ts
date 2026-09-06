@@ -22,6 +22,11 @@ const kill: Kill = {
   weapon: "ak47",
   headshot: true,
   assisted_flash: false,
+  wallbang: false,
+  noscope: false,
+  through_smoke: false,
+  attacker_blind: false,
+  attacker_airborne: false,
   x: 1,
   y: 2,
   z: 3,
@@ -71,6 +76,12 @@ describe("decodeList", () => {
   it("points at the element it checked", () => {
     expect(() => decodeList<Kill>("kills", `[${without(kill, "headshot")}]`)).toThrow(
       /"kills\[0\]".*"headshot".*expected boolean/s,
+    );
+  });
+
+  it("requires kill modifier flags from the parser", () => {
+    expect(() => decodeList<Kill>("kills", `[${without(kill, "wallbang")}]`)).toThrow(
+      /"kills\[0\]".*"wallbang".*expected boolean/s,
     );
   });
 

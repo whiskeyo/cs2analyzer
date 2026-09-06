@@ -105,6 +105,11 @@ export interface Kill {
   weapon: string;
   headshot: boolean;
   assisted_flash: boolean;
+  wallbang: boolean;
+  noscope: boolean;
+  through_smoke: boolean;
+  attacker_blind: boolean;
+  attacker_airborne: boolean;
   x: number;
   y: number;
   z: number;

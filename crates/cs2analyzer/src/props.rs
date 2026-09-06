@@ -213,6 +213,11 @@ pub(crate) fn ev_bool(ge: &GameEvent<'_>, key: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// `player_death.penetrated` is a wall-count, not a bool. Missing or 0 = no wallbang.
+pub(crate) fn kill_wallbang(penetrated: Option<i32>) -> bool {
+    penetrated.unwrap_or(0) != 0
+}
+
 pub(crate) fn controller_name(ctrl: &Entity) -> String {
     match ctrl.get_property("m_iszPlayerName") {
         Ok(FieldValue::String(s)) => s.clone(),
@@ -294,6 +299,14 @@ pub(crate) fn side_of(team: i32) -> Option<Side> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kill_wallbang_is_nonzero_penetrated() {
+        assert!(!kill_wallbang(None));
+        assert!(!kill_wallbang(Some(0)));
+        assert!(kill_wallbang(Some(1)));
+        assert!(kill_wallbang(Some(3)));
+    }
 
     #[test]
     fn molotov_projectile_uses_incendiary_flag() {
