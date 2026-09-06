@@ -131,6 +131,14 @@ impl ParsedMatch {
     pub fn active(&self) -> Uint8Array {
         typed_view_u8(&self.inner.ticks.active)
     }
+
+    pub fn clip(&self) -> Uint8Array {
+        typed_view_u8(&self.inner.ticks.clip)
+    }
+
+    pub fn reserve(&self) -> Uint16Array {
+        typed_view_u16(&self.inner.ticks.reserve)
+    }
 }
 
 /// Parse a CS2 demo. `progress` is called as `progress(currentTick, totalTicks)`.

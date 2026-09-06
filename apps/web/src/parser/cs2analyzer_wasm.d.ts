@@ -17,6 +17,7 @@ export class ParsedMatch {
     armor(): Uint8Array;
     blindsJson(): string;
     bombEventsJson(): string;
+    clip(): Uint8Array;
     equip(): Uint16Array;
     flags(): Uint8Array;
     frameCount(): number;
@@ -30,6 +31,7 @@ export class ParsedMatch {
     playerCount(): number;
     playersJson(): string;
     primary(): Uint8Array;
+    reserve(): Uint16Array;
     roundsJson(): string;
     secondary(): Uint8Array;
     shotsJson(): string;
@@ -57,6 +59,7 @@ export interface InitOutput {
     readonly parsedmatch_armor: (a: number) => number;
     readonly parsedmatch_blindsJson: (a: number, b: number) => void;
     readonly parsedmatch_bombEventsJson: (a: number, b: number) => void;
+    readonly parsedmatch_clip: (a: number) => number;
     readonly parsedmatch_equip: (a: number) => number;
     readonly parsedmatch_flags: (a: number) => number;
     readonly parsedmatch_frameCount: (a: number) => number;
@@ -70,6 +73,7 @@ export interface InitOutput {
     readonly parsedmatch_playerCount: (a: number) => number;
     readonly parsedmatch_playersJson: (a: number, b: number) => void;
     readonly parsedmatch_primary: (a: number) => number;
+    readonly parsedmatch_reserve: (a: number) => number;
     readonly parsedmatch_roundsJson: (a: number, b: number) => void;
     readonly parsedmatch_secondary: (a: number) => number;
     readonly parsedmatch_shotsJson: (a: number, b: number) => void;

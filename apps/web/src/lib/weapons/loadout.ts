@@ -65,6 +65,14 @@ export function gearIconHeldClass(name: string, active: number): string {
 }
 
 export const WID_KNIFE = WEAPON_BY_ID.indexOf("knife");
+const WID_TASER = WEAPON_BY_ID.indexOf("taser");
+const WID_GLOCK = WEAPON_BY_ID.indexOf("glock");
+const WID_NEGEV = WEAPON_BY_ID.indexOf("negev");
+
+/** Guns and Zeus have a mag; knife, C4, and nades do not. */
+export function weaponHasMagazine(id: number): boolean {
+  return id === WID_TASER || (id >= WID_GLOCK && id <= WID_NEGEV);
+}
 
 export function formatMoney(n: number): string {
   return `$${n.toLocaleString("en-US")}`;

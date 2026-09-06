@@ -268,6 +268,8 @@ describe("buildRadarFrame view", () => {
     wide.primary = new Uint8Array(8);
     wide.secondary = new Uint8Array(8);
     wide.active = new Uint8Array(8);
+    wide.clip = new Uint8Array(8);
+    wide.reserve = new Uint16Array(8);
     moving.ticks = wide;
 
     expect(frame(moving, 128, { trails: true }).trails).toHaveLength(4);

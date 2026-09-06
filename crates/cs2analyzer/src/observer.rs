@@ -1,7 +1,8 @@
 //! Streaming observer: walks the demo tick by tick and accumulates samples.
 
 use crate::inventory::{
-    armor_gear, collect_loadouts, controller_money, pawn_active_weapon, pawn_equip_value,
+    armor_gear, collect_loadouts, controller_money, pawn_active_ammo, pawn_active_weapon,
+    pawn_equip_value,
 };
 use crate::props::*;
 use crate::types::{BombKind, GrenadeKind, Side};
@@ -33,6 +34,8 @@ pub(crate) struct RawFramePlayer {
     pub primary: u8,
     pub secondary: u8,
     pub active: u8,
+    pub clip: u8,
+    pub reserve: u16,
 }
 
 pub(crate) struct RawFrame {
@@ -558,6 +561,7 @@ impl Collector {
                 secondary = inv.secondary;
             }
             let active = pawn_active_weapon(ctx, pawn);
+            let (clip, reserve) = pawn_active_ammo(ctx, pawn);
 
             players.push(RawFramePlayer {
                 steam_id: steam,
@@ -574,6 +578,8 @@ impl Collector {
                 primary,
                 secondary,
                 active,
+                clip,
+                reserve,
             });
         }
         self.frames.push(RawFrame { tick, players });

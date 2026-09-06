@@ -79,4 +79,14 @@ describe("SpectatorEconomy", () => {
     expect(screen.getByTitle("Knife")).toHaveClass("held");
     expect(screen.getByTitle("AK-47")).toHaveClass("stowed");
   });
+
+  it("shows clip and reserve for the held gun", () => {
+    const m = replay();
+    m.ticks.primary[2] = 23;
+    m.ticks.active[2] = 23;
+    m.ticks.clip[2] = 24;
+    m.ticks.reserve[2] = 90;
+    render(<SpectatorEconomy replay={m} tick={64} selected={null} onSelect={() => {}} />);
+    expect(screen.getByText("24/90")).toBeInTheDocument();
+  });
 });

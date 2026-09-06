@@ -17,6 +17,7 @@ describe("samplePlayer", () => {
     expect(a?.x).toBe(10);
     expect(a?.ct).toBe(true);
     expect(a?.active).toBe(23);
+    expect(a?.clip).toBe(0);
     expect(samplePlayer(m, 2, 80)).toBeNull();
     expect(samplePlayers(m, 80)).toHaveLength(2);
   });

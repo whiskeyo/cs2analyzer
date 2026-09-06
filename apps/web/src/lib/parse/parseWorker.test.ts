@@ -51,6 +51,8 @@ const wasmMocks = vi.hoisted(() => {
         primary: () => new Uint8Array(0),
         secondary: () => new Uint8Array(0),
         active: () => new Uint8Array(0),
+        clip: () => new Uint8Array(0),
+        reserve: () => new Uint16Array(0),
         free,
       };
     },
@@ -175,6 +177,8 @@ describe("parseWorker", () => {
           primary: () => new Uint8Array([7, 9]),
           secondary: () => new Uint8Array([1, 2]),
           active: () => new Uint8Array([7, 1]),
+          clip: () => new Uint8Array([30, 0]),
+          reserve: () => new Uint16Array([90, 0]),
           free: wasmMocks.free,
         } as unknown as ReturnType<typeof wasmMocks.parseDemo>;
       },
@@ -184,6 +188,6 @@ describe("parseWorker", () => {
     expect(done?.replay.ticks.frameCount).toBe(1);
     expect(done?.replay.ticks.x).toEqual(new Float32Array([1, 2]));
     const transfer = workerSelf.postMessage.mock.calls.find((call) => call[0].type === "done")?.[1];
-    expect(transfer?.transfer).toHaveLength(14);
+    expect(transfer?.transfer).toHaveLength(16);
   });
 });

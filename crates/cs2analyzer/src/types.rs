@@ -109,6 +109,10 @@ pub struct TickBuffer {
     pub secondary: Vec<u8>,
     #[serde(default)]
     pub active: Vec<u8>,
+    #[serde(default)]
+    pub clip: Vec<u8>,
+    #[serde(default)]
+    pub reserve: Vec<u16>,
 }
 
 impl TickBuffer {
@@ -139,6 +143,8 @@ impl TickBuffer {
             primary: self.primary.get(i).copied().unwrap_or(0),
             secondary: self.secondary.get(i).copied().unwrap_or(0),
             active: self.active.get(i).copied().unwrap_or(0),
+            clip: self.clip.get(i).copied().unwrap_or(0),
+            reserve: self.reserve.get(i).copied().unwrap_or(0),
         })
     }
 }
@@ -158,6 +164,8 @@ pub struct TickPlayer {
     pub primary: u8,
     pub secondary: u8,
     pub active: u8,
+    pub clip: u8,
+    pub reserve: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

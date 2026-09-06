@@ -46,6 +46,8 @@ export function makeTicks(playerCount = 0, frameCount = 0): TickBuffers {
     primary: new Uint8Array(n),
     secondary: new Uint8Array(n),
     active: new Uint8Array(n),
+    clip: new Uint8Array(n),
+    reserve: new Uint16Array(n),
   };
 }
 

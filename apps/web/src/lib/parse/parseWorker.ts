@@ -106,6 +106,8 @@ self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
         primary: copyU8(parsed.primary()),
         secondary: copyU8(parsed.secondary()),
         active: copyU8(parsed.active()),
+        clip: copyU8(parsed.clip()),
+        reserve: copyU16(parsed.reserve()),
       },
     };
     parsed.free();
@@ -134,6 +136,8 @@ self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
       replay.ticks.primary.buffer,
       replay.ticks.secondary.buffer,
       replay.ticks.active.buffer,
+      replay.ticks.clip.buffer,
+      replay.ticks.reserve.buffer,
     ];
     const msg: WorkerOut = { type: "done", replay, timings };
     self.postMessage(msg, { transfer });

@@ -2714,6 +2714,13 @@ button.link:hover:not(:disabled) {
 .spec-eco .wep-icon.stowed {
   opacity: 0.32;
 }
+.spec-ammo {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: #c5d0da;
+  font-weight: 600;
+}
 .spec-gear {
   min-height: 12px;
   flex-wrap: wrap;

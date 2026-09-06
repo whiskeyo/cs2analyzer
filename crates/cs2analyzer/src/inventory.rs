@@ -202,17 +202,48 @@ fn classify_entity(e: &Entity) -> Option<(u8, Slot)> {
 
 /// Weapon currently in hand (`m_hActiveWeapon`). 0 when missing or unresolved.
 pub fn pawn_active_weapon(ctx: &Context, pawn: &Entity) -> u8 {
+    match active_weapon_entity(ctx, pawn) {
+        Some(wep) => classify_entity(wep).map(|(wid, _)| wid).unwrap_or(0),
+        None => 0,
+    }
+}
+
+/// Mag and reserve on the held weapon. GOTV can report negatives; those become 0.
+pub fn pawn_active_ammo(ctx: &Context, pawn: &Entity) -> (u8, u16) {
+    let Some(wep) = active_weapon_entity(ctx, pawn) else {
+        return (0, 0);
+    };
+    (
+        clamp_ammo_clip(prop_i32(wep, "m_iClip1")),
+        clamp_ammo_reserve(prop_i32(wep, "m_pReserveAmmo.0000")),
+    )
+}
+
+pub fn clamp_ammo_clip(v: i32) -> u8 {
+    if v < 0 {
+        0
+    } else {
+        v.min(u8::MAX as i32) as u8
+    }
+}
+
+pub fn clamp_ammo_reserve(v: i32) -> u16 {
+    if v < 0 {
+        0
+    } else {
+        v.min(u16::MAX as i32) as u16
+    }
+}
+
+fn active_weapon_entity<'a>(ctx: &'a Context, pawn: &Entity) -> Option<&'a Entity> {
     let mut handle = prop_u32(pawn, "m_pWeaponServices.m_hActiveWeapon");
     if handle == 0 || handle == u32::MAX {
         handle = prop_u32(pawn, "m_hActiveWeapon");
     }
     if handle == 0 || handle == u32::MAX {
-        return 0;
+        return None;
     }
-    let Ok(wep) = ctx.entities().get_by_handle(handle as usize) else {
-        return 0;
-    };
-    classify_entity(wep).map(|(wid, _)| wid).unwrap_or(0)
+    ctx.entities().get_by_handle(handle as usize).ok()
 }
 
 fn item_def_index(e: &Entity) -> i32 {
@@ -394,5 +425,14 @@ mod tests {
         assert_eq!(gear & GEAR_MOLLY, 0);
         add_nade(&mut gear, WID_MOLLY);
         assert_eq!(gear, GEAR_INC | GEAR_MOLLY);
+    }
+
+    #[test]
+    fn ammo_clamps_gotv_negatives_to_zero() {
+        assert_eq!(clamp_ammo_clip(-1), 0);
+        assert_eq!(clamp_ammo_clip(-11), 0);
+        assert_eq!(clamp_ammo_clip(30), 30);
+        assert_eq!(clamp_ammo_reserve(-1), 0);
+        assert_eq!(clamp_ammo_reserve(90), 90);
     }
 }

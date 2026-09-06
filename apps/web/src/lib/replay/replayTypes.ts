@@ -240,6 +240,8 @@ export interface TickBuffers {
   primary: Uint8Array;
   secondary: Uint8Array;
   active: Uint8Array;
+  clip: Uint8Array;
+  reserve: Uint16Array;
 }
 
 export interface Replay {

@@ -24,6 +24,8 @@ describe("LoadoutIcons", () => {
       primary: 7,
       secondary: 1,
       active: 0,
+      clip: 0,
+      reserve: 0,
     };
     const { container } = render(<LoadoutIcons p={p} />);
     expect(container.querySelectorAll("img, svg").length).toBeGreaterThan(0);

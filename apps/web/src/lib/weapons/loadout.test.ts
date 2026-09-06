@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GEAR_INC, GEAR_MOLLY } from "@/lib/replay/replayTypes";
 import type { SampledPlayer } from "@/lib/replay/sample";
-import { gearItems, heldIconClass, gearIconHeldClass } from "./loadout";
+import { gearItems, gearIconHeldClass, heldIconClass, weaponHasMagazine } from "./loadout";
 
 function player(gear: number): SampledPlayer {
   return {
@@ -23,6 +23,8 @@ function player(gear: number): SampledPlayer {
     primary: 0,
     secondary: 0,
     active: 0,
+    clip: 0,
+    reserve: 0,
   };
 }
 
@@ -52,5 +54,15 @@ describe("gearIconHeldClass", () => {
     expect(gearIconHeldClass("flashbang", 1)).toBe("stowed");
     expect(gearIconHeldClass("helmet", 1)).toBe("stowed");
     expect(gearIconHeldClass("knife", 0)).toBe("");
+  });
+});
+
+describe("weaponHasMagazine", () => {
+  it("is true for guns and Zeus, false for knife and nades", () => {
+    expect(weaponHasMagazine(2)).toBe(true);
+    expect(weaponHasMagazine(23)).toBe(true);
+    expect(weaponHasMagazine(1)).toBe(false);
+    expect(weaponHasMagazine(3)).toBe(false);
+    expect(weaponHasMagazine(39)).toBe(false);
   });
 });

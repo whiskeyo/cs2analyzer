@@ -202,6 +202,8 @@ fn build_ticks(c: &Collector, player_count: usize, steam_to_idx: &HashMap<u64, u
         primary: vec![0; n],
         secondary: vec![0; n],
         active: vec![0; n],
+        clip: vec![0; n],
+        reserve: vec![0; n],
     };
     if player_count == 0 {
         buf.ticks = c.frames.iter().map(|f| f.tick).collect();
@@ -227,6 +229,8 @@ fn build_ticks(c: &Collector, player_count: usize, steam_to_idx: &HashMap<u64, u
             buf.primary[i] = p.primary;
             buf.secondary[i] = p.secondary;
             buf.active[i] = p.active;
+            buf.clip[i] = p.clip;
+            buf.reserve[i] = p.reserve;
         }
     }
     buf

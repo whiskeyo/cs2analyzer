@@ -22,6 +22,8 @@ function player(index: number, x: number, y: number, present = true): SampledPla
     primary: 0,
     secondary: 0,
     active: 0,
+    clip: 0,
+    reserve: 0,
   };
 }
 

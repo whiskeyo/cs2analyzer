@@ -7,6 +7,7 @@ import {
   heldWeaponId,
   mainWeaponId,
   sidearmId,
+  weaponHasMagazine,
   WID_KNIFE,
 } from "@/lib/weapons/loadout";
 import { samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
@@ -76,6 +77,11 @@ function PlayerCard({
             <WeaponIcon weapon={gun} className={iconClass("primary", gun)} />
           ) : (
             <span className="spec-unarmed" />
+          )}
+          {p.alive && weaponHasMagazine(active) && (
+            <span className="spec-ammo">
+              {p.clip}/{p.reserve}
+            </span>
           )}
         </div>
         <div className="spec-gear">

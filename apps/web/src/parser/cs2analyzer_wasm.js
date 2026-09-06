@@ -94,6 +94,13 @@ export class ParsedMatch {
         }
     }
     /**
+     * @returns {Uint8Array}
+     */
+    clip() {
+        const ret = wasm.parsedmatch_clip(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+    /**
      * @returns {Uint16Array}
      */
     equip() {
@@ -282,6 +289,13 @@ export class ParsedMatch {
      */
     primary() {
         const ret = wasm.parsedmatch_primary(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+    /**
+     * @returns {Uint16Array}
+     */
+    reserve() {
+        const ret = wasm.parsedmatch_reserve(this.__wbg_ptr);
         return takeObject(ret);
     }
     /**
