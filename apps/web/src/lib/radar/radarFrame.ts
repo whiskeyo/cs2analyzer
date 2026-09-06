@@ -31,7 +31,7 @@ import {
 } from "@/lib/radar/radarFx";
 import { inTickWindow, upToTick } from "@/lib/replay/eventIndex";
 import { currentRound, samplePlayers, sampleTrail, type SampledPlayer } from "@/lib/replay/sample";
-import { activeBomb } from "@/lib/stats/stats";
+import { bombView, type BombView } from "@/lib/stats/hud";
 import type {
   GrenadeThrow,
   Kill,
@@ -210,7 +210,7 @@ export interface RadarFrame {
   summary: SummaryDisc[];
   nades: NadeRender[];
   tracers: Tracer[];
-  bomb: Point | null;
+  bomb: BombView;
   deaths: DeathMark[];
   opening: OpeningDuel | null;
   trails: Trail[];
@@ -489,7 +489,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
       summary: [],
       nades: [],
       tracers: [],
-      bomb: null,
+      bomb: { state: "none" },
       deaths: [],
       opening: null,
       trails: [],
@@ -558,7 +558,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
     summary: layers.summary ? summaryDiscs(replay, input.summaryFilter, nadeZoom) : [],
     nades: layers.grenades ? nadeRenders(replay, tick, round, nadeZoom) : [],
     tracers: layers.shots ? tracers(replay, tick, tps) : [],
-    bomb: activeBomb(replay, tick),
+    bomb: bombView(replay, tick),
     deaths: layers.deaths ? deathMarks(replay, tick, round) : [],
     opening: layers.openings ? openingArrow(replay, tick, round) : null,
     trails: input.trails ? playerTrails(replay, tick, players, selected, tps, cal) : [],

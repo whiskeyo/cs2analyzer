@@ -77,7 +77,7 @@ function minimalFrame(partial: Partial<RadarFrame>): RadarFrame {
     summary: [],
     nades: [],
     tracers: [],
-    bomb: null,
+    bomb: { state: "none" },
     deaths: [],
     opening: null,
     trails: [],
@@ -414,7 +414,7 @@ describe("paintRadarFrame", () => {
       bombEvents: [makeBombEvent({ tick: 200, kind: "planted", x: 120, y: 220 })],
     });
     const f = frame(replay, 250);
-    expect(f.bomb).not.toBeNull();
+    expect(f.bomb.state).toBe("planted");
     paintRadarFrame(ctx, f, toScreen, paintOpts);
     expect(ctx.fillText).toHaveBeenCalledWith("C4", 120, 220);
   });

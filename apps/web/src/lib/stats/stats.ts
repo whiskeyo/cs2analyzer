@@ -9,11 +9,13 @@ export { computeStats } from "./computeStats";
 export { formatAdr, formatKast, exportStatsCsv } from "./format";
 export {
   activeBomb,
+  bombView,
   defuseClock,
   freezeRemaining,
   liveSituation,
   plantedBombPos,
   roundWinBanner,
+  type BombView,
   type LiveSituation,
 } from "./hud";
 export { currentSide, liveScore, liveTeams, type LiveTeams } from "./liveScore";

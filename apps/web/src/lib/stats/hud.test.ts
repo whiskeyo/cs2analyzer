@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { defuseClock, freezeRemaining, plantClock, roundWinBanner } from "./hud";
-import { makeBombEvent, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
-import { PLANT_SECONDS } from "@/lib/shared/constants";
+import { bombView, defuseClock, freezeRemaining, plantClock, roundWinBanner } from "./hud";
+import {
+  makeBombEvent,
+  makeFreezeTicks,
+  makePlayer,
+  makeReplay,
+  makeRound,
+} from "@/lib/testing/fixtures";
+import { BOMB_SECONDS, PLANT_SECONDS } from "@/lib/shared/constants";
+import { GEAR_C4 } from "@/lib/replay/replayTypes";
 
 describe("freezeRemaining", () => {
   it("counts down until freeze_end_tick", () => {
@@ -126,5 +133,60 @@ describe("plantClock", () => {
     const plantTick = 200 + Math.round(PLANT_SECONDS * 64);
     expect(plantClock(m, plantTick - 1)?.remaining).toBeGreaterThan(0);
     expect(plantClock(m, plantTick)).toBeNull();
+  });
+});
+
+describe("bombView", () => {
+  it("is planted while the fuse is running", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [
+        makeRound({ number: 1, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 4000 }),
+      ],
+      ticks: makeFreezeTicks(2, 1),
+      bombEvents: [makeBombEvent({ tick: 200, kind: "planted", x: 120, y: 220, player: 1 })],
+    });
+    expect(bombView(m, 199)).toEqual({ state: "none" });
+    expect(bombView(m, 200)).toEqual({
+      state: "planted",
+      remaining: BOMB_SECONDS,
+      x: 120,
+      y: 220,
+    });
+    expect(bombView(m, 200 + 64)).toEqual({
+      state: "planted",
+      remaining: BOMB_SECONDS - 1,
+      x: 120,
+      y: 220,
+    });
+  });
+
+  it("is carried when a present pawn has GEAR_C4", () => {
+    const ticks = makeFreezeTicks(2, 1);
+    ticks.gear[1] = GEAR_C4;
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [
+        makeRound({ number: 1, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 4000 }),
+      ],
+      ticks,
+    });
+    expect(bombView(m, 64)).toEqual({ state: "carried", player: 1 });
+  });
+
+  it("is loose at the last drop until pickup or plant", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [
+        makeRound({ number: 1, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 4000 }),
+      ],
+      ticks: makeFreezeTicks(2, 1),
+      bombEvents: [
+        makeBombEvent({ tick: 200, kind: "dropped", x: 50, y: 60, player: 1 }),
+        makeBombEvent({ tick: 400, kind: "pickup", player: 1 }),
+      ],
+    });
+    expect(bombView(m, 200)).toEqual({ state: "loose", x: 50, y: 60 });
+    expect(bombView(m, 400)).toEqual({ state: "none" });
   });
 });

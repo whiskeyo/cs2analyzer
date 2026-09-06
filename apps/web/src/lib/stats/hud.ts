@@ -7,6 +7,7 @@ import {
 } from "@/lib/shared/constants";
 import { currentRound, samplePlayers } from "@/lib/replay/sample";
 import {
+  GEAR_C4,
   GEAR_DEFUSER,
   type BombEvent,
   type Replay,
@@ -56,11 +57,49 @@ export function liveSituation(replay: Replay, tick: number): LiveSituation {
   };
 }
 
+export type BombView =
+  | { state: "none" }
+  | { state: "planted"; remaining: number; x: number; y: number }
+  | { state: "loose"; x: number; y: number }
+  | { state: "carried"; player: number };
+
 /** Planted C4 while it is still in play. Stops on defuse/explode, 40s, round over, or CT wipe. */
 export function activeBomb(
   replay: Replay,
   tick: number,
 ): { remaining: number; planted: boolean; x: number; y: number } | null {
+  const view = bombView(replay, tick);
+  if (view.state !== "planted") {
+    return null;
+  }
+  return { remaining: view.remaining, planted: true, x: view.x, y: view.y };
+}
+
+/**
+ * C4 at tick `t`: planted (fuse), carried (`GEAR_C4`), loose (last drop), or none.
+ * Pickup/drop events locate a loose pack; the carrier is the gear bit.
+ */
+export function bombView(replay: Replay, tick: number): BombView {
+  const planted = plantedBombAt(replay, tick);
+  if (planted) {
+    return { state: "planted", ...planted };
+  }
+  const players = samplePlayers(replay, tick);
+  const carrier = players.find((p) => p.present && (p.gear & GEAR_C4) !== 0);
+  if (carrier) {
+    return { state: "carried", player: carrier.index };
+  }
+  const loose = lastLooseBomb(replay, tick);
+  if (loose) {
+    return { state: "loose", x: loose.x, y: loose.y };
+  }
+  return { state: "none" };
+}
+
+function plantedBombAt(
+  replay: Replay,
+  tick: number,
+): { remaining: number; x: number; y: number } | null {
   const players = samplePlayers(replay, tick);
   const ct = players.filter((p) => p.present && p.ct);
   const clock = bombClock(replay, tick, ct.filter((p) => p.alive).length, ct.length);
@@ -90,7 +129,35 @@ export function activeBomb(
   if (!plant) {
     return null;
   }
-  return { ...clock, ...plant };
+  return { remaining: clock.remaining, ...plant };
+}
+
+function lastLooseBomb(replay: Replay, tick: number): { x: number; y: number } | null {
+  const round = currentRound(replay, tick);
+  if (!round) {
+    return null;
+  }
+  let pos: { x: number; y: number } | null = null;
+  for (const e of replay.bombEvents) {
+    if (e.tick > tick) {
+      continue;
+    }
+    if (e.tick < round.start_tick || e.tick > round.end_tick) {
+      continue;
+    }
+    if (e.kind === "dropped") {
+      const p = plantedBombPos(replay, e);
+      pos = { x: p.x, y: p.y };
+    } else if (
+      e.kind === "pickup" ||
+      e.kind === "planted" ||
+      e.kind === "defused" ||
+      e.kind === "exploded"
+    ) {
+      pos = null;
+    }
+  }
+  return pos;
 }
 
 /** World position of a plant. GOTV often omits pawn XYZ; fall back to the planter. */

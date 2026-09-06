@@ -249,7 +249,7 @@ export function paintRadarFrame(
     ctx.globalAlpha = 1;
   }
 
-  if (frame.bomb) {
+  if (frame.bomb.state === "planted") {
     drawC4(ctx, toScreen(frame.bomb.x, frame.bomb.y), opts.c4Icon);
   }
 

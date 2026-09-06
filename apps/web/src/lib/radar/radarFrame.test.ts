@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TICK_RATE, MOLOTOV_SECONDS, SMOKE_SECONDS } from "@/lib/shared/constants";
+import {
+  DEFAULT_TICK_RATE,
+  BOMB_SECONDS,
+  MOLOTOV_SECONDS,
+  SMOKE_SECONDS,
+} from "@/lib/shared/constants";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER, type MapLayers } from "@/lib/notes/types";
 import {
   makeBlind,
+  makeBombEvent,
   makeFreezeTicks,
   makeGrenade,
   makeKill,
@@ -13,7 +19,7 @@ import {
   makeTicks,
   UNIT_CALIBRATION,
 } from "@/lib/testing/fixtures";
-import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type Replay } from "@/lib/replay/replayTypes";
+import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, GEAR_C4, type Replay } from "@/lib/replay/replayTypes";
 import { TRACER_SECONDS } from "./radarFx";
 import { buildRadarFrame, CT_COLOR, T_COLOR, type FrameInput } from "./radarFrame";
 
@@ -330,5 +336,33 @@ describe("buildRadarFrame view", () => {
     expect(pawns[0]?.index).toBe(0);
     expect(pawns[0]?.x).toBe(150);
     expect(pawns[0]?.y).toBe(250);
+  });
+});
+
+describe("buildRadarFrame bomb", () => {
+  it("keeps the planted timer path after a plant", () => {
+    const replay = matchReplay({
+      bombEvents: [makeBombEvent({ tick: 200, kind: "planted", x: 120, y: 220 })],
+    });
+    expect(frame(replay, 200 + tps).bomb).toEqual({
+      state: "planted",
+      remaining: BOMB_SECONDS - 1,
+      x: 120,
+      y: 220,
+    });
+  });
+
+  it("marks the carrier from GEAR_C4", () => {
+    const ticks = makeFreezeTicks(4, 2);
+    ticks.gear[2] = GEAR_C4;
+    const replay = matchReplay({ ticks });
+    expect(frame(replay, 64).bomb).toEqual({ state: "carried", player: 2 });
+  });
+
+  it("places a loose pack at the drop", () => {
+    const replay = matchReplay({
+      bombEvents: [makeBombEvent({ tick: 200, kind: "dropped", x: 50, y: 60, player: 2 })],
+    });
+    expect(frame(replay, 250).bomb).toEqual({ state: "loose", x: 50, y: 60 });
   });
 });
