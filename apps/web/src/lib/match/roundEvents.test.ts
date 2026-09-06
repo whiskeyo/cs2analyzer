@@ -52,7 +52,7 @@ describe("eventsForRound", () => {
     ]);
   });
 
-  it("lists bomb plant and defuse, skipping abort, between nades and kills on a tie", () => {
+  it("lists begin-plant, plant and defuse, skipping pickup/drop/abort", () => {
     const bomb = (
       tick: number,
       kind: BombEvent["kind"],
@@ -65,6 +65,9 @@ describe("eventsForRound", () => {
       kills: [makeKill(900, 0, 1)],
       grenades: [nade(900, 0, "smoke")],
       bombEvents: [
+        bomb(700, "pickup", 0),
+        bomb(750, "dropped", 0),
+        bomb(780, "begin_plant", 0),
         bomb(800, "planted", 0),
         bomb(850, "begin_defuse", 1, { haskit: true }),
         bomb(860, "abort_defuse", 1),
@@ -74,6 +77,7 @@ describe("eventsForRound", () => {
     });
     const events = eventsForRound(m, r1);
     expect(events.map((e) => [e.kind, e.tick, e.kind === "bomb" ? e.bomb : ""])).toEqual([
+      ["bomb", 780, "begin_plant"],
       ["bomb", 800, "planted"],
       ["bomb", 850, "begin_defuse"],
       ["nade", 900, ""],

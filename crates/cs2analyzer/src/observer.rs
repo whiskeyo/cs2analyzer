@@ -374,6 +374,18 @@ fn steam_from_event_player(
         .or_else(|| ev_i32(ge, userid_key).and_then(|uid| steam_from_userid(c, ctx, uid)))
 }
 
+fn entity_xyz_by_index(ctx: &Context, index: i32) -> Option<(f32, f32, f32)> {
+    if index <= 0 {
+        return None;
+    }
+    let ent = ctx
+        .entities()
+        .get_by_index(index as usize)
+        .or_else(|_| ctx.entities().get_by_handle(index as usize))
+        .ok()?;
+    Some(entity_xyz(ent))
+}
+
 fn thrower_from_nade_entity(c: &Collector, ctx: &Context, entityid: i32) -> Option<u64> {
     if entityid <= 0 {
         return None;
@@ -689,19 +701,31 @@ impl Collector {
                 });
             }
             name @ ("bomb_planted" | "bomb_defused" | "bomb_exploded" | "bomb_begindefuse"
-            | "bomb_abortdefuse") => {
+            | "bomb_abortdefuse" | "bomb_pickup" | "bomb_dropped" | "bomb_beginplant") => {
                 let kind = match name {
                     "bomb_planted" => BombKind::Planted,
                     "bomb_defused" => BombKind::Defused,
                     "bomb_begindefuse" => BombKind::BeginDefuse,
                     "bomb_abortdefuse" => BombKind::AbortDefuse,
+                    "bomb_pickup" => BombKind::Pickup,
+                    "bomb_dropped" => BombKind::Dropped,
+                    "bomb_beginplant" => BombKind::BeginPlant,
                     _ => BombKind::Exploded,
                 };
                 let player = steam_from_game_event(self, ctx, ge);
                 let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
-                if let Some(h) = ev_i32(ge, "userid_pawn") {
-                    if let Ok(p) = ctx.entities().get_by_handle(h as u32 as usize) {
-                        (x, y, z) = entity_xyz(p);
+                if kind == BombKind::Dropped {
+                    if let Some(idx) = ev_i32(ge, "entindex") {
+                        if let Some(pos) = entity_xyz_by_index(ctx, idx) {
+                            (x, y, z) = pos;
+                        }
+                    }
+                }
+                if x == 0.0 && y == 0.0 {
+                    if let Some(h) = ev_i32(ge, "userid_pawn") {
+                        if let Ok(p) = ctx.entities().get_by_handle(h as u32 as usize) {
+                            (x, y, z) = entity_xyz(p);
+                        }
                     }
                 }
                 let site = if kind == BombKind::Planted {

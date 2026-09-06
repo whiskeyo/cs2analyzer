@@ -37,12 +37,15 @@ function ScrubEventIcon({ mark }: { mark: RoundScrubEventMark }) {
         </svg>
       );
     case "bomb_plant":
+    case "bomb_begin_plant":
       return (
         <img
           src={publicUrl("weapons/planted_c4.svg")}
           alt=""
           aria-hidden="true"
-          style={{ filter: "brightness(1.15)" }}
+          style={{
+            filter: mark.kind === "bomb_begin_plant" ? "brightness(0.85)" : "brightness(1.15)",
+          }}
         />
       );
     case "bomb_defuse":

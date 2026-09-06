@@ -2349,6 +2349,7 @@ button.link:hover:not(:disabled) {
 .hud-bomb,
 .hud-clutch,
 .hud-defuse,
+.hud-plant,
 .hud-freeze,
 .hud-win {
   display: inline-block;
@@ -2363,13 +2364,18 @@ button.link:hover:not(:disabled) {
   color: #1a1404;
 }
 .hud-bomb.hot,
-.hud-defuse.hot {
+.hud-defuse.hot,
+.hud-plant.hot {
   background: #e04b4b;
   color: #fff;
 }
 .hud-defuse {
   background: #3d8fd4;
   color: #061018;
+}
+.hud-plant {
+  background: #c9a227;
+  color: #1a1404;
 }
 .hud-freeze {
   background: #2a3440;

@@ -139,7 +139,15 @@ export interface Blind {
 
 export interface BombEvent {
   tick: number;
-  kind: "planted" | "defused" | "exploded" | "begin_defuse" | "abort_defuse";
+  kind:
+    | "planted"
+    | "defused"
+    | "exploded"
+    | "begin_defuse"
+    | "abort_defuse"
+    | "pickup"
+    | "dropped"
+    | "begin_plant";
   player: number;
   x: number;
   y: number;

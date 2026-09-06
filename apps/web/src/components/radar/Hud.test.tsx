@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { BOMB_SECONDS, DEFAULT_TICK_RATE } from "@/lib/shared/constants";
+import { BOMB_SECONDS, DEFAULT_TICK_RATE, PLANT_SECONDS } from "@/lib/shared/constants";
 import { FLAG_ALIVE } from "@/lib/replay/replayTypes";
 import {
   makeBombEvent,
@@ -38,6 +38,24 @@ describe("Hud", () => {
     rerender(<Hud replay={replay} tick={300} />);
     expect(screen.getByText(/R1/)).toBeInTheDocument();
     expect(screen.queryByText(/Knife/)).not.toBeInTheDocument();
+  });
+
+  it("shows the plant clock after begin_plant and hides it on plant", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
+      ticks: makeFreezeTicks(2, 1),
+      bombEvents: [
+        makeBombEvent({ tick: 500, kind: "begin_plant", player: 1 }),
+        makeBombEvent({ tick: 500 + 4 * tps, kind: "planted", player: 1 }),
+      ],
+    });
+    const { rerender } = render(<Hud replay={replay} tick={500} />);
+    expect(screen.getByText(`Plant ${PLANT_SECONDS.toFixed(1)}s`)).toBeInTheDocument();
+
+    rerender(<Hud replay={replay} tick={500 + 4 * tps} />);
+    expect(screen.queryByText(/^Plant /)).not.toBeInTheDocument();
+    expect(screen.getByText(`C4 ${BOMB_SECONDS.toFixed(1)}s`)).toBeInTheDocument();
   });
 
   it("shows the C4 clock after a plant and hides it on defuse", () => {

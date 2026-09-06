@@ -44,6 +44,9 @@ pub const OVERTIME_BLOCK_ROUNDS: u32 = 3;
 /// KAST / trade window: teammate kills the attacker.
 pub const TRADE_SECONDS: f32 = 5.0;
 
+/// C4 arm time (hold E). GOTV completed plants are ~3.12s.
+pub const PLANT_SECONDS: f32 = 3.2;
+
 pub const SMOKE_SECONDS: f32 = 18.0;
 pub const MOLOTOV_SECONDS: f32 = 7.0;
 pub const HE_DECOY_SECONDS: f32 = 0.5;

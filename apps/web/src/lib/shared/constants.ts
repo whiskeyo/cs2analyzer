@@ -83,6 +83,9 @@ export const TRADE_SECONDS = 5;
 /** C4 fuse after plant. */
 export const BOMB_SECONDS = 40;
 
+/** C4 arm time (hold E). GOTV completed plants are ~3.12s. */
+export const PLANT_SECONDS = 3.2;
+
 export const DEFUSE_WITH_KIT_SECONDS = 5;
 export const DEFUSE_WITHOUT_KIT_SECONDS = 10;
 

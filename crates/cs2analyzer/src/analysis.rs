@@ -103,7 +103,12 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
         match e.kind {
             BombKind::Planted => stats[p].plants += 1,
             BombKind::Defused => stats[p].defuses += 1,
-            BombKind::Exploded | BombKind::BeginDefuse | BombKind::AbortDefuse => {}
+            BombKind::Exploded
+            | BombKind::BeginDefuse
+            | BombKind::AbortDefuse
+            | BombKind::Pickup
+            | BombKind::Dropped
+            | BombKind::BeginPlant => {}
         }
     }
 

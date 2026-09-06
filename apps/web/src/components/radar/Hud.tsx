@@ -41,6 +41,11 @@ export const Hud = memo(function Hud({ replay, tick }: Props) {
           {sit.roundWin.reason ? ` · ${winReasonLabel(sit.roundWin.reason)}` : ""}
         </div>
       )}
+      {sit.plant && (
+        <div className={`hud-plant${sit.plant.remaining < 1 ? " hot" : ""}`}>
+          Plant {sit.plant.remaining.toFixed(1)}s
+        </div>
+      )}
       {sit.bomb && (
         <div className={`hud-bomb${sit.bomb.remaining < 10 ? " hot" : ""}`}>
           C4 {sit.bomb.remaining.toFixed(1)}s

@@ -14,7 +14,7 @@ export const MIN_LEAD_IN_SEC = 0;
 export const MAX_LEAD_IN_SEC = 5;
 export const LEAD_IN_STORAGE_KEY = "cs2analyzer.eventLeadInSec";
 
-export type BombEventKind = "planted" | "defused" | "exploded" | "begin_defuse";
+export type BombEventKind = "planted" | "defused" | "exploded" | "begin_defuse" | "begin_plant";
 
 export type RoundEventKind = "kill" | "nade" | "bomb";
 
@@ -70,6 +70,7 @@ export const BOMB_LABEL: Record<BombEventKind, string> = {
   defused: "Defuse",
   exploded: "Explode",
   begin_defuse: "Defusing",
+  begin_plant: "Planting",
 };
 
 export const BOMB_WEAPON: Record<BombEventKind, string> = {
@@ -77,6 +78,7 @@ export const BOMB_WEAPON: Record<BombEventKind, string> = {
   defused: "defuser",
   exploded: "planted_c4",
   begin_defuse: "defuser",
+  begin_plant: "c4",
 };
 
 export function clampLeadInSec(value: number): number {
@@ -174,7 +176,7 @@ function nadeEvent(g: GrenadeThrow, index: number): RoundNadeEvent {
 }
 
 function bombEvent(e: BombEvent, index: number): RoundBombEvent | null {
-  if (e.kind === "abort_defuse") return null;
+  if (e.kind === "abort_defuse" || e.kind === "pickup" || e.kind === "dropped") return null;
   return {
     kind: "bomb",
     key: `bomb:${e.tick}:${e.kind}:${e.player}:${index}`,

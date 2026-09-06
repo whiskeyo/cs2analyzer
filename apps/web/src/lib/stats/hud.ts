@@ -2,6 +2,7 @@ import {
   BOMB_SECONDS,
   DEFUSE_WITH_KIT_SECONDS,
   DEFUSE_WITHOUT_KIT_SECONDS,
+  PLANT_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
 import { currentRound, samplePlayers } from "@/lib/replay/sample";
@@ -19,6 +20,7 @@ export interface LiveSituation {
   clutch: { player: number; vs: number; side: Side } | null;
   bomb: { remaining: number; planted: boolean } | null;
   defuse: { remaining: number; haskit: boolean } | null;
+  plant: { remaining: number } | null;
   freeze: number | null;
   roundWin: { winner: Side; reason: number } | null;
 }
@@ -48,6 +50,7 @@ export function liveSituation(replay: Replay, tick: number): LiveSituation {
     clutch,
     bomb,
     defuse: defuseClock(replay, tick),
+    plant: plantClock(replay, tick),
     freeze: freezeRemaining(replay, tick),
     roundWin: roundWinBanner(replay, tick),
   };
@@ -242,4 +245,45 @@ export function defuseClock(
     return null;
   }
   return { remaining: Math.max(0, remaining), haskit: begin.haskit };
+}
+
+/** Active plant: 3.2s arm. Cancels on plant, drop, death, or timeout (FACEIT beginplant). */
+export function plantClock(replay: Replay, tick: number): { remaining: number } | null {
+  const tps = tickRate(replay);
+  const round = currentRound(replay, tick);
+  if (!round || tick > round.end_tick) {
+    return null;
+  }
+
+  let begin: { tick: number; player: number } | null = null;
+  for (const e of replay.bombEvents) {
+    if (e.tick > tick) {
+      continue;
+    }
+    if (e.tick < round.start_tick || e.tick > round.end_tick) {
+      continue;
+    }
+    if (e.kind === "begin_plant") {
+      begin = { tick: e.tick, player: e.player };
+    } else if (e.kind === "planted" || e.kind === "dropped") {
+      begin = null;
+    }
+  }
+  if (!begin) {
+    return null;
+  }
+
+  const players = samplePlayers(replay, tick);
+  if (begin.player >= 0 && players.length > 0) {
+    const p = players.find((x) => x.index === begin.player);
+    if (p && (!p.alive || !p.present)) {
+      return null;
+    }
+  }
+
+  const remaining = PLANT_SECONDS - (tick - begin.tick) / tps;
+  if (remaining < -0.25) {
+    return null;
+  }
+  return { remaining: Math.max(0, remaining) };
 }

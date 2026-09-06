@@ -276,6 +276,9 @@ pub enum BombKind {
     Exploded,
     BeginDefuse,
     AbortDefuse,
+    Pickup,
+    Dropped,
+    BeginPlant,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

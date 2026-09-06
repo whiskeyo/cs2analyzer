@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { defuseClock, freezeRemaining, roundWinBanner } from "./hud";
+import { defuseClock, freezeRemaining, plantClock, roundWinBanner } from "./hud";
 import { makeBombEvent, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
+import { PLANT_SECONDS } from "@/lib/shared/constants";
 
 describe("freezeRemaining", () => {
   it("counts down until freeze_end_tick", () => {
@@ -94,5 +95,36 @@ describe("defuseClock", () => {
     });
     expect(defuseClock(m, 264)?.remaining).toBeCloseTo(9, 5);
     expect(defuseClock(m, 300)).toBeNull();
+  });
+});
+
+describe("plantClock", () => {
+  it("counts a 3.2s plant after begin_plant", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "T", "A")],
+      rounds: [
+        makeRound({ number: 1, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
+      ],
+      bombEvents: [makeBombEvent({ tick: 200, kind: "begin_plant", player: 0 })],
+    });
+    expect(plantClock(m, 199)).toBeNull();
+    expect(plantClock(m, 200)?.remaining).toBeCloseTo(PLANT_SECONDS, 5);
+    expect(plantClock(m, 200 + 64)?.remaining).toBeCloseTo(PLANT_SECONDS - 1, 5);
+  });
+
+  it("clears when the bomb is planted or the clock expires", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "T", "A")],
+      rounds: [
+        makeRound({ number: 1, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
+      ],
+      bombEvents: [
+        makeBombEvent({ tick: 200, kind: "begin_plant", player: 0 }),
+        makeBombEvent({ tick: 200 + Math.round(PLANT_SECONDS * 64), kind: "planted", player: 0 }),
+      ],
+    });
+    const plantTick = 200 + Math.round(PLANT_SECONDS * 64);
+    expect(plantClock(m, plantTick - 1)?.remaining).toBeGreaterThan(0);
+    expect(plantClock(m, plantTick)).toBeNull();
   });
 });
