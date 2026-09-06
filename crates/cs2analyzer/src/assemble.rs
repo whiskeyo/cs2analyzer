@@ -78,12 +78,16 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     let hurts: Vec<Hurt> = c
         .hurts
         .iter()
-        .map(|(tick, atk, vic, dmg, weapon)| Hurt {
-            tick: *tick,
-            attacker: idx_of(*atk),
-            victim: idx_of(*vic),
-            damage: *dmg,
-            weapon: weapon.clone(),
+        .map(|h| Hurt {
+            tick: h.tick,
+            attacker: idx_of(h.attacker),
+            victim: idx_of(h.victim),
+            damage: h.damage,
+            damage_armor: h.damage_armor,
+            hitgroup: h.hitgroup,
+            health: h.health,
+            armor: h.armor,
+            weapon: h.weapon.clone(),
         })
         .collect();
     let blinds: Vec<Blind> = c
@@ -607,7 +611,7 @@ fn fill_missing_bomb_positions(events: &mut [BombEvent], ticks: &TickBuffer) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::observer::{new_flash_duration, Collector, FireSpan, RawKill};
+    use crate::observer::{new_flash_duration, Collector, FireSpan, RawHurt, RawKill};
     use crate::ParseOptions;
 
     fn molly(detonate: u32, x: f32, y: f32) -> GrenadeThrow {
@@ -723,6 +727,29 @@ mod tests {
         assert!(k.through_smoke);
         assert!(k.attacker_blind);
         assert!(k.attacker_airborne);
+    }
+
+    #[test]
+    fn assemble_copies_hurt_hitgroup_and_armor() {
+        let mut c = Collector::new(ParseOptions::default());
+        c.hurts.push(RawHurt {
+            tick: 90,
+            attacker: None,
+            victim: None,
+            damage: 34,
+            damage_armor: 15,
+            hitgroup: 1,
+            health: 66,
+            armor: 85,
+            weapon: "ak47".into(),
+        });
+        let m = assemble(&mut c, 200, 3.0);
+        let h = &m.hurts[0];
+        assert_eq!(h.damage, 34);
+        assert_eq!(h.damage_armor, 15);
+        assert_eq!(h.hitgroup, 1);
+        assert_eq!(h.health, 66);
+        assert_eq!(h.armor, 85);
     }
 
     #[test]

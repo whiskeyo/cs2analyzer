@@ -38,7 +38,6 @@ pub(crate) struct RawFrame {
 }
 
 pub(crate) type ProjPoint = (u32, u32, GrenadeKind, f32, f32, f32, Option<u64>);
-pub(crate) type HurtRec = (u32, Option<u64>, Option<u64>, i32, String);
 pub(crate) type BombRec = (u32, BombKind, Option<u64>, f32, f32, f32, bool, Option<u8>);
 
 pub(crate) struct Collector {
@@ -64,7 +63,7 @@ pub(crate) struct Collector {
     pub round_equip: HashMap<u32, i32>,
     pub final_score: Option<(i32, i32)>,
     pub final_names: Option<(String, String)>,
-    pub hurts: Vec<HurtRec>,
+    pub hurts: Vec<RawHurt>,
     pub shots: Vec<(u32, Option<u64>, f32, f32, f32)>,
     pub kills: Vec<RawKill>,
     /// `(tick, victim_steam, duration_s, attacker_steam)`.
@@ -97,6 +96,18 @@ struct LiveFlame {
     x: f32,
     y: f32,
     start: u32,
+}
+
+pub(crate) struct RawHurt {
+    pub tick: u32,
+    pub attacker: Option<u64>,
+    pub victim: Option<u64>,
+    pub damage: i32,
+    pub damage_armor: i32,
+    pub hitgroup: u8,
+    pub health: i32,
+    pub armor: i32,
+    pub weapon: String,
 }
 
 pub(crate) struct RawKill {
@@ -622,7 +633,17 @@ impl Collector {
                 let attacker = atk.and_then(|h| steam_from_pawn_handle(self, ctx, h));
                 let victim = vic.and_then(|h| steam_from_pawn_handle(self, ctx, h));
                 let weapon = ev_str(ge, "weapon").unwrap_or_default();
-                self.hurts.push((tick, attacker, victim, dmg, weapon));
+                self.hurts.push(RawHurt {
+                    tick,
+                    attacker,
+                    victim,
+                    damage: dmg,
+                    damage_armor: ev_i32(ge, "dmg_armor").unwrap_or(0),
+                    hitgroup: hurt_hitgroup(ev_i32(ge, "hitgroup")),
+                    health: ev_i32(ge, "health").unwrap_or(0),
+                    armor: ev_i32(ge, "armor").unwrap_or(0),
+                    weapon,
+                });
             }
             "player_death" => {
                 let victim =

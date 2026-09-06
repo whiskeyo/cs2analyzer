@@ -6,6 +6,33 @@ export const DEFAULT_TICK_RATE = 64;
 /** Competitive spawn HP (reset each round). */
 export const FULL_HEALTH = 100;
 
+/** `player_hurt.hitgroup` (CS2). Keep aligned with `crates/cs2analyzer/src/constants.rs`. */
+export const HITGROUP_GENERIC = 0;
+export const HITGROUP_HEAD = 1;
+export const HITGROUP_CHEST = 2;
+export const HITGROUP_STOMACH = 3;
+export const HITGROUP_LEFT_ARM = 4;
+export const HITGROUP_RIGHT_ARM = 5;
+export const HITGROUP_LEFT_LEG = 6;
+export const HITGROUP_RIGHT_LEG = 7;
+export const HITGROUP_GEAR = 8;
+
+export const HITGROUP_LABELS = [
+  "generic",
+  "head",
+  "chest",
+  "stomach",
+  "left arm",
+  "right arm",
+  "left leg",
+  "right leg",
+  "gear",
+] as const;
+
+export function hitgroupLabel(hitgroup: number): string {
+  return HITGROUP_LABELS[hitgroup] ?? HITGROUP_LABELS[HITGROUP_GENERIC];
+}
+
 /** FACEIT knife round: max freeze equipment and no gun kill. */
 export const KNIFE_ROUND_MAX_EQUIPMENT = 200;
 
@@ -109,6 +136,9 @@ export const ACTION_HIGHLIGHT_SECONDS = 8;
 
 /** Kill-feed rows stay this long. */
 export const KILL_FEED_SECONDS = 10;
+
+/** Spectator last-hit line stays this long after the enemy hurt. */
+export const LAST_HIT_SECONDS = 4;
 
 /** Max kill-feed rows shown at once. */
 export const KILL_FEED_MAX_ROWS = 6;

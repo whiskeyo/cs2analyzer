@@ -533,6 +533,20 @@ mod tests {
         }
     }
 
+    fn hurt(tick: u32, attacker: i8, victim: i8, damage: i32) -> Hurt {
+        Hurt {
+            tick,
+            attacker,
+            victim,
+            damage,
+            damage_armor: 0,
+            hitgroup: 0,
+            health: 0,
+            armor: 0,
+            weapon: "ak47".into(),
+        }
+    }
+
     #[test]
     fn adr_caps_overkill_at_remaining_hp() {
         let mut m = empty_match();
@@ -553,13 +567,7 @@ mod tests {
             y: 0.0,
             z: 0.0,
         });
-        m.hurts.push(Hurt {
-            tick: 90,
-            attacker: 0,
-            victim: 1,
-            damage: 110,
-            weapon: "ak47".into(),
-        });
+        m.hurts.push(hurt(90, 0, 1, 110));
         let stats = compute_stats(&m);
         assert_eq!(stats[0].kills, 1);
         assert_eq!(stats[0].headshots, 1);
@@ -687,13 +695,7 @@ mod tests {
     fn splits_kills_and_adr_by_side() {
         let mut m = empty_match();
         m.kills.push(kill(100, 0, 1));
-        m.hurts.push(Hurt {
-            tick: 90,
-            attacker: 0,
-            victim: 1,
-            damage: 40,
-            weapon: "ak47".into(),
-        });
+        m.hurts.push(hurt(90, 0, 1, 40));
         let stats = compute_stats(&m);
         assert_eq!(stats[0].kills_ct, 1);
         assert_eq!(stats[0].kills_t, 0);

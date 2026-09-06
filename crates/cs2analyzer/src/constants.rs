@@ -9,6 +9,17 @@ pub const DEFAULT_TICK_STRIDE: u32 = 4;
 /// Competitive spawn HP (reset each round).
 pub const FULL_HEALTH: i32 = 100;
 
+/// `player_hurt.hitgroup` (CS2). Keep aligned with `apps/web/src/lib/shared/constants.ts`.
+pub const HITGROUP_GENERIC: u8 = 0;
+pub const HITGROUP_HEAD: u8 = 1;
+pub const HITGROUP_CHEST: u8 = 2;
+pub const HITGROUP_STOMACH: u8 = 3;
+pub const HITGROUP_LEFT_ARM: u8 = 4;
+pub const HITGROUP_RIGHT_ARM: u8 = 5;
+pub const HITGROUP_LEFT_LEG: u8 = 6;
+pub const HITGROUP_RIGHT_LEG: u8 = 7;
+pub const HITGROUP_GEAR: u8 = 8;
+
 /// FACEIT knife round: max freeze equipment and no gun kill.
 pub const KNIFE_ROUND_MAX_EQUIPMENT: i32 = 200;
 

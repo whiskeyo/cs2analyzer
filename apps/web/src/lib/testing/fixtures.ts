@@ -119,7 +119,18 @@ export function makeHurt(
   damage: number,
   partial: Partial<Hurt> = {},
 ): Hurt {
-  return { tick, attacker, victim, damage, weapon: "ak47", ...partial };
+  return {
+    tick,
+    attacker,
+    victim,
+    damage,
+    damage_armor: 0,
+    hitgroup: 0,
+    health: 0,
+    armor: 0,
+    weapon: "ak47",
+    ...partial,
+  };
 }
 
 export function makeBlind(tick: number, attacker: number, victim: number, duration: number): Blind {

@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { makeFreezeTicks, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
+import { HITGROUP_HEAD } from "@/lib/shared/constants";
+import {
+  makeFreezeTicks,
+  makeHurt,
+  makePlayer,
+  makeReplay,
+  makeRound,
+} from "@/lib/testing/fixtures";
 import { SpectatorEconomy } from "./SpectatorEconomy";
 
 function replay() {
@@ -50,5 +57,16 @@ describe("SpectatorEconomy", () => {
   it("marks the selected card", () => {
     render(<SpectatorEconomy replay={replay()} tick={64} selected={2} onSelect={() => {}} />);
     expect(screen.getByText("Cara").closest(".spec-card")).toHaveClass("on");
+  });
+
+  it("shows last hit on the selected card only", () => {
+    const m = replay();
+    m.hurts = [makeHurt(64, 2, 0, 89, { hitgroup: HITGROUP_HEAD, damage_armor: 15 })];
+    const { rerender } = render(
+      <SpectatorEconomy replay={m} tick={64} selected={0} onSelect={() => {}} />,
+    );
+    expect(screen.getByText("Last hit: head \u221289 (armor \u221215)")).toBeInTheDocument();
+    rerender(<SpectatorEconomy replay={m} tick={64} selected={null} onSelect={() => {}} />);
+    expect(screen.queryByText(/Last hit:/)).not.toBeInTheDocument();
   });
 });

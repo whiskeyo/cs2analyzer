@@ -2,6 +2,7 @@ import { memo } from "react";
 import { formatMoney, gearItems, mainWeaponId, sidearmId } from "@/lib/weapons/loadout";
 import { samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
 import { computeStats, liveTeams } from "@/lib/stats/stats";
+import { formatLastHit, lastHitTaken } from "@/lib/stats/lastHit";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { GearIcon, WeaponIcon } from "@/components/weapons/WeaponIcon";
 
@@ -16,12 +17,14 @@ function PlayerCard({
   p,
   name,
   kd,
+  lastHit,
   selected,
   onSelect,
 }: {
   p: SampledPlayer;
   name: string;
   kd: string;
+  lastHit: string | null;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -64,6 +67,7 @@ function PlayerCard({
             <GearIcon key={`${ic.name}-${i}`} name={ic.name} title={ic.title} />
           ))}
         </div>
+        {lastHit && <div className="spec-last-hit">{lastHit}</div>}
       </div>
     </button>
   );
@@ -112,6 +116,9 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
             p={p}
             name={name}
             kd={kd}
+            lastHit={
+              selected === p.index ? formatLastHit(lastHitTaken(replay, tick, p.index)) : null
+            }
             selected={selected === p.index}
             onSelect={() => onSelect(selected === p.index ? null : p.index)}
           />

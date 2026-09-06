@@ -248,6 +248,12 @@ pub struct Hurt {
     pub attacker: i8,
     pub victim: i8,
     pub damage: i32,
+    pub damage_armor: i32,
+    pub hitgroup: u8,
+    /// Remaining HP after this hit.
+    pub health: i32,
+    /// Remaining armor after this hit.
+    pub armor: i32,
     pub weapon: String,
 }
 

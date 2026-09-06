@@ -20,6 +20,7 @@ import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type GrenadeThrow } from "@/lib/repl
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import {
   makeGrenade,
+  makeHurt,
   makeKill,
   makePlayer,
   makeReplay,
@@ -62,10 +63,7 @@ describe("blindsAt", () => {
 
 describe("hitsAt", () => {
   it("tracks the latest hit inside the pulse window", () => {
-    const hurts = [
-      { tick: 50, attacker: 1, victim: 0, damage: 20, weapon: "ak47" },
-      { tick: 100, attacker: 1, victim: 0, damage: 40, weapon: "ak47" },
-    ];
+    const hurts = [makeHurt(50, 1, 0, 20), makeHurt(100, 1, 0, 40)];
     expect(hitsAt(hurts, 100, 64)?.get(0)).toEqual({ age: 0, damage: 40 });
     expect(hitsAt(hurts, 100 + 64 * 0.2, 64)?.get(0)?.damage).toBe(40);
     expect(hitsAt(hurts, 100 + 64 * (HIT_SECONDS + 0.05), 64).get(0)).toBeUndefined();

@@ -2704,6 +2704,11 @@ button.link:hover:not(:disabled) {
   flex-wrap: wrap;
   gap: 0.15rem 0.22rem;
 }
+.spec-last-hit {
+  font-size: 0.62rem;
+  color: #8b98a5;
+  font-variant-numeric: tabular-nums;
+}
 
 .keys {
   margin: 0;

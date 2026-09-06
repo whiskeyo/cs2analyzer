@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeList, decodeObject, PayloadError } from "./decode";
-import type { Kill, MatchHeader, Round } from "@/lib/replay/replayTypes";
+import type { Hurt, Kill, MatchHeader, Round } from "@/lib/replay/replayTypes";
+import { makeHurt } from "@/lib/testing/fixtures";
 
 const header: MatchHeader = {
   map_name: "de_anubis",
@@ -82,6 +83,14 @@ describe("decodeList", () => {
   it("requires kill modifier flags from the parser", () => {
     expect(() => decodeList<Kill>("kills", `[${without(kill, "wallbang")}]`)).toThrow(
       /"kills\[0\]".*"wallbang".*expected boolean/s,
+    );
+  });
+
+  it("requires hurt hitgroup and armor fields", () => {
+    const hurt = makeHurt(90, 0, 1, 34, { hitgroup: 2, damage_armor: 12, health: 66, armor: 85 });
+    expect(decodeList<Hurt>("hurts", JSON.stringify([hurt]))).toEqual([hurt]);
+    expect(() => decodeList<Hurt>("hurts", `[${without(hurt, "hitgroup")}]`)).toThrow(
+      /"hurts\[0\]".*"hitgroup".*expected number/s,
     );
   });
 

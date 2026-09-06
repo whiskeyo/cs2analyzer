@@ -1,5 +1,6 @@
 //! Low-level readers over Source 2 entities and game events.
 
+use crate::constants::{HITGROUP_GEAR, HITGROUP_GENERIC};
 use crate::types::{GrenadeKind, Side};
 use source2_demo::prelude::*;
 
@@ -218,6 +219,12 @@ pub(crate) fn kill_wallbang(penetrated: Option<i32>) -> bool {
     penetrated.unwrap_or(0) != 0
 }
 
+/// `player_hurt.hitgroup` is 0–8. Missing or out of range → generic.
+pub(crate) fn hurt_hitgroup(raw: Option<i32>) -> u8 {
+    raw.unwrap_or(HITGROUP_GENERIC as i32)
+        .clamp(HITGROUP_GENERIC as i32, HITGROUP_GEAR as i32) as u8
+}
+
 pub(crate) fn controller_name(ctrl: &Entity) -> String {
     match ctrl.get_property("m_iszPlayerName") {
         Ok(FieldValue::String(s)) => s.clone(),
@@ -299,6 +306,7 @@ pub(crate) fn side_of(team: i32) -> Option<Side> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::HITGROUP_HEAD;
 
     #[test]
     fn kill_wallbang_is_nonzero_penetrated() {
@@ -306,6 +314,15 @@ mod tests {
         assert!(!kill_wallbang(Some(0)));
         assert!(kill_wallbang(Some(1)));
         assert!(kill_wallbang(Some(3)));
+    }
+
+    #[test]
+    fn hurt_hitgroup_clamps_to_generic_through_gear() {
+        assert_eq!(hurt_hitgroup(None), HITGROUP_GENERIC);
+        assert_eq!(hurt_hitgroup(Some(HITGROUP_HEAD as i32)), HITGROUP_HEAD);
+        assert_eq!(hurt_hitgroup(Some(HITGROUP_GEAR as i32)), HITGROUP_GEAR);
+        assert_eq!(hurt_hitgroup(Some(-1)), HITGROUP_GENERIC);
+        assert_eq!(hurt_hitgroup(Some(99)), HITGROUP_GEAR);
     }
 
     #[test]

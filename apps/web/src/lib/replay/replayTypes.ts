@@ -120,6 +120,10 @@ export interface Hurt {
   attacker: number;
   victim: number;
   damage: number;
+  damage_armor: number;
+  hitgroup: number;
+  health: number;
+  armor: number;
   weapon: string;
 }
 

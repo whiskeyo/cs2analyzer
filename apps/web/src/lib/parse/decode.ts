@@ -99,6 +99,10 @@ const HURT: Shape = {
   attacker: number,
   victim: number,
   damage: number,
+  damage_armor: number,
+  hitgroup: number,
+  health: number,
+  armor: number,
   weapon: text,
 };
 
