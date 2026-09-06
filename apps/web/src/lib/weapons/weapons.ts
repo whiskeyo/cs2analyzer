@@ -126,6 +126,8 @@ const ICON_ALIAS: Record<string, string> = {
 
 const ICON_FILES = new Set([
   "ak47",
+  "attacker_airborne",
+  "attacker_blind",
   "aug",
   "awp",
   "bizon",
@@ -160,6 +162,7 @@ const ICON_FILES = new Set([
   "mp7",
   "mp9",
   "negev",
+  "noscope",
   "nova",
   "p250",
   "p90",
@@ -172,8 +175,10 @@ const ICON_FILES = new Set([
   "ssg08",
   "taser",
   "tec9",
+  "through_smoke",
   "ump45",
   "usp_silencer",
+  "wallbang",
   "xm1014",
 ]);
 

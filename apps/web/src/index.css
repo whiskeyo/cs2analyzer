@@ -2447,6 +2447,10 @@ button.link:hover:not(:disabled) {
   height: 16px;
   max-width: 72px;
 }
+.kill-feed .gun .wep-icon.gear {
+  height: 14px;
+  max-width: 16px;
+}
 .wep-icon.gear {
   height: 13px;
   max-width: 18px;

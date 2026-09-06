@@ -43,6 +43,54 @@ describe("KillFeed", () => {
     expect(onJump).toHaveBeenCalledWith(2000);
   });
 
+  it("shows each kill modifier icon", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
+      kills: [
+        makeKill(1000, 0, 1, {
+          noscope: true,
+          through_smoke: true,
+          wallbang: true,
+          attacker_airborne: true,
+          attacker_blind: true,
+          headshot: true,
+        }),
+      ],
+    });
+    render(<KillFeed replay={replay} tick={1000} onJump={() => {}} />);
+    expect(screen.getByTitle("No-scope")).toHaveAttribute(
+      "src",
+      expect.stringContaining("noscope.svg"),
+    );
+    expect(screen.getByTitle("Through smoke")).toHaveAttribute(
+      "src",
+      expect.stringContaining("through_smoke.svg"),
+    );
+    expect(screen.getByTitle("Wallbang")).toHaveAttribute(
+      "src",
+      expect.stringContaining("wallbang.svg"),
+    );
+    expect(screen.getByTitle("Airborne")).toHaveAttribute(
+      "src",
+      expect.stringContaining("attacker_airborne.svg"),
+    );
+    expect(screen.getByTitle("Blind")).toHaveAttribute(
+      "src",
+      expect.stringContaining("attacker_blind.svg"),
+    );
+    expect(screen.getByTitle("Headshot")).toBeInTheDocument();
+  });
+
+  it("hides modifier icons when the flags are off", () => {
+    render(<KillFeed replay={replayWithKills()} tick={2000} onJump={() => {}} />);
+    expect(screen.queryByTitle("No-scope")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Through smoke")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Wallbang")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Airborne")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Blind")).not.toBeInTheDocument();
+  });
+
   it("names the world as the attacker when there is no killer", () => {
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "Alice")],

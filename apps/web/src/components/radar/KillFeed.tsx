@@ -31,6 +31,11 @@ export const KillFeed = memo(function KillFeed({ replay, tick, onJump }: Props) 
             {k.assisted_flash && <GearIcon name="flashbang_assist" title="Flash assist" />}
             <span className="gun">
               <WeaponIcon weapon={k.weapon} />
+              {k.noscope && <GearIcon name="noscope" title="No-scope" />}
+              {k.through_smoke && <GearIcon name="through_smoke" title="Through smoke" />}
+              {k.wallbang && <GearIcon name="wallbang" title="Wallbang" />}
+              {k.attacker_airborne && <GearIcon name="attacker_airborne" title="Airborne" />}
+              {k.attacker_blind && <GearIcon name="attacker_blind" title="Blind" />}
               {k.headshot && (
                 <img
                   className="headshot-icon"
