@@ -7,6 +7,7 @@ import type { MapCalibration } from "@/lib/replay/replayTypes";
 import {
   drawArrow,
   drawC4,
+  drawLooseC4,
   drawHeBurst,
   drawNadeFlightHead,
   yawToCanvas,
@@ -195,6 +196,7 @@ export function paintRadarFrame(
   opts: {
     scale: number;
     c4Icon: HTMLImageElement | null;
+    packC4Icon?: HTMLImageElement | null;
     nadeIcons?: NadeIcons;
   },
 ) {
@@ -251,6 +253,8 @@ export function paintRadarFrame(
 
   if (frame.bomb.state === "planted") {
     drawC4(ctx, toScreen(frame.bomb.x, frame.bomb.y), opts.c4Icon);
+  } else if (frame.bomb.state === "loose") {
+    drawLooseC4(ctx, toScreen(frame.bomb.x, frame.bomb.y), opts.packC4Icon ?? null);
   }
 
   for (const death of frame.deaths) {
@@ -457,6 +461,7 @@ export function paintPawns(
   frame: RadarFrame,
   toScreen: ToScreen,
   showNames: boolean,
+  packC4Icon: HTMLImageElement | null = null,
 ) {
   for (const hit of frame.hits) {
     const s = toScreen(hit.x, hit.y);
@@ -519,16 +524,19 @@ export function paintPawns(
       ctx.fillText(formatBlindLeft(pawn.flash), s.x + 12, s.y);
     }
 
-    if (pawn.alive && showNames) {
-      const name = pawn.name.slice(0, 12);
+    if (pawn.alive && (showNames || pawn.carriesC4)) {
+      const name = showNames ? pawn.name.slice(0, 12) : "";
       const fontSize = name.length > 9 ? 9 : 10;
       const labelY = s.y + 20;
       ctx.font = `${fontSize}px ui-sans-serif, system-ui`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      const textW = ctx.measureText(name).width;
-      const boxW = Math.max(24, textW + 12);
+      const textW = name ? ctx.measureText(name).width : 0;
+      const iconSize = 12;
+      const iconGap = 3;
+      const iconW = pawn.carriesC4 ? iconSize + iconGap : 0;
+      const boxW = Math.max(24, textW + 12 + iconW);
       const boxH = 17;
       const boxX = s.x - boxW / 2;
       const boxY = labelY - boxH / 2;
@@ -542,8 +550,25 @@ export function paintPawns(
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = "#e8eef4";
-      ctx.fillText(name, s.x, labelY);
+      if (pawn.carriesC4) {
+        const iconX = boxX + 6;
+        const iconY = labelY - iconSize / 2;
+        if (packC4Icon && packC4Icon.complete && packC4Icon.naturalWidth > 0) {
+          ctx.drawImage(packC4Icon, iconX, iconY, iconSize, iconSize);
+        } else {
+          ctx.fillStyle = "#e8d48a";
+          ctx.font = "bold 8px ui-sans-serif, system-ui";
+          ctx.textAlign = "left";
+          ctx.fillText("C4", iconX, labelY);
+          ctx.font = `${fontSize}px ui-sans-serif, system-ui`;
+          ctx.textAlign = "center";
+        }
+      }
+      if (name) {
+        const textX = pawn.carriesC4 ? boxX + 6 + iconW + textW / 2 : s.x;
+        ctx.fillStyle = "#e8eef4";
+        ctx.fillText(name, textX, labelY);
+      }
     }
     ctx.globalAlpha = 1;
   }

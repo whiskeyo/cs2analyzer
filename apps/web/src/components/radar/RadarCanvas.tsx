@@ -151,7 +151,7 @@ export function RadarCanvas({
   habitsOnlyRef.current = habitsOnly;
   const onHabitsJumpRef = useRef(onHabitsJump);
   onHabitsJumpRef.current = onHabitsJump;
-  const { images, c4Icon, nadeIcons } = useRadarImages(cal);
+  const { images, c4Icon, plantedC4Icon, nadeIcons } = useRadarImages(cal);
   const view = useRef<RadarPanView>({
     scale: 1,
     ox: 0,
@@ -248,7 +248,8 @@ export function RadarCanvas({
       paintMapImage(ctx, w, h, v, img, calNow);
       paintRadarFrame(ctx, frame, toScreen, {
         scale: v.scale,
-        c4Icon: c4Icon.current,
+        c4Icon: plantedC4Icon.current,
+        packC4Icon: c4Icon.current,
         nadeIcons: nadeIcons.current,
       });
       const habitsNow = habitsOverlayRef.current;
@@ -289,7 +290,7 @@ export function RadarCanvas({
       }
 
       paintViewCone(ctx, frame, toScreen);
-      paintPawns(ctx, frame, toScreen, layersRef.current.names);
+      paintPawns(ctx, frame, toScreen, layersRef.current.names, c4Icon.current);
       ctx.restore();
       raf = requestAnimationFrame(draw);
     };

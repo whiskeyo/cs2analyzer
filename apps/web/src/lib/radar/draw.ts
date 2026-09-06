@@ -39,6 +39,27 @@ export function drawC4(
   }
 }
 
+/** Loose pack: same C4 SVG, no site ring or fuse dial. */
+export function drawLooseC4(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  icon: HTMLImageElement | null,
+) {
+  const size = 16;
+  ctx.save();
+  ctx.globalAlpha = 0.88;
+  if (icon && icon.complete && icon.naturalWidth > 0) {
+    ctx.drawImage(icon, at.x - size / 2, at.y - size / 2, size, size);
+  } else {
+    ctx.fillStyle = "#e8d48a";
+    ctx.font = "bold 8px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("C4", at.x, at.y);
+  }
+  ctx.restore();
+}
+
 function iconReady(icon: HTMLImageElement | null | undefined): icon is HTMLImageElement {
   return Boolean(icon && icon.complete && icon.naturalWidth > 0);
 }

@@ -7,6 +7,7 @@ import type { Stroke } from "@/lib/notes/types";
 import {
   drawArrow,
   drawC4,
+  drawLooseC4,
   drawHeBurst,
   drawNadeFlightHead,
   drawTextLabel,
@@ -104,6 +105,23 @@ describe("drawC4", () => {
     drawC4(ctx, { x: 0, y: 0 }, icon);
     expect(ctx.fillText).toHaveBeenCalledWith("C4", 0, 0);
     expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+});
+
+describe("drawLooseC4", () => {
+  it("draws the pack without a site ring", () => {
+    const ctx = createMockCanvas();
+    drawLooseC4(ctx, { x: 50, y: 60 }, null);
+    expect(ctx.arc).not.toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalledWith("C4", 50, 60);
+  });
+
+  it("draws the icon when it is complete", () => {
+    const ctx = createMockCanvas();
+    const icon = { complete: true, naturalWidth: 32 } as HTMLImageElement;
+    drawLooseC4(ctx, { x: 10, y: 20 }, icon);
+    expect(ctx.drawImage).toHaveBeenCalledWith(icon, 2, 12, 16, 16);
+    expect(ctx.arc).not.toHaveBeenCalled();
   });
 });
 

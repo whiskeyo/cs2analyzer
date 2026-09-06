@@ -419,6 +419,18 @@ describe("paintRadarFrame", () => {
     expect(ctx.fillText).toHaveBeenCalledWith("C4", 120, 220);
   });
 
+  it("paints a loose pack without the planted ring", () => {
+    const ctx = createMockCanvas();
+    paintRadarFrame(
+      ctx,
+      minimalFrame({ bomb: { state: "loose", x: 80, y: 90 } }),
+      toScreen,
+      paintOpts,
+    );
+    expect(ctx.arc).not.toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalledWith("C4", 80, 90);
+  });
+
   it("paints death marks and optional kill lines", () => {
     const ctx = createMockCanvas();
     const far = { x: 500, y: 0 };
@@ -828,6 +840,37 @@ describe("paintPawns", () => {
     expect(selected.pawns.find((p) => p.index === 1)?.selected).toBe(true);
     expect(ctx.stroke).toHaveBeenCalled();
     expect(f.pawns.length).toBe(4);
+  });
+
+  it("widens the nickname box when the pawn carries C4", () => {
+    const ctx = createMockCanvas();
+    paintPawns(
+      ctx,
+      minimalFrame({
+        pawns: [
+          {
+            index: 2,
+            x: 50,
+            y: 50,
+            yaw: 0,
+            color: CT_COLOR,
+            alive: true,
+            selected: false,
+            flash: 0,
+            name: "Cara",
+            health: 100,
+            carriesC4: true,
+          },
+        ],
+      }),
+      toScreen,
+      true,
+    );
+    expect(ctx.roundRect).toHaveBeenCalled();
+    const boxW = ctx.roundRect.mock.calls[0]?.[2] as number;
+    expect(boxW).toBeGreaterThan(52);
+    expect(ctx.fillText).toHaveBeenCalledWith("C4", expect.any(Number), expect.any(Number));
+    expect(ctx.fillText).toHaveBeenCalledWith("Cara", expect.any(Number), expect.any(Number));
   });
 });
 

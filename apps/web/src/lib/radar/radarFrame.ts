@@ -153,6 +153,8 @@ export interface Pawn extends Point {
   flash: number;
   name: string;
   health: number;
+  /** True when this pawn holds the pack (`GEAR_C4`). */
+  carriesC4?: boolean;
 }
 
 /** A grenade in exactly one of its render phases, or absent from the frame. */
@@ -505,6 +507,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
   const nadeZoom = Math.min(MAX_NADE_ZOOM, scale);
   const blinds = blindsAt(replay.blinds, tick, tps);
   const hits = hitsAt(replay.hurts, tick, tps);
+  const bomb = bombView(replay, tick);
 
   const hitPulses: HitPulse[] = [];
   const flashPulses: FlashPulse[] = [];
@@ -546,6 +549,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
       flash,
       name: replay.players[p.index]?.name ?? "",
       health: p.health,
+      carriesC4: bomb.state === "carried" && bomb.player === p.index,
     });
   }
 
@@ -558,7 +562,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
     summary: layers.summary ? summaryDiscs(replay, input.summaryFilter, nadeZoom) : [],
     nades: layers.grenades ? nadeRenders(replay, tick, round, nadeZoom) : [],
     tracers: layers.shots ? tracers(replay, tick, tps) : [],
-    bomb: bombView(replay, tick),
+    bomb,
     deaths: layers.deaths ? deathMarks(replay, tick, round) : [],
     opening: layers.openings ? openingArrow(replay, tick, round) : null,
     trails: input.trails ? playerTrails(replay, tick, players, selected, tps, cal) : [],

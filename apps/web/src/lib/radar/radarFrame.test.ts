@@ -357,6 +357,7 @@ describe("buildRadarFrame bomb", () => {
     ticks.gear[2] = GEAR_C4;
     const replay = matchReplay({ ticks });
     expect(frame(replay, 64).bomb).toEqual({ state: "carried", player: 2 });
+    expect(frame(replay, 64).pawns.find((p) => p.index === 2)?.carriesC4).toBe(true);
   });
 
   it("places a loose pack at the drop", () => {
