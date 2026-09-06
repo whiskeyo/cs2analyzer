@@ -7,6 +7,7 @@ import { useApp } from "@/lib/state/appState";
 import { isAggregatedView } from "@/lib/parse/seriesMode";
 import { prettyMap } from "@/lib/weapons/weapons";
 import type { Replay } from "@/lib/replay/replayTypes";
+import { navigate, usePathname } from "@/lib/app/devNavigate";
 
 const REMOVE_NOTES_CONFIRM = "yes, remove notes";
 
@@ -35,6 +36,8 @@ export function Header() {
   const canExportNotes = replay != null || review.saved.length > 0;
   const canRemoveNotes = review.saved.length > 0;
 
+  const pathname = usePathname();
+  const onLayouts = import.meta.env.DEV && pathname === "/layouts";
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeConfirm, setRemoveConfirm] = useState("");
@@ -75,7 +78,15 @@ export function Header() {
     <>
       <header className="top">
         <div className="brand-row">
-          <button type="button" className="brand" onClick={session.close} aria-label="Home">
+          <button
+            type="button"
+            className="brand"
+            onClick={() => {
+              session.close();
+              if (onLayouts) navigate("/");
+            }}
+            aria-label="Home"
+          >
             <img
               className="brand-mark"
               src={publicUrl("favicon.svg")}
@@ -161,6 +172,18 @@ export function Header() {
                 >
                   Remove notes
                 </button>
+                {import.meta.env.DEV ? (
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      navigate(onLayouts ? "/" : "/layouts");
+                    }}
+                  >
+                    {onLayouts ? "Back to analyzer" : "Layouts editor"}
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>

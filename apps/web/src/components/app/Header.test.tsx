@@ -176,4 +176,15 @@ describe("Header", () => {
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
   });
+
+  it("offers the layouts editor in development settings", async () => {
+    vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
+    render(<Header />);
+    await openSettings();
+    if (import.meta.env.DEV) {
+      expect(screen.getByRole("button", { name: "Layouts editor" })).toBeInTheDocument();
+    } else {
+      expect(screen.queryByRole("button", { name: "Layouts editor" })).not.toBeInTheDocument();
+    }
+  });
 });

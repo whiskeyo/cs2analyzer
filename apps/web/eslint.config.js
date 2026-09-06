@@ -26,6 +26,8 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       // Canvas/playback loops keep latest props in refs; that is intentional.
       "react-hooks/refs": "off",
+      // Layout/radar pointer hooks mutate view refs (same as former layouts app).
+      "react-hooks/immutability": "off",
       "react-refresh/only-export-components": "off",
       ...sharedRules,
     },
