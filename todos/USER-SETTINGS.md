@@ -35,7 +35,7 @@ Changes apply immediately where safe; parse pool applies on the **next** multi-f
 
 - Button: **Reset all settings** (confirm dialog).
 - Writes `defaultUserSettings()` to IndexedDB — values documented below, matching current production behavior.
-- Does **not** delete saved notes, linked demo handles, or strat sets (future).
+- Does **not** delete saved notes, linked demo handles, or playbooks (future).
 
 Optional later: reset individual sections (Appearance / Playback / Performance).
 
@@ -59,7 +59,7 @@ export interface UserSettings {
   /** Saved-note cards per page on splash. */
   savedNotesPageSize: number;
 
-  /** Default pen palette + swatch for new demos / new strat pages. */
+  /** Default pen palette + swatch for new demos / new playbook pages. */
   defaultPaletteId: string;
   defaultColor: string;
 
@@ -224,7 +224,7 @@ One behavior per commit. Tests for `userSettingsStore` + `defaultUserSettings` +
 
 ## Relation to other todos
 
-- **Strat planner** — uses same `defaultPaletteId` / `defaultColor` for new strat pages.
+- **Playbook** — uses same `defaultPaletteId` / `defaultColor` for new playbook pages.
 - **PDF export** — optional “include settings footer” later; not v1.
 
 ## One-line scope
