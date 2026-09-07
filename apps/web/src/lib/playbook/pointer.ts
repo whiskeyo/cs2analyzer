@@ -1,8 +1,17 @@
 import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
-import type { Note, Piece } from "@/lib/notes/types";
+import type { Drawing, Note, Piece } from "@/lib/notes/types";
 import { screenToWorld, worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { zoomViewAtCursor, wheelZoomFactor } from "@/lib/radar/panZoom.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
+import {
+  addLooseDrawing,
+  beginArrow,
+  beginPen,
+  commitDraft,
+  eraseAt,
+  extendDraft,
+  placeText,
+} from "./drawings";
 import {
   addPiece,
   hitTestPiece,
@@ -93,10 +102,24 @@ export function usePlaybookPointer(opts: {
   calRef: MutableRefObject<MapCalibration | undefined>;
   toolRef: MutableRefObject<PlaybookTool>;
   noteRef: MutableRefObject<Note>;
+  colorRef: MutableRefObject<string>;
+  draftRef: MutableRefObject<Drawing | null>;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
 }): void {
-  const { wrapRef, view, calRef, toolRef, noteRef, onNote, onSelect } = opts;
+  const {
+    wrapRef,
+    view,
+    calRef,
+    toolRef,
+    noteRef,
+    colorRef,
+    draftRef,
+    canvasRef,
+    onNote,
+    onSelect,
+  } = opts;
   const onNoteRef = useRef(onNote);
   onNoteRef.current = onNote;
   const onSelectRef = useRef(onSelect);
@@ -127,6 +150,28 @@ export function usePlaybookPointer(opts: {
       const hit = hitTestPiece(noteRef.current.pieces, { x, y }, toScreen);
       const action = resolvePlaybookDown(toolRef.current, hit, e.shiftKey);
       const cal = calRef.current;
+      if (action === "erase") {
+        if (!cal || !onNoteRef.current) return;
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        const ctx = canvasRef.current?.getContext("2d") ?? null;
+        onNoteRef.current(eraseAt(noteRef.current, world, { x, y }, toScreen, ctx));
+        return;
+      }
+      if (action === "text") {
+        if (!cal || !onNoteRef.current) return;
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        onNoteRef.current(addLooseDrawing(noteRef.current, placeText(colorRef.current, world)));
+        return;
+      }
+      if (action === "draw") {
+        if (!cal) return;
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        draftRef.current =
+          toolRef.current === "arrow"
+            ? beginArrow(colorRef.current, world)
+            : beginPen(colorRef.current, world);
+        return;
+      }
       if (action === "place") {
         if (!cal || !onNoteRef.current) return;
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
@@ -150,6 +195,11 @@ export function usePlaybookPointer(opts: {
       const { x, y } = pos(e);
       const drag = pieceDrag;
       const cal = calRef.current;
+      if (draftRef.current && cal) {
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        draftRef.current = extendDraft(draftRef.current, world);
+        return;
+      }
       if (drag && cal && onNoteRef.current) {
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         const piece = noteRef.current.pieces.find((row) => row.id === drag.id);
@@ -162,6 +212,14 @@ export function usePlaybookPointer(opts: {
     };
 
     const onUp = () => {
+      const draft = draftRef.current;
+      draftRef.current = null;
+      if (draft && onNoteRef.current) {
+        const committed = commitDraft(draft);
+        if (committed) {
+          onNoteRef.current(addLooseDrawing(noteRef.current, committed));
+        }
+      }
       pieceDrag = null;
       endPlaybookPan(view.current);
     };
@@ -176,5 +234,5 @@ export function usePlaybookPointer(opts: {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [view, wrapRef, calRef, toolRef, noteRef]);
+  }, [view, wrapRef, calRef, toolRef, noteRef, colorRef, draftRef, canvasRef]);
 }

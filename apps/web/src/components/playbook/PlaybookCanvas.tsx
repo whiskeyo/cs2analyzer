@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { type FloorMode, type Note } from "@/lib/notes/types";
+import { type Drawing, type FloorMode, type Note } from "@/lib/notes/types";
+import { defaultPlaybookColor } from "@/lib/playbook/pages";
 import { paintPlaybookBoard, playbookUsesLower } from "@/lib/playbook/paint";
 import { playbookToolCursor, type PlaybookTool } from "@/lib/playbook/pieces";
 import { createPlaybookView, usePlaybookPointer } from "@/lib/playbook/pointer";
@@ -11,6 +12,7 @@ interface Props {
   floorMode: FloorMode;
   note: Note;
   tool?: PlaybookTool;
+  color?: string;
   selectedId?: string | null;
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
@@ -21,6 +23,7 @@ export function PlaybookCanvas({
   floorMode,
   note,
   tool = "pan",
+  color = defaultPlaybookColor(),
   selectedId = null,
   onNote,
   onSelect,
@@ -38,9 +41,23 @@ export function PlaybookCanvas({
   toolRef.current = tool;
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
+  const colorRef = useRef(color);
+  colorRef.current = color;
+  const draftRef = useRef<Drawing | null>(null);
   const { images, c4Icon, nadeIcons } = useRadarImages(cal);
 
-  usePlaybookPointer({ wrapRef, view, calRef, toolRef, noteRef, onNote, onSelect });
+  usePlaybookPointer({
+    wrapRef,
+    view,
+    calRef,
+    toolRef,
+    noteRef,
+    colorRef,
+    draftRef,
+    canvasRef,
+    onNote,
+    onSelect,
+  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -72,7 +89,7 @@ export function PlaybookCanvas({
         img,
         calRef.current,
         noteRef.current,
-        null,
+        draftRef.current,
         { c4: c4Icon.current, nades: nadeIcons.current },
         selectedIdRef.current,
       );

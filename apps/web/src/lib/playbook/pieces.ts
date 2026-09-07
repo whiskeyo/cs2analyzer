@@ -22,7 +22,25 @@ export const GRENADE_PIECE_KINDS = [
   "decoy",
 ] as const satisfies readonly GrenadeKind[];
 
-export type PlaybookTool = "pan" | "pawn-ct" | "pawn-t" | GrenadeKind | "bomb";
+export type PlaybookDrawTool = "pen" | "arrow" | "text" | "eraser";
+export type PlaybookTool = "pan" | PlaybookDrawTool | "pawn-ct" | "pawn-t" | GrenadeKind | "bomb";
+
+export const DRAW_TOOLS: readonly { tool: PlaybookDrawTool; label: string }[] = [
+  { tool: "pen", label: "Pen" },
+  { tool: "arrow", label: "Arrow" },
+  { tool: "text", label: "Text" },
+  { tool: "eraser", label: "Eraser" },
+];
+
+export function isDrawTool(tool: PlaybookTool): tool is PlaybookDrawTool {
+  return tool === "pen" || tool === "arrow" || tool === "text" || tool === "eraser";
+}
+
+export function isTokenTool(
+  tool: PlaybookTool,
+): tool is Exclude<PlaybookTool, "pan" | PlaybookDrawTool> {
+  return tool !== "pan" && !isDrawTool(tool);
+}
 
 export type PaletteToken = {
   tool: Exclude<PlaybookTool, "pan">;
@@ -94,7 +112,7 @@ export function makePiece(
 }
 
 export function pieceFromTool(tool: PlaybookTool, x: number, y: number): Piece | null {
-  if (tool === "pan") return null;
+  if (!isTokenTool(tool)) return null;
   if (tool === "pawn-ct") return makePiece("pawn", x, y, { side: "CT" });
   if (tool === "pawn-t") return makePiece("pawn", x, y, { side: "T" });
   if (tool === "bomb") return makePiece("bomb", x, y);
@@ -170,21 +188,27 @@ export function yawTowardScreen(
   return canvasToYaw(Math.atan2(to.y - from.y, to.x - from.x));
 }
 
-export type PlaybookDownAction = "place" | "pan" | "move" | "rotate";
+export type PlaybookDownAction = "place" | "pan" | "move" | "rotate" | "draw" | "text" | "erase";
 
 export function resolvePlaybookDown(
   tool: PlaybookTool,
   hit: Piece | null,
   shiftKey: boolean,
 ): PlaybookDownAction {
-  if (tool !== "pan") return "place";
+  if (tool === "eraser") return "erase";
+  if (tool === "text") return "text";
+  if (tool === "pen" || tool === "arrow") return "draw";
+  if (isTokenTool(tool)) return "place";
   if (hit && shiftKey && hit.kind === "pawn") return "rotate";
   if (hit) return "move";
   return "pan";
 }
 
 export function playbookToolCursor(tool: PlaybookTool): string {
-  return tool === "pan" ? "grab" : "copy";
+  if (tool === "pan") return "grab";
+  if (tool === "eraser") return "cell";
+  if (tool === "pen" || tool === "arrow" || tool === "text") return "crosshair";
+  return "copy";
 }
 
 export function paletteAriaLabel(token: PaletteToken): string {

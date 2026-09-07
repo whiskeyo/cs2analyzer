@@ -1,5 +1,5 @@
 import type { PlaybookTool } from "@/lib/playbook/pieces";
-import { PALETTE_TOKENS, paletteAriaLabel } from "@/lib/playbook/pieces";
+import { DRAW_TOOLS, PALETTE_TOKENS, paletteAriaLabel } from "@/lib/playbook/pieces";
 
 interface Props {
   tool: PlaybookTool;
@@ -18,6 +18,18 @@ export function TokenPalette({ tool, onTool }: Props) {
       >
         Pan
       </button>
+      {DRAW_TOOLS.map((row) => (
+        <button
+          key={row.tool}
+          type="button"
+          className={tool === row.tool ? "on" : undefined}
+          aria-pressed={tool === row.tool}
+          aria-label={row.label}
+          onClick={() => onTool(row.tool)}
+        >
+          {row.label}
+        </button>
+      ))}
       {PALETTE_TOKENS.map((row) => (
         <button
           key={row.tool}

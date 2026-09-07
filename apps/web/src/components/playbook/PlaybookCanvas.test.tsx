@@ -206,4 +206,70 @@ describe("PlaybookCanvas", () => {
     fireEvent.mouseDown(wrap, { clientX: 200, clientY: 200, button: 0 });
     expect(onNote).not.toHaveBeenCalled();
   });
+
+  it("draws a pen, places text, and erases a token", () => {
+    const onNote = vi.fn();
+    const { container, rerender } = render(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        tool="pen"
+        onNote={onNote}
+      />,
+    );
+    const wrap = sizedWrap(container);
+    expect(wrap).toHaveStyle({ cursor: "crosshair" });
+    fireEvent.mouseDown(wrap, { clientX: 80, clientY: 80, button: 0 });
+    fireEvent.mouseMove(window, { clientX: 160, clientY: 160 });
+    fireEvent.mouseUp(window);
+    expect(onNote.mock.calls.at(-1)?.[0].loose[0]?.drawing.type).toBe("pen");
+
+    rerender(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        tool="text"
+        onNote={onNote}
+      />,
+    );
+    onNote.mockClear();
+    fireEvent.mouseDown(wrap, { clientX: 120, clientY: 120, button: 0 });
+    expect(onNote.mock.calls[0]?.[0].loose[0]?.drawing).toMatchObject({
+      type: "text",
+      text: "Text",
+    });
+
+    const note = emptyNote();
+    note.pieces.push(makePiece("bomb", 0, 0, { id: "c4" }));
+    rerender(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={note}
+        tool="eraser"
+        onNote={onNote}
+      />,
+    );
+    onNote.mockClear();
+    const at = worldToScreen(UNIT_CALIBRATION, 400, 400, identityView, 0, 0);
+    fireEvent.mouseDown(wrap, { clientX: at.x, clientY: at.y, button: 0 });
+    expect(onNote.mock.calls[0]?.[0].pieces).toEqual([]);
+
+    rerender(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        tool="arrow"
+        onNote={onNote}
+      />,
+    );
+    onNote.mockClear();
+    fireEvent.mouseDown(wrap, { clientX: 40, clientY: 40, button: 0 });
+    fireEvent.mouseMove(window, { clientX: 90, clientY: 70 });
+    fireEvent.mouseUp(window);
+    expect(onNote.mock.calls.at(-1)?.[0].loose[0]?.drawing.type).toBe("arrow");
+  });
 });

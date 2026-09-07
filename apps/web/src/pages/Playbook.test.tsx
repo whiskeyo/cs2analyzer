@@ -95,6 +95,7 @@ describe("Playbook", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
     expect(screen.getByRole("toolbar", { name: "Playbook tools" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pen" })).toBeInTheDocument();
     expect(screen.getByText(/No tokens yet/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Flash" }));
     expect(screen.getByRole("button", { name: "Flash" })).toHaveAttribute("aria-pressed", "true");

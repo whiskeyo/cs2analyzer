@@ -420,3 +420,5 @@ Decisions made while implementing. Answer later if you disagree; the code follow
 **Molly vs incendiary.** Palette includes both. They are different `PieceKind`s (T molotov / CT incendiary).
 
 **Bomb glyph.** A bomb token uses the planted C4 icon, not the loose-pack ping (playbook has no tick).
+
+**Playbook text.** Click-to-place writes the label “Text”. A proper in-place editor comes with the strat note sidebar.

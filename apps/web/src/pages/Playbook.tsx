@@ -188,7 +188,7 @@ export function Playbook() {
         )}
       </aside>
       <div className="playbook-stage">
-        {page && mapName ? (
+        {page && book && mapName ? (
           <>
             <TokenPalette tool={tool} onTool={setTool} />
             <div className="playbook-board">
@@ -197,6 +197,7 @@ export function Playbook() {
                 floorMode={page.floor}
                 note={page.note}
                 tool={tool}
+                color={book.color}
                 selectedId={visibleSelectedId}
                 onNote={setNote}
                 onSelect={setSelectedId}

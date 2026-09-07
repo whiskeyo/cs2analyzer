@@ -7,6 +7,8 @@ describe("TokenPalette", () => {
     const onTool = vi.fn();
     const { rerender } = render(<TokenPalette tool="pan" onTool={onTool} />);
     expect(screen.getByRole("button", { name: "Pan" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Pen" }));
+    expect(onTool).toHaveBeenCalledWith("pen");
     fireEvent.click(screen.getByRole("button", { name: "CT pawn" }));
     expect(onTool).toHaveBeenCalledWith("pawn-ct");
     rerender(<TokenPalette tool="smoke" onTool={onTool} />);
