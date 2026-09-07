@@ -1082,7 +1082,7 @@ code {
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.9rem 0.85rem 1.1rem;
-  border-right: 1px solid #243040;
+  border-left: 1px solid #243040;
   background: #10161c;
   overflow: auto;
 }

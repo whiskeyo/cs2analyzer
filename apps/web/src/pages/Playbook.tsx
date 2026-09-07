@@ -59,6 +59,27 @@ export function Playbook() {
 
   return (
     <div className="playbook">
+      <div className="playbook-stage">
+        {page && book && mapName ? (
+          <>
+            <TokenPalette tool={tool} onTool={setTool} />
+            <div className="playbook-board">
+              <PlaybookCanvas
+                cal={cal}
+                floorMode={page.floor}
+                note={page.note}
+                tool={tool}
+                color={book.color}
+                selectedId={visibleSelectedId}
+                onNote={setNote}
+                onSelect={setSelectedId}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="playbook-empty muted">Open a playbook to draw on the radar.</div>
+        )}
+      </div>
       <aside className="playbook-sidebar">
         <h2>Playbook</h2>
         <p className="playbook-lead">Maps, then named books. Drawings stay on this machine.</p>
@@ -187,27 +208,6 @@ export function Playbook() {
           <p className="muted">Create a playbook for this map, or open one from the list.</p>
         )}
       </aside>
-      <div className="playbook-stage">
-        {page && book && mapName ? (
-          <>
-            <TokenPalette tool={tool} onTool={setTool} />
-            <div className="playbook-board">
-              <PlaybookCanvas
-                cal={cal}
-                floorMode={page.floor}
-                note={page.note}
-                tool={tool}
-                color={book.color}
-                selectedId={visibleSelectedId}
-                onNote={setNote}
-                onSelect={setSelectedId}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="playbook-empty muted">Open a playbook to draw on the radar.</div>
-        )}
-      </div>
     </div>
   );
 }

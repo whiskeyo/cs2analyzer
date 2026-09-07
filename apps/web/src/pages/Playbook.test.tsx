@@ -50,6 +50,9 @@ describe("Playbook", () => {
     await userEvent.type(screen.getByRole("textbox", { name: "New playbook title" }), "A execs");
     await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
     expect(await screen.findByTestId("playbook-canvas")).toBeInTheDocument();
+    const root = document.querySelector(".playbook");
+    expect(root?.firstElementChild).toHaveClass("playbook-stage");
+    expect(root?.lastElementChild).toHaveClass("playbook-sidebar");
     expect(screen.getByRole("textbox", { name: "Book title" })).toHaveValue("A execs");
     expect(screen.getByRole("button", { name: "A execs" })).toHaveClass("is-active");
     fireEvent.change(screen.getByRole("textbox", { name: "Book title" }), {
