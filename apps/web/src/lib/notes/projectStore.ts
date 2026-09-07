@@ -1,8 +1,18 @@
 import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
-import { isFiniteNumber, isRecord } from "@/lib/validate/guards.ts";
-import { COLOR_PRESETS } from "./palettes";
 import type { GrenadeKind, Replay } from "@/lib/replay/replayTypes";
 import type { MatchScorecard, SavedPlayerSnapshot } from "@/lib/stats/stats";
+import {
+  HANDLE_STORE,
+  PROJECT_STORE,
+  hasStore,
+  idbAvailable,
+  openCs2Db,
+  requestOf,
+} from "@/lib/storage/idb";
+import { isFiniteNumber, isRecord } from "@/lib/validate/guards.ts";
+import { flattenRoundNotes, strokesToRoundNotes } from "./migrate";
+import { parseRoundNotes } from "./noteParse";
+import { COLOR_PRESETS } from "./palettes";
 import {
   DEFAULT_SUMMARY_FILTER,
   type FloorMode,
@@ -10,15 +20,10 @@ import {
   type Stroke,
   type SummaryFilter,
 } from "./types";
-import { flattenRoundNotes, strokesToRoundNotes } from "./migrate";
-import { parseRoundNotes } from "./noteParse";
 
 export const PROJECT_SCHEMA = 3;
 const MIN_PROJECT_SCHEMA = 1;
-const DB_NAME = "cs2analyzer";
-const DB_VERSION = 3;
-const STORE = "projects";
-const HANDLE_STORE = "demoHandles";
+const STORE = PROJECT_STORE;
 
 const KINDS: GrenadeKind[] = ["smoke", "flash", "he", "molotov", "incendiary", "decoy"];
 
@@ -316,41 +321,9 @@ export function isNotesFile(file: File): boolean {
   return /\.json$/i.test(file.name) || file.type === "application/json";
 }
 
-function idbAvailable(): boolean {
-  return typeof indexedDB !== "undefined";
-}
-
-function hasHandleStore(db: IDBDatabase): boolean {
-  return db.objectStoreNames.contains(HANDLE_STORE);
-}
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: "key" });
-      }
-      if (!db.objectStoreNames.contains(HANDLE_STORE)) {
-        db.createObjectStore(HANDLE_STORE, { keyPath: "key" });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error("indexedDB open failed"));
-  });
-}
-
-function requestOf<T>(req: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error("indexedDB request failed"));
-  });
-}
-
 export async function saveProject(project: ReviewProject): Promise<void> {
   if (!idbAvailable()) return;
-  const db = await openDb();
+  const db = await openCs2Db();
   try {
     const tx = db.transaction(STORE, "readwrite");
     await requestOf(tx.objectStore(STORE).put({ ...project, savedAt: Date.now() }));
@@ -361,7 +334,7 @@ export async function saveProject(project: ReviewProject): Promise<void> {
 
 export async function loadProject(key: string): Promise<ReviewProject | null> {
   if (!idbAvailable()) return null;
-  const db = await openDb();
+  const db = await openCs2Db();
   try {
     const tx = db.transaction(STORE, "readonly");
     const raw = await requestOf(tx.objectStore(STORE).get(key));
@@ -373,7 +346,7 @@ export async function loadProject(key: string): Promise<ReviewProject | null> {
 
 export async function loadAllProjects(): Promise<ReviewProject[]> {
   if (!idbAvailable()) return [];
-  const db = await openDb();
+  const db = await openCs2Db();
   try {
     const tx = db.transaction(STORE, "readonly");
     const raw = await requestOf(tx.objectStore(STORE).getAll());
@@ -390,7 +363,7 @@ export async function loadAllProjects(): Promise<ReviewProject[]> {
 
 export async function importProjects(bundle: ProjectBundle): Promise<number> {
   if (!idbAvailable()) return bundle.projects.length;
-  const db = await openDb();
+  const db = await openCs2Db();
   try {
     const tx = db.transaction(STORE, "readwrite");
     const store = tx.objectStore(STORE);
@@ -405,11 +378,11 @@ export async function importProjects(bundle: ProjectBundle): Promise<number> {
 
 export async function deleteProject(key: string): Promise<void> {
   if (!idbAvailable()) return;
-  const db = await openDb();
+  const db = await openCs2Db();
   try {
     const tx = db.transaction(STORE, "readwrite");
     await requestOf(tx.objectStore(STORE).delete(key));
-    if (hasHandleStore(db)) {
+    if (hasStore(db, HANDLE_STORE)) {
       const handleTx = db.transaction(HANDLE_STORE, "readwrite");
       await requestOf(handleTx.objectStore(HANDLE_STORE).delete(key));
     }
@@ -423,11 +396,11 @@ export async function deleteAllProjects(): Promise<number> {
   if (!idbAvailable()) return 0;
   const existing = await loadAllProjects();
   if (existing.length === 0) return 0;
-  const db = await openDb();
+  const db = await openCs2Db();
   try {
     const tx = db.transaction(STORE, "readwrite");
     await requestOf(tx.objectStore(STORE).clear());
-    if (hasHandleStore(db)) {
+    if (hasStore(db, HANDLE_STORE)) {
       const handleTx = db.transaction(HANDLE_STORE, "readwrite");
       await requestOf(handleTx.objectStore(HANDLE_STORE).clear());
     }
@@ -439,7 +412,7 @@ export async function deleteAllProjects(): Promise<number> {
 
 export async function countProjects(): Promise<number> {
   if (!idbAvailable()) return 0;
-  const db = await openDb();
+  const db = await openCs2Db();
   try {
     const tx = db.transaction(STORE, "readonly");
     return await requestOf(tx.objectStore(STORE).count());
@@ -450,9 +423,9 @@ export async function countProjects(): Promise<number> {
 
 export async function saveDemoFileHandle(key: string, handle: FileSystemFileHandle): Promise<void> {
   if (!idbAvailable()) return;
-  const db = await openDb();
+  const db = await openCs2Db();
   try {
-    if (!hasHandleStore(db)) return;
+    if (!hasStore(db, HANDLE_STORE)) return;
     const tx = db.transaction(HANDLE_STORE, "readwrite");
     await requestOf(tx.objectStore(HANDLE_STORE).put({ key, handle, linkedAt: Date.now() }));
   } finally {
@@ -462,9 +435,9 @@ export async function saveDemoFileHandle(key: string, handle: FileSystemFileHand
 
 export async function loadDemoFileHandle(key: string): Promise<FileSystemFileHandle | null> {
   if (!idbAvailable()) return null;
-  const db = await openDb();
+  const db = await openCs2Db();
   try {
-    if (!hasHandleStore(db)) return null;
+    if (!hasStore(db, HANDLE_STORE)) return null;
     const tx = db.transaction(HANDLE_STORE, "readonly");
     const row = (await requestOf(tx.objectStore(HANDLE_STORE).get(key))) as
       { handle?: FileSystemFileHandle } | undefined;
