@@ -21,7 +21,7 @@ function pageTitle(pathname: string): string {
   return "CS2 Analyzer";
 }
 
-function Shell() {
+function AppLayout() {
   const { session } = useApp();
   const pathname = usePathname();
   const onFaq = isFaqPath(pathname);
@@ -38,7 +38,7 @@ function Shell() {
 
   if (showLayouts) {
     return (
-      <div className="app layouts-shell">
+      <div className="app layouts-app">
         <Header />
         <Suspense fallback={<div className="boot-error muted">Loading layouts editor…</div>}>
           <LayoutsApp />
@@ -59,7 +59,7 @@ function Shell() {
 export function App({ createWorker }: { createWorker?: CreateWorker } = {}) {
   return (
     <AppStateProvider createWorker={createWorker}>
-      <Shell />
+      <AppLayout />
     </AppStateProvider>
   );
 }
