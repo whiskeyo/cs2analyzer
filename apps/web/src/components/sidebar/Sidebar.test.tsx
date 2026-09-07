@@ -131,6 +131,15 @@ describe("Sidebar", () => {
     expect(onSelect).toHaveBeenCalledWith(null);
   });
 
+  it("omits headshot percent for grenades", async () => {
+    const replay = sidebarReplay();
+    replay.kills.push(makeKill(300, 0, 2, { weapon: "hegrenade" }));
+    render(<Sidebar {...sidebarProps({ replay, selected: 0 })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Weapons" }));
+    expect(screen.getByText("AK-47").closest("tr")).toHaveTextContent("100%");
+    expect(screen.getByText("HE").closest("tr")).not.toHaveTextContent("%");
+  });
+
   it("shows the rating hint for a selected player on score", () => {
     render(<Sidebar {...sidebarProps({ selected: 0 })} />);
     expect(screen.getByText(/rating through this tick/)).toBeInTheDocument();

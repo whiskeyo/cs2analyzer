@@ -10,6 +10,7 @@ import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
 import { clampSidebarWidth, loadSidebarWidth, saveSidebarWidth } from "@/lib/shared/sidebarWidth";
 import { computeStats, matchEndTick, weaponBreakdown } from "@/lib/stats/stats";
+import { weaponHeadshotLabel } from "@/lib/weapons/weapons";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { Stroke } from "@/lib/notes/types";
@@ -324,7 +325,7 @@ function WeaponTable({
                 <span>{w.weapon}</span>
               </td>
               <td>{w.kills}</td>
-              <td>{w.kills ? `${Math.round((100 * w.headshots) / w.kills)}%` : "—"}</td>
+              <td>{weaponHeadshotLabel(w.raw, w.kills, w.headshots)}</td>
               <td>{w.damage}</td>
             </tr>
           ))}
