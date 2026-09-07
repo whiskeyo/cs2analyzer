@@ -16,6 +16,10 @@ vi.mock("@/lib/notes/projectStore", async (importOriginal) => {
   return { ...actual, deleteProject: vi.fn() };
 });
 
+vi.mock("@/components/app/Viewer", () => ({
+  Viewer: () => <div data-testid="viewer" />,
+}));
+
 function savedProject(key = "proj-1"): ReviewProject {
   return {
     schema: 2,
@@ -40,6 +44,7 @@ function analyzerState(saved: ReviewProject[] = []) {
       parsing: false,
       progress: null,
       parseFiles: null,
+      replay: null,
     },
     status: { error: null, notice: null },
     review: {
@@ -82,5 +87,15 @@ describe("Analyzer", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(deleteProject).toHaveBeenCalledWith("notes-key");
     await waitFor(() => expect(state.refreshSaved).toHaveBeenCalled());
+  });
+
+  it("shows the viewer when a demo is loaded", () => {
+    vi.mocked(useApp).mockReturnValue({
+      ...analyzerState(),
+      session: { ...analyzerState().session, replay: { header: { map_name: "de_mirage" } } },
+    } as unknown as ReturnType<typeof useApp>);
+    render(<Analyzer />);
+    expect(screen.getByTestId("viewer")).toBeInTheDocument();
+    expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
   });
 });

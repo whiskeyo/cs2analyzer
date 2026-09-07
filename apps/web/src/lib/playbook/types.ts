@@ -4,6 +4,7 @@ export const PLAYBOOK_SCHEMA = 1;
 export const UNTITLED_STRAT = "Untitled strat";
 export const UNTITLED_PLAYBOOK = "Untitled playbook";
 export const COPY_SUFFIX = " copy";
+export const PLAYBOOK_PREFERRED_MAP = "de_mirage";
 
 export interface PlaybookPage {
   id: string;

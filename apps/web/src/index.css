@@ -1070,6 +1070,86 @@ code {
   min-width: 0;
   min-height: 0;
 }
+.playbook {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.playbook-sidebar {
+  flex: 0 0 16.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.9rem 0.85rem 1.1rem;
+  border-right: 1px solid #243040;
+  background: #10161c;
+  overflow: auto;
+}
+.playbook-sidebar h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+.playbook-lead {
+  margin: 0;
+  color: #8b98a5;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.playbook-field,
+.playbook-create {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: #8b98a5;
+}
+.playbook-field select,
+.playbook-field input,
+.playbook-create input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #2a3848;
+  border-radius: 6px;
+  background: #0b0e12;
+  color: #e8eef4;
+  padding: 0.4rem 0.5rem;
+}
+.playbook-books {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.playbook-book {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #e8eef4;
+  padding: 0.4rem 0.5rem;
+}
+.playbook-book.is-active {
+  border-color: #6aa4d8;
+  background: #17202a;
+}
+.playbook-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.playbook-empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 1.5rem;
+  text-align: center;
+}
 .radar-wrap {
   position: absolute;
   inset: 0;

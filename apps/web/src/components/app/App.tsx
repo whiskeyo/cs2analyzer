@@ -1,13 +1,13 @@
 import { lazy, Suspense, useEffect } from "react";
 import { AppStateProvider, useApp } from "@/lib/state/appState";
 import type { CreateWorker } from "@/lib/parse/useDemoSession";
-import { isAnalyzerPath, isFaqPath, isLayoutsPath } from "@/lib/app/routes";
+import { isAnalyzerPath, isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
 import { usePathname } from "@/lib/app/devNavigate";
 import { Header } from "@/components/app/Header";
-import { Viewer } from "@/components/app/Viewer";
 import { Analyzer } from "@/pages/Analyzer";
 import { Faq } from "@/pages/Faq";
 import { Home } from "@/pages/Home";
+import { Playbook } from "@/pages/Playbook";
 
 const LayoutsApp = import.meta.env.DEV
   ? lazy(() => import("@/components/layouts/LayoutsApp").then((m) => ({ default: m.LayoutsApp })))
@@ -16,6 +16,7 @@ const LayoutsApp = import.meta.env.DEV
 function pageTitle(pathname: string): string {
   if (isFaqPath(pathname)) return "FAQ · CS2 Analyzer";
   if (isAnalyzerPath(pathname)) return "Analyzer · CS2 Analyzer";
+  if (isPlaybookPath(pathname)) return "Playbook · CS2 Analyzer";
   if (import.meta.env.DEV && isLayoutsPath(pathname)) return "Layouts · CS2 Analyzer";
   return "CS2 Analyzer";
 }
@@ -25,8 +26,9 @@ function Shell() {
   const pathname = usePathname();
   const onFaq = isFaqPath(pathname);
   const onAnalyzer = isAnalyzerPath(pathname);
+  const onPlaybook = isPlaybookPath(pathname);
   const showLayouts = import.meta.env.DEV && isLayoutsPath(pathname) && LayoutsApp != null;
-  const showViewer = session.replay != null && !onFaq && !showLayouts;
+  const fillBoard = onPlaybook || (onAnalyzer && session.replay != null);
 
   useEffect(() => {
     document.title = pageTitle(pathname);
@@ -46,9 +48,9 @@ function Shell() {
   }
 
   return (
-    <div className={showViewer ? "app" : "app splash"}>
+    <div className={fillBoard ? "app" : "app splash"}>
       <Header />
-      {onFaq ? <Faq /> : showViewer ? <Viewer /> : onAnalyzer ? <Analyzer /> : <Home />}
+      {onFaq ? <Faq /> : onPlaybook ? <Playbook /> : onAnalyzer ? <Analyzer /> : <Home />}
     </div>
   );
 }

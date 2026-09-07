@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
@@ -8,8 +8,21 @@ import {
   makePlayer,
   makeReplay,
   makeRound,
+  UNIT_CALIBRATION,
 } from "@/lib/testing/fixtures";
 import { App } from "./App";
+
+vi.mock("@/lib/radar/maps", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/radar/maps")>();
+  return {
+    ...actual,
+    loadCalibrations: vi.fn(async () => ({ de_mirage: UNIT_CALIBRATION })),
+  };
+});
+
+vi.mock("@/components/playbook/PlaybookCanvas", () => ({
+  PlaybookCanvas: () => <div data-testid="playbook-canvas" />,
+}));
 
 const TIMINGS: ParseTimings = { initMs: 1, parseMs: 2, jsonMs: 3, buffersMs: 4, totalMs: 10 };
 
@@ -182,6 +195,26 @@ describe("App", () => {
     await loadDemo();
     await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
     expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
+    expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
+    expect(screen.getByText(/match\.dem/)).toBeInTheDocument();
+  });
+
+  it("opens Playbook from the site nav without a demo", async () => {
+    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
+    expect(window.location.pathname).toBe("/playbook");
+    expect(document.title).toBe("Playbook · CS2 Analyzer");
+    expect(await screen.findByRole("heading", { name: "Playbook" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a loaded demo while visiting Playbook", async () => {
+    await loadDemo();
+    await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
+    expect(await screen.findByRole("heading", { name: "Playbook" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));

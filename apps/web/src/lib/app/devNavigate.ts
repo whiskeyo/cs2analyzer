@@ -23,6 +23,7 @@ export {
   isFaqPath,
   isHomePath,
   isLayoutsPath,
+  isPlaybookPath,
   normalizePath,
   ROUTES,
 } from "./routes";

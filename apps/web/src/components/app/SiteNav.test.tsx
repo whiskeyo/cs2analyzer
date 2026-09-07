@@ -13,8 +13,10 @@ describe("SiteNav", () => {
     window.history.replaceState({}, "", "/");
     render(<SiteNav />);
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Playbook" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "FAQ" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
+    expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("href", "/playbook");
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("href", "/faq");
   });
 
@@ -22,6 +24,7 @@ describe("SiteNav", () => {
     window.history.replaceState({}, "", "/analyzer");
     render(<SiteNav />);
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Playbook" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "FAQ" })).not.toHaveAttribute("aria-current");
   });
 
@@ -29,6 +32,14 @@ describe("SiteNav", () => {
     window.history.replaceState({}, "", "/faq");
     render(<SiteNav />);
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Playbook" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("marks Playbook as the current page on /playbook", () => {
+    window.history.replaceState({}, "", "/playbook");
+    render(<SiteNav />);
+    expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
   });
 
@@ -37,6 +48,13 @@ describe("SiteNav", () => {
     render(<SiteNav />);
     await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
     expect(window.location.pathname).toBe("/faq");
+  });
+
+  it("navigates to Playbook without a full reload", async () => {
+    window.history.replaceState({}, "", "/");
+    render(<SiteNav />);
+    await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
+    expect(window.location.pathname).toBe("/playbook");
   });
 
   it("navigates to Analyzer without a full reload", async () => {

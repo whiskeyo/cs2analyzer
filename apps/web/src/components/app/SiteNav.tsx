@@ -3,6 +3,7 @@ import { normalizePath } from "@/lib/app/routes";
 
 const LINKS = [
   { to: ROUTES.analyzer, label: "Analyzer" },
+  { to: ROUTES.playbook, label: "Playbook" },
   { to: ROUTES.faq, label: "FAQ" },
 ] as const;
 

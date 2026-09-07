@@ -8,7 +8,7 @@ import { isAggregatedView } from "@/lib/parse/seriesMode";
 import { prettyMap } from "@/lib/weapons/weapons";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { navigate, ROUTES, usePathname } from "@/lib/app/devNavigate";
-import { isFaqPath, isLayoutsPath } from "@/lib/app/routes";
+import { isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
 import { SiteNav } from "./SiteNav";
 
 const REMOVE_NOTES_CONFIRM = "yes, remove notes";
@@ -41,7 +41,8 @@ export function Header() {
   const pathname = usePathname();
   const onLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
   const onFaq = isFaqPath(pathname);
-  const showMatchChrome = replay != null && !onFaq && !onLayouts;
+  const onPlaybook = isPlaybookPath(pathname);
+  const showMatchChrome = replay != null && !onFaq && !onLayouts && !onPlaybook;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeConfirm, setRemoveConfirm] = useState("");

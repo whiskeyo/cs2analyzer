@@ -413,4 +413,4 @@ Decisions made while implementing. Answer later if you disagree; the code follow
 
 **Group identity.** Old notes used `stroke.group` as both id and label. New `DrawingGroup` keeps `id` and `name` equal on migrate/create so flatten-back matches today’s JSON.
 
-**Shell / Viewer.** Analyzer will own Viewer when the Playbook route lands. Until that commit, Shell still hijacks Home+Analyzer when a demo is loaded (unchanged).
+**Shell / Viewer.** Analyzer owns Viewer. Shell routes by pathname only: Playbook always renders the board, even if a demo is sitting in session state.
