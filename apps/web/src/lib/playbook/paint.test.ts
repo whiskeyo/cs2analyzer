@@ -27,13 +27,13 @@ describe("paintPlaybookBoard", () => {
   it("paints visible drawings and a live draft, skipping hidden ones", () => {
     const ctx = createMockCanvas();
     const note = emptyNote();
-    note.loose.push({
-      drawing: { type: "arrow", color: "#0f0", from: { x: 0, y: 0 }, to: { x: 10, y: 10 } },
+    note.drawings.push({
+      type: "arrow",
+      color: "#0f0",
+      from: { x: 0, y: 0 },
+      to: { x: 10, y: 10 },
     });
-    note.loose.push({
-      drawing: { type: "pen", color: "#f00", points: [{ x: 1, y: 1 }] },
-      hidden: true,
-    });
+    note.drawings.push({ type: "pen", color: "#f00", points: [{ x: 1, y: 1 }], hidden: true });
     const img = { complete: true, naturalWidth: 1024 } as HTMLImageElement;
     paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, img, UNIT_CALIBRATION, note, {
       type: "pen",

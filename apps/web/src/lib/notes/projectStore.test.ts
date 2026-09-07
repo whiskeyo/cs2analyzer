@@ -216,7 +216,7 @@ describe("parseBundle", () => {
     expect(p?.schema).toBe(PROJECT_SCHEMA);
     expect(p?.notes).toHaveLength(1);
     expect(p?.notes[0]?.round).toBe(1);
-    expect(p?.notes[0]?.note.loose[0]?.drawing.type).toBe("arrow");
+    expect(p?.notes[0]?.note.drawings[0]?.type).toBe("arrow");
   });
 
   it("flattens schema 3 notes back to strokes", () => {
@@ -227,7 +227,7 @@ describe("parseBundle", () => {
         {
           round: 4,
           note: {
-            loose: [{ drawing: { type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] } }],
+            drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
             groups: [],
             pieces: [],
             bookmarks: [],

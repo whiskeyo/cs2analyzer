@@ -50,7 +50,7 @@ describe("projectStore indexedDB", () => {
     const loaded = await loadProject(row.key);
     expect(loaded?.key).toBe(row.key);
     expect(loaded?.strokes[0]?.type).toBe("arrow");
-    expect(loaded?.notes[0]?.note.loose[0]?.drawing.type).toBe("arrow");
+    expect(loaded?.notes[0]?.note.drawings[0]?.type).toBe("arrow");
     expect(loaded?.savedAt).toBeGreaterThanOrEqual(row.savedAt);
   });
 

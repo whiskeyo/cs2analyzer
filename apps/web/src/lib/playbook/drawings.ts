@@ -10,9 +10,9 @@ export const ERASE_HIT_WORLD = 48;
 
 export const DEFAULT_TEXT_LABEL = "Text";
 
-export function addLooseDrawing(note: Note, drawing: Drawing): Note {
+export function addDrawing(note: Note, drawing: Drawing): Note {
   const next = cloneNote(note);
-  next.loose.push({ drawing });
+  next.drawings.push(drawing);
   return next;
 }
 
@@ -43,10 +43,10 @@ export function hitTestDrawingRef(
   toScreen: (wx: number, wy: number) => { x: number; y: number },
   ctx: CanvasRenderingContext2D | null,
 ): NoteItemRef | null {
-  for (let i = note.loose.length - 1; i >= 0; i--) {
-    const item = note.loose[i];
+  for (let i = note.drawings.length - 1; i >= 0; i--) {
+    const item = note.drawings[i];
     if (!item || item.hidden) continue;
-    if (drawingHit(item.drawing, world, screen, toScreen, ctx)) {
+    if (drawingHit(item, world, screen, toScreen, ctx)) {
       return { kind: "loose", index: i };
     }
   }

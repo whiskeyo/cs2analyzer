@@ -38,7 +38,7 @@ describe("projectFromDemo", () => {
     expect(row.key).toBe(matchKey(target.replay, target.fileName));
     expect(row.schema).toBe(PROJECT_SCHEMA);
     expect(row.strokes).toEqual(strokes);
-    expect(row.notes[0]?.note.loose[0]?.drawing.type).toBe("arrow");
+    expect(row.notes[0]?.note.drawings[0]?.type).toBe("arrow");
     expect(row.scorecard).toBeDefined();
     expect(row.playerStats).toBeDefined();
   });

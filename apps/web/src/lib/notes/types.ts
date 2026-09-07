@@ -36,8 +36,8 @@ export const DEFAULT_LAYERS: MapLayers = {
   openings: true,
 };
 
-/** Geometry only. No round, ticks, or group. */
-export type Drawing =
+/** Geometry for one pen, arrow, or text label. */
+export type DrawingShape =
   | { type: "pen"; color: string; points: { x: number; y: number }[] }
   | { type: "arrow"; color: string; from: { x: number; y: number }; to: { x: number; y: number } }
   | {
@@ -50,13 +50,19 @@ export type Drawing =
       box_h?: number;
     };
 
-/** Ungrouped drawing. Tick window is optional (Analyzer moment); omitted on a playbook strat. */
-export interface LooseItem {
-  drawing: Drawing;
+export type PenStroke = Extract<DrawingShape, { type: "pen" }>;
+export type Arrow = Extract<DrawingShape, { type: "arrow" }>;
+export type TextLabel = Extract<DrawingShape, { type: "text" }>;
+
+/**
+ * One drawing: geometry plus display metadata.
+ * Analyzer stamps a tick window; a playbook strat omits ticks.
+ */
+export type Drawing = DrawingShape & {
   hidden?: boolean;
   start_tick?: number;
   end_tick?: number;
-}
+};
 
 export interface DrawingGroup {
   id: string;
@@ -97,7 +103,7 @@ export interface Piece {
 /** Shared overlay owned by a demo round or a playbook strat. */
 export interface Note {
   groups: DrawingGroup[];
-  loose: LooseItem[];
+  drawings: Drawing[];
   pieces: Piece[];
   bookmarks: Bookmark[];
 }

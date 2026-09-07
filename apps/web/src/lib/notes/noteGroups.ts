@@ -1,6 +1,6 @@
 import { NOTE_GROUP_NAME_MAX, NOTE_LAYER_NAME } from "@/lib/shared/constants";
-import { cloneNote, overlayWindowOf } from "./note";
-import type { Drawing, DrawingGroup, LooseItem, Note } from "./types";
+import { cloneNote, drawingWithWindow, overlayWindowOf } from "./note";
+import type { Drawing, DrawingGroup, Note } from "./types";
 
 export type NoteItemRef =
   | { kind: "loose"; index: number }
@@ -39,7 +39,7 @@ export function isPenOrArrow(drawing: Drawing): boolean {
 }
 
 function drawingAt(note: Note, ref: NoteItemRef): Drawing | null {
-  if (ref.kind === "loose") return note.loose[ref.index]?.drawing ?? null;
+  if (ref.kind === "loose") return note.drawings[ref.index] ?? null;
   if (ref.kind === "group") {
     return note.groups[ref.groupIndex]?.drawings[ref.drawingIndex] ?? null;
   }
@@ -67,11 +67,11 @@ export function canGroup(note: Note, refs: readonly NoteItemRef[]): boolean {
   return uniqueRefs(refs).filter((ref) => drawingAt(note, ref) != null).length >= 2;
 }
 
-function takeDrawing(note: Note, ref: NoteItemRef): LooseItem | null {
+function takeDrawing(note: Note, ref: NoteItemRef): Drawing | null {
   if (ref.kind === "loose") {
-    const item = note.loose[ref.index];
+    const item = note.drawings[ref.index];
     if (!item) return null;
-    note.loose.splice(ref.index, 1);
+    note.drawings.splice(ref.index, 1);
     return item;
   }
   if (ref.kind === "bookmark") return null;
@@ -79,14 +79,7 @@ function takeDrawing(note: Note, ref: NoteItemRef): LooseItem | null {
   const drawing = group?.drawings[ref.drawingIndex];
   if (!group || !drawing) return null;
   group.drawings.splice(ref.drawingIndex, 1);
-  const win = overlayWindowOf(group);
-  const item: LooseItem = { drawing };
-  if (group.hidden) item.hidden = true;
-  if (win) {
-    item.start_tick = win.start;
-    item.end_tick = win.end;
-  }
-  return item;
+  return drawingWithWindow(drawing, group);
 }
 
 function dissolveSmallGroups(note: Note): void {
@@ -96,15 +89,8 @@ function dissolveSmallGroups(note: Note): void {
       keep.push(group);
       continue;
     }
-    const win = overlayWindowOf(group);
     for (const drawing of group.drawings) {
-      const item: LooseItem = { drawing };
-      if (group.hidden) item.hidden = true;
-      if (win) {
-        item.start_tick = win.start;
-        item.end_tick = win.end;
-      }
-      note.loose.push(item);
+      note.drawings.push(drawingWithWindow(drawing, group));
     }
   }
   note.groups = keep;
@@ -126,7 +112,7 @@ function sortRefsForRemoval(refs: readonly NoteItemRef[]): NoteItemRef[] {
   });
 }
 
-function unionWindow(items: LooseItem[]): Pick<DrawingGroup, "start_tick" | "end_tick"> {
+function unionWindow(items: Drawing[]): Pick<DrawingGroup, "start_tick" | "end_tick"> {
   const timed = items.filter((s) => s.start_tick != null);
   if (timed.length === 0) return {};
   const start = Math.min(...timed.map((s) => s.start_tick as number));
@@ -134,8 +120,8 @@ function unionWindow(items: LooseItem[]): Pick<DrawingGroup, "start_tick" | "end
   return { start_tick: start, end_tick: end };
 }
 
-function takeItems(note: Note, refs: readonly NoteItemRef[]): LooseItem[] {
-  const items: LooseItem[] = [];
+function takeItems(note: Note, refs: readonly NoteItemRef[]): Drawing[] {
+  const items: Drawing[] = [];
   for (const ref of sortRefsForRemoval(refs)) {
     const item = takeDrawing(note, ref);
     if (item) items.push(item);
@@ -153,7 +139,7 @@ export function groupItems(note: Note, refs: readonly NoteItemRef[]): Note {
   next.groups.push({
     id,
     name: id,
-    drawings: items.map((i) => i.drawing),
+    drawings: items,
     ...unionWindow(items),
   });
   return next;
@@ -163,18 +149,9 @@ export function ungroup(note: Note, groupIndex: number): Note {
   const group = note.groups[groupIndex];
   if (!group) return note;
   const next = cloneNote(note);
-  const win = overlayWindowOf(group);
-  const items: LooseItem[] = group.drawings.map((drawing) => {
-    const item: LooseItem = { drawing };
-    if (group.hidden) item.hidden = true;
-    if (win) {
-      item.start_tick = win.start;
-      item.end_tick = win.end;
-    }
-    return item;
-  });
+  const items: Drawing[] = group.drawings.map((drawing) => drawingWithWindow(drawing, group));
   next.groups.splice(groupIndex, 1);
-  next.loose.push(...items);
+  next.drawings.push(...items);
   return next;
 }
 
@@ -204,7 +181,7 @@ export function setItemsHidden(note: Note, refs: readonly NoteItemRef[], hidden:
   const next = cloneNote(note);
   for (const ref of uniqueRefs(refs)) {
     if (ref.kind === "loose") {
-      const item = next.loose[ref.index];
+      const item = next.drawings[ref.index];
       if (!item) continue;
       if (hidden) item.hidden = true;
       else delete item.hidden;
@@ -234,15 +211,15 @@ export function assignToGroup(
   const items = takeItems(next, refs);
   if (items.length === 0) return note;
   if (destId == null) {
-    next.loose.push(...items);
+    next.drawings.push(...items);
     return next;
   }
   const dest = next.groups.find((g) => g.id === destId);
   if (!dest) {
-    next.loose.push(...items);
+    next.drawings.push(...items);
     return next;
   }
-  dest.drawings.push(...items.map((i) => i.drawing));
+  dest.drawings.push(...items);
   const extra = unionWindow(items);
   const win = overlayWindowOf(dest) ?? overlayWindowOf(extra);
   if (win) {
@@ -272,8 +249,8 @@ export function dropItems(note: Note, refs: readonly NoteItemRef[], dest: NoteDr
 }
 
 export function squashLooseDrawings(note: Note): Note {
-  const refs: NoteItemRef[] = note.loose.flatMap((item, index) =>
-    isPenOrArrow(item.drawing) ? [{ kind: "loose" as const, index }] : [],
+  const refs: NoteItemRef[] = note.drawings.flatMap((item, index) =>
+    isPenOrArrow(item) ? [{ kind: "loose" as const, index }] : [],
   );
   if (refs.length < 2) return note;
   const grouped = groupItems(note, refs);

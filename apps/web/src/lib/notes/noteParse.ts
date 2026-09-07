@@ -5,7 +5,7 @@ import type {
   Bookmark,
   Drawing,
   DrawingGroup,
-  LooseItem,
+  DrawingShape,
   Note,
   Piece,
   PieceKind,
@@ -51,7 +51,7 @@ function withWindow<T extends object>(base: T, o: Record<string, unknown>): T {
   };
 }
 
-export function parseDrawing(v: unknown): Drawing | null {
+export function parseDrawingShape(v: unknown): DrawingShape | null {
   if (!isRecord(v) || !isString(v.color)) return null;
   if (v.type === "pen" && Array.isArray(v.points) && v.points.every(isPoint)) {
     return { type: "pen", color: v.color, points: v.points };
@@ -81,11 +81,12 @@ export function parseDrawing(v: unknown): Drawing | null {
   return null;
 }
 
-function parseLooseItem(v: unknown): LooseItem | null {
+export function parseDrawing(v: unknown): Drawing | null {
   if (!isRecord(v)) return null;
-  const drawing = parseDrawing(v.drawing ?? v);
-  if (!drawing) return null;
-  return withWindow({ drawing }, v);
+  const nested = isRecord(v.shape) ? v.shape : isRecord(v.drawing) ? v.drawing : v;
+  const shape = parseDrawingShape(nested);
+  if (!shape) return null;
+  return withWindow(shape, v);
 }
 
 function parseGroup(v: unknown): DrawingGroup | null {
@@ -135,10 +136,13 @@ export function parseNote(v: unknown): Note | null {
       if (group) note.groups.push(group);
     }
   }
-  if (Array.isArray(v.loose)) {
-    for (const item of v.loose) {
-      const parsed = parseLooseItem(item);
-      if (parsed) note.loose.push(parsed);
+  if (Array.isArray(v.drawings) || Array.isArray(v.loose)) {
+    const rows = Array.isArray(v.drawings) ? v.drawings : v.loose;
+    if (Array.isArray(rows)) {
+      for (const item of rows) {
+        const parsed = parseDrawing(item);
+        if (parsed) note.drawings.push(parsed);
+      }
     }
   }
   if (Array.isArray(v.pieces)) {

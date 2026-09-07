@@ -1,7 +1,7 @@
-import type { Drawing, DrawingGroup, LooseItem, Note } from "./types";
+import type { Drawing, DrawingGroup, Note } from "./types";
 
 export function emptyNote(): Note {
-  return { groups: [], loose: [], pieces: [], bookmarks: [] };
+  return { groups: [], drawings: [], pieces: [], bookmarks: [] };
 }
 
 export function cloneNote(note: Note): Note {
@@ -28,16 +28,33 @@ export function windowVisible(
   return tick >= win.start && tick <= win.end;
 }
 
+export function drawingWithWindow(
+  drawing: Drawing,
+  src: { hidden?: boolean; start_tick?: number; end_tick?: number },
+): Drawing {
+  const next: Drawing = { ...drawing };
+  delete next.hidden;
+  delete next.start_tick;
+  delete next.end_tick;
+  if (src.hidden) next.hidden = true;
+  const win = overlayWindowOf(src);
+  if (win) {
+    next.start_tick = win.start;
+    next.end_tick = win.end;
+  }
+  return next;
+}
+
 function groupDrawings(group: DrawingGroup, tick: number | null): Drawing[] {
   if (group.hidden) return [];
   if (!windowVisible(group, tick)) return [];
   return group.drawings;
 }
 
-function looseDrawing(item: LooseItem, tick: number | null): Drawing | null {
-  if (item.hidden) return null;
-  if (!windowVisible(item, tick)) return null;
-  return item.drawing;
+function ungroupedDrawing(drawing: Drawing, tick: number | null): Drawing | null {
+  if (drawing.hidden) return null;
+  if (!windowVisible(drawing, tick)) return null;
+  return drawing;
 }
 
 /** Drawings to paint. Analyzer passes the current tick; playbook passes `null`. */
@@ -46,9 +63,9 @@ export function visibleDrawings(note: Note, tick: number | null): Drawing[] {
   for (const group of note.groups) {
     out.push(...groupDrawings(group, tick));
   }
-  for (const item of note.loose) {
-    const drawing = looseDrawing(item, tick);
-    if (drawing) out.push(drawing);
+  for (const drawing of note.drawings) {
+    const visible = ungroupedDrawing(drawing, tick);
+    if (visible) out.push(visible);
   }
   return out;
 }
@@ -60,7 +77,7 @@ export function earliestTimedTick(note: Note): number | undefined {
     if (min == null || start < min) min = start;
   };
   for (const group of note.groups) consider(group.start_tick);
-  for (const item of note.loose) consider(item.start_tick);
+  for (const drawing of note.drawings) consider(drawing.start_tick);
   for (const mark of note.bookmarks) consider(mark.start_tick ?? mark.tick);
   return min;
 }

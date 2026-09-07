@@ -1,8 +1,8 @@
 import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
 import { emptyNote } from "./note";
-import type { Drawing, DrawingGroup, LooseItem, Note, RoundNote, Stroke } from "./types";
+import type { Drawing, DrawingGroup, DrawingShape, Note, RoundNote, Stroke } from "./types";
 
-function drawingFromStroke(st: Stroke): Drawing | null {
+function drawingFromStroke(st: Stroke): DrawingShape | null {
   if (st.type === "bookmark") return null;
   if (st.type === "pen") return { type: "pen", color: st.color, points: st.points };
   if (st.type === "arrow") return { type: "arrow", color: st.color, from: st.from, to: st.to };
@@ -25,12 +25,12 @@ function groupWindow(members: Stroke[]): Pick<DrawingGroup, "start_tick" | "end_
   return { start_tick: start, end_tick: end };
 }
 
-function toLoose(st: Stroke, drawing: Drawing): LooseItem {
-  const item: LooseItem = { drawing };
-  if (st.hidden) item.hidden = true;
-  if (st.start_tick != null) item.start_tick = st.start_tick;
-  if (st.end_tick != null) item.end_tick = st.end_tick;
-  return item;
+function toDrawing(st: Stroke, shape: DrawingShape): Drawing {
+  const drawing: Drawing = { ...shape };
+  if (st.hidden) drawing.hidden = true;
+  if (st.start_tick != null) drawing.start_tick = st.start_tick;
+  if (st.end_tick != null) drawing.end_tick = st.end_tick;
+  return drawing;
 }
 
 /** Bucket schema ≤2 strokes so each round owns a Note. */
@@ -64,7 +64,7 @@ export function strokesToNote(strokes: readonly Stroke[]): Note {
     if (!drawing) continue;
     const groupId = st.group?.trim();
     if (!groupId) {
-      note.loose.push(toLoose(st, drawing));
+      note.drawings.push(toDrawing(st, drawing));
       continue;
     }
     let members = groups.get(groupId);
@@ -126,8 +126,8 @@ export function flattenNote(note: Note, round: number): Stroke[] {
       out.push(flattenDrawing(drawing, meta));
     }
   }
-  for (const item of note.loose) {
-    out.push(flattenDrawing(item.drawing, strokeWindow(item, round)));
+  for (const drawing of note.drawings) {
+    out.push(flattenDrawing(drawing, strokeWindow(drawing, round)));
   }
   for (const mark of note.bookmarks) {
     out.push({

@@ -11,7 +11,7 @@ describe("parsePlaybookPage", () => {
         id: "p1",
         title: "  A exec  ",
         floor: "lower",
-        note: { groups: [], loose: [], pieces: [], bookmarks: [] },
+        note: { groups: [], drawings: [], pieces: [], bookmarks: [] },
       }),
     ).toMatchObject({ id: "p1", title: "A exec", floor: "lower" });
     expect(parsePlaybookPage({ id: "p2" })?.title).toBe(UNTITLED_STRAT);
@@ -41,7 +41,7 @@ describe("parsePlaybook", () => {
       pages: [
         { id: "", title: "bad" },
         { id: "ok", title: "Split", floor: "upper" },
-        { id: "ok2", note: { groups: [], loose: [], pieces: [], bookmarks: [] } },
+        { id: "ok2", note: { groups: [], drawings: [], pieces: [], bookmarks: [] } },
       ],
     });
     expect(parsed).toMatchObject({

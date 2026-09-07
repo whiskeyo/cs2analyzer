@@ -4,7 +4,7 @@ import { createMockCanvas } from "@/lib/testing/mockCanvas";
 import { PEN_MIN_SAMPLE_DISTANCE } from "@/lib/shared/constants";
 import { makePiece } from "./pieces";
 import {
-  addLooseDrawing,
+  addDrawing,
   beginArrow,
   beginPen,
   commitDraft,
@@ -71,7 +71,7 @@ describe("hit and erase", () => {
 
   it("erases the top piece, then a loose drawing, then a grouped drawing", () => {
     let note = emptyNote();
-    note = addLooseDrawing(note, {
+    note = addDrawing(note, {
       type: "pen",
       color: "#fff",
       points: [
@@ -96,31 +96,27 @@ describe("hit and erase", () => {
       index: 0,
     });
     note = eraseAt(note, { x: 100, y: 0 }, { x: 100, y: 0 }, identity, ctx);
-    expect(note.loose).toHaveLength(0);
+    expect(note.drawings).toHaveLength(0);
     expect(note.groups).toHaveLength(1);
     note = eraseAt(note, { x: 310, y: 0 }, { x: 310, y: 0 }, identity, ctx);
     expect(note.groups).toHaveLength(0);
-    expect(note.loose).toHaveLength(1);
+    expect(note.drawings).toHaveLength(1);
     note = eraseAt(note, { x: 310, y: 20 }, { x: 310, y: 20 }, identity, ctx);
-    expect(note.loose).toHaveLength(0);
+    expect(note.drawings).toHaveLength(0);
     expect(eraseAt(note, { x: 999, y: 999 }, { x: 999, y: 999 }, identity, ctx)).toBe(note);
   });
 
   it("hits text with a canvas context and skips hidden items", () => {
     const ctx = createMockCanvas();
     const note = emptyNote();
-    note.loose.push({
-      drawing: placeText("#fff", { x: 0, y: 0 }, "hold"),
-    });
-    note.loose.push({
-      drawing: {
-        type: "pen",
-        color: "#fff",
-        points: [
-          { x: 400, y: 400 },
-          { x: 404, y: 400 },
-        ],
-      },
+    note.drawings.push(placeText("#fff", { x: 0, y: 0 }, "hold"));
+    note.drawings.push({
+      type: "pen",
+      color: "#fff",
+      points: [
+        { x: 400, y: 400 },
+        { x: 404, y: 400 },
+      ],
       hidden: true,
     });
     note.groups.push({

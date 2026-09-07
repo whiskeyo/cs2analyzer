@@ -53,9 +53,9 @@ describe("strokesToNote", () => {
       end_tick: 220,
     });
     expect(note.groups[0]?.drawings).toHaveLength(2);
-    expect(note.loose).toHaveLength(2);
-    expect(note.loose[0]).toMatchObject({ start_tick: 50, end_tick: 60 });
-    expect(note.loose[1]?.drawing).toMatchObject({ type: "text", box_w: 80 });
+    expect(note.drawings).toHaveLength(2);
+    expect(note.drawings[0]).toMatchObject({ start_tick: 50, end_tick: 60 });
+    expect(note.drawings[1]).toMatchObject({ type: "text", box_w: 80 });
     expect(note.bookmarks[0]).toMatchObject({
       text: NOTE_BOOKMARK_TITLE,
       tick: 80,

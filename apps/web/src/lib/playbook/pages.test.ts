@@ -63,16 +63,19 @@ describe("pages", () => {
     let book = newPlaybook("de_mirage", "Defaults");
     const id = book.pages[0]?.id ?? "";
     const note = emptyNote();
-    note.loose.push({
-      drawing: { type: "arrow", color: "#fff", from: { x: 0, y: 0 }, to: { x: 1, y: 1 } },
+    note.drawings.push({
+      type: "arrow",
+      color: "#fff",
+      from: { x: 0, y: 0 },
+      to: { x: 1, y: 1 },
     });
     book = setPageFloor(book, id, "upper");
     book = setPageNote(book, id, note);
     expect(book.pages[0]?.floor).toBe("upper");
-    expect(book.pages[0]?.note.loose).toHaveLength(1);
-    expect(note.loose).toHaveLength(1);
-    note.loose.pop();
-    expect(book.pages[0]?.note.loose).toHaveLength(1);
+    expect(book.pages[0]?.note.drawings).toHaveLength(1);
+    expect(note.drawings).toHaveLength(1);
+    note.drawings.pop();
+    expect(book.pages[0]?.note.drawings).toHaveLength(1);
   });
 
   it("refuses to delete the last strat and ignores a missing id", () => {

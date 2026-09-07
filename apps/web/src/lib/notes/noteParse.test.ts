@@ -24,6 +24,25 @@ describe("parseDrawing", () => {
     expect(parseDrawing({ type: "pen", color: "#fff", points: [{ x: 0 }] })).toBeNull();
     expect(parseDrawing(null)).toBeNull();
   });
+
+  it("keeps ticks on the drawing and accepts a nested shape", () => {
+    expect(
+      parseDrawing({
+        type: "pen",
+        color: "#fff",
+        points: [{ x: 0, y: 0 }],
+        start_tick: 10,
+        end_tick: 20,
+        hidden: true,
+      }),
+    ).toMatchObject({ type: "pen", start_tick: 10, end_tick: 20, hidden: true });
+    expect(
+      parseDrawing({
+        shape: { type: "arrow", color: "#0f0", from: { x: 0, y: 0 }, to: { x: 2, y: 2 } },
+        start_tick: 5,
+      }),
+    ).toMatchObject({ type: "arrow", start_tick: 5 });
+  });
 });
 
 describe("parseNote", () => {
@@ -71,8 +90,8 @@ describe("parseNote", () => {
       ],
     });
     expect(note?.groups).toHaveLength(1);
-    expect(note?.loose).toHaveLength(2);
-    expect(note?.loose[0]?.hidden).toBe(true);
+    expect(note?.drawings).toHaveLength(2);
+    expect(note?.drawings[0]?.hidden).toBe(true);
     expect(note?.pieces).toHaveLength(2);
     expect(note?.pieces[0]).toMatchObject({ kind: "pawn", side: "CT", carriesC4: true });
     expect(note?.pieces[1]?.alive).toBe(false);
@@ -103,6 +122,15 @@ describe("parseNote", () => {
     expect(note?.pieces[0]?.side).toBe("T");
     expect(note?.pieces[0]?.kind).toBe("smoke");
   });
+
+  it("prefers drawings over the old loose key", () => {
+    const note = parseNote({
+      drawings: [{ type: "pen", color: "#fff", points: [{ x: 1, y: 1 }] }],
+      loose: [{ type: "arrow", color: "#f00", from: { x: 0, y: 0 }, to: { x: 1, y: 1 } }],
+    });
+    expect(note?.drawings).toHaveLength(1);
+    expect(note?.drawings[0]?.type).toBe("pen");
+  });
 });
 
 describe("parseRoundNotes", () => {
@@ -114,7 +142,7 @@ describe("parseRoundNotes", () => {
       { note: {} },
     ]);
     expect(rows.map((r) => r.round)).toEqual([2, 1]);
-    expect(rows[0]?.note.loose).toHaveLength(1);
+    expect(rows[0]?.note.drawings).toHaveLength(1);
     expect(rows[1]?.note.groups).toEqual([]);
   });
 });

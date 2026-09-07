@@ -4,7 +4,7 @@ import { screenToWorld, worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { zoomViewAtCursor, wheelZoomFactor } from "@/lib/radar/panZoom.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import {
-  addLooseDrawing,
+  addDrawing,
   beginArrow,
   beginPen,
   commitDraft,
@@ -177,7 +177,7 @@ export function usePlaybookPointer(opts: {
       if (action === "text") {
         if (!cal || !onNoteRef.current) return;
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
-        onNoteRef.current(addLooseDrawing(noteRef.current, placeText(colorRef.current, world)));
+        onNoteRef.current(addDrawing(noteRef.current, placeText(colorRef.current, world)));
         gizmoRef.current = null;
         return;
       }
@@ -249,7 +249,7 @@ export function usePlaybookPointer(opts: {
       if (draft && onNoteRef.current) {
         const committed = commitDraft(draft);
         if (committed) {
-          onNoteRef.current(addLooseDrawing(noteRef.current, committed));
+          onNoteRef.current(addDrawing(noteRef.current, committed));
         }
       }
       pieceDrag = null;

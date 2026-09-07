@@ -60,9 +60,7 @@ describe("PlaybookCanvas", () => {
 
   it("paints the board when the rAF callback runs", () => {
     const note = emptyNote();
-    note.loose.push({
-      drawing: { type: "arrow", color: "#fff", from: { x: 0, y: 0 }, to: { x: 1, y: 1 } },
-    });
+    note.drawings.push({ type: "arrow", color: "#fff", from: { x: 0, y: 0 }, to: { x: 1, y: 1 } });
     const { container } = render(
       <PlaybookCanvas cal={UNIT_CALIBRATION} floorMode="auto" note={note} />,
     );
@@ -282,7 +280,7 @@ describe("PlaybookCanvas", () => {
     fireEvent.mouseDown(wrap, { clientX: 80, clientY: 80, button: 0 });
     fireEvent.mouseMove(window, { clientX: 160, clientY: 160 });
     fireEvent.mouseUp(window);
-    expect(onNote.mock.calls.at(-1)?.[0].loose[0]?.drawing.type).toBe("pen");
+    expect(onNote.mock.calls.at(-1)?.[0].drawings[0]?.type).toBe("pen");
 
     rerender(
       <PlaybookCanvas
@@ -295,7 +293,7 @@ describe("PlaybookCanvas", () => {
     );
     onNote.mockClear();
     fireEvent.mouseDown(wrap, { clientX: 120, clientY: 120, button: 0 });
-    expect(onNote.mock.calls[0]?.[0].loose[0]?.drawing).toMatchObject({
+    expect(onNote.mock.calls[0]?.[0].drawings[0]).toMatchObject({
       type: "text",
       text: "Text",
     });
@@ -329,6 +327,6 @@ describe("PlaybookCanvas", () => {
     fireEvent.mouseDown(wrap, { clientX: 40, clientY: 40, button: 0 });
     fireEvent.mouseMove(window, { clientX: 90, clientY: 70 });
     fireEvent.mouseUp(window);
-    expect(onNote.mock.calls.at(-1)?.[0].loose[0]?.drawing.type).toBe("arrow");
+    expect(onNote.mock.calls.at(-1)?.[0].drawings[0]?.type).toBe("arrow");
   });
 });

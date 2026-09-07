@@ -25,10 +25,10 @@ function noteWith(partial: Partial<Note>): Note {
 describe("emptyNote / cloneNote", () => {
   it("starts empty and clone is a deep copy", () => {
     const a = emptyNote();
-    expect(a).toEqual({ groups: [], loose: [], pieces: [], bookmarks: [] });
+    expect(a).toEqual({ groups: [], drawings: [], pieces: [], bookmarks: [] });
     const b = cloneNote(a);
-    b.loose.push({ drawing: pen });
-    expect(a.loose).toHaveLength(0);
+    b.drawings.push(pen);
+    expect(a.drawings).toHaveLength(0);
   });
 });
 
@@ -58,7 +58,10 @@ describe("visibleDrawings", () => {
   it("skips hidden groups and loose items", () => {
     const note = noteWith({
       groups: [{ id: "A", name: "A", hidden: true, drawings: [pen] }],
-      loose: [{ drawing: pen, hidden: true }, { drawing: { ...pen, color: "#0f0" } }],
+      drawings: [
+        { ...pen, hidden: true },
+        { ...pen, color: "#0f0" },
+      ],
     });
     expect(visibleDrawings(note, null)).toEqual([{ ...pen, color: "#0f0" }]);
   });
@@ -74,7 +77,7 @@ describe("visibleDrawings", () => {
           drawings: [pen],
         },
       ],
-      loose: [{ drawing: { ...pen, color: "#0f0" }, start_tick: 150, end_tick: 250 }],
+      drawings: [{ ...pen, color: "#0f0", start_tick: 150, end_tick: 250 }],
     });
     expect(visibleDrawings(note, 120)).toHaveLength(1);
     expect(visibleDrawings(note, 180)).toHaveLength(2);
@@ -92,7 +95,7 @@ describe("earliestTimedTick", () => {
         { id: "A", name: "A", drawings: [pen] },
         { id: "B", name: "B", start_tick: 300, drawings: [pen] },
       ],
-      loose: [{ drawing: pen }, { drawing: pen, start_tick: 200 }],
+      drawings: [pen, { ...pen, start_tick: 200 }],
       bookmarks: [{ color: "#f00", text: "x", tick: 80 }],
     });
     expect(earliestTimedTick(note)).toBe(80);
