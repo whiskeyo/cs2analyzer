@@ -16,6 +16,51 @@ export function addDrawing(note: Note, drawing: Drawing): Note {
   return next;
 }
 
+export function drawingFromRef(note: Note, ref: NoteItemRef): Drawing | null {
+  if (ref.kind === "loose") return note.drawings[ref.index] ?? null;
+  if (ref.kind === "group") {
+    return note.groups[ref.groupIndex]?.drawings[ref.drawingIndex] ?? null;
+  }
+  return null;
+}
+
+export function translateDrawing(drawing: Drawing, dx: number, dy: number): Drawing {
+  if (dx === 0 && dy === 0) return drawing;
+  if (drawing.type === "pen") {
+    return { ...drawing, points: drawing.points.map((pt) => ({ x: pt.x + dx, y: pt.y + dy })) };
+  }
+  if (drawing.type === "arrow") {
+    return {
+      ...drawing,
+      from: { x: drawing.from.x + dx, y: drawing.from.y + dy },
+      to: { x: drawing.to.x + dx, y: drawing.to.y + dy },
+    };
+  }
+  if (drawing.type === "text") {
+    return { ...drawing, x: drawing.x + dx, y: drawing.y + dy };
+  }
+  return drawing;
+}
+
+export function moveDrawingAt(note: Note, ref: NoteItemRef, dx: number, dy: number): Note {
+  if (dx === 0 && dy === 0) return note;
+  const next = cloneNote(note);
+  if (ref.kind === "loose") {
+    const drawing = next.drawings[ref.index];
+    if (!drawing) return note;
+    next.drawings[ref.index] = translateDrawing(drawing, dx, dy);
+    return next;
+  }
+  if (ref.kind === "group") {
+    const group = next.groups[ref.groupIndex];
+    const drawing = group?.drawings[ref.drawingIndex];
+    if (!group || !drawing) return note;
+    group.drawings[ref.drawingIndex] = translateDrawing(drawing, dx, dy);
+    return next;
+  }
+  return note;
+}
+
 export function hitDrawing(
   drawing: Drawing,
   world: { x: number; y: number },

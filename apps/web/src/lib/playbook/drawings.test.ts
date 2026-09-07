@@ -9,11 +9,14 @@ import {
   beginPen,
   commitDraft,
   DEFAULT_TEXT_LABEL,
+  drawingFromRef,
   eraseAt,
   extendDraft,
   hitDrawing,
   hitTestDrawingRef,
+  moveDrawingAt,
   placeText,
+  translateDrawing,
 } from "./drawings";
 
 const identity = (x: number, y: number) => ({ x, y });
@@ -133,5 +136,66 @@ describe("hit and erase", () => {
       hitTestDrawingRef(note, { x: 400, y: 400 }, { x: 400, y: 400 }, identity, ctx),
     ).toBeNull();
     expect(hitTestDrawingRef(note, { x: 0, y: 0 }, { x: 0, y: 0 }, identity, null)).toBeNull();
+  });
+});
+
+describe("translate / move drawings", () => {
+  it("shifts pen points, arrow ends, and text", () => {
+    const pen = translateDrawing(beginPen("#fff", { x: 0, y: 0 }), 4, -2);
+    expect(pen).toMatchObject({ type: "pen", points: [{ x: 4, y: -2 }] });
+    const arrow = translateDrawing(beginArrow("#f00", { x: 1, y: 1 }), 3, 5);
+    expect(arrow).toMatchObject({
+      type: "arrow",
+      from: { x: 4, y: 6 },
+      to: { x: 4, y: 6 },
+    });
+    expect(translateDrawing(placeText("#0f0", { x: 2, y: 3 }, "hold"), 1, 1)).toMatchObject({
+      x: 3,
+      y: 4,
+    });
+    const same = beginPen("#fff", { x: 0, y: 0 });
+    expect(translateDrawing(same, 0, 0)).toBe(same);
+  });
+
+  it("moves a loose pen and a grouped arrow, and ignores a missing ref", () => {
+    let note = addDrawing(emptyNote(), {
+      type: "pen",
+      color: "#fff",
+      points: [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+      ],
+    });
+    note.groups.push({
+      id: "g",
+      name: "g",
+      drawings: [
+        { type: "arrow", color: "#f00", from: { x: 10, y: 10 }, to: { x: 20, y: 10 } },
+        { type: "arrow", color: "#0f0", from: { x: 10, y: 30 }, to: { x: 20, y: 30 } },
+      ],
+    });
+    expect(drawingFromRef(note, { kind: "loose", index: 0 })?.type).toBe("pen");
+    expect(drawingFromRef(note, { kind: "group", groupIndex: 0, drawingIndex: 0 })?.type).toBe(
+      "arrow",
+    );
+    expect(drawingFromRef(note, { kind: "bookmark", index: 0 })).toBeNull();
+
+    note = moveDrawingAt(note, { kind: "loose", index: 0 }, 5, 1);
+    expect(note.drawings[0]).toMatchObject({
+      points: [
+        { x: 5, y: 1 },
+        { x: 7, y: 1 },
+      ],
+    });
+    note = moveDrawingAt(note, { kind: "group", groupIndex: 0, drawingIndex: 0 }, 0, 8);
+    expect(note.groups[0]?.drawings[0]).toMatchObject({
+      from: { x: 10, y: 18 },
+      to: { x: 20, y: 18 },
+    });
+    expect(note.groups[0]?.drawings[1]).toMatchObject({ from: { x: 10, y: 30 } });
+    expect(moveDrawingAt(note, { kind: "loose", index: 9 }, 1, 1)).toBe(note);
+    expect(moveDrawingAt(note, { kind: "group", groupIndex: 3, drawingIndex: 0 }, 1, 1)).toBe(note);
+    expect(moveDrawingAt(note, { kind: "bookmark", index: 0 }, 1, 1)).toBe(note);
+    expect(moveDrawingAt(note, { kind: "loose", index: 0 }, 0, 0)).toBe(note);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import {
+  applyDrawingDrag,
   applyPlaybookWheel,
   applyPieceDrag,
   beginPlaybookPan,
@@ -61,5 +62,43 @@ describe("piece drag", () => {
         { x: 0, y: 0 },
       ),
     ).toBe(note);
+  });
+});
+
+describe("drawing drag", () => {
+  it("translates a pen by the world delta", () => {
+    const note = emptyNote();
+    note.drawings.push({
+      type: "pen",
+      color: "#fff",
+      points: [
+        { x: 10, y: 20 },
+        { x: 12, y: 20 },
+      ],
+    });
+    const drag = { ref: { kind: "loose" as const, index: 0 }, lx: 10, ly: 20 };
+    const moved = applyDrawingDrag(note, drag, { x: 16, y: 24 });
+    expect(moved.drawings[0]).toMatchObject({
+      points: [
+        { x: 16, y: 24 },
+        { x: 18, y: 24 },
+      ],
+    });
+    expect(applyDrawingDrag(note, drag, { x: 10, y: 20 })).toBe(note);
+
+    note.groups.push({
+      id: "g",
+      name: "g",
+      drawings: [{ type: "arrow", color: "#f00", from: { x: 0, y: 0 }, to: { x: 4, y: 0 } }],
+    });
+    const grouped = applyDrawingDrag(
+      note,
+      { ref: { kind: "group", groupIndex: 0, drawingIndex: 0 }, lx: 0, ly: 0 },
+      { x: 2, y: 3 },
+    );
+    expect(grouped.groups[0]?.drawings[0]).toMatchObject({
+      from: { x: 2, y: 3 },
+      to: { x: 6, y: 3 },
+    });
   });
 });

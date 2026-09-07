@@ -1,4 +1,5 @@
 import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
+import { isPenOrArrow, type NoteItemRef } from "@/lib/notes/noteGroups";
 import type { Drawing, Note, Piece } from "@/lib/notes/types";
 import { screenToWorld, worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { zoomViewAtCursor, wheelZoomFactor } from "@/lib/radar/panZoom.ts";
@@ -8,8 +9,11 @@ import {
   beginArrow,
   beginPen,
   commitDraft,
+  drawingFromRef,
   eraseAt,
   extendDraft,
+  hitTestDrawingRef,
+  moveDrawingAt,
   placeText,
 } from "./drawings";
 import {
@@ -97,6 +101,20 @@ export function applyPieceDrag(
   return movePiece(note, drag.id, world.x + drag.grabDx, world.y + drag.grabDy);
 }
 
+export type DrawingDrag = {
+  ref: NoteItemRef;
+  lx: number;
+  ly: number;
+};
+
+export function applyDrawingDrag(
+  note: Note,
+  drag: DrawingDrag,
+  world: { x: number; y: number },
+): Note {
+  return moveDrawingAt(note, drag.ref, world.x - drag.lx, world.y - drag.ly);
+}
+
 export function usePlaybookPointer(opts: {
   wrapRef: RefObject<HTMLDivElement | null>;
   view: MutableRefObject<PlaybookPanView>;
@@ -132,6 +150,7 @@ export function usePlaybookPointer(opts: {
     const wrap = wrapRef.current;
     if (!wrap) return;
     let pieceDrag: PieceDrag | null = null;
+    let drawingDrag: DrawingDrag | null = null;
 
     const pos = (e: MouseEvent | WheelEvent) => {
       const rect = wrap.getBoundingClientRect();
@@ -208,6 +227,17 @@ export function usePlaybookPointer(opts: {
         if (hit.id !== gizmoRef.current) gizmoRef.current = null;
         return;
       }
+      if (action === "pan" && cal && onNoteRef.current) {
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        const ctx = canvasRef.current?.getContext("2d") ?? null;
+        const ref = hitTestDrawingRef(noteRef.current, world, { x, y }, toScreen, ctx);
+        const drawing = ref ? drawingFromRef(noteRef.current, ref) : null;
+        if (ref && drawing && isPenOrArrow(drawing)) {
+          drawingDrag = { ref, lx: world.x, ly: world.y };
+          gizmoRef.current = null;
+          return;
+        }
+      }
       gizmoRef.current = null;
       beginPlaybookPan(view.current, x, y);
       if (!hit) onSelectRef.current?.(null);
@@ -240,6 +270,17 @@ export function usePlaybookPointer(opts: {
         onNoteRef.current(applyPieceDrag(noteRef.current, drag, world, { x, y }, pieceScreen));
         return;
       }
+      const ink = drawingDrag;
+      if (ink && cal && onNoteRef.current) {
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        const next = applyDrawingDrag(noteRef.current, ink, world);
+        if (next !== noteRef.current) {
+          ink.lx = world.x;
+          ink.ly = world.y;
+          onNoteRef.current(next);
+        }
+        return;
+      }
       movePlaybookPan(view.current, x, y);
     };
 
@@ -253,6 +294,7 @@ export function usePlaybookPointer(opts: {
         }
       }
       pieceDrag = null;
+      drawingDrag = null;
       endPlaybookPan(view.current);
     };
 

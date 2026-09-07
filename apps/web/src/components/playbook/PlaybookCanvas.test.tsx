@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render } from "@testing-library/react";
 import { emptyNote } from "@/lib/notes/note";
+import { placeText } from "@/lib/playbook/drawings";
 import { makePiece, rotateHandleOffset } from "@/lib/playbook/pieces";
 import { worldToScreen } from "@/lib/radar/maps";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
@@ -328,5 +329,39 @@ describe("PlaybookCanvas", () => {
     fireEvent.mouseMove(window, { clientX: 90, clientY: 70 });
     fireEvent.mouseUp(window);
     expect(onNote.mock.calls.at(-1)?.[0].drawings[0]?.type).toBe("arrow");
+  });
+
+  it("drags a pen with Pan and leaves text in place", () => {
+    const onNote = vi.fn();
+    const note = emptyNote();
+    note.drawings.push({
+      type: "pen",
+      color: "#fff",
+      points: [
+        { x: 0, y: 0 },
+        { x: 8, y: 0 },
+      ],
+    });
+    note.drawings.push(placeText("#fff", { x: 400, y: 400 }, "hold"));
+    const { container } = render(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={note}
+        tool="pan"
+        onNote={onNote}
+      />,
+    );
+    const wrap = sizedWrap(container);
+    const at = worldToScreen(UNIT_CALIBRATION, 400, 400, identityView, 0, 0);
+    fireEvent.mouseDown(wrap, { clientX: at.x, clientY: at.y, button: 0 });
+    fireEvent.mouseMove(window, { clientX: at.x + 30, clientY: at.y + 10 });
+    expect(onNote.mock.calls.at(-1)?.[0].drawings[0]?.points[0]?.x).not.toBe(0);
+    expect(onNote.mock.calls.at(-1)?.[0].drawings[1]).toMatchObject({
+      x: 400,
+      y: 400,
+      text: "hold",
+    });
+    fireEvent.mouseUp(window);
   });
 });
