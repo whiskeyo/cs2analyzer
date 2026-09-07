@@ -15,7 +15,19 @@ export function Playbook() {
   const [mapName, setMapName] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const names = maps ? sortedMapNames(maps) : [];
-  const { books, book, activeKey, select, create, rename } = usePlaybooks(mapName);
+  const {
+    books,
+    book,
+    activeKey,
+    select,
+    create,
+    rename,
+    addStrat,
+    renameStrat,
+    removeStrat,
+    duplicateStrat,
+    selectStrat,
+  } = usePlaybooks(mapName);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,14 +101,64 @@ export function Playbook() {
           ))}
         </ul>
         {book ? (
-          <label className="playbook-field">
-            Book title
-            <input
-              aria-label="Book title"
-              value={book.title}
-              onChange={(e) => rename(e.target.value)}
-            />
-          </label>
+          <>
+            <label className="playbook-field">
+              Book title
+              <input
+                aria-label="Book title"
+                value={book.title}
+                onChange={(e) => rename(e.target.value)}
+              />
+            </label>
+            <div className="playbook-strats">
+              <p className="playbook-strats-label">Strats</p>
+              <ul className="playbook-books">
+                {book.pages.map((row) => (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      className={
+                        row.id === book.activePageId ? "playbook-book is-active" : "playbook-book"
+                      }
+                      onClick={() => selectStrat(row.id)}
+                    >
+                      {row.title}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {page ? (
+                <label className="playbook-field">
+                  Strat name
+                  <input
+                    aria-label="Strat name"
+                    value={page.title}
+                    onChange={(e) => renameStrat(page.id, e.target.value)}
+                  />
+                </label>
+              ) : null}
+              <div className="playbook-strat-actions">
+                <button type="button" className="ghost" onClick={addStrat}>
+                  New strat
+                </button>
+                {page ? (
+                  <button type="button" className="ghost" onClick={() => duplicateStrat(page.id)}>
+                    Duplicate strat
+                  </button>
+                ) : null}
+                {page ? (
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={book.pages.length <= 1}
+                    onClick={() => removeStrat(page.id)}
+                  >
+                    Delete strat
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </>
         ) : (
           <p className="muted">Create a playbook for this map, or open one from the list.</p>
         )}

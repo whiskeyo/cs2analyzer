@@ -6,6 +6,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
+import { COPY_SUFFIX } from "@/lib/playbook/types";
 import { deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
 import { Playbook } from "./Playbook";
 
@@ -55,6 +56,36 @@ describe("Playbook", () => {
       target: { value: "Anti-strats" },
     });
     expect(screen.getByRole("textbox", { name: "Book title" })).toHaveValue("Anti-strats");
+  });
+
+  it("adds, switches, duplicates, and deletes strats", async () => {
+    render(<Playbook />);
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Map" })).toHaveValue("de_mirage"),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
+    expect(await screen.findByTestId("playbook-canvas")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete strat" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "New strat" }));
+    const strats = screen.getAllByRole("button", { name: "Untitled strat" });
+    expect(strats).toHaveLength(2);
+    expect(strats[1]).toHaveClass("is-active");
+    fireEvent.change(screen.getByRole("textbox", { name: "Strat name" }), {
+      target: { value: "A exec" },
+    });
+    expect(screen.getByRole("button", { name: "A exec" })).toHaveClass("is-active");
+
+    await userEvent.click(screen.getByRole("button", { name: "Untitled strat" }));
+    expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue("Untitled strat");
+
+    await userEvent.click(screen.getByRole("button", { name: "A exec" }));
+    await userEvent.click(screen.getByRole("button", { name: "Duplicate strat" }));
+    expect(screen.getByRole("button", { name: `A exec${COPY_SUFFIX}` })).toHaveClass("is-active");
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete strat" }));
+    expect(screen.queryByRole("button", { name: `A exec${COPY_SUFFIX}` })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete strat" })).toBeEnabled();
   });
 
   it("shows a load error when calibrations fail", async () => {

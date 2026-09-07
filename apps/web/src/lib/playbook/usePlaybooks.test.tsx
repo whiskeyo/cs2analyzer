@@ -6,7 +6,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { deleteAllPlaybooks, loadPlaybook } from "./playbookStore";
-import { UNTITLED_PLAYBOOK } from "./types";
+import { COPY_SUFFIX, UNTITLED_PLAYBOOK } from "./types";
 import { usePlaybooks } from "./usePlaybooks";
 
 describe("usePlaybooks", () => {
@@ -65,5 +65,46 @@ describe("usePlaybooks", () => {
       await result.current.create("nope");
     });
     expect(result.current.book).toBeNull();
+  });
+
+  it("adds, switches, duplicates, and deletes named strats", async () => {
+    const { result } = renderHook(() => usePlaybooks("de_mirage"));
+    await act(async () => {
+      await result.current.create("Defaults");
+    });
+    const firstId = result.current.book?.pages[0]?.id ?? "";
+    await act(async () => {
+      result.current.addStrat();
+    });
+    expect(result.current.book?.pages).toHaveLength(2);
+    const secondId = result.current.book?.activePageId ?? "";
+    expect(secondId).not.toBe(firstId);
+
+    await act(async () => {
+      result.current.renameStrat(secondId, "A exec");
+      result.current.selectStrat(firstId);
+    });
+    expect(result.current.book?.activePageId).toBe(firstId);
+    expect(result.current.book?.pages[1]?.title).toBe("A exec");
+
+    await act(async () => {
+      result.current.duplicateStrat(secondId);
+    });
+    expect(result.current.book?.pages).toHaveLength(3);
+    expect(result.current.book?.pages[2]?.title).toBe(`A exec${COPY_SUFFIX}`);
+
+    await act(async () => {
+      result.current.removeStrat(result.current.book?.activePageId ?? "");
+    });
+    expect(result.current.book?.pages).toHaveLength(2);
+
+    const only = result.current.book?.pages[0]?.id ?? "";
+    await act(async () => {
+      result.current.removeStrat(result.current.book?.pages[1]?.id ?? "");
+    });
+    await act(async () => {
+      result.current.removeStrat(only);
+    });
+    expect(result.current.book?.pages).toHaveLength(1);
   });
 });

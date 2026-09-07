@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
-import { renamePlaybook } from "./pages";
+import {
+  addPage,
+  deletePage,
+  duplicatePage,
+  renamePage,
+  renamePlaybook,
+  setActivePage,
+} from "./pages";
 import { createPlaybook, listPlaybooksForMap, loadPlaybook, savePlaybook } from "./playbookStore";
 import type { Playbook } from "./types";
 
@@ -74,9 +81,48 @@ export function usePlaybooks(mapName: string | null) {
     [mapName, refresh],
   );
 
-  const rename = useCallback((title: string) => {
-    setDraft((prev) => (prev ? renamePlaybook(prev, title) : prev));
+  const patch = useCallback((fn: (current: Playbook) => Playbook) => {
+    setDraft((prev) => (prev ? fn(prev) : prev));
   }, []);
+
+  const rename = useCallback(
+    (title: string) => {
+      patch((current) => renamePlaybook(current, title));
+    },
+    [patch],
+  );
+
+  const addStrat = useCallback(() => {
+    patch((current) => addPage(current));
+  }, [patch]);
+
+  const renameStrat = useCallback(
+    (pageId: string, title: string) => {
+      patch((current) => renamePage(current, pageId, title));
+    },
+    [patch],
+  );
+
+  const removeStrat = useCallback(
+    (pageId: string) => {
+      patch((current) => deletePage(current, pageId));
+    },
+    [patch],
+  );
+
+  const duplicateStrat = useCallback(
+    (pageId: string) => {
+      patch((current) => duplicatePage(current, pageId));
+    },
+    [patch],
+  );
+
+  const selectStrat = useCallback(
+    (pageId: string) => {
+      patch((current) => setActivePage(current, pageId));
+    },
+    [patch],
+  );
 
   return {
     books: mapName ? books.filter((row) => row.mapName === mapName) : [],
@@ -85,5 +131,10 @@ export function usePlaybooks(mapName: string | null) {
     select,
     create,
     rename,
+    addStrat,
+    renameStrat,
+    removeStrat,
+    duplicateStrat,
+    selectStrat,
   };
 }
