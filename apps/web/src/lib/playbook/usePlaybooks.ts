@@ -133,6 +133,14 @@ export function usePlaybooks(mapName: string | null) {
     [patch],
   );
 
+  const reload = useCallback(async () => {
+    await refresh();
+    if (!activeKey) return;
+    skipSaveRef.current = true;
+    const loaded = await loadPlaybook(activeKey);
+    if (loaded) setDraft(loaded);
+  }, [refresh, activeKey]);
+
   return {
     books: mapName ? books.filter((row) => row.mapName === mapName) : [],
     book,
@@ -146,5 +154,6 @@ export function usePlaybooks(mapName: string | null) {
     duplicateStrat,
     selectStrat,
     setNote,
+    reload,
   };
 }

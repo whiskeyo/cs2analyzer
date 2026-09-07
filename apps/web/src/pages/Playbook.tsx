@@ -6,6 +6,8 @@ import { consumePlaybookFocus } from "@/lib/playbook/focus";
 import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";
 import { activePage } from "@/lib/playbook/pages";
 import { removePiece, setPieceLabel, type PlaybookTool } from "@/lib/playbook/pieces";
+import { savePlaybook } from "@/lib/playbook/playbookStore";
+import { exportPlaybooks, importPlaybooksFromText } from "@/lib/playbook/transfer";
 import { usePlaybooks } from "@/lib/playbook/usePlaybooks";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
 import { loadCalibrations } from "@/lib/radar/maps";
@@ -20,7 +22,10 @@ export function Playbook() {
   const [newTitle, setNewTitle] = useState("");
   const [tool, setTool] = useState<PlaybookTool>("pan");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+  const [flashError, setFlashError] = useState<string | null>(null);
   const pendingFocus = useRef(consumePlaybookFocus());
+  const importRef = useRef<HTMLInputElement>(null);
   const names = maps ? sortedMapNames(maps) : [];
   const {
     books,
@@ -35,6 +40,7 @@ export function Playbook() {
     duplicateStrat,
     selectStrat,
     setNote,
+    reload,
   } = usePlaybooks(mapName);
 
   useEffect(() => {
@@ -99,6 +105,8 @@ export function Playbook() {
         <h2>Playbook</h2>
         <p className="playbook-lead">Maps, then named books. Drawings stay on this machine.</p>
         {loadError ? <p className="error">{loadError}</p> : null}
+        {flashError ? <p className="error">{flashError}</p> : null}
+        {flash ? <p className="playbook-lead">{flash}</p> : null}
         <label className="playbook-field">
           Map
           <select
@@ -132,6 +140,53 @@ export function Playbook() {
             New playbook
           </button>
         </form>
+        <div className="playbook-strat-actions">
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => {
+              void (async () => {
+                if (book) await savePlaybook(book);
+                const result = await exportPlaybooks();
+                if (result.ok) {
+                  setFlashError(null);
+                  setFlash(result.message);
+                } else {
+                  setFlash(null);
+                  setFlashError(result.message);
+                }
+              })();
+            }}
+          >
+            Export playbooks
+          </button>
+          <button type="button" className="ghost" onClick={() => importRef.current?.click()}>
+            Import playbooks
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            aria-label="Import playbooks file"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              void file.text().then(async (text) => {
+                const result = await importPlaybooksFromText(text);
+                if (result.ok) {
+                  setFlashError(null);
+                  setFlash(result.message);
+                  await reload();
+                } else {
+                  setFlash(null);
+                  setFlashError(result.message);
+                }
+              });
+            }}
+          />
+        </div>
         <ul className="playbook-books">
           {books.map((row) => (
             <li key={row.key}>

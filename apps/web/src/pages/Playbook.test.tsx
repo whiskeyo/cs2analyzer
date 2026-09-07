@@ -9,7 +9,13 @@ import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { COPY_SUFFIX } from "@/lib/playbook/types";
 import { PLAYBOOK_FOCUS_KEY, rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
+import { newPlaybook } from "@/lib/playbook/pages";
+import { serializePlaybookBundle } from "@/lib/playbook/transfer";
 import { Playbook } from "./Playbook";
+
+vi.mock("@/lib/shared/download", () => ({
+  downloadBlob: vi.fn(),
+}));
 
 vi.mock("@/lib/radar/maps", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/radar/maps")>();
@@ -24,11 +30,13 @@ vi.mock("@/components/playbook/PlaybookCanvas", () => ({
 }));
 
 import { loadCalibrations } from "@/lib/radar/maps";
+import { downloadBlob } from "@/lib/shared/download";
 
 describe("Playbook", () => {
   beforeEach(async () => {
     await deleteAllPlaybooks();
     sessionStorage.removeItem(PLAYBOOK_FOCUS_KEY);
+    vi.mocked(downloadBlob).mockReset();
     vi.mocked(loadCalibrations).mockReset();
     vi.mocked(loadCalibrations).mockResolvedValue({
       de_inferno: UNIT_CALIBRATION,
@@ -116,6 +124,32 @@ describe("Playbook", () => {
     );
     expect(await screen.findByTestId("playbook-canvas")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "A execs" })).toHaveClass("is-active");
+  });
+
+  it("exports saved playbooks and imports a JSON bundle", async () => {
+    render(<Playbook />);
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Map" })).toHaveValue("de_mirage"),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Export playbooks" }));
+    expect(await screen.findByText("No playbooks in this browser yet.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
+    await screen.findByTestId("playbook-canvas");
+    await userEvent.click(screen.getByRole("button", { name: "Export playbooks" }));
+    expect(await screen.findByText("Exported 1 playbook.")).toBeInTheDocument();
+    expect(downloadBlob).toHaveBeenCalled();
+
+    const incoming = newPlaybook("de_mirage", "Imported");
+    const input = document.querySelector(
+      'input[aria-label="Import playbooks file"]',
+    ) as HTMLInputElement;
+    const file = new File([serializePlaybookBundle([incoming])], "books.json", {
+      type: "application/json",
+    });
+    await userEvent.upload(input, file);
+    expect(await screen.findByText("Imported 1 playbook.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Imported" })).toBeInTheDocument();
   });
 
   it("shows a load error when calibrations fail", async () => {

@@ -1,0 +1,127 @@
+/**
+ * @vitest-environment jsdom
+ */
+import "fake-indexeddb/auto";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PLAYBOOK_EXPORT_FILE } from "./transfer";
+import { newPlaybook } from "./pages";
+import {
+  createPlaybook,
+  deleteAllPlaybooks,
+  loadAllPlaybooks,
+  loadPlaybook,
+} from "./playbookStore";
+import * as playbookStore from "./playbookStore";
+import { PLAYBOOK_SCHEMA } from "./types";
+
+const downloadBlob = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/shared/download", () => ({
+  downloadBlob,
+}));
+
+import {
+  exportPlaybooks,
+  importPlaybooksFromText,
+  parsePlaybookBundle,
+  serializePlaybookBundle,
+} from "./transfer";
+
+describe("parsePlaybookBundle", () => {
+  it("round-trips books and accepts a bare playbook", () => {
+    const book = newPlaybook("de_mirage", "Defaults");
+    const json = serializePlaybookBundle([book], 100);
+    expect(JSON.parse(json)).toMatchObject({
+      schema: PLAYBOOK_SCHEMA,
+      exportedAt: 100,
+      playbooks: [expect.objectContaining({ key: book.key })],
+    });
+    expect(parsePlaybookBundle(JSON.parse(json))?.playbooks).toHaveLength(1);
+    expect(parsePlaybookBundle(book)?.playbooks).toEqual([book]);
+    expect(parsePlaybookBundle(null)).toBeNull();
+    expect(parsePlaybookBundle({ schema: 0, playbooks: [book] })).toBeNull();
+    expect(parsePlaybookBundle({ schema: PLAYBOOK_SCHEMA, playbooks: [{}] })).toBeNull();
+    expect(
+      parsePlaybookBundle({ schema: PLAYBOOK_SCHEMA, playbooks: [book], exportedAt: "x" }),
+    ).toMatchObject({
+      exportedAt: 0,
+    });
+  });
+});
+
+describe("exportPlaybooks / importPlaybooksFromText", () => {
+  beforeEach(async () => {
+    await deleteAllPlaybooks();
+    downloadBlob.mockReset();
+  });
+
+  afterEach(async () => {
+    await deleteAllPlaybooks();
+  });
+
+  it("refuses to export an empty store", async () => {
+    expect(await exportPlaybooks()).toEqual({
+      ok: false,
+      message: "No playbooks in this browser yet.",
+    });
+    expect(downloadBlob).not.toHaveBeenCalled();
+  });
+
+  it("downloads every saved book", async () => {
+    await createPlaybook("de_mirage", "Defaults");
+    const result = await exportPlaybooks();
+    expect(result.ok).toBe(true);
+    expect(downloadBlob).toHaveBeenCalledWith(
+      PLAYBOOK_EXPORT_FILE,
+      "application/json",
+      expect.stringContaining("Defaults"),
+    );
+  });
+
+  it("imports a bundle and a broken payload", async () => {
+    expect(await importPlaybooksFromText("{")).toEqual({
+      ok: false,
+      message: "Playbook file is not valid JSON.",
+    });
+    expect(await importPlaybooksFromText("{}")).toEqual({
+      ok: false,
+      message: "Playbook file has no valid books.",
+    });
+    const book = newPlaybook("de_inferno", "A execs");
+    const result = await importPlaybooksFromText(serializePlaybookBundle([book]));
+    expect(result).toEqual({ ok: true, message: "Imported 1 playbook." });
+    expect((await loadPlaybook(book.key))?.title).toBe("A execs");
+    expect(await loadAllPlaybooks()).toHaveLength(1);
+  });
+
+  it("reports a plural import", async () => {
+    const books = [newPlaybook("de_mirage", "A"), newPlaybook("de_mirage", "B")];
+    expect(await importPlaybooksFromText(serializePlaybookBundle(books))).toEqual({
+      ok: true,
+      message: "Imported 2 playbooks.",
+    });
+  });
+
+  it("exports several books and surfaces store failures", async () => {
+    await createPlaybook("de_mirage", "A");
+    await createPlaybook("de_inferno", "B");
+    expect(await exportPlaybooks()).toEqual({
+      ok: true,
+      message: "Exported 2 playbooks.",
+    });
+    vi.spyOn(playbookStore, "loadAllPlaybooks").mockRejectedValueOnce(new Error("idb"));
+    expect(await exportPlaybooks()).toEqual({
+      ok: false,
+      message: "Could not export playbooks.",
+    });
+    vi.mocked(playbookStore.loadAllPlaybooks).mockRestore();
+    vi.spyOn(playbookStore, "savePlaybook").mockRejectedValueOnce(new Error("idb"));
+    expect(
+      await importPlaybooksFromText(serializePlaybookBundle([newPlaybook("de_nuke", "C")])),
+    ).toEqual({
+      ok: false,
+      message: "Could not import playbooks.",
+    });
+    vi.mocked(playbookStore.savePlaybook).mockRestore();
+  });
+});

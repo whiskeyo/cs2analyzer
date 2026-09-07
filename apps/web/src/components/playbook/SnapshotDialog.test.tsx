@@ -77,13 +77,16 @@ describe("SnapshotDialog", () => {
     await playbookStore.createPlaybook("de_anubis", "Older");
     await playbookStore.createPlaybook("de_anubis", "Newer");
     renderDialog();
-    const older = await screen.findByRole("radio", { name: "Older" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled());
+    const older = screen.getByRole("radio", { name: "Older" });
     await userEvent.click(older);
+    await waitFor(() => expect(older).toBeChecked());
     fireEvent.change(screen.getByRole("textbox", { name: "Strat name" }), {
       target: { value: "Custom strat" },
     });
     await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
-    expect(await screen.findByText("Older")).toBeInTheDocument();
+    expect(await screen.findByText(/Saved to/)).toBeInTheDocument();
+    expect(screen.getByRole("strong")).toHaveTextContent("Older");
     const saved = await playbookStore.loadPlaybook(
       JSON.parse(sessionStorage.getItem(PLAYBOOK_FOCUS_KEY) ?? "null").bookKey,
     );

@@ -123,4 +123,21 @@ describe("usePlaybooks", () => {
       expect.objectContaining({ id: "c4", kind: "bomb", x: 1, y: 2 }),
     ]);
   });
+
+  it("reloads the open book from storage", async () => {
+    const { result } = renderHook(() => usePlaybooks("de_mirage"));
+    await act(async () => {
+      await result.current.create("Defaults");
+    });
+    const key = result.current.book?.key ?? "";
+    await act(async () => {
+      result.current.rename("Stale");
+    });
+    const saved = await loadPlaybook(key);
+    expect(saved).toBeDefined();
+    await act(async () => {
+      await result.current.reload();
+    });
+    await waitFor(() => expect(result.current.books.some((row) => row.key === key)).toBe(true));
+  });
 });
