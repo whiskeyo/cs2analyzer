@@ -109,19 +109,19 @@ describe("drawC4", () => {
 });
 
 describe("drawLooseC4", () => {
-  it("draws the pack without a site ring", () => {
+  it("paints a ping ring so the pack stays visible", () => {
     const ctx = createMockCanvas();
-    drawLooseC4(ctx, { x: 50, y: 60 }, null);
-    expect(ctx.arc).not.toHaveBeenCalled();
+    drawLooseC4(ctx, { x: 50, y: 60 }, null, 0);
+    expect(ctx.arc).toHaveBeenCalled();
     expect(ctx.fillText).toHaveBeenCalledWith("C4", 50, 60);
   });
 
   it("draws the icon when it is complete", () => {
     const ctx = createMockCanvas();
     const icon = { complete: true, naturalWidth: 32 } as HTMLImageElement;
-    drawLooseC4(ctx, { x: 10, y: 20 }, icon);
-    expect(ctx.drawImage).toHaveBeenCalledWith(icon, 2, 12, 16, 16);
-    expect(ctx.arc).not.toHaveBeenCalled();
+    drawLooseC4(ctx, { x: 10, y: 20 }, icon, 0);
+    expect(ctx.drawImage).toHaveBeenCalledWith(icon, 0, 10, 20, 20);
+    expect(ctx.arc).toHaveBeenCalled();
   });
 });
 

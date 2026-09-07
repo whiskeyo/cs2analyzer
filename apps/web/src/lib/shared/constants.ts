@@ -92,6 +92,9 @@ export const DEFUSE_WITHOUT_KIT_SECONDS = 10;
 /** Blind duration below this is ignored in review notes. */
 export const MIN_REVIEW_FLASH_SECONDS = 0.4;
 
+/** Loose C4 radar ping (cycles per second). */
+export const LOOSE_C4_PULSE_HZ = 1.4;
+
 export const SMOKE_SECONDS = 18;
 export const MOLOTOV_SECONDS = 7;
 export const HE_DECOY_SECONDS = 0.5;

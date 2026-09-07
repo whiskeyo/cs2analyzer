@@ -1,4 +1,4 @@
-import { NOTE_TEXT_MAX_WIDTH } from "@/lib/shared/constants";
+import { NOTE_TEXT_MAX_WIDTH, DEFAULT_TICK_RATE, LOOSE_C4_PULSE_HZ } from "@/lib/shared/constants";
 import { worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { overlayVisible } from "@/lib/notes";
 import type { GrenadeKind, MapCalibration } from "@/lib/replay/replayTypes";
@@ -39,15 +39,28 @@ export function drawC4(
   }
 }
 
-/** Loose pack: same C4 SVG, no site ring or fuse dial. */
+/** Loose pack: C4 SVG plus a ping so it does not disappear into the radar. */
 export function drawLooseC4(
   ctx: CanvasRenderingContext2D,
   at: { x: number; y: number },
   icon: HTMLImageElement | null,
+  tick = 0,
 ) {
-  const size = 16;
+  const wave = 0.5 + 0.5 * Math.sin((tick / DEFAULT_TICK_RATE) * LOOSE_C4_PULSE_HZ * Math.PI * 2);
+  const radius = 11 + wave * 7;
   ctx.save();
-  ctx.globalAlpha = 0.88;
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(245, 215, 110, ${0.1 + wave * 0.12})`;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = `rgba(245, 215, 110, ${0.35 + wave * 0.5})`;
+  ctx.stroke();
+  ctx.restore();
+
+  const size = 20;
+  ctx.save();
+  ctx.globalAlpha = 0.95;
   if (icon && icon.complete && icon.naturalWidth > 0) {
     ctx.drawImage(icon, at.x - size / 2, at.y - size / 2, size, size);
   } else {
