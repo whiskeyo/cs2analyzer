@@ -2022,6 +2022,10 @@ button.link:hover:not(:disabled) {
   height: 80%;
   object-fit: contain;
 }
+.controls button.timeline-event.bomb_plant img {
+  width: 52%;
+  height: 52%;
+}
 .controls button.timeline-bookmark {
   pointer-events: auto;
   position: absolute;
