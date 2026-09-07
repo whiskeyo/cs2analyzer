@@ -42,4 +42,5 @@ export interface MapToolbarProps {
   view: MapToolbarViewState;
   reviewActions: MapToolbarReviewActions;
   viewActions: MapToolbarViewActions;
+  onSnapshot?: () => void;
 }

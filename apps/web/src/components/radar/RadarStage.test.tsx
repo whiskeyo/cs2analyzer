@@ -23,7 +23,7 @@ function radarState(replay = makeReplay()) {
   const setPlaying = vi.fn();
   const setLayers = vi.fn();
   return {
-    session: { replay },
+    session: { replay, fileName: "match.dem" },
     playback: { tick: 100, setPlaying, jump: vi.fn() },
     review: {
       color: COLOR_PRESETS[0].colors[0],
@@ -150,5 +150,13 @@ describe("RadarStage", () => {
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     render(<RadarStage />);
     expect(screen.queryByRole("button", { name: /Round autoplay/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Snapshot to playbook" })).not.toBeInTheDocument();
+  });
+
+  it("opens the snapshot dialog from the toolbar", async () => {
+    vi.mocked(useApp).mockReturnValue(radarState() as unknown as ReturnType<typeof useApp>);
+    render(<RadarStage />);
+    await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
+    expect(screen.getByRole("dialog", { name: "Snapshot to playbook" })).toBeInTheDocument();
   });
 });

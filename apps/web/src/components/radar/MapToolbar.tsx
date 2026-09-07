@@ -53,13 +53,20 @@ const I = {
   redo: "M11 5 14 8l-3 3M14 8H6.5a3.5 3.5 0 1 0 0 7",
   clear: "M5 5.5h6M6 5.5V4h4v1.5M6 5.5 7 13h2l.5-7.5",
   reset: "M3 8a5 5 0 1 0 1.5-3.5M3 3v3h3",
+  snapshot: "M2.5 5.5h2l1-1.5h5l1 1.5h2v8h-11Z M8 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z",
   track: "M8 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 3.5V2M8 14v-1.5M3.5 8H2M14 8h-1.5",
   trail: "M3 12c2-1 3-4 5-4s3 3 5 2",
   moment: "M8 3.5A4.5 4.5 0 1 1 3.5 8M8 5.5V8l1.8 1.2",
   bookmark: "M4.5 2h7v12l-3.5-2.2L4.5 14Z",
 };
 
-export function MapToolbar({ review, view, reviewActions, viewActions }: MapToolbarProps) {
+export function MapToolbar({
+  review,
+  view,
+  reviewActions,
+  viewActions,
+  onSnapshot,
+}: MapToolbarProps) {
   const { tool, color, paletteId, floorMode, hasFloors, canUndo, canRedo } = review;
   const { follow, trails, moment, canFollow, layers } = view;
   const { onTool, onColor, onPalette, onFloorMode, onUndo, onRedo, onClear, onStampBookmark } =
@@ -88,6 +95,9 @@ export function MapToolbar({ review, view, reviewActions, viewActions }: MapTool
       <IconBtn title="Redo drawing (Ctrl+Y)" disabled={!canRedo} onClick={onRedo} d={I.redo} />
       <IconBtn title="Clear drawings on this round" onClick={onClear} d={I.clear} />
       <IconBtn title="Reset view" onClick={onResetView} d={I.reset} />
+      {onSnapshot ? (
+        <IconBtn title="Snapshot to playbook" onClick={onSnapshot} d={I.snapshot} />
+      ) : null}
       <span className="palette-picks">
         {COLOR_PRESETS.map((p) => (
           <button

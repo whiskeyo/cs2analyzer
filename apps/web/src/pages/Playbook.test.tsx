@@ -7,7 +7,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { COPY_SUFFIX } from "@/lib/playbook/types";
-import { deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
+import { PLAYBOOK_FOCUS_KEY, rememberPlaybookFocus } from "@/lib/playbook/focus";
+import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
 import { Playbook } from "./Playbook";
 
 vi.mock("@/lib/radar/maps", async (importOriginal) => {
@@ -27,6 +28,7 @@ import { loadCalibrations } from "@/lib/radar/maps";
 describe("Playbook", () => {
   beforeEach(async () => {
     await deleteAllPlaybooks();
+    sessionStorage.removeItem(PLAYBOOK_FOCUS_KEY);
     vi.mocked(loadCalibrations).mockReset();
     vi.mocked(loadCalibrations).mockResolvedValue({
       de_inferno: UNIT_CALIBRATION,
@@ -36,6 +38,7 @@ describe("Playbook", () => {
 
   afterEach(async () => {
     await deleteAllPlaybooks();
+    sessionStorage.removeItem(PLAYBOOK_FOCUS_KEY);
   });
 
   it("picks a map, creates a book, and opens the board", async () => {
@@ -97,11 +100,22 @@ describe("Playbook", () => {
       expect(screen.getByRole("combobox", { name: "Map" })).toHaveValue("de_mirage"),
     );
     await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
-    expect(screen.getByRole("toolbar", { name: "Playbook tools" })).toBeInTheDocument();
+    expect(await screen.findByRole("toolbar", { name: "Playbook tools" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pen" })).toBeInTheDocument();
     expect(screen.getByText(/No tokens yet/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Flash" }));
     expect(screen.getByRole("button", { name: "Flash" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("opens the remembered snapshot book", async () => {
+    const book = await createPlaybook("de_inferno", "A execs");
+    rememberPlaybookFocus({ mapName: "de_inferno", bookKey: book.key });
+    render(<Playbook />);
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Map" })).toHaveValue("de_inferno"),
+    );
+    expect(await screen.findByTestId("playbook-canvas")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "A execs" })).toHaveClass("is-active");
   });
 
   it("shows a load error when calibrations fail", async () => {

@@ -157,4 +157,16 @@ describe("MapToolbar", () => {
     await userEvent.click(screen.getByRole("button", { name: "Clear drawings on this round" }));
     expect(props.reviewActions.onClear).toHaveBeenCalled();
   });
+
+  it("calls onSnapshot when the snapshot button is used", async () => {
+    const onSnapshot = vi.fn();
+    render(<MapToolbar {...toolbarProps({ onSnapshot })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
+    expect(onSnapshot).toHaveBeenCalled();
+  });
+
+  it("hides snapshot when the handler is omitted", () => {
+    render(<MapToolbar {...toolbarProps()} />);
+    expect(screen.queryByRole("button", { name: "Snapshot to playbook" })).not.toBeInTheDocument();
+  });
 });

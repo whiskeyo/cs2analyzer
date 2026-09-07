@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PieceList } from "@/components/playbook/PieceList";
 import { PlaybookCanvas } from "@/components/playbook/PlaybookCanvas";
 import { TokenPalette } from "@/components/playbook/TokenPalette";
+import { consumePlaybookFocus } from "@/lib/playbook/focus";
 import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";
 import { activePage } from "@/lib/playbook/pages";
 import { removePiece, setPieceLabel, type PlaybookTool } from "@/lib/playbook/pieces";
@@ -19,6 +20,7 @@ export function Playbook() {
   const [newTitle, setNewTitle] = useState("");
   const [tool, setTool] = useState<PlaybookTool>("pan");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const pendingFocus = useRef(consumePlaybookFocus());
   const names = maps ? sortedMapNames(maps) : [];
   const {
     books,
@@ -41,7 +43,12 @@ export function Playbook() {
       .then((cals) => {
         if (cancelled) return;
         setMaps(cals);
-        setMapName((current) => current ?? pickInitialMap(sortedMapNames(cals)));
+        setMapName((current) => {
+          if (current) return current;
+          const focus = pendingFocus.current;
+          if (focus && cals[focus.mapName]) return focus.mapName;
+          return pickInitialMap(sortedMapNames(cals));
+        });
       })
       .catch((err: unknown) => {
         if (!cancelled) setLoadError(errorMessage(err));
@@ -50,6 +57,14 @@ export function Playbook() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const focus = pendingFocus.current;
+    if (!focus || mapName !== focus.mapName) return;
+    if (!books.some((row) => row.key === focus.bookKey)) return;
+    select(focus.bookKey);
+    pendingFocus.current = null;
+  }, [books, mapName, select]);
 
   const cal = mapName && maps ? maps[mapName] : undefined;
   const page = book ? activePage(book) : null;

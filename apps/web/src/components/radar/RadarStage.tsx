@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { SnapshotDialog } from "@/components/playbook/SnapshotDialog";
 import { tickRate } from "@/lib/shared/constants";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { makeBookmarkStroke } from "@/lib/notes";
@@ -16,6 +18,7 @@ import { SpectatorEconomy } from "./SpectatorEconomy";
  */
 export function RadarStage() {
   const { session, playback, review, view, cal, habits } = useApp();
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
   const replay = session.replay;
   if (!replay) return null;
   const { tick } = playback;
@@ -91,6 +94,7 @@ export function RadarStage() {
           },
           onResetView: view.resetView,
         }}
+        onSnapshot={habitsOnly ? undefined : () => setSnapshotOpen(true)}
       />
       <div className="radar-stage">
         <RadarCanvas
@@ -137,6 +141,17 @@ export function RadarStage() {
         )}
         {!habitsOnly && <KillFeed replay={replay} tick={tick} onJump={playback.jump} />}
       </div>
+      {snapshotOpen ? (
+        <SnapshotDialog
+          mapName={replay.header.map_name}
+          replay={replay}
+          tick={tick}
+          fileName={session.fileName}
+          floor={review.floorMode}
+          cal={cal}
+          onClose={() => setSnapshotOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
