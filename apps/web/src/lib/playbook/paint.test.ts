@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { createMockCanvas } from "@/lib/testing/mockCanvas";
-import { paintPlaybookBoard, playbookUsesLower } from "./paint";
+import {
+  paintPlaybookBoard,
+  paintPlaybookPiece,
+  paintPlaybookPieces,
+  playbookUsesLower,
+} from "./paint";
+import { makePiece } from "./pieces";
 
 describe("playbookUsesLower", () => {
   const withLower = { ...UNIT_CALIBRATION, lower_radar: "lower.png" };
@@ -38,6 +44,60 @@ describe("paintPlaybookBoard", () => {
     });
     expect(ctx.drawImage).toHaveBeenCalled();
     expect(ctx.stroke).toHaveBeenCalled();
+  });
+
+  it("paints pawns, nades, and the bomb on the board", () => {
+    const ctx = createMockCanvas();
+    const note = emptyNote();
+    note.pieces.push(
+      makePiece("pawn", 0, 0, { id: "ct", side: "CT", label: "entry" }),
+      makePiece("pawn", 4, 0, { id: "t", side: "T", alive: false, carriesC4: true }),
+      makePiece("pawn", 8, 0, { id: "sel", side: "CT" }),
+      makePiece("smoke", 10, 10, { id: "sm" }),
+      makePiece("he", 12, 12, { id: "he" }),
+      makePiece("bomb", 20, 20, { id: "c4" }),
+    );
+    const c4 = { complete: true, naturalWidth: 16 } as HTMLImageElement;
+    const nade = { complete: true, naturalWidth: 20, naturalHeight: 20 } as HTMLImageElement;
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      note,
+      null,
+      { c4, nades: { smoke: nade } },
+      "sel",
+    );
+    expect(ctx.translate).toHaveBeenCalled();
+    expect(ctx.rotate).toHaveBeenCalled();
+    expect(ctx.drawImage).toHaveBeenCalled();
+    expect(ctx.arc).toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalled();
+  });
+
+  it("falls back to C4 text and nade dots when icons are missing", () => {
+    const ctx = createMockCanvas();
+    paintPlaybookPiece(ctx, makePiece("pawn", 0, 0, { id: "p", carriesC4: true }), (x, y) => ({
+      x,
+      y,
+    }));
+    paintPlaybookPiece(ctx, makePiece("bomb", 1, 1, { id: "b" }), (x, y) => ({ x, y }));
+    paintPlaybookPiece(ctx, makePiece("flash", 2, 2, { id: "f" }), (x, y) => ({ x, y }));
+    paintPlaybookPiece(ctx, makePiece("molotov", 3, 3, { id: "m" }), (x, y) => ({ x, y }));
+    paintPlaybookPiece(ctx, makePiece("incendiary", 4, 4, { id: "i" }), (x, y) => ({ x, y }));
+    paintPlaybookPiece(ctx, makePiece("decoy", 5, 5, { id: "d" }), (x, y) => ({ x, y }));
+    paintPlaybookPieces(ctx, [makePiece("he", 6, 6, { id: "h" })], (x, y) => ({ x, y }));
+    paintPlaybookPiece(
+      ctx,
+      { id: "raw", kind: "pawn", x: 0, y: 0 },
+      (x, y) => ({ x, y }),
+      undefined,
+      true,
+    );
+    expect(ctx.fillText).toHaveBeenCalled();
   });
 
   it("omits a draft when none is in progress", () => {

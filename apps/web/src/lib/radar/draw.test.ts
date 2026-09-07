@@ -16,6 +16,7 @@ import {
   hitStroke,
   hitTextLabel,
   NADE_FLIGHT_ICON_SIZE,
+  canvasToYaw,
   yawToCanvas,
 } from "./draw";
 
@@ -25,6 +26,14 @@ describe("yawToCanvas", () => {
     expect(yawToCanvas(90)).toBeCloseTo(Math.PI / 2);
     expect(yawToCanvas(180)).toBeCloseTo(0);
     expect(yawToCanvas(-90)).toBeCloseTo((3 * Math.PI) / 2);
+  });
+
+  it("round-trips with canvasToYaw", () => {
+    for (const yaw of [0, 45, 90, 180, -90, 270]) {
+      expect(canvasToYaw(yawToCanvas(yaw))).toBeCloseTo(yaw);
+    }
+    expect(canvasToYaw(Math.PI)).toBeCloseTo(0);
+    expect(canvasToYaw(0)).toBeCloseTo(180);
   });
 });
 

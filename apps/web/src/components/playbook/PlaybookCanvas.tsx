@@ -21,7 +21,7 @@ export function PlaybookCanvas({ cal, floorMode, note }: Props) {
   floorModeRef.current = floorMode;
   const noteRef = useRef(note);
   noteRef.current = note;
-  const { images } = useRadarImages(cal);
+  const { images, c4Icon, nadeIcons } = useRadarImages(cal);
 
   usePlaybookPointer({ wrapRef, view });
 
@@ -47,7 +47,10 @@ export function PlaybookCanvas({ cal, floorMode, note }: Props) {
       ctx.fillRect(0, 0, w, h);
       const useLower = playbookUsesLower(calRef.current, floorModeRef.current);
       const img = useLower ? images.current.lower : images.current.upper;
-      paintPlaybookBoard(ctx, w, h, view.current, img, calRef.current, noteRef.current);
+      paintPlaybookBoard(ctx, w, h, view.current, img, calRef.current, noteRef.current, null, {
+        c4: c4Icon.current,
+        nades: nadeIcons.current,
+      });
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);

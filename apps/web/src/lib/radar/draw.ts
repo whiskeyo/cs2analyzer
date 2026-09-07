@@ -16,6 +16,11 @@ export function yawToCanvas(yaw: number): number {
   return ((-yaw + 180) * Math.PI) / 180;
 }
 
+/** Inverse of `yawToCanvas` — canvas radians (atan2 screen delta) back to eye yaw. */
+export function canvasToYaw(rad: number): number {
+  return 180 - (rad * 180) / Math.PI;
+}
+
 export function drawC4(
   ctx: CanvasRenderingContext2D,
   at: { x: number; y: number },
