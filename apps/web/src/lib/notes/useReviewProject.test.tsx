@@ -54,6 +54,7 @@ function project(partial: Partial<ReviewProject> = {}): ReviewProject {
     fileName: "match.dem",
     mapName: "de_mirage",
     tick: 300,
+    notes: [],
     strokes: [{ type: "pen", round: 1, color: "#fff", points: [{ x: 0, y: 0 }] }],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",

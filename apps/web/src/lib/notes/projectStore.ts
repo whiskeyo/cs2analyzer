@@ -3,9 +3,17 @@ import { isFiniteNumber, isRecord } from "@/lib/validate/guards.ts";
 import { COLOR_PRESETS } from "./palettes";
 import type { GrenadeKind, Replay } from "@/lib/replay/replayTypes";
 import type { MatchScorecard, SavedPlayerSnapshot } from "@/lib/stats/stats";
-import { DEFAULT_SUMMARY_FILTER, type FloorMode, type Stroke, type SummaryFilter } from "./types";
+import {
+  DEFAULT_SUMMARY_FILTER,
+  type FloorMode,
+  type RoundNote,
+  type Stroke,
+  type SummaryFilter,
+} from "./types";
+import { flattenRoundNotes, strokesToRoundNotes } from "./migrate";
+import { parseRoundNotes } from "./noteParse";
 
-export const PROJECT_SCHEMA = 2;
+export const PROJECT_SCHEMA = 3;
 const MIN_PROJECT_SCHEMA = 1;
 const DB_NAME = "cs2analyzer";
 const DB_VERSION = 3;
@@ -21,6 +29,7 @@ export interface ReviewProject {
   fileName: string;
   mapName: string;
   tick: number;
+  notes: RoundNote[];
   strokes: Stroke[];
   summaryFilter: SummaryFilter;
   floorMode: FloorMode;
@@ -55,6 +64,15 @@ export function defaultPaletteId(): string {
 
 export function defaultColor(): string {
   return COLOR_PRESETS[0].colors[0];
+}
+
+/** Canonical notes plus flattened strokes for the current Analyzer canvas. */
+export function notesFromStrokes(strokes: readonly Stroke[]): {
+  notes: RoundNote[];
+  strokes: Stroke[];
+} {
+  const notes = strokesToRoundNotes(strokes);
+  return { notes, strokes: flattenRoundNotes(notes) };
 }
 
 function isPoint(v: unknown): v is { x: number; y: number } {
@@ -211,12 +229,24 @@ export function parseProject(raw: unknown): ReviewProject | null {
   const o = raw;
   if (!isProjectSchema(o.schema) || typeof o.key !== "string") return null;
   if (typeof o.fileName !== "string" || typeof o.mapName !== "string") return null;
-  if (!Array.isArray(o.strokes)) return null;
-  const strokes: Stroke[] = [];
-  for (const s of o.strokes) {
-    const st = parseStroke(s);
-    if (st) strokes.push(st);
+  const parsedNotes = Array.isArray(o.notes) ? parseRoundNotes(o.notes) : [];
+  const parsedStrokes: Stroke[] = [];
+  if (Array.isArray(o.strokes)) {
+    for (const s of o.strokes) {
+      const st = parseStroke(s);
+      if (st) parsedStrokes.push(st);
+    }
   }
+  if (
+    parsedNotes.length === 0 &&
+    parsedStrokes.length === 0 &&
+    !Array.isArray(o.strokes) &&
+    !Array.isArray(o.notes)
+  ) {
+    return null;
+  }
+  const notes = parsedNotes.length > 0 ? parsedNotes : strokesToRoundNotes(parsedStrokes);
+  const strokes = parsedNotes.length > 0 ? flattenRoundNotes(notes) : parsedStrokes;
   const paletteId =
     typeof o.paletteId === "string" && COLOR_PRESETS.some((p) => p.id === o.paletteId)
       ? o.paletteId
@@ -237,6 +267,7 @@ export function parseProject(raw: unknown): ReviewProject | null {
     fileName: o.fileName,
     mapName: o.mapName,
     tick: typeof o.tick === "number" ? o.tick : 0,
+    notes,
     strokes,
     summaryFilter: parseFilter(o.summaryFilter),
     floorMode: parseFloor(o.floorMode),

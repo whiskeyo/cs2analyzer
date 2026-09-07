@@ -41,6 +41,7 @@ function project(partial: Partial<ReviewProject> = {}): ReviewProject {
     fileName: "a.dem",
     mapName: "de_mirage",
     tick: 120,
+    notes: [],
     strokes: [
       { type: "arrow", round: 1, color: "#ff1744", from: { x: 0, y: 0 }, to: { x: 10, y: 10 } },
     ],
@@ -204,6 +205,44 @@ describe("parseBundle", () => {
       start_tick: 80,
       end_tick: 80,
     });
+  });
+
+  it("migrates schema 2 strokes into notes", () => {
+    const p = parseProject({
+      ...project(),
+      schema: 2,
+      notes: undefined,
+    });
+    expect(p?.schema).toBe(PROJECT_SCHEMA);
+    expect(p?.notes).toHaveLength(1);
+    expect(p?.notes[0]?.round).toBe(1);
+    expect(p?.notes[0]?.note.loose[0]?.drawing.type).toBe("arrow");
+  });
+
+  it("flattens schema 3 notes back to strokes", () => {
+    const p = parseProject({
+      ...project(),
+      strokes: undefined,
+      notes: [
+        {
+          round: 4,
+          note: {
+            loose: [{ drawing: { type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] } }],
+            groups: [],
+            pieces: [],
+            bookmarks: [],
+          },
+        },
+      ],
+    });
+    expect(p?.strokes).toEqual([
+      { type: "pen", round: 4, color: "#fff", points: [{ x: 0, y: 0 }] },
+    ]);
+    expect(p?.notes[0]?.round).toBe(4);
+  });
+
+  it("rejects a project with neither notes nor strokes", () => {
+    expect(parseProject({ ...project(), strokes: undefined, notes: undefined })).toBeNull();
   });
 });
 

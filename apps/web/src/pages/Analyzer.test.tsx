@@ -24,6 +24,7 @@ function savedProject(key = "proj-1"): ReviewProject {
     fileName: "match.dem",
     mapName: "de_mirage",
     tick: 0,
+    notes: [],
     strokes: [],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",

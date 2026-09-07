@@ -44,6 +44,7 @@ function savedProject(overrides: Partial<ReviewProject> = {}): ReviewProject {
     fileName: "a.dem",
     mapName: "de_mirage",
     tick: 120,
+    notes: [],
     strokes: [],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",

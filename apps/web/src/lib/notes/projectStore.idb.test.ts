@@ -23,6 +23,7 @@ function project(partial: Partial<ReviewProject> = {}): ReviewProject {
     fileName: "a.dem",
     mapName: "de_mirage",
     tick: 120,
+    notes: [],
     strokes: [
       { type: "arrow", round: 1, color: "#ff1744", from: { x: 0, y: 0 }, to: { x: 10, y: 10 } },
     ],
@@ -49,6 +50,7 @@ describe("projectStore indexedDB", () => {
     const loaded = await loadProject(row.key);
     expect(loaded?.key).toBe(row.key);
     expect(loaded?.strokes[0]?.type).toBe("arrow");
+    expect(loaded?.notes[0]?.note.loose[0]?.drawing.type).toBe("arrow");
     expect(loaded?.savedAt).toBeGreaterThanOrEqual(row.savedAt);
   });
 
