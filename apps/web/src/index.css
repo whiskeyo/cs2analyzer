@@ -1191,6 +1191,12 @@ code {
   font-size: 0.78rem;
   color: #8b98a5;
 }
+.playbook-toolbar .wep-icon {
+  height: 16px;
+  width: 16px;
+  max-width: 16px;
+  display: block;
+}
 .radar-wrap {
   position: absolute;
   inset: 0;

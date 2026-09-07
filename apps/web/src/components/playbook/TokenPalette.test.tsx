@@ -17,4 +17,20 @@ describe("TokenPalette", () => {
     fireEvent.click(screen.getByRole("button", { name: "Pan" }));
     expect(onTool).toHaveBeenCalledWith("pan");
   });
+
+  it("draws icons instead of plaintext labels", () => {
+    render(<TokenPalette tool="pan" onTool={() => undefined} />);
+    expect(screen.getByRole("button", { name: "CT pawn" }).querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "T pawn" }).querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Pen" }).querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Smoke" }).querySelector("img")).toHaveAttribute(
+      "src",
+      expect.stringContaining("smokegrenade"),
+    );
+    expect(screen.getByRole("button", { name: "Bomb" }).querySelector("img")).toHaveAttribute(
+      "src",
+      expect.stringContaining("planted_c4"),
+    );
+    expect(screen.queryByRole("button", { name: "CT pawn" })).not.toHaveTextContent("CT");
+  });
 });
