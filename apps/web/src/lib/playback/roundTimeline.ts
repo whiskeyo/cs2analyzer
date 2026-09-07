@@ -103,8 +103,7 @@ export function bucketTimelineMarks(maxSec: number): BucketTimelineMark[] {
   return out;
 }
 
-export type RoundScrubEventKind =
-  "kill" | "bomb_plant" | "bomb_begin_plant" | "bomb_defuse" | "bomb_explode";
+export type RoundScrubEventKind = "kill" | "bomb_plant" | "bomb_defuse" | "bomb_explode";
 
 export interface RoundScrubEventMark {
   tick: number;
@@ -144,9 +143,7 @@ export function roundScrubEventMarks(
     push(k.tick, "kill", k.weapon, { victimSide, color });
   }
   for (const e of replay.bombEvents) {
-    if (e.kind === "begin_plant")
-      push(e.tick, "bomb_begin_plant", "Planting", { color: "#c9a227" });
-    else if (e.kind === "planted") push(e.tick, "bomb_plant", "Bomb planted", { color: "#e8a030" });
+    if (e.kind === "planted") push(e.tick, "bomb_plant", "Bomb planted", { color: "#e8a030" });
     else if (e.kind === "defused")
       push(e.tick, "bomb_defuse", "Bomb defused", { color: "#5b9fd6" });
     else if (e.kind === "exploded")

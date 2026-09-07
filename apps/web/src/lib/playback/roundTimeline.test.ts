@@ -117,6 +117,7 @@ describe("roundScrubEventMarks", () => {
         makeBombEvent({ tick: 700, kind: "begin_plant" }),
         makeBombEvent({ tick: 800, kind: "planted" }),
         makeBombEvent({ tick: 1200, kind: "defused" }),
+        makeBombEvent({ tick: 1800, kind: "exploded" }),
       ],
       players: [
         { index: 0, steam_id: 1, name: "A", start_side: "T" },
@@ -125,12 +126,7 @@ describe("roundScrubEventMarks", () => {
     });
     const range = { min: 64, max: 2100 };
     const marks = roundScrubEventMarks(replay, r, range);
-    expect(marks.map((m) => m.kind)).toEqual([
-      "kill",
-      "bomb_begin_plant",
-      "bomb_plant",
-      "bomb_defuse",
-    ]);
+    expect(marks.map((m) => m.kind)).toEqual(["kill", "bomb_plant", "bomb_defuse", "bomb_explode"]);
     expect(marks[0]?.at).toBeCloseTo((500 - 64) / (2100 - 64), 3);
     expect(marks[0]?.victimSide).toBe("CT");
     expect(marks[0]?.color).toBe("#5b9fd6");
