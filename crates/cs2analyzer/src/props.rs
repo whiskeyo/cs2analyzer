@@ -5,14 +5,18 @@ use crate::types::{GrenadeKind, Side};
 use source2_demo::prelude::*;
 
 pub(crate) fn prop_i32(e: &Entity, name: &str) -> i32 {
+    prop_i32_opt(e, name).unwrap_or(0)
+}
+
+pub(crate) fn prop_i32_opt(e: &Entity, name: &str) -> Option<i32> {
     match e.get_property(name) {
-        Ok(FieldValue::Signed32(v)) => *v,
-        Ok(FieldValue::Signed16(v)) => *v as i32,
-        Ok(FieldValue::Signed8(v)) => *v as i32,
-        Ok(FieldValue::Unsigned32(v)) => *v as i32,
-        Ok(FieldValue::Unsigned16(v)) => *v as i32,
-        Ok(FieldValue::Unsigned8(v)) => *v as i32,
-        _ => 0,
+        Ok(FieldValue::Signed32(v)) => Some(*v),
+        Ok(FieldValue::Signed16(v)) => Some(*v as i32),
+        Ok(FieldValue::Signed8(v)) => Some(*v as i32),
+        Ok(FieldValue::Unsigned32(v)) => Some(*v as i32),
+        Ok(FieldValue::Unsigned16(v)) => Some(*v as i32),
+        Ok(FieldValue::Unsigned8(v)) => Some(*v as i32),
+        _ => None,
     }
 }
 

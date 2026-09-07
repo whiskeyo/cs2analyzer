@@ -1,7 +1,7 @@
 //! Per-tick money, armor flags, and compact loadout ids.
 
 use crate::constants::*;
-use crate::props::{prop_i32, prop_truthy, prop_u32, prop_u64};
+use crate::props::{prop_i32, prop_i32_opt, prop_truthy, prop_u32, prop_u64};
 use source2_demo::prelude::*;
 use std::collections::{HashMap, HashSet};
 
@@ -278,6 +278,19 @@ fn classify_entity(e: &Entity) -> Option<(u8, Slot)> {
     classify_class(class)
 }
 
+/// GOTV `player_hurt.weapon` is the weapon *class* (CWeaponM4A1 / CWeaponHKP2000),
+/// so M4A1-S and USP-S share the unsilenced event name. Kills use the item name.
+/// Map the generic string to the held item when we know it.
+pub fn refine_hurt_weapon(event: &str, active: u8) -> String {
+    let lower = event.trim().to_ascii_lowercase();
+    let key = lower.strip_prefix("weapon_").unwrap_or(lower.as_str());
+    match (key, active) {
+        ("m4a1" | "m4a4", WID_M4A1S) => "m4a1_silencer".to_string(),
+        ("hkp2000" | "p2000", WID_USP) => "usp_silencer".to_string(),
+        _ => event.to_string(),
+    }
+}
+
 /// Weapon currently in hand (`m_hActiveWeapon`). 0 when missing or unresolved.
 pub fn pawn_active_weapon(ctx: &Context, pawn: &Entity) -> u8 {
     match active_weapon_entity(ctx, pawn) {
@@ -286,15 +299,46 @@ pub fn pawn_active_weapon(ctx: &Context, pawn: &Entity) -> u8 {
     }
 }
 
-/// Mag and reserve on the held weapon. GOTV can report negatives; those become 0.
-pub fn pawn_active_ammo(ctx: &Context, pawn: &Entity) -> (u8, u16) {
+/// Mag and reserve on the held weapon. `None` when the prop is missing.
+pub fn pawn_active_ammo_raw(ctx: &Context, pawn: &Entity) -> (Option<i32>, Option<i32>) {
     let Some(wep) = active_weapon_entity(ctx, pawn) else {
-        return (0, 0);
+        return (None, None);
     };
-    (
-        clamp_ammo_clip(prop_i32(wep, "m_iClip1")),
-        clamp_ammo_reserve(prop_i32(wep, "m_pReserveAmmo.0000")),
-    )
+    (weapon_clip_raw(wep), weapon_reserve_raw(wep))
+}
+
+/// Keep the last valid mag when this tick's GOTV sample is negative (common on
+/// CSTV, and worse with tick stride because the capture tick may be the bad one).
+pub fn hold_ammo(prev: Option<(u8, u16)>, clip: Option<i32>, reserve: Option<i32>) -> (u8, u16) {
+    let out_clip = match clip {
+        Some(v) if v >= 0 => clamp_ammo_clip(v),
+        _ => prev.map(|(c, _)| c).unwrap_or(0),
+    };
+    let out_reserve = match reserve {
+        Some(v) if v >= 0 => clamp_ammo_reserve(v),
+        _ => prev.map(|(_, r)| r).unwrap_or(0),
+    };
+    (out_clip, out_reserve)
+}
+
+fn weapon_clip_raw(wep: &Entity) -> Option<i32> {
+    prop_i32_opt(wep, "m_iClip1").or_else(|| prop_i32_opt(wep, "m_nClip1"))
+}
+
+fn weapon_reserve_raw(wep: &Entity) -> Option<i32> {
+    let mut negative = None;
+    for name in [
+        "m_pReserveAmmo.0000",
+        "m_pReserveAmmo.0001",
+        "m_iPrimaryReserveAmmoCount",
+    ] {
+        match prop_i32_opt(wep, name) {
+            Some(v) if v >= 0 => return Some(v),
+            Some(v) => negative = Some(v),
+            None => {}
+        }
+    }
+    negative
 }
 
 pub fn clamp_ammo_clip(v: i32) -> u8 {
@@ -521,5 +565,32 @@ mod tests {
         assert_eq!(clamp_ammo_clip(30), 30);
         assert_eq!(clamp_ammo_reserve(-1), 0);
         assert_eq!(clamp_ammo_reserve(90), 90);
+    }
+
+    #[test]
+    fn hold_ammo_keeps_last_mag_on_gotv_negatives() {
+        let prev = Some((24, 90));
+        assert_eq!(hold_ammo(prev, Some(-11), Some(90)), (24, 90));
+        assert_eq!(hold_ammo(prev, Some(23), Some(90)), (23, 90));
+        assert_eq!(hold_ammo(None, Some(-1), Some(-1)), (0, 0));
+        assert_eq!(hold_ammo(None, Some(30), Some(90)), (30, 90));
+    }
+
+    #[test]
+    fn hurt_weapon_uses_held_silencer_item() {
+        assert_eq!(refine_hurt_weapon("m4a1", WID_M4A1S), "m4a1_silencer");
+        assert_eq!(refine_hurt_weapon("m4a1", WID_M4A4), "m4a1");
+        assert_eq!(
+            refine_hurt_weapon("m4a1_silencer", WID_M4A1S),
+            "m4a1_silencer"
+        );
+        assert_eq!(refine_hurt_weapon("hkp2000", WID_USP), "usp_silencer");
+        assert_eq!(refine_hurt_weapon("hkp2000", WID_P2000), "hkp2000");
+        assert_eq!(
+            refine_hurt_weapon("weapon_hkp2000", WID_USP),
+            "usp_silencer"
+        );
+        assert_eq!(refine_hurt_weapon("ak47", WID_AK47), "ak47");
+        assert_eq!(refine_hurt_weapon("m4a1", 0), "m4a1");
     }
 }

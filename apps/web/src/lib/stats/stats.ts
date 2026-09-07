@@ -1,5 +1,6 @@
 import type { Kill, Player, PlayerStats, Replay } from "@/lib/replay/replayTypes";
-import { prettyWeapon } from "@/lib/weapons/weapons";
+import { samplePlayer } from "@/lib/replay/sample";
+import { prettyWeapon, refineHurtWeapon } from "@/lib/weapons/weapons";
 import { inKnifeRound, isEnemyKill } from "./combat";
 import { computeStats } from "./computeStats";
 import type { SavedPlayerSnapshot } from "./scorecard";
@@ -139,7 +140,10 @@ function computeWeaponBreakdown(
     if (h.attacker < 0) {
       continue;
     }
-    add(h.weapon).damage += h.damage;
+    const held = samplePlayer(replay, h.attacker, h.tick);
+    add(
+      refineHurtWeapon(h.weapon, held?.active ?? 0, held?.primary ?? 0, held?.secondary ?? 0),
+    ).damage += h.damage;
   }
   return [...by.values()].sort((a, b) => b.kills - a.kills || b.damage - a.damage);
 }

@@ -13,9 +13,12 @@ import {
   formatClock,
   prettyMap,
   prettyWeapon,
+  refineHurtWeapon,
+  weaponHeadshotLabel,
   weaponIconSrc,
   weaponKey,
   winReasonLabel,
+  WEAPON_BY_ID,
 } from "./weapons";
 
 describe("prettyWeapon", () => {
@@ -28,6 +31,40 @@ describe("prettyWeapon", () => {
 
   it("falls back to a readable label", () => {
     expect(prettyWeapon("weapon_custom_gun")).toBe("custom gun");
+  });
+});
+
+describe("weaponHeadshotLabel", () => {
+  it("shows percent for guns and an em dash for grenades", () => {
+    expect(weaponHeadshotLabel("ak47", 4, 2)).toBe("50%");
+    expect(weaponHeadshotLabel("hegrenade", 1, 0)).toBe("—");
+    expect(weaponHeadshotLabel("weapon_molotov", 1, 0)).toBe("—");
+    expect(weaponHeadshotLabel("inferno", 1, 0)).toBe("—");
+    expect(weaponHeadshotLabel("ak47", 0, 0)).toBe("—");
+  });
+});
+
+describe("refineHurtWeapon", () => {
+  const m4a4 = WEAPON_BY_ID.indexOf("m4a1");
+  const m4a1s = WEAPON_BY_ID.indexOf("m4a1_silencer");
+  const usp = WEAPON_BY_ID.indexOf("usp_silencer");
+  const p2000 = WEAPON_BY_ID.indexOf("hkp2000");
+
+  it("maps generic hurt names to the silenced item in hand", () => {
+    expect(refineHurtWeapon("m4a1", m4a1s)).toBe("m4a1_silencer");
+    expect(refineHurtWeapon("hkp2000", usp)).toBe("usp_silencer");
+    expect(refineHurtWeapon("weapon_hkp2000", usp)).toBe("usp_silencer");
+  });
+
+  it("leaves the unsilenced class name when that gun is held", () => {
+    expect(refineHurtWeapon("m4a1", m4a4)).toBe("m4a1");
+    expect(refineHurtWeapon("hkp2000", p2000)).toBe("hkp2000");
+  });
+
+  it("uses primary / secondary when active is not the rifle or pistol", () => {
+    const knife = WEAPON_BY_ID.indexOf("knife");
+    expect(refineHurtWeapon("m4a1", knife, m4a1s)).toBe("m4a1_silencer");
+    expect(refineHurtWeapon("hkp2000", knife, 0, usp)).toBe("usp_silencer");
   });
 });
 

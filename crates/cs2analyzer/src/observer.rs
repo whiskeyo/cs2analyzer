@@ -1,8 +1,8 @@
 //! Streaming observer: walks the demo tick by tick and accumulates samples.
 
 use crate::inventory::{
-    armor_gear, c4_arming_steams, collect_loadouts, controller_money, pawn_active_ammo,
-    pawn_active_weapon, pawn_equip_value,
+    armor_gear, c4_arming_steams, collect_loadouts, controller_money, hold_ammo,
+    pawn_active_ammo_raw, pawn_active_weapon, pawn_equip_value, refine_hurt_weapon,
 };
 use crate::props::*;
 use crate::types::{BombKind, GrenadeKind, Side};
@@ -87,6 +87,8 @@ pub(crate) struct Collector {
     pub progress: Option<Box<dyn FnMut(u32, u32)>>,
     pub fire_spans: Vec<FireSpan>,
     inferno_live: HashMap<u32, [Option<LiveFlame>; 64]>,
+    /// Last non-negative clip/reserve per steam and active WID.
+    last_ammo: HashMap<(u64, u8), (u8, u16)>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -178,6 +180,7 @@ impl Collector {
             progress: None,
             fire_spans: Vec::new(),
             inferno_live: HashMap::new(),
+            last_ammo: HashMap::new(),
         }
     }
 
@@ -185,6 +188,20 @@ impl Collector {
         let ents: Vec<u32> = self.inferno_live.keys().copied().collect();
         for entity in ents {
             self.close_inferno(entity, tick);
+        }
+    }
+
+    fn sample_ammo(&mut self, ctx: &Context) {
+        let pairs: Vec<(u32, u64)> = self.pawn_to_steam.iter().map(|(&i, &s)| (i, s)).collect();
+        for (idx, steam) in pairs {
+            let Ok(pawn) = ctx.entities().get_by_index(idx as usize) else {
+                continue;
+            };
+            let active = pawn_active_weapon(ctx, pawn);
+            let (clip, reserve) = pawn_active_ammo_raw(ctx, pawn);
+            let prev = self.last_ammo.get(&(steam, active)).copied();
+            let (clip, reserve) = hold_ammo(prev, clip, reserve);
+            self.last_ammo.insert((steam, active), (clip, reserve));
         }
     }
 
@@ -485,6 +502,7 @@ impl Collector {
 
         self.sample_infernos(ctx, tick);
         self.sample_flash_blinds(ctx, tick);
+        self.sample_ammo(ctx);
 
         if tick.wrapping_sub(self.last_cap) < self.opts.tick_stride && self.last_cap != 0 {
             return Ok(());
@@ -569,7 +587,11 @@ impl Collector {
                 secondary = inv.secondary;
             }
             let active = pawn_active_weapon(ctx, pawn);
-            let (clip, reserve) = pawn_active_ammo(ctx, pawn);
+            let (clip, reserve) = self
+                .last_ammo
+                .get(&(steam, active))
+                .copied()
+                .unwrap_or((0, 0));
 
             players.push(RawFramePlayer {
                 steam_id: steam,
@@ -666,7 +688,12 @@ impl Collector {
                 }
                 let attacker = atk.and_then(|h| steam_from_pawn_handle(self, ctx, h));
                 let victim = vic.and_then(|h| steam_from_pawn_handle(self, ctx, h));
-                let weapon = ev_str(ge, "weapon").unwrap_or_default();
+                let mut weapon = ev_str(ge, "weapon").unwrap_or_default();
+                if let Some(h) = atk {
+                    if let Ok(pawn) = ctx.entities().get_by_handle(h as u32 as usize) {
+                        weapon = refine_hurt_weapon(&weapon, pawn_active_weapon(ctx, pawn));
+                    }
+                }
                 self.hurts.push(RawHurt {
                     tick,
                     attacker,

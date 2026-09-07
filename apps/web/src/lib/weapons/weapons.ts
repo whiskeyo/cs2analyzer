@@ -188,6 +188,30 @@ const ICON_FILES = new Set([
   "xm1014",
 ]);
 
+const WID_M4A4 = WEAPON_BY_ID.indexOf("m4a1");
+const WID_M4A1S = WEAPON_BY_ID.indexOf("m4a1_silencer");
+const WID_USP = WEAPON_BY_ID.indexOf("usp_silencer");
+const WID_P2000 = WEAPON_BY_ID.indexOf("hkp2000");
+
+/**
+ * GOTV `player_hurt.weapon` is the weapon class (CWeaponM4A1 / CWeaponHKP2000),
+ * so M4A1-S and USP-S share the unsilenced name. Kills use the item name.
+ * Prefer the gun in hand, then the matching loadout slot, when the event is generic.
+ */
+export function refineHurtWeapon(raw: string, active: number, primary = 0, secondary = 0): string {
+  const w = raw.toLowerCase().replace(/^weapon_/, "");
+  if (w === "m4a1" || w === "m4a4") {
+    const held = [active, primary].find((id) => id === WID_M4A1S || id === WID_M4A4) ?? active;
+    if (held === WID_M4A1S) return "m4a1_silencer";
+  }
+  if (w === "hkp2000" || w === "p2000") {
+    const held =
+      [active, secondary, primary].find((id) => id === WID_USP || id === WID_P2000) ?? active;
+    if (held === WID_USP) return "usp_silencer";
+  }
+  return raw;
+}
+
 export function prettyWeapon(raw: string): string {
   const w = raw.toLowerCase().replace(/^weapon_/, "");
   if (NAMES[w]) return NAMES[w];
@@ -200,6 +224,26 @@ export function prettyWeapon(raw: string): string {
     return "Knife";
   }
   return raw.replace(/^weapon_/i, "").replace(/_/g, " ");
+}
+
+const GRENADE_KEYS = new Set([
+  "hegrenade",
+  "inferno",
+  "molotov",
+  "incgrenade",
+  "flashbang",
+  "smokegrenade",
+  "decoy",
+]);
+
+export function isGrenadeWeapon(raw: string): boolean {
+  return GRENADE_KEYS.has(raw.toLowerCase().replace(/^weapon_/, ""));
+}
+
+/** HS% for the Weapons table; grenades and empty kill counts show an em dash. */
+export function weaponHeadshotLabel(raw: string, kills: number, headshots: number): string {
+  if (!kills || isGrenadeWeapon(raw)) return "—";
+  return `${Math.round((100 * headshots) / kills)}%`;
 }
 
 export function weaponKey(raw: string): string | null {
