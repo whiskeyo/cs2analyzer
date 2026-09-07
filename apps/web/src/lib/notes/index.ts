@@ -53,3 +53,19 @@ export {
 export { emptyNote, cloneNote, overlayWindowOf, windowVisible, visibleDrawings } from "./note";
 export { parseDrawing, parseNote, parseRoundNote, parseRoundNotes } from "./noteParse";
 export { strokesToRoundNotes, strokesToNote, flattenRoundNotes, flattenNote } from "./migrate";
+export {
+  nextGroupId as nextNoteGroupId,
+  nextLayerName as nextNoteLayerName,
+  isPenOrArrow,
+  canGroup,
+  groupItems,
+  ungroup,
+  renameGroup as renameNoteGroup,
+  removeItems,
+  setItemsHidden,
+  assignToGroup,
+  dropItems,
+  squashLooseDrawings as squashNoteLooseDrawings,
+  type NoteItemRef,
+  type NoteDropDest as NoteLayerDropDest,
+} from "./noteGroups";

@@ -1,0 +1,361 @@
+import { describe, expect, it } from "vitest";
+import { NOTE_LAYER_NAME } from "@/lib/shared/constants";
+import { emptyNote } from "./note";
+import {
+  assignToGroup,
+  canGroup,
+  dropItems,
+  groupItems,
+  nextGroupId,
+  nextLayerName,
+  removeItems,
+  renameGroup,
+  setItemsHidden,
+  squashLooseDrawings,
+  ungroup,
+  type NoteItemRef,
+} from "./noteGroups";
+import { strokesToNote } from "./migrate";
+import { visibleDrawings } from "./note";
+import type { Drawing, Note, Stroke } from "./types";
+
+function penStroke(
+  partial: Partial<Pick<Stroke, "round" | "start_tick" | "end_tick" | "group" | "hidden">> = {},
+): Stroke {
+  return {
+    type: "pen",
+    round: 1,
+    color: "#fff",
+    points: [
+      { x: 0, y: 0 },
+      { x: 1, y: 1 },
+    ],
+    ...partial,
+  };
+}
+
+const pen: Drawing = {
+  type: "pen",
+  color: "#fff",
+  points: [
+    { x: 0, y: 0 },
+    { x: 1, y: 1 },
+  ],
+};
+
+function looseNote(count: number, extra: Partial<Note> = {}): Note {
+  return {
+    ...emptyNote(),
+    loose: Array.from({ length: count }, (_, i) => ({
+      drawing: { ...pen, color: `#${i}${i}${i}` },
+    })),
+    ...extra,
+  };
+}
+
+describe("nextGroupId / nextLayerName", () => {
+  it("increments from auto and named groups", () => {
+    expect(nextGroupId(emptyNote())).toBe("Group 1");
+    expect(nextGroupId(strokesToNote([penStroke({ group: "Group 1" })]))).toBe("Group 2");
+    expect(nextGroupId(strokesToNote([penStroke({ group: "g3" })]))).toBe("Group 4");
+    expect(nextLayerName(emptyNote())).toBe(NOTE_LAYER_NAME);
+    const named = groupItems(looseNote(2), [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const layer = {
+      ...named,
+      groups: [{ ...named.groups[0], id: NOTE_LAYER_NAME, name: NOTE_LAYER_NAME }],
+    };
+    expect(nextLayerName(layer)).toBe(`${NOTE_LAYER_NAME} 2`);
+  });
+});
+
+describe("groupItems", () => {
+  it("needs two drawings and unions their windows", () => {
+    const note = {
+      ...emptyNote(),
+      loose: [
+        { drawing: pen, start_tick: 100, end_tick: 200 },
+        { drawing: pen, start_tick: 180, end_tick: 220 },
+        { drawing: pen },
+      ],
+    };
+    const refs: NoteItemRef[] = [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ];
+    expect(canGroup(note, [{ kind: "loose", index: 0 }])).toBe(false);
+    expect(canGroup(note, refs)).toBe(true);
+    const next = groupItems(note, refs);
+    expect(next.groups[0]).toMatchObject({ name: "Group 1", start_tick: 100, end_tick: 220 });
+    expect(next.groups[0]?.drawings).toHaveLength(2);
+    expect(next.loose).toHaveLength(1);
+  });
+});
+
+describe("ungroup / renameGroup", () => {
+  it("moves members to loose and keeps a custom label", () => {
+    const grouped = groupItems(looseNote(2), [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const named = renameGroup(grouped, 0, "A execute");
+    expect(named.groups[0]?.name).toBe("A execute");
+    expect(renameGroup(named, 0, "   ")).toEqual(named);
+    const next = ungroup(named, 0);
+    expect(next.groups).toHaveLength(0);
+    expect(next.loose).toHaveLength(2);
+    expect(ungroup(named, 9)).toEqual(named);
+    const hidden = setItemsHidden(named, [{ kind: "group", groupIndex: 0, drawingIndex: 0 }], true);
+    const opened = ungroup(hidden, 0);
+    expect(opened.loose.every((i) => i.hidden)).toBe(true);
+  });
+});
+
+describe("dropItems", () => {
+  it("drops a loose drawing onto a layer", () => {
+    const grouped = groupItems(looseNote(3), [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const next = dropItems(grouped, [{ kind: "loose", index: 0 }], {
+      kind: "into",
+      groupIndex: 0,
+    });
+    expect(next.groups[0]?.drawings).toHaveLength(3);
+    expect(next.loose).toHaveLength(0);
+  });
+
+  it("drops a member out and dissolves a leftover singleton", () => {
+    const grouped = groupItems(looseNote(2), [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const next = dropItems(grouped, [{ kind: "group", groupIndex: 0, drawingIndex: 0 }], {
+      kind: "ungroup",
+    });
+    expect(next.groups).toHaveLength(0);
+    expect(next.loose).toHaveLength(2);
+  });
+
+  it("makes a new group from two loose drawings and ignores one", () => {
+    const two = dropItems(
+      looseNote(3),
+      [
+        { kind: "loose", index: 0 },
+        { kind: "loose", index: 1 },
+      ],
+      {
+        kind: "new-group",
+      },
+    );
+    expect(two.groups[0]?.drawings).toHaveLength(2);
+    expect(two.loose).toHaveLength(1);
+    const one = dropItems(looseNote(2), [{ kind: "loose", index: 0 }], { kind: "new-group" });
+    expect(one.groups).toHaveLength(0);
+  });
+
+  it("does not rebuild a group from all of its members", () => {
+    const grouped = groupItems(looseNote(2), [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const same = dropItems(
+      grouped,
+      [
+        { kind: "group", groupIndex: 0, drawingIndex: 0 },
+        { kind: "group", groupIndex: 0, drawingIndex: 1 },
+      ],
+      { kind: "new-group" },
+    );
+    expect(same).toEqual(grouped);
+  });
+});
+
+describe("squashLooseDrawings", () => {
+  it("squashes loose pens into one Drawings layer and leaves text", () => {
+    const note: Note = {
+      ...emptyNote(),
+      loose: [
+        { drawing: pen },
+        { drawing: { ...pen, color: "#0f0" } },
+        { drawing: { type: "text", color: "#fff", x: 0, y: 0, text: "hold" } },
+      ],
+    };
+    const next = squashLooseDrawings(note);
+    expect(next.groups[0]?.name).toBe(NOTE_LAYER_NAME);
+    expect(next.groups[0]?.drawings).toHaveLength(2);
+    expect(next.loose[0]?.drawing.type).toBe("text");
+    expect(squashLooseDrawings(emptyNote())).toEqual(emptyNote());
+  });
+});
+
+describe("removeItems / setItemsHidden", () => {
+  it("removes bookmarks and drawings", () => {
+    const note: Note = {
+      ...emptyNote(),
+      loose: [{ drawing: pen }],
+      bookmarks: [{ color: "#fff", text: "x", tick: 1 }],
+    };
+    const next = removeItems(note, [
+      { kind: "loose", index: 0 },
+      { kind: "bookmark", index: 0 },
+    ]);
+    expect(next.loose).toHaveLength(0);
+    expect(next.bookmarks).toHaveLength(0);
+  });
+
+  it("hides a group from the radar", () => {
+    const grouped = groupItems(looseNote(2), [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const hidden = setItemsHidden(
+      grouped,
+      [{ kind: "group", groupIndex: 0, drawingIndex: 0 }],
+      true,
+    );
+    expect(visibleDrawings(hidden, 100)).toHaveLength(0);
+    const shown = setItemsHidden(
+      hidden,
+      [{ kind: "group", groupIndex: 0, drawingIndex: 0 }],
+      false,
+    );
+    expect(visibleDrawings(shown, 100)).toHaveLength(2);
+  });
+
+  it("toggles hidden on a loose item and bookmark", () => {
+    const note: Note = {
+      ...emptyNote(),
+      loose: [{ drawing: pen }, { drawing: pen }],
+      bookmarks: [{ color: "#fff", text: "x", tick: 1 }],
+    };
+    const next = setItemsHidden(
+      note,
+      [
+        { kind: "loose", index: 1 },
+        { kind: "bookmark", index: 0 },
+      ],
+      true,
+    );
+    expect(next.loose[0]?.hidden).toBeUndefined();
+    expect(next.loose[1]?.hidden).toBe(true);
+    expect(next.bookmarks[0]?.hidden).toBe(true);
+    const shown = setItemsHidden(next, [{ kind: "bookmark", index: 0 }], false);
+    expect(shown.bookmarks[0]?.hidden).toBeUndefined();
+  });
+});
+
+describe("assignToGroup", () => {
+  it("no-ops when the destination group is missing", () => {
+    expect(assignToGroup(looseNote(1), [{ kind: "loose", index: 0 }], 3)).toEqual(looseNote(1));
+  });
+
+  it("puts drawings back on loose when the dest group dissolves", () => {
+    const grouped = groupItems(looseNote(2), [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const next = assignToGroup(
+      grouped,
+      [
+        { kind: "group", groupIndex: 0, drawingIndex: 0 },
+        { kind: "group", groupIndex: 0, drawingIndex: 1 },
+      ],
+      0,
+    );
+    expect(next.groups).toHaveLength(0);
+    expect(next.loose).toHaveLength(2);
+  });
+
+  it("copies a dest window onto added members", () => {
+    const grouped = groupItems(
+      {
+        ...emptyNote(),
+        loose: [
+          { drawing: pen, start_tick: 10, end_tick: 20 },
+          { drawing: pen, start_tick: 10, end_tick: 20 },
+          { drawing: pen, start_tick: 30, end_tick: 40 },
+        ],
+      },
+      [
+        { kind: "loose", index: 0 },
+        { kind: "loose", index: 1 },
+      ],
+    );
+    const next = assignToGroup(grouped, [{ kind: "loose", index: 0 }], 0);
+    expect(next.groups[0]?.drawings).toHaveLength(3);
+    expect(next.groups[0]?.start_tick).toBe(10);
+  });
+});
+
+describe("dropItems edges", () => {
+  it("ignores empty and bookmark-only selections", () => {
+    const note: Note = {
+      ...emptyNote(),
+      loose: [{ drawing: pen }],
+      bookmarks: [{ color: "#fff", text: "x", tick: 1 }],
+    };
+    expect(dropItems(note, [], { kind: "new-group" })).toEqual(note);
+    expect(dropItems(note, [{ kind: "bookmark", index: 0 }], { kind: "new-group" })).toEqual(note);
+    expect(
+      canGroup(note, [
+        { kind: "bookmark", index: 0 },
+        { kind: "loose", index: 9 },
+      ]),
+    ).toBe(false);
+  });
+
+  it("dedupes refs and extracts two members into a new group", () => {
+    const grouped = groupItems(looseNote(3), [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+      { kind: "loose", index: 2 },
+    ]);
+    const next = dropItems(
+      grouped,
+      [
+        { kind: "group", groupIndex: 0, drawingIndex: 0 },
+        { kind: "group", groupIndex: 0, drawingIndex: 0 },
+        { kind: "group", groupIndex: 0, drawingIndex: 1 },
+      ],
+      { kind: "new-group" },
+    );
+    expect(next.groups).toHaveLength(1);
+    expect(next.groups[0]?.drawings).toHaveLength(2);
+    expect(next.loose).toHaveLength(1);
+  });
+});
+
+describe("removeItems from a group", () => {
+  it("dissolves a leftover singleton and skips a missing bookmark", () => {
+    const grouped = groupItems(looseNote(2), [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const next = removeItems(grouped, [
+      { kind: "group", groupIndex: 0, drawingIndex: 0 },
+      { kind: "bookmark", index: 3 },
+    ]);
+    expect(next.groups).toHaveLength(0);
+    expect(next.loose).toHaveLength(1);
+  });
+});
+
+describe("setItemsHidden misses", () => {
+  it("skips missing indexes", () => {
+    const note = looseNote(1);
+    expect(
+      setItemsHidden(
+        note,
+        [
+          { kind: "loose", index: 9 },
+          { kind: "group", groupIndex: 0, drawingIndex: 0 },
+          { kind: "bookmark", index: 0 },
+        ],
+        true,
+      ),
+    ).toEqual(note);
+  });
+});
