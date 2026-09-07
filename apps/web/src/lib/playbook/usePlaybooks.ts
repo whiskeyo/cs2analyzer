@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Note } from "@/lib/notes/types";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import {
   addPage,
@@ -7,6 +8,7 @@ import {
   renamePage,
   renamePlaybook,
   setActivePage,
+  setPageNote,
 } from "./pages";
 import { createPlaybook, listPlaybooksForMap, loadPlaybook, savePlaybook } from "./playbookStore";
 import type { Playbook } from "./types";
@@ -124,6 +126,13 @@ export function usePlaybooks(mapName: string | null) {
     [patch],
   );
 
+  const setNote = useCallback(
+    (note: Note) => {
+      patch((current) => setPageNote(current, current.activePageId, note));
+    },
+    [patch],
+  );
+
   return {
     books: mapName ? books.filter((row) => row.mapName === mapName) : [],
     book,
@@ -136,5 +145,6 @@ export function usePlaybooks(mapName: string | null) {
     removeStrat,
     duplicateStrat,
     selectStrat,
+    setNote,
   };
 }

@@ -414,3 +414,9 @@ Decisions made while implementing. Answer later if you disagree; the code follow
 **Group identity.** Old notes used `stroke.group` as both id and label. New `DrawingGroup` keeps `id` and `name` equal on migrate/create so flatten-back matches today’s JSON.
 
 **Shell / Viewer.** Analyzer owns Viewer. Shell routes by pathname only: Playbook always renders the board, even if a demo is sitting in session state.
+
+**Token tools.** Token buttons only place. Pan drags existing tokens; Shift-drag a pawn sets yaw toward the cursor (same `m_angEyeAngles` as replay).
+
+**Molly vs incendiary.** Palette includes both. They are different `PieceKind`s (T molotov / CT incendiary).
+
+**Bomb glyph.** A bomb token uses the planted C4 icon, not the loose-pack ping (playbook has no tick).

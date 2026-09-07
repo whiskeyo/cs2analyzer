@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
-import { RADAR_TOOL_CURSOR, type FloorMode, type Note } from "@/lib/notes/types";
+import { type FloorMode, type Note } from "@/lib/notes/types";
 import { paintPlaybookBoard, playbookUsesLower } from "@/lib/playbook/paint";
+import { playbookToolCursor, type PlaybookTool } from "@/lib/playbook/pieces";
 import { createPlaybookView, usePlaybookPointer } from "@/lib/playbook/pointer";
 import { useRadarImages } from "@/lib/radar/useRadarImages";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
@@ -9,9 +10,21 @@ interface Props {
   cal: MapCalibration | undefined;
   floorMode: FloorMode;
   note: Note;
+  tool?: PlaybookTool;
+  selectedId?: string | null;
+  onNote?: (note: Note) => void;
+  onSelect?: (id: string | null) => void;
 }
 
-export function PlaybookCanvas({ cal, floorMode, note }: Props) {
+export function PlaybookCanvas({
+  cal,
+  floorMode,
+  note,
+  tool = "pan",
+  selectedId = null,
+  onNote,
+  onSelect,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const view = useRef(createPlaybookView());
@@ -21,9 +34,13 @@ export function PlaybookCanvas({ cal, floorMode, note }: Props) {
   floorModeRef.current = floorMode;
   const noteRef = useRef(note);
   noteRef.current = note;
+  const toolRef = useRef(tool);
+  toolRef.current = tool;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
   const { images, c4Icon, nadeIcons } = useRadarImages(cal);
 
-  usePlaybookPointer({ wrapRef, view });
+  usePlaybookPointer({ wrapRef, view, calRef, toolRef, noteRef, onNote, onSelect });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -47,10 +64,18 @@ export function PlaybookCanvas({ cal, floorMode, note }: Props) {
       ctx.fillRect(0, 0, w, h);
       const useLower = playbookUsesLower(calRef.current, floorModeRef.current);
       const img = useLower ? images.current.lower : images.current.upper;
-      paintPlaybookBoard(ctx, w, h, view.current, img, calRef.current, noteRef.current, null, {
-        c4: c4Icon.current,
-        nades: nadeIcons.current,
-      });
+      paintPlaybookBoard(
+        ctx,
+        w,
+        h,
+        view.current,
+        img,
+        calRef.current,
+        noteRef.current,
+        null,
+        { c4: c4Icon.current, nades: nadeIcons.current },
+        selectedIdRef.current,
+      );
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
@@ -59,7 +84,7 @@ export function PlaybookCanvas({ cal, floorMode, note }: Props) {
   }, [cal]);
 
   return (
-    <div className="radar-wrap" ref={wrapRef} style={{ cursor: RADAR_TOOL_CURSOR.pan }}>
+    <div className="radar-wrap" ref={wrapRef} style={{ cursor: playbookToolCursor(tool) }}>
       <canvas ref={canvasRef} />
     </div>
   );

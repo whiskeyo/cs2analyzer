@@ -5,6 +5,7 @@ import "fake-indexeddb/auto";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
+import { addPiece, makePiece } from "./pieces";
 import { deleteAllPlaybooks, loadPlaybook } from "./playbookStore";
 import { COPY_SUFFIX, UNTITLED_PLAYBOOK } from "./types";
 import { usePlaybooks } from "./usePlaybooks";
@@ -106,5 +107,20 @@ describe("usePlaybooks", () => {
       result.current.removeStrat(only);
     });
     expect(result.current.book?.pages).toHaveLength(1);
+  });
+
+  it("writes tokens onto the active strat note", async () => {
+    const { result } = renderHook(() => usePlaybooks("de_mirage"));
+    await act(async () => {
+      await result.current.create("Defaults");
+    });
+    const note = result.current.book?.pages[0]?.note;
+    expect(note).toBeDefined();
+    await act(async () => {
+      result.current.setNote(addPiece(note!, makePiece("bomb", 1, 2, { id: "c4" })));
+    });
+    expect(result.current.book?.pages[0]?.note.pieces).toEqual([
+      expect.objectContaining({ id: "c4", kind: "bomb", x: 1, y: 2 }),
+    ]);
   });
 });

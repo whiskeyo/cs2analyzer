@@ -88,6 +88,18 @@ describe("Playbook", () => {
     expect(screen.getByRole("button", { name: "Delete strat" })).toBeEnabled();
   });
 
+  it("shows token tools and an empty token list on a new book", async () => {
+    render(<Playbook />);
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Map" })).toHaveValue("de_mirage"),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
+    expect(screen.getByRole("toolbar", { name: "Playbook tools" })).toBeInTheDocument();
+    expect(screen.getByText(/No tokens yet/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Flash" }));
+    expect(screen.getByRole("button", { name: "Flash" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("shows a load error when calibrations fail", async () => {
     vi.mocked(loadCalibrations).mockRejectedValue(new Error("maps down"));
     render(<Playbook />);

@@ -186,3 +186,9 @@ export function resolvePlaybookDown(
 export function playbookToolCursor(tool: PlaybookTool): string {
   return tool === "pan" ? "grab" : "copy";
 }
+
+export function paletteAriaLabel(token: PaletteToken): string {
+  if (token.tool === "pawn-ct") return "CT pawn";
+  if (token.tool === "pawn-t") return "T pawn";
+  return token.label;
+}

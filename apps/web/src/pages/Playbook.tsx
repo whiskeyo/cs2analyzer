@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import { PieceList } from "@/components/playbook/PieceList";
 import { PlaybookCanvas } from "@/components/playbook/PlaybookCanvas";
+import { TokenPalette } from "@/components/playbook/TokenPalette";
 import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";
 import { activePage } from "@/lib/playbook/pages";
+import { removePiece, setPieceLabel, type PlaybookTool } from "@/lib/playbook/pieces";
 import { usePlaybooks } from "@/lib/playbook/usePlaybooks";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
 import { loadCalibrations } from "@/lib/radar/maps";
@@ -14,6 +17,8 @@ export function Playbook() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapName, setMapName] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
+  const [tool, setTool] = useState<PlaybookTool>("pan");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const names = maps ? sortedMapNames(maps) : [];
   const {
     books,
@@ -27,6 +32,7 @@ export function Playbook() {
     removeStrat,
     duplicateStrat,
     selectStrat,
+    setNote,
   } = usePlaybooks(mapName);
 
   useEffect(() => {
@@ -47,6 +53,9 @@ export function Playbook() {
 
   const cal = mapName && maps ? maps[mapName] : undefined;
   const page = book ? activePage(book) : null;
+  const visibleSelectedId = page?.note.pieces.some((piece) => piece.id === selectedId)
+    ? selectedId
+    : null;
 
   return (
     <div className="playbook">
@@ -158,6 +167,21 @@ export function Playbook() {
                 ) : null}
               </div>
             </div>
+            {page ? (
+              <div className="playbook-tokens">
+                <p className="playbook-strats-label">Tokens</p>
+                <PieceList
+                  pieces={page.note.pieces}
+                  selectedId={visibleSelectedId}
+                  onSelect={setSelectedId}
+                  onRename={(id, label) => setNote(setPieceLabel(page.note, id, label))}
+                  onRemove={(id) => {
+                    setNote(removePiece(page.note, id));
+                    if (selectedId === id) setSelectedId(null);
+                  }}
+                />
+              </div>
+            ) : null}
           </>
         ) : (
           <p className="muted">Create a playbook for this map, or open one from the list.</p>
@@ -165,7 +189,20 @@ export function Playbook() {
       </aside>
       <div className="playbook-stage">
         {page && mapName ? (
-          <PlaybookCanvas cal={cal} floorMode={page.floor} note={page.note} />
+          <>
+            <TokenPalette tool={tool} onTool={setTool} />
+            <div className="playbook-board">
+              <PlaybookCanvas
+                cal={cal}
+                floorMode={page.floor}
+                note={page.note}
+                tool={tool}
+                selectedId={visibleSelectedId}
+                onNote={setNote}
+                onSelect={setSelectedId}
+              />
+            </div>
+          </>
         ) : (
           <div className="playbook-empty muted">Open a playbook to draw on the radar.</div>
         )}

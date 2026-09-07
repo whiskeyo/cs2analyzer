@@ -11,6 +11,7 @@ import {
   makePiece,
   movePiece,
   PALETTE_TOKENS,
+  paletteAriaLabel,
   pawnColor,
   PIECE_HIT_PX,
   pieceFromTool,
@@ -130,6 +131,17 @@ describe("piece labels and colors", () => {
     ]);
     expect(playbookToolCursor("pan")).toBe("grab");
     expect(playbookToolCursor("smoke")).toBe("copy");
+    expect(PALETTE_TOKENS.map((row) => paletteAriaLabel(row))).toEqual([
+      "CT pawn",
+      "T pawn",
+      "Smoke",
+      "Flash",
+      "HE",
+      "Molly",
+      "Incendiary",
+      "Decoy",
+      "Bomb",
+    ]);
   });
 });
 
