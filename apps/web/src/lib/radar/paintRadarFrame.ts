@@ -256,7 +256,7 @@ export function paintRadarFrame(
   if (frame.bomb.state === "planted") {
     drawC4(ctx, toScreen(frame.bomb.x, frame.bomb.y), opts.c4Icon);
   } else if (frame.bomb.state === "loose") {
-    drawLooseC4(ctx, toScreen(frame.bomb.x, frame.bomb.y), opts.packC4Icon ?? null);
+    drawLooseC4(ctx, toScreen(frame.bomb.x, frame.bomb.y), opts.packC4Icon ?? null, frame.tick);
   }
 
   for (const death of frame.deaths) {

@@ -419,7 +419,7 @@ describe("paintRadarFrame", () => {
     expect(ctx.fillText).toHaveBeenCalledWith("C4", 120, 220);
   });
 
-  it("paints a loose pack without the planted ring", () => {
+  it("paints a loose pack with a ping ring", () => {
     const ctx = createMockCanvas();
     paintRadarFrame(
       ctx,
@@ -427,7 +427,7 @@ describe("paintRadarFrame", () => {
       toScreen,
       paintOpts,
     );
-    expect(ctx.arc).not.toHaveBeenCalled();
+    expect(ctx.arc).toHaveBeenCalled();
     expect(ctx.fillText).toHaveBeenCalledWith("C4", 80, 90);
   });
 

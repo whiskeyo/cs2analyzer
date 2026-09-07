@@ -12,7 +12,6 @@ export function useRadarImages(cal: MapCalibration | undefined) {
     lower: null,
   });
   const c4Icon = useRef<HTMLImageElement | null>(null);
-  const plantedC4Icon = useRef<HTMLImageElement | null>(null);
   const nadeIcons = useRef<NadeIcons>({});
 
   useEffect(() => {
@@ -20,11 +19,6 @@ export function useRadarImages(cal: MapCalibration | undefined) {
     pack.src = publicUrl("weapons/c4.svg");
     pack.onload = () => {
       c4Icon.current = pack;
-    };
-    const planted = new Image();
-    planted.src = publicUrl("weapons/planted_c4.svg");
-    planted.onload = () => {
-      plantedC4Icon.current = planted;
     };
     for (const kind of Object.keys(NADE_WEAPON) as GrenadeKind[]) {
       const src = weaponIconSrc(NADE_WEAPON[kind]);
@@ -54,5 +48,5 @@ export function useRadarImages(cal: MapCalibration | undefined) {
     }
   }, [cal]);
 
-  return { images, c4Icon, plantedC4Icon, nadeIcons };
+  return { images, c4Icon, nadeIcons };
 }
