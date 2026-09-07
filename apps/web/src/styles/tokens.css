@@ -5,6 +5,12 @@
   font-weight: 450;
   color: #e8eef4;
   background: #0b0e12;
+  /* Home, Analyzer splash, and FAQ share one column and type scale. */
+  --page-width: 760px;
+  --page-title-size: 1.7rem;
+  --page-lead-size: 0.95rem;
+  --page-body-size: 0.92rem;
+  --page-section-size: 1rem;
 }
 
 button:hover:not(:disabled) {
