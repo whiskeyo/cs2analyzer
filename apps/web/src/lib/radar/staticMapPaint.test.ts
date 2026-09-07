@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { paintMapImage, paintNoteStrokes, paintStaticMap, paintStroke } from "./staticMapPaint";
+import {
+  paintDrawings,
+  paintDrawing,
+  paintMapImage,
+  paintNoteStrokes,
+  paintStaticMap,
+  paintStroke,
+} from "./staticMapPaint";
 import type { Stroke } from "@/lib/notes/types";
 
 function mockCtx() {
@@ -136,6 +143,43 @@ describe("paintNoteStrokes", () => {
       toScreen,
     );
     expect(ctx.drawImage).toHaveBeenCalled();
+  });
+});
+
+describe("paintDrawing", () => {
+  const toScreen = (x: number, y: number) => ({ x, y });
+
+  it("paints pen, arrow, and text drawings", () => {
+    const ctx = mockCtx();
+    paintDrawing(
+      ctx,
+      {
+        type: "pen",
+        color: "#fff",
+        points: [
+          { x: 0, y: 0 },
+          { x: 2, y: 2 },
+        ],
+      },
+      toScreen,
+      { live: true },
+    );
+    paintDrawing(
+      ctx,
+      { type: "arrow", color: "#f00", from: { x: 0, y: 0 }, to: { x: 4, y: 4 } },
+      toScreen,
+    );
+    paintDrawing(ctx, { type: "text", color: "#0f0", x: 1, y: 2, text: "hold" }, toScreen);
+    paintDrawing(ctx, { type: "text", color: "#0f0", x: 1, y: 2, text: "hold" }, toScreen, {
+      alpha: 0.5,
+    });
+    paintDrawings(
+      ctx,
+      [{ type: "arrow", color: "#00f", from: { x: 1, y: 1 }, to: { x: 2, y: 2 } }],
+      toScreen,
+    );
+    expect(ctx.stroke).toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalled();
   });
 });
 

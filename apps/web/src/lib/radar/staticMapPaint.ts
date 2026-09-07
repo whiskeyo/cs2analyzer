@@ -3,7 +3,7 @@ import { drawArrow, drawTextLabel } from "@/lib/radar/draw";
 import { radarLayout, type RadarView } from "@/lib/radar/maps";
 import { drawSmoothLine, simplifyStroke } from "@/lib/radar/strokes";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
-import type { Stroke } from "@/lib/notes/types";
+import type { Drawing, Stroke } from "@/lib/notes/types";
 
 export type WorldToScreen = (wx: number, wy: number) => { x: number; y: number };
 
@@ -48,6 +48,50 @@ export function paintMapImage(
   }
 }
 
+/** One drawing on the map layer (pen, arrow, or text). */
+export function paintDrawing(
+  ctx: CanvasRenderingContext2D,
+  drawing: Drawing,
+  toScreen: WorldToScreen,
+  opts: { alpha?: number; live?: boolean } = {},
+): void {
+  const { alpha = 1, live = false } = opts;
+  if (drawing.type === "text") {
+    if (alpha < 1) {
+      return;
+    }
+    drawTextLabel(ctx, drawing, toScreen(drawing.x, drawing.y));
+    return;
+  }
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = drawing.color;
+  ctx.fillStyle = drawing.color;
+  ctx.lineWidth = drawing.type === "arrow" ? 3.2 : 2.8;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  if (drawing.type === "pen") {
+    const worldPts = live ? drawing.points : simplifyStroke(drawing.points);
+    const pts = worldPts.map((pt) => toScreen(pt.x, pt.y));
+    drawSmoothLine(ctx, pts);
+  } else {
+    const a = toScreen(drawing.from.x, drawing.from.y);
+    const b = toScreen(drawing.to.x, drawing.to.y);
+    drawArrow(ctx, a, b, drawing.color, 3.2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+export function paintDrawings(
+  ctx: CanvasRenderingContext2D,
+  drawings: readonly Drawing[],
+  toScreen: WorldToScreen,
+  opts: { alpha?: number; live?: boolean } = {},
+): void {
+  for (const drawing of drawings) {
+    paintDrawing(ctx, drawing, toScreen, opts);
+  }
+}
+
 /** One review stroke on the map layer (pen, arrow, or text). */
 export function paintStroke(
   ctx: CanvasRenderingContext2D,
@@ -55,33 +99,10 @@ export function paintStroke(
   toScreen: WorldToScreen,
   opts: { alpha?: number; live?: boolean } = {},
 ): void {
-  const { alpha = 1, live = false } = opts;
   if (st.type === "bookmark") {
     return;
   }
-  if (st.type === "text") {
-    if (alpha < 1) {
-      return;
-    }
-    drawTextLabel(ctx, st, toScreen(st.x, st.y));
-    return;
-  }
-  ctx.globalAlpha = alpha;
-  ctx.strokeStyle = st.color;
-  ctx.fillStyle = st.color;
-  ctx.lineWidth = st.type === "arrow" ? 3.2 : 2.8;
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
-  if (st.type === "pen") {
-    const worldPts = live ? st.points : simplifyStroke(st.points);
-    const pts = worldPts.map((pt) => toScreen(pt.x, pt.y));
-    drawSmoothLine(ctx, pts);
-  } else {
-    const a = toScreen(st.from.x, st.from.y);
-    const b = toScreen(st.to.x, st.to.y);
-    drawArrow(ctx, a, b, st.color, 3.2);
-  }
-  ctx.globalAlpha = 1;
+  paintDrawing(ctx, st, toScreen, opts);
 }
 
 /** Visible note strokes for the current tick/round, plus any in-progress draft. */

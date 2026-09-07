@@ -2,7 +2,9 @@ import { NOTE_TEXT_MAX_WIDTH, DEFAULT_TICK_RATE, LOOSE_C4_PULSE_HZ } from "@/lib
 import { worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { overlayVisible } from "@/lib/notes";
 import type { GrenadeKind, MapCalibration } from "@/lib/replay/replayTypes";
-import type { Stroke } from "@/lib/notes/types";
+import type { Drawing, Stroke } from "@/lib/notes/types";
+
+type TextLabel = Extract<Drawing, { type: "text" }>;
 
 /** Canvas pixels: flying nade silhouettes (longest SVG side). */
 export const NADE_FLIGHT_ICON_SIZE = 20;
@@ -249,14 +251,14 @@ function wrapNote(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return out.length > 0 ? out : [""];
 }
 
-function textWrapWidth(st: Extract<Stroke, { type: "text" }>): number {
+function textWrapWidth(st: TextLabel): number {
   if (st.box_w == null) return NOTE_TEXT_MAX_WIDTH;
   return Math.max(1, st.box_w - TEXT_PAD * 2);
 }
 
 function textBox(
   ctx: CanvasRenderingContext2D,
-  st: Extract<Stroke, { type: "text" }>,
+  st: TextLabel,
   screen: { x: number; y: number },
 ): { x: number; y: number; w: number; h: number; lines: string[] } {
   ctx.font = TEXT_FONT;
@@ -275,7 +277,7 @@ function textBox(
 
 export function drawTextLabel(
   ctx: CanvasRenderingContext2D,
-  st: Extract<Stroke, { type: "text" }>,
+  st: TextLabel,
   screen: { x: number; y: number },
 ) {
   const box = textBox(ctx, st, screen);
@@ -302,7 +304,7 @@ export function drawTextLabel(
 
 export function hitTextLabel(
   ctx: CanvasRenderingContext2D,
-  st: Extract<Stroke, { type: "text" }>,
+  st: TextLabel,
   screen: { x: number; y: number },
   mx: number,
   my: number,
