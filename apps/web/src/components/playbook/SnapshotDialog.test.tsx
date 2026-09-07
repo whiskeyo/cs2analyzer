@@ -10,7 +10,6 @@ import { PLAYBOOK_FOCUS_KEY } from "@/lib/playbook/focus";
 import * as playbookStore from "@/lib/playbook/playbookStore";
 import * as snapshot from "@/lib/playbook/snapshot";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
-import { makeFreezeTicks, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
 import { SnapshotDialog } from "./SnapshotDialog";
 
 vi.mock("@/lib/app/devNavigate", async (importOriginal) => {
@@ -18,23 +17,16 @@ vi.mock("@/lib/app/devNavigate", async (importOriginal) => {
   return { ...actual, navigate: vi.fn() };
 });
 
-const replay = makeReplay({
-  header: { map_name: "de_anubis", team_ct: "NaVi", team_t: "FaZe" },
-  players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
-  rounds: [makeRound({ number: 12, start_tick: 0, freeze_end_tick: 64, end_tick: 5000 })],
-  ticks: makeFreezeTicks(2, 1),
-});
+const DEFAULT_TITLE = "NaVi - FaZe (faceit.dem) · R12 0:00";
 
 function renderDialog() {
   const onClose = vi.fn();
   render(
     <SnapshotDialog
       mapName="de_anubis"
-      replay={replay}
-      tick={64}
-      fileName="faceit.dem"
+      pieces={[]}
+      stratTitle={DEFAULT_TITLE}
       floor="auto"
-      cal={undefined}
       onClose={onClose}
     />,
   );
@@ -57,9 +49,7 @@ describe("SnapshotDialog", () => {
     await playbookStore.createPlaybook("de_anubis", "A execs");
     const onClose = renderDialog();
     expect(await screen.findByRole("radio", { name: "A execs" })).toBeChecked();
-    expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue(
-      "NaVi - FaZe (faceit.dem) · R12 0:00",
-    );
+    expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue(DEFAULT_TITLE);
     await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
     expect(await screen.findByText(/Saved to/)).toBeInTheDocument();
     expect(screen.getByText("A execs")).toBeInTheDocument();
@@ -145,11 +135,9 @@ describe("SnapshotDialog", () => {
     const { unmount } = render(
       <SnapshotDialog
         mapName="de_anubis"
-        replay={replay}
-        tick={64}
-        fileName="faceit.dem"
+        pieces={[]}
+        stratTitle={DEFAULT_TITLE}
         floor="auto"
-        cal={undefined}
         onClose={() => undefined}
       />,
     );

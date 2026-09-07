@@ -4,6 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
+import { DEFAULT_HABITS_NADE_FILTER, type SeriesOverlay } from "@/lib/parse/seriesOverlay";
+import type { RoundKind } from "@/lib/parse/roundTags";
+import type { Side } from "@/lib/replay/replayTypes";
 import { makeReplay, makeRound } from "@/lib/testing/fixtures";
 import { RadarStage } from "./RadarStage";
 
@@ -23,7 +26,11 @@ function radarState(replay = makeReplay()) {
   const setPlaying = vi.fn();
   const setLayers = vi.fn();
   return {
-    session: { replay, fileName: "match.dem" },
+    session: {
+      replay,
+      fileName: "match.dem",
+      series: null as { mapName: string; focalTeam: string; demos: unknown[] } | null,
+    },
     playback: { tick: 100, setPlaying, jump: vi.fn() },
     review: {
       color: COLOR_PRESETS[0].colors[0],
@@ -62,15 +69,17 @@ function radarState(replay = makeReplay()) {
     },
     cal: { pos_x: 0, pos_y: 1024, scale: 1, radar: "test.png", lower_radar: "lower.png" },
     habits: {
-      overlay: null,
+      overlay: null as SeriesOverlay | null,
       overlayDisplay: null,
       overlayTrails: false,
       overlayArrows: false,
-      nadeFilter: null,
+      nadeFilter: DEFAULT_HABITS_NADE_FILTER,
       nadesOn: true,
       nadeOpacity: 1,
       playRound: vi.fn(),
+      bucketPlaySec: 0,
       bucketPlaySecRef: { current: 0 },
+      bucketOverlay: null as { kind: RoundKind; side: Side } | null,
     },
     _actions: { setPaletteId, setColor, commitStrokes, undo, setPlaying, setLayers },
   };
@@ -146,11 +155,17 @@ describe("RadarStage", () => {
 
   it("hides match HUD overlays when habits overlay is active", () => {
     const state = radarState();
-    state.habits.overlay = { demos: [] } as never;
+    state.habits.overlay = {
+      trails: [],
+      heatDots: [],
+      nades: [],
+      roundCount: 0,
+      windowSec: 5,
+    };
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     render(<RadarStage />);
     expect(screen.queryByRole("button", { name: /Round autoplay/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Snapshot to playbook" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Snapshot to playbook" })).toBeInTheDocument();
   });
 
   it("opens the snapshot dialog from the toolbar", async () => {
@@ -158,5 +173,29 @@ describe("RadarStage", () => {
     render(<RadarStage />);
     await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
     expect(screen.getByRole("dialog", { name: "Snapshot to playbook" })).toBeInTheDocument();
+  });
+
+  it("titles an aggregated snapshot from the series bucket", async () => {
+    const state = radarState();
+    state.habits.overlay = {
+      trails: [],
+      heatDots: [],
+      nades: [],
+      roundCount: 4,
+      windowSec: 30,
+    };
+    state.habits.bucketPlaySec = 24;
+    state.habits.bucketOverlay = { kind: "pistol", side: "CT" };
+    state.session.series = {
+      mapName: "de_dust2",
+      focalTeam: "Spirit",
+      demos: Array.from({ length: 12 }, () => ({})),
+    };
+    vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
+    render(<RadarStage />);
+    await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
+    expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue(
+      "Spirit series (12 demos) · CT pistol · 0:24",
+    );
   });
 });

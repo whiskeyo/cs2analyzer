@@ -8,9 +8,25 @@ import {
   type Note,
   type Piece,
 } from "@/lib/notes/types";
+import type { RoundKind } from "@/lib/parse/roundTags";
+import {
+  DEFAULT_HABITS_NADE_FILTER,
+  habitsNadeVisible,
+  habitsNadeViewTick,
+  overlayAtPlaySec,
+  type HabitsNadeFilter,
+  type HabitsTrail,
+  type SeriesOverlay,
+} from "@/lib/parse/seriesOverlay";
 import { tickRate } from "@/lib/shared/constants";
-import { buildRadarFrame, T_COLOR, type NadeRender, type RadarFrame } from "@/lib/radar/radarFrame";
-import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
+import {
+  buildRadarFrame,
+  nadeRenderAt,
+  T_COLOR,
+  type NadeRender,
+  type RadarFrame,
+} from "@/lib/radar/radarFrame";
+import type { MapCalibration, Replay, Side } from "@/lib/replay/replayTypes";
 import { currentRound } from "@/lib/replay/sample";
 import { matchScorecard } from "@/lib/stats/scorecard";
 import { formatClock } from "@/lib/weapons/weapons";
@@ -152,4 +168,109 @@ export async function writeSnapshot(opts: {
   const next = addSnapshotPage(book, opts.stratTitle, opts.pieces, opts.floor ?? "auto");
   const saved = await savePlaybook(next);
   return { book: saved, pageId: saved.activePageId };
+}
+
+export function overlayTrailPiece(trail: HabitsTrail, side?: Side): Piece | null {
+  const last = trail.points.at(-1);
+  const name = trail.playerName.trim();
+  if (trail.deathAt) {
+    return makePiece("pawn", trail.deathAt.x, trail.deathAt.y, {
+      ...(last != null ? { z: last.z, yaw: last.yaw } : {}),
+      ...(name ? { label: name } : {}),
+      alive: false,
+      ...(side ? { side } : {}),
+    });
+  }
+  if (!last) return null;
+  return makePiece("pawn", last.x, last.y, {
+    z: last.z,
+    yaw: last.yaw,
+    ...(name ? { label: name } : {}),
+    alive: true,
+    ...(side ? { side } : {}),
+  });
+}
+
+export function overlayToPieces(
+  overlay: SeriesOverlay,
+  playSec: number,
+  nadeFilter: HabitsNadeFilter = DEFAULT_HABITS_NADE_FILTER,
+  nadesOn = true,
+  side?: Side,
+): Piece[] {
+  const visible = overlayAtPlaySec(overlay, playSec);
+  const pieces: Piece[] = [];
+  for (const trail of visible.trails) {
+    const piece = overlayTrailPiece(trail, side);
+    if (piece) pieces.push(piece);
+  }
+  if (!nadesOn) return pieces;
+  for (const nade of visible.nades) {
+    if (!habitsNadeVisible(nade.kind, nadeFilter)) continue;
+    const render = nadeRenderAt(
+      nade.grenade,
+      habitsNadeViewTick(nade, playSec),
+      nade.tps,
+      1,
+      nade.roundEndTick,
+    );
+    if (!render) continue;
+    const at = nadePiecePos(render);
+    if (!at) continue;
+    pieces.push(makePiece(nade.kind, at.x, at.y));
+  }
+  return pieces;
+}
+
+export function snapshotAggTitle(opts: {
+  focalTeam: string;
+  demoCount: number;
+  side: Side;
+  kind: RoundKind;
+  playSec: number;
+}): string {
+  return `${opts.focalTeam} series (${opts.demoCount} demos) · ${opts.side} ${opts.kind} · ${formatClock(opts.playSec)}`;
+}
+
+export function snapshotFromAnalyzer(input: {
+  replay: Replay;
+  tick: number;
+  fileName: string;
+  floor: FloorMode;
+  cal?: MapCalibration;
+  mapName: string;
+  overlay: SeriesOverlay | null;
+  playSec: number;
+  nadeFilter?: HabitsNadeFilter;
+  nadesOn?: boolean;
+  series?: { mapName: string; focalTeam: string; demos: { length: number } } | null;
+  bucket?: { side: Side; kind: RoundKind } | null;
+}): { mapName: string; pieces: Piece[]; stratTitle: string; floor: FloorMode } {
+  if (input.overlay) {
+    const bucket = input.bucket;
+    return {
+      mapName: input.series?.mapName ?? input.mapName,
+      pieces: overlayToPieces(
+        input.overlay,
+        input.playSec,
+        input.nadeFilter ?? DEFAULT_HABITS_NADE_FILTER,
+        input.nadesOn ?? true,
+        bucket?.side,
+      ),
+      stratTitle: snapshotAggTitle({
+        focalTeam: input.series?.focalTeam || "Team",
+        demoCount: input.series?.demos.length ?? 1,
+        side: bucket?.side ?? "CT",
+        kind: bucket?.kind ?? "pistol",
+        playSec: input.playSec,
+      }),
+      floor: input.floor,
+    };
+  }
+  return {
+    mapName: input.mapName,
+    pieces: snapshotPieces(input.replay, input.tick, input.cal),
+    stratTitle: snapshotTitleFromReplay(input.replay, input.tick, input.fileName),
+    floor: input.floor,
+  };
 }

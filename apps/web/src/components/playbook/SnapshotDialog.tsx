@@ -1,33 +1,34 @@
 import { useEffect, useId, useState } from "react";
 import { navigate, ROUTES } from "@/lib/app/devNavigate";
-import type { FloorMode } from "@/lib/notes/types";
+import type { FloorMode, Piece } from "@/lib/notes/types";
 import { rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { listPlaybooksForMap } from "@/lib/playbook/playbookStore";
-import { snapshotPieces, snapshotTitleFromReplay, writeSnapshot } from "@/lib/playbook/snapshot";
+import { writeSnapshot } from "@/lib/playbook/snapshot";
 import { UNTITLED_PLAYBOOK, type Playbook } from "@/lib/playbook/types";
-import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
 import { errorMessage } from "@/lib/validate/json.ts";
 
 const NEW_BOOK = "new";
 
 interface Props {
   mapName: string;
-  replay: Replay;
-  tick: number;
-  fileName: string;
+  pieces: Piece[];
+  stratTitle: string;
   floor: FloorMode;
-  cal: MapCalibration | undefined;
   onClose: () => void;
 }
 
-export function SnapshotDialog({ mapName, replay, tick, fileName, floor, cal, onClose }: Props) {
+export function SnapshotDialog({
+  mapName,
+  pieces,
+  stratTitle: initialTitle,
+  floor,
+  onClose,
+}: Props) {
   const titleId = useId();
   const [books, setBooks] = useState<Playbook[] | null>(null);
   const [target, setTarget] = useState(NEW_BOOK);
   const [newTitle, setNewTitle] = useState("");
-  const [stratTitle, setStratTitle] = useState(() =>
-    snapshotTitleFromReplay(replay, tick, fileName),
-  );
+  const [stratTitle, setStratTitle] = useState(initialTitle);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<{ title: string; key: string } | null>(null);
@@ -57,7 +58,7 @@ export function SnapshotDialog({ mapName, replay, tick, fileName, floor, cal, on
         bookKey: target === NEW_BOOK ? null : target,
         newBookTitle: newTitle,
         stratTitle,
-        pieces: snapshotPieces(replay, tick, cal),
+        pieces,
         floor,
       });
       rememberPlaybookFocus({ mapName, bookKey: book.key });

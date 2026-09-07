@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { SnapshotDialog } from "@/components/playbook/SnapshotDialog";
-import { tickRate } from "@/lib/shared/constants";
-import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { makeBookmarkStroke } from "@/lib/notes";
+import { COLOR_PRESETS } from "@/lib/notes/palettes";
+import { snapshotFromAnalyzer } from "@/lib/playbook/snapshot";
 import { currentRound } from "@/lib/replay/sample";
+import { tickRate } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
 import { Hud } from "./Hud";
 import { KillFeed } from "./KillFeed";
@@ -18,7 +19,7 @@ import { SpectatorEconomy } from "./SpectatorEconomy";
  */
 export function RadarStage() {
   const { session, playback, review, view, cal, habits } = useApp();
-  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [snapshot, setSnapshot] = useState<ReturnType<typeof snapshotFromAnalyzer> | null>(null);
   const replay = session.replay;
   if (!replay) return null;
   const { tick } = playback;
@@ -94,7 +95,24 @@ export function RadarStage() {
           },
           onResetView: view.resetView,
         }}
-        onSnapshot={habitsOnly ? undefined : () => setSnapshotOpen(true)}
+        onSnapshot={() =>
+          setSnapshot(
+            snapshotFromAnalyzer({
+              replay,
+              tick,
+              fileName: session.fileName,
+              floor: review.floorMode,
+              cal,
+              mapName: replay.header.map_name,
+              overlay: habits.overlay,
+              playSec: habits.bucketPlaySec,
+              nadeFilter: habits.nadeFilter,
+              nadesOn: habits.nadesOn,
+              series: session.series,
+              bucket: habits.bucketOverlay,
+            }),
+          )
+        }
       />
       <div className="radar-stage">
         <RadarCanvas
@@ -141,15 +159,13 @@ export function RadarStage() {
         )}
         {!habitsOnly && <KillFeed replay={replay} tick={tick} onJump={playback.jump} />}
       </div>
-      {snapshotOpen ? (
+      {snapshot ? (
         <SnapshotDialog
-          mapName={replay.header.map_name}
-          replay={replay}
-          tick={tick}
-          fileName={session.fileName}
-          floor={review.floorMode}
-          cal={cal}
-          onClose={() => setSnapshotOpen(false)}
+          mapName={snapshot.mapName}
+          pieces={snapshot.pieces}
+          stratTitle={snapshot.stratTitle}
+          floor={snapshot.floor}
+          onClose={() => setSnapshot(null)}
         />
       ) : null}
     </div>

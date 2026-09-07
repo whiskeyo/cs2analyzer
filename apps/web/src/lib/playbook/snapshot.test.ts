@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_TICK_RATE, SMOKE_SECONDS } from "@/lib/shared/constants";
 import { emptyNote } from "@/lib/notes/note";
 import type { Piece } from "@/lib/notes/types";
+import {
+  DEFAULT_HABITS_NADE_FILTER,
+  type HabitsTrail,
+  type SeriesOverlay,
+} from "@/lib/parse/seriesOverlay";
 import { CT_COLOR, T_COLOR, type NadeRender, type RadarFrame } from "@/lib/radar/radarFrame";
 import { GEAR_C4 } from "@/lib/replay/replayTypes";
 import {
@@ -22,6 +27,10 @@ import {
   addSnapshotPage,
   frameToPieces,
   nadePiecePos,
+  overlayToPieces,
+  overlayTrailPiece,
+  snapshotAggTitle,
+  snapshotFromAnalyzer,
   snapshotPieces,
   snapshotStratTitle,
   snapshotTitleFromReplay,
@@ -421,5 +430,183 @@ describe("writeSnapshot", () => {
       pieces: [],
     });
     expect(createPlaybook).toHaveBeenCalledWith("de_anubis", UNTITLED_PLAYBOOK);
+  });
+});
+
+function overlayTrail(partial: Partial<HabitsTrail> = {}): HabitsTrail {
+  return {
+    demoId: "d",
+    roundNumber: 1,
+    jumpTick: 64,
+    tps: tps,
+    steamId: 1,
+    playerName: "donk",
+    color: "#fff",
+    points: [
+      { x: 0, y: 0, z: 0, tick: 64, yaw: 0 },
+      { x: 10, y: 20, z: 5, tick: 128, yaw: 45 },
+    ],
+    deathAt: null,
+    deathTick: null,
+    survivedAt: null,
+    survivedTick: null,
+    ...partial,
+  };
+}
+
+function overlayOf(partial: Partial<SeriesOverlay> = {}): SeriesOverlay {
+  return {
+    trails: [],
+    heatDots: [],
+    nades: [],
+    roundCount: 1,
+    windowSec: 10,
+    ...partial,
+  };
+}
+
+describe("overlayToPieces", () => {
+  it("places a live pawn at the last point at or before the playhead", () => {
+    const pieces = overlayToPieces(
+      overlayOf({ trails: [overlayTrail()] }),
+      1,
+      undefined,
+      true,
+      "CT",
+    );
+    expect(pieces).toHaveLength(1);
+    expect(pieces[0]).toMatchObject({
+      kind: "pawn",
+      x: 10,
+      y: 20,
+      z: 5,
+      yaw: 45,
+      label: "donk",
+      alive: true,
+      side: "CT",
+    });
+  });
+
+  it("places a dead pawn at deathAt", () => {
+    const pieces = overlayToPieces(
+      overlayOf({
+        trails: [
+          overlayTrail({
+            deathAt: { x: 99, y: 88 },
+            deathTick: 128,
+            playerName: "  ",
+          }),
+        ],
+      }),
+      2,
+      undefined,
+      true,
+      "T",
+    );
+    expect(pieces[0]).toMatchObject({
+      kind: "pawn",
+      x: 99,
+      y: 88,
+      alive: false,
+      side: "T",
+    });
+    expect(pieces[0]?.label).toBeUndefined();
+  });
+
+  it("skips an empty live trail and respects nade filters", () => {
+    expect(overlayTrailPiece(overlayTrail({ points: [], playerName: "" }))).toBeNull();
+    const nade = {
+      kind: "smoke" as const,
+      color: "#fff",
+      grenade: makeGrenade({
+        kind: "smoke",
+        start_tick: 100,
+        detonate_tick: 200,
+        end_tick: 2000,
+        points: [
+          { tick: 100, x: 50, y: 50, z: 0 },
+          { tick: 200, x: 200, y: 200, z: 0 },
+        ],
+      }),
+      freezeEndTick: 64,
+      roundEndTick: 2000,
+      tps,
+    };
+    const overlay = overlayOf({
+      trails: [overlayTrail()],
+      nades: [
+        nade,
+        { ...nade, kind: "flash", grenade: makeGrenade({ kind: "flash", start_tick: 100 }) },
+      ],
+    });
+    const withNades = overlayToPieces(overlay, 2);
+    expect(withNades.some((row) => row.kind === "smoke")).toBe(true);
+    const noNades = overlayToPieces(overlay, 2, DEFAULT_HABITS_NADE_FILTER, false);
+    expect(noNades.every((row) => row.kind === "pawn")).toBe(true);
+    const noSmoke = overlayToPieces(overlay, 2, {
+      ...DEFAULT_HABITS_NADE_FILTER,
+      smoke: false,
+      flash: false,
+    });
+    expect(noSmoke.every((row) => row.kind === "pawn")).toBe(true);
+  });
+});
+
+describe("snapshotAggTitle / snapshotFromAnalyzer", () => {
+  it("formats the series bucket title", () => {
+    expect(
+      snapshotAggTitle({
+        focalTeam: "Spirit",
+        demoCount: 12,
+        side: "CT",
+        kind: "pistol",
+        playSec: 24,
+      }),
+    ).toBe("Spirit series (12 demos) · CT pistol · 0:24");
+  });
+
+  it("uses overlay tokens when a habits overlay is on", () => {
+    const replay = makeReplay();
+    const fromOverlay = snapshotFromAnalyzer({
+      replay,
+      tick: 64,
+      fileName: "a.dem",
+      floor: "lower",
+      mapName: "de_anubis",
+      overlay: overlayOf({ trails: [overlayTrail()] }),
+      playSec: 24,
+      series: { mapName: "de_dust2", focalTeam: "Spirit", demos: { length: 12 } },
+      bucket: { side: "CT", kind: "pistol" },
+    });
+    expect(fromOverlay.mapName).toBe("de_dust2");
+    expect(fromOverlay.floor).toBe("lower");
+    expect(fromOverlay.stratTitle).toBe("Spirit series (12 demos) · CT pistol · 0:24");
+    expect(fromOverlay.pieces[0]?.kind).toBe("pawn");
+
+    const live = snapshotFromAnalyzer({
+      replay,
+      tick: 64,
+      fileName: "a.dem",
+      floor: "auto",
+      mapName: "de_anubis",
+      overlay: null,
+      playSec: 0,
+    });
+    expect(live.mapName).toBe("de_anubis");
+    expect(live.stratTitle).toContain("CT - T");
+  });
+
+  it("falls back when series metadata is missing", () => {
+    const snap = snapshotFromAnalyzer({
+      replay: makeReplay(),
+      tick: 0,
+      fileName: "a.dem",
+      floor: "auto",
+      mapName: "de_anubis",
+      overlay: overlayOf(),
+      playSec: 0,
+    });
+    expect(snap.stratTitle).toBe("Team series (1 demos) · CT pistol · 0:00");
+    expect(snap.mapName).toBe("de_anubis");
   });
 });
