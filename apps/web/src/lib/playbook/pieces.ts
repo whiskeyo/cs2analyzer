@@ -1,11 +1,17 @@
 import { cloneNote } from "@/lib/notes/note";
 import type { Note, Piece, PieceKind } from "@/lib/notes/types";
-import { canvasToYaw } from "@/lib/radar/draw";
+import { canvasToYaw, yawToCanvas } from "@/lib/radar/draw";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
 import type { GrenadeKind } from "@/lib/replay/replayTypes";
 
 /** Canvas hit radius for a playbook token (pointer size, not world units). */
 export const PIECE_HIT_PX = 14;
+
+/** Aim ring around a double-clicked pawn. */
+export const PLAYBOOK_ROTATE_RADIUS_PX = 36;
+
+/** How close the cursor must be to the aim ring to grab it. */
+export const PLAYBOOK_ROTATE_HIT_PX = 10;
 
 /** Unselected radar pawn triangle size. */
 export const PLAYBOOK_PAWN_SIZE = 7;
@@ -178,6 +184,26 @@ export function hitTestPiece(
     if (dx * dx + dy * dy <= radiusSq) return piece;
   }
   return null;
+}
+
+/** Screen offset from the pawn to the aim-ring handle for this eye yaw. */
+export function rotateHandleOffset(
+  yaw: number,
+  radius = PLAYBOOK_ROTATE_RADIUS_PX,
+): { x: number; y: number } {
+  const angle = yawToCanvas(yaw);
+  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+}
+
+/** True when `cursor` is on the aim ring around `pawnScreen`. */
+export function rotateGizmoHit(
+  pawnScreen: { x: number; y: number },
+  cursor: { x: number; y: number },
+  radius = PLAYBOOK_ROTATE_RADIUS_PX,
+  hit = PLAYBOOK_ROTATE_HIT_PX,
+): boolean {
+  const dist = Math.hypot(cursor.x - pawnScreen.x, cursor.y - pawnScreen.y);
+  return Math.abs(dist - radius) <= hit;
 }
 
 /** Eye yaw so the pawn triangle points from `from` toward `to` in screen space. */

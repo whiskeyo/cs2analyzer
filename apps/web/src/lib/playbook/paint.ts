@@ -10,7 +10,14 @@ import {
   type WorldToScreen,
 } from "@/lib/radar/staticMapPaint";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
-import { pawnColor, pieceLabel, PLAYBOOK_DEAD_PAWN_ALPHA, PLAYBOOK_PAWN_SIZE } from "./pieces";
+import {
+  pawnColor,
+  pieceLabel,
+  PLAYBOOK_DEAD_PAWN_ALPHA,
+  PLAYBOOK_PAWN_SIZE,
+  PLAYBOOK_ROTATE_RADIUS_PX,
+  rotateHandleOffset,
+} from "./pieces";
 
 export interface PlaybookPaintIcons {
   c4: HTMLImageElement | null;
@@ -69,6 +76,38 @@ function paintPlaybookPawn(
   ctx.globalAlpha = 1;
 }
 
+export function paintRotateGizmo(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  yaw: number,
+  color: string,
+): void {
+  const radius = PLAYBOOK_ROTATE_RADIUS_PX;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const handle = rotateHandleOffset(yaw, radius);
+  ctx.beginPath();
+  ctx.moveTo(at.x, at.y);
+  ctx.lineTo(at.x + handle.x, at.y + handle.y);
+  ctx.strokeStyle = "#e8eef4";
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(at.x + handle.x, at.y + handle.y, 5, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = "#0b0e12";
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function paintPlaybookPiece(
   ctx: CanvasRenderingContext2D,
   piece: Piece,
@@ -115,6 +154,7 @@ export function paintPlaybookBoard(
   draft?: Drawing | null,
   icons?: PlaybookPaintIcons,
   selectedId?: string | null,
+  rotateId?: string | null,
 ): void {
   paintMapImage(ctx, w, h, view, img, cal);
   const toScreen = (wx: number, wy: number) => worldToScreen(cal, w, h, view, wx, wy);
@@ -123,4 +163,10 @@ export function paintPlaybookBoard(
     paintDrawing(ctx, draft, toScreen, { alpha: 0.85, live: true });
   }
   paintPlaybookPieces(ctx, note.pieces, toScreen, icons, selectedId);
+  const aimed = rotateId
+    ? note.pieces.find((piece) => piece.id === rotateId && piece.kind === "pawn")
+    : undefined;
+  if (aimed) {
+    paintRotateGizmo(ctx, toScreen(aimed.x, aimed.y), aimed.yaw ?? 0, pawnColor(aimed.side));
+  }
 }

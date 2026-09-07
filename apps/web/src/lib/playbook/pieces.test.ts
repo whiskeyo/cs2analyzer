@@ -20,6 +20,10 @@ import {
   playbookToolCursor,
   removePiece,
   resolvePlaybookDown,
+  rotateGizmoHit,
+  rotateHandleOffset,
+  PLAYBOOK_ROTATE_RADIUS_PX,
+  PLAYBOOK_ROTATE_HIT_PX,
   setPieceLabel,
   setPieceYaw,
   yawTowardScreen,
@@ -205,5 +209,19 @@ describe("yawTowardScreen / resolvePlaybookDown", () => {
     expect(resolvePlaybookDown("pan", pawn, false)).toBe("move");
     expect(resolvePlaybookDown("pan", smoke, true)).toBe("move");
     expect(resolvePlaybookDown("pan", null, true)).toBe("pan");
+  });
+
+  it("hits the aim ring around a pawn, not the centre or far away", () => {
+    const at = { x: 0, y: 0 };
+    const handle = rotateHandleOffset(0);
+    expect(Math.hypot(handle.x, handle.y)).toBeCloseTo(PLAYBOOK_ROTATE_RADIUS_PX);
+    expect(rotateGizmoHit(at, { x: at.x + handle.x, y: at.y + handle.y })).toBe(true);
+    expect(rotateGizmoHit(at, at)).toBe(false);
+    expect(
+      rotateGizmoHit(at, {
+        x: PLAYBOOK_ROTATE_RADIUS_PX + PLAYBOOK_ROTATE_HIT_PX + 1,
+        y: 0,
+      }),
+    ).toBe(false);
   });
 });

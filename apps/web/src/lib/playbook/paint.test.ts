@@ -6,9 +6,10 @@ import {
   paintPlaybookBoard,
   paintPlaybookPiece,
   paintPlaybookPieces,
+  paintRotateGizmo,
   playbookUsesLower,
 } from "./paint";
-import { makePiece } from "./pieces";
+import { makePiece, PLAYBOOK_ROTATE_RADIUS_PX } from "./pieces";
 
 describe("playbookUsesLower", () => {
   const withLower = { ...UNIT_CALIBRATION, lower_radar: "lower.png" };
@@ -104,5 +105,57 @@ describe("paintPlaybookBoard", () => {
     const ctx = createMockCanvas();
     paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, null, undefined, emptyNote());
     expect(ctx.fillRect).toHaveBeenCalled();
+  });
+
+  it("paints an aim ring for a pawn and skips missing ids", () => {
+    const ctx = createMockCanvas();
+    const note = emptyNote();
+    note.pieces.push(makePiece("pawn", 0, 0, { id: "p", side: "CT", yaw: 0 }));
+    note.pieces.push(makePiece("smoke", 4, 4, { id: "s" }));
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      note,
+      null,
+      undefined,
+      null,
+      "missing",
+    );
+    expect(ctx.setLineDash).not.toHaveBeenCalled();
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      note,
+      null,
+      undefined,
+      null,
+      "s",
+    );
+    expect(ctx.setLineDash).not.toHaveBeenCalled();
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      note,
+      null,
+      undefined,
+      null,
+      "p",
+    );
+    expect(ctx.setLineDash).toHaveBeenCalledWith([4, 3]);
+    expect(ctx.setLineDash).toHaveBeenCalledWith([]);
+    paintRotateGizmo(ctx, { x: 10, y: 20 }, 90, "#5b9fd6");
+    expect(ctx.arc).toHaveBeenCalledWith(10, 20, PLAYBOOK_ROTATE_RADIUS_PX, 0, Math.PI * 2);
   });
 });

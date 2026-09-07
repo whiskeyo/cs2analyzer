@@ -19,6 +19,7 @@ import {
   pieceFromTool,
   type PlaybookTool,
   resolvePlaybookDown,
+  rotateGizmoHit,
   setPieceYaw,
   yawTowardScreen,
 } from "./pieces";
@@ -105,6 +106,7 @@ export function usePlaybookPointer(opts: {
   colorRef: MutableRefObject<string>;
   draftRef: MutableRefObject<Drawing | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  gizmoRef: MutableRefObject<string | null>;
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
 }): void {
@@ -117,6 +119,7 @@ export function usePlaybookPointer(opts: {
     colorRef,
     draftRef,
     canvasRef,
+    gizmoRef,
     onNote,
     onSelect,
   } = opts;
@@ -147,20 +150,35 @@ export function usePlaybookPointer(opts: {
     const onDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
       const { x, y } = pos(e);
+      const cal = calRef.current;
+      const gizmoId = gizmoRef.current;
+      const gizmoPiece = gizmoId
+        ? noteRef.current.pieces.find((row) => row.id === gizmoId)
+        : undefined;
+      if (toolRef.current === "pan" && gizmoPiece?.kind === "pawn" && cal) {
+        const at = toScreen(gizmoPiece.x, gizmoPiece.y);
+        if (rotateGizmoHit(at, { x, y })) {
+          const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+          pieceDrag = pieceDragAt(gizmoPiece, world, true);
+          onSelectRef.current?.(gizmoPiece.id);
+          return;
+        }
+      }
       const hit = hitTestPiece(noteRef.current.pieces, { x, y }, toScreen);
       const action = resolvePlaybookDown(toolRef.current, hit, e.shiftKey);
-      const cal = calRef.current;
       if (action === "erase") {
         if (!cal || !onNoteRef.current) return;
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         const ctx = canvasRef.current?.getContext("2d") ?? null;
         onNoteRef.current(eraseAt(noteRef.current, world, { x, y }, toScreen, ctx));
+        gizmoRef.current = null;
         return;
       }
       if (action === "text") {
         if (!cal || !onNoteRef.current) return;
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         onNoteRef.current(addLooseDrawing(noteRef.current, placeText(colorRef.current, world)));
+        gizmoRef.current = null;
         return;
       }
       if (action === "draw") {
@@ -170,6 +188,7 @@ export function usePlaybookPointer(opts: {
           toolRef.current === "arrow"
             ? beginArrow(colorRef.current, world)
             : beginPen(colorRef.current, world);
+        gizmoRef.current = null;
         return;
       }
       if (action === "place") {
@@ -179,16 +198,29 @@ export function usePlaybookPointer(opts: {
         if (!piece) return;
         onNoteRef.current(addPiece(noteRef.current, piece));
         onSelectRef.current?.(piece.id);
+        gizmoRef.current = null;
         return;
       }
       if ((action === "move" || action === "rotate") && hit && cal) {
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         pieceDrag = pieceDragAt(hit, world, action === "rotate");
         onSelectRef.current?.(hit.id);
+        if (hit.id !== gizmoRef.current) gizmoRef.current = null;
         return;
       }
+      gizmoRef.current = null;
       beginPlaybookPan(view.current, x, y);
       if (!hit) onSelectRef.current?.(null);
+    };
+
+    const onDblClick = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      if (toolRef.current !== "pan") return;
+      const { x, y } = pos(e);
+      const hit = hitTestPiece(noteRef.current.pieces, { x, y }, toScreen);
+      if (hit?.kind !== "pawn") return;
+      gizmoRef.current = hit.id;
+      onSelectRef.current?.(hit.id);
     };
 
     const onMove = (e: MouseEvent) => {
@@ -226,13 +258,15 @@ export function usePlaybookPointer(opts: {
 
     wrap.addEventListener("wheel", onWheel, { passive: false });
     wrap.addEventListener("mousedown", onDown);
+    wrap.addEventListener("dblclick", onDblClick);
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {
       wrap.removeEventListener("wheel", onWheel);
       wrap.removeEventListener("mousedown", onDown);
+      wrap.removeEventListener("dblclick", onDblClick);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [view, wrapRef, calRef, toolRef, noteRef, colorRef, draftRef, canvasRef]);
+  }, [view, wrapRef, calRef, toolRef, noteRef, colorRef, draftRef, canvasRef, gizmoRef]);
 }

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render } from "@testing-library/react";
 import { emptyNote } from "@/lib/notes/note";
-import { makePiece } from "@/lib/playbook/pieces";
+import { makePiece, rotateHandleOffset } from "@/lib/playbook/pieces";
 import { worldToScreen } from "@/lib/radar/maps";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { createMockCanvas } from "@/lib/testing/mockCanvas";
@@ -184,6 +184,65 @@ describe("PlaybookCanvas", () => {
 
     fireEvent.mouseDown(wrap, { clientX: 12, clientY: 12, button: 0 });
     expect(onSelect).toHaveBeenCalledWith(null);
+  });
+
+  it("opens an aim ring on double-click and rotates from the handle", () => {
+    const onNote = vi.fn();
+    const onSelect = vi.fn();
+    const pawn = makePiece("pawn", 0, 0, { id: "p", side: "T", yaw: 0 });
+    const note = emptyNote();
+    note.pieces.push(pawn);
+    const { container, rerender } = render(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={note}
+        tool="pan"
+        onNote={onNote}
+        onSelect={onSelect}
+      />,
+    );
+    const wrap = sizedWrap(container);
+    const at = worldToScreen(UNIT_CALIBRATION, 400, 400, identityView, 0, 0);
+    fireEvent.dblClick(wrap, { clientX: at.x, clientY: at.y, button: 0 });
+    act(() => {
+      rafCb?.(0);
+    });
+    expect(vi.mocked(paintPlaybookBoard).mock.calls.at(-1)?.[10]).toBe("p");
+    expect(onSelect).toHaveBeenCalledWith("p");
+
+    const handle = rotateHandleOffset(0);
+    onNote.mockClear();
+    fireEvent.mouseDown(wrap, {
+      clientX: at.x + handle.x,
+      clientY: at.y + handle.y,
+      button: 0,
+    });
+    fireEvent.mouseMove(window, { clientX: at.x + 40, clientY: at.y });
+    expect(onNote.mock.calls.at(-1)?.[0].pieces[0].yaw).not.toBe(0);
+    fireEvent.mouseUp(window);
+
+    fireEvent.mouseDown(wrap, { clientX: 12, clientY: 12, button: 0 });
+    act(() => {
+      rafCb?.(0);
+    });
+    expect(vi.mocked(paintPlaybookBoard).mock.calls.at(-1)?.[10]).toBeNull();
+
+    rerender(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={note}
+        tool="pawn-ct"
+        onNote={onNote}
+        onSelect={onSelect}
+      />,
+    );
+    fireEvent.dblClick(wrap, { clientX: at.x, clientY: at.y, button: 0 });
+    act(() => {
+      rafCb?.(0);
+    });
+    expect(vi.mocked(paintPlaybookBoard).mock.calls.at(-1)?.[10]).toBeNull();
   });
 
   it("does not place without a calibration or an onNote handler", () => {

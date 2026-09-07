@@ -44,6 +44,7 @@ export function PlaybookCanvas({
   const colorRef = useRef(color);
   colorRef.current = color;
   const draftRef = useRef<Drawing | null>(null);
+  const gizmoRef = useRef<string | null>(null);
   const { images, c4Icon, nadeIcons } = useRadarImages(cal);
 
   usePlaybookPointer({
@@ -55,6 +56,7 @@ export function PlaybookCanvas({
     colorRef,
     draftRef,
     canvasRef,
+    gizmoRef,
     onNote,
     onSelect,
   });
@@ -92,6 +94,7 @@ export function PlaybookCanvas({
         draftRef.current,
         { c4: c4Icon.current, nades: nadeIcons.current },
         selectedIdRef.current,
+        gizmoRef.current,
       );
       raf = requestAnimationFrame(draw);
     };

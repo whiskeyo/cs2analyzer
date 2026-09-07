@@ -17,7 +17,18 @@ function EmptyWrap() {
   const noteRef = useRef(emptyNote());
   const colorRef = useRef(defaultPlaybookColor());
   const draftRef = useRef<Drawing | null>(null);
-  usePlaybookPointer({ wrapRef, view, calRef, toolRef, noteRef, colorRef, draftRef, canvasRef });
+  const gizmoRef = useRef<string | null>(null);
+  usePlaybookPointer({
+    wrapRef,
+    view,
+    calRef,
+    toolRef,
+    noteRef,
+    colorRef,
+    draftRef,
+    canvasRef,
+    gizmoRef,
+  });
   return null;
 }
 
