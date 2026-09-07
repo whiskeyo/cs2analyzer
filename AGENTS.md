@@ -11,6 +11,8 @@ crates/cs2analyzer       Parse, assemble Match, stats, radar math
 crates/cs2analyzer-cli   `cs2analyzer` binary: dump a demo as JSON (fixtures, cross-checks)
 crates/cs2analyzer-wasm  wasm-bindgen wrapper (no mimalloc)
 apps/web                 Vite + React viewer (dev: http://localhost:5173/; layouts editor: /layouts via Settings)
+                         pages: `/` home, `/analyzer`, `/faq`
+                         FAQ articles: `apps/web/src/content/faq/*.md`
 scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored; never commit)
 ```
@@ -54,7 +56,7 @@ CI (`.github/workflows/ci.yml`) runs Rust and web checks (including the layouts 
 
 ## Where to change what
 
-Web `src/` is view vs logic: `components/` (TSX) and `lib/<feature>/` (hooks + pure code). Never leave `Foo.tsx` beside a `foo/` folder. Tests sit next to the module they cover. Vite entry (`main.tsx`, `index.css`) and generated `parser/` stay at `src/` root.
+Web `src/` is pages vs pieces vs logic: `pages/` (route screens), `components/` (TSX), `content/` (Markdown articles), and `lib/<feature>/` (hooks + pure code). Never leave `Foo.tsx` beside a `foo/` folder. Tests sit next to the module they cover. Vite entry (`main.tsx`, `index.css`) and generated `parser/` stay at `src/` root.
 
 | Goal | Start here |
 |---|---|
@@ -67,7 +69,8 @@ Web `src/` is view vs logic: `components/` (TSX) and `lib/<feature>/` (hooks + p
 | Weapon icons / def indices | `inventory.rs` + `apps/web/src/lib/weapons/weapons.ts` + `public/weapons/*.svg` |
 | Review tab | `apps/web/src/lib/match/review.ts` |
 | Playhead, hotkeys, round scrubber | `lib/playback/`, `components/playback/` |
-| Parse worker / drop | `lib/parse/` |
+| Home, Analyzer, FAQ | `apps/web/src/pages/` (`/`, `/analyzer`, `/faq`); FAQ copy in `src/content/faq/*.md` |
+| Parse worker / drop | `lib/parse/`, `components/app/DropZone.tsx` |
 | Executes, clutches, util, round story | `lib/match/` (site labels from layout JSON in `sites.ts`; empty layout → hide positions), matching tab in `components/sidebar/` |
 | Map callout overlays | DEV layouts editor (`components/layouts/`, Settings → Layouts editor); JSON in `public/layouts/`; `lib/radar/layouts.ts` / `lib/layout/` |
 

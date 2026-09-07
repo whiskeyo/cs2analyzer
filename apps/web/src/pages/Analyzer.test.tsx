@@ -5,7 +5,7 @@ import { useApp } from "@/lib/state/appState";
 import { deleteProject } from "@/lib/notes/projectStore";
 import type { ReviewProject } from "@/lib/notes/projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
-import { Splash } from "./Splash";
+import { Analyzer } from "./Analyzer";
 
 vi.mock("@/lib/state/appState", () => ({
   useApp: vi.fn(),
@@ -32,7 +32,7 @@ function savedProject(key = "proj-1"): ReviewProject {
   };
 }
 
-function splashState(saved: ReviewProject[] = []) {
+function analyzerState(saved: ReviewProject[] = []) {
   const refreshSaved = vi.fn();
   return {
     session: {
@@ -54,23 +54,29 @@ function splashState(saved: ReviewProject[] = []) {
   };
 }
 
-describe("Splash", () => {
+describe("Analyzer", () => {
   beforeEach(() => {
     vi.mocked(useApp).mockReset();
     vi.mocked(deleteProject).mockReset();
     vi.mocked(deleteProject).mockResolvedValue(undefined);
   });
 
-  it("renders the drop zone splash", () => {
-    vi.mocked(useApp).mockReturnValue(splashState() as unknown as ReturnType<typeof useApp>);
-    render(<Splash />);
-    expect(screen.getByText(/Drop one Counter-Strike 2/)).toBeInTheDocument();
+  it("lists saved notes next to the drop zone", () => {
+    vi.mocked(useApp).mockReturnValue(
+      analyzerState([savedProject()]) as unknown as ReturnType<typeof useApp>,
+    );
+    render(<Analyzer />);
+    expect(screen.getByText("Saved notes")).toBeInTheDocument();
+    expect(screen.getByText("match.dem")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("deletes saved notes and refreshes the list", async () => {
-    const state = splashState([savedProject("notes-key")]);
+    const state = analyzerState([savedProject("notes-key")]);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<Splash />);
+    render(<Analyzer />);
 
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(deleteProject).toHaveBeenCalledWith("notes-key");

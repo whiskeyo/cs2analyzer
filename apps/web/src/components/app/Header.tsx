@@ -7,7 +7,9 @@ import { useApp } from "@/lib/state/appState";
 import { isAggregatedView } from "@/lib/parse/seriesMode";
 import { prettyMap } from "@/lib/weapons/weapons";
 import type { Replay } from "@/lib/replay/replayTypes";
-import { navigate, usePathname } from "@/lib/app/devNavigate";
+import { navigate, ROUTES, usePathname } from "@/lib/app/devNavigate";
+import { isFaqPath, isLayoutsPath } from "@/lib/app/routes";
+import { SiteNav } from "./SiteNav";
 
 const REMOVE_NOTES_CONFIRM = "yes, remove notes";
 
@@ -37,7 +39,9 @@ export function Header() {
   const canRemoveNotes = review.saved.length > 0;
 
   const pathname = usePathname();
-  const onLayouts = import.meta.env.DEV && pathname === "/layouts";
+  const onLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
+  const onFaq = isFaqPath(pathname);
+  const showMatchChrome = replay != null && !onFaq && !onLayouts;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeConfirm, setRemoveConfirm] = useState("");
@@ -83,7 +87,7 @@ export function Header() {
             className="brand"
             onClick={() => {
               session.close();
-              if (onLayouts) navigate("/");
+              navigate(ROUTES.home);
             }}
             aria-label="Home"
           >
@@ -96,6 +100,7 @@ export function Header() {
             />
             <h1>CS2 Analyzer</h1>
           </button>
+          <SiteNav />
           <span className="pre-release" tabIndex={0}>
             [pre-release testing]
             <span className="pre-release-tip" role="tooltip">
@@ -112,7 +117,7 @@ export function Header() {
         <div className="top-center">
           {onLayouts ? (
             <span className="file-meta">Callout Layout Editor</span>
-          ) : replay ? (
+          ) : replay && showMatchChrome ? (
             <span className="file-meta">
               {prettyMap(replay.header.map_name)}
               {session.fileName ? ` · ${session.fileName}` : ""} · {replay.kills.length} kills ·{" "}
@@ -121,12 +126,12 @@ export function Header() {
           ) : null}
         </div>
         <div className="top-actions">
-          {replay ? (
+          {replay && showMatchChrome ? (
             <button type="button" className="ghost" onClick={session.close}>
               New demo
             </button>
           ) : null}
-          {replay ? (
+          {replay && showMatchChrome ? (
             <button
               type="button"
               className="ghost"
@@ -185,7 +190,7 @@ export function Header() {
                     className="ghost"
                     onClick={() => {
                       setSettingsOpen(false);
-                      navigate("/layouts");
+                      navigate(ROUTES.layouts);
                     }}
                   >
                     Layouts editor

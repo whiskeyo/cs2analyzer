@@ -79,6 +79,8 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
     render(<Header />);
     expect(screen.getByRole("button", { name: "Home" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
+    expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("href", "/faq");
     expect(screen.getByText("[pre-release testing]")).toBeInTheDocument();
     expect(screen.getByRole("tooltip")).toHaveTextContent(/backward compatible/);
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
@@ -169,6 +171,16 @@ describe("Header", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("hides viewer actions on the FAQ page even with a loaded replay", () => {
+    window.history.replaceState({}, "", "/faq");
+    vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
+    render(<Header />);
+    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
+  });
+
   it("closes settings on Escape", async () => {
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
     render(<Header />);
@@ -200,5 +212,7 @@ describe("Header", () => {
     await openSettings();
     expect(screen.queryByRole("button", { name: "Layouts editor" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Back to analyzer" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "FAQ" })).not.toHaveAttribute("aria-current");
   });
 });

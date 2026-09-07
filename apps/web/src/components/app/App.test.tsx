@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
@@ -86,16 +86,28 @@ function hudMeta(container: HTMLElement): string {
 }
 
 describe("App", () => {
-  it("starts on the splash and asks for a demo", () => {
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/");
+    document.title = "CS2 Analyzer";
+  });
+
+  it("starts on the home page with a drop zone and no Analyzer highlight", () => {
     render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Drop one Counter-Strike 2/)).toBeInTheDocument();
+    expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
   });
 
   it("shows the parsed match on the radar, HUD, and scoreboard", async () => {
     const { container } = await loadDemo();
 
     expect(screen.getByText(/match\.dem/)).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/analyzer");
     expect(hudMeta(container)).toBe("Anubis · R1");
     expect(screen.getByText("Astralis")).toBeInTheDocument();
 
@@ -120,15 +132,21 @@ describe("App", () => {
     workers[0].emit({ type: "error", message: "Supports only Source 2 replays" });
 
     expect(await screen.findByText("Supports only Source 2 replays")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/analyzer");
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
   });
 
-  it("returns to the splash on New demo", async () => {
+  it("returns to Analyzer on New demo", async () => {
     await loadDemo();
 
     await userEvent.click(screen.getByRole("button", { name: "New demo" }));
     expect(screen.queryByText(/match\.dem/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Drop one Counter-Strike 2/)).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/analyzer");
+    expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Notes auto-save/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the scoreboard selection in step with the radar", async () => {
@@ -137,5 +155,37 @@ describe("App", () => {
 
     await userEvent.click(within(ct).getByText("Alice"));
     expect(await screen.findByRole("heading", { name: "Alice" })).toBeInTheDocument();
+  });
+
+  it("opens the FAQ from the site nav and returns to Analyzer", async () => {
+    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
+    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
+    expect(document.title).toBe("FAQ · CS2 Analyzer");
+
+    await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
+    expect(window.location.pathname).toBe("/analyzer");
+    expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Notes auto-save/)).toBeInTheDocument();
+    expect(document.title).toBe("Analyzer · CS2 Analyzer");
+  });
+
+  it("shows FAQ when opened at /faq", () => {
+    window.history.replaceState({}, "", "/faq");
+    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("keeps a loaded demo while visiting FAQ", async () => {
+    await loadDemo();
+    await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
+    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
+    expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
+    expect(screen.getByText(/match\.dem/)).toBeInTheDocument();
   });
 });

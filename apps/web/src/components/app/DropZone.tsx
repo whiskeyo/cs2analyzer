@@ -26,6 +26,8 @@ interface Props {
   error: string | null;
   notice: string | null;
   saved: ReviewProject[];
+  showSavedNotes?: boolean;
+  children?: ReactNode;
 }
 
 function savedWhen(savedAt: number): string {
@@ -77,6 +79,8 @@ export function DropZone({
   error,
   notice,
   saved,
+  showSavedNotes = false,
+  children,
 }: Props) {
   const [page, setPage] = useState(0);
   const [wantedDemo, setWantedDemo] = useState<string | null>(null);
@@ -103,7 +107,8 @@ export function DropZone({
 
   return (
     <div className="home">
-      <div className="home-main">
+      <div className="home-hero">
+        {children}
         <label
           className="drop"
           onDragOver={(e) => e.preventDefault()}
@@ -134,17 +139,12 @@ export function DropZone({
             height={56}
             alt=""
           />
-          <div className="drop-title">CS2 Analyzer</div>
+          <div className="drop-title">Drop a demo</div>
           <p>
-            Drop one Counter-Strike 2 <code>.dem</code> to watch, or several for habits (same map,
-            or mixed maps with a map picker).
+            One Counter-Strike 2 <code>.dem</code> to watch the match, or several for habits (same
+            map, or mixed maps with a map picker).
           </p>
           <p className="muted">Parsed entirely in your browser. Nothing is uploaded.</p>
-          <ul className="feature-list">
-            <li>Live radar, nades, tracking, and drawing</li>
-            <li>Scoreboard, clutches, utility, weapons, and round history</li>
-            <li>Kill feed, death lines, opening duels, nade summary, CSV export</li>
-          </ul>
           {parsing && (
             <div className="drop-parse">
               <ParseProgressPanel overallPct={overallPct} files={parseFiles} />
@@ -153,6 +153,8 @@ export function DropZone({
           {error && <p className="error">{error}</p>}
           {notice && <p className="notice">{notice}</p>}
         </label>
+      </div>
+      {showSavedNotes ? (
         <div className="home-notes">
           <p className="muted">
             Notes auto-save in this browser. The demo is not stored — drop the same{" "}
@@ -261,7 +263,7 @@ export function DropZone({
             </div>
           )}
         </div>
-      </div>
+      ) : null}
       <Credits />
       {wantedDemo && (
         <div className="home-modal" onClick={() => setWantedDemo(null)}>

@@ -12,3 +12,11 @@ AddType application/wasm .wasm
     Header set Cache-Control "no-cache, no-store, must-revalidate"
   </Files>
 </IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>

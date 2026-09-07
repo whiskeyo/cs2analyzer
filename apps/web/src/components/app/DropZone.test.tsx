@@ -31,6 +31,7 @@ function props(overrides: Partial<Parameters<typeof DropZone>[0]> = {}) {
     error: null,
     notice: null,
     saved: [],
+    showSavedNotes: true,
     ...overrides,
   };
 }
@@ -78,6 +79,12 @@ describe("DropZone", () => {
   it("keeps the progress bar hidden until a parse starts", () => {
     render(<DropZone {...props()} />);
     expect(screen.queryByText(/%$/)).not.toBeInTheDocument();
+  });
+
+  it("hides saved notes when the homepage drop zone is used", () => {
+    render(<DropZone {...props({ showSavedNotes: false, saved: [savedProject()] })} />);
+    expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("a.dem")).not.toBeInTheDocument();
   });
 
   it("surfaces parse errors and notices", () => {
