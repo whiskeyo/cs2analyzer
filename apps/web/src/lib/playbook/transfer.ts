@@ -4,6 +4,12 @@ import { downloadBlob } from "@/lib/shared/download";
 import { parsePlaybook } from "./parse";
 import { loadAllPlaybooks, savePlaybook } from "./playbookStore";
 import { emitPlaybooksChanged } from "./events";
+import {
+  booksToSaveOnImport,
+  findImportConflicts,
+  type ImportChoices,
+  type ImportConflict,
+} from "./merge";
 import { PLAYBOOK_SCHEMA, type Playbook } from "./types";
 
 export const PLAYBOOK_BUNDLE_SCHEMA = PLAYBOOK_SCHEMA;
@@ -15,7 +21,14 @@ export interface PlaybookBundle {
   playbooks: Playbook[];
 }
 
-export type TransferResult = { ok: true; message: string } | { ok: false; message: string };
+export type TransferResult =
+  | { ok: true; message: string }
+  | {
+      ok: false;
+      message: string;
+      conflicts?: ImportConflict[];
+      bundle?: PlaybookBundle;
+    };
 
 export function serializePlaybookBundle(playbooks: Playbook[], exportedAt = Date.now()): string {
   const bundle: PlaybookBundle = {
@@ -64,6 +77,27 @@ export async function exportPlaybooks(): Promise<TransferResult> {
   }
 }
 
+export async function commitPlaybookImport(
+  bundle: PlaybookBundle,
+  choices: ImportChoices = {},
+): Promise<TransferResult> {
+  try {
+    const existing = await loadAllPlaybooks();
+    const books = booksToSaveOnImport(existing, bundle.playbooks, choices);
+    for (const book of books) {
+      await savePlaybook(book);
+    }
+    emitPlaybooksChanged();
+    const n = books.length;
+    return {
+      ok: true,
+      message: `Imported ${n} playbook${n === 1 ? "" : "s"}.`,
+    };
+  } catch {
+    return { ok: false, message: "Could not import playbooks." };
+  }
+}
+
 export async function importPlaybooksFromText(text: string): Promise<TransferResult> {
   let raw: unknown;
   try {
@@ -76,15 +110,17 @@ export async function importPlaybooksFromText(text: string): Promise<TransferRes
     return { ok: false, message: "Playbook file has no valid books." };
   }
   try {
-    for (const book of bundle.playbooks) {
-      await savePlaybook(book);
+    const existing = await loadAllPlaybooks();
+    const conflicts = findImportConflicts(existing, bundle.playbooks);
+    if (conflicts.length > 0) {
+      return {
+        ok: false,
+        message: "Import has playbooks that already exist. Choose replace or rename.",
+        conflicts,
+        bundle,
+      };
     }
-    const n = bundle.playbooks.length;
-    emitPlaybooksChanged();
-    return {
-      ok: true,
-      message: `Imported ${n} playbook${n === 1 ? "" : "s"}.`,
-    };
+    return commitPlaybookImport(bundle);
   } catch {
     return { ok: false, message: "Could not import playbooks." };
   }

@@ -25,6 +25,7 @@ import {
   importPlaybooksFromText,
   parsePlaybookBundle,
   serializePlaybookBundle,
+  commitPlaybookImport,
 } from "./transfer";
 
 describe("parsePlaybookBundle", () => {
@@ -123,5 +124,21 @@ describe("exportPlaybooks / importPlaybooksFromText", () => {
       message: "Could not import playbooks.",
     });
     vi.mocked(playbookStore.savePlaybook).mockRestore();
+  });
+
+  it("asks what to do when a book with the same name already exists", async () => {
+    const mine = await createPlaybook("de_mirage", "X");
+    const incoming = { ...newPlaybook("de_mirage", "X"), pages: mine.pages };
+    const result = await importPlaybooksFromText(serializePlaybookBundle([incoming]));
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected conflicts");
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.bundle).toBeDefined();
+    const saved = await commitPlaybookImport(result.bundle!, {
+      [incoming.key]: { action: "rename", title: "X (imported)" },
+    });
+    expect(saved).toEqual({ ok: true, message: "Imported 1 playbook." });
+    const titles = (await loadAllPlaybooks()).map((book) => book.title).sort();
+    expect(titles).toEqual(["X", "X (imported)"]);
   });
 });

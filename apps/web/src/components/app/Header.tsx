@@ -11,7 +11,14 @@ import { navigate, ROUTES, usePathname } from "@/lib/app/devNavigate";
 import { isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
 import { PLAYBOOKS_CHANGED_EVENT } from "@/lib/playbook/events";
 import { countPlaybooks, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
-import { exportPlaybooks, importPlaybooksFromText } from "@/lib/playbook/transfer";
+import {
+  exportPlaybooks,
+  importPlaybooksFromText,
+  commitPlaybookImport,
+} from "@/lib/playbook/transfer";
+import type { PlaybookBundle } from "@/lib/playbook/transfer";
+import type { ImportChoices, ImportConflict } from "@/lib/playbook/merge";
+import { ImportMergeDialog } from "@/components/playbook/ImportMergeDialog";
 import { SiteNav } from "./SiteNav";
 
 const REMOVE_NOTES_CONFIRM = "yes, remove notes";
@@ -53,6 +60,10 @@ export function Header() {
   const [playbookCount, setPlaybookCount] = useState(0);
   const [playbookFlash, setPlaybookFlash] = useState<string | null>(null);
   const [playbookFlashError, setPlaybookFlashError] = useState<string | null>(null);
+  const [importMerge, setImportMerge] = useState<{
+    conflicts: ImportConflict[];
+    bundle: PlaybookBundle;
+  } | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const playbookImportRef = useRef<HTMLInputElement>(null);
   const removeTitleId = useId();
@@ -254,6 +265,9 @@ export function Header() {
                           setPlaybookFlashError(null);
                           setPlaybookFlash(result.message);
                           setPlaybookCount(await countPlaybooks());
+                        } else if (result.conflicts && result.bundle) {
+                          setSettingsOpen(false);
+                          setImportMerge({ conflicts: result.conflicts, bundle: result.bundle });
                         } else {
                           setPlaybookFlash(null);
                           setPlaybookFlashError(result.message);
@@ -365,6 +379,26 @@ export function Header() {
             </div>
           </div>
         </div>
+      ) : null}
+      {importMerge ? (
+        <ImportMergeDialog
+          conflicts={importMerge.conflicts}
+          onCancel={() => setImportMerge(null)}
+          onConfirm={(choices: ImportChoices) => {
+            const bundle = importMerge.bundle;
+            setImportMerge(null);
+            void commitPlaybookImport(bundle, choices).then(async (result) => {
+              if (result.ok) {
+                setPlaybookFlashError(null);
+                setPlaybookFlash(result.message);
+                setPlaybookCount(await countPlaybooks());
+              } else {
+                setPlaybookFlash(null);
+                setPlaybookFlashError(result.message);
+              }
+            });
+          }}
+        />
       ) : null}
     </>
   );
