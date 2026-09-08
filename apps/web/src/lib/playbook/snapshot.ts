@@ -4,6 +4,7 @@ import { emptyNote } from "@/lib/notes/note";
 import {
   DEFAULT_LAYERS,
   DEFAULT_SUMMARY_FILTER,
+  type DrawingGroup,
   type FloorMode,
   type MapLayers,
   type Note,
@@ -33,6 +34,7 @@ import type { MapCalibration, Replay, Side } from "@/lib/replay/replayTypes";
 import { currentRound } from "@/lib/replay/sample";
 import { matchScorecard } from "@/lib/stats/scorecard";
 import { formatClock } from "@/lib/weapons/weapons";
+import { tintForName } from "@/lib/notes/palettes";
 import { addPage, renamePage, setPageFloor, setPageNote } from "./pages";
 import { createPlaybook, loadPlaybook, savePlaybook } from "./playbookStore";
 import { makePiece } from "./pieces";
@@ -229,8 +231,14 @@ export function addSnapshotPage(
   pieces: Piece[],
   floor: FloorMode = "auto",
   radarFx?: NoteRadarFx,
+  groups: DrawingGroup[] = [],
 ): Playbook {
-  const note = { ...emptyNote(), pieces, ...(radarFx ? { radarFx } : {}) };
+  const note = {
+    ...emptyNote(),
+    pieces,
+    groups,
+    ...(radarFx ? { radarFx } : {}),
+  };
   const first = book.pages[0];
   if (book.pages.length === 1 && first && isBlankStrat(first)) {
     return setPageNote(
@@ -251,6 +259,7 @@ export async function writeSnapshot(opts: {
   pieces: Piece[];
   floor?: FloorMode;
   radarFx?: NoteRadarFx;
+  groups?: DrawingGroup[];
 }): Promise<{ book: Playbook; pageId: string }> {
   const loaded = opts.bookKey ? await loadPlaybook(opts.bookKey) : null;
   const book =
@@ -261,20 +270,23 @@ export async function writeSnapshot(opts: {
     opts.pieces,
     opts.floor ?? "auto",
     opts.radarFx,
+    opts.groups,
   );
   const saved = await savePlaybook(next);
   return { book: saved, pageId: saved.activePageId };
 }
 
-export function overlayTrailPiece(trail: HabitsTrail, side?: Side): Piece | null {
+export function overlayTrailPiece(trail: HabitsTrail, side?: Side, color?: string): Piece | null {
   const last = trail.points.at(-1);
   const name = trail.playerName.trim();
+  const tint = color ? { color } : {};
   if (trail.deathAt) {
     return makePiece("pawn", trail.deathAt.x, trail.deathAt.y, {
       ...(last != null ? { z: last.z, yaw: last.yaw } : {}),
       ...(name ? { label: name } : {}),
       alive: false,
       ...(side ? { side } : {}),
+      ...tint,
     });
   }
   if (!last) return null;
@@ -284,6 +296,7 @@ export function overlayTrailPiece(trail: HabitsTrail, side?: Side): Piece | null
     ...(name ? { label: name } : {}),
     alive: true,
     ...(side ? { side } : {}),
+    ...tint,
   });
 }
 
@@ -294,31 +307,89 @@ export function overlayToPieces(
   nadesOn = true,
   side?: Side,
 ): Piece[] {
-  const visible = overlayAtPlaySec(overlay, playSec);
-  const pieces: Piece[] = [];
-  for (const trail of visible.trails) {
-    const piece = overlayTrailPiece(trail, side);
-    if (piece) pieces.push(piece);
-  }
-  if (!nadesOn) return pieces;
-  for (const nade of visible.nades) {
-    if (!habitsNadeVisible(nade.kind, nadeFilter)) continue;
-    const render = nadeRenderAt(
-      nade.grenade,
-      habitsNadeViewTick(nade, playSec),
-      nade.tps,
-      1,
-      nade.roundEndTick,
-    );
-    if (!render) continue;
-    const piece = nadeToPiece(render);
-    if (piece) pieces.push(piece);
-  }
-  return pieces;
+  return overlayToSnapshot(overlay, playSec, nadeFilter, nadesOn, side).pieces;
 }
 
-export function overlayToRadarFx(overlay: SeriesOverlay, playSec: number): NoteRadarFx | undefined {
+function uniqueSnapshotName(base: string, used: Set<string>): string {
+  const stem = base.trim() === "" ? "Player" : base.trim();
+  if (!used.has(stem)) {
+    used.add(stem);
+    return stem;
+  }
+  let n = 2;
+  let next = `${stem} (${n})`;
+  while (used.has(next)) {
+    n += 1;
+    next = `${stem} (${n})`;
+  }
+  used.add(next);
+  return next;
+}
+
+function trailMatchKey(demoId: string, roundNumber: number, steamId: number): string | null {
+  if (demoId === "" || steamId === 0) return null;
+  return `${demoId}:${roundNumber}:${steamId}`;
+}
+
+export function overlayToSnapshot(
+  overlay: SeriesOverlay,
+  playSec: number,
+  nadeFilter: HabitsNadeFilter = DEFAULT_HABITS_NADE_FILTER,
+  nadesOn = true,
+  side?: Side,
+): { pieces: Piece[]; groups: DrawingGroup[]; radarFx?: NoteRadarFx } {
   const visible = overlayAtPlaySec(overlay, playSec);
+  const pieces: Piece[] = [];
+  const groups: DrawingGroup[] = [];
+  const tints = new Map<string, string>();
+  const usedNames = new Set<string>();
+  const groupByTrail = new Map<string, string>();
+  const trails: NoteRadarFx["trails"] = [];
+
+  for (const trail of visible.trails) {
+    const color = tintForName(trail.playerName, tints);
+    const piece = overlayTrailPiece(trail, side, color);
+    const fxTrail = {
+      points: trail.points.map((pt) => ({ x: pt.x, y: pt.y })),
+      color,
+    };
+    if (!piece) {
+      trails.push(fxTrail);
+      continue;
+    }
+    const groupName = uniqueSnapshotName(trail.playerName, usedNames);
+    const groupId = crypto.randomUUID();
+    piece.groupId = groupId;
+    pieces.push(piece);
+    groups.push({ id: groupId, name: groupName, drawings: [] });
+    const key = trailMatchKey(trail.demoId, trail.roundNumber, trail.steamId);
+    if (key) groupByTrail.set(key, groupId);
+    trails.push({ ...fxTrail, groupId, label: groupName });
+  }
+
+  if (nadesOn) {
+    for (const nade of visible.nades) {
+      if (!habitsNadeVisible(nade.kind, nadeFilter)) continue;
+      const render = nadeRenderAt(
+        nade.grenade,
+        habitsNadeViewTick(nade, playSec),
+        nade.tps,
+        1,
+        nade.roundEndTick,
+      );
+      if (!render) continue;
+      const piece = nadeToPiece(render);
+      if (!piece) continue;
+      const key =
+        nade.demoId != null && nade.roundNumber != null && nade.steamId != null
+          ? trailMatchKey(nade.demoId, nade.roundNumber, nade.steamId)
+          : null;
+      const groupId = key ? groupByTrail.get(key) : undefined;
+      if (groupId) piece.groupId = groupId;
+      pieces.push(piece);
+    }
+  }
+
   const deaths = visible.trails
     .filter((trail) => trail.deathAt)
     .map((trail) => ({
@@ -330,17 +401,18 @@ export function overlayToRadarFx(overlay: SeriesOverlay, playSec: number): NoteR
     deaths,
     opening: null,
     tracers: [],
-    trails: visible.trails.map((trail) => ({
-      points: trail.points.map((pt) => ({ x: pt.x, y: pt.y })),
-      color: trail.color,
-    })),
+    trails,
     heatmap: [],
     summary: [],
     cone: null,
     hits: [],
     flashes: [],
   };
-  return radarFxIsEmpty(fx) ? undefined : fx;
+  return { pieces, groups, radarFx: radarFxIsEmpty(fx) ? undefined : fx };
+}
+
+export function overlayToRadarFx(overlay: SeriesOverlay, playSec: number): NoteRadarFx | undefined {
+  return overlayToSnapshot(overlay, playSec, DEFAULT_HABITS_NADE_FILTER, false).radarFx;
 }
 
 export function snapshotAggTitle(opts: {
@@ -377,22 +449,25 @@ export function snapshotFromAnalyzer(input: {
 }): {
   mapName: string;
   pieces: Piece[];
+  groups?: DrawingGroup[];
   stratTitle: string;
   floor: FloorMode;
   radarFx?: NoteRadarFx;
 } {
   if (input.overlay) {
     const bucket = input.bucket;
+    const snap = overlayToSnapshot(
+      input.overlay,
+      input.playSec,
+      input.nadeFilter ?? DEFAULT_HABITS_NADE_FILTER,
+      input.nadesOn ?? true,
+      bucket?.side,
+    );
     return {
       mapName: input.series?.mapName ?? input.mapName,
-      pieces: overlayToPieces(
-        input.overlay,
-        input.playSec,
-        input.nadeFilter ?? DEFAULT_HABITS_NADE_FILTER,
-        input.nadesOn ?? true,
-        bucket?.side,
-      ),
-      radarFx: overlayToRadarFx(input.overlay, input.playSec),
+      pieces: snap.pieces,
+      groups: snap.groups,
+      radarFx: snap.radarFx,
       stratTitle: snapshotAggTitle({
         focalTeam: input.series?.focalTeam || "Team",
         demoCount: input.series?.demos.length ?? 1,

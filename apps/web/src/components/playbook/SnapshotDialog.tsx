@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { navigate, ROUTES } from "@/lib/app/devNavigate";
-import type { FloorMode, NoteRadarFx, Piece } from "@/lib/notes/types";
+import type { DrawingGroup, FloorMode, NoteRadarFx, Piece } from "@/lib/notes/types";
 import { rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { listPlaybooksForMap } from "@/lib/playbook/playbookStore";
 import { writeSnapshot } from "@/lib/playbook/snapshot";
@@ -12,6 +12,7 @@ const NEW_BOOK = "new";
 interface Props {
   mapName: string;
   pieces: Piece[];
+  groups?: DrawingGroup[];
   radarFx?: NoteRadarFx;
   stratTitle: string;
   floor: FloorMode;
@@ -21,6 +22,7 @@ interface Props {
 export function SnapshotDialog({
   mapName,
   pieces,
+  groups,
   radarFx,
   stratTitle: initialTitle,
   floor,
@@ -62,6 +64,7 @@ export function SnapshotDialog({
         stratTitle,
         pieces,
         radarFx,
+        groups,
         floor,
       });
       rememberPlaybookFocus({ mapName, bookKey: book.key });

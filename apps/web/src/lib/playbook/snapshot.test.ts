@@ -16,6 +16,7 @@ import {
   SNAPSHOT_UNKNOWN_ROUND,
   addSnapshotPage,
   overlayToPieces,
+  overlayToSnapshot,
   overlayTrailPiece,
   snapshotAggTitle,
   snapshotFromAnalyzer,
@@ -221,6 +222,7 @@ describe("overlayToPieces", () => {
       label: "donk",
       alive: true,
       side: "CT",
+      color: expect.stringMatching(/^#/),
     });
   });
 
@@ -287,6 +289,64 @@ describe("overlayToPieces", () => {
     });
     expect(noSmoke.every((row) => row.kind === "pawn")).toBe(true);
   });
+
+  it("gives each player name a stable tint", () => {
+    const pieces = overlayToPieces(
+      overlayOf({
+        trails: [
+          overlayTrail({ playerName: "donk" }),
+          overlayTrail({ playerName: "donk", steamId: 2 }),
+          overlayTrail({ playerName: "m0NESY", steamId: 3 }),
+        ],
+      }),
+      1,
+    );
+    expect(pieces[0]?.color).toBe(pieces[1]?.color);
+    expect(pieces[0]?.color).not.toBe(pieces[2]?.color);
+  });
+
+  it("groups a pawn, its trail, and thrown nades under a unique name", () => {
+    const nade = {
+      kind: "smoke" as const,
+      color: "#fff",
+      grenade: makeGrenade({
+        kind: "smoke",
+        start_tick: 100,
+        detonate_tick: 200,
+        end_tick: 2000,
+        points: [
+          { tick: 100, x: 50, y: 50, z: 0 },
+          { tick: 200, x: 200, y: 200, z: 0 },
+        ],
+      }),
+      freezeEndTick: 64,
+      roundEndTick: 2000,
+      tps,
+      demoId: "d",
+      roundNumber: 1,
+      steamId: 1,
+    };
+    const snap = overlayToSnapshot(
+      overlayOf({
+        trails: [
+          overlayTrail({ playerName: "donk", steamId: 1 }),
+          overlayTrail({ playerName: "donk", steamId: 2, demoId: "d2" }),
+        ],
+        nades: [nade, { ...nade, steamId: 99, demoId: "other" }],
+      }),
+      2,
+    );
+    expect(snap.groups.map((group) => group.name)).toEqual(["donk", "donk (2)"]);
+    const donk = snap.groups[0]!;
+    expect(
+      snap.pieces.filter((piece) => piece.groupId === donk.id).map((piece) => piece.kind),
+    ).toEqual(["pawn", "smoke"]);
+    expect(snap.radarFx?.trails[0]).toMatchObject({ groupId: donk.id, label: "donk" });
+    const smokes = snap.pieces.filter((piece) => piece.kind === "smoke");
+    expect(smokes).toHaveLength(2);
+    expect(smokes.filter((piece) => piece.groupId === donk.id)).toHaveLength(1);
+    expect(smokes.filter((piece) => piece.groupId == null)).toHaveLength(1);
+  });
 });
 
 describe("snapshotAggTitle / snapshotFromAnalyzer", () => {
@@ -319,6 +379,8 @@ describe("snapshotAggTitle / snapshotFromAnalyzer", () => {
     expect(fromOverlay.floor).toBe("lower");
     expect(fromOverlay.stratTitle).toBe("Spirit series (12 demos) · CT pistol · 0:24");
     expect(fromOverlay.pieces[0]?.kind).toBe("pawn");
+    expect(fromOverlay.groups).toHaveLength(1);
+    expect(fromOverlay.groups?.[0]?.name).toBe("donk");
 
     const live = snapshotFromAnalyzer({
       replay,

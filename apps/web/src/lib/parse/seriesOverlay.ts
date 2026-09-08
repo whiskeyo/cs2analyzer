@@ -56,6 +56,9 @@ export interface HabitsNade {
   freezeEndTick: number;
   roundEndTick: number;
   tps: number;
+  demoId?: string;
+  roundNumber?: number;
+  steamId?: number;
 }
 
 /** Util kinds toggled on the aggregated habits overlay. */
@@ -228,6 +231,7 @@ function habitsNadesInTaggedRound(
   tag: RoundTag,
   windowSeconds: number,
   playerKey: string | null,
+  demoId: string,
 ): HabitsNade[] {
   const tps = tickRate(replay);
   const until = tag.freezeEndTick + Math.round(tps * windowSeconds);
@@ -249,6 +253,9 @@ function habitsNadesInTaggedRound(
       freezeEndTick: tag.freezeEndTick,
       roundEndTick: round.end_tick,
       tps,
+      demoId,
+      roundNumber: tag.roundNumber,
+      steamId: replay.players[g.thrower]?.steam_id ?? 0,
     });
   }
   return out;
@@ -281,7 +288,7 @@ export function buildSeriesOverlay(
       const round = demo.replay.rounds.find((r) => r.number === tag.roundNumber);
       if (!round) continue;
       const until = tag.freezeEndTick + Math.round(tps * windowSec);
-      nades.push(...habitsNadesInTaggedRound(demo.replay, tag, windowSec, playerKey));
+      nades.push(...habitsNadesInTaggedRound(demo.replay, tag, windowSec, playerKey, demo.id));
       for (const player of focalSidePlayersAtFreeze(demo.replay, tag)) {
         const meta = demo.replay.players[player];
         const key = playerIdentityKey(demo.replay, player);

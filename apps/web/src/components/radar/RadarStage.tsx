@@ -167,6 +167,7 @@ export function RadarStage() {
         <SnapshotDialog
           mapName={snapshot.mapName}
           pieces={snapshot.pieces}
+          groups={snapshot.groups}
           radarFx={snapshot.radarFx}
           stratTitle={snapshot.stratTitle}
           floor={snapshot.floor}
