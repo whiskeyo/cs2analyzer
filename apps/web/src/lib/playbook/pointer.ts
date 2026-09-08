@@ -1,6 +1,6 @@
 import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { isPenOrArrow, type NoteItemRef } from "@/lib/notes/noteGroups";
-import type { Drawing, Note, Piece } from "@/lib/notes/types";
+import type { Drawing, NadeStyle, Note, Piece } from "@/lib/notes/types";
 import { screenToWorld, worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { zoomViewAtCursor, wheelZoomFactor } from "@/lib/radar/panZoom.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
@@ -14,7 +14,6 @@ import {
   extendDraft,
   hitTestDrawingRef,
   moveDrawingAt,
-  placeText,
 } from "./drawings";
 import {
   addPiece,
@@ -27,6 +26,14 @@ import {
   setPieceYaw,
   yawTowardScreen,
 } from "./pieces";
+import {
+  bounceNadeTrail,
+  finishNadeTrail,
+  hoverNadeTrail,
+  isNadeTrailTool,
+  startNadeTrail,
+  type NadeTrailDraft,
+} from "./nadeTrail";
 
 export type PlaybookPanView = RadarView & {
   dragging: boolean;
@@ -125,6 +132,9 @@ export function usePlaybookPointer(opts: {
   draftRef: MutableRefObject<Drawing | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   gizmoRef: MutableRefObject<string | null>;
+  nadeTrailOnRef: MutableRefObject<boolean>;
+  nadeStyleRef: MutableRefObject<NadeStyle>;
+  nadeTrailRef: MutableRefObject<NadeTrailDraft | null>;
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
 }): void {
@@ -138,6 +148,9 @@ export function usePlaybookPointer(opts: {
     draftRef,
     canvasRef,
     gizmoRef,
+    nadeTrailOnRef,
+    nadeStyleRef,
+    nadeTrailRef,
     onNote,
     onSelect,
   } = opts;
@@ -166,10 +179,20 @@ export function usePlaybookPointer(opts: {
       applyPlaybookWheel(view.current, wrap.clientWidth, wrap.clientHeight, x, y, e.deltaY);
     };
 
+    const onContextMenu = (e: MouseEvent) => {
+      if (nadeTrailOnRef.current) e.preventDefault();
+    };
+
     const onDown = (e: MouseEvent) => {
-      if (e.button !== 0) return;
       const { x, y } = pos(e);
       const cal = calRef.current;
+      if (e.button === 2) {
+        if (!nadeTrailOnRef.current || !nadeTrailRef.current || !cal) return;
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        nadeTrailRef.current = bounceNadeTrail(nadeTrailRef.current, world);
+        return;
+      }
+      if (e.button !== 0) return;
       const gizmoId = gizmoRef.current;
       const gizmoPiece = gizmoId
         ? noteRef.current.pieces.find((row) => row.id === gizmoId)
@@ -184,19 +207,12 @@ export function usePlaybookPointer(opts: {
         }
       }
       const hit = hitTestPiece(noteRef.current.pieces, { x, y }, toScreen);
-      const action = resolvePlaybookDown(toolRef.current, hit, e.shiftKey);
+      const action = resolvePlaybookDown(toolRef.current, hit, e.shiftKey, nadeTrailOnRef.current);
       if (action === "erase") {
         if (!cal || !onNoteRef.current) return;
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         const ctx = canvasRef.current?.getContext("2d") ?? null;
         onNoteRef.current(eraseAt(noteRef.current, world, { x, y }, toScreen, ctx));
-        gizmoRef.current = null;
-        return;
-      }
-      if (action === "text") {
-        if (!cal || !onNoteRef.current) return;
-        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
-        onNoteRef.current(addDrawing(noteRef.current, placeText(colorRef.current, world)));
         gizmoRef.current = null;
         return;
       }
@@ -210,10 +226,27 @@ export function usePlaybookPointer(opts: {
         gizmoRef.current = null;
         return;
       }
+      if (action === "nade-trail") {
+        if (!cal) return;
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        if (nadeTrailRef.current) {
+          if (!onNoteRef.current) return;
+          const piece = finishNadeTrail(nadeTrailRef.current, world, nadeStyleRef.current);
+          nadeTrailRef.current = null;
+          onNoteRef.current(addPiece(noteRef.current, piece));
+          onSelectRef.current?.(piece.id);
+        } else if (isNadeTrailTool(toolRef.current)) {
+          nadeTrailRef.current = startNadeTrail(toolRef.current, world);
+        }
+        gizmoRef.current = null;
+        return;
+      }
       if (action === "place") {
         if (!cal || !onNoteRef.current) return;
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
-        const piece = pieceFromTool(toolRef.current, world.x, world.y);
+        const piece = pieceFromTool(toolRef.current, world.x, world.y, {
+          nadeStyle: nadeStyleRef.current,
+        });
         if (!piece) return;
         onNoteRef.current(addPiece(noteRef.current, piece));
         onSelectRef.current?.(piece.id);
@@ -257,6 +290,11 @@ export function usePlaybookPointer(opts: {
       const { x, y } = pos(e);
       const drag = pieceDrag;
       const cal = calRef.current;
+      if (nadeTrailRef.current && cal) {
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        nadeTrailRef.current = hoverNadeTrail(nadeTrailRef.current, world);
+        return;
+      }
       if (draftRef.current && cal) {
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         draftRef.current = extendDraft(draftRef.current, world);
@@ -298,17 +336,39 @@ export function usePlaybookPointer(opts: {
       endPlaybookPan(view.current);
     };
 
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      nadeTrailRef.current = null;
+    };
+
     wrap.addEventListener("wheel", onWheel, { passive: false });
     wrap.addEventListener("mousedown", onDown);
+    wrap.addEventListener("contextmenu", onContextMenu);
     wrap.addEventListener("dblclick", onDblClick);
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
+    window.addEventListener("keydown", onKey);
     return () => {
       wrap.removeEventListener("wheel", onWheel);
       wrap.removeEventListener("mousedown", onDown);
+      wrap.removeEventListener("contextmenu", onContextMenu);
       wrap.removeEventListener("dblclick", onDblClick);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("keydown", onKey);
     };
-  }, [view, wrapRef, calRef, toolRef, noteRef, colorRef, draftRef, canvasRef, gizmoRef]);
+  }, [
+    view,
+    wrapRef,
+    calRef,
+    toolRef,
+    noteRef,
+    colorRef,
+    draftRef,
+    canvasRef,
+    gizmoRef,
+    nadeTrailOnRef,
+    nadeStyleRef,
+    nadeTrailRef,
+  ]);
 }

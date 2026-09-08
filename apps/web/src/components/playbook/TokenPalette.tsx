@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
 import { NADE_WEAPON } from "@/lib/match/roundEvents";
+import type { NadeStyle } from "@/lib/notes/types";
 import {
   DRAW_TOOLS,
   GRENADE_PIECE_KINDS,
@@ -15,13 +16,16 @@ import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
 interface Props {
   tool: PlaybookTool;
   onTool: (tool: PlaybookTool) => void;
+  nadeTrail: boolean;
+  onNadeTrail: (on: boolean) => void;
+  nadeStyle: NadeStyle;
+  onNadeStyle: (style: NadeStyle) => void;
 }
 
 const TOOL_PATHS: Record<"pan" | PlaybookDrawTool, string> = {
   pan: "M8 1.5v13M1.5 8h13M8 1.5 6 3.5M8 1.5 10 3.5M8 14.5 6 12.5M8 14.5 10 12.5M1.5 8 3.5 6M1.5 8 3.5 10M14.5 8 12.5 6M14.5 8 12.5 10",
   pen: "M11 2.5 13.5 5 6 12.5H3.5V10Z M8.5 5 11 7.5",
   arrow: "M3 13 13 3M8 3h5v5",
-  text: "M3.5 3.5h9M8 3.5V13M5 13h6",
   eraser: "M4.5 11.5 10 6l2.5 2.5-5.5 5.5H4.5v-2.5Z M6.5 13.5h6",
 };
 
@@ -42,7 +46,7 @@ function ToolGlyph({ d }: { d: string }) {
 
 function PawnGlyph({ color }: { color: string }) {
   return (
-    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <svg className="playbook-pawn-icon" viewBox="0 0 16 16" aria-hidden="true">
       <path
         d="M13.5 8 3.5 12.5 6 8 3.5 3.5Z"
         fill={color}
@@ -100,7 +104,14 @@ function ToolBtn({
   );
 }
 
-export function TokenPalette({ tool, onTool }: Props) {
+export function TokenPalette({
+  tool,
+  onTool,
+  nadeTrail,
+  onNadeTrail,
+  nadeStyle,
+  onNadeStyle,
+}: Props) {
   return (
     <div className="playbook-toolbar map-toolbar" role="toolbar" aria-label="Playbook tools">
       <ToolBtn label="Pan" on={tool === "pan"} onClick={() => onTool("pan")}>
@@ -127,6 +138,20 @@ export function TokenPalette({ tool, onTool }: Props) {
           {tokenGlyph(row)}
         </ToolBtn>
       ))}
+      <span className="toolbar-sep" />
+      <ToolBtn label="Nade trail" on={nadeTrail} onClick={() => onNadeTrail(!nadeTrail)}>
+        <ToolGlyph d="M2 13c3-1 4-7 6-7s2 4 6 1M8 6.5a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4" />
+      </ToolBtn>
+      <ToolBtn label="Nade icon" on={nadeStyle === "icon"} onClick={() => onNadeStyle("icon")}>
+        <ToolGlyph d="M4 3.5h8v9H4Z M8 3.5v9" />
+      </ToolBtn>
+      <ToolBtn
+        label="Nade effect"
+        on={nadeStyle === "effect"}
+        onClick={() => onNadeStyle("effect")}
+      >
+        <ToolGlyph d="M8 3.5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" />
+      </ToolBtn>
     </div>
   );
 }

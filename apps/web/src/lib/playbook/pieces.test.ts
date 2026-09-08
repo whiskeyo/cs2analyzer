@@ -78,12 +78,34 @@ describe("makePiece / pieceFromTool", () => {
   it("builds a token from each palette tool and ignores pan", () => {
     expect(pieceFromTool("pan", 1, 1)).toBeNull();
     expect(pieceFromTool("pen", 1, 1)).toBeNull();
-    expect(pieceFromTool("pawn-ct", 1, 2)).toMatchObject({ kind: "pawn", side: "CT", x: 1, y: 2 });
-    expect(pieceFromTool("pawn-t", 3, 4)).toMatchObject({ kind: "pawn", side: "T" });
-    expect(pieceFromTool("bomb", 5, 6)).toMatchObject({ kind: "bomb", x: 5, y: 6 });
+    expect(pieceFromTool("pawn-ct", 1, 2)).toMatchObject({
+      kind: "pawn",
+      side: "CT",
+      x: 1,
+      y: 2,
+    });
+    expect(pieceFromTool("pawn-t", 3, 4)).toMatchObject({
+      kind: "pawn",
+      side: "T",
+    });
+    expect(pieceFromTool("bomb", 5, 6)).toMatchObject({
+      kind: "bomb",
+      x: 5,
+      y: 6,
+    });
     for (const kind of GRENADE_PIECE_KINDS) {
       expect(pieceFromTool(kind, 0, 0)?.kind).toBe(kind);
     }
+    expect(
+      pieceFromTool("smoke", 0, 0, {
+        nadeStyle: "effect",
+        trail: [{ x: 1, y: 1 }],
+      }),
+    ).toMatchObject({
+      kind: "smoke",
+      nadeStyle: "effect",
+      trail: [{ x: 1, y: 1 }],
+    });
   });
 });
 
@@ -136,6 +158,7 @@ describe("piece labels and colors", () => {
     ]);
     expect(playbookToolCursor("pan")).toBe("grab");
     expect(playbookToolCursor("smoke")).toBe("copy");
+    expect(playbookToolCursor("smoke", true)).toBe("crosshair");
     expect(playbookToolCursor("pen")).toBe("crosshair");
     expect(playbookToolCursor("eraser")).toBe("cell");
     expect(PALETTE_TOKENS.map((row) => paletteAriaLabel(row))).toEqual([
@@ -201,9 +224,9 @@ describe("yawTowardScreen / resolvePlaybookDown", () => {
     const pawn = pawnAt("p", 0, 0);
     const smoke = makePiece("smoke", 0, 0, { id: "s" });
     expect(resolvePlaybookDown("smoke", null, false)).toBe("place");
+    expect(resolvePlaybookDown("smoke", null, false, true)).toBe("nade-trail");
     expect(resolvePlaybookDown("pen", null, false)).toBe("draw");
     expect(resolvePlaybookDown("arrow", null, false)).toBe("draw");
-    expect(resolvePlaybookDown("text", null, false)).toBe("text");
     expect(resolvePlaybookDown("eraser", pawn, false)).toBe("erase");
     expect(resolvePlaybookDown("pan", pawn, true)).toBe("rotate");
     expect(resolvePlaybookDown("pan", pawn, false)).toBe("move");

@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
-import { type Drawing, type FloorMode, type Note } from "@/lib/notes/types";
+import { type Drawing, type FloorMode, type NadeStyle, type Note } from "@/lib/notes/types";
 import { defaultPlaybookColor } from "@/lib/playbook/pages";
 import { paintPlaybookBoard, playbookUsesLower } from "@/lib/playbook/paint";
 import { playbookToolCursor, type PlaybookTool } from "@/lib/playbook/pieces";
+import type { NadeTrailDraft } from "@/lib/playbook/nadeTrail";
 import { createPlaybookView, usePlaybookPointer } from "@/lib/playbook/pointer";
 import { useRadarImages } from "@/lib/radar/useRadarImages";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
@@ -14,6 +15,8 @@ interface Props {
   tool?: PlaybookTool;
   color?: string;
   selectedId?: string | null;
+  nadeTrail?: boolean;
+  nadeStyle?: NadeStyle;
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
 }
@@ -25,6 +28,8 @@ export function PlaybookCanvas({
   tool = "pan",
   color = defaultPlaybookColor(),
   selectedId = null,
+  nadeTrail = false,
+  nadeStyle = "icon",
   onNote,
   onSelect,
 }: Props) {
@@ -45,7 +50,16 @@ export function PlaybookCanvas({
   colorRef.current = color;
   const draftRef = useRef<Drawing | null>(null);
   const gizmoRef = useRef<string | null>(null);
+  const nadeTrailOnRef = useRef(nadeTrail);
+  nadeTrailOnRef.current = nadeTrail;
+  const nadeStyleRef = useRef(nadeStyle);
+  nadeStyleRef.current = nadeStyle;
+  const nadeTrailRef = useRef<NadeTrailDraft | null>(null);
   const { images, c4Icon, nadeIcons } = useRadarImages(cal);
+
+  useEffect(() => {
+    if (!nadeTrail) nadeTrailRef.current = null;
+  }, [nadeTrail]);
 
   usePlaybookPointer({
     wrapRef,
@@ -57,6 +71,9 @@ export function PlaybookCanvas({
     draftRef,
     canvasRef,
     gizmoRef,
+    nadeTrailOnRef,
+    nadeStyleRef,
+    nadeTrailRef,
     onNote,
     onSelect,
   });
@@ -95,6 +112,7 @@ export function PlaybookCanvas({
         { c4: c4Icon.current, nades: nadeIcons.current },
         selectedIdRef.current,
         gizmoRef.current,
+        nadeTrailRef.current,
       );
       raf = requestAnimationFrame(draw);
     };
@@ -104,7 +122,11 @@ export function PlaybookCanvas({
   }, [cal]);
 
   return (
-    <div className="radar-wrap" ref={wrapRef} style={{ cursor: playbookToolCursor(tool) }}>
+    <div
+      className="radar-wrap"
+      ref={wrapRef}
+      style={{ cursor: playbookToolCursor(tool, nadeTrail) }}
+    >
       <canvas ref={canvasRef} />
     </div>
   );

@@ -65,7 +65,8 @@ const SUMMARY_RADIUS: Record<GrenadeKind, number> = {
   flash: 8,
   decoy: 8,
 };
-const LINGER_RADIUS: Record<GrenadeKind, number> = {
+/** Landed nade cloud / burst size on the radar (screen px at zoom 1). */
+export const NADE_LINGER_RADIUS: Record<GrenadeKind, number> = {
   smoke: 32,
   molotov: 24,
   incendiary: 24,
@@ -178,6 +179,7 @@ export type NadeRender =
       dialRadius: number;
       /** 1 at the pop, 0 at burn-out. */
       left: number;
+      trail: Point[];
     }
   | {
       phase: "linger";
@@ -187,6 +189,7 @@ export type NadeRender =
       radius: number;
       dialRadius: number;
       left: number;
+      trail: Point[];
     }
   | {
       phase: "burst";
@@ -195,6 +198,7 @@ export type NadeRender =
       at: Point;
       /** 0..1 through the HE burst animation. */
       progress: number;
+      trail: Point[];
     }
   | {
       phase: "puff";
@@ -203,6 +207,7 @@ export type NadeRender =
       at: Point;
       radius: number;
       alpha: number;
+      trail: Point[];
     };
 
 export interface RadarFrame {
@@ -247,6 +252,10 @@ const eventTick = (e: { tick: number }) => e.tick;
 const killTick = (k: Kill) => k.tick;
 /** Throws are indexed by when they left the hand, which is what picks the round. */
 const throwTick = (g: GrenadeThrow) => g.start_tick;
+
+function throwTrail(g: GrenadeThrow): Point[] {
+  return g.points.map((p) => ({ x: p.x, y: p.y }));
+}
 
 function heatDots(replay: Replay, tick: number, focus: number | null): HeatDot[] {
   const out: HeatDot[] = [];
@@ -344,6 +353,7 @@ export function nadeRenderAt(
       centroid,
       dialRadius: Math.max(5, 6 * zoom),
       left: lingerRemaining(popAt, visibleEnd, tick),
+      trail: throwTrail(g),
     };
   }
   if (lingering && isFireGrenade(g.kind) && (g.fires?.length ?? 0) > 0) return null;
@@ -351,7 +361,8 @@ export function nadeRenderAt(
   const last = g.points[g.points.length - 1];
   if (!last) return null;
   const at = { x: last.x, y: last.y };
-  const radius = LINGER_RADIUS[g.kind] * zoom;
+  const radius = NADE_LINGER_RADIUS[g.kind] * zoom;
+  const trail = throwTrail(g);
   if (lingering && (g.kind === "smoke" || isFireGrenade(g.kind))) {
     return {
       phase: "linger",
@@ -361,6 +372,7 @@ export function nadeRenderAt(
       radius,
       dialRadius: Math.max(7, 8 * zoom),
       left: lingerRemaining(popAt, visibleEnd, tick),
+      trail,
     };
   }
   if (burst && g.kind === "he") {
@@ -370,9 +382,10 @@ export function nadeRenderAt(
       color,
       at,
       progress: (tick - popAt) / (nadeBurstSpan("he", tps) || 1),
+      trail,
     };
   }
-  return { phase: "puff", kind: g.kind, color, at, radius, alpha: burst ? 0.45 : 0.28 };
+  return { phase: "puff", kind: g.kind, color, at, radius, alpha: burst ? 0.45 : 0.28, trail };
 }
 
 export function nadeRenders(

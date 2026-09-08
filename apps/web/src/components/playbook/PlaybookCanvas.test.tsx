@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- pointer cases share one rAF / canvas mock setup */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render } from "@testing-library/react";
 import { emptyNote } from "@/lib/notes/note";
@@ -23,10 +24,23 @@ const identityView = { scale: 1, ox: 0, oy: 0 };
 
 function sizedWrap(container: HTMLElement) {
   const wrap = container.querySelector(".radar-wrap") as HTMLElement;
-  Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-  Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+  Object.defineProperty(wrap, "clientWidth", {
+    value: 400,
+    configurable: true,
+  });
+  Object.defineProperty(wrap, "clientHeight", {
+    value: 400,
+    configurable: true,
+  });
   wrap.getBoundingClientRect = () =>
-    ({ left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400 }) as DOMRect;
+    ({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 400,
+      right: 400,
+      bottom: 400,
+    }) as DOMRect;
   return wrap;
 }
 
@@ -61,24 +75,41 @@ describe("PlaybookCanvas", () => {
 
   it("paints the board when the rAF callback runs", () => {
     const note = emptyNote();
-    note.drawings.push({ type: "arrow", color: "#fff", from: { x: 0, y: 0 }, to: { x: 1, y: 1 } });
+    note.drawings.push({
+      type: "arrow",
+      color: "#fff",
+      from: { x: 0, y: 0 },
+      to: { x: 1, y: 1 },
+    });
     const { container } = render(
       <PlaybookCanvas cal={UNIT_CALIBRATION} floorMode="auto" note={note} />,
     );
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
     act(() => {
       rafCb?.(0);
     });
     expect(paintPlaybookBoard).toHaveBeenCalled();
     expect(playbookUsesLower(UNIT_CALIBRATION, "auto")).toBe(false);
-    Object.defineProperty(window, "devicePixelRatio", { value: 0, configurable: true });
+    Object.defineProperty(window, "devicePixelRatio", {
+      value: 0,
+      configurable: true,
+    });
     act(() => {
       rafCb?.(0);
     });
     expect(paintPlaybookBoard).toHaveBeenCalledTimes(2);
-    Object.defineProperty(window, "devicePixelRatio", { value: 2, configurable: true });
+    Object.defineProperty(window, "devicePixelRatio", {
+      value: 2,
+      configurable: true,
+    });
     act(() => {
       rafCb?.(0);
     });
@@ -90,10 +121,23 @@ describe("PlaybookCanvas", () => {
       <PlaybookCanvas cal={lowerCal} floorMode="lower" note={emptyNote()} />,
     );
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
     wrap.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400 }) as DOMRect;
+      ({
+        left: 0,
+        top: 0,
+        width: 400,
+        height: 400,
+        right: 400,
+        bottom: 400,
+      }) as DOMRect;
     act(() => {
       rafCb?.(0);
     });
@@ -176,7 +220,12 @@ describe("PlaybookCanvas", () => {
       />,
     );
     onNote.mockClear();
-    fireEvent.mouseDown(wrap, { clientX: at.x, clientY: at.y, button: 0, shiftKey: true });
+    fireEvent.mouseDown(wrap, {
+      clientX: at.x,
+      clientY: at.y,
+      button: 0,
+      shiftKey: true,
+    });
     fireEvent.mouseMove(window, { clientX: at.x + 40, clientY: at.y });
     expect(onNote.mock.calls.at(-1)?.[0].pieces[0].yaw).not.toBe(0);
     fireEvent.mouseUp(window);
@@ -265,7 +314,7 @@ describe("PlaybookCanvas", () => {
     expect(onNote).not.toHaveBeenCalled();
   });
 
-  it("draws a pen, places text, and erases a token", () => {
+  it("draws a pen, places a nade, trails a nade, and erases a token", () => {
     const onNote = vi.fn();
     const { container, rerender } = render(
       <PlaybookCanvas
@@ -288,16 +337,40 @@ describe("PlaybookCanvas", () => {
         cal={UNIT_CALIBRATION}
         floorMode="auto"
         note={emptyNote()}
-        tool="text"
+        tool="smoke"
+        nadeStyle="effect"
         onNote={onNote}
       />,
     );
     onNote.mockClear();
     fireEvent.mouseDown(wrap, { clientX: 120, clientY: 120, button: 0 });
-    expect(onNote.mock.calls[0]?.[0].drawings[0]).toMatchObject({
-      type: "text",
-      text: "Text",
+    expect(onNote.mock.calls[0]?.[0].pieces[0]).toMatchObject({
+      kind: "smoke",
+      nadeStyle: "effect",
     });
+
+    rerender(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        tool="flash"
+        nadeTrail
+        onNote={onNote}
+      />,
+    );
+    onNote.mockClear();
+    fireEvent.mouseDown(wrap, { clientX: 50, clientY: 50, button: 0 });
+    expect(onNote).not.toHaveBeenCalled();
+    fireEvent.mouseDown(wrap, { clientX: 80, clientY: 60, button: 2 });
+    fireEvent.contextMenu(wrap);
+    fireEvent.mouseMove(window, { clientX: 90, clientY: 70 });
+    fireEvent.mouseDown(wrap, { clientX: 110, clientY: 90, button: 0 });
+    expect(onNote.mock.calls[0]?.[0].pieces[0]).toMatchObject({
+      kind: "flash",
+      nadeStyle: "icon",
+    });
+    expect(onNote.mock.calls[0]?.[0].pieces[0]?.trail).toHaveLength(2);
 
     const note = emptyNote();
     note.pieces.push(makePiece("bomb", 0, 0, { id: "c4" }));

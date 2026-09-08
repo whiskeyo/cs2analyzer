@@ -1,16 +1,26 @@
 import { visibleDrawings } from "@/lib/notes/note";
-import type { Drawing, FloorMode, Note, Piece } from "@/lib/notes/types";
-import { drawC4, drawNadeFlightHead, yawToCanvas, type NadeIcons } from "@/lib/radar/draw";
+import type { Drawing, FloorMode, Note, NoteRadarFx, Piece } from "@/lib/notes/types";
+import {
+  drawC4,
+  drawHeBurst,
+  drawNadeFlightHead,
+  yawToCanvas,
+  type NadeIcons,
+} from "@/lib/radar/draw";
 import { radarFloor, worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { NADE_COLORS } from "@/lib/radar/radarFx";
+import { NADE_LINGER_RADIUS, type RadarFrame } from "@/lib/radar/radarFrame";
+import { paintPawns, paintRadarFrame, paintViewCone } from "@/lib/radar/paintRadarFrame";
 import {
   paintDrawing,
   paintDrawings,
   paintMapImage,
   type WorldToScreen,
 } from "@/lib/radar/staticMapPaint";
-import type { MapCalibration } from "@/lib/replay/replayTypes";
+import type { GrenadeKind, MapCalibration } from "@/lib/replay/replayTypes";
+import type { NadeTrailDraft } from "./nadeTrail";
 import {
+  isGrenadePieceKind,
   pawnColor,
   pieceLabel,
   PLAYBOOK_DEAD_PAWN_ALPHA,
@@ -18,6 +28,75 @@ import {
   PLAYBOOK_ROTATE_RADIUS_PX,
   rotateHandleOffset,
 } from "./pieces";
+
+/** Match Analyzer nade flight trails. */
+export const PLAYBOOK_NADE_TRAIL_OPACITY = 0.4;
+
+/** Bounce dots only for short hand-placed trails, not dense demo samples. */
+export const PLAYBOOK_NADE_BOUNCE_DOT_MAX = 6;
+
+function circle(ctx: CanvasRenderingContext2D, at: { x: number; y: number }, radius: number): void {
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, radius, 0, Math.PI * 2);
+}
+
+export function paintNadeTrailLine(
+  ctx: CanvasRenderingContext2D,
+  points: readonly { x: number; y: number }[],
+  land: { x: number; y: number },
+  kind: GrenadeKind,
+  toScreen: WorldToScreen,
+): void {
+  if (points.length === 0) return;
+  const color = NADE_COLORS[kind];
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = kind === "he" ? 2.2 : 1.8;
+  ctx.setLineDash([]);
+  ctx.globalAlpha = PLAYBOOK_NADE_TRAIL_OPACITY;
+  ctx.beginPath();
+  const path = [...points, land];
+  path.forEach((pt, i) => {
+    const s = toScreen(pt.x, pt.y);
+    if (i === 0) ctx.moveTo(s.x, s.y);
+    else ctx.lineTo(s.x, s.y);
+  });
+  ctx.stroke();
+  if (points.length > 1 && points.length <= PLAYBOOK_NADE_BOUNCE_DOT_MAX) {
+    ctx.globalAlpha = 0.85;
+    for (const pt of points.slice(1)) {
+      const s = toScreen(pt.x, pt.y);
+      circle(ctx, s, 3);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+export function paintNadeEffect(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  kind: GrenadeKind,
+): void {
+  const color = NADE_COLORS[kind];
+  if (kind === "he" || kind === "flash") {
+    drawHeBurst(ctx, at, color, kind === "flash" ? 0.4 : 0.2, 1);
+    return;
+  }
+  const radius = NADE_LINGER_RADIUS[kind];
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.22;
+  circle(ctx, at, radius);
+  ctx.fill();
+  ctx.globalAlpha = 0.4;
+  ctx.lineWidth = 1.4;
+  circle(ctx, at, radius);
+  ctx.stroke();
+  ctx.restore();
+}
 
 export interface PlaybookPaintIcons {
   c4: HTMLImageElement | null;
@@ -124,7 +203,16 @@ export function paintPlaybookPiece(
     drawC4(ctx, at, icons?.c4 ?? null);
     return;
   }
-  drawNadeFlightHead(ctx, at, piece.kind, NADE_COLORS[piece.kind], icons?.nades?.[piece.kind]);
+  if (!isGrenadePieceKind(piece.kind)) return;
+  const kind = piece.kind;
+  if (piece.trail && piece.trail.length > 0) {
+    paintNadeTrailLine(ctx, piece.trail, { x: piece.x, y: piece.y }, kind, toScreen);
+  }
+  if (piece.nadeStyle === "effect") {
+    paintNadeEffect(ctx, at, kind);
+    return;
+  }
+  drawNadeFlightHead(ctx, at, kind, NADE_COLORS[kind], icons?.nades?.[kind]);
 }
 
 export function paintPlaybookPieces(
@@ -143,6 +231,27 @@ export function playbookUsesLower(cal: MapCalibration | undefined, floorMode: Fl
   return radarFloor(cal, [], null, floorMode) === "lower";
 }
 
+function radarFxFrame(fx: NoteRadarFx): RadarFrame {
+  return {
+    tick: 0,
+    round: null,
+    players: [],
+    useLowerFloor: false,
+    heatmap: fx.heatmap,
+    summary: fx.summary,
+    nades: [],
+    tracers: fx.tracers,
+    bomb: { state: "none" },
+    deaths: fx.deaths,
+    opening: fx.opening,
+    trails: fx.trails,
+    cone: fx.cone,
+    hits: fx.hits,
+    flashes: fx.flashes,
+    pawns: [],
+  };
+}
+
 export function paintPlaybookBoard(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -155,6 +264,7 @@ export function paintPlaybookBoard(
   icons?: PlaybookPaintIcons,
   selectedId?: string | null,
   rotateId?: string | null,
+  nadeTrail?: NadeTrailDraft | null,
 ): void {
   paintMapImage(ctx, w, h, view, img, cal);
   const toScreen = (wx: number, wy: number) => worldToScreen(cal, w, h, view, wx, wy);
@@ -162,7 +272,26 @@ export function paintPlaybookBoard(
   if (draft) {
     paintDrawing(ctx, draft, toScreen, { alpha: 0.85, live: true });
   }
+  if (note.radarFx) {
+    const fxFrame = radarFxFrame(note.radarFx);
+    paintRadarFrame(ctx, fxFrame, toScreen, {
+      scale: view.scale,
+      c4Icon: icons?.c4 ?? null,
+      nadeIcons: icons?.nades,
+    });
+  }
+  if (nadeTrail) {
+    const land = nadeTrail.hover ?? nadeTrail.points[nadeTrail.points.length - 1];
+    if (land) {
+      paintNadeTrailLine(ctx, nadeTrail.points, land, nadeTrail.kind, toScreen);
+    }
+  }
   paintPlaybookPieces(ctx, note.pieces, toScreen, icons, selectedId);
+  if (note.radarFx) {
+    const fxFrame = radarFxFrame(note.radarFx);
+    paintViewCone(ctx, fxFrame, toScreen);
+    paintPawns(ctx, fxFrame, toScreen, false, icons?.c4 ?? null);
+  }
   const aimed = rotateId
     ? note.pieces.find((piece) => piece.id === rotateId && piece.kind === "pawn")
     : undefined;

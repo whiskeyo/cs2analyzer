@@ -28,18 +28,17 @@ export const GRENADE_PIECE_KINDS = [
   "decoy",
 ] as const satisfies readonly GrenadeKind[];
 
-export type PlaybookDrawTool = "pen" | "arrow" | "text" | "eraser";
+export type PlaybookDrawTool = "pen" | "arrow" | "eraser";
 export type PlaybookTool = "pan" | PlaybookDrawTool | "pawn-ct" | "pawn-t" | GrenadeKind | "bomb";
 
 export const DRAW_TOOLS: readonly { tool: PlaybookDrawTool; label: string }[] = [
   { tool: "pen", label: "Pen" },
   { tool: "arrow", label: "Arrow" },
-  { tool: "text", label: "Text" },
   { tool: "eraser", label: "Eraser" },
 ];
 
 export function isDrawTool(tool: PlaybookTool): tool is PlaybookDrawTool {
-  return tool === "pen" || tool === "arrow" || tool === "text" || tool === "eraser";
+  return tool === "pen" || tool === "arrow" || tool === "eraser";
 }
 
 export function isTokenTool(
@@ -117,12 +116,17 @@ export function makePiece(
   return piece;
 }
 
-export function pieceFromTool(tool: PlaybookTool, x: number, y: number): Piece | null {
+export function pieceFromTool(
+  tool: PlaybookTool,
+  x: number,
+  y: number,
+  extra: Omit<Partial<Piece>, "kind" | "x" | "y"> = {},
+): Piece | null {
   if (!isTokenTool(tool)) return null;
-  if (tool === "pawn-ct") return makePiece("pawn", x, y, { side: "CT" });
-  if (tool === "pawn-t") return makePiece("pawn", x, y, { side: "T" });
-  if (tool === "bomb") return makePiece("bomb", x, y);
-  return makePiece(tool, x, y);
+  if (tool === "pawn-ct") return makePiece("pawn", x, y, { ...extra, side: "CT" });
+  if (tool === "pawn-t") return makePiece("pawn", x, y, { ...extra, side: "T" });
+  if (tool === "bomb") return makePiece("bomb", x, y, extra);
+  return makePiece(tool, x, y, extra);
 }
 
 export function addPiece(note: Note, piece: Piece): Note {
@@ -214,26 +218,29 @@ export function yawTowardScreen(
   return canvasToYaw(Math.atan2(to.y - from.y, to.x - from.x));
 }
 
-export type PlaybookDownAction = "place" | "pan" | "move" | "rotate" | "draw" | "text" | "erase";
+export type PlaybookDownAction =
+  "place" | "pan" | "move" | "rotate" | "draw" | "erase" | "nade-trail";
 
 export function resolvePlaybookDown(
   tool: PlaybookTool,
   hit: Piece | null,
   shiftKey: boolean,
+  nadeTrail = false,
 ): PlaybookDownAction {
   if (tool === "eraser") return "erase";
-  if (tool === "text") return "text";
   if (tool === "pen" || tool === "arrow") return "draw";
+  if (nadeTrail && isGrenadePieceKind(tool as PieceKind)) return "nade-trail";
   if (isTokenTool(tool)) return "place";
   if (hit && shiftKey && hit.kind === "pawn") return "rotate";
   if (hit) return "move";
   return "pan";
 }
 
-export function playbookToolCursor(tool: PlaybookTool): string {
+export function playbookToolCursor(tool: PlaybookTool, nadeTrail = false): string {
   if (tool === "pan") return "grab";
   if (tool === "eraser") return "cell";
-  if (tool === "pen" || tool === "arrow" || tool === "text") return "crosshair";
+  if (tool === "pen" || tool === "arrow") return "crosshair";
+  if (nadeTrail && isGrenadePieceKind(tool as PieceKind)) return "crosshair";
   return "copy";
 }
 

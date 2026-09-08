@@ -3,6 +3,8 @@ import { emptyNote } from "@/lib/notes/note";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { createMockCanvas } from "@/lib/testing/mockCanvas";
 import {
+  paintNadeEffect,
+  paintNadeTrailLine,
   paintPlaybookBoard,
   paintPlaybookPiece,
   paintPlaybookPieces,
@@ -33,7 +35,12 @@ describe("paintPlaybookBoard", () => {
       from: { x: 0, y: 0 },
       to: { x: 10, y: 10 },
     });
-    note.drawings.push({ type: "pen", color: "#f00", points: [{ x: 1, y: 1 }], hidden: true });
+    note.drawings.push({
+      type: "pen",
+      color: "#f00",
+      points: [{ x: 1, y: 1 }],
+      hidden: true,
+    });
     const img = { complete: true, naturalWidth: 1024 } as HTMLImageElement;
     paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, img, UNIT_CALIBRATION, note, {
       type: "pen",
@@ -52,14 +59,23 @@ describe("paintPlaybookBoard", () => {
     const note = emptyNote();
     note.pieces.push(
       makePiece("pawn", 0, 0, { id: "ct", side: "CT", label: "entry" }),
-      makePiece("pawn", 4, 0, { id: "t", side: "T", alive: false, carriesC4: true }),
+      makePiece("pawn", 4, 0, {
+        id: "t",
+        side: "T",
+        alive: false,
+        carriesC4: true,
+      }),
       makePiece("pawn", 8, 0, { id: "sel", side: "CT" }),
       makePiece("smoke", 10, 10, { id: "sm" }),
       makePiece("he", 12, 12, { id: "he" }),
       makePiece("bomb", 20, 20, { id: "c4" }),
     );
     const c4 = { complete: true, naturalWidth: 16 } as HTMLImageElement;
-    const nade = { complete: true, naturalWidth: 20, naturalHeight: 20 } as HTMLImageElement;
+    const nade = {
+      complete: true,
+      naturalWidth: 20,
+      naturalHeight: 20,
+    } as HTMLImageElement;
     paintPlaybookBoard(
       ctx,
       400,
@@ -85,11 +101,39 @@ describe("paintPlaybookBoard", () => {
       x,
       y,
     }));
-    paintPlaybookPiece(ctx, makePiece("bomb", 1, 1, { id: "b" }), (x, y) => ({ x, y }));
-    paintPlaybookPiece(ctx, makePiece("flash", 2, 2, { id: "f" }), (x, y) => ({ x, y }));
+    paintPlaybookPiece(ctx, makePiece("bomb", 1, 1, { id: "b" }), (x, y) => ({
+      x,
+      y,
+    }));
+    paintPlaybookPiece(ctx, makePiece("flash", 2, 2, { id: "f" }), (x, y) => ({
+      x,
+      y,
+    }));
     paintPlaybookPiece(ctx, makePiece("molotov", 3, 3, { id: "m" }), (x, y) => ({ x, y }));
     paintPlaybookPiece(ctx, makePiece("incendiary", 4, 4, { id: "i" }), (x, y) => ({ x, y }));
-    paintPlaybookPiece(ctx, makePiece("decoy", 5, 5, { id: "d" }), (x, y) => ({ x, y }));
+    paintPlaybookPiece(ctx, makePiece("decoy", 5, 5, { id: "d" }), (x, y) => ({
+      x,
+      y,
+    }));
+    paintPlaybookPiece(
+      ctx,
+      makePiece("smoke", 7, 7, {
+        id: "trail",
+        nadeStyle: "effect",
+        trail: [
+          { x: 0, y: 0 },
+          { x: 3, y: 3 },
+        ],
+      }),
+      (x, y) => ({ x, y }),
+    );
+    paintNadeEffect(ctx, { x: 0, y: 0 }, "he");
+    paintNadeEffect(ctx, { x: 1, y: 1 }, "smoke");
+    paintNadeTrailLine(ctx, [{ x: 0, y: 0 }], { x: 4, y: 4 }, "he", (x, y) => ({
+      x,
+      y,
+    }));
+    paintNadeTrailLine(ctx, [], { x: 1, y: 1 }, "smoke", (x, y) => ({ x, y }));
     paintPlaybookPieces(ctx, [makePiece("he", 6, 6, { id: "h" })], (x, y) => ({ x, y }));
     paintPlaybookPiece(
       ctx,
@@ -101,10 +145,87 @@ describe("paintPlaybookBoard", () => {
     expect(ctx.fillText).toHaveBeenCalled();
   });
 
+  it("paints a live nade trail draft", () => {
+    const ctx = createMockCanvas();
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      emptyNote(),
+      null,
+      undefined,
+      null,
+      null,
+      {
+        kind: "smoke",
+        points: [{ x: 0, y: 0 }],
+        hover: { x: 8, y: 8 },
+      },
+    );
+    expect(ctx.stroke).toHaveBeenCalled();
+  });
+
+  it("paints nade flights as a solid line, not a dotted sample path", () => {
+    const dense = createMockCanvas();
+    const points = Array.from({ length: 12 }, (_, i) => ({ x: i, y: i }));
+    paintNadeTrailLine(dense, points, { x: 12, y: 12 }, "he", (x, y) => ({ x, y }));
+    expect(dense.setLineDash).toHaveBeenCalledWith([]);
+    expect(dense.stroke).toHaveBeenCalled();
+    expect(dense.fill).not.toHaveBeenCalled();
+
+    const short = createMockCanvas();
+    paintNadeTrailLine(
+      short,
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+      ],
+      { x: 2, y: 2 },
+      "smoke",
+      (x, y) => ({ x, y }),
+    );
+    expect(short.fill).toHaveBeenCalled();
+  });
+
   it("omits a draft when none is in progress", () => {
     const ctx = createMockCanvas();
     paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, null, undefined, emptyNote());
     expect(ctx.fillRect).toHaveBeenCalled();
+  });
+
+  it("paints snapshot kill lines and the opening duel", () => {
+    const ctx = createMockCanvas();
+    const note = emptyNote();
+    note.radarFx = {
+      deaths: [
+        {
+          x: 10,
+          y: 20,
+          line: {
+            from: { x: 0, y: 0 },
+            to: { x: 10, y: 20 },
+            color: "#5b9fd6",
+            alpha: 0.9,
+            lineWidth: 2,
+          },
+        },
+      ],
+      opening: { from: { x: 0, y: 0 }, to: { x: 10, y: 20 }, color: "#ffd24a" },
+      tracers: [],
+      trails: [],
+      heatmap: [],
+      summary: [],
+      cone: null,
+      hits: [],
+      flashes: [],
+    };
+    paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, null, UNIT_CALIBRATION, note);
+    expect(ctx.setLineDash).toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalledWith("FK", expect.any(Number), expect.any(Number));
+    expect(ctx.fillText).toHaveBeenCalledWith("FD", expect.any(Number), expect.any(Number));
   });
 
   it("paints an aim ring for a pawn and skips missing ids", () => {

@@ -97,6 +97,11 @@ describe("buildRadarFrame nades", () => {
     if (atPop.phase !== "linger") return;
     expect(atPop.left).toBeCloseTo(1);
     expect(atPop.at).toEqual({ x: 20, y: 20 });
+    expect(atPop.trail).toEqual([
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { x: 20, y: 20 },
+    ]);
 
     const halfway = frame(replay, 120 + (SMOKE_SECONDS / 2) * tps).nades[0];
     expect(halfway.phase).toBe("linger");

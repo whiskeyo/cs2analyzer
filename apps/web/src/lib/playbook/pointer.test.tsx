@@ -2,10 +2,11 @@ import { useRef } from "react";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
-import type { Drawing } from "@/lib/notes/types";
+import type { Drawing, NadeStyle } from "@/lib/notes/types";
 import { defaultPlaybookColor } from "./pages";
 import { createPlaybookView, usePlaybookPointer } from "./pointer";
 import type { PlaybookTool } from "./pieces";
+import type { NadeTrailDraft } from "./nadeTrail";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
 function EmptyWrap() {
@@ -18,6 +19,9 @@ function EmptyWrap() {
   const colorRef = useRef(defaultPlaybookColor());
   const draftRef = useRef<Drawing | null>(null);
   const gizmoRef = useRef<string | null>(null);
+  const nadeTrailOnRef = useRef(false);
+  const nadeStyleRef = useRef<NadeStyle>("icon");
+  const nadeTrailRef = useRef<NadeTrailDraft | null>(null);
   usePlaybookPointer({
     wrapRef,
     view,
@@ -28,6 +32,9 @@ function EmptyWrap() {
     draftRef,
     canvasRef,
     gizmoRef,
+    nadeTrailOnRef,
+    nadeStyleRef,
+    nadeTrailRef,
   });
   return null;
 }

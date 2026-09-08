@@ -388,6 +388,7 @@ describe("paintRadarFrame", () => {
             at: { x: 30, y: 40 },
             radius: 12,
             alpha: 0.45,
+            trail: [],
           },
         ],
       }),
