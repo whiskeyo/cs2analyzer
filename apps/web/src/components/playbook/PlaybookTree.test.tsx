@@ -26,6 +26,12 @@ function treeProps(overrides: Partial<Parameters<typeof PlaybookTree>[0]> = {}) 
     onCommitStratTitle: vi.fn(),
     onMoveBook: vi.fn(),
     onMoveStrat: vi.fn(),
+    onNewPlaybook: vi.fn(),
+    onNewStrat: vi.fn(),
+    onDuplicateBook: vi.fn(),
+    onDuplicateStrat: vi.fn(),
+    onDeleteBook: vi.fn(),
+    onDeleteStrat: vi.fn(),
     ...overrides,
   };
 }
@@ -39,7 +45,6 @@ describe("PlaybookTree", () => {
     expect(screen.getByRole("button", { name: "Defaults" })).toHaveClass("is-active");
     expect(screen.getByRole("button", { name: "Mid control" })).toHaveClass("is-active");
     expect(screen.getByText("No playbooks")).toBeInTheDocument();
-    expect(document.body.textContent).toContain("└── ");
     fireEvent.click(screen.getByRole("button", { name: "Inferno" }));
     expect(props.onSelectMap).toHaveBeenCalledWith("de_inferno");
     fireEvent.click(screen.getByRole("button", { name: "Defaults" }));
@@ -97,7 +102,7 @@ describe("PlaybookTree", () => {
     expect(props.onToggleMap).toHaveBeenCalledWith("de_mirage");
   });
 
-  it("moves a playbook and a strat with the arrow buttons", () => {
+  it("reorders a playbook and a strat by drag and drop", () => {
     const first = newPlaybook("de_mirage", "First", 0);
     const second = newPlaybook("de_mirage", "Second", 1);
     first.pages[0]!.title = "A";
@@ -108,9 +113,37 @@ describe("PlaybookTree", () => {
       expandedBooks: new Set([first.key]),
     });
     render(<PlaybookTree {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Move First down" }));
+    const data: Record<string, string> = {};
+    const dt = {
+      effectAllowed: "move",
+      dropEffect: "move",
+      setData: (type: string, val: string) => {
+        data[type] = val;
+      },
+      getData: (type: string) => data[type] ?? "",
+    };
+    const firstRow = screen.getByRole("button", { name: "First" }).closest(".playbook-tree-row");
+    const secondRow = screen.getByRole("button", { name: "Second" }).closest(".playbook-tree-row");
+    fireEvent.dragStart(firstRow as HTMLElement, { dataTransfer: dt });
+    fireEvent.drop(secondRow as HTMLElement, { dataTransfer: dt });
     expect(props.onMoveBook).toHaveBeenCalledWith(first, 1);
-    fireEvent.click(screen.getByRole("button", { name: "Move A down" }));
+
+    const aRow = screen.getByRole("button", { name: "A" }).closest(".playbook-tree-row");
+    const bRow = screen.getByRole("button", { name: "B" }).closest(".playbook-tree-row");
+    fireEvent.dragStart(aRow as HTMLElement, { dataTransfer: dt });
+    fireEvent.drop(bRow as HTMLElement, { dataTransfer: dt });
     expect(props.onMoveStrat).toHaveBeenCalledWith(first, first.pages[0]!.id, 1);
+  });
+
+  it("opens a context menu for a map and a strat", () => {
+    const props = treeProps();
+    const mirage = props.books[0]!;
+    render(<PlaybookTree {...props} />);
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Mirage" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "New playbook" }));
+    expect(props.onNewPlaybook).toHaveBeenCalledWith("de_mirage");
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Mid control" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate strat" }));
+    expect(props.onDuplicateStrat).toHaveBeenCalledWith(mirage, mirage.activePageId);
   });
 });

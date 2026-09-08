@@ -1,6 +1,13 @@
+import { useState } from "react";
 import { PieceList } from "@/components/playbook/PieceList";
 import type { Note } from "@/lib/notes/types";
-import { removeOverlay } from "@/lib/playbook/overlay";
+import {
+  groupOverlayItems,
+  renamePlaybookGroup,
+  setGroupHidden,
+  ungroupPlaybookGroup,
+} from "@/lib/playbook/groups";
+import { overlayRows, removeOverlay } from "@/lib/playbook/overlay";
 import { setPieceLabel } from "@/lib/playbook/pieces";
 
 interface Props {
@@ -11,10 +18,6 @@ interface Props {
   onSelect: (id: string | null) => void;
   onNote: (note: Note) => void;
   note: Note;
-  onNewStrat: () => void;
-  onDuplicateStrat: () => void;
-  onDeleteStrat: () => void;
-  onDeletePlaybook: () => void;
 }
 
 export function PlaybookStratPanel({
@@ -25,52 +28,82 @@ export function PlaybookStratPanel({
   onSelect,
   onNote,
   note,
-  onNewStrat,
-  onDuplicateStrat,
-  onDeleteStrat,
-  onDeletePlaybook,
 }: Props) {
+  const [radarOpen, setRadarOpen] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const rows = overlayRows(note);
+  const count = rows.length;
+
+  const togglePicked = (id: string) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <>
       <h2>Strat</h2>
       <p className="playbook-lead">{stratTitle}</p>
-      <div className="playbook-strat-actions">
-        <button type="button" className="ghost" onClick={onNewStrat}>
-          New strat
-        </button>
-        <button type="button" className="ghost" onClick={onDuplicateStrat}>
-          Duplicate strat
-        </button>
-        <button type="button" className="ghost" onClick={onDeleteStrat}>
-          Delete strat
-        </button>
-        <button type="button" className="ghost" onClick={onDeletePlaybook}>
-          Delete playbook
-        </button>
-      </div>
-      <label className="playbook-field">
+      <label className="playbook-field playbook-notes-field">
         Strat notes
         <textarea
           aria-label="Strat notes"
-          rows={5}
+          rows={12}
           value={body}
           placeholder="Callouts, timings, utility…"
           onChange={(e) => onBody(e.target.value)}
         />
       </label>
       <div className="playbook-tokens">
-        <p className="playbook-strats-label">On radar</p>
-        <PieceList
-          note={note}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          onRename={(id, label) => onNote(setPieceLabel(note, id, label))}
-          onRemove={(id) => {
-            const pieceId = id.startsWith("piece:") ? id.slice("piece:".length) : null;
-            onNote(removeOverlay(note, id));
-            if (pieceId && selectedId === pieceId) onSelect(null);
-          }}
-        />
+        <button
+          type="button"
+          className="playbook-fold"
+          aria-expanded={radarOpen}
+          onClick={() => setRadarOpen((open) => !open)}
+        >
+          On radar ({count})
+        </button>
+        {radarOpen ? (
+          <div className="playbook-radar-panel">
+            <div className="playbook-group-bar">
+              <button
+                type="button"
+                className="ghost"
+                disabled={picked.size < 2}
+                onClick={() => {
+                  onNote(groupOverlayItems(note, [...picked]));
+                  setPicked(new Set());
+                }}
+              >
+                Group selected
+              </button>
+            </div>
+            <PieceList
+              note={note}
+              selectedId={selectedId}
+              picked={picked}
+              onTogglePick={togglePicked}
+              onSelect={onSelect}
+              onRename={(id, label) => onNote(setPieceLabel(note, id, label))}
+              onRemove={(id) => {
+                const pieceId = id.startsWith("piece:") ? id.slice("piece:".length) : null;
+                onNote(removeOverlay(note, id));
+                if (pieceId && selectedId === pieceId) onSelect(null);
+                setPicked((prev) => {
+                  const next = new Set(prev);
+                  next.delete(id);
+                  return next;
+                });
+              }}
+              onRenameGroup={(groupId, name) => onNote(renamePlaybookGroup(note, groupId, name))}
+              onToggleGroup={(groupId, hidden) => onNote(setGroupHidden(note, groupId, hidden))}
+              onUngroup={(groupId) => onNote(ungroupPlaybookGroup(note, groupId))}
+            />
+          </div>
+        ) : null}
       </div>
     </>
   );

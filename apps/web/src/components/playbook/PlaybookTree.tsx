@@ -1,8 +1,11 @@
 import { useState } from "react";
-import type { KeyboardEvent, MouseEvent } from "react";
+import type { DragEvent, KeyboardEvent, MouseEvent } from "react";
 import type { Playbook } from "@/lib/playbook/types";
-import { groupPlaybooksByMap, mapsForTree, treeGuide } from "@/lib/playbook/tree";
+import { groupPlaybooksByMap, mapsForTree } from "@/lib/playbook/tree";
+import { readPlaybookTreeDrag, writePlaybookTreeDrag } from "@/lib/playbook/treeDrag";
 import { prettyMap } from "@/lib/weapons/weapons";
+import { PlaybookTreeMenu, type TreeMenuTarget } from "./PlaybookTreeMenu";
+import { TreeIcon } from "./PlaybookTreeChrome";
 
 type RenameTarget =
   | { kind: "book"; key: string; value: string }
@@ -23,84 +26,14 @@ interface Props {
   onSelectStrat: (book: Playbook, pageId: string) => void;
   onCommitBookTitle: (book: Playbook, title: string) => void;
   onCommitStratTitle: (book: Playbook, pageId: string, title: string) => void;
-  onMoveBook: (book: Playbook, delta: -1 | 1) => void;
-  onMoveStrat: (book: Playbook, pageId: string, delta: -1 | 1) => void;
-}
-
-function TreeIcon({ kind }: { kind: "map" | "book" | "strat" }) {
-  if (kind === "map") {
-    return (
-      <svg className="playbook-tree-icon" viewBox="0 0 16 16" aria-hidden>
-        <path
-          fill="currentColor"
-          d="M2 3.2 6 2l4 1.4L14 2v10.8L10 14l-4-1.4L2 14zM6 3.4v8.4m4-7.6v8.4"
-          fillOpacity="0"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  }
-  if (kind === "book") {
-    return (
-      <svg className="playbook-tree-icon" viewBox="0 0 16 16" aria-hidden>
-        <path
-          fill="currentColor"
-          d="M3 2.5h7.2A2.3 2.3 0 0 1 12.5 4.8V13H4.2A1.2 1.2 0 0 1 3 11.8z"
-          opacity="0.85"
-        />
-        <path fill="#0b0e12" d="M4.4 4.2h6.2v1.1H4.4zm0 2.2h5.2v1H4.4z" />
-      </svg>
-    );
-  }
-  return (
-    <svg className="playbook-tree-icon" viewBox="0 0 16 16" aria-hidden>
-      <path fill="currentColor" d="M4 2h6.2L13 5v9H4z" opacity="0.9" />
-      <path fill="#0b0e12" d="M5.2 7h5.6v1H5.2zm0 2.2h4.2v1H5.2z" />
-    </svg>
-  );
-}
-
-function MoveButtons({
-  label,
-  index,
-  last,
-  onMove,
-}: {
-  label: string;
-  index: number;
-  last: boolean;
-  onMove: (delta: -1 | 1) => void;
-}) {
-  return (
-    <span className="playbook-tree-move">
-      <button
-        type="button"
-        className="playbook-tree-move-btn"
-        aria-label={`Move ${label} up`}
-        disabled={index === 0}
-        onClick={(e) => {
-          e.stopPropagation();
-          onMove(-1);
-        }}
-      >
-        ↑
-      </button>
-      <button
-        type="button"
-        className="playbook-tree-move-btn"
-        aria-label={`Move ${label} down`}
-        disabled={last}
-        onClick={(e) => {
-          e.stopPropagation();
-          onMove(1);
-        }}
-      >
-        ↓
-      </button>
-    </span>
-  );
+  onMoveBook: (book: Playbook, toIndex: number) => void;
+  onMoveStrat: (book: Playbook, pageId: string, toIndex: number) => void;
+  onNewPlaybook: (mapName: string) => void;
+  onNewStrat: (book: Playbook) => void;
+  onDuplicateBook: (book: Playbook) => void;
+  onDuplicateStrat: (book: Playbook, pageId: string) => void;
+  onDeleteBook: (book: Playbook) => void;
+  onDeleteStrat: (book: Playbook, pageId: string) => void;
 }
 
 export function PlaybookTree({
@@ -120,10 +53,18 @@ export function PlaybookTree({
   onCommitStratTitle,
   onMoveBook,
   onMoveStrat,
+  onNewPlaybook,
+  onNewStrat,
+  onDuplicateBook,
+  onDuplicateStrat,
+  onDeleteBook,
+  onDeleteStrat,
 }: Props) {
   const grouped = groupPlaybooksByMap(books);
   const maps = mapsForTree(mapNames, books);
   const [rename, setRename] = useState<RenameTarget | null>(null);
+  const [menu, setMenu] = useState<{ target: TreeMenuTarget; x: number; y: number } | null>(null);
+  const [dropOn, setDropOn] = useState<string | null>(null);
 
   const editingBook = (key: string) => rename?.kind === "book" && rename.key === key;
   const editingPage = (key: string, pageId: string) =>
@@ -159,176 +100,278 @@ export function PlaybookTree({
     setRename({ kind: "page", key: book.key, pageId, value: title });
   };
 
-  const startPageRename = (e: MouseEvent, book: Playbook, pageId: string, title: string) => {
+  const openMenu = (e: MouseEvent, target: TreeMenuTarget) => {
     e.preventDefault();
     e.stopPropagation();
-    beginPageRename(book, pageId, title);
+    setMenu({ target, x: e.clientX, y: e.clientY });
   };
 
-  const onBookKey = (e: KeyboardEvent<HTMLButtonElement>, book: Playbook) => {
-    if (e.key !== "F2") return;
-    e.preventDefault();
-    beginBookRename(book);
+  const bookByKey = (key: string) => books.find((row) => row.key === key);
+
+  const startBookDrag = (e: DragEvent, book: Playbook) => {
+    e.dataTransfer.effectAllowed = "move";
+    writePlaybookTreeDrag(e.dataTransfer, { kind: "book", mapName: book.mapName, key: book.key });
   };
 
-  const onPageKey = (
-    e: KeyboardEvent<HTMLButtonElement>,
-    book: Playbook,
-    pageId: string,
-    title: string,
-  ) => {
-    if (e.key !== "F2") return;
+  const startStratDrag = (e: DragEvent, book: Playbook, pageId: string) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = "move";
+    writePlaybookTreeDrag(e.dataTransfer, { kind: "strat", bookKey: book.key, pageId });
+  };
+
+  const dropBook = (e: DragEvent, book: Playbook, toIndex: number) => {
     e.preventDefault();
-    beginPageRename(book, pageId, title);
+    setDropOn(null);
+    const drag = readPlaybookTreeDrag(e.dataTransfer);
+    if (!drag || drag.kind !== "book" || drag.mapName !== book.mapName || drag.key === book.key) {
+      return;
+    }
+    const source = bookByKey(drag.key);
+    if (source) onMoveBook(source, toIndex);
+  };
+
+  const dropStrat = (e: DragEvent, book: Playbook, toIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropOn(null);
+    const drag = readPlaybookTreeDrag(e.dataTransfer);
+    if (!drag || drag.kind !== "strat" || drag.bookKey !== book.key) return;
+    onMoveStrat(book, drag.pageId, toIndex);
   };
 
   return (
-    <ul className="playbook-tree" aria-label="Playbooks">
-      {maps.map((map) => {
-        const open = !collapsedMaps.has(map);
-        const mapBooks = grouped.get(map) ?? [];
-        return (
-          <li key={map} className="playbook-tree-map">
-            <div className="playbook-tree-row">
-              <TreeIcon kind="map" />
-              <button
-                type="button"
-                className={
-                  map === mapName ? "playbook-tree-label is-active" : "playbook-tree-label"
-                }
-                aria-expanded={open}
-                title="Double-click to expand or collapse"
-                onClick={() => onSelectMap(map)}
-                onDoubleClick={() => onToggleMap(map)}
+    <>
+      <ul className="playbook-tree" aria-label="Playbooks">
+        {maps.map((map) => {
+          const open = !collapsedMaps.has(map);
+          const mapBooks = grouped.get(map) ?? [];
+          return (
+            <li key={map} className="playbook-tree-map">
+              <div
+                className="playbook-tree-row"
+                onContextMenu={(e) => openMenu(e, { kind: "map", mapName: map })}
               >
-                {prettyMap(map)}
-              </button>
-            </div>
-            {open ? (
-              <ul className="playbook-tree-books">
-                {mapBooks.length === 0 ? (
-                  <li className="playbook-tree-empty muted">
-                    <span className="playbook-tree-guide" aria-hidden>
-                      {treeGuide(true)}
-                    </span>
-                    No playbooks
-                  </li>
-                ) : (
-                  mapBooks.map((book, bookIndex) => {
-                    const bookLast = bookIndex === mapBooks.length - 1;
-                    const bookOpen = expandedBooks.has(book.key);
-                    return (
-                      <li key={book.key}>
-                        <div className="playbook-tree-row">
-                          <span className="playbook-tree-guide" aria-hidden>
-                            {treeGuide(bookLast)}
-                          </span>
-                          <TreeIcon kind="book" />
-                          {editingBook(book.key) && rename?.kind === "book" ? (
-                            <input
-                              aria-label="Book title"
-                              className="playbook-tree-rename"
-                              value={rename.value}
-                              autoFocus
-                              onChange={(e) =>
-                                setRename({ kind: "book", key: book.key, value: e.target.value })
-                              }
-                              onBlur={commitRename}
-                              onKeyDown={onRenameKey}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              className={
-                                book.key === activeKey
-                                  ? "playbook-tree-label is-active"
-                                  : "playbook-tree-label"
-                              }
-                              aria-expanded={bookOpen}
-                              title="Double-click to expand or collapse. F2 to rename."
-                              onClick={() => onOpenBook(book)}
-                              onDoubleClick={() => onToggleBook(book.key)}
-                              onKeyDown={(e) => onBookKey(e, book)}
-                            >
-                              {book.title}
-                            </button>
-                          )}
-                          <MoveButtons
-                            label={book.title}
-                            index={bookIndex}
-                            last={bookLast}
-                            onMove={(delta) => onMoveBook(book, delta)}
-                          />
-                        </div>
-                        {bookOpen ? (
-                          <ul className="playbook-tree-strats">
-                            {book.pages.map((page, pageIndex) => {
-                              const pageLast = pageIndex === book.pages.length - 1;
-                              return (
-                                <li key={page.id}>
-                                  <div className="playbook-tree-row">
-                                    <span className="playbook-tree-guide" aria-hidden>
-                                      {treeGuide(pageLast, [bookLast])}
-                                    </span>
-                                    <TreeIcon kind="strat" />
-                                    {editingPage(book.key, page.id) && rename?.kind === "page" ? (
-                                      <input
-                                        aria-label="Strat name"
-                                        className="playbook-tree-rename"
-                                        value={rename.value}
-                                        autoFocus
-                                        onChange={(e) =>
-                                          setRename({
-                                            kind: "page",
-                                            key: book.key,
-                                            pageId: page.id,
-                                            value: e.target.value,
-                                          })
-                                        }
-                                        onBlur={commitRename}
-                                        onKeyDown={onRenameKey}
-                                        onClick={(e) => e.stopPropagation()}
-                                      />
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        className={
-                                          book.key === activeKey && page.id === activePageId
-                                            ? "playbook-tree-strat is-active"
-                                            : "playbook-tree-strat"
-                                        }
-                                        title="Double-click or F2 to rename"
-                                        onClick={() => onSelectStrat(book, page.id)}
-                                        onDoubleClick={(e) =>
-                                          startPageRename(e, book, page.id, page.title)
-                                        }
-                                        onKeyDown={(e) => onPageKey(e, book, page.id, page.title)}
-                                      >
-                                        {page.title}
-                                      </button>
-                                    )}
-                                    <MoveButtons
-                                      label={page.title}
-                                      index={pageIndex}
-                                      last={pageLast}
-                                      onMove={(delta) => onMoveStrat(book, page.id, delta)}
-                                    />
-                                  </div>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : null}
-                      </li>
-                    );
-                  })
-                )}
-              </ul>
-            ) : null}
-          </li>
-        );
-      })}
-    </ul>
+                <TreeIcon kind="map" />
+                <button
+                  type="button"
+                  className={
+                    map === mapName ? "playbook-tree-label is-active" : "playbook-tree-label"
+                  }
+                  aria-expanded={open}
+                  title="Double-click to expand or collapse"
+                  onClick={() => onSelectMap(map)}
+                  onDoubleClick={() => onToggleMap(map)}
+                >
+                  {prettyMap(map)}
+                </button>
+              </div>
+              {open ? (
+                <ul className="playbook-tree-books">
+                  {mapBooks.length === 0 ? (
+                    <li className="playbook-tree-empty muted">No playbooks</li>
+                  ) : (
+                    mapBooks.map((book, bookIndex) => {
+                      const bookLast = bookIndex === mapBooks.length - 1;
+                      const bookOpen = expandedBooks.has(book.key);
+                      const bookDrop = dropOn === `book:${book.key}`;
+                      return (
+                        <li key={book.key}>
+                          <div
+                            className={bookDrop ? "playbook-tree-row is-drop" : "playbook-tree-row"}
+                            draggable={!editingBook(book.key)}
+                            onDragStart={(e) => startBookDrag(e, book)}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              setDropOn(`book:${book.key}`);
+                            }}
+                            onDragLeave={() => setDropOn(null)}
+                            onDrop={(e) => dropBook(e, book, bookIndex)}
+                            onContextMenu={(e) =>
+                              openMenu(e, {
+                                kind: "book",
+                                mapName: map,
+                                bookKey: book.key,
+                                title: book.title,
+                                index: bookIndex,
+                                last: bookLast,
+                              })
+                            }
+                          >
+                            <TreeIcon kind="book" />
+                            {editingBook(book.key) && rename?.kind === "book" ? (
+                              <input
+                                aria-label="Book title"
+                                className="playbook-tree-rename"
+                                value={rename.value}
+                                autoFocus
+                                onChange={(e) =>
+                                  setRename({ kind: "book", key: book.key, value: e.target.value })
+                                }
+                                onBlur={commitRename}
+                                onKeyDown={onRenameKey}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                className={
+                                  book.key === activeKey
+                                    ? "playbook-tree-label is-active"
+                                    : "playbook-tree-label"
+                                }
+                                aria-expanded={bookOpen}
+                                title="Drag to reorder. Double-click to expand. F2 to rename."
+                                onClick={() => onOpenBook(book)}
+                                onDoubleClick={() => onToggleBook(book.key)}
+                                onKeyDown={(e) => {
+                                  if (e.key !== "F2") return;
+                                  e.preventDefault();
+                                  beginBookRename(book);
+                                }}
+                              >
+                                {book.title}
+                              </button>
+                            )}
+                          </div>
+                          {bookOpen ? (
+                            <ul className="playbook-tree-strats">
+                              {book.pages.map((page, pageIndex) => {
+                                const pageLast = pageIndex === book.pages.length - 1;
+                                const stratDrop = dropOn === `strat:${page.id}`;
+                                return (
+                                  <li key={page.id}>
+                                    <div
+                                      className={
+                                        stratDrop
+                                          ? "playbook-tree-row is-drop"
+                                          : "playbook-tree-row"
+                                      }
+                                      draggable={!editingPage(book.key, page.id)}
+                                      onDragStart={(e) => startStratDrag(e, book, page.id)}
+                                      onDragOver={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setDropOn(`strat:${page.id}`);
+                                      }}
+                                      onDragLeave={() => setDropOn(null)}
+                                      onDrop={(e) => dropStrat(e, book, pageIndex)}
+                                      onContextMenu={(e) =>
+                                        openMenu(e, {
+                                          kind: "strat",
+                                          mapName: map,
+                                          bookKey: book.key,
+                                          pageId: page.id,
+                                          title: page.title,
+                                          index: pageIndex,
+                                          last: pageLast,
+                                        })
+                                      }
+                                    >
+                                      <TreeIcon kind="strat" />
+                                      {editingPage(book.key, page.id) && rename?.kind === "page" ? (
+                                        <input
+                                          aria-label="Strat name"
+                                          className="playbook-tree-rename"
+                                          value={rename.value}
+                                          autoFocus
+                                          onChange={(e) =>
+                                            setRename({
+                                              kind: "page",
+                                              key: book.key,
+                                              pageId: page.id,
+                                              value: e.target.value,
+                                            })
+                                          }
+                                          onBlur={commitRename}
+                                          onKeyDown={onRenameKey}
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className={
+                                            book.key === activeKey && page.id === activePageId
+                                              ? "playbook-tree-strat is-active"
+                                              : "playbook-tree-strat"
+                                          }
+                                          title="Drag to reorder. Double-click or F2 to rename."
+                                          onClick={() => onSelectStrat(book, page.id)}
+                                          onDoubleClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            beginPageRename(book, page.id, page.title);
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key !== "F2") return;
+                                            e.preventDefault();
+                                            beginPageRename(book, page.id, page.title);
+                                          }}
+                                        >
+                                          {page.title}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : null}
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      {menu ? (
+        <PlaybookTreeMenu
+          target={menu.target}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          onNewPlaybook={onNewPlaybook}
+          onNewStrat={(bookKey) => {
+            const book = bookByKey(bookKey);
+            if (book) onNewStrat(book);
+          }}
+          onRenameBook={(bookKey) => {
+            const book = bookByKey(bookKey);
+            if (book) beginBookRename(book);
+          }}
+          onRenameStrat={(bookKey, pageId) => {
+            const book = bookByKey(bookKey);
+            const page = book?.pages.find((row) => row.id === pageId);
+            if (book && page) beginPageRename(book, pageId, page.title);
+          }}
+          onDuplicateBook={(bookKey) => {
+            const book = bookByKey(bookKey);
+            if (book) onDuplicateBook(book);
+          }}
+          onDuplicateStrat={(bookKey, pageId) => {
+            const book = bookByKey(bookKey);
+            if (book) onDuplicateStrat(book, pageId);
+          }}
+          onDeleteBook={(bookKey) => {
+            const book = bookByKey(bookKey);
+            if (book) onDeleteBook(book);
+          }}
+          onDeleteStrat={(bookKey, pageId) => {
+            const book = bookByKey(bookKey);
+            if (book) onDeleteStrat(book, pageId);
+          }}
+          onMoveBook={(bookKey, toIndex) => {
+            const book = bookByKey(bookKey);
+            if (book) onMoveBook(book, toIndex);
+          }}
+          onMoveStrat={(bookKey, pageId, toIndex) => {
+            const book = bookByKey(bookKey);
+            if (book) onMoveStrat(book, pageId, toIndex);
+          }}
+        />
+      ) : null}
+    </>
   );
 }

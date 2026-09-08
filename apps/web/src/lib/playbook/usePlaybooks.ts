@@ -6,6 +6,7 @@ import {
   addPage,
   deletePage,
   duplicatePage,
+  duplicatePlaybook,
   finishRenamePage,
   finishRenamePlaybook,
   renamePage,
@@ -14,6 +15,7 @@ import {
   setActivePage,
   setPageBody,
   setPageNote,
+  setPlaybookPalette,
 } from "./pages";
 import {
   createPlaybook,
@@ -22,7 +24,7 @@ import {
   loadPlaybook,
   savePlaybook,
 } from "./playbookStore";
-import { booksWithDraft, movePlaybookInMap } from "./tree";
+import { booksWithDraft, movePlaybookTo, nextPlaybookSort } from "./tree";
 import type { Playbook } from "./types";
 
 export function usePlaybooks(mapName: string | null) {
@@ -84,12 +86,12 @@ export function usePlaybooks(mapName: string | null) {
   );
 
   const create = useCallback(
-    async (title: string) => {
-      if (!mapName) return null;
-      const next = await createPlaybook(mapName, title);
+    async (title: string, map = mapName) => {
+      if (!map) return null;
+      const next = await createPlaybook(map, title);
       skipSaveRef.current = true;
       setDraft(next);
-      setActiveByMap((prev) => ({ ...prev, [mapName]: next.key }));
+      setActiveByMap((prev) => ({ ...prev, [map]: next.key }));
       await refresh();
       return next;
     },
@@ -205,12 +207,93 @@ export function usePlaybooks(mapName: string | null) {
     await refresh();
   }, [book, mapName, refresh]);
 
+  const removeBook = useCallback(
+    async (key: string) => {
+      if (draft?.key === key) {
+        await remove();
+        return;
+      }
+      await deletePlaybook(key);
+      await refresh();
+    },
+    [draft?.key, refresh, remove],
+  );
+
+  const duplicateBook = useCallback(
+    async (key: string) => {
+      const loaded = draft?.key === key ? draft : await loadPlaybook(key);
+      if (!loaded) return null;
+      const copy = await savePlaybook({
+        ...duplicatePlaybook(loaded),
+        sort: nextPlaybookSort(allBooks, loaded.mapName),
+      });
+      skipSaveRef.current = true;
+      setDraft(copy);
+      setActiveByMap((prev) => ({ ...prev, [copy.mapName]: copy.key }));
+      await refresh();
+      return copy;
+    },
+    [allBooks, draft, refresh],
+  );
+
+  const addStratTo = useCallback(
+    async (key: string) => {
+      const apply = (current: Playbook) => addPage(current);
+      if (draft?.key === key) {
+        patch(apply);
+        return;
+      }
+      const loaded = await loadPlaybook(key);
+      if (!loaded) return;
+      await savePlaybook(apply(loaded));
+      await refresh();
+    },
+    [draft?.key, patch, refresh],
+  );
+
+  const removeStratFrom = useCallback(
+    async (key: string, pageId: string) => {
+      const apply = (current: Playbook) => deletePage(current, pageId);
+      if (draft?.key === key) {
+        patch(apply);
+        return;
+      }
+      const loaded = await loadPlaybook(key);
+      if (!loaded) return;
+      await savePlaybook(apply(loaded));
+      await refresh();
+    },
+    [draft?.key, patch, refresh],
+  );
+
+  const duplicateStratOn = useCallback(
+    async (key: string, pageId: string) => {
+      const apply = (current: Playbook) => duplicatePage(current, pageId);
+      if (draft?.key === key) {
+        patch(apply);
+        return;
+      }
+      const loaded = await loadPlaybook(key);
+      if (!loaded) return;
+      await savePlaybook(apply(loaded));
+      await refresh();
+    },
+    [draft?.key, patch, refresh],
+  );
+
+  const setPalette = useCallback(
+    (paletteId: string, color?: string) => {
+      patch((current) => setPlaybookPalette(current, paletteId, color));
+    },
+    [patch],
+  );
+
   const movePlaybook = useCallback(
-    async (key: string, delta: -1 | 1) => {
+    async (key: string, toIndex: number) => {
       const merged = booksWithDraft(allBooks, draft);
       const target = merged.find((row) => row.key === key);
       if (!target) return;
-      const changed = movePlaybookInMap(merged, target.mapName, key, delta);
+      const changed = movePlaybookTo(merged, target.mapName, key, toIndex);
       if (changed.length === 0) return;
       const saved: Playbook[] = [];
       for (const row of changed) {
@@ -227,10 +310,10 @@ export function usePlaybooks(mapName: string | null) {
   );
 
   const moveStrat = useCallback(
-    async (key: string, pageId: string, delta: -1 | 1) => {
+    async (key: string, pageId: string, toIndex: number) => {
       const apply = (current: Playbook) => {
         const from = current.pages.findIndex((page) => page.id === pageId);
-        return reorderPages(current, from, from + delta);
+        return reorderPages(current, from, toIndex);
       };
       if (draft?.key === key) {
         patch(apply);
@@ -277,7 +360,13 @@ export function usePlaybooks(mapName: string | null) {
     duplicateStrat,
     selectStrat,
     setNote,
+    setPalette,
     remove,
+    removeBook,
+    duplicateBook,
+    addStratTo,
+    removeStratFrom,
+    duplicateStratOn,
     movePlaybook,
     moveStrat,
     reload,

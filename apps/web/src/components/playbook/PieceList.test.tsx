@@ -7,17 +7,25 @@ import { emptyNote } from "@/lib/notes/note";
 import { makePiece } from "@/lib/playbook/pieces";
 import { PieceList } from "./PieceList";
 
+function listProps(overrides: Partial<Parameters<typeof PieceList>[0]> = {}) {
+  return {
+    note: emptyNote(),
+    selectedId: null as string | null,
+    picked: new Set<string>(),
+    onTogglePick: vi.fn(),
+    onSelect: vi.fn(),
+    onRename: vi.fn(),
+    onRemove: vi.fn(),
+    onRenameGroup: vi.fn(),
+    onToggleGroup: vi.fn(),
+    onUngroup: vi.fn(),
+    ...overrides,
+  };
+}
+
 describe("PieceList", () => {
   it("shows an empty hint when there is nothing on the radar", () => {
-    render(
-      <PieceList
-        note={emptyNote()}
-        selectedId={null}
-        onSelect={vi.fn()}
-        onRename={vi.fn()}
-        onRemove={vi.fn()}
-      />,
-    );
+    render(<PieceList {...listProps()} />);
     expect(screen.getByText(/Nothing on the radar yet/)).toBeInTheDocument();
   });
 
@@ -30,15 +38,7 @@ describe("PieceList", () => {
       makePiece("pawn", 0, 0, { id: "p1", side: "CT", label: "entry" }),
       makePiece("smoke", 1, 1, { id: "s1" }),
     );
-    render(
-      <PieceList
-        note={note}
-        selectedId="p1"
-        onSelect={onSelect}
-        onRename={onRename}
-        onRemove={onRemove}
-      />,
-    );
+    render(<PieceList {...listProps({ note, selectedId: "p1", onSelect, onRename, onRemove })} />);
     expect(screen.getByRole("button", { name: "Pawn" })).toHaveClass("is-active");
     fireEvent.click(screen.getByRole("button", { name: "Smoke" }));
     expect(onSelect).toHaveBeenCalledWith("s1");
@@ -64,18 +64,20 @@ describe("PieceList", () => {
       hits: [],
       flashes: [{ x: 1, y: 1, intensity: 1, pulseRadius: 4, left: 1 }],
     };
-    render(
-      <PieceList
-        note={note}
-        selectedId={null}
-        onSelect={vi.fn()}
-        onRename={vi.fn()}
-        onRemove={onRemove}
-      />,
-    );
+    render(<PieceList {...listProps({ note, onRemove })} />);
     fireEvent.click(screen.getByRole("button", { name: "Remove FK/FD" }));
     expect(onRemove).toHaveBeenCalledWith("fx:opening");
     fireEvent.click(screen.getByRole("button", { name: "Remove Flash" }));
     expect(onRemove).toHaveBeenCalledWith("fx:flash:0");
+  });
+
+  it("nests tokens under a named group", () => {
+    const note = emptyNote();
+    note.groups.push({ id: "g1", name: "Smoke", drawings: [], hidden: true });
+    note.pieces.push(makePiece("smoke", 0, 0, { id: "s1", groupId: "g1" }));
+    render(<PieceList {...listProps({ note })} />);
+    expect(screen.getByRole("textbox", { name: "Group Smoke" })).toHaveValue("Smoke");
+    expect(screen.getByRole("button", { name: "Show Smoke" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Smoke" })).toBeInTheDocument();
   });
 });

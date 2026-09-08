@@ -182,6 +182,14 @@ export function finishRenamePlaybook(book: Playbook): Playbook {
   return { ...book, title: titled(book.title, UNTITLED_PLAYBOOK) };
 }
 
+export function setPlaybookPalette(book: Playbook, paletteId: string, color?: string): Playbook {
+  const preset = COLOR_PRESETS.find((row) => row.id === paletteId) ?? COLOR_PRESETS[0];
+  if (!preset) return book;
+  const nextColor =
+    color && (preset.colors as readonly string[]).includes(color) ? color : preset.colors[0];
+  return { ...book, paletteId: preset.id, color: nextColor };
+}
+
 export function duplicatePlaybook(book: Playbook): Playbook {
   const idMap = new Map<string, string>();
   const pages = book.pages.map((page) => {

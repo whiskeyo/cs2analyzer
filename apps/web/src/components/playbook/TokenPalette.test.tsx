@@ -7,6 +7,15 @@ const extra = {
   onNadeTrail: vi.fn(),
   nadeStyle: "icon" as const,
   onNadeStyle: vi.fn(),
+  paletteId: "neon",
+  color: "#ff2d6a",
+  onPalette: vi.fn(),
+  onColor: vi.fn(),
+  canUndo: false,
+  canRedo: false,
+  onUndo: vi.fn(),
+  onRedo: vi.fn(),
+  onResetView: vi.fn(),
 };
 
 describe("TokenPalette", () => {
@@ -18,9 +27,8 @@ describe("TokenPalette", () => {
       <TokenPalette
         tool="pan"
         onTool={onTool}
-        nadeTrail={false}
+        {...extra}
         onNadeTrail={onNadeTrail}
-        nadeStyle="icon"
         onNadeStyle={onNadeStyle}
       />,
     );
@@ -33,9 +41,8 @@ describe("TokenPalette", () => {
       <TokenPalette
         tool="smoke"
         onTool={onTool}
-        nadeTrail={false}
+        {...extra}
         onNadeTrail={onNadeTrail}
-        nadeStyle="icon"
         onNadeStyle={onNadeStyle}
       />,
     );
@@ -46,6 +53,24 @@ describe("TokenPalette", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nade effect" }));
     expect(onNadeStyle).toHaveBeenCalledWith("effect");
     expect(screen.queryByRole("button", { name: "Text" })).not.toBeInTheDocument();
+  });
+
+  it("keeps shared tools in the same order as Analyzer", () => {
+    render(<TokenPalette tool="pan" onTool={() => undefined} {...extra} />);
+    const toolbar = screen.getByRole("toolbar", { name: "Playbook tools" });
+    const names = [...toolbar.querySelectorAll("button")].map(
+      (el) => el.getAttribute("aria-label") ?? el.textContent,
+    );
+    expect(names.slice(0, 8)).toEqual([
+      "Pan",
+      "Pen",
+      "Arrow",
+      "Eraser",
+      "Undo drawing (Ctrl+Z)",
+      "Redo drawing (Ctrl+Y)",
+      "Reset view",
+      "Neon",
+    ]);
   });
 
   it("draws icons instead of plaintext labels", () => {
@@ -66,5 +91,7 @@ describe("TokenPalette", () => {
       expect.stringContaining("planted_c4"),
     );
     expect(screen.queryByRole("button", { name: "CT pawn" })).not.toHaveTextContent("CT");
+    expect(screen.getByRole("button", { name: "Reset view" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Neon" })).toBeInTheDocument();
   });
 });

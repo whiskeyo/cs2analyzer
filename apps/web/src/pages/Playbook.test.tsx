@@ -25,6 +25,17 @@ vi.mock("@/components/playbook/PlaybookCanvas", () => ({
 
 import { loadCalibrations } from "@/lib/radar/maps";
 
+async function createBookFromMap(mapLabel = "Mirage") {
+  fireEvent.contextMenu(await screen.findByRole("button", { name: mapLabel }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "New playbook" }));
+  await screen.findByTestId("playbook-canvas");
+}
+
+async function stratMenu(title: string, item: string) {
+  fireEvent.contextMenu(screen.getByRole("button", { name: title }));
+  await userEvent.click(screen.getByRole("menuitem", { name: item }));
+}
+
 describe("Playbook", () => {
   beforeEach(async () => {
     await deleteAllPlaybooks();
@@ -45,9 +56,12 @@ describe("Playbook", () => {
     render(<Playbook />);
     expect(await screen.findByRole("button", { name: "Mirage" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Inferno" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "New playbook title" }), "A execs");
-    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
-    expect(await screen.findByTestId("playbook-canvas")).toBeInTheDocument();
+    await createBookFromMap("Inferno");
+    fireEvent.keyDown(screen.getByRole("button", { name: "Untitled playbook" }), { key: "F2" });
+    fireEvent.change(screen.getByRole("textbox", { name: "Book title" }), {
+      target: { value: "A execs" },
+    });
+    fireEvent.blur(screen.getByRole("textbox", { name: "Book title" }));
     expect(screen.getByRole("separator", { name: "Resize playbook tree" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize strat panel" })).toBeInTheDocument();
     const root = document.querySelector(".playbook");
@@ -65,12 +79,9 @@ describe("Playbook", () => {
 
   it("adds, switches, duplicates, and deletes strats including the last one", async () => {
     render(<Playbook />);
-    await screen.findByRole("button", { name: "Mirage" });
-    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
-    expect(await screen.findByTestId("playbook-canvas")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete strat" })).toBeEnabled();
-
-    await userEvent.click(screen.getByRole("button", { name: "New strat" }));
+    await createBookFromMap();
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "New strat" }));
     const strats = screen.getAllByRole("button", { name: "Untitled strat" });
     expect(strats.length).toBeGreaterThanOrEqual(2);
     const activeUntitled = strats.find((el) => el.classList.contains("is-active")) ?? strats.at(-1);
@@ -90,15 +101,15 @@ describe("Playbook", () => {
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Strat name" }), { key: "Escape" });
 
     await userEvent.click(screen.getByRole("button", { name: "A exec" }));
-    await userEvent.click(screen.getByRole("button", { name: "Duplicate strat" }));
+    await stratMenu("A exec", "Duplicate strat");
     expect(screen.getByRole("button", { name: `A exec${COPY_SUFFIX}` })).toHaveClass("is-active");
 
-    await userEvent.click(screen.getByRole("button", { name: "Delete strat" }));
+    await stratMenu(`A exec${COPY_SUFFIX}`, "Delete strat");
     expect(screen.queryByRole("button", { name: `A exec${COPY_SUFFIX}` })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "A exec" }));
-    await userEvent.click(screen.getByRole("button", { name: "Delete strat" }));
-    await userEvent.click(screen.getByRole("button", { name: "Delete strat" }));
+    await stratMenu("A exec", "Delete strat");
+    await stratMenu("Untitled strat", "Delete strat");
     fireEvent.doubleClick(screen.getByRole("button", { name: "Untitled strat" }));
     expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue("Untitled strat");
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Strat name" }), { key: "Escape" });
@@ -107,8 +118,7 @@ describe("Playbook", () => {
 
   it("lets a title stay empty until blur and keeps spaces while typing", async () => {
     render(<Playbook />);
-    await screen.findByRole("button", { name: "Mirage" });
-    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
+    await createBookFromMap();
     fireEvent.keyDown(await screen.findByRole("button", { name: "Untitled playbook" }), {
       key: "F2",
     });
@@ -141,7 +151,8 @@ describe("Playbook", () => {
     expect(
       firstAfter.compareDocumentPosition(secondAfter) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Move First down" }));
+    fireEvent.contextMenu(screen.getByRole("button", { name: "First" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Move down" }));
     await waitFor(() => {
       const movedFirst = screen.getByRole("button", { name: "First" });
       const movedSecond = screen.getByRole("button", { name: "Second" });
@@ -153,13 +164,17 @@ describe("Playbook", () => {
 
   it("shows token tools, nade modes, and strat notes instead of a text box", async () => {
     render(<Playbook />);
-    await screen.findByRole("button", { name: "Mirage" });
-    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
+    await createBookFromMap();
     expect(await screen.findByRole("toolbar", { name: "Playbook tools" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pen" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Text" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nade trail" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nade effect" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "On radar (0)" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "On radar (0)" }));
     expect(screen.getByText(/Nothing on the radar yet/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Strat notes" }), {
       target: { value: "smoke CT, flash palace" },
@@ -169,6 +184,9 @@ describe("Playbook", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Flash" }));
     expect(screen.getByRole("button", { name: "Flash" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Reset view" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Neon" })).toBeInTheDocument();
+    expect(document.querySelector(".keys")).toHaveTextContent("V pan");
   });
 
   it("opens the remembered snapshot book expanded", async () => {
@@ -188,10 +206,9 @@ describe("Playbook", () => {
 
   it("deletes the open playbook", async () => {
     render(<Playbook />);
-    await screen.findByRole("button", { name: "Mirage" });
-    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
-    await screen.findByTestId("playbook-canvas");
-    await userEvent.click(screen.getByRole("button", { name: "Delete playbook" }));
+    await createBookFromMap();
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Delete playbook" }));
     await waitFor(() => expect(screen.queryByTestId("playbook-canvas")).not.toBeInTheDocument());
     expect(screen.getByText("Open a playbook to draw on the radar.")).toBeInTheDocument();
   });
