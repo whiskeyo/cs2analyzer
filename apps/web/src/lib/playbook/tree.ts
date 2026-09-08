@@ -26,6 +26,29 @@ export function booksWithDraft(books: readonly Playbook[], draft: Playbook | nul
   return found ? next : [...next, draft];
 }
 
+export function movePlaybookTo(
+  books: readonly Playbook[],
+  mapName: string,
+  key: string,
+  toIndex: number,
+): Playbook[] {
+  const mapBooks = books
+    .filter((book) => book.mapName === mapName)
+    .slice()
+    .sort(comparePlaybooks);
+  const from = mapBooks.findIndex((book) => book.key === key);
+  if (from < 0 || toIndex < 0 || toIndex >= mapBooks.length || from === toIndex) return [];
+  const next = mapBooks.slice();
+  const [moved] = next.splice(from, 1);
+  if (!moved) return [];
+  next.splice(toIndex, 0, moved);
+  const changed: Playbook[] = [];
+  next.forEach((book, index) => {
+    if (book.sort !== index) changed.push({ ...book, sort: index });
+  });
+  return changed;
+}
+
 export function movePlaybookInMap(
   books: readonly Playbook[],
   mapName: string,
@@ -37,17 +60,7 @@ export function movePlaybookInMap(
     .slice()
     .sort(comparePlaybooks);
   const from = mapBooks.findIndex((book) => book.key === key);
-  const to = from + delta;
-  if (from < 0 || to < 0 || to >= mapBooks.length) return [];
-  const next = mapBooks.slice();
-  const [moved] = next.splice(from, 1);
-  if (!moved) return [];
-  next.splice(to, 0, moved);
-  const changed: Playbook[] = [];
-  next.forEach((book, index) => {
-    if (book.sort !== index) changed.push({ ...book, sort: index });
-  });
-  return changed;
+  return movePlaybookTo(books, mapName, key, from + delta);
 }
 
 export function groupPlaybooksByMap(books: readonly Playbook[]): Map<string, Playbook[]> {

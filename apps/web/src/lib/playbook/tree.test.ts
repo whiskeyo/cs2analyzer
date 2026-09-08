@@ -6,6 +6,7 @@ import {
   groupPlaybooksByMap,
   mapsForTree,
   movePlaybookInMap,
+  movePlaybookTo,
   nextPlaybookSort,
   treeGuide,
 } from "./tree";
@@ -38,6 +39,9 @@ describe("playbook tree grouping", () => {
     expect(nextPlaybookSort([early, late], "de_inferno")).toBe(0);
     const moved = movePlaybookInMap([early, late], "de_mirage", early.key, 1);
     expect(moved.map((book) => `${book.title}:${book.sort}`)).toEqual(["Late:0", "Early:1"]);
+    expect(
+      movePlaybookTo([early, late], "de_mirage", late.key, 0).map((book) => book.title),
+    ).toEqual(["Late", "Early"]);
     expect(movePlaybookInMap([early, late], "de_mirage", early.key, -1)).toEqual([]);
     const renamed = { ...late, title: "Renamed" };
     expect(booksWithDraft([early, late], renamed).map((book) => book.title)).toEqual([
