@@ -409,16 +409,31 @@ Defer:
 
 Decisions made while implementing. Answer later if you disagree; the code follows these until then.
 
-**Timed loose drawings.** Plan said `loose: Drawing[]` (whole round). Analyzer still stamps a moment window on an ungrouped pen. To keep that, loose items are `{ drawing, hidden?, start_tick?, end_tick? }` — ticks live on the wrapper, not on `Drawing`.
+> **Timed loose drawings.** Plan said `loose: Drawing[]` (whole round). Analyzer still stamps a moment window on an ungrouped pen. To keep that, loose items are `{ drawing, hidden?, start_tick?, end_tick? }` — ticks live on the wrapper, not on `Drawing`.
 
-**Group identity.** Old notes used `stroke.group` as both id and label. New `DrawingGroup` keeps `id` and `name` equal on migrate/create so flatten-back matches today’s JSON.
+What do you meant `loose: Drawing[]`? Just name it `drawings` to avoid strange names... When it comes to ticks - fine, but the drawing itself should hold both shape and start/end tick. E.g. `Drawing` could hold `Stroke`, `Arrow`, or something else. The `Stroke`/`Arrow` are just containers for one element of given type, but the whole `Drawing` keeps metadata required to display things properly.
 
-**Shell / Viewer.** Analyzer owns Viewer. Shell routes by pathname only: Playbook always renders the board, even if a demo is sitting in session state.
+> **Group identity.** Old notes used `stroke.group` as both id and label. New `DrawingGroup` keeps `id` and `name` equal on migrate/create so flatten-back matches today’s JSON.
 
-**Token tools.** Token buttons only place. Pan drags existing tokens; Shift-drag a pawn sets yaw toward the cursor (same `m_angEyeAngles` as replay).
+Okay?
 
-**Molly vs incendiary.** Palette includes both. They are different `PieceKind`s (T molotov / CT incendiary).
+> **Shell / Viewer.** Analyzer owns Viewer. Shell routes by pathname only: Playbook always renders the board, even if a demo is sitting in session state.
 
-**Bomb glyph.** A bomb token uses the planted C4 icon, not the loose-pack ping (playbook has no tick).
+WTF is `Shell`? That name is awful. If you want to keep demos in the analyzer's memory - fine, but please do not use such names as `Shell` or `appState`.
 
-**Playbook text.** Click-to-place writes the label “Text”. A proper in-place editor comes with the strat note sidebar.
+> **Token tools.** Token buttons only place. Pan drags existing tokens; Shift-drag a pawn sets yaw toward the cursor (same `m_angEyeAngles` as replay).
+
+Shift-drag should be one option. Double click LBM should display some kind of "rotation tool" (circle + angle) to make it more intuitive.
+
+> **Molly vs incendiary.** Palette includes both. They are different `PieceKind`s (T molotov / CT incendiary).
+
+Fine, but please use icons (e.g. blue/yellow arrow for CTs/Ts or SVGs for grenades) instead of plaintext. It would make it way easier to navigate the playbook.
+
+> **Bomb glyph.** A bomb token uses the planted C4 icon, not the loose-pack ping (playbook has no tick).
+
+Fine.
+
+> **Playbook text.** Click-to-place writes the label “Text”. A proper in-place editor comes with the strat note sidebar.
+
+Sounds fine. But make the Playbook look the same as analyzer/layout editor, i.e. sidebar is right-side only. If two sidebars are needed, keep them right anyway, next to each other.
+ 
