@@ -47,12 +47,19 @@ Path.home().joinpath(".netrc").write_text(
 PY
 chmod 600 "$HOME/.netrc"
 
+# 4.9.3+ defaults skip-dotfiles to yes (drops dist/.htaccess). Ubuntu 24.04 is 4.9.2
+# and has no such setting — `set` would abort with cmd:fail-exit.
+skip_dotfiles=""
+if lftp -c "set -a" 2>/dev/null | grep -F -q "mirror:skip-dotfiles"; then
+  skip_dotfiles="set mirror:skip-dotfiles no"
+fi
+
 lftp "$FTP_HOST" <<EOF
 set cmd:fail-exit yes
 set ssl:verify-certificate no
 set ftp:ssl-allow yes
 set ftp:list-options -a
-set mirror:skip-dotfiles no
+$skip_dotfiles
 set net:max-retries 3
 set net:timeout 30
 mirror -R --delete --verbose --parallel=8 --exclude-glob .git "$LOCAL_DIR" "$STAGING"
