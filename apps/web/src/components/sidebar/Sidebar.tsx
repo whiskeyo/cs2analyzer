@@ -1,6 +1,9 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent, PointerEvent } from "react";
-import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
+import { memo, useMemo, useState } from "react";
+import {
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+} from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
 import { isAggregatedView, isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { Action } from "./Action";
@@ -8,7 +11,8 @@ import { Review } from "./Review";
 import { Notes } from "./Notes";
 import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
-import { clampSidebarWidth, loadSidebarWidth, saveSidebarWidth } from "@/lib/shared/sidebarWidth";
+import { SIDEBAR_WIDTH_STORAGE_KEY } from "@/lib/shared/sidebarWidth";
+import { usePanelResize } from "@/lib/shared/usePanelResize";
 import { computeStats, matchEndTick, weaponBreakdown } from "@/lib/stats/stats";
 import { weaponHeadshotLabel } from "@/lib/weapons/weapons";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
@@ -77,94 +81,18 @@ export const Sidebar = memo(function Sidebar({
 
   const [tab, setTab] = useState<Tab>("score");
   const activeTab: Tab = seriesMode && DEMO_ONLY_TABS.includes(tab) ? "action" : tab;
-  const [width, setWidth] = useState(loadSidebarWidth);
-  const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
-  const widthRef = useRef(width);
-  widthRef.current = width;
-
-  useEffect(() => {
-    const fit = () => {
-      const stage = document.querySelector(".stage");
-      const stageWidth = stage instanceof HTMLElement ? stage.clientWidth : window.innerWidth;
-      setWidth((w) => clampSidebarWidth(w, stageWidth));
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => {
-      window.removeEventListener("resize", fit);
-      document.body.classList.remove("sidebar-resizing");
-    };
-  }, []);
-
-  const stageWidthOf = (el: HTMLElement) => {
-    const stage = el.closest(".stage");
-    return stage instanceof HTMLElement ? stage.clientWidth : window.innerWidth;
-  };
-
-  const onResizePointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { pointerId: e.pointerId, startX: e.clientX, startWidth: widthRef.current };
-    document.body.classList.add("sidebar-resizing");
-  };
-
-  const onResizePointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    const next = clampSidebarWidth(
-      drag.startWidth + (drag.startX - e.clientX),
-      stageWidthOf(e.currentTarget),
-    );
-    setWidth(next);
-  };
-
-  const endResize = (e: PointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    dragRef.current = null;
-    document.body.classList.remove("sidebar-resizing");
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-    saveSidebarWidth(widthRef.current);
-  };
-
-  const onResizeKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const step = e.shiftKey ? 48 : 16;
-    let raw: number;
-    if (e.key === "ArrowLeft") raw = widthRef.current + step;
-    else if (e.key === "ArrowRight") raw = widthRef.current - step;
-    else if (e.key === "Home") raw = SIDEBAR_MAX_WIDTH;
-    else if (e.key === "End") raw = SIDEBAR_MIN_WIDTH;
-    else return;
-    e.preventDefault();
-    const next = clampSidebarWidth(raw, stageWidthOf(e.currentTarget));
-    setWidth(next);
-    saveSidebarWidth(next);
-  };
+  const { width, handleProps } = usePanelResize({
+    storageKey: SIDEBAR_WIDTH_STORAGE_KEY,
+    minWidth: SIDEBAR_MIN_WIDTH,
+    maxWidth: SIDEBAR_MAX_WIDTH,
+    defaultWidth: SIDEBAR_DEFAULT_WIDTH,
+    stageSelector: ".stage",
+    label: "Resize side panel",
+  });
 
   return (
     <aside className="sidebar" style={{ width }}>
-      <div
-        className="sidebar-resize"
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize side panel"
-        aria-valuemin={SIDEBAR_MIN_WIDTH}
-        aria-valuemax={SIDEBAR_MAX_WIDTH}
-        aria-valuenow={width}
-        tabIndex={0}
-        onPointerDown={onResizePointerDown}
-        onPointerMove={onResizePointerMove}
-        onPointerUp={endResize}
-        onPointerCancel={endResize}
-        onDoubleClick={() => {
-          setWidth(SIDEBAR_MIN_WIDTH);
-          saveSidebarWidth(SIDEBAR_MIN_WIDTH);
-        }}
-        onKeyDown={onResizeKeyDown}
-      />
+      <div {...handleProps} />
       <div className="tabs">
         {(["score", "player", "notes", "action", "util", "rounds", "weapons"] as const).map(
           (id) => (

@@ -26,7 +26,14 @@ import type {
   MapLayout,
   Point,
 } from "@/lib/layouts/types";
+import {
+  LAYOUTS_SIDEBAR_DEFAULT_WIDTH,
+  LAYOUTS_SIDEBAR_MAX_WIDTH,
+  LAYOUTS_SIDEBAR_MIN_WIDTH,
+  LAYOUTS_SIDEBAR_WIDTH_STORAGE_KEY,
+} from "@/lib/shared/constants";
 import { useLayoutPointer, type LayoutTool, type PanView } from "@/lib/layouts/useLayoutPointer";
+import { usePanelResize } from "@/lib/shared/usePanelResize";
 
 export function LayoutsApp() {
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
@@ -67,6 +74,14 @@ export function LayoutsApp() {
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
   const dirty = formatLayout(layout) !== savedJson;
+  const { width: panelWidth, handleProps: panelResize } = usePanelResize({
+    storageKey: LAYOUTS_SIDEBAR_WIDTH_STORAGE_KEY,
+    minWidth: LAYOUTS_SIDEBAR_MIN_WIDTH,
+    maxWidth: LAYOUTS_SIDEBAR_MAX_WIDTH,
+    defaultWidth: LAYOUTS_SIDEBAR_DEFAULT_WIDTH,
+    stageSelector: ".layouts-stage",
+    label: "Resize layouts panel",
+  });
 
   const replaceLayout = useCallback((next: MapLayout) => {
     setLayout(next);
@@ -286,7 +301,7 @@ export function LayoutsApp() {
 
   return (
     <div className="layouts-app">
-      <div className="main">
+      <div className="main layouts-stage">
         <div className="radar-col">
           <LayoutToolbar
             tool={tool}
@@ -352,6 +367,8 @@ export function LayoutsApp() {
           onSave={saveToFolder}
           onDownload={download}
           onImportFile={importFile}
+          width={panelWidth}
+          resizeHandle={panelResize}
         />
       </div>
     </div>

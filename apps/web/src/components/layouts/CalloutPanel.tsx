@@ -1,3 +1,4 @@
+import type { HTMLAttributes } from "react";
 import type { LayoutCallout, MapLayout } from "@/lib/layouts/types";
 import { CalloutClusterList } from "@/components/layouts/CalloutClusterList";
 import { CalloutSelected } from "@/components/layouts/CalloutSelected";
@@ -25,6 +26,8 @@ interface Props {
   onSave: () => void;
   onDownload: () => void;
   onImportFile: (file: File) => void;
+  width?: number;
+  resizeHandle?: HTMLAttributes<HTMLDivElement>;
 }
 
 export function CalloutPanel({
@@ -50,6 +53,8 @@ export function CalloutPanel({
   onSave,
   onDownload,
   onImportFile,
+  width,
+  resizeHandle,
 }: Props) {
   const selected = selectedIds.filter((id) => layout.callouts.some((c) => c.id === id));
   const primary = selected[selected.length - 1] ?? null;
@@ -59,7 +64,8 @@ export function CalloutPanel({
     : -1;
 
   return (
-    <aside className="panel">
+    <aside className="panel" style={width != null ? { width } : undefined}>
+      {resizeHandle ? <div {...resizeHandle} /> : null}
       <label className="panel-map">
         Map
         <select aria-label="Map" value={mapId} onChange={(e) => onMapChange(e.target.value)}>

@@ -209,6 +209,24 @@ export const SIDEBAR_MIN_WIDTH = 400;
 export const SIDEBAR_DEFAULT_WIDTH = 480;
 export const SIDEBAR_MAX_WIDTH = 640;
 
+/** Playbook directory tree (rightmost). */
+export const PLAYBOOK_TREE_MIN_WIDTH = 200;
+export const PLAYBOOK_TREE_DEFAULT_WIDTH = 260;
+export const PLAYBOOK_TREE_MAX_WIDTH = 420;
+export const PLAYBOOK_TREE_WIDTH_STORAGE_KEY = "cs2analyzer.playbookTreeWidth";
+
+/** Playbook strat data panel (left of the tree). */
+export const PLAYBOOK_DETAIL_MIN_WIDTH = 280;
+export const PLAYBOOK_DETAIL_DEFAULT_WIDTH = 360;
+export const PLAYBOOK_DETAIL_MAX_WIDTH = 560;
+export const PLAYBOOK_DETAIL_WIDTH_STORAGE_KEY = "cs2analyzer.playbookDetailWidth";
+
+/** Layouts editor callout panel. */
+export const LAYOUTS_SIDEBAR_MIN_WIDTH = 280;
+export const LAYOUTS_SIDEBAR_DEFAULT_WIDTH = 360;
+export const LAYOUTS_SIDEBAR_MAX_WIDTH = 560;
+export const LAYOUTS_SIDEBAR_WIDTH_STORAGE_KEY = "cs2analyzer.layoutsSidebarWidth";
+
 /** Leave at least this much of `.stage` for the radar while resizing. */
 export const RADAR_MIN_WIDTH = 360;
 

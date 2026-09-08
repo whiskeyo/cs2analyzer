@@ -84,6 +84,7 @@ describe("LayoutsApp", () => {
     expect(screen.getByRole("button", { name: "Select (5)" })).toHaveClass("on");
     await userEvent.click(screen.getByRole("button", { name: "Lower" }));
     await userEvent.click(screen.getByRole("button", { name: "Reset view" }));
+    expect(screen.getByRole("separator", { name: "Resize layouts panel" })).toBeInTheDocument();
   });
 
   it("applies JSON, imports a file, and saves", async () => {

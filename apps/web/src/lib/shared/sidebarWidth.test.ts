@@ -5,7 +5,12 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "./constants";
-import { clampSidebarWidth, loadSidebarWidth, saveSidebarWidth } from "./sidebarWidth";
+import {
+  clampPanelWidth,
+  clampSidebarWidth,
+  loadSidebarWidth,
+  saveSidebarWidth,
+} from "./sidebarWidth";
 
 describe("clampSidebarWidth", () => {
   it("keeps the current layout as the floor", () => {
@@ -25,6 +30,13 @@ describe("clampSidebarWidth", () => {
 
   it("falls back to the floor on bad input", () => {
     expect(clampSidebarWidth(Number.NaN, 1600)).toBe(SIDEBAR_MIN_WIDTH);
+  });
+});
+
+describe("clampPanelWidth", () => {
+  it("reserves the radar and a sibling panel", () => {
+    expect(clampPanelWidth(500, 900, 200, 420, RADAR_MIN_WIDTH + 280)).toBe(260);
+    expect(clampPanelWidth(Number.NaN, 1600, 200, 420)).toBe(200);
   });
 });
 

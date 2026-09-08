@@ -55,6 +55,11 @@
   min-height: 0;
   display: flex;
 }
+.layouts-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
 
 .radar-col {
   flex: 1;
@@ -97,8 +102,9 @@
 }
 
 .panel {
+  position: relative;
   width: 360px;
-  flex: 0 0 360px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
