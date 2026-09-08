@@ -11,6 +11,7 @@ export type OverlayRow = {
   label: string;
   detail?: string;
   piece?: Piece;
+  groupId?: string;
 };
 
 function drawingLabel(drawing: Drawing): string {
@@ -18,6 +19,16 @@ function drawingLabel(drawing: Drawing): string {
   if (drawing.type === "arrow") return "Arrow";
   const text = drawing.text.trim();
   return text === "" ? "Text" : `Text “${text}”`;
+}
+
+export function overlayRowGroupId(row: OverlayRow): string | null {
+  if (row.groupId) return row.groupId;
+  if (row.piece?.groupId) return row.piece.groupId;
+  if (!row.id.startsWith("group:")) return null;
+  const rest = row.id.slice("group:".length);
+  const sep = rest.lastIndexOf(":");
+  if (sep <= 0) return null;
+  return rest.slice(0, sep);
 }
 
 export function overlayRows(note: Note): OverlayRow[] {
@@ -71,8 +82,14 @@ export function overlayRows(note: Note): OverlayRow[] {
   fx.tracers.forEach((_, index) => {
     rows.push({ id: `fx:tracer:${index}`, kind: "fx", label: "Tracer" });
   });
-  fx.trails.forEach((_, index) => {
-    rows.push({ id: `fx:trail:${index}`, kind: "fx", label: "Player trail" });
+  fx.trails.forEach((trail, index) => {
+    rows.push({
+      id: `fx:trail:${index}`,
+      kind: "fx",
+      label: trail.label ? "Trail" : "Player trail",
+      detail: trail.label,
+      groupId: trail.groupId,
+    });
   });
   if (fx.heatmap.length > 0) {
     rows.push({
@@ -126,7 +143,8 @@ export function removeOverlay(note: Note, id: string): Note {
       return note;
     }
     group.drawings.splice(index, 1);
-    if (group.drawings.length === 0) {
+    const hasPieces = next.pieces.some((piece) => piece.groupId === groupId);
+    if (group.drawings.length === 0 && !hasPieces) {
       next.groups = next.groups.filter((row) => row.id !== groupId);
     }
     return next;

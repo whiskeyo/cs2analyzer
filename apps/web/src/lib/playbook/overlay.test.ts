@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import type { NoteRadarFx } from "@/lib/notes/types";
 import { makePiece } from "./pieces";
-import { overlayRows, removeOverlay } from "./overlay";
+import { overlayRowGroupId, overlayRows, removeOverlay } from "./overlay";
 
 function emptyFx(patch: Partial<NoteRadarFx> = {}): NoteRadarFx {
   return {
@@ -78,6 +78,17 @@ describe("overlayRows", () => {
       "Flash",
     ]);
   });
+
+  it("attaches a player trail to the pawn group", () => {
+    const note = emptyNote();
+    note.groups.push({ id: "g1", name: "donk", drawings: [] });
+    note.pieces.push(makePiece("pawn", 0, 0, { id: "p1", groupId: "g1", label: "donk" }));
+    note.radarFx = emptyFx({
+      trails: [{ points: [{ x: 0, y: 0 }], color: "#0f0", groupId: "g1", label: "donk" }],
+    });
+    const grouped = overlayRows(note).filter((row) => overlayRowGroupId(row) === "g1");
+    expect(grouped.map((row) => row.label)).toEqual(["Pawn", "Trail"]);
+  });
 });
 
 describe("removeOverlay", () => {
@@ -119,6 +130,20 @@ describe("removeOverlay", () => {
     expect(one.groups[0]?.drawings).toHaveLength(1);
     const empty = removeOverlay(one, "group:g1:0");
     expect(empty.groups).toEqual([]);
+  });
+
+  it("keeps a group that still has tokens", () => {
+    const note = emptyNote();
+    note.groups.push({
+      id: "g1",
+      name: "util",
+      drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+    });
+    note.pieces.push(makePiece("pawn", 0, 0, { id: "p1", groupId: "g1" }));
+    const next = removeOverlay(note, "group:g1:0");
+    expect(next.groups).toHaveLength(1);
+    expect(next.groups[0]?.drawings).toEqual([]);
+    expect(next.pieces[0]?.groupId).toBe("g1");
   });
 
   it("no-ops an unknown id", () => {
