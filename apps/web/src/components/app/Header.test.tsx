@@ -1,9 +1,13 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import "fake-indexeddb/auto";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { makeKill, makeReplay } from "@/lib/testing/fixtures";
+import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
+import { newPlaybook } from "@/lib/playbook/pages";
+import { serializePlaybookBundle } from "@/lib/playbook/transfer";
 import { Header } from "./Header";
 
 vi.mock("@/lib/state/appState", () => ({
@@ -70,9 +74,14 @@ async function openSettings() {
 }
 
 describe("Header", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.mocked(useApp).mockReset();
     window.history.replaceState({}, "", "/");
+    await deleteAllPlaybooks();
+  });
+
+  afterEach(async () => {
+    await deleteAllPlaybooks();
   });
 
   it("shows brand and settings on the splash", async () => {
@@ -89,9 +98,14 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
 
     await openSettings();
+    expect(screen.getByText("Notes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export playbooks" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export notes" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Import notes" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove notes" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export playbooks" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Import playbooks" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove all playbooks" })).toBeDisabled();
   });
 
   it("enables Export notes in settings when saved notes exist", async () => {
@@ -225,5 +239,42 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Back to analyzer" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "FAQ" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("exports, imports, and removes playbooks from settings", async () => {
+    vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
+    await createPlaybook("de_mirage", "Defaults");
+    render(<Header />);
+    await openSettings();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Export playbooks" })).toBeEnabled(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Export playbooks" }));
+    expect(await screen.findByText("Exported 1 playbook.")).toBeInTheDocument();
+    expect(downloadBlob).toHaveBeenCalled();
+
+    const incoming = newPlaybook("de_inferno", "Imported");
+    const input = document.querySelector(
+      'input[aria-label="Import playbooks file"]',
+    ) as HTMLInputElement;
+    const file = new File([serializePlaybookBundle([incoming])], "books.json", {
+      type: "application/json",
+    });
+    await userEvent.upload(input, file);
+    expect(await screen.findByText("Imported 1 playbook.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove all playbooks" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Remove all playbooks?");
+    const removeBtn = screen.getByRole("button", {
+      name: "Remove all playbooks",
+    });
+    expect(removeBtn).toBeDisabled();
+    await userEvent.type(screen.getByLabelText("Confirmation phrase"), "yes, remove playbooks");
+    expect(removeBtn).toBeEnabled();
+    await userEvent.click(removeBtn);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await openSettings();
+    expect(await screen.findByRole("button", { name: "Export playbooks" })).toBeDisabled();
   });
 });

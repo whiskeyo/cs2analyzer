@@ -9,9 +9,13 @@ import { prettyMap } from "@/lib/weapons/weapons";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { navigate, ROUTES, usePathname } from "@/lib/app/devNavigate";
 import { isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
+import { PLAYBOOKS_CHANGED_EVENT } from "@/lib/playbook/events";
+import { countPlaybooks, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
+import { exportPlaybooks, importPlaybooksFromText } from "@/lib/playbook/transfer";
 import { SiteNav } from "./SiteNav";
 
 const REMOVE_NOTES_CONFIRM = "yes, remove notes";
+const REMOVE_PLAYBOOKS_CONFIRM = "yes, remove playbooks";
 
 function downloadCsv(replay: Replay, fileName: string) {
   const csv = exportStatsCsv(replay, computeStats(replay, matchEndTick(replay)));
@@ -44,10 +48,29 @@ export function Header() {
   const onPlaybook = isPlaybookPath(pathname);
   const showMatchChrome = replay != null && !onFaq && !onLayouts && !onPlaybook;
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeKind, setRemoveKind] = useState<"notes" | "playbooks" | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState("");
+  const [playbookCount, setPlaybookCount] = useState(0);
+  const [playbookFlash, setPlaybookFlash] = useState<string | null>(null);
+  const [playbookFlashError, setPlaybookFlashError] = useState<string | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const playbookImportRef = useRef<HTMLInputElement>(null);
   const removeTitleId = useId();
+  const removeOpen = removeKind != null;
+  const removePhrase = removeKind === "playbooks" ? REMOVE_PLAYBOOKS_CONFIRM : REMOVE_NOTES_CONFIRM;
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    void countPlaybooks().then(setPlaybookCount);
+  }, [settingsOpen]);
+
+  useEffect(() => {
+    const onChanged = () => {
+      void countPlaybooks().then(setPlaybookCount);
+    };
+    window.addEventListener(PLAYBOOKS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(PLAYBOOKS_CHANGED_EVENT, onChanged);
+  }, []);
 
   useEffect(() => {
     if (!settingsOpen) return;
@@ -71,7 +94,7 @@ export function Header() {
     if (!removeOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setRemoveOpen(false);
+        setRemoveKind(null);
         setRemoveConfirm("");
       }
     };
@@ -156,46 +179,119 @@ export function Header() {
             </button>
             {settingsOpen ? (
               <div className="settings-menu" id="app-settings-menu">
-                <button
-                  type="button"
-                  className="ghost"
-                  disabled={!canExportNotes}
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    void review.exportNotes();
-                  }}
-                >
-                  Export notes
-                </button>
-                <ImportNotesButton
-                  onFile={(file) => {
-                    setSettingsOpen(false);
-                    onFiles([file]);
-                  }}
-                />
-                <button
-                  type="button"
-                  className="danger"
-                  disabled={!canRemoveNotes}
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    setRemoveOpen(true);
-                    setRemoveConfirm("");
-                  }}
-                >
-                  Remove notes
-                </button>
-                {import.meta.env.DEV && !onLayouts ? (
+                <div className="settings-menu-section">
+                  <p className="settings-menu-label">Notes</p>
                   <button
                     type="button"
                     className="ghost"
+                    disabled={!canExportNotes}
                     onClick={() => {
                       setSettingsOpen(false);
-                      navigate(ROUTES.layouts);
+                      void review.exportNotes();
                     }}
                   >
-                    Layouts editor
+                    Export notes
                   </button>
+                  <ImportNotesButton
+                    onFile={(file) => {
+                      setSettingsOpen(false);
+                      onFiles([file]);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="danger"
+                    disabled={!canRemoveNotes}
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      setRemoveKind("notes");
+                      setRemoveConfirm("");
+                    }}
+                  >
+                    Remove notes
+                  </button>
+                </div>
+                <div className="settings-menu-section">
+                  <p className="settings-menu-label">Playbook</p>
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={playbookCount === 0}
+                    onClick={() => {
+                      void exportPlaybooks().then((result) => {
+                        if (result.ok) {
+                          setPlaybookFlashError(null);
+                          setPlaybookFlash(result.message);
+                        } else {
+                          setPlaybookFlash(null);
+                          setPlaybookFlashError(result.message);
+                        }
+                      });
+                    }}
+                  >
+                    Export playbooks
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => playbookImportRef.current?.click()}
+                  >
+                    Import playbooks
+                  </button>
+                  <input
+                    ref={playbookImportRef}
+                    type="file"
+                    accept=".json,application/json"
+                    hidden
+                    aria-label="Import playbooks file"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      void file.text().then(async (text) => {
+                        const result = await importPlaybooksFromText(text);
+                        if (result.ok) {
+                          setPlaybookFlashError(null);
+                          setPlaybookFlash(result.message);
+                          setPlaybookCount(await countPlaybooks());
+                        } else {
+                          setPlaybookFlash(null);
+                          setPlaybookFlashError(result.message);
+                        }
+                      });
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="danger"
+                    disabled={playbookCount === 0}
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      setRemoveKind("playbooks");
+                      setRemoveConfirm("");
+                    }}
+                  >
+                    Remove all playbooks
+                  </button>
+                  {playbookFlash ? <p className="settings-menu-flash">{playbookFlash}</p> : null}
+                  {playbookFlashError ? (
+                    <p className="settings-menu-flash is-error">{playbookFlashError}</p>
+                  ) : null}
+                </div>
+                {import.meta.env.DEV && !onLayouts ? (
+                  <div className="settings-menu-section">
+                    <p className="settings-menu-label">Development</p>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => {
+                        setSettingsOpen(false);
+                        navigate(ROUTES.layouts);
+                      }}
+                    >
+                      Layouts editor
+                    </button>
+                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -206,7 +302,7 @@ export function Header() {
         <div
           className="home-modal"
           onClick={() => {
-            setRemoveOpen(false);
+            setRemoveKind(null);
             setRemoveConfirm("");
           }}
         >
@@ -217,13 +313,16 @@ export function Header() {
             aria-labelledby={removeTitleId}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id={removeTitleId}>Remove all saved notes?</h2>
+            <h2 id={removeTitleId}>
+              {removeKind === "playbooks" ? "Remove all playbooks?" : "Remove all saved notes?"}
+            </h2>
             <p>
-              This deletes every drawing project stored in this browser. Export a JSON backup first
-              if you might need them later.
+              {removeKind === "playbooks"
+                ? "This deletes every playbook stored in this browser. Export a JSON backup first if you might need them later."
+                : "This deletes every drawing project stored in this browser. Export a JSON backup first if you might need them later."}
             </p>
             <p>
-              Type <code>{REMOVE_NOTES_CONFIRM}</code> to confirm.
+              Type <code>{removePhrase}</code> to confirm.
             </p>
             <input
               className="remove-notes-input"
@@ -239,7 +338,7 @@ export function Header() {
                 type="button"
                 className="ghost"
                 onClick={() => {
-                  setRemoveOpen(false);
+                  setRemoveKind(null);
                   setRemoveConfirm("");
                 }}
               >
@@ -248,14 +347,20 @@ export function Header() {
               <button
                 type="button"
                 className="danger"
-                disabled={removeConfirm !== REMOVE_NOTES_CONFIRM}
+                disabled={removeConfirm !== removePhrase}
                 onClick={() => {
-                  setRemoveOpen(false);
+                  const kind = removeKind;
+                  setRemoveKind(null);
                   setRemoveConfirm("");
-                  void review.removeAllNotes();
+                  if (kind === "playbooks") {
+                    void deleteAllPlaybooks();
+                    setPlaybookCount(0);
+                  } else {
+                    void review.removeAllNotes();
+                  }
                 }}
               >
-                Remove all notes
+                {removeKind === "playbooks" ? "Remove all playbooks" : "Remove all notes"}
               </button>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { isFiniteNumber, isRecord } from "@/lib/validate/guards.ts";
 import { downloadBlob } from "@/lib/shared/download";
 import { parsePlaybook } from "./parse";
 import { loadAllPlaybooks, savePlaybook } from "./playbookStore";
+import { emitPlaybooksChanged } from "./events";
 import { PLAYBOOK_SCHEMA, type Playbook } from "./types";
 
 export const PLAYBOOK_BUNDLE_SCHEMA = PLAYBOOK_SCHEMA;
@@ -54,7 +55,10 @@ export async function exportPlaybooks(): Promise<TransferResult> {
     }
     downloadBlob(PLAYBOOK_EXPORT_FILE, "application/json", serializePlaybookBundle(playbooks));
     const n = playbooks.length;
-    return { ok: true, message: `Exported ${n} playbook${n === 1 ? "" : "s"}.` };
+    return {
+      ok: true,
+      message: `Exported ${n} playbook${n === 1 ? "" : "s"}.`,
+    };
   } catch {
     return { ok: false, message: "Could not export playbooks." };
   }
@@ -76,7 +80,11 @@ export async function importPlaybooksFromText(text: string): Promise<TransferRes
       await savePlaybook(book);
     }
     const n = bundle.playbooks.length;
-    return { ok: true, message: `Imported ${n} playbook${n === 1 ? "" : "s"}.` };
+    emitPlaybooksChanged();
+    return {
+      ok: true,
+      message: `Imported ${n} playbook${n === 1 ? "" : "s"}.`,
+    };
   } catch {
     return { ok: false, message: "Could not import playbooks." };
   }
