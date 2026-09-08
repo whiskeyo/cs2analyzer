@@ -201,6 +201,9 @@ export const NOTE_TEXT_DRAG_PX = 4;
 /** Undo stack depth for drawings. */
 export const DRAW_HISTORY_LIMIT = 80;
 
+/** Merge rapid playbook note edits (a drag) into one undo step. */
+export const DRAW_HISTORY_COALESCE_MS = 400;
+
 /** Debounce before writing the review overlay to IndexedDB. */
 export const PROJECT_SAVE_DEBOUNCE_MS = 400;
 
