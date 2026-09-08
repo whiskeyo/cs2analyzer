@@ -1,12 +1,9 @@
 import { PLAYBOOK_STORE, idbAvailable, openCs2Db, requestOf } from "@/lib/storage/idb";
+import { emitPlaybooksChanged } from "./events";
 import { parsePlaybook } from "./parse";
 import { newPlaybook } from "./pages";
+import { comparePlaybooks, nextPlaybookSort } from "./tree";
 import type { Playbook } from "./types";
-
-function byRecency(a: Playbook, b: Playbook): number {
-  if (b.savedAt !== a.savedAt) return b.savedAt - a.savedAt;
-  return a.title.localeCompare(b.title);
-}
 
 export async function savePlaybook(book: Playbook): Promise<Playbook> {
   const next = { ...book, savedAt: Date.now() };
@@ -44,7 +41,7 @@ export async function loadAllPlaybooks(): Promise<Playbook[]> {
       const book = parsePlaybook(row);
       if (book) out.push(book);
     }
-    return out.sort(byRecency);
+    return out.sort(comparePlaybooks);
   } finally {
     db.close();
   }
@@ -56,7 +53,8 @@ export async function listPlaybooksForMap(mapName: string): Promise<Playbook[]> 
 }
 
 export async function createPlaybook(mapName: string, title: string): Promise<Playbook> {
-  return savePlaybook(newPlaybook(mapName, title));
+  const all = await loadAllPlaybooks();
+  return savePlaybook(newPlaybook(mapName, title, nextPlaybookSort(all, mapName)));
 }
 
 export async function deletePlaybook(key: string): Promise<void> {
@@ -68,6 +66,7 @@ export async function deletePlaybook(key: string): Promise<void> {
   } finally {
     db.close();
   }
+  emitPlaybooksChanged();
 }
 
 export async function deleteAllPlaybooks(): Promise<number> {
@@ -81,6 +80,7 @@ export async function deleteAllPlaybooks(): Promise<number> {
   } finally {
     db.close();
   }
+  emitPlaybooksChanged();
   return existing.length;
 }
 

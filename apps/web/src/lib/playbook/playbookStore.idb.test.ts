@@ -25,12 +25,10 @@ describe("playbookStore indexedDB", () => {
     await deleteAllPlaybooks();
   });
 
-  it("saves, loads, and lists books for a map", async () => {
+  it("saves, loads, and lists books in creation order", async () => {
     const older = await createPlaybook("de_mirage", "Defaults");
-    const newer = await savePlaybook({
-      ...newPlaybook("de_mirage", "A execs"),
-      savedAt: Date.now() + 10,
-    });
+    const newer = await createPlaybook("de_mirage", "A execs");
+    await savePlaybook({ ...newer, savedAt: Date.now() + 10_000 });
     await createPlaybook("de_inferno", "Other");
 
     expect(await countPlaybooks()).toBe(3);
@@ -39,8 +37,8 @@ describe("playbookStore indexedDB", () => {
     expect(loaded?.pages[0]?.title).toBeDefined();
 
     const mirage = await listPlaybooksForMap("de_mirage");
-    expect(mirage.map((b) => b.title)).toEqual(["A execs", "Defaults"]);
-    expect(newer.key).toBe(mirage[0]?.key);
+    expect(mirage.map((b) => b.title)).toEqual(["Defaults", "A execs"]);
+    expect(older.key).toBe(mirage[0]?.key);
     expect(await loadPlaybook("missing")).toBeNull();
   });
 
@@ -56,9 +54,9 @@ describe("playbookStore indexedDB", () => {
     expect(await deleteAllPlaybooks()).toBe(0);
   });
 
-  it("skips malformed rows and sorts equal timestamps by title", async () => {
-    const zulu = { ...newPlaybook("de_mirage", "Zulu"), savedAt: 50 };
-    const alpha = { ...newPlaybook("de_mirage", "Alpha"), savedAt: 50 };
+  it("skips malformed rows and orders by sort, then title", async () => {
+    const zulu = { ...newPlaybook("de_mirage", "Zulu"), savedAt: 50, sort: 0 };
+    const alpha = { ...newPlaybook("de_mirage", "Alpha"), savedAt: 50, sort: 1 };
     const db = await openCs2Db();
     try {
       const tx = db.transaction(PLAYBOOK_STORE, "readwrite");
@@ -70,6 +68,6 @@ describe("playbookStore indexedDB", () => {
       db.close();
     }
     const all = await loadAllPlaybooks();
-    expect(all.map((book) => book.title)).toEqual(["Alpha", "Zulu"]);
+    expect(all.map((book) => book.title)).toEqual(["Zulu", "Alpha"]);
   });
 });

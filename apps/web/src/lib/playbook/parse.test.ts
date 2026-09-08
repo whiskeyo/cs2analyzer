@@ -15,6 +15,8 @@ describe("parsePlaybookPage", () => {
       }),
     ).toMatchObject({ id: "p1", title: "A exec", floor: "lower" });
     expect(parsePlaybookPage({ id: "p2" })?.title).toBe(UNTITLED_STRAT);
+    expect(parsePlaybookPage({ id: "p2" })?.body).toBe("");
+    expect(parsePlaybookPage({ id: "p5", body: "hold mid" })?.body).toBe("hold mid");
     expect(parsePlaybookPage({ id: "p3", floor: "nope" })?.floor).toBe("auto");
     expect(parsePlaybookPage({ id: "  " })).toBeNull();
     expect(parsePlaybookPage(null)).toBeNull();
@@ -41,7 +43,10 @@ describe("parsePlaybook", () => {
       pages: [
         { id: "", title: "bad" },
         { id: "ok", title: "Split", floor: "upper" },
-        { id: "ok2", note: { groups: [], drawings: [], pieces: [], bookmarks: [] } },
+        {
+          id: "ok2",
+          note: { groups: [], drawings: [], pieces: [], bookmarks: [] },
+        },
       ],
     });
     expect(parsed).toMatchObject({
@@ -49,6 +54,7 @@ describe("parsePlaybook", () => {
       mapName: "de_inferno",
       title: UNTITLED_PLAYBOOK,
       savedAt: 0,
+      sort: 0,
       paletteId: COLOR_PRESETS[0].id,
       color: COLOR_PRESETS[0].colors[0],
       activePageId: "ok",
@@ -75,10 +81,23 @@ describe("parsePlaybook", () => {
     expect(parsed).toMatchObject({
       title: "A execs",
       savedAt: 9,
+      sort: 9,
       paletteId: COLOR_PRESETS[1].id,
       color: "#abc",
       activePageId: "b",
     });
+  });
+
+  it("keeps an explicit sort instead of savedAt", () => {
+    const parsed = parsePlaybook({
+      schema: PLAYBOOK_SCHEMA,
+      key: "k3",
+      mapName: "de_mirage",
+      savedAt: 99,
+      sort: 2,
+      pages: [{ id: "a", title: "A" }],
+    });
+    expect(parsed?.sort).toBe(2);
   });
 
   it("rejects a bad schema, missing key, or empty pages", () => {
@@ -93,11 +112,27 @@ describe("parsePlaybook", () => {
       }),
     ).toBeNull();
     expect(
-      parsePlaybook({ schema: PLAYBOOK_SCHEMA, key: "k", mapName: "  ", pages: [{ id: "p" }] }),
+      parsePlaybook({
+        schema: PLAYBOOK_SCHEMA,
+        key: "k",
+        mapName: "  ",
+        pages: [{ id: "p" }],
+      }),
     ).toBeNull();
-    expect(parsePlaybook({ schema: PLAYBOOK_SCHEMA, key: "k", mapName: "de_mirage" })).toBeNull();
     expect(
-      parsePlaybook({ schema: PLAYBOOK_SCHEMA, key: "k", mapName: "de_mirage", pages: [{}] }),
+      parsePlaybook({
+        schema: PLAYBOOK_SCHEMA,
+        key: "k",
+        mapName: "de_mirage",
+      }),
+    ).toBeNull();
+    expect(
+      parsePlaybook({
+        schema: PLAYBOOK_SCHEMA,
+        key: "k",
+        mapName: "de_mirage",
+        pages: [{}],
+      }),
     ).toBeNull();
   });
 });

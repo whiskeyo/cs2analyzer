@@ -3,18 +3,22 @@ import { emptyNote } from "@/lib/notes/note";
 import {
   activePage,
   addPage,
+  commitTitle,
   copiedTitle,
   defaultPlaybookColor,
   defaultPlaybookPaletteId,
   deletePage,
   duplicatePage,
   duplicatePlaybook,
+  finishRenamePage,
+  finishRenamePlaybook,
   newPage,
   newPlaybook,
   renamePage,
   renamePlaybook,
   reorderPages,
   setActivePage,
+  setPageBody,
   setPageFloor,
   setPageNote,
 } from "./pages";
@@ -31,6 +35,7 @@ describe("newPlaybook", () => {
     expect(book.activePageId).toBe(book.pages[0]?.id);
     expect(book.paletteId).toBe(defaultPlaybookPaletteId());
     expect(book.color).toBe(defaultPlaybookColor());
+    expect(book.sort).toBe(0);
   });
 
   it("keeps a provided title", () => {
@@ -48,10 +53,17 @@ describe("pages", () => {
     expect(book.activePageId).toBe(book.pages[1]?.id);
 
     book = renamePage(book, firstId, "  Mid control  ");
+    expect(book.pages[0]?.title).toBe("  Mid control  ");
+    book = finishRenamePage(book, firstId);
     expect(book.pages[0]?.title).toBe("Mid control");
-    book = renamePage(book, firstId, "   ");
+    book = renamePage(book, firstId, "A exec");
+    expect(book.pages[0]?.title).toBe("A exec");
+    book = renamePage(book, firstId, "");
+    expect(book.pages[0]?.title).toBe("");
+    book = finishRenamePage(book, firstId);
     expect(book.pages[0]?.title).toBe(UNTITLED_STRAT);
     expect(renamePage(book, "missing", "X")).toBe(book);
+    expect(finishRenamePage(book, "missing")).toBe(book);
 
     book = setActivePage(book, firstId);
     expect(book.activePageId).toBe(firstId);
@@ -78,9 +90,14 @@ describe("pages", () => {
     expect(book.pages[0]?.note.drawings).toHaveLength(1);
   });
 
-  it("refuses to delete the last strat and ignores a missing id", () => {
+  it("replaces the last strat with a blank page and ignores a missing id", () => {
     const book = newPlaybook("de_mirage", "Defaults");
-    expect(deletePage(book, book.pages[0]?.id ?? "")).toBe(book);
+    const firstId = book.pages[0]?.id ?? "";
+    const cleared = deletePage(book, firstId);
+    expect(cleared.pages).toHaveLength(1);
+    expect(cleared.pages[0]?.id).not.toBe(firstId);
+    expect(cleared.pages[0]?.title).toBe(UNTITLED_STRAT);
+    expect(cleared.pages[0]?.note.pieces).toEqual([]);
     expect(deletePage(book, "missing")).toBe(book);
     const two = addPage(book, "A exec");
     expect(deletePage(two, "missing")).toBe(two);
@@ -118,7 +135,10 @@ describe("pages", () => {
     expect(reorderPages(book, 0, 0)).toBe(book);
     expect(reorderPages(book, -1, 0)).toBe(book);
     expect(reorderPages(book, 0, 9)).toBe(book);
-    const sparse = { ...book, pages: Object.assign([], { 1: book.pages[0], length: 2 }) };
+    const sparse = {
+      ...book,
+      pages: Object.assign([], { 1: book.pages[0], length: 2 }),
+    };
     expect(reorderPages(sparse, 0, 1).pages).toEqual(sparse.pages);
   });
 
@@ -126,6 +146,8 @@ describe("pages", () => {
     let book = newPlaybook("de_mirage", "Defaults");
     book = addPage(book, "A exec");
     book = renamePlaybook(book, "  ");
+    expect(book.title).toBe("  ");
+    book = finishRenamePlaybook(book);
     expect(book.title).toBe(UNTITLED_PLAYBOOK);
     book = renamePlaybook(book, "Anti-strats");
     const copy = duplicatePlaybook(book);
@@ -152,7 +174,23 @@ describe("pages", () => {
 describe("newPage", () => {
   it("defaults title and floor", () => {
     expect(newPage().title).toBe(UNTITLED_STRAT);
+    expect(newPage().body).toBe("");
     expect(newPage().floor).toBe("auto");
-    expect(newPage("Split A", "upper")).toMatchObject({ title: "Split A", floor: "upper" });
+    expect(newPage("Split A", "upper")).toMatchObject({
+      title: "Split A",
+      floor: "upper",
+    });
+  });
+});
+
+describe("commitTitle / setPageBody", () => {
+  it("keeps a typed name and restores untitled only when empty", () => {
+    expect(commitTitle("  A exec  ", UNTITLED_STRAT)).toBe("A exec");
+    expect(commitTitle("   ", UNTITLED_STRAT)).toBe(UNTITLED_STRAT);
+    let book = newPlaybook("de_mirage", "Defaults");
+    const id = book.pages[0]?.id ?? "";
+    book = setPageBody(book, id, "flash mid, smoke stairs");
+    expect(book.pages[0]?.body).toBe("flash mid, smoke stairs");
+    expect(setPageBody(book, "missing", "x")).toBe(book);
   });
 });

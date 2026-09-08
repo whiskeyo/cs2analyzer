@@ -39,6 +39,7 @@ export function parsePlaybookPage(value: unknown): PlaybookPage | null {
   return {
     id,
     title: optionalNonEmpty(value.title) ?? UNTITLED_STRAT,
+    body: isString(value.body) ? value.body : "",
     floor: parseFloor(value.floor),
     note,
   };
@@ -67,6 +68,11 @@ export function parsePlaybook(value: unknown): Playbook | null {
     mapName,
     title: optionalNonEmpty(value.title) ?? UNTITLED_PLAYBOOK,
     savedAt: isFiniteNumber(value.savedAt) ? value.savedAt : 0,
+    sort: isFiniteNumber(value.sort)
+      ? value.sort
+      : isFiniteNumber(value.savedAt)
+        ? value.savedAt
+        : 0,
     pages,
     activePageId,
     paletteId: parsePaletteId(value.paletteId),

@@ -27,11 +27,22 @@ function titled(value: string, fallback: string): string {
   return trimmed === "" ? fallback : trimmed;
 }
 
-export function newPage(title = UNTITLED_STRAT, floor: FloorMode = "auto"): PlaybookPage {
-  return { id: newId(), title: titled(title, UNTITLED_STRAT), floor, note: emptyNote() };
+/** Apply untitled fallback only when the field is left empty (on blur). */
+export function commitTitle(value: string, fallback: string): string {
+  return titled(value, fallback);
 }
 
-export function newPlaybook(mapName: string, title: string): Playbook {
+export function newPage(title = UNTITLED_STRAT, floor: FloorMode = "auto"): PlaybookPage {
+  return {
+    id: newId(),
+    title: titled(title, UNTITLED_STRAT),
+    body: "",
+    floor,
+    note: emptyNote(),
+  };
+}
+
+export function newPlaybook(mapName: string, title: string, sort = 0): Playbook {
   const page = newPage();
   return {
     schema: PLAYBOOK_SCHEMA,
@@ -39,6 +50,7 @@ export function newPlaybook(mapName: string, title: string): Playbook {
     mapName,
     title: titled(title, UNTITLED_PLAYBOOK),
     savedAt: 0,
+    sort,
     pages: [page],
     activePageId: page.id,
     paletteId: defaultPlaybookPaletteId(),
@@ -93,7 +105,18 @@ export function addPage(
 }
 
 export function renamePage(book: Playbook, pageId: string, title: string): Playbook {
-  return updatePage(book, pageId, (page) => ({ ...page, title: titled(title, UNTITLED_STRAT) }));
+  return updatePage(book, pageId, (page) => ({ ...page, title }));
+}
+
+export function finishRenamePage(book: Playbook, pageId: string): Playbook {
+  return updatePage(book, pageId, (page) => ({
+    ...page,
+    title: titled(page.title, UNTITLED_STRAT),
+  }));
+}
+
+export function setPageBody(book: Playbook, pageId: string, body: string): Playbook {
+  return updatePage(book, pageId, (page) => ({ ...page, body }));
 }
 
 export function setPageFloor(book: Playbook, pageId: string, floor: FloorMode): Playbook {
@@ -101,7 +124,10 @@ export function setPageFloor(book: Playbook, pageId: string, floor: FloorMode): 
 }
 
 export function setPageNote(book: Playbook, pageId: string, note: Note): Playbook {
-  return updatePage(book, pageId, (page) => ({ ...page, note: cloneNote(note) }));
+  return updatePage(book, pageId, (page) => ({
+    ...page,
+    note: cloneNote(note),
+  }));
 }
 
 export function setActivePage(book: Playbook, pageId: string): Playbook {
@@ -111,7 +137,12 @@ export function setActivePage(book: Playbook, pageId: string): Playbook {
 }
 
 export function deletePage(book: Playbook, pageId: string): Playbook {
-  if (book.pages.length <= 1) return book;
+  if (book.pages.length <= 1) {
+    const only = book.pages[0];
+    if (!only || only.id !== pageId) return book;
+    const page = newPage();
+    return withPages(book, [page], page.id);
+  }
   const pages = book.pages.filter((p) => p.id !== pageId);
   if (pages.length === book.pages.length) return book;
   return withPages(book, pages);
@@ -125,6 +156,7 @@ export function duplicatePage(book: Playbook, pageId: string): Playbook {
     ...source,
     id: newId(),
     title: copiedTitle(source.title),
+    body: source.body,
     note: cloneNote(source.note),
   };
   const pages = book.pages.slice();
@@ -143,7 +175,11 @@ export function reorderPages(book: Playbook, from: number, to: number): Playbook
 }
 
 export function renamePlaybook(book: Playbook, title: string): Playbook {
-  return { ...book, title: titled(title, UNTITLED_PLAYBOOK) };
+  return { ...book, title };
+}
+
+export function finishRenamePlaybook(book: Playbook): Playbook {
+  return { ...book, title: titled(book.title, UNTITLED_PLAYBOOK) };
 }
 
 export function duplicatePlaybook(book: Playbook): Playbook {
@@ -159,6 +195,7 @@ export function duplicatePlaybook(book: Playbook): Playbook {
     key: newId(),
     title: copiedTitle(book.title),
     savedAt: 0,
+    sort: book.sort,
     pages,
     activePageId,
   };
