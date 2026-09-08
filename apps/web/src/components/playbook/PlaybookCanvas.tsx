@@ -5,6 +5,7 @@ import { paintPlaybookBoard, playbookUsesLower } from "@/lib/playbook/paint";
 import { playbookToolCursor, type PlaybookTool } from "@/lib/playbook/pieces";
 import type { NadeTrailDraft } from "@/lib/playbook/nadeTrail";
 import { createPlaybookView, usePlaybookPointer } from "@/lib/playbook/pointer";
+import type { LegendEntry } from "@/lib/playbook/legend";
 import { useRadarImages } from "@/lib/radar/useRadarImages";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
@@ -17,6 +18,8 @@ interface Props {
   selectedId?: string | null;
   nadeTrail?: boolean;
   nadeStyle?: NadeStyle;
+  viewEpoch?: number;
+  legend?: LegendEntry[];
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
 }
@@ -30,6 +33,8 @@ export function PlaybookCanvas({
   selectedId = null,
   nadeTrail = false,
   nadeStyle = "icon",
+  viewEpoch = 0,
+  legend = [],
   onNote,
   onSelect,
 }: Props) {
@@ -56,6 +61,10 @@ export function PlaybookCanvas({
   nadeStyleRef.current = nadeStyle;
   const nadeTrailRef = useRef<NadeTrailDraft | null>(null);
   const { images, c4Icon, nadeIcons } = useRadarImages(cal);
+
+  useEffect(() => {
+    view.current = createPlaybookView();
+  }, [viewEpoch]);
 
   useEffect(() => {
     if (!nadeTrail) nadeTrailRef.current = null;
@@ -128,6 +137,16 @@ export function PlaybookCanvas({
       style={{ cursor: playbookToolCursor(tool, nadeTrail) }}
     >
       <canvas ref={canvasRef} />
+      {legend.length > 0 ? (
+        <ul className="playbook-legend" aria-label="Player colours">
+          {legend.map((entry) => (
+            <li key={entry.label}>
+              <span className="playbook-legend-swatch" style={{ background: entry.color }} />
+              {entry.label}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

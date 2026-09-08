@@ -15,6 +15,7 @@ import {
   hitTestDrawingRef,
   moveDrawingAt,
 } from "./drawings";
+import { visiblePieces } from "./legend";
 import {
   addPiece,
   hitTestPiece,
@@ -206,7 +207,7 @@ export function usePlaybookPointer(opts: {
           return;
         }
       }
-      const hit = hitTestPiece(noteRef.current.pieces, { x, y }, toScreen);
+      const hit = hitTestPiece(visiblePieces(noteRef.current), { x, y }, toScreen);
       const action = resolvePlaybookDown(toolRef.current, hit, e.shiftKey, nadeTrailOnRef.current);
       if (action === "erase") {
         if (!cal || !onNoteRef.current) return;
@@ -280,7 +281,7 @@ export function usePlaybookPointer(opts: {
       if (e.button !== 0) return;
       if (toolRef.current !== "pan") return;
       const { x, y } = pos(e);
-      const hit = hitTestPiece(noteRef.current.pieces, { x, y }, toScreen);
+      const hit = hitTestPiece(visiblePieces(noteRef.current), { x, y }, toScreen);
       if (hit?.kind !== "pawn") return;
       gizmoRef.current = hit.id;
       onSelectRef.current?.(hit.id);

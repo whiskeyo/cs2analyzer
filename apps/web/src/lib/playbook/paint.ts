@@ -4,6 +4,7 @@ import {
   drawC4,
   drawHeBurst,
   drawNadeFlightHead,
+  nadeEffectZoom,
   yawToCanvas,
   type NadeIcons,
 } from "@/lib/radar/draw";
@@ -22,12 +23,12 @@ import type { NadeTrailDraft } from "./nadeTrail";
 import {
   isGrenadePieceKind,
   pawnColor,
-  pieceLabel,
   PLAYBOOK_DEAD_PAWN_ALPHA,
   PLAYBOOK_PAWN_SIZE,
   PLAYBOOK_ROTATE_RADIUS_PX,
   rotateHandleOffset,
 } from "./pieces";
+import { shouldShowPawnLegend, visiblePieces } from "./legend";
 
 /** Match Analyzer nade flight trails. */
 export const PLAYBOOK_NADE_TRAIL_OPACITY = 0.4;
@@ -78,13 +79,15 @@ export function paintNadeEffect(
   ctx: CanvasRenderingContext2D,
   at: { x: number; y: number },
   kind: GrenadeKind,
+  scale = 1,
 ): void {
+  const zoom = nadeEffectZoom(scale, null);
   const color = NADE_COLORS[kind];
   if (kind === "he" || kind === "flash") {
-    drawHeBurst(ctx, at, color, kind === "flash" ? 0.4 : 0.2, 1);
+    drawHeBurst(ctx, at, color, kind === "flash" ? 0.4 : 0.2, scale, 1, null);
     return;
   }
-  const radius = NADE_LINGER_RADIUS[kind];
+  const radius = NADE_LINGER_RADIUS[kind] * zoom;
   ctx.save();
   ctx.fillStyle = color;
   ctx.strokeStyle = color;
@@ -109,8 +112,9 @@ function paintPlaybookPawn(
   at: { x: number; y: number },
   c4Icon: HTMLImageElement | null,
   selected: boolean,
+  hideName = false,
 ): void {
-  const color = pawnColor(piece.side);
+  const color = piece.color ?? pawnColor(piece.side);
   const alive = piece.alive !== false;
   ctx.globalAlpha = alive ? 1 : PLAYBOOK_DEAD_PAWN_ALPHA;
   ctx.save();
@@ -135,12 +139,14 @@ function paintPlaybookPawn(
   }
   ctx.restore();
 
-  const name = pieceLabel(piece);
-  ctx.font = "10px ui-sans-serif, system-ui";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#e8eef4";
-  ctx.fillText(name, at.x, at.y + 20);
+  const name = hideName ? "" : (piece.label?.trim() ?? "");
+  if (name) {
+    ctx.font = "10px ui-sans-serif, system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#e8eef4";
+    ctx.fillText(name, at.x, at.y + 20);
+  }
   if (piece.carriesC4) {
     const icon = c4Icon;
     const iconSize = 12;
@@ -193,10 +199,12 @@ export function paintPlaybookPiece(
   toScreen: WorldToScreen,
   icons?: PlaybookPaintIcons,
   selected = false,
+  scale = 1,
+  hidePawnNames = false,
 ): void {
   const at = toScreen(piece.x, piece.y);
   if (piece.kind === "pawn") {
-    paintPlaybookPawn(ctx, piece, at, icons?.c4 ?? null, selected);
+    paintPlaybookPawn(ctx, piece, at, icons?.c4 ?? null, selected, hidePawnNames);
     return;
   }
   if (piece.kind === "bomb") {
@@ -209,7 +217,7 @@ export function paintPlaybookPiece(
     paintNadeTrailLine(ctx, piece.trail, { x: piece.x, y: piece.y }, kind, toScreen);
   }
   if (piece.nadeStyle === "effect") {
-    paintNadeEffect(ctx, at, kind);
+    paintNadeEffect(ctx, at, kind, scale);
     return;
   }
   drawNadeFlightHead(ctx, at, kind, NADE_COLORS[kind], icons?.nades?.[kind]);
@@ -221,9 +229,11 @@ export function paintPlaybookPieces(
   toScreen: WorldToScreen,
   icons?: PlaybookPaintIcons,
   selectedId?: string | null,
+  scale = 1,
+  hidePawnNames = false,
 ): void {
   for (const piece of pieces) {
-    paintPlaybookPiece(ctx, piece, toScreen, icons, piece.id === selectedId);
+    paintPlaybookPiece(ctx, piece, toScreen, icons, piece.id === selectedId, scale, hidePawnNames);
   }
 }
 
@@ -231,7 +241,10 @@ export function playbookUsesLower(cal: MapCalibration | undefined, floorMode: Fl
   return radarFloor(cal, [], null, floorMode) === "lower";
 }
 
-function radarFxFrame(fx: NoteRadarFx): RadarFrame {
+function radarFxFrame(fx: NoteRadarFx, note: Note): RadarFrame {
+  const hidden = new Set(
+    note.groups.filter((group) => group.hidden === true).map((group) => group.id),
+  );
   return {
     tick: 0,
     round: null,
@@ -244,7 +257,7 @@ function radarFxFrame(fx: NoteRadarFx): RadarFrame {
     bomb: { state: "none" },
     deaths: fx.deaths,
     opening: fx.opening,
-    trails: fx.trails,
+    trails: fx.trails.filter((trail) => !trail.groupId || !hidden.has(trail.groupId)),
     cone: fx.cone,
     hits: fx.hits,
     flashes: fx.flashes,
@@ -273,7 +286,7 @@ export function paintPlaybookBoard(
     paintDrawing(ctx, draft, toScreen, { alpha: 0.85, live: true });
   }
   if (note.radarFx) {
-    const fxFrame = radarFxFrame(note.radarFx);
+    const fxFrame = radarFxFrame(note.radarFx, note);
     paintRadarFrame(ctx, fxFrame, toScreen, {
       scale: view.scale,
       c4Icon: icons?.c4 ?? null,
@@ -286,16 +299,23 @@ export function paintPlaybookBoard(
       paintNadeTrailLine(ctx, nadeTrail.points, land, nadeTrail.kind, toScreen);
     }
   }
-  paintPlaybookPieces(ctx, note.pieces, toScreen, icons, selectedId);
+  const pieces = visiblePieces(note);
+  const hidePawnNames = shouldShowPawnLegend(pieces);
+  paintPlaybookPieces(ctx, pieces, toScreen, icons, selectedId, view.scale, hidePawnNames);
   if (note.radarFx) {
-    const fxFrame = radarFxFrame(note.radarFx);
+    const fxFrame = radarFxFrame(note.radarFx, note);
     paintViewCone(ctx, fxFrame, toScreen);
     paintPawns(ctx, fxFrame, toScreen, false, icons?.c4 ?? null);
   }
   const aimed = rotateId
-    ? note.pieces.find((piece) => piece.id === rotateId && piece.kind === "pawn")
+    ? pieces.find((piece) => piece.id === rotateId && piece.kind === "pawn")
     : undefined;
   if (aimed) {
-    paintRotateGizmo(ctx, toScreen(aimed.x, aimed.y), aimed.yaw ?? 0, pawnColor(aimed.side));
+    paintRotateGizmo(
+      ctx,
+      toScreen(aimed.x, aimed.y),
+      aimed.yaw ?? 0,
+      aimed.color ?? pawnColor(aimed.side),
+    );
   }
 }

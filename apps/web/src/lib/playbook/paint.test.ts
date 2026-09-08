@@ -95,6 +95,12 @@ describe("paintPlaybookBoard", () => {
     expect(ctx.fillText).toHaveBeenCalled();
   });
 
+  it("does not paint a side name on an unlabeled pawn", () => {
+    const ctx = createMockCanvas();
+    paintPlaybookPiece(ctx, makePiece("pawn", 0, 0, { id: "p", side: "CT" }), (x, y) => ({ x, y }));
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+
   it("falls back to C4 text and nade dots when icons are missing", () => {
     const ctx = createMockCanvas();
     paintPlaybookPiece(ctx, makePiece("pawn", 0, 0, { id: "p", carriesC4: true }), (x, y) => ({
@@ -129,6 +135,13 @@ describe("paintPlaybookBoard", () => {
     );
     paintNadeEffect(ctx, { x: 0, y: 0 }, "he");
     paintNadeEffect(ctx, { x: 1, y: 1 }, "smoke");
+    const zoomed = createMockCanvas();
+    paintNadeEffect(zoomed, { x: 0, y: 0 }, "smoke", 2);
+    const base = createMockCanvas();
+    paintNadeEffect(base, { x: 0, y: 0 }, "smoke", 1);
+    const zoomedRadius = zoomed.arc.mock.calls[0]?.[2] as number;
+    const baseRadius = base.arc.mock.calls[0]?.[2] as number;
+    expect(zoomedRadius).toBe(baseRadius * 2);
     paintNadeTrailLine(ctx, [{ x: 0, y: 0 }], { x: 4, y: 4 }, "he", (x, y) => ({
       x,
       y,
