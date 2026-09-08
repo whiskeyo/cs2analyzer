@@ -207,14 +207,14 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
     expect(window.location.pathname).toBe("/playbook");
     expect(document.title).toBe("Playbook · CS2 Analyzer");
-    expect(await screen.findByRole("heading", { name: "Playbook" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
   });
 
   it("keeps a loaded demo while visiting Playbook", async () => {
     await loadDemo();
     await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
-    expect(await screen.findByRole("heading", { name: "Playbook" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));

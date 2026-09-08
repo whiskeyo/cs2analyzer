@@ -109,7 +109,9 @@ describe("Playbook", () => {
     render(<Playbook />);
     await screen.findByRole("button", { name: "Mirage" });
     await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
-    fireEvent.keyDown(screen.getByRole("button", { name: "Untitled playbook" }), { key: "F2" });
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Untitled playbook" }), {
+      key: "F2",
+    });
     const title = screen.getByRole("textbox", { name: "Book title" });
     fireEvent.change(title, { target: { value: "" } });
     expect(title).toHaveValue("");
