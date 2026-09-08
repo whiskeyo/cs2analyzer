@@ -99,7 +99,6 @@ function parseGroup(v: unknown): DrawingGroup | null {
     const parsed = parseDrawing(d);
     if (parsed) drawings.push(parsed);
   }
-  if (drawings.length === 0) return null;
   const id = optionalString(v.id) ?? name;
   return withWindow({ id, name, drawings }, v);
 }
@@ -130,6 +129,10 @@ function parsePiece(v: unknown): Piece | null {
   if (v.alive === false) piece.alive = false;
   if (v.alive === true) piece.alive = true;
   if (v.carriesC4 === true) piece.carriesC4 = true;
+  const color = optionalString(v.color);
+  if (color) piece.color = color;
+  const groupId = optionalString(v.groupId);
+  if (groupId) piece.groupId = groupId;
   if (v.nadeStyle === "icon" || v.nadeStyle === "effect") piece.nadeStyle = v.nadeStyle;
   if (Array.isArray(v.trail)) {
     const trail: { x: number; y: number }[] = [];
@@ -206,7 +209,14 @@ function parseRadarFx(v: unknown): NoteRadarFx | undefined {
         .map(parsePoint)
         .filter((p): p is { x: number; y: number } => p != null);
       if (points.length === 0) continue;
-      trails.push({ points, color: row.color });
+      const groupId = optionalString(row.groupId);
+      const label = optionalString(row.label);
+      trails.push({
+        points,
+        color: row.color,
+        ...(groupId ? { groupId } : {}),
+        ...(label ? { label } : {}),
+      });
     }
   }
   const heatmap: NoteRadarFx["heatmap"] = [];

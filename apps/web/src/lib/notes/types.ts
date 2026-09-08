@@ -103,9 +103,13 @@ export interface Piece {
   /** Pawn facing — same raw yaw as replay (`m_angEyeAngles`). */
   yaw?: number;
   side?: "CT" | "T";
+  /** Radar fill. Omit = CT/T side colour. */
+  color?: string;
   label?: string;
   alive?: boolean;
   carriesC4?: boolean;
+  /** Drawing group this token belongs to. Hidden groups hide the token. */
+  groupId?: string;
   /** Throw + bounce points. Land is `x` / `y`. Playbook nade trails. */
   trail?: { x: number; y: number }[];
   /** Grenade paint. Omit = icon. */
@@ -130,7 +134,7 @@ export interface NoteRadarFx {
   deaths: { x: number; y: number; line: NoteKillLine | null }[];
   opening: { from: NotePoint; to: NotePoint; color: string } | null;
   tracers: { x: number; y: number; yaw: number; fade: number }[];
-  trails: { points: NotePoint[]; color: string }[];
+  trails: { points: NotePoint[]; color: string; groupId?: string; label?: string }[];
   heatmap: { x: number; y: number; radius: number; color: string }[];
   summary: { x: number; y: number; radius: number; color: string }[];
   cone: { x: number; y: number; yaw: number; radius: number; color: string } | null;

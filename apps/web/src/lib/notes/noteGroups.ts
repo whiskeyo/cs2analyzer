@@ -85,7 +85,8 @@ function takeDrawing(note: Note, ref: NoteItemRef): Drawing | null {
 function dissolveSmallGroups(note: Note): void {
   const keep: DrawingGroup[] = [];
   for (const group of note.groups) {
-    if (group.drawings.length >= 2) {
+    const pieceCount = note.pieces.filter((piece) => piece.groupId === group.id).length;
+    if (group.drawings.length >= 2 || pieceCount > 0) {
       keep.push(group);
       continue;
     }

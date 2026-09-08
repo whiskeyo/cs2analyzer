@@ -27,3 +27,21 @@ export const COLOR_PRESETS: readonly ColorPreset[] = [
     colors: ["#ff1744", "#2979ff", "#00e676", "#ffea00", "#ffffff"],
   },
 ];
+
+/** Saturated player tints (palettes minus near-white). */
+export const PLAYER_TINTS: readonly string[] = COLOR_PRESETS.flatMap((preset) =>
+  preset.colors.filter((color) => {
+    const hex = color.toLowerCase();
+    return hex !== "#ffffff" && hex !== "#f4f7ff";
+  }),
+);
+
+/** Stable colour for a player name within one snapshot. */
+export function tintForName(name: string, assigned: Map<string, string>): string {
+  const key = name.trim().toLowerCase() || "?";
+  const existing = assigned.get(key);
+  if (existing) return existing;
+  const color = PLAYER_TINTS[assigned.size % PLAYER_TINTS.length] ?? PLAYER_TINTS[0] ?? "#ff2d6a";
+  assigned.set(key, color);
+  return color;
+}
