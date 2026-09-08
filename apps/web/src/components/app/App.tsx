@@ -5,9 +5,10 @@ import { isAnalyzerPath, isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/
 import { usePathname } from "@/lib/app/devNavigate";
 import { Header } from "@/components/app/Header";
 import { Analyzer } from "@/pages/Analyzer";
-import { Faq } from "@/pages/Faq";
 import { Home } from "@/pages/Home";
 import { Playbook } from "@/pages/Playbook";
+
+const Faq = lazy(() => import("@/pages/Faq").then((m) => ({ default: m.Faq })));
 
 const LayoutsApp = import.meta.env.DEV
   ? lazy(() => import("@/components/layouts/LayoutsApp").then((m) => ({ default: m.LayoutsApp })))
@@ -50,7 +51,17 @@ function AppLayout() {
   return (
     <div className={fillBoard ? "app" : "app splash"}>
       <Header />
-      {onFaq ? <Faq /> : onPlaybook ? <Playbook /> : onAnalyzer ? <Analyzer /> : <Home />}
+      {onFaq ? (
+        <Suspense fallback={<div className="boot-error muted">Loading FAQ…</div>}>
+          <Faq />
+        </Suspense>
+      ) : onPlaybook ? (
+        <Playbook />
+      ) : onAnalyzer ? (
+        <Analyzer />
+      ) : (
+        <Home />
+      )}
     </div>
   );
 }

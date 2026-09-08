@@ -173,7 +173,7 @@ describe("App", () => {
   it("opens the FAQ from the site nav and returns to Analyzer", async () => {
     render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
     await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
-    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
     expect(document.title).toBe("FAQ · CS2 Analyzer");
 
@@ -184,17 +184,17 @@ describe("App", () => {
     expect(document.title).toBe("Analyzer · CS2 Analyzer");
   });
 
-  it("shows FAQ when opened at /faq", () => {
+  it("shows FAQ when opened at /faq", async () => {
     window.history.replaceState({}, "", "/faq");
     render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
-    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
   });
 
   it("keeps a loaded demo while visiting FAQ", async () => {
     await loadDemo();
     await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
-    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
