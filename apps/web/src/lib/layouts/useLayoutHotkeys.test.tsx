@@ -14,6 +14,7 @@ function setup(selected: string[] = ["a", "b"]) {
   const clearSelection = vi.fn();
   const deleteCallouts = vi.fn();
   const pickTool = vi.fn<(tool: LayoutTool) => void>();
+  const resetView = vi.fn();
   const selectedIdsRef = { current: selected };
   const layoutRef = {
     current: {
@@ -32,6 +33,7 @@ function setup(selected: string[] = ["a", "b"]) {
       clearSelection,
       deleteCallouts,
       pickTool,
+      resetView,
     }),
   );
   return {
@@ -42,6 +44,7 @@ function setup(selected: string[] = ["a", "b"]) {
     clearSelection,
     deleteCallouts,
     pickTool,
+    resetView,
   };
 }
 
@@ -74,6 +77,8 @@ describe("useLayoutHotkeys", () => {
     expect(h.onCallouts).toHaveBeenCalledTimes(2);
     fireEvent.keyDown(window, { key: "3" });
     expect(h.pickTool).toHaveBeenCalledWith("rect");
+    fireEvent.keyDown(window, { key: "r" });
+    expect(h.resetView).toHaveBeenCalled();
   });
 
   it("does not group a single selection", () => {

@@ -34,9 +34,8 @@ describe("LayoutToolbar", () => {
     expect(onFloor).toHaveBeenCalledWith("lower");
     await userEvent.click(screen.getByRole("button", { name: "Upper" }));
     expect(onFloor).toHaveBeenCalledWith("default");
-    await userEvent.click(screen.getByRole("button", { name: "Reset view" }));
+    await userEvent.click(screen.getByRole("button", { name: "Reset view (R)" }));
     expect(onResetView).toHaveBeenCalled();
-    expect(screen.getByText(/Draw while a callout is selected/)).toBeInTheDocument();
   });
 
   it("hides floor picks on single-level maps", () => {

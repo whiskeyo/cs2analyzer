@@ -86,7 +86,7 @@ export function LayoutToolbar({ tool, floor, hasFloors, onTool, onFloor, onReset
         onClick={() => onTool("select")}
         d={I.select}
       />
-      <IconBtn title="Reset view" onClick={onResetView} d={I.reset} />
+      <IconBtn title="Reset view (R)" onClick={onResetView} d={I.reset} />
       {hasFloors && (
         <span className="floor-picks">
           <button
@@ -105,10 +105,6 @@ export function LayoutToolbar({ tool, floor, hasFloors, onTool, onFloor, onReset
           </button>
         </span>
       )}
-      <span className="hint">
-        Draw while a callout is selected to add another region · Double-click an edge · Ctrl+click
-        multi-select · G group · U ungroup · Ctrl+S saves
-      </span>
     </div>
   );
 }

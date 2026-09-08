@@ -34,6 +34,7 @@ import {
 } from "@/lib/shared/constants";
 import { useLayoutPointer, type LayoutTool, type PanView } from "@/lib/layouts/useLayoutPointer";
 import { usePanelResize } from "@/lib/shared/usePanelResize";
+import { LAYOUT_KEYS_HINT } from "@/lib/playbook/hotkeys";
 
 export function LayoutsApp() {
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
@@ -152,6 +153,11 @@ export function LayoutsApp() {
   }, []);
 
   const clearSelection = useCallback(() => setSelectedIds([]), []);
+  const resetView = useCallback(() => {
+    view.current.scale = 1;
+    view.current.ox = 0;
+    view.current.oy = 0;
+  }, []);
 
   useLayoutHotkeys({
     closeDraft,
@@ -163,6 +169,7 @@ export function LayoutsApp() {
     clearSelection,
     deleteCallouts,
     pickTool,
+    resetView,
   });
 
   useEffect(() => {
@@ -312,11 +319,7 @@ export function LayoutsApp() {
               draftRef.current = null;
               setFloor(next);
             }}
-            onResetView={() => {
-              view.current.scale = 1;
-              view.current.ox = 0;
-              view.current.oy = 0;
-            }}
+            onResetView={resetView}
           />
           <LayoutCanvas
             cal={cal}
@@ -371,6 +374,7 @@ export function LayoutsApp() {
           resizeHandle={panelResize}
         />
       </div>
+      <p className="keys">{LAYOUT_KEYS_HINT}</p>
     </div>
   );
 }

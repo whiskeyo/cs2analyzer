@@ -26,6 +26,7 @@ export interface LayoutHotkeyOpts {
   clearSelection: () => void;
   deleteCallouts: (ids: string[]) => void;
   pickTool: (tool: LayoutTool) => void;
+  resetView: () => void;
 }
 
 export function useLayoutHotkeys(opts: LayoutHotkeyOpts): void {
@@ -39,6 +40,7 @@ export function useLayoutHotkeys(opts: LayoutHotkeyOpts): void {
     clearSelection,
     deleteCallouts,
     pickTool,
+    resetView,
   } = opts;
 
   useEffect(() => {
@@ -80,6 +82,11 @@ export function useLayoutHotkeys(opts: LayoutHotkeyOpts): void {
         }
         return;
       }
+      if (e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        resetView();
+        return;
+      }
       const tool = TOOL_KEYS[e.key];
       if (tool) pickTool(tool);
     };
@@ -93,6 +100,7 @@ export function useLayoutHotkeys(opts: LayoutHotkeyOpts): void {
     layoutRef,
     onCallouts,
     pickTool,
+    resetView,
     save,
     selectedIdsRef,
   ]);
