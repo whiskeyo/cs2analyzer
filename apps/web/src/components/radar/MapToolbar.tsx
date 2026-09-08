@@ -1,4 +1,4 @@
-import { COLOR_PRESETS } from "@/lib/notes/palettes";
+import { ColorPalette } from "@/components/notes/ColorPalette";
 import type { MapToolbarProps } from "./mapToolbarTypes";
 
 function Icon({ d }: { d: string }) {
@@ -74,7 +74,6 @@ export function MapToolbar({
   const { onFollow, onTrails, onMoment, onLayers, onResetView } = viewActions;
 
   const toggle = (key: keyof typeof layers) => onLayers({ ...layers, [key]: !layers[key] });
-  const preset = COLOR_PRESETS.find((p) => p.id === paletteId) ?? COLOR_PRESETS[0];
   return (
     <div className="map-toolbar">
       <IconBtn title="Pan" on={tool === "pan"} onClick={() => onTool("pan")} d={I.pan} />
@@ -98,31 +97,7 @@ export function MapToolbar({
       {onSnapshot ? (
         <IconBtn title="Snapshot to playbook" onClick={onSnapshot} d={I.snapshot} />
       ) : null}
-      <span className="palette-picks">
-        {COLOR_PRESETS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            className={p.id === preset.id ? "on" : ""}
-            onClick={() => onPalette(p.id)}
-            title={p.label}
-          >
-            {p.label}
-          </button>
-        ))}
-      </span>
-      <span className="swatches">
-        {preset.colors.map((c) => (
-          <button
-            key={c}
-            type="button"
-            className={`swatch${color === c ? " on" : ""}`}
-            style={{ background: c }}
-            onClick={() => onColor(c)}
-            aria-label={c}
-          />
-        ))}
-      </span>
+      <ColorPalette paletteId={paletteId} color={color} onPalette={onPalette} onColor={onColor} />
       <IconBtn
         title="Track player"
         on={follow}
