@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BINDGEN_VERSION="0.2.127"
 WEB="$ROOT/apps/web"
+DEV_PORT="${DEV_PORT:-5173}"
 PROD_PORT="${PROD_PORT:-4173}"
 
 export PATH="${HOME}/.cargo/bin:${HOME}/.local/bin:${PATH}"
@@ -17,15 +18,17 @@ usage() {
   cat <<EOF
 Usage: scripts/run.sh [flags]
 
-  --prepare      Install Rust toolchain, wasm-bindgen-cli, and npm deps
-  --build-wasm   Compile WASM and emit JS bindings into apps/web/src/parser/
-  --check        rustfmt, clippy, prettier, eslint, typecheck
-  --test         cargo test and the web vitest suite
-  --dev          Start the Vite dev server (http://localhost:5173/; layouts at /layouts)
-  --prod         Build the production bundle and preview it (http://localhost:${PROD_PORT}/)
+  --prepare        Install Rust toolchain, wasm-bindgen-cli, and npm deps
+  --build-wasm     Compile WASM and emit JS bindings into apps/web/src/parser/
+  --check          rustfmt, clippy, prettier, eslint, typecheck
+  --test           cargo test and the web vitest suite
+  --dev            Start the Vite dev server (http://localhost:${DEV_PORT}/; layouts at /layouts)
+  --prod           Build the production bundle and preview it (http://localhost:${PROD_PORT}/)
+  --local-network  With --dev or --prod, bind 0.0.0.0 so other devices on the LAN can open it
+                   (open the printed LAN IP on the other device — not http://0.0.0.0/)
 
 Flags can be combined. They run in the order above; --dev / --prod are last and block.
-Do not pass both --dev and --prod.
+Do not pass both --dev and --prod. --local-network requires --dev or --prod.
 EOF
 }
 
@@ -153,11 +156,54 @@ cmd_test() {
   log "Tests passed"
 }
 
+# Listen on every interface. 0.0.0.0 is the bind address, not a URL for other PCs.
+vite_run() {
+  local npm_script="$1"
+  local port="$2"
+  local host_args=()
+  if [[ "$LOCAL_NETWORK" -eq 1 ]]; then
+    host_args=(--host 0.0.0.0)
+  fi
+  (cd "$WEB" && npm run "$npm_script" -- "${host_args[@]}" --port "$port")
+}
+
+# Default-route IPv4, skipping docker/libvirt bridges that Vite also prints.
+lan_ipv4() {
+  local ip
+  ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{
+    for (i = 1; i <= NF; i++) if ($i == "src") { print $(i + 1); exit }
+  }')"
+  if [[ -n "$ip" ]]; then
+    echo "$ip"
+    return
+  fi
+  hostname -I 2>/dev/null | tr ' ' '\n' | awk '
+    /^192\.168\./ { print; exit }
+    /^10\./ { print; exit }
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./ { print; exit }
+  '
+}
+
+log_lan() {
+  local port="$1"
+  local ip
+  ip="$(lan_ipv4)"
+  log "bind 0.0.0.0:${port}"
+  if [[ -n "$ip" ]]; then
+    log "on the other PC open http://${ip}:${port}/  (not http://0.0.0.0:${port}/)"
+  else
+    log "on the other PC open the Network URL Vite prints (not http://0.0.0.0:${port}/)"
+  fi
+}
+
 cmd_dev() {
   ensure_node
-  log "viewer  http://localhost:5173/"
-  log "layouts http://localhost:5173/layouts (DEV Settings → Layouts editor)"
-  (cd "$WEB" && npm run dev)
+  log "viewer  http://localhost:${DEV_PORT}/"
+  log "layouts http://localhost:${DEV_PORT}/layouts (DEV Settings → Layouts editor)"
+  if [[ "$LOCAL_NETWORK" -eq 1 ]]; then
+    log_lan "$DEV_PORT"
+  fi
+  vite_run dev "$DEV_PORT"
 }
 
 cmd_prod() {
@@ -165,7 +211,10 @@ cmd_prod() {
   log "web production build"
   npm_in "$WEB" run build
   log "preview http://localhost:${PROD_PORT}/ (production bundle; no layouts editor)"
-  (cd "$WEB" && npm run preview -- --host --port "$PROD_PORT")
+  if [[ "$LOCAL_NETWORK" -eq 1 ]]; then
+    log_lan "$PROD_PORT"
+  fi
+  vite_run preview "$PROD_PORT"
 }
 
 PREPARE=0
@@ -174,6 +223,7 @@ CHECK=0
 TEST=0
 DEV=0
 PROD=0
+LOCAL_NETWORK=0
 
 if [[ $# -eq 0 ]]; then
   usage
@@ -188,6 +238,7 @@ for arg in "$@"; do
     --test) TEST=1 ;;
     --dev) DEV=1 ;;
     --prod) PROD=1 ;;
+    --local-network) LOCAL_NETWORK=1 ;;
     -h | --help) usage; exit 0 ;;
     *)
       echo "unknown flag: $arg" >&2
@@ -199,6 +250,10 @@ done
 
 if [[ "$DEV" -eq 1 && "$PROD" -eq 1 ]]; then
   die "pass either --dev or --prod, not both"
+fi
+
+if [[ "$LOCAL_NETWORK" -eq 1 && "$DEV" -eq 0 && "$PROD" -eq 0 ]]; then
+  die "--local-network requires --dev or --prod"
 fi
 
 [[ "$PREPARE" -eq 1 ]] && cmd_prepare
