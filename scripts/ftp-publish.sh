@@ -52,6 +52,7 @@ set cmd:fail-exit yes
 set ssl:verify-certificate no
 set ftp:ssl-allow yes
 set ftp:list-options -a
+set mirror:skip-dotfiles no
 set net:max-retries 3
 set net:timeout 30
 mirror -R --delete --verbose --parallel=8 --exclude-glob .git "$LOCAL_DIR" "$STAGING"

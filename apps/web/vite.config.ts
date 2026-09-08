@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { copyFileSync, existsSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -101,12 +101,32 @@ function copyHtaccess() {
   };
 }
 
+const SPA_ROUTES = ["analyzer", "playbook", "faq", "layouts"] as const;
+
+/** Duplicate index.html so /playbook and /faq resolve without a rewrite (OVH 404). */
+function spaFallbackPages() {
+  return {
+    name: "spa-fallback-pages",
+    closeBundle() {
+      const index = `${root}dist/index.html`;
+      if (!existsSync(index)) return;
+      const html = readFileSync(index);
+      writeFileSync(`${root}dist/404.html`, html);
+      for (const route of SPA_ROUTES) {
+        const dir = `${root}dist/${route}`;
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(`${dir}/index.html`, html);
+      }
+    },
+  };
+}
+
 export default defineConfig({
   base: process.env.VITE_BASE || "/",
   define: {
     __APP_VERSION__: JSON.stringify(gitShortHash()),
   },
-  plugins: [react(), copyHtaccess(), writeLayoutPlugin()],
+  plugins: [react(), copyHtaccess(), spaFallbackPages(), writeLayoutPlugin()],
   resolve: {
     alias: {
       "@": src,

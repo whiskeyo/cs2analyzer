@@ -20,3 +20,10 @@ AddType application/wasm .wasm
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^ index.html [L]
 </IfModule>
+
+<IfModule mod_dir.c>
+  DirectoryIndex index.html
+</IfModule>
+
+FallbackResource /index.html
+ErrorDocument 404 /index.html
