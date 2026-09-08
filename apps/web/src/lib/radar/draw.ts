@@ -140,6 +140,15 @@ export function drawNadeFlightHead(
   ctx.fill();
 }
 
+/** Analyzer cap so a deep zoom does not turn a smoke/burst into a wall. */
+export const NADE_EFFECT_ZOOM_CAP = 1.4;
+
+/** Screen multiplier for linger/burst size. `cap === null` keeps map-relative size. */
+export function nadeEffectZoom(scale: number, cap: number | null = NADE_EFFECT_ZOOM_CAP): number {
+  const zoom = Math.max(0, scale);
+  return cap == null ? zoom : Math.min(cap, zoom);
+}
+
 export function drawHeBurst(
   ctx: CanvasRenderingContext2D,
   at: { x: number; y: number },
@@ -147,9 +156,10 @@ export function drawHeBurst(
   progress: number,
   scale: number,
   opacity = 1,
+  cap: number | null = NADE_EFFECT_ZOOM_CAP,
 ) {
   const t = Math.min(1, Math.max(0, progress));
-  const zoom = Math.min(1.4, scale);
+  const zoom = nadeEffectZoom(scale, cap);
   const r = (12 + t * 22) * zoom;
   ctx.save();
   ctx.strokeStyle = color;

@@ -12,7 +12,7 @@
 
 import { FLASH_FULL_SECONDS, tickRate } from "@/lib/shared/constants";
 import { radarFloor, worldOnRadar } from "@/lib/radar/maps";
-import { grenadePosAt } from "@/lib/radar/draw";
+import { grenadePosAt, nadeEffectZoom } from "@/lib/radar/draw";
 import {
   blindsAt,
   firesAt,
@@ -54,8 +54,6 @@ const SURVIVE_MARK_COLOR = "#3dba6a";
 const OPENING_T_COLOR = "#ffd24a";
 const TRACER_COLOR = "#ffe9a8";
 
-/** Nade zoom is capped so a deep zoom does not turn a smoke into a wall. */
-const MAX_NADE_ZOOM = 1.4;
 const MAX_CONE_ZOOM = 1.6;
 const SUMMARY_RADIUS: Record<GrenadeKind, number> = {
   smoke: 16,
@@ -519,7 +517,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
   const tps = tickRate(replay);
   const round = currentRound(replay, tick);
   const players = samplePlayers(replay, tick);
-  const nadeZoom = Math.min(MAX_NADE_ZOOM, scale);
+  const nadeZoom = nadeEffectZoom(scale);
   const blinds = blindsAt(replay.blinds, tick, tps);
   const hits = hitsAt(replay.hurts, tick, tps);
   const bomb = bombView(replay, tick);

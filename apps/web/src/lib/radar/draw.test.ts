@@ -18,6 +18,8 @@ import {
   NADE_FLIGHT_ICON_SIZE,
   canvasToYaw,
   yawToCanvas,
+  nadeEffectZoom,
+  NADE_EFFECT_ZOOM_CAP,
 } from "./draw";
 
 describe("yawToCanvas", () => {
@@ -34,6 +36,14 @@ describe("yawToCanvas", () => {
     }
     expect(canvasToYaw(Math.PI)).toBeCloseTo(0);
     expect(canvasToYaw(0)).toBeCloseTo(180);
+  });
+});
+
+describe("nadeEffectZoom", () => {
+  it("caps Analyzer zoom and keeps playbook size map-relative", () => {
+    expect(nadeEffectZoom(3)).toBe(NADE_EFFECT_ZOOM_CAP);
+    expect(nadeEffectZoom(0.5)).toBe(0.5);
+    expect(nadeEffectZoom(3, null)).toBe(3);
   });
 });
 
