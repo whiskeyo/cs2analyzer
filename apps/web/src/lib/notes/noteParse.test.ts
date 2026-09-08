@@ -15,10 +15,23 @@ describe("parseDrawing", () => {
       }),
     ).toMatchObject({ type: "pen" });
     expect(
-      parseDrawing({ type: "arrow", color: "#fff", from: { x: 0, y: 0 }, to: { x: 2, y: 2 } }),
+      parseDrawing({
+        type: "arrow",
+        color: "#fff",
+        from: { x: 0, y: 0 },
+        to: { x: 2, y: 2 },
+      }),
     ).toMatchObject({ type: "arrow" });
     expect(
-      parseDrawing({ type: "text", color: "#fff", x: 1, y: 2, text: "hold", box_w: 80, box_h: 40 }),
+      parseDrawing({
+        type: "text",
+        color: "#fff",
+        x: 1,
+        y: 2,
+        text: "hold",
+        box_w: 80,
+        box_h: 40,
+      }),
     ).toMatchObject({ type: "text", box_w: 80, box_h: 40 });
     expect(parseDrawing({ type: "text", color: "#fff", x: 1, y: 2, text: "   " })).toBeNull();
     expect(parseDrawing({ type: "pen", color: "#fff", points: [{ x: 0 }] })).toBeNull();
@@ -35,10 +48,20 @@ describe("parseDrawing", () => {
         end_tick: 20,
         hidden: true,
       }),
-    ).toMatchObject({ type: "pen", start_tick: 10, end_tick: 20, hidden: true });
+    ).toMatchObject({
+      type: "pen",
+      start_tick: 10,
+      end_tick: 20,
+      hidden: true,
+    });
     expect(
       parseDrawing({
-        shape: { type: "arrow", color: "#0f0", from: { x: 0, y: 0 }, to: { x: 2, y: 2 } },
+        shape: {
+          type: "arrow",
+          color: "#0f0",
+          from: { x: 0, y: 0 },
+          to: { x: 2, y: 2 },
+        },
         start_tick: 5,
       }),
     ).toMatchObject({ type: "arrow", start_tick: 5 });
@@ -52,7 +75,14 @@ describe("parseNote", () => {
         {
           id: "A",
           name: "A",
-          drawings: [{ type: "arrow", color: "#f00", from: { x: 0, y: 0 }, to: { x: 1, y: 1 } }],
+          drawings: [
+            {
+              type: "arrow",
+              color: "#f00",
+              from: { x: 0, y: 0 },
+              to: { x: 1, y: 1 },
+            },
+          ],
         },
         { name: "", drawings: [] },
         { drawings: [{ type: "pen", color: "#fff" }] },
@@ -80,6 +110,14 @@ describe("parseNote", () => {
           carriesC4: true,
         },
         { id: "p2", kind: "bomb", x: 4, y: 5, alive: false },
+        {
+          id: "p6",
+          kind: "smoke",
+          x: 8,
+          y: 9,
+          nadeStyle: "effect",
+          trail: [{ x: 1, y: 1 }, { y: 2 }, { x: 3, y: 4 }],
+        },
         { id: "", kind: "pawn", x: 0, y: 0 },
         { id: "p3", kind: "knife", x: 0, y: 0 },
       ],
@@ -92,12 +130,49 @@ describe("parseNote", () => {
     expect(note?.groups).toHaveLength(1);
     expect(note?.drawings).toHaveLength(2);
     expect(note?.drawings[0]?.hidden).toBe(true);
-    expect(note?.pieces).toHaveLength(2);
-    expect(note?.pieces[0]).toMatchObject({ kind: "pawn", side: "CT", carriesC4: true });
+    expect(note?.pieces).toHaveLength(3);
+    expect(note?.pieces[0]).toMatchObject({
+      kind: "pawn",
+      side: "CT",
+      carriesC4: true,
+    });
     expect(note?.pieces[1]?.alive).toBe(false);
+    expect(note?.pieces[2]).toMatchObject({
+      kind: "smoke",
+      nadeStyle: "effect",
+      trail: [
+        { x: 1, y: 1 },
+        { x: 3, y: 4 },
+      ],
+    });
     expect(note?.bookmarks[0]?.text).toBe(NOTE_BOOKMARK_TITLE);
     expect(note?.bookmarks[0]?.tick).toBe(80);
     expect(note?.bookmarks[1]?.hidden).toBe(true);
+  });
+
+  it("keeps snapshot radar marks", () => {
+    const note = parseNote({
+      radarFx: {
+        deaths: [
+          {
+            x: 1,
+            y: 2,
+            line: {
+              from: { x: 0, y: 0 },
+              to: { x: 1, y: 2 },
+              color: "#fff",
+              alpha: 0.8,
+              lineWidth: 2,
+            },
+          },
+        ],
+        opening: { from: { x: 0, y: 0 }, to: { x: 1, y: 2 }, color: "#ff0" },
+        tracers: [{ x: 3, y: 4, yaw: 90, fade: 1 }],
+      },
+    });
+    expect(note?.radarFx?.deaths).toHaveLength(1);
+    expect(note?.radarFx?.opening?.color).toBe("#ff0");
+    expect(note?.radarFx?.tracers).toHaveLength(1);
   });
 
   it("rejects a non-object", () => {
@@ -118,7 +193,12 @@ describe("parseNote", () => {
       ],
       pieces: [{ id: "t1", kind: "smoke", x: 1, y: 2, side: "T" }],
     });
-    expect(note?.groups[0]).toMatchObject({ id: "g1", name: "g1", hidden: true, start_tick: 4 });
+    expect(note?.groups[0]).toMatchObject({
+      id: "g1",
+      name: "g1",
+      hidden: true,
+      start_tick: 4,
+    });
     expect(note?.pieces[0]?.side).toBe("T");
     expect(note?.pieces[0]?.kind).toBe("smoke");
   });
@@ -126,7 +206,14 @@ describe("parseNote", () => {
   it("prefers drawings over the old loose key", () => {
     const note = parseNote({
       drawings: [{ type: "pen", color: "#fff", points: [{ x: 1, y: 1 }] }],
-      loose: [{ type: "arrow", color: "#f00", from: { x: 0, y: 0 }, to: { x: 1, y: 1 } }],
+      loose: [
+        {
+          type: "arrow",
+          color: "#f00",
+          from: { x: 0, y: 0 },
+          to: { x: 1, y: 1 },
+        },
+      ],
     });
     expect(note?.drawings).toHaveLength(1);
     expect(note?.drawings[0]?.type).toBe("pen");
@@ -137,7 +224,12 @@ describe("parseRoundNotes", () => {
   it("keeps valid round rows", () => {
     expect(parseRoundNotes("nope")).toEqual([]);
     const rows = parseRoundNotes([
-      { round: 2, note: { loose: [{ type: "pen", color: "#fff", points: [{ x: 1, y: 1 }] }] } },
+      {
+        round: 2,
+        note: {
+          loose: [{ type: "pen", color: "#fff", points: [{ x: 1, y: 1 }] }],
+        },
+      },
       { round: 1, note: {} },
       { note: {} },
     ]);

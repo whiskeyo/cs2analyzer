@@ -39,7 +39,12 @@ export const DEFAULT_LAYERS: MapLayers = {
 /** Geometry for one pen, arrow, or text label. */
 export type DrawingShape =
   | { type: "pen"; color: string; points: { x: number; y: number }[] }
-  | { type: "arrow"; color: string; from: { x: number; y: number }; to: { x: number; y: number } }
+  | {
+      type: "arrow";
+      color: string;
+      from: { x: number; y: number };
+      to: { x: number; y: number };
+    }
   | {
       type: "text";
       color: string;
@@ -86,6 +91,9 @@ export interface Bookmark {
 export type PieceKind =
   "pawn" | "smoke" | "flash" | "he" | "molotov" | "incendiary" | "decoy" | "bomb";
 
+/** How a playbook grenade is painted: weapon SVG or the Analyzer linger/burst. */
+export type NadeStyle = "icon" | "effect";
+
 export interface Piece {
   id: string;
   kind: PieceKind;
@@ -98,6 +106,49 @@ export interface Piece {
   label?: string;
   alive?: boolean;
   carriesC4?: boolean;
+  /** Throw + bounce points. Land is `x` / `y`. Playbook nade trails. */
+  trail?: { x: number; y: number }[];
+  /** Grenade paint. Omit = icon. */
+  nadeStyle?: NadeStyle;
+}
+
+export interface NotePoint {
+  x: number;
+  y: number;
+}
+
+export interface NoteKillLine {
+  from: NotePoint;
+  to: NotePoint;
+  color: string;
+  alpha: number;
+  lineWidth: number;
+}
+
+/** Demo radar marks copied onto a playbook strat (kill lines, FK/FD, shots). */
+export interface NoteRadarFx {
+  deaths: { x: number; y: number; line: NoteKillLine | null }[];
+  opening: { from: NotePoint; to: NotePoint; color: string } | null;
+  tracers: { x: number; y: number; yaw: number; fade: number }[];
+  trails: { points: NotePoint[]; color: string }[];
+  heatmap: { x: number; y: number; radius: number; color: string }[];
+  summary: { x: number; y: number; radius: number; color: string }[];
+  cone: { x: number; y: number; yaw: number; radius: number; color: string } | null;
+  hits: {
+    x: number;
+    y: number;
+    innerRadius: number;
+    ringRadius: number;
+    innerAlpha: number;
+    ringAlpha: number;
+  }[];
+  flashes: {
+    x: number;
+    y: number;
+    intensity: number;
+    pulseRadius: number;
+    left: number;
+  }[];
 }
 
 /** Shared overlay owned by a demo round or a playbook strat. */
@@ -106,6 +157,7 @@ export interface Note {
   drawings: Drawing[];
   pieces: Piece[];
   bookmarks: Bookmark[];
+  radarFx?: NoteRadarFx;
 }
 
 export interface RoundNote {
@@ -135,7 +187,14 @@ export interface SummaryFilter {
 }
 
 export const DEFAULT_SUMMARY_FILTER: SummaryFilter = {
-  kinds: { smoke: true, flash: true, he: true, molotov: true, incendiary: true, decoy: true },
+  kinds: {
+    smoke: true,
+    flash: true,
+    he: true,
+    molotov: true,
+    incendiary: true,
+    decoy: true,
+  },
   t: true,
   ct: true,
 };

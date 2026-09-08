@@ -110,6 +110,10 @@ export function RadarStage() {
               nadesOn: habits.nadesOn,
               series: session.series,
               bucket: habits.bucketOverlay,
+              layers: view.layers,
+              summaryFilter: review.summaryFilter,
+              selected: view.selected,
+              trails: view.trails,
             }),
           )
         }
@@ -163,6 +167,7 @@ export function RadarStage() {
         <SnapshotDialog
           mapName={snapshot.mapName}
           pieces={snapshot.pieces}
+          radarFx={snapshot.radarFx}
           stratTitle={snapshot.stratTitle}
           floor={snapshot.floor}
           onClose={() => setSnapshot(null)}
