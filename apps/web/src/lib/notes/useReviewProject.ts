@@ -13,6 +13,7 @@ import {
   saveProject,
   type ReviewProject,
 } from "./projectStore";
+import { flattenRoundNotes } from "./migrate";
 import { DEFAULT_SUMMARY_FILTER, type FloorMode, type SummaryFilter } from "./types";
 import { useStrokeHistory } from "./reviewHistory";
 import {
@@ -91,7 +92,7 @@ export function useReviewProject(opts: {
 
   const applyProject = useCallback(
     (p: ReviewProject, jumpTick: boolean) => {
-      commitStrokes(p.strokes, true);
+      commitStrokes(flattenRoundNotes(p.notes), true);
       setSummaryFilter(p.summaryFilter);
       setFloorMode(p.floorMode);
       setPaletteId(p.paletteId);

@@ -1,4 +1,4 @@
-import type { Drawing, DrawingGroup, Note } from "./types";
+import type { Drawing, DrawingGroup, Note, RoundNote } from "./types";
 
 export function emptyNote(): Note {
   return { groups: [], drawings: [], pieces: [], bookmarks: [] };
@@ -68,6 +68,16 @@ export function visibleDrawings(note: Note, tick: number | null): Drawing[] {
     if (visible) out.push(visible);
   }
   return out;
+}
+
+/** Drawings + grouped drawings + bookmarks — saved-notes list count. */
+export function noteDrawingCount(notes: readonly RoundNote[]): number {
+  let count = 0;
+  for (const row of notes) {
+    count += row.note.drawings.length + row.note.bookmarks.length;
+    for (const group of row.note.groups) count += group.drawings.length;
+  }
+  return count;
 }
 
 export function earliestTimedTick(note: Note): number | undefined {

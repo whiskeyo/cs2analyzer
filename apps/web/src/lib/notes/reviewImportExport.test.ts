@@ -72,7 +72,6 @@ function project(partial: Partial<ReviewProject> = {}): ReviewProject {
     mapName: "de_mirage",
     tick: 100,
     notes: [],
-    strokes: [],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",
     paletteId: "default",

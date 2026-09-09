@@ -54,8 +54,17 @@ function project(partial: Partial<ReviewProject> = {}): ReviewProject {
     fileName: "match.dem",
     mapName: "de_mirage",
     tick: 300,
-    notes: [],
-    strokes: [{ type: "pen", round: 1, color: "#fff", points: [{ x: 0, y: 0 }] }],
+    notes: [
+      {
+        round: 1,
+        note: {
+          groups: [],
+          drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+          pieces: [],
+          bookmarks: [],
+        },
+      },
+    ],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",
     paletteId: "default",
@@ -157,11 +166,11 @@ describe("useReviewProject", () => {
       }),
     );
 
-    await waitFor(() => expect(result.current.strokes).toHaveLength(1));
+    await waitFor(() => expect(result.current.strokes[0]?.type).toBe("pen"));
+    expect(result.current.strokes).toHaveLength(1);
     expect(pb.jump).toHaveBeenCalledWith(300, true);
     expect(pb.setPlaying).toHaveBeenCalledWith(false);
     expect(st.notice).toContain("Restored drawings");
-    expect(result.current.strokes[0]?.type).toBe("pen");
   });
 
   it("delegates export and bulk delete to reviewImportExport", async () => {

@@ -50,7 +50,14 @@ export {
   type BookmarkStroke,
   type BookmarkScrubMark,
 } from "./bookmarks";
-export { emptyNote, cloneNote, overlayWindowOf, windowVisible, visibleDrawings } from "./note";
+export {
+  emptyNote,
+  cloneNote,
+  overlayWindowOf,
+  windowVisible,
+  visibleDrawings,
+  noteDrawingCount,
+} from "./note";
 export { parseDrawing, parseNote, parseRoundNote, parseRoundNotes } from "./noteParse";
 export { strokesToRoundNotes, strokesToNote, flattenRoundNotes, flattenNote } from "./migrate";
 export {

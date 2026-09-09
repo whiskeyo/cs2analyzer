@@ -29,7 +29,6 @@ function savedProject(key = "proj-1"): ReviewProject {
     mapName: "de_mirage",
     tick: 0,
     notes: [],
-    strokes: [],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",
     paletteId: "default",

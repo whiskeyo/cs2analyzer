@@ -37,8 +37,8 @@ describe("projectFromDemo", () => {
     const row = projectFromDemo(target, 640, strokes, overlay, undefined);
     expect(row.key).toBe(matchKey(target.replay, target.fileName));
     expect(row.schema).toBe(PROJECT_SCHEMA);
-    expect(row.strokes).toEqual(strokes);
     expect(row.notes[0]?.note.drawings[0]?.type).toBe("arrow");
+    expect("strokes" in row).toBe(false);
     expect(row.scorecard).toBeDefined();
     expect(row.playerStats).toBeDefined();
   });
@@ -53,7 +53,6 @@ describe("projectFromDemo", () => {
       mapName: "de_mirage",
       tick: 100,
       notes: [],
-      strokes: [],
       summaryFilter: DEFAULT_SUMMARY_FILTER,
       floorMode: "auto",
       paletteId: overlay.paletteId,
@@ -95,7 +94,6 @@ describe("projectFromDemo", () => {
       mapName: "de_mirage",
       tick: 100,
       notes: [],
-      strokes: [],
       summaryFilter: DEFAULT_SUMMARY_FILTER,
       floorMode: "auto",
       paletteId: overlay.paletteId,
