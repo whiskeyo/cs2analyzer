@@ -879,6 +879,14 @@ mod tests {
     }
 
     #[test]
+    fn flash_overlay_spike_matches_web_band() {
+        assert!(!crate::flash_overlay_spike(1.3));
+        assert!(!crate::flash_overlay_spike(4.1));
+        assert!(crate::flash_overlay_spike(5.1));
+        assert!(crate::flash_overlay_spike(crate::FLASH_FULL_SECONDS));
+    }
+
+    #[test]
     fn bind_userid_steam_drops_leaver_when_bot_takes_slot() {
         let mut map = HashMap::new();
         bind_userid_steam(&mut map, 5, 76561198000000000);

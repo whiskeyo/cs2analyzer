@@ -1,5 +1,6 @@
 import {
   FLASH_POP_SECONDS,
+  FLASH_OVERLAY_SPIKE_SECONDS,
   FLASH_BURST_SECONDS,
   HE_BURST_SECONDS,
   HE_DECOY_SECONDS,
@@ -73,16 +74,22 @@ export function blindsAt(
   tick: number,
   tps: number,
 ): Map<number, number> {
-  const out = new Map<number, number>();
-  if (!blinds || tps <= 0) return out;
+  const real = new Map<number, number>();
+  const overlay = new Map<number, number>();
+  if (!blinds || tps <= 0) return real;
   for (const b of blinds) {
     if (b.victim < 0 || b.duration <= 0) continue;
     const end = b.tick + b.duration * tps;
     if (tick < b.tick || tick >= end) continue;
     const left = (end - tick) / tps;
-    const prev = out.get(b.victim) ?? 0;
-    if (left > prev) out.set(b.victim, left);
+    const dest = b.duration >= FLASH_OVERLAY_SPIKE_SECONDS ? overlay : real;
+    const prev = dest.get(b.victim) ?? 0;
+    if (left > prev) dest.set(b.victim, left);
   }
+  // Prefer player_blind / short pops. Overlay snaps otherwise paint two
+  // far pawns as identical ~5.0s leftovers from one mid flash.
+  const out = new Map(overlay);
+  for (const [victim, left] of real) out.set(victim, left);
   return out;
 }
 

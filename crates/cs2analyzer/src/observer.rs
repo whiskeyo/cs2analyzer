@@ -246,7 +246,12 @@ impl Collector {
             let dur = prop_f32(pawn, "m_flFlashDuration");
             let prev = self.flash_duration.get(&steam).copied().unwrap_or(0.0);
             if let Some(next) = new_flash_duration(prev, dur) {
-                self.record_blind(tick, steam, next, self.last_flash_thrower);
+                // Pawn overlay snaps (~5.1s) fire on everyone the engine marks,
+                // including far teammates with no LOS. `player_blind` still
+                // records the real white-time (and a true full-face pop).
+                if !crate::flash_overlay_spike(next) {
+                    self.record_blind(tick, steam, next, self.last_flash_thrower);
+                }
             }
             self.flash_duration.insert(steam, dur);
         }

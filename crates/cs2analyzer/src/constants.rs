@@ -52,6 +52,16 @@ pub const MOLOTOV_SECONDS: f32 = 7.0;
 pub const HE_DECOY_SECONDS: f32 = 0.5;
 pub const FLASH_POP_SECONDS: f32 = 0.4;
 
+/// Full-face CS2 flash. Pawn `m_flFlashDuration` often snaps into this band
+/// even when `player_blind` is a short pop. Keep aligned with the web constants.
+pub const FLASH_FULL_SECONDS: f32 = 5.47;
+pub const FLASH_OVERLAY_SLACK_SECONDS: f32 = 0.5;
+pub const FLASH_OVERLAY_SPIKE_SECONDS: f32 = FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
+
+pub fn flash_overlay_spike(duration: f32) -> bool {
+    duration >= FLASH_OVERLAY_SPIKE_SECONDS
+}
+
 /// CS2 buy menu prices. Keep aligned with `apps/web/src/lib/shared/constants.ts`.
 pub const COST_GLOCK: u16 = 200;
 pub const COST_USP: u16 = 200;
