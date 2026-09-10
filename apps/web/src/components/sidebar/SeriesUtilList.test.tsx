@@ -65,6 +65,7 @@ describe("SeriesUtilList", () => {
     const note = screen.getByRole("button", { name: /a\.dem · Alice/ });
     expect(note).toHaveClass("high");
     expect(note).not.toHaveClass("good");
+    expect(screen.getByText("Team")).toBeInTheDocument();
     expect(screen.getByText("Bob 1.2s")).toBeInTheDocument();
   });
 });

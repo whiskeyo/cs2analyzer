@@ -347,15 +347,25 @@ export function utilKindSummary(byKind: Record<GrenadeKind, number>): string {
     .join(" · ");
 }
 
-function formatBlind(blind: UtilBlind): string {
+export function formatBlind(blind: UtilBlind): string {
   return `${blind.victimName} ${blind.duration.toFixed(1)}s`;
 }
 
+export function formatUtilHit(hit: UtilHit): string {
+  return `${hit.victimName} (${hit.damage})`;
+}
+
+export function splitUtilBlinds(blinds: UtilBlind[]): { enemy: UtilBlind[]; team: UtilBlind[] } {
+  return {
+    enemy: blinds.filter((blind) => blind.enemy),
+    team: blinds.filter((blind) => !blind.enemy),
+  };
+}
+
 function flashBlindDetail(blinds: UtilBlind[]): string {
-  const enemies = blinds.filter((blind) => blind.enemy);
-  const team = blinds.filter((blind) => !blind.enemy);
-  if (enemies.length > 0 && team.length > 0) {
-    return `Enemy: ${enemies.map(formatBlind).join(" · ")} · Team: ${team.map(formatBlind).join(" · ")}`;
+  const { enemy, team } = splitUtilBlinds(blinds);
+  if (enemy.length > 0 && team.length > 0) {
+    return `Enemy: ${enemy.map(formatBlind).join(" · ")} · Team: ${team.map(formatBlind).join(" · ")}`;
   }
   return blinds.map(formatBlind).join(" · ");
 }
@@ -380,7 +390,7 @@ export function throwDetail(row: UtilThrowRow): string {
     parts.push(flashBlindDetail(row.blinds));
   }
   if (row.hits.length > 0) {
-    parts.push(row.hits.map((hit) => `${hit.victimName} (${hit.damage})`).join(", "));
+    parts.push(row.hits.map(formatUtilHit).join(", "));
   }
   return parts.join(" · ");
 }

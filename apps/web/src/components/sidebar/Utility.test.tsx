@@ -143,6 +143,10 @@ describe("Utility", () => {
     expect(rows[2]).toHaveClass("mixed");
     expect(screen.getByText("Bob 1.2s")).toBeInTheDocument();
     expect(screen.getByText("Alice 1.1s")).toBeInTheDocument();
-    expect(screen.getByText("Enemy: Bob 0.9s · Team: Alice 0.8s")).toBeInTheDocument();
+    expect(screen.getByText("Bob 0.9s")).toBeInTheDocument();
+    expect(screen.getByText("Alice 0.8s")).toBeInTheDocument();
+    expect(screen.queryByText(/Enemy: Bob 0\.9s · Team: Alice 0\.8s/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Enemy")).toHaveLength(2);
+    expect(screen.getAllByText("Team")).toHaveLength(2);
   });
 });

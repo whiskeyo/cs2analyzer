@@ -1,8 +1,9 @@
 import { NADE_WEAPON } from "@/lib/match/roundEvents";
-import { throwDetail, utilRowTone } from "@/lib/match/utility";
+import { utilRowTone } from "@/lib/match/utility";
 import type { SeriesUtilThrow } from "@/lib/parse/seriesAnalysis";
 import type { HabitsTrail } from "@/lib/parse/seriesOverlay";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
+import { UtilThrowDetail } from "./UtilThrowDetail";
 
 interface Props {
   rows: SeriesUtilThrow[];
@@ -26,7 +27,6 @@ export function SeriesUtilList({ rows, playerName, onJump, onClearFollow }: Prop
       ) : (
         <ul className="review-notes">
           {rows.map((row, i) => {
-            const detail = throwDetail(row);
             const callout = row.location ?? row.site ?? "—";
             const tone = utilRowTone(row);
             return (
@@ -45,7 +45,7 @@ export function SeriesUtilList({ rows, playerName, onJump, onClearFollow }: Prop
                       <WeaponIcon weapon={NADE_WEAPON[row.kind]} />
                       {row.fileName} · {row.throwerName} · {callout}
                     </span>
-                    {detail ? <span className="review-detail">{detail}</span> : null}
+                    <UtilThrowDetail row={row} />
                   </span>
                 </button>
               </li>
