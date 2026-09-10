@@ -1,19 +1,82 @@
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { RADAR_OVERVIEW_SIZE } from "@/lib/radar/constants.ts";
 import { radarLayout, screenToRadar, type RadarView } from "@/lib/radar/viewport.ts";
-import type { MapCalibration } from "@/lib/replay/replayTypes";
+import type { FloorSection, MapCalibration } from "@/lib/replay/replayTypes";
 import type { FloorMode } from "@/lib/notes/types";
+import { isFiniteNumber, isRecord, isString, optionalString } from "@/lib/validate/guards";
 
 export type { RadarView };
 export { radarLayout, screenToRadar };
 
 let cache: Record<string, MapCalibration> | null = null;
 
+function parseFloors(value: unknown): FloorSection[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const floors: FloorSection[] = [];
+  for (const item of value) {
+    if (
+      !isRecord(item) ||
+      !isString(item.name) ||
+      !isFiniteNumber(item.z_min) ||
+      !isFiniteNumber(item.z_max)
+    ) {
+      return undefined;
+    }
+    floors.push({ name: item.name, z_min: item.z_min, z_max: item.z_max });
+  }
+  return floors;
+}
+
+function parseCalibration(value: unknown): MapCalibration | null {
+  if (!isRecord(value)) return null;
+  if (
+    !isFiniteNumber(value.pos_x) ||
+    !isFiniteNumber(value.pos_y) ||
+    !isFiniteNumber(value.scale)
+  ) {
+    return null;
+  }
+  if (!isString(value.radar)) return null;
+  const floors = parseFloors(value.floors);
+  return {
+    pos_x: value.pos_x,
+    pos_y: value.pos_y,
+    scale: value.scale,
+    radar: value.radar,
+    lower_radar: optionalString(value.lower_radar),
+    ...(floors ? { floors } : {}),
+  };
+}
+
+/** Guard calibrations.json the same way decode.ts guards a demo payload. */
+export function parseCalibrations(value: unknown): Record<string, MapCalibration> {
+  if (!isRecord(value)) {
+    throw new Error("calibrations.json must be an object");
+  }
+  const out: Record<string, MapCalibration> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    const cal = parseCalibration(raw);
+    if (!cal) {
+      throw new Error(`calibrations.json: invalid entry "${key}"`);
+    }
+    out[key] = cal;
+  }
+  return out;
+}
+
 export async function loadCalibrations(): Promise<Record<string, MapCalibration>> {
   if (cache) return cache;
   const res = await fetch(publicUrl("maps/calibrations.json"));
-  cache = (await res.json()) as Record<string, MapCalibration>;
+  if (!res.ok) {
+    throw new Error("could not load map calibrations");
+  }
+  cache = parseCalibrations(await res.json());
   return cache;
+}
+
+/** Drops the fetch memo so tests can stub a new payload. */
+export function resetCalibrationsCache(): void {
+  cache = null;
 }
 
 export function radarUrl(file: string): string {

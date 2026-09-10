@@ -9,7 +9,6 @@ import {
   SERIES_HABITS_WINDOW_MAX_SECONDS,
   SERIES_HABITS_WINDOW_MIN_SECONDS,
   SERIES_HABITS_WINDOW_SECONDS,
-  SERIES_HABITS_WINDOW_STORAGE_KEY,
 } from "@/lib/shared/constants";
 import { matchingTags, type SeriesFilter } from "./seriesAnalysis";
 import type { RoundTag } from "./roundTags";
@@ -137,27 +136,6 @@ export function clampSeriesTrailWindowSec(value: number): number {
     SERIES_HABITS_WINDOW_MAX_SECONDS,
     Math.max(SERIES_HABITS_WINDOW_MIN_SECONDS, Math.round(value)),
   );
-}
-
-export function loadSeriesTrailWindowSec(): number {
-  try {
-    const raw = localStorage.getItem(SERIES_HABITS_WINDOW_STORAGE_KEY);
-    if (raw == null) return SERIES_HABITS_WINDOW_SECONDS;
-    return clampSeriesTrailWindowSec(Number(raw));
-  } catch {
-    return SERIES_HABITS_WINDOW_SECONDS;
-  }
-}
-
-export function saveSeriesTrailWindowSec(value: number): void {
-  try {
-    localStorage.setItem(
-      SERIES_HABITS_WINDOW_STORAGE_KEY,
-      String(clampSeriesTrailWindowSec(value)),
-    );
-  } catch {
-    /* ignore quota / private mode */
-  }
 }
 
 function focalSidePlayersAtFreeze(replay: Replay, tag: RoundTag): number[] {
