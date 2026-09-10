@@ -38,21 +38,7 @@ export function parseYouTubeUrl(raw: string): ParsedYouTubeUrl | null {
   const host = url.hostname.toLowerCase();
   if (!YOUTUBE_HOSTS.has(host)) return null;
   const parts = url.pathname.split("/").filter(Boolean);
-  let videoId: string | null = null;
-  if (host === "youtu.be" || host === "www.youtu.be") {
-    videoId = parts[0] ?? null;
-  } else if (parts[0] === "watch") {
-    videoId = url.searchParams.get("v") ?? parts[1] ?? null;
-  } else if (
-    parts[0] === "embed" ||
-    parts[0] === "shorts" ||
-    parts[0] === "live" ||
-    parts[0] === "v"
-  ) {
-    videoId = parts[1] ?? null;
-  } else {
-    videoId = url.searchParams.get("v");
-  }
+  const videoId = videoIdFromPath(host, url, parts);
   if (!videoId || !isYouTubeVideoId(videoId)) return null;
   const start = parseStartValue(
     url.searchParams.get("t") ?? url.searchParams.get("start") ?? timeFromHash(url.hash),
@@ -104,6 +90,15 @@ export async function fetchYouTubeTitle(videoId: string): Promise<string | null>
   } catch {
     return null;
   }
+}
+
+function videoIdFromPath(host: string, url: URL, parts: string[]): string | null {
+  if (host === "youtu.be" || host === "www.youtu.be") return parts[0] ?? null;
+  if (parts[0] === "watch") return url.searchParams.get("v") ?? parts[1] ?? null;
+  if (parts[0] === "embed" || parts[0] === "shorts" || parts[0] === "live" || parts[0] === "v") {
+    return parts[1] ?? null;
+  }
+  return url.searchParams.get("v");
 }
 
 function parseHttpUrl(raw: string): URL | null {

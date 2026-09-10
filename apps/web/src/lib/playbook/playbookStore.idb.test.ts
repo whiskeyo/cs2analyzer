@@ -74,7 +74,7 @@ describe("playbookStore indexedDB", () => {
 
   it("migrates a schema 1 row and keeps videos empty", async () => {
     const book = newPlaybook("de_mirage", "Legacy");
-    const { videos: _videos, ...page } = book.pages[0]!;
+    const first = book.pages[0]!;
     const db = await openCs2Db();
     try {
       const tx = db.transaction(PLAYBOOK_STORE, "readwrite");
@@ -82,7 +82,15 @@ describe("playbookStore indexedDB", () => {
         tx.objectStore(PLAYBOOK_STORE).put({
           ...book,
           schema: 1,
-          pages: [page],
+          pages: [
+            {
+              id: first.id,
+              title: first.title,
+              body: first.body,
+              floor: first.floor,
+              note: first.note,
+            },
+          ],
         }),
       );
     } finally {
