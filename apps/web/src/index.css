@@ -64,6 +64,12 @@ body,
   gap: 1.5rem;
   align-items: stretch;
 }
+.home-shortcuts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: stretch;
+}
 .home-intro h2,
 .faq h2,
 .drop-title {
@@ -92,7 +98,8 @@ body,
   line-height: 1.55;
 }
 
-.drop {
+.drop,
+.home-card {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -105,8 +112,11 @@ body,
   background: #12171d;
   cursor: pointer;
   text-align: center;
+  text-decoration: none;
+  color: inherit;
 }
-.drop:hover {
+.drop:hover,
+.home-card:hover {
   border-color: var(--accent);
 }
 .drop-parse {
@@ -118,10 +128,41 @@ body,
   margin-top: 0;
   width: 100%;
 }
-.drop p {
+.drop p,
+.home-card p {
   margin: 0;
   font-size: var(--page-body-size);
   line-height: 1.5;
+}
+.home-playbook {
+  cursor: default;
+  gap: 0.45rem;
+}
+.home-playbook-start {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+  margin-top: 0.35rem;
+}
+.home-playbook-start a {
+  color: #8ec4ee;
+  font-weight: 650;
+  text-decoration: none;
+}
+.home-playbook-start a:hover {
+  color: var(--text);
+}
+.home-faq-hint {
+  margin: 0;
+  text-align: center;
+}
+.home-faq-hint a {
+  color: #8ec4ee;
+}
+.home-faq-hint a:hover {
+  color: var(--text);
 }
 .home .muted {
   font-size: var(--page-lead-size);
@@ -3447,7 +3488,8 @@ button.link:hover:not(:disabled) {
 }
 
 @media (max-width: 900px) {
-  .home-hero {
+  .home-hero,
+  .home-shortcuts {
     grid-template-columns: 1fr;
   }
   .stage {

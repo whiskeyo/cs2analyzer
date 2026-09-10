@@ -87,6 +87,29 @@ describe("DropZone", () => {
     expect(screen.queryByText("a.dem")).not.toBeInTheDocument();
   });
 
+  it("renders optional beside and below slots around the drop card", () => {
+    const { container } = render(
+      <DropZone
+        {...props({
+          beside: <div className="home-playbook">Create a playbook</div>,
+          below: <p className="home-faq-hint">see the FAQ</p>,
+        })}
+      />,
+    );
+    const drop = container.querySelector(".drop");
+    const beside = container.querySelector(".home-playbook");
+    const below = container.querySelector(".home-faq-hint");
+    expect(drop).toBeTruthy();
+    expect(beside).toBeTruthy();
+    expect(below).toBeTruthy();
+    if (drop && beside) {
+      expect(drop.compareDocumentPosition(beside) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    }
+    if (beside && below) {
+      expect(beside.compareDocumentPosition(below) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    }
+  });
+
   it("surfaces parse errors and notices", () => {
     render(
       <DropZone {...props({ error: "Supports only Source 2 replays", notice: "Restored" })} />,

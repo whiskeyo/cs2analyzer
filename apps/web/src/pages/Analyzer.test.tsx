@@ -81,6 +81,8 @@ describe("Analyzer", () => {
     expect(
       screen.queryByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "see the FAQ" })).not.toBeInTheDocument();
   });
 
   it("deletes saved notes and refreshes the list", async () => {

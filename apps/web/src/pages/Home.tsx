@@ -1,4 +1,8 @@
+import { Link } from "react-router";
 import { DemoDrop } from "@/components/app/DemoDrop";
+import { playbookHref } from "@/lib/app/playbookSearch";
+import { ROUTES } from "@/lib/app/routes";
+import { PLAYBOOK_PREFERRED_MAP } from "@/lib/playbook/types";
 
 function HomeIntro() {
   return (
@@ -20,9 +24,37 @@ function HomeIntro() {
   );
 }
 
+function HomePlaybookCta() {
+  return (
+    <div className="home-card home-playbook">
+      <p className="home-kicker">Tactics board</p>
+      <div className="drop-title">Create a playbook</div>
+      <p>Draw named strats on a radar. No demo required.</p>
+      <p className="home-playbook-start">
+        <Link to={ROUTES.playbook}>Pick a map</Link>
+        <span aria-hidden="true"> · </span>
+        <Link to={playbookHref({ map: PLAYBOOK_PREFERRED_MAP })}>Start empty board</Link>
+      </p>
+    </div>
+  );
+}
+
+function HomeFaqHint() {
+  return (
+    <p className="home-faq-hint muted">
+      If you have questions, <Link to={ROUTES.faq}>see the FAQ</Link>.
+    </p>
+  );
+}
+
 export function Home() {
   return (
-    <DemoDrop openAnalyzerOnDrop showSavedNotes={false}>
+    <DemoDrop
+      openAnalyzerOnDrop
+      showSavedNotes={false}
+      beside={<HomePlaybookCta />}
+      below={<HomeFaqHint />}
+    >
       <HomeIntro />
     </DemoDrop>
   );

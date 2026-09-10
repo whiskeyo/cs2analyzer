@@ -114,6 +114,36 @@ describe("App", () => {
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
+    expect(screen.getByRole("link", { name: "Pick a map" })).toHaveAttribute("href", "/playbook");
+    expect(screen.getByRole("link", { name: "Start empty board" })).toHaveAttribute(
+      "href",
+      "/playbook?map=de_mirage",
+    );
+    expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
+  });
+
+  it("opens Playbook from the home creator card", async () => {
+    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    await userEvent.click(screen.getByRole("link", { name: "Pick a map" }));
+    expect(window.location.pathname).toBe("/playbook");
+    expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
+  });
+
+  it("opens an empty Playbook board from the home creator card", async () => {
+    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    await userEvent.click(screen.getByRole("link", { name: "Start empty board" }));
+    expect(window.location.pathname).toBe("/playbook");
+    expect(window.location.search).toBe("?map=de_mirage");
+    expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
+  });
+
+  it("opens FAQ from the home hint", async () => {
+    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    await userEvent.click(screen.getByRole("link", { name: "see the FAQ" }));
+    expect(window.location.pathname).toBe("/faq");
+    expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
   });
 
   it("shows the parsed match on the radar, HUD, and scoreboard", async () => {

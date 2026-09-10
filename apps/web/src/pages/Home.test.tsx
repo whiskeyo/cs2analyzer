@@ -75,4 +75,31 @@ describe("Home", () => {
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
     expect(screen.queryByText("match.dem")).not.toBeInTheDocument();
   });
+
+  it("offers Playbook and FAQ shortcuts next to the drop zone", () => {
+    vi.mocked(useApp).mockReturnValue(homeState() as unknown as ReturnType<typeof useApp>);
+    const { container } = render(
+      <TestRouter>
+        <Home />
+      </TestRouter>,
+    );
+    const drop = container.querySelector(".drop");
+    const playbook = container.querySelector(".home-playbook");
+    const faq = container.querySelector(".home-faq-hint");
+    expect(drop).toBeTruthy();
+    expect(playbook).toBeTruthy();
+    expect(faq).toBeTruthy();
+    if (drop && playbook) {
+      expect(drop.compareDocumentPosition(playbook) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    }
+    if (playbook && faq) {
+      expect(playbook.compareDocumentPosition(faq) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    }
+    expect(screen.getByRole("link", { name: "Pick a map" })).toHaveAttribute("href", "/playbook");
+    expect(screen.getByRole("link", { name: "Start empty board" })).toHaveAttribute(
+      "href",
+      "/playbook?map=de_mirage",
+    );
+    expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
+  });
 });
