@@ -110,6 +110,14 @@ export const FLASH_POP_SECONDS = 0.4;
 /** Full-face CS2 flash; scales the radar countdown dial around a blinded pawn. */
 export const FLASH_FULL_SECONDS = 5.47;
 
+/**
+ * How long after detonate a blind may still be attributed to that flash.
+ * GOTV can deliver `player_blind` after the projectile `end_tick`; this is not
+ * the 5.47s overlay — leftover duration samples later in the round are a
+ * different flash (or a dead pawn still reporting).
+ */
+export const FLASH_BLIND_ATTRIBUTION_SECONDS = 2;
+
 /** How long an HE/flash pop stays drawn after detonate. */
 export const HE_BURST_SECONDS = 0.55;
 export const FLASH_BURST_SECONDS = 0.35;

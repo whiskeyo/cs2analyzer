@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { MIN_REVIEW_FLASH_SECONDS } from "@/lib/shared/constants";
-import type { GrenadeKind, GrenadeThrow, Replay } from "@/lib/replay/replayTypes";
+import {
+  FLAG_ALIVE,
+  FLAG_CT,
+  FLAG_PRESENT,
+  type GrenadeKind,
+  type GrenadeThrow,
+  type Replay,
+} from "@/lib/replay/replayTypes";
 import {
   makeBlind,
   makeCallout,
@@ -9,6 +16,7 @@ import {
   makePlaces,
   makePlayer,
   makeReplay,
+  makeTicks,
   type ReplayOverrides,
 } from "@/lib/testing/fixtures";
 import {
@@ -122,6 +130,56 @@ describe("utilityThrough", () => {
     ]);
     expect(u.enemyFlashCount).toBe(1);
     expect(throwDetail(u.throws[0]!)).toBe("Enemy: Bob 1.4s · Team: Alice 0.5s");
+  });
+
+  it("only lists players who were alive at the flash, not leftover dead-pawn blinds", () => {
+    const ticks = makeTicks(3, 1);
+    ticks.ticks[0] = 110;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[2] = FLAG_PRESENT;
+    const m = replay({
+      grenades: [nade("flash", 90, 0)],
+      blinds: [
+        makeBlind(110, 0, 1, 1.2),
+        makeBlind(110, 0, 2, 1.5),
+        makeBlind(112, 0, 0, 0.8),
+      ],
+      ticks,
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 1, victimName: "Bob", duration: 1.2, enemy: true },
+      { victim: 0, victimName: "Alice", duration: 0.8, enemy: false },
+    ]);
+    expect(u.enemyFlashCount).toBe(1);
+  });
+
+  it("does not attach an earlier flash's leftover samples to a later throw", () => {
+    const ticks = makeTicks(3, 2);
+    ticks.ticks[0] = 110;
+    ticks.ticks[1] = 420;
+    for (const frame of [0, 1]) {
+      ticks.flags[frame * 3 + 0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+      ticks.flags[frame * 3 + 1] = FLAG_PRESENT | FLAG_ALIVE;
+      ticks.flags[frame * 3 + 2] = frame === 0 ? FLAG_PRESENT | FLAG_ALIVE : FLAG_PRESENT;
+    }
+    const m = replay({
+      grenades: [nade("flash", 90, 0), nade("flash", 400, 0)],
+      blinds: [
+        makeBlind(110, 0, 1, 1.2),
+        makeBlind(110, 0, 2, 1.4),
+        makeBlind(380, 0, 2, 0.9),
+        makeBlind(420, 0, 1, 0.8),
+        makeBlind(420, 0, 2, 0.9),
+      ],
+      ticks,
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds.map((blind) => blind.victimName)).toEqual(["Bob", "Dave"]);
+    expect(u.throws[1]?.blinds).toEqual([
+      { victim: 1, victimName: "Bob", duration: 0.8, enemy: true },
+    ]);
   });
 
   it("colours flashes by who was blinded, not by site", () => {

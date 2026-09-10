@@ -1,12 +1,12 @@
 import {
-  FLASH_FULL_SECONDS,
+  FLASH_BLIND_ATTRIBUTION_SECONDS,
   MIN_REVIEW_FLASH_SECONDS,
   MOLOTOV_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
 import { nadeLandPos } from "@/lib/radar/radarFx";
 import { NADE_LABEL } from "@/lib/match/roundEvents";
-import { currentRound } from "@/lib/replay/sample";
+import { currentRound, samplePlayer } from "@/lib/replay/sample";
 import { calloutsInLocation, placeAt, type MapPlaces, type SiteCallout } from "./sites";
 import { clusterLayoutCallouts, groupLabel, type MapLayout } from "@/lib/radar/layouts";
 import { inKnifeRound, isEnemy } from "@/lib/stats/stats";
@@ -133,22 +133,24 @@ function attachEndTick(row: UtilThrowRow, tps: number): number {
   if (isFireGrenade(row.kind)) {
     return Math.max(row.endTick, row.detonateTick + Math.round(MOLOTOV_SECONDS * tps));
   }
-  if (row.kind === "flash") {
-    return Math.max(row.endTick, row.detonateTick + Math.round(FLASH_FULL_SECONDS * tps));
-  }
   return row.endTick;
 }
 
-function nearestThrow(
+function flashBlindWindowEnd(row: UtilThrowRow, tps: number): number {
+  return row.detonateTick + Math.round(FLASH_BLIND_ATTRIBUTION_SECONDS * tps);
+}
+
+function nearestInWindow(
   rows: UtilThrowRow[],
   attacker: number,
   tick: number,
-  tps: number,
+  startTick: (row: UtilThrowRow) => number,
+  endTick: (row: UtilThrowRow) => number,
 ): UtilThrowRow | null {
   let best: UtilThrowRow | null = null;
   let bestDist = Number.POSITIVE_INFINITY;
   for (const row of rows) {
-    if (tick < row.tick || tick > attachEndTick(row, tps)) continue;
+    if (tick < startTick(row) || tick > endTick(row)) continue;
     if (attacker >= 0 && row.thrower >= 0 && row.thrower !== attacker) continue;
     const dist = Math.abs(tick - row.detonateTick);
     if (dist < bestDist) {
@@ -157,6 +159,37 @@ function nearestThrow(
     }
   }
   return best;
+}
+
+function nearestThrow(
+  rows: UtilThrowRow[],
+  attacker: number,
+  tick: number,
+  tps: number,
+): UtilThrowRow | null {
+  return nearestInWindow(rows, attacker, tick, (row) => row.tick, (row) => attachEndTick(row, tps));
+}
+
+function nearestFlash(
+  flashes: UtilThrowRow[],
+  attacker: number,
+  tick: number,
+  tps: number,
+): UtilThrowRow | null {
+  return nearestInWindow(
+    flashes,
+    attacker,
+    tick,
+    (row) => row.detonateTick,
+    (row) => flashBlindWindowEnd(row, tps),
+  );
+}
+
+/** Dead / missing pawns still report leftover `m_flFlashDuration`; skip those. */
+function victimAliveAt(replay: Replay, victim: number, tick: number): boolean {
+  if (replay.ticks.frameCount === 0 || replay.ticks.playerCount === 0) return true;
+  const snap = samplePlayer(replay, victim, tick);
+  return snap != null && snap.present && snap.alive;
 }
 
 function nameOf(replay: Replay, i: number): string {
@@ -170,8 +203,10 @@ function attachBlinds(rows: UtilThrowRow[], replay: Replay, untilTick: number): 
   for (const blind of replay.blinds ?? []) {
     if (blind.tick > untilTick || blind.duration < MIN_REVIEW_FLASH_SECONDS) continue;
     if (inKnifeRound(replay, blind.tick)) continue;
-    const best = nearestThrow(flashes, blind.attacker, blind.tick, tps);
+    const best = nearestFlash(flashes, blind.attacker, blind.tick, tps);
     if (!best) continue;
+    if (!victimAliveAt(replay, blind.victim, best.detonateTick)) continue;
+    if (!victimAliveAt(replay, blind.victim, blind.tick)) continue;
     addBlind(best, replay, blind.victim, blind.duration, blind.tick);
   }
 }
