@@ -108,6 +108,27 @@ function addHit(
   });
 }
 
+/** One chip per victim: player_blind + pawn flash samples otherwise stack. */
+function addBlind(
+  row: UtilThrowRow,
+  replay: Replay,
+  victim: number,
+  duration: number,
+  tick: number,
+): void {
+  const existing = row.blinds.find((blind) => blind.victim === victim);
+  if (existing) {
+    if (duration > existing.duration) existing.duration = duration;
+    return;
+  }
+  row.blinds.push({
+    victim,
+    victimName: nameOf(replay, victim),
+    duration,
+    enemy: row.thrower >= 0 && victim >= 0 && isEnemy(replay, row.thrower, victim, tick),
+  });
+}
+
 function attachEndTick(row: UtilThrowRow, tps: number): number {
   if (isFireGrenade(row.kind)) {
     return Math.max(row.endTick, row.detonateTick + Math.round(MOLOTOV_SECONDS * tps));
@@ -151,14 +172,7 @@ function attachBlinds(rows: UtilThrowRow[], replay: Replay, untilTick: number): 
     if (inKnifeRound(replay, blind.tick)) continue;
     const best = nearestThrow(flashes, blind.attacker, blind.tick, tps);
     if (!best) continue;
-    const flasher = blind.attacker >= 0 ? blind.attacker : best.thrower;
-    best.blinds.push({
-      victim: blind.victim,
-      victimName: nameOf(replay, blind.victim),
-      duration: blind.duration,
-      enemy:
-        flasher >= 0 && blind.victim >= 0 && isEnemy(replay, flasher, blind.victim, blind.tick),
-    });
+    addBlind(best, replay, blind.victim, blind.duration, blind.tick);
   }
 }
 

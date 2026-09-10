@@ -101,6 +101,29 @@ describe("utilityThrough", () => {
     expect(utilRowTone(u.throws[0]!)).toBe("mixed");
   });
 
+  it("keeps one blind per victim and the longest duration", () => {
+    const m = replay({
+      grenades: [nade("flash", 90, 0, 50, 974)],
+      blinds: [
+        makeBlind(110, 0, 1, 0.9),
+        makeBlind(111, 0, 1, 0.9),
+        makeBlind(112, 0, 1, 0.8),
+        makeBlind(113, 0, 1, 1.4),
+        makeBlind(114, 0, 1, 0.9),
+        makeBlind(115, -1, 1, 0.6),
+        makeBlind(120, 0, 0, 0.5),
+        makeBlind(121, 0, 0, 0.5),
+      ],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 1, victimName: "Bob", duration: 1.4, enemy: true },
+      { victim: 0, victimName: "Alice", duration: 0.5, enemy: false },
+    ]);
+    expect(u.enemyFlashCount).toBe(1);
+    expect(throwDetail(u.throws[0]!)).toBe("Enemy: Bob 1.4s · Team: Alice 0.5s");
+  });
+
   it("colours flashes by who was blinded, not by site", () => {
     const m = replay({
       grenades: [
