@@ -887,6 +887,32 @@ mod tests {
     }
 
     #[test]
+    fn player_connected_in_server_keeps_missing_prop() {
+        assert!(crate::player_connected_in_server(None));
+        assert!(crate::player_connected_in_server(Some(
+            crate::PLAYER_CONNECTED
+        )));
+        assert!(crate::player_connected_in_server(Some(
+            crate::PLAYER_CONNECTING
+        )));
+        assert!(crate::player_connected_in_server(Some(
+            crate::PLAYER_RECONNECTING
+        )));
+        assert!(!crate::player_connected_in_server(Some(
+            crate::PLAYER_DISCONNECTING
+        )));
+        assert!(!crate::player_connected_in_server(Some(
+            crate::PLAYER_DISCONNECTED
+        )));
+        assert!(!crate::player_connected_in_server(Some(
+            crate::PLAYER_RESERVED
+        )));
+        assert!(!crate::player_connected_in_server(Some(
+            crate::PLAYER_NEVER_CONNECTED
+        )));
+    }
+
+    #[test]
     fn bind_userid_steam_drops_leaver_when_bot_takes_slot() {
         let mut map = HashMap::new();
         bind_userid_steam(&mut map, 5, 76561198000000000);

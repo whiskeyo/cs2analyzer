@@ -77,6 +77,9 @@ pub(crate) struct Collector {
     pub blinds: Vec<(u32, Option<u64>, f32, Option<u64>)>,
     pub bomb_events: Vec<BombRec>,
     pub userid_to_steam: HashMap<i32, u64>,
+    /// Steams that left (`player_disconnect` or `m_iConnected` out of server).
+    /// Used when GOTV omits `m_iConnected` so leftover controllers stay flagged.
+    left_steams: HashSet<u64>,
     flash_duration: HashMap<u64, f32>,
     last_flash_thrower: Option<u64>,
     pub frames: Vec<RawFrame>,
@@ -170,6 +173,7 @@ impl Collector {
             blinds: Vec::new(),
             bomb_events: Vec::new(),
             userid_to_steam: HashMap::new(),
+            left_steams: HashSet::new(),
             flash_duration: HashMap::new(),
             last_flash_thrower: None,
             frames: Vec::new(),
@@ -235,10 +239,9 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
-            let steam = prop_u64(ctrl, "m_steamID");
-            if steam == 0 {
+            let Some(steam) = controller_active_steam(self, ctrl) else {
                 continue;
-            }
+            };
             let handle = prop_u32(ctrl, "m_hPlayerPawn");
             let Ok(pawn) = ctx.entities().get_by_handle(handle as usize) else {
                 continue;
@@ -377,6 +380,47 @@ pub(crate) fn bind_userid_steam(map: &mut HashMap<i32, u64>, userid: i32, steam:
     }
 }
 
+fn controller_in_server(ctrl: &Entity) -> bool {
+    crate::player_connected_in_server(prop_i32_opt(ctrl, "m_iConnected"))
+}
+
+/// Steam for a controller that is still in the match this tick.
+///
+/// Leftover CCSPlayerController entities keep `m_steamID` after a leave, so
+/// `FLAG_PRESENT` used to stay set and the scoreboard grew a ghost row.
+fn controller_active_steam(c: &Collector, ctrl: &Entity) -> Option<u64> {
+    let steam = prop_u64(ctrl, "m_steamID");
+    if steam == 0 {
+        return None;
+    }
+    match prop_i32_opt(ctrl, "m_iConnected") {
+        Some(state) if !crate::player_connected_in_server(Some(state)) => None,
+        Some(_) => Some(steam),
+        None if c.left_steams.contains(&steam) => None,
+        None => Some(steam),
+    }
+}
+
+fn bind_controller_userid(c: &mut Collector, ctrl: &Entity) {
+    let userid = ctrl.index() as i32;
+    let steam = prop_u64(ctrl, "m_steamID");
+    if steam != 0 && !controller_in_server(ctrl) {
+        c.left_steams.insert(steam);
+    }
+    if steam != 0
+        && matches!(
+            prop_i32_opt(ctrl, "m_iConnected"),
+            Some(crate::PLAYER_CONNECTED | crate::PLAYER_CONNECTING | crate::PLAYER_RECONNECTING)
+        )
+    {
+        c.left_steams.remove(&steam);
+    }
+    match controller_active_steam(c, ctrl) {
+        Some(steam) => bind_userid_steam(&mut c.userid_to_steam, userid, steam),
+        None => bind_userid_steam(&mut c.userid_to_steam, userid, 0),
+    }
+}
+
 fn steam_from_userid(c: &Collector, ctx: &Context, uid: i32) -> Option<u64> {
     if uid <= 0 {
         return None;
@@ -492,11 +536,10 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
-            let steam = prop_u64(ctrl, "m_steamID");
-            bind_userid_steam(&mut self.userid_to_steam, ctrl.index() as i32, steam);
-            if steam == 0 {
+            bind_controller_userid(self, ctrl);
+            let Some(steam) = controller_active_steam(self, ctrl) else {
                 continue;
-            }
+            };
             let handle = prop_u32(ctrl, "m_hPlayerPawn");
             if let Ok(pawn) = ctx.entities().get_by_handle(handle as usize) {
                 self.pawn_to_steam.insert(pawn.index(), steam);
@@ -533,10 +576,9 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
-            let steam = prop_u64(ctrl, "m_steamID");
-            if steam == 0 {
+            let Some(steam) = controller_active_steam(self, ctrl) else {
                 continue;
-            }
+            };
             if side_of(prop_i32(ctrl, "m_iTeamNum")).is_none() {
                 continue;
             }
@@ -847,6 +889,19 @@ impl Collector {
                 // Optional: some GOTV demos include impact points. We keep weapon_fire
                 // tracers as the primary shot viz; impacts are not stored separately
                 // in the MVP snapshot.
+            }
+            "player_disconnect" => {
+                if let Some(uid) = ev_i32(ge, "userid") {
+                    bind_userid_steam(&mut self.userid_to_steam, uid, 0);
+                }
+                if let Some(steam) = steam_from_game_event(self, ctx, ge) {
+                    self.left_steams.insert(steam);
+                }
+            }
+            "player_connect" | "player_connect_full" => {
+                if let Some(steam) = steam_from_game_event(self, ctx, ge) {
+                    self.left_steams.remove(&steam);
+                }
             }
             "player_blind" => {
                 let dur = ev_f32(ge, "blind_duration");
