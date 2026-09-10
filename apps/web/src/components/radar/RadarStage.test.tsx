@@ -8,7 +8,12 @@ import { DEFAULT_HABITS_NADE_FILTER, type SeriesOverlay } from "@/lib/parse/seri
 import type { RoundKind } from "@/lib/parse/roundTags";
 import type { Side } from "@/lib/replay/replayTypes";
 import { makeReplay, makeRound } from "@/lib/testing/fixtures";
+import { TestRouter } from "@/lib/testing/router";
 import { RadarStage } from "./RadarStage";
+
+function renderStage(ui = <RadarStage />) {
+  return render(<TestRouter>{ui}</TestRouter>);
+}
 
 vi.mock("@/lib/state/appState", () => ({
   useApp: vi.fn(),
@@ -101,13 +106,13 @@ describe("RadarStage", () => {
     vi.mocked(useApp).mockReturnValue({
       session: { replay: null },
     } as unknown as ReturnType<typeof useApp>);
-    const { container } = render(<RadarStage />);
+    const { container } = renderStage();
     expect(container).toBeEmptyDOMElement();
   });
 
   it("renders the radar column when a replay is loaded", () => {
     vi.mocked(useApp).mockReturnValue(radarState() as unknown as ReturnType<typeof useApp>);
-    const { container } = render(<RadarStage />);
+    const { container } = renderStage();
     expect(container.querySelector(".radar-col")).toBeInTheDocument();
     expect(screen.getByTestId("radar-canvas")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Draw" })).toBeInTheDocument();
@@ -120,7 +125,7 @@ describe("RadarStage", () => {
       }),
     );
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
 
     await userEvent.click(screen.getByRole("button", { name: "Undo drawing (Ctrl+Z)" }));
     expect(state._actions.undo).toHaveBeenCalled();
@@ -145,7 +150,7 @@ describe("RadarStage", () => {
   it("resets the active color when the palette changes", async () => {
     const state = radarState();
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
 
     await userEvent.click(screen.getByRole("button", { name: "Night" }));
     expect(state._actions.setPaletteId).toHaveBeenCalledWith("night");
@@ -155,7 +160,7 @@ describe("RadarStage", () => {
   it("pauses playback when summary is enabled", async () => {
     const state = radarState();
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
 
     await userEvent.click(screen.getByRole("button", { name: "Summary" }));
     expect(state._actions.setPlaying).toHaveBeenCalledWith(false);
@@ -175,14 +180,14 @@ describe("RadarStage", () => {
       windowSec: 5,
     };
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
     expect(screen.queryByRole("button", { name: /Round autoplay/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Snapshot to playbook" })).toBeInTheDocument();
   });
 
   it("opens the snapshot dialog from the toolbar", async () => {
     vi.mocked(useApp).mockReturnValue(radarState() as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
     await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
     expect(screen.getByRole("dialog", { name: "Snapshot to playbook" })).toBeInTheDocument();
   });
@@ -204,7 +209,7 @@ describe("RadarStage", () => {
       demos: Array.from({ length: 12 }, () => ({})),
     };
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
     await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
     expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue(
       "Spirit series (12 demos) · CT pistol · 0:24",

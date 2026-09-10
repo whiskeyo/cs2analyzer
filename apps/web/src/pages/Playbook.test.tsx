@@ -9,7 +9,16 @@ import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { COPY_SUFFIX } from "@/lib/playbook/types";
 import { PLAYBOOK_FOCUS_KEY, rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
+import { TestRouter } from "@/lib/testing/router";
 import { Playbook } from "./Playbook";
+
+function renderBoard(path = "/playbook") {
+  return render(
+    <TestRouter path={path}>
+      <Playbook />
+    </TestRouter>,
+  );
+}
 
 vi.mock("@/lib/radar/maps", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/radar/maps")>();
@@ -53,7 +62,7 @@ describe("Playbook", () => {
   });
 
   it("picks a map, creates a book, and opens the board", async () => {
-    render(<Playbook />);
+    renderBoard();
     expect(await screen.findByRole("button", { name: "Mirage" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Inferno" }));
     await createBookFromMap("Inferno");
@@ -78,7 +87,7 @@ describe("Playbook", () => {
   });
 
   it("adds, switches, duplicates, and deletes strats including the last one", async () => {
-    render(<Playbook />);
+    renderBoard();
     await createBookFromMap();
     fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "New strat" }));
@@ -102,7 +111,9 @@ describe("Playbook", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "A exec" }));
     await stratMenu("A exec", "Duplicate strat");
-    expect(screen.getByRole("button", { name: `A exec${COPY_SUFFIX}` })).toHaveClass("is-active");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: `A exec${COPY_SUFFIX}` })).toHaveClass("is-active");
+    });
 
     await stratMenu(`A exec${COPY_SUFFIX}`, "Delete strat");
     expect(screen.queryByRole("button", { name: `A exec${COPY_SUFFIX}` })).not.toBeInTheDocument();
@@ -117,7 +128,7 @@ describe("Playbook", () => {
   });
 
   it("lets a title stay empty until blur and keeps spaces while typing", async () => {
-    render(<Playbook />);
+    renderBoard();
     await createBookFromMap();
     fireEvent.keyDown(await screen.findByRole("button", { name: "Untitled playbook" }), {
       key: "F2",
@@ -140,7 +151,7 @@ describe("Playbook", () => {
   it("keeps playbook order when switching the active book", async () => {
     await createPlaybook("de_mirage", "First");
     await createPlaybook("de_mirage", "Second");
-    render(<Playbook />);
+    renderBoard();
     const first = await screen.findByRole("button", { name: "First" });
     const second = screen.getByRole("button", { name: "Second" });
     expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -163,7 +174,7 @@ describe("Playbook", () => {
   });
 
   it("shows token tools, nade modes, and strat notes instead of a text box", async () => {
-    render(<Playbook />);
+    renderBoard();
     await createBookFromMap();
     expect(await screen.findByRole("toolbar", { name: "Playbook tools" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pen" })).toBeInTheDocument();
@@ -189,23 +200,31 @@ describe("Playbook", () => {
     expect(document.querySelector(".keys")).toHaveTextContent("V pan");
   });
 
+  it("opens a book and strat from the share URL", async () => {
+    await createPlaybook("de_mirage", "my_playbook");
+    renderBoard("/playbook?map=de_mirage&playbook=my_playbook&strat=Untitled+strat");
+    expect(await screen.findByTestId("playbook-canvas")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "my_playbook" })).toHaveClass("is-active");
+    expect(screen.getByRole("button", { name: "Untitled strat" })).toHaveClass("is-active");
+  });
+
   it("opens the remembered snapshot book expanded", async () => {
     const book = await createPlaybook("de_inferno", "A execs");
     rememberPlaybookFocus({ mapName: "de_inferno", bookKey: book.key });
-    render(<Playbook />);
+    renderBoard();
     expect(await screen.findByTestId("playbook-canvas")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "A execs" })).toHaveClass("is-active");
     expect(screen.getByRole("button", { name: "Untitled strat" })).toHaveClass("is-active");
   });
 
   it("shows empty-board art when no book is open", async () => {
-    render(<Playbook />);
+    renderBoard();
     expect(await screen.findByText("Open a playbook to draw on the radar.")).toBeInTheDocument();
     expect(document.querySelector(".playbook-empty-art")).toBeTruthy();
   });
 
   it("deletes the open playbook", async () => {
-    render(<Playbook />);
+    renderBoard();
     await createBookFromMap();
     fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Delete playbook" }));
@@ -215,7 +234,7 @@ describe("Playbook", () => {
 
   it("shows a load error when calibrations fail", async () => {
     vi.mocked(loadCalibrations).mockRejectedValue(new Error("maps down"));
-    render(<Playbook />);
+    renderBoard();
     expect(await screen.findByText("maps down")).toBeInTheDocument();
   });
 
@@ -227,7 +246,7 @@ describe("Playbook", () => {
           resolve = next;
         }),
     );
-    const { unmount } = render(<Playbook />);
+    const { unmount } = renderBoard();
     unmount();
     resolve({ de_mirage: UNIT_CALIBRATION });
     await waitFor(() => expect(loadCalibrations).toHaveBeenCalled());

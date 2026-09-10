@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect } from "react";
+import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router";
 import { AppStateProvider, useApp } from "@/lib/state/appState";
 import type { CreateWorker } from "@/lib/parse/useDemoSession";
-import { isAnalyzerPath, isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
-import { usePathname } from "@/lib/app/devNavigate";
+import { isAnalyzerPath, isFaqPath, isLayoutsPath, isPlaybookPath, ROUTES } from "@/lib/app/routes";
 import { Header } from "@/components/app/Header";
 import { Analyzer } from "@/pages/Analyzer";
 import { Home } from "@/pages/Home";
@@ -24,11 +24,10 @@ function pageTitle(pathname: string): string {
 
 function AppLayout() {
   const { session } = useApp();
-  const pathname = usePathname();
-  const onFaq = isFaqPath(pathname);
+  const { pathname } = useLocation();
   const onAnalyzer = isAnalyzerPath(pathname);
   const onPlaybook = isPlaybookPath(pathname);
-  const showLayouts = import.meta.env.DEV && isLayoutsPath(pathname) && LayoutsApp != null;
+  const showLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
   const fillBoard = onPlaybook || (onAnalyzer && session.replay != null);
 
   useEffect(() => {
@@ -41,9 +40,7 @@ function AppLayout() {
     return (
       <div className="app layouts-app">
         <Header />
-        <Suspense fallback={<div className="boot-error muted">Loading layouts editor…</div>}>
-          <LayoutsApp />
-        </Suspense>
+        <Outlet />
       </div>
     );
   }
@@ -51,26 +48,49 @@ function AppLayout() {
   return (
     <div className={fillBoard ? "app" : "app splash"}>
       <Header />
-      {onFaq ? (
-        <Suspense fallback={<div className="boot-error muted">Loading FAQ…</div>}>
-          <Faq />
-        </Suspense>
-      ) : onPlaybook ? (
-        <Playbook />
-      ) : onAnalyzer ? (
-        <Analyzer />
-      ) : (
-        <Home />
-      )}
+      <Outlet />
     </div>
+  );
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route index element={<Home />} />
+        <Route path={ROUTES.analyzer.slice(1)} element={<Analyzer />} />
+        <Route path={ROUTES.playbook.slice(1)} element={<Playbook />} />
+        <Route
+          path={ROUTES.faq.slice(1)}
+          element={
+            <Suspense fallback={<div className="boot-error muted">Loading FAQ…</div>}>
+              <Faq />
+            </Suspense>
+          }
+        />
+        {import.meta.env.DEV && LayoutsApp != null ? (
+          <Route
+            path={ROUTES.layouts.slice(1)}
+            element={
+              <Suspense fallback={<div className="boot-error muted">Loading layouts editor…</div>}>
+                <LayoutsApp />
+              </Suspense>
+            }
+          />
+        ) : null}
+        <Route path="*" element={<Home />} />
+      </Route>
+    </Routes>
   );
 }
 
 /** `createWorker` is injectable so tests can drive the app without WASM. */
 export function App({ createWorker }: { createWorker?: CreateWorker } = {}) {
   return (
-    <AppStateProvider createWorker={createWorker}>
-      <AppLayout />
-    </AppStateProvider>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <AppStateProvider createWorker={createWorker}>
+        <AppRoutes />
+      </AppStateProvider>
+    </BrowserRouter>
   );
 }

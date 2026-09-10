@@ -5,6 +5,7 @@ import { useApp } from "@/lib/state/appState";
 import { deleteProject } from "@/lib/notes/projectStore";
 import type { ReviewProject } from "@/lib/notes/projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
+import { TestRouter } from "@/lib/testing/router";
 import { Analyzer } from "./Analyzer";
 
 vi.mock("@/lib/state/appState", () => ({
@@ -70,7 +71,11 @@ describe("Analyzer", () => {
     vi.mocked(useApp).mockReturnValue(
       analyzerState([savedProject()]) as unknown as ReturnType<typeof useApp>,
     );
-    render(<Analyzer />);
+    render(
+      <TestRouter path="/analyzer">
+        <Analyzer />
+      </TestRouter>,
+    );
     expect(screen.getByText("Saved notes")).toBeInTheDocument();
     expect(screen.getByText("match.dem")).toBeInTheDocument();
     expect(
@@ -81,7 +86,11 @@ describe("Analyzer", () => {
   it("deletes saved notes and refreshes the list", async () => {
     const state = analyzerState([savedProject("notes-key")]);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<Analyzer />);
+    render(
+      <TestRouter path="/analyzer">
+        <Analyzer />
+      </TestRouter>,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(deleteProject).toHaveBeenCalledWith("notes-key");
@@ -93,7 +102,11 @@ describe("Analyzer", () => {
       ...analyzerState(),
       session: { ...analyzerState().session, replay: { header: { map_name: "de_mirage" } } },
     } as unknown as ReturnType<typeof useApp>);
-    render(<Analyzer />);
+    render(
+      <TestRouter path="/analyzer">
+        <Analyzer />
+      </TestRouter>,
+    );
     expect(screen.getByTestId("viewer")).toBeInTheDocument();
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
   });
