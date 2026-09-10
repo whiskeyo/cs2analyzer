@@ -18,6 +18,7 @@ interface Props {
   videos: PlaybookYouTube[];
   openVideoId: string | null;
   pendingPin: { x: number; y: number } | null;
+  onCancelPin: () => void;
   selectedId: string | null;
   onBody: (body: string) => void;
   onVideos: (videos: PlaybookYouTube[]) => void;
@@ -33,6 +34,7 @@ export function PlaybookStratPanel({
   videos,
   openVideoId,
   pendingPin,
+  onCancelPin,
   selectedId,
   onBody,
   onVideos,
@@ -65,6 +67,7 @@ export function PlaybookStratPanel({
         openId={openVideoId}
         onOpen={onOpenVideo}
         pendingPin={pendingPin}
+        onCancelPin={onCancelPin}
       />
       <label className="playbook-field playbook-notes-field">
         Strat notes

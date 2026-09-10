@@ -27,7 +27,7 @@ describe("PlaybookVideos", () => {
     vi.unstubAllGlobals();
   });
 
-  it("adds a pin, lists it like other strat rows, and deletes from the player", async () => {
+  it("opens a paste dialog on pin drop, lists a thumbnail, and deletes from the player", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -37,6 +37,7 @@ describe("PlaybookVideos", () => {
     );
     const onVideos = vi.fn();
     const onOpen = vi.fn();
+    const onCancelPin = vi.fn();
     const { rerender } = render(
       <PlaybookVideos
         videos={[]}
@@ -44,9 +45,11 @@ describe("PlaybookVideos", () => {
         openId={null}
         onOpen={onOpen}
         pendingPin={{ x: 40, y: 50 }}
+        onCancelPin={onCancelPin}
       />,
     );
-    expect(screen.getByText(/Pin on the radar/)).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Add YouTube clip" })).toBeInTheDocument();
+    expect(screen.getByText(/Paste a youtube.com or youtu.be link/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "YouTube link" }), {
       target: { value: `https://youtu.be/${VIDEO}?t=30` },
     });
@@ -69,9 +72,11 @@ describe("PlaybookVideos", () => {
         openId={added[0]!.id}
         onOpen={onOpen}
         pendingPin={null}
+        onCancelPin={onCancelPin}
       />,
     );
-    expect(screen.getByRole("button", { name: /Mirage A smoke · 0:30/ })).toBeInTheDocument();
+    const row = screen.getByRole("button", { name: /Mirage A smoke · 0:30/ });
+    expect(row.querySelector("img")?.getAttribute("src")).toContain(`/vi/${VIDEO}/hqdefault.jpg`);
     expect(screen.queryByRole("button", { name: "Remove Mirage A smoke" })).not.toBeInTheDocument();
     const dialog = screen.getByRole("dialog", { name: "Mirage A smoke" });
     expect(dialog.querySelector("iframe")?.getAttribute("src")).toContain(
@@ -82,10 +87,27 @@ describe("PlaybookVideos", () => {
     expect(onOpen).toHaveBeenLastCalledWith(null);
   });
 
+  it("cancels a pending pin from the paste dialog", async () => {
+    const onCancelPin = vi.fn();
+    render(
+      <PlaybookVideos
+        videos={[]}
+        onVideos={vi.fn()}
+        openId={null}
+        onOpen={vi.fn()}
+        pendingPin={{ x: 1, y: 2 }}
+        onCancelPin={onCancelPin}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onCancelPin).toHaveBeenCalled();
+  });
+
   it("rejects junk and duplicate links, and falls back when oEmbed fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     const onVideos = vi.fn();
     const onOpen = vi.fn();
+    const onCancelPin = vi.fn();
     const { rerender } = render(
       <PlaybookVideos
         videos={[clip()]}
@@ -93,6 +115,7 @@ describe("PlaybookVideos", () => {
         openId={null}
         onOpen={onOpen}
         pendingPin={null}
+        onCancelPin={onCancelPin}
       />,
     );
     fireEvent.change(screen.getByRole("textbox", { name: "YouTube link" }), {
@@ -115,6 +138,7 @@ describe("PlaybookVideos", () => {
         openId={null}
         onOpen={onOpen}
         pendingPin={null}
+        onCancelPin={onCancelPin}
       />,
     );
     fireEvent.change(screen.getByRole("textbox", { name: "YouTube link" }), {

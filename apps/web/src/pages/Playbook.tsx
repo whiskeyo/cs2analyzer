@@ -301,6 +301,7 @@ export function Playbook() {
               videos={page.videos}
               openVideoId={openVideoId}
               pendingPin={pendingPin}
+              onCancelPin={() => setPendingPin(null)}
               selectedId={board.visibleSelectedId}
               onBody={(body) => setBody(page.id, body)}
               onVideos={(videos) => {

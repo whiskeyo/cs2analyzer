@@ -7,6 +7,7 @@ import {
   parseYouTubeUrl,
   sameYouTubeVideo,
   youtubeEmbedUrl,
+  youtubeThumbUrl,
   youtubeWatchUrl,
   YOUTUBE_UNTITLED,
 } from "@/lib/playbook/youtube";
@@ -17,10 +18,19 @@ interface Props {
   openId: string | null;
   onOpen: (id: string | null) => void;
   pendingPin: { x: number; y: number } | null;
+  onCancelPin: () => void;
 }
 
-export function PlaybookVideos({ videos, onVideos, openId, onOpen, pendingPin }: Props) {
-  const titleId = useId();
+export function PlaybookVideos({
+  videos,
+  onVideos,
+  openId,
+  onOpen,
+  pendingPin,
+  onCancelPin,
+}: Props) {
+  const pasteTitleId = useId();
+  const playerTitleId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,13 +43,26 @@ export function PlaybookVideos({ videos, onVideos, openId, onOpen, pendingPin }:
   }, [pendingPin]);
 
   useEffect(() => {
-    if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onOpen(null);
+      if (event.key !== "Escape") return;
+      if (open) {
+        onOpen(null);
+        return;
+      }
+      if (!pendingPin) return;
+      setError(null);
+      setInput("");
+      onCancelPin();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onOpen]);
+  }, [open, pendingPin, onOpen, onCancelPin]);
+
+  const cancelPin = () => {
+    setError(null);
+    setInput("");
+    onCancelPin();
+  };
 
   const add = async () => {
     const parsed = parseYouTubeUrl(input);
@@ -76,71 +99,96 @@ export function PlaybookVideos({ videos, onVideos, openId, onOpen, pendingPin }:
     onOpen(null);
   };
 
+  const addForm = (
+    <form
+      className="playbook-video-add"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void add();
+      }}
+    >
+      <label className="playbook-field">
+        YouTube
+        <input
+          ref={inputRef}
+          aria-label="YouTube link"
+          value={input}
+          placeholder="https://youtu.be/…"
+          onChange={(event) => {
+            setInput(event.target.value);
+            if (error) setError(null);
+          }}
+        />
+      </label>
+      <button type="submit" disabled={pending || input.trim() === ""}>
+        {pending ? "Adding…" : "Add"}
+      </button>
+    </form>
+  );
+
   return (
     <div className="playbook-videos">
-      <form
-        className="playbook-video-add"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void add();
-        }}
-      >
-        <label className="playbook-field">
-          YouTube
-          <input
-            ref={inputRef}
-            aria-label="YouTube link"
-            value={input}
-            placeholder="https://youtu.be/…"
-            onChange={(event) => {
-              setInput(event.target.value);
-              if (error) setError(null);
-            }}
-          />
-        </label>
-        <button type="submit" disabled={pending || input.trim() === ""}>
-          {pending ? "Adding…" : "Add"}
-        </button>
-      </form>
-      {error ? <p className="error">{error}</p> : null}
-      {pendingPin ? (
-        <p className="playbook-lead">Pin on the radar — paste a YouTube link.</p>
-      ) : null}
-      {videos.length === 0 && !pendingPin ? (
+      {pendingPin ? null : addForm}
+      {pendingPin ? null : error ? <p className="error">{error}</p> : null}
+      {videos.length === 0 ? (
         <p className="playbook-lead">
           Place a YouTube token or paste a link. Clips stay on this machine.
         </p>
       ) : (
-        <ul className="playbook-pieces">
+        <ul className="playbook-video-list">
           {videos.map((clip) => {
             const label =
               clip.startSeconds != null
                 ? `${clip.title} · ${formatVideoStart(clip.startSeconds)}`
                 : clip.title;
             return (
-              <li key={clip.id} className="playbook-piece playbook-piece-mark">
+              <li key={clip.id} className="playbook-video">
                 <button
                   type="button"
-                  className={clip.id === openId ? "playbook-book is-active" : "playbook-book"}
+                  className={
+                    clip.id === openId ? "playbook-video-open is-active" : "playbook-video-open"
+                  }
                   onClick={() => onOpen(clip.id)}
                 >
-                  {label}
+                  <img src={youtubeThumbUrl(clip.videoId)} alt="" loading="lazy" />
+                  <span>{label}</span>
                 </button>
               </li>
             );
           })}
         </ul>
       )}
+      {pendingPin ? (
+        <div className="home-modal playbook-video-paste" onClick={cancelPin}>
+          <div
+            className="home-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={pasteTitleId}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id={pasteTitleId}>Add YouTube clip</h2>
+            <p>Paste a youtube.com or youtu.be link for this pin.</p>
+            {addForm}
+            {error ? <p className="error">{error}</p> : null}
+            <div className="home-modal-actions">
+              <button type="button" className="ghost" onClick={cancelPin}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {open ? (
         <div className="home-modal playbook-video-modal" onClick={() => onOpen(null)}>
           <div
             className="home-modal-card"
             role="dialog"
             aria-modal="true"
-            aria-labelledby={titleId}
+            aria-labelledby={playerTitleId}
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 id={titleId}>{open.title}</h2>
+            <h2 id={playerTitleId}>{open.title}</h2>
             <div className="playbook-video-frame">
               <iframe
                 src={youtubeEmbedUrl(open.videoId, open.startSeconds)}
