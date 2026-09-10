@@ -98,6 +98,35 @@ describe("Scoreboard", () => {
     expect(screen.queryByText("KatolikCOO")).not.toBeInTheDocument();
   });
 
+  it("hides a leftover controller still flagged present after they left", () => {
+    const ticks = makeTicks(3, 2);
+    ticks.ticks.set([64, 640]);
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[2] = FLAG_PRESENT;
+    ticks.flags[3] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[4] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[5] = FLAG_PRESENT;
+    ticks.health.fill(FULL_HEALTH);
+    ticks.health[2] = 0;
+    ticks.health[5] = 0;
+    const m = makeReplay({
+      header: { team_ct: "Bricaa", team_t: "AdaskoBlyat" },
+      players: [
+        makePlayer(0, "CT", "Alice"),
+        makePlayer(1, "T", "Bob"),
+        makePlayer(2, "T", "KatolikCOO"),
+      ],
+      rounds: [makeRound({ number: 13, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+      ticks,
+    });
+    render(<Scoreboard replay={m} tick={640} selected={null} onSelect={() => {}} />);
+
+    expect(within(teamTable("Bricaa")).getByText("Alice")).toBeInTheDocument();
+    expect(within(teamTable("AdaskoBlyat")).getByText("Bob")).toBeInTheDocument();
+    expect(screen.queryByText("KatolikCOO")).not.toBeInTheDocument();
+  });
+
   it("marks the selected row so the radar and table stay in sync", () => {
     render(<Scoreboard replay={replay()} tick={640} selected={1} onSelect={() => {}} />);
 

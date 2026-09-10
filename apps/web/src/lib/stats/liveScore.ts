@@ -64,3 +64,20 @@ export function currentSide(replay: Replay, player: number, tick: number): Side 
   }
   return snap.ct ? "CT" : "T";
 }
+
+/**
+ * Live scoreboard / eco strip: GOTV can keep a leftover controller `present`
+ * after a leave (`m_iConnected` omitted → parser still samples). Hide a $0
+ * dead leftover who was not alive at this freeze. Eco deaths stay: they were
+ * alive at freeze. Mid-round reconnect shows once they are alive or have money.
+ */
+export function onLiveScoreboard(replay: Replay, player: number, tick: number): boolean {
+  const snap = samplePlayers(replay, tick)[player];
+  if (!snap?.present) return false;
+  if (snap.alive || snap.money > 0) return true;
+  const round = currentRound(replay, tick);
+  if (!round) return true;
+  const freeze = round.freeze_end_tick > 0 ? round.freeze_end_tick : round.start_tick;
+  const atFreeze = samplePlayers(replay, freeze)[player];
+  return atFreeze?.present === true && atFreeze.alive === true;
+}

@@ -5,6 +5,7 @@ import {
   formatAdr,
   formatKast,
   liveTeams,
+  onLiveScoreboard,
   teamEntryShare,
 } from "@/lib/stats/stats";
 import { samplePlayers } from "@/lib/replay/sample";
@@ -27,7 +28,7 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
   const sampled = samplePlayers(replay, tick);
 
   const withSide = stats
-    .filter((s) => sampled[s.player]?.present)
+    .filter((s) => onLiveScoreboard(replay, s.player, tick))
     .map((s) => ({
       s,
       side: currentSide(replay, s.player, tick),
