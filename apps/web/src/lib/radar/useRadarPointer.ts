@@ -6,8 +6,9 @@ import {
   type SetStateAction,
 } from "react";
 import { NOTE_TEXT_DRAG_PX, tickRate } from "@/lib/shared/constants";
+import { wrapLocalPoint } from "@/lib/shared/pointer";
 import { clampViewScale, wheelZoomFactor } from "@/lib/radar/panZoom.ts";
-import { screenToWorld, worldToScreen } from "@/lib/radar/maps";
+import { screenToWorld, worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { addBookmark, makeBookmark, withMoment } from "@/lib/notes";
 import {
   addDrawing,
@@ -25,7 +26,6 @@ import { currentRound } from "@/lib/replay/sample";
 import { simplifyStroke } from "@/lib/radar/strokes";
 import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
 import type { DrawTool, Drawing, Note } from "@/lib/notes/types";
-import type { RadarView } from "@/lib/radar/maps";
 
 export type RadarPanView = RadarView & {
   dragging: boolean;
@@ -96,10 +96,7 @@ export function useRadarPointer(opts: RadarPointerOpts) {
     const wrap = wrapRef.current;
     if (!wrap) return;
 
-    const pos = (e: MouseEvent) => {
-      const rect = wrap.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    };
+    const pos = (e: MouseEvent) => wrapLocalPoint(wrap, e);
 
     const toScreen = (wx: number, wy: number) =>
       worldToScreen(calRef.current, wrap.clientWidth, wrap.clientHeight, view.current, wx, wy);

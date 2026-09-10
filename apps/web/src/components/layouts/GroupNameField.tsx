@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
 import { LAYOUT_GROUP_NAME_MAX } from "@/lib/layouts/constants";
 import { groupLabel } from "@/lib/layouts/groups";
+import { useEditableName } from "@/lib/shared/useEditableName";
 
 export function GroupNameField({
   groupId,
@@ -10,28 +10,11 @@ export function GroupNameField({
   onRenameGroup: (fromId: string, name: string) => void;
 }) {
   const shown = groupLabel(groupId);
-  const [draft, setDraft] = useState(shown);
-  const [editing, setEditing] = useState(false);
-  const skipBlur = useRef(false);
-
-  const commit = () => {
-    if (skipBlur.current) {
-      skipBlur.current = false;
-      setEditing(false);
-      return;
-    }
-    const next = draft.trim();
-    setEditing(false);
-    if (!next) {
-      setDraft(shown);
-      return;
-    }
-    if (next === groupId || next === shown) {
-      setDraft(shown);
-      return;
-    }
-    onRenameGroup(groupId, next);
-  };
+  const { draft, editing, beginEdit, setDraft, commit, onKeyDown } = useEditableName(
+    shown,
+    (next) => onRenameGroup(groupId, next),
+    [groupId],
+  );
 
   if (!editing) {
     return (
@@ -41,8 +24,7 @@ export function GroupNameField({
         onDoubleClick={(e) => {
           e.stopPropagation();
           e.preventDefault();
-          setDraft(shown);
-          setEditing(true);
+          beginEdit();
         }}
       >
         {shown}
@@ -60,17 +42,7 @@ export function GroupNameField({
       autoFocus
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          e.currentTarget.blur();
-        }
-        if (e.key === "Escape") {
-          skipBlur.current = true;
-          setDraft(shown);
-          e.currentTarget.blur();
-        }
-      }}
+      onKeyDown={onKeyDown}
     />
   );
 }

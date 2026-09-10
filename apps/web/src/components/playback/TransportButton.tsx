@@ -1,4 +1,4 @@
-import { TransportButtonish } from "./TransportButtonish";
+import { UnfocusableButton } from "./UnfocusableButton";
 
 interface Props {
   playing: boolean;
@@ -36,13 +36,13 @@ function TransportIcon({ playing }: { playing: boolean }) {
 export function TransportButton({ playing, onToggle }: Props) {
   const label = playing ? "Pause" : "Play";
   return (
-    <TransportButtonish
+    <UnfocusableButton
       className="icon-btn transport-btn"
       ariaLabel={label}
       title={label}
       onClick={onToggle}
     >
       <TransportIcon playing={playing} />
-    </TransportButtonish>
+    </UnfocusableButton>
   );
 }

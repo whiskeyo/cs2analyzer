@@ -16,7 +16,7 @@ import type { RoundNote } from "@/lib/notes/types";
 import { formatClock } from "@/lib/weapons/weapons";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { TransportButton } from "./TransportButton";
-import { TransportButtonish } from "./TransportButtonish";
+import { UnfocusableButton } from "./UnfocusableButton";
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
@@ -180,45 +180,45 @@ export const Controls = memo(function Controls({
   return (
     <div className="controls">
       <TransportButton playing={playing} onToggle={onTogglePlay} />
-      <TransportButtonish
+      <UnfocusableButton
         title="Previous round ([)"
         onClick={() => sendPlaybackCommand({ type: "jump-round", dir: -1 })}
       >
         ◀ R
-      </TransportButtonish>
-      <TransportButtonish
+      </UnfocusableButton>
+      <UnfocusableButton
         title="Next round (])"
         onClick={() => sendPlaybackCommand({ type: "jump-round", dir: 1 })}
       >
         R ▶
-      </TransportButtonish>
-      <TransportButtonish
+      </UnfocusableButton>
+      <UnfocusableButton
         title="Previous kill (,)"
         onClick={() => sendPlaybackCommand({ type: "jump-kill", dir: -1 })}
       >
         ◀ K
-      </TransportButtonish>
-      <TransportButtonish
+      </UnfocusableButton>
+      <UnfocusableButton
         title="Next kill (.)"
         onClick={() => sendPlaybackCommand({ type: "jump-kill", dir: 1 })}
       >
         K ▶
-      </TransportButtonish>
-      <TransportButtonish title="Step back" onClick={() => step(-1)}>
+      </UnfocusableButton>
+      <UnfocusableButton title="Step back" onClick={() => step(-1)}>
         −
-      </TransportButtonish>
-      <TransportButtonish title="Step forward" onClick={() => step(1)}>
+      </UnfocusableButton>
+      <UnfocusableButton title="Step forward" onClick={() => step(1)}>
         +
-      </TransportButtonish>
+      </UnfocusableButton>
       {inFreeze && round && (
-        <TransportButtonish
+        <UnfocusableButton
           title="Skip freeze (Home)"
           onClick={() => {
             onJump(round.freeze_end_tick);
           }}
         >
           Skip freeze
-        </TransportButtonish>
+        </UnfocusableButton>
       )}
       <label className="speed">
         Speed
