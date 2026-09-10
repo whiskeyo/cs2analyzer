@@ -199,10 +199,7 @@ export const Controls = memo(function Controls({
       >
         ◀ K
       </UnfocusableButton>
-      <UnfocusableButton
-        title="Next kill (.)"
-        onClick={() => send({ type: "jump-kill", dir: 1 })}
-      >
+      <UnfocusableButton title="Next kill (.)" onClick={() => send({ type: "jump-kill", dir: 1 })}>
         K ▶
       </UnfocusableButton>
       <UnfocusableButton title="Step back" onClick={() => step(-1)}>
