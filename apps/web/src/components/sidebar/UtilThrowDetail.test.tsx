@@ -104,4 +104,27 @@ describe("UtilThrowDetail", () => {
     expect(screen.queryByText("Team")).not.toBeInTheDocument();
     expect(screen.getByText("Bob (22)")).toHaveClass("util-throw-chip", "enemy");
   });
+
+  it("uses the same chips for an incendiary as for a molotov", () => {
+    render(
+      <UtilThrowDetail
+        row={row({
+          kind: "incendiary",
+          hits: [
+            { victim: 1, victimName: "Bob", damage: 18, enemy: true },
+            { victim: 0, victimName: "Alice", damage: 4, enemy: false },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByText("Bob (18)")).toHaveClass("util-throw-chip", "enemy");
+    expect(screen.getByText("Alice (4)")).toHaveClass("util-throw-chip", "team");
+  });
+
+  it("shows nothing extra for smoke or decoy rows with no victims", () => {
+    const { container: smoke } = render(<UtilThrowDetail row={row({ kind: "smoke" })} />);
+    const { container: decoy } = render(<UtilThrowDetail row={row({ kind: "decoy" })} />);
+    expect(smoke).toBeEmptyDOMElement();
+    expect(decoy).toBeEmptyDOMElement();
+  });
 });
