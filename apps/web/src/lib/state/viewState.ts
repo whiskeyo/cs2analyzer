@@ -5,10 +5,11 @@ import { DEFAULT_LAYERS, type DrawTool, type MapLayers } from "@/lib/notes/types
 /**
  * Radar view state that is not persisted with a review: selection, camera
  * follow, trails, the active draw tool, and layer toggles. Resets whenever a
- * different demo is loaded.
+ * different demo is loaded (including a series file hop). Habits filters stay
+ * on the series identity — see `useSeriesHabits`.
  */
 export function useViewState(demoId: string | null) {
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelectedState] = useState<number | null>(null);
   const [follow, setFollow] = useState(false);
   const [trails, setTrails] = useState(false);
   const [moment, setMoment] = useState(false);
@@ -19,14 +20,18 @@ export function useViewState(demoId: string | null) {
   selectedRef.current = selected;
 
   useResetOnDemoChange(demoId, () => {
-    setSelected(null);
+    setSelectedState(null);
     setFollow(false);
     setLayers(DEFAULT_LAYERS);
+    setTrails(false);
+    setMoment(false);
+    setTool("pan");
+    setViewEpoch((n) => n + 1);
   });
 
   /** Selecting a player highlights them; tracking is opt-in (Track / F). */
   const select = useCallback((index: number | null) => {
-    setSelected(index);
+    setSelectedState(index);
     if (index == null) setFollow(false);
   }, []);
 
@@ -36,7 +41,7 @@ export function useViewState(demoId: string | null) {
     selected,
     selectedRef,
     select,
-    setSelected,
+    setSelected: select,
     follow,
     setFollow,
     trails,

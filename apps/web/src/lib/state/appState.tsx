@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import { isNotesFile } from "@/lib/notes/projectStore";
 import { isBucketOverlayActive } from "@/lib/parse/seriesMode";
@@ -13,6 +21,7 @@ import type { MapCalibration } from "@/lib/replay/replayTypes";
 import { useStatus, type Status } from "./status";
 import { useViewState, type ViewState } from "./viewState";
 import { useSeriesHabits, type SeriesHabitsState } from "./useSeriesHabits";
+import { habitsKeyPatch, radarSelectPatch } from "./playerSelection";
 import { usePlayerSync } from "./usePlayerSync";
 
 export interface AppState {
@@ -107,13 +116,37 @@ function useAppState(createWorker?: CreateWorker): AppState {
     series: session.series,
     replay: session.replay,
     activeDemoId: session.demo?.id ?? null,
-    tick: playback.tick,
     selected: view.selected,
-    select: view.select,
+    setSelected: view.setSelected,
     playerKey: habits.playerKey,
-    setPlayerKey: habits.setPlayerKey,
-    setFocalTeam: session.setFocalTeam,
   });
+
+  const select = useCallback(
+    (index: number | null) => {
+      const patch = radarSelectPatch({
+        index,
+        series: session.series,
+        replay: session.replay,
+        tick: playback.tickRef.current,
+      });
+      view.select(patch.selected);
+      if (patch.playerKey !== undefined) habits.setPlayerKey(patch.playerKey);
+      if (patch.focalTeam) session.setFocalTeam(patch.focalTeam);
+    },
+    [habits, playback.tickRef, session, view],
+  );
+
+  const setPlayerKey = useCallback(
+    (key: string | null) => {
+      const patch = habitsKeyPatch({ playerKey: key, replay: session.replay });
+      habits.setPlayerKey(patch.playerKey);
+      view.select(patch.selected);
+    },
+    [habits, session.replay, view],
+  );
+
+  const viewOut = { ...view, select, setSelected: select };
+  const habitsOut = { ...habits, setPlayerKey };
 
   const placesRef = useRef(places);
   placesRef.current = places;
@@ -133,7 +166,7 @@ function useAppState(createWorker?: CreateWorker): AppState {
     togglePlaying: playback.togglePlaying,
     setFollow: view.setFollow,
     setTrails: view.setTrails,
-    setSelected: view.setSelected,
+    setSelected: select,
   });
 
   const onFiles = (files: File[]) => {
@@ -148,7 +181,17 @@ function useAppState(createWorker?: CreateWorker): AppState {
     else void session.parseDemos(demos);
   };
 
-  return { status, session, playback, review, view, habits, cal, places, onFiles };
+  return {
+    status,
+    session,
+    playback,
+    review,
+    view: viewOut,
+    habits: habitsOut,
+    cal,
+    places,
+    onFiles,
+  };
 }
 
 export function AppStateProvider({
