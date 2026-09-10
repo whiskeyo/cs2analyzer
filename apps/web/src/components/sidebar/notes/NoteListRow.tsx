@@ -20,7 +20,7 @@ export function NoteListRow({
   groupHidden,
   showMoment,
   selected,
-  skipClick,
+  skipClickRef,
   onJump,
   onNote,
   toggle,
@@ -41,7 +41,7 @@ export function NoteListRow({
   groupHidden: boolean;
   showMoment: boolean;
   selected: NotePick[];
-  skipClick: MutableRefObject<boolean>;
+  skipClickRef: MutableRefObject<boolean>;
   onJump: (tick: number) => void;
   onNote: (next: Note) => void;
   toggle: (pick: NotePick) => void;
@@ -91,8 +91,8 @@ export function NoteListRow({
         tabIndex={0}
         aria-label={item.title}
         onClick={() => {
-          if (skipClick.current) {
-            skipClick.current = false;
+          if (skipClickRef.current) {
+            skipClickRef.current = false;
             return;
           }
           onJump(itemAt);

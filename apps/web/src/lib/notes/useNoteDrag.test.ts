@@ -146,7 +146,7 @@ describe("useNoteDrag", () => {
     expect(result.current.dropOn).toBe("round-1-ungroup");
   });
 
-  it("sets skipClick after a real drag ends", () => {
+  it("sets skipClickRef after a real drag ends", () => {
     vi.useFakeTimers();
     const { result } = renderHook(() =>
       useNoteDrag({ notes: notes(), onNotes: vi.fn(), clearSelection: vi.fn() }),
@@ -158,12 +158,12 @@ describe("useNoteDrag", () => {
       result.current.endDrag();
     });
 
-    expect(result.current.skipClick.current).toBe(true);
+    expect(result.current.skipClickRef.current).toBe(true);
 
     act(() => {
       vi.advanceTimersByTime(80);
     });
-    expect(result.current.skipClick.current).toBe(false);
+    expect(result.current.skipClickRef.current).toBe(false);
     vi.useRealTimers();
   });
 });

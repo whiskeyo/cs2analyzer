@@ -17,7 +17,7 @@ function noopDrag(overrides: Record<string, unknown> = {}) {
     selected: [],
     dragging: null,
     dropOn: null,
-    skipClick: { current: false },
+    skipClickRef: { current: false },
     tps: 64,
     toggle: vi.fn(),
     toggleAll: vi.fn(),
@@ -207,7 +207,7 @@ describe("NoteRoundList", () => {
 
   it("skips jump clicks after a drag", () => {
     const onJump = vi.fn();
-    const skipClick = { current: true };
+    const skipClickRef = { current: true };
     const replay = makeReplay({
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
     });
@@ -217,11 +217,11 @@ describe("NoteRoundList", () => {
         rounds={row({ ...emptyNote(), drawings: [pen] })}
         onJump={onJump}
         onNotes={() => {}}
-        {...noopDrag({ skipClick })}
+        {...noopDrag({ skipClickRef })}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Pen" }));
     expect(onJump).not.toHaveBeenCalled();
-    expect(skipClick.current).toBe(false);
+    expect(skipClickRef.current).toBe(false);
   });
 });

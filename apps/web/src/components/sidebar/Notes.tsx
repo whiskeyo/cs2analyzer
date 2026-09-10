@@ -25,7 +25,7 @@ export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
     dragging,
     dropOn,
     downOnRef,
-    skipClick,
+    skipClickRef,
     startDrag,
     markDrag,
     endDrag,
@@ -75,7 +75,7 @@ export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
         selected={selected}
         dragging={dragging}
         dropOn={dropOn}
-        skipClick={skipClick}
+        skipClickRef={skipClickRef}
         tps={tps}
         onJump={onJump}
         onNotes={onNotes}

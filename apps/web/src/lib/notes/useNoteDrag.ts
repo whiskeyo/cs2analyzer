@@ -17,7 +17,7 @@ export function useNoteDrag(opts: {
   const [dragging, setDragging] = useState<NoteDrag | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
   const dragRef = useRef<NoteDrag | null>(null);
-  const skipClick = useRef(false);
+  const skipClickRef = useRef(false);
   const dragged = useRef(false);
   const downOnRef = useRef<EventTarget | null>(null);
 
@@ -29,7 +29,7 @@ export function useNoteDrag(opts: {
     }
     e.stopPropagation();
     dragged.current = false;
-    skipClick.current = false;
+    skipClickRef.current = false;
     const payload: NoteDrag = { round, refs };
     dragRef.current = payload;
     setDragging(payload);
@@ -42,13 +42,13 @@ export function useNoteDrag(opts: {
   }, []);
 
   const endDrag = useCallback(() => {
-    skipClick.current = dragged.current;
+    skipClickRef.current = dragged.current;
     dragged.current = false;
     dragRef.current = null;
     setDragging(null);
     setDropOn(null);
     window.setTimeout(() => {
-      skipClick.current = false;
+      skipClickRef.current = false;
     }, 80);
   }, []);
 
@@ -88,7 +88,7 @@ export function useNoteDrag(opts: {
     dragging,
     dropOn,
     downOnRef,
-    skipClick,
+    skipClickRef,
     startDrag,
     markDrag,
     endDrag,

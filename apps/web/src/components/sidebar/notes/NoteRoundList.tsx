@@ -26,7 +26,7 @@ interface NoteRoundListProps {
   selected: NotePick[];
   dragging: NoteDrag | null;
   dropOn: string | null;
-  skipClick: MutableRefObject<boolean>;
+  skipClickRef: MutableRefObject<boolean>;
   tps: number;
   onJump: (tick: number) => void;
   onNotes: (next: RoundNote[]) => void;
@@ -54,7 +54,7 @@ export function NoteRoundList({
   selected,
   dragging,
   dropOn,
-  skipClick,
+  skipClickRef,
   tps,
   onJump,
   onNotes,
@@ -275,7 +275,7 @@ export function NoteRoundList({
                           groupHidden={groupHidden}
                           showMoment={cluster.groupIndex == null}
                           selected={selected}
-                          skipClick={skipClick}
+                          skipClickRef={skipClickRef}
                           onJump={onJump}
                           onNote={(next) => commitNote(row.round, next)}
                           toggle={toggle}
