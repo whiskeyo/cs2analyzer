@@ -78,6 +78,8 @@ describe("Home", () => {
     const intro = container.querySelector(".home-intro");
     expect(drop).toBeTruthy();
     expect(intro).toBeTruthy();
+    expect(container.querySelector(".landing")).toBeTruthy();
+    expect(container.querySelector(".landing-backdrop")).toHaveAttribute("aria-hidden", "true");
     if (drop && intro) {
       expect(intro.compareDocumentPosition(drop) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { DemoDrop } from "@/components/app/DemoDrop";
+import { LandingBackdrop } from "@/components/app/LandingBackdrop";
 import { CreatePlaybookDialog } from "@/components/playbook/CreatePlaybookDialog";
 import { PlaybookMark } from "@/components/playbook/PlaybookMark";
 import { ROUTES } from "@/lib/app/routes";
@@ -57,13 +58,16 @@ function HomeFaqHint() {
 
 export function Home() {
   return (
-    <DemoDrop
-      openAnalyzerOnDrop
-      showSavedNotes={false}
-      beside={<HomePlaybookCta />}
-      below={<HomeFaqHint />}
-    >
-      <HomeIntro />
-    </DemoDrop>
+    <div className="landing">
+      <LandingBackdrop />
+      <DemoDrop
+        openAnalyzerOnDrop
+        showSavedNotes={false}
+        beside={<HomePlaybookCta />}
+        below={<HomeFaqHint />}
+      >
+        <HomeIntro />
+      </DemoDrop>
+    </div>
   );
 }
