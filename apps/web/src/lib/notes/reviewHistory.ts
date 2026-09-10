@@ -1,23 +1,24 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { DRAW_HISTORY_LIMIT } from "@/lib/shared/constants";
-import type { Stroke } from "./types";
+import { flattenRoundNotes, strokesToRoundNotes } from "./migrate";
+import type { RoundNote, Stroke } from "./types";
 
-/** Undo/redo stack for review strokes (in-memory only). */
-export function useStrokeHistory() {
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
+/** Undo/redo stack for review notes (in-memory only). */
+export function useRoundNoteHistory() {
+  const [notes, setNotes] = useState<RoundNote[]>([]);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  const historyRef = useRef<Stroke[][]>([[]]);
+  const historyRef = useRef<RoundNote[][]>([[]]);
   const histIdxRef = useRef(0);
-  const strokesRef = useRef(strokes);
-  strokesRef.current = strokes;
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
 
   const syncHistoryButtons = useCallback(() => {
     setCanUndo(histIdxRef.current > 0);
     setCanRedo(histIdxRef.current < historyRef.current.length - 1);
   }, []);
 
-  const commitStrokes = useCallback((next: Stroke[], reset = false) => {
+  const commitNotes = useCallback((next: RoundNote[], reset = false) => {
     if (reset) {
       historyRef.current = [next];
       histIdxRef.current = 0;
@@ -30,7 +31,7 @@ export function useStrokeHistory() {
       historyRef.current = trimmed;
       histIdxRef.current = trimmed.length - 1;
     }
-    setStrokes(next);
+    setNotes(next);
     setCanUndo(histIdxRef.current > 0);
     setCanRedo(histIdxRef.current < historyRef.current.length - 1);
   }, []);
@@ -40,7 +41,7 @@ export function useStrokeHistory() {
       return;
     }
     histIdxRef.current -= 1;
-    setStrokes(historyRef.current[histIdxRef.current] ?? []);
+    setNotes(historyRef.current[histIdxRef.current] ?? []);
     syncHistoryButtons();
   }, [syncHistoryButtons]);
 
@@ -49,10 +50,33 @@ export function useStrokeHistory() {
       return;
     }
     histIdxRef.current += 1;
-    setStrokes(historyRef.current[histIdxRef.current] ?? []);
+    setNotes(historyRef.current[histIdxRef.current] ?? []);
     syncHistoryButtons();
   }, [syncHistoryButtons]);
 
+  return {
+    notes,
+    notesRef,
+    canUndo,
+    canRedo,
+    commitNotes,
+    undo,
+    redo,
+  };
+}
+
+/** Flat Stroke view of `useRoundNoteHistory` for canvas/sidebar until they cut over. */
+export function useStrokeHistory() {
+  const { notes, notesRef, canUndo, canRedo, commitNotes, undo, redo } = useRoundNoteHistory();
+  const strokes = useMemo(() => flattenRoundNotes(notes), [notes]);
+  const strokesRef = useRef(strokes);
+  strokesRef.current = strokes;
+  const commitStrokes = useCallback(
+    (next: Stroke[], reset = false) => {
+      commitNotes(strokesToRoundNotes(next), reset);
+    },
+    [commitNotes],
+  );
   return {
     strokes,
     strokesRef,
@@ -61,5 +85,8 @@ export function useStrokeHistory() {
     commitStrokes,
     undo,
     redo,
+    notes,
+    notesRef,
+    commitNotes,
   };
 }

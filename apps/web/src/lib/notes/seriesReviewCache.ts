@@ -1,11 +1,11 @@
 import type { LoadedDemo } from "@/lib/parse/session";
-import type { FloorMode, Stroke, SummaryFilter } from "./types";
+import type { FloorMode, RoundNote, SummaryFilter } from "./types";
 
 /** In-memory review state while hopping between demos in a series (no IDB on each click). */
 export interface SeriesReviewSnapshot {
   demo: LoadedDemo;
   tick: number;
-  strokes: Stroke[];
+  notes: RoundNote[];
   summaryFilter: SummaryFilter;
   floorMode: FloorMode;
   paletteId: string;
