@@ -167,7 +167,13 @@ function nearestThrow(
   tick: number,
   tps: number,
 ): UtilThrowRow | null {
-  return nearestInWindow(rows, attacker, tick, (row) => row.tick, (row) => attachEndTick(row, tps));
+  return nearestInWindow(
+    rows,
+    attacker,
+    tick,
+    (row) => row.tick,
+    (row) => attachEndTick(row, tps),
+  );
 }
 
 function nearestFlash(

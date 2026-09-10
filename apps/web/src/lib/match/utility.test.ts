@@ -140,11 +140,7 @@ describe("utilityThrough", () => {
     ticks.flags[2] = FLAG_PRESENT;
     const m = replay({
       grenades: [nade("flash", 90, 0)],
-      blinds: [
-        makeBlind(110, 0, 1, 1.2),
-        makeBlind(110, 0, 2, 1.5),
-        makeBlind(112, 0, 0, 0.8),
-      ],
+      blinds: [makeBlind(110, 0, 1, 1.2), makeBlind(110, 0, 2, 1.5), makeBlind(112, 0, 0, 0.8)],
       ticks,
     });
     const u = utilityThrough(m, 640, null);
