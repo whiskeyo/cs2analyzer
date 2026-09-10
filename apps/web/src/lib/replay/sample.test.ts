@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { currentRound, samplePlayer, samplePlayers } from "./sample";
+import { currentRound, samplePlayer, samplePlayers, trailingFlagStart } from "./sample";
 import {
   FLAG_ALIVE,
   FLAG_CT,
   FLAG_DEFUSING,
   FLAG_PLANTING,
   FLAG_PRESENT,
+  type Replay,
 } from "@/lib/replay/replayTypes";
 import { makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
 
@@ -66,5 +67,109 @@ describe("currentRound", () => {
   it("falls back to the first round before the demo starts, and null with no rounds", () => {
     expect(currentRound(replay, -50)?.number).toBe(0);
     expect(currentRound(makeReplay({ rounds: [] }), 100)).toBeNull();
+  });
+});
+
+/** Old linear scan — F4 must match this, including fromTick clamp and sparse frames. */
+function naiveTrailingFlagStart(
+  replay: Replay,
+  player: number,
+  flag: number,
+  fromTick: number,
+  toTick: number,
+): number | null {
+  const buf = replay.ticks;
+  const pc = buf.playerCount;
+  if (pc === 0 || player < 0 || player >= pc || buf.frameCount === 0) return null;
+  let start: number | null = null;
+  let on = false;
+  for (let f = 0; f < buf.frameCount; f++) {
+    const t = buf.ticks[f];
+    if (t > toTick) break;
+    const flags = buf.flags[f * pc + player];
+    if ((flags & flag) !== 0) {
+      if (!on) start = Math.max(t, fromTick);
+      on = true;
+    } else {
+      start = null;
+      on = false;
+    }
+  }
+  return on ? start : null;
+}
+
+function flagReplay(frameTicks: number[], onAtFrame: boolean[], flag = FLAG_DEFUSING): Replay {
+  const ticks = makeTicks(1, frameTicks.length);
+  for (let f = 0; f < frameTicks.length; f++) {
+    ticks.ticks[f] = frameTicks[f];
+    ticks.flags[f] = FLAG_PRESENT | FLAG_ALIVE | (onAtFrame[f] ? flag : 0);
+  }
+  return makeReplay({ ticks });
+}
+
+describe("trailingFlagStart", () => {
+  it("returns null when the flag is off at toTick, before the first frame, or for a bad slot", () => {
+    const replay = flagReplay([64, 200], [false, true]);
+    expect(trailingFlagStart(replay, 0, FLAG_DEFUSING, 0, 63)).toBeNull();
+    expect(trailingFlagStart(replay, 0, FLAG_DEFUSING, 0, 199)).toBeNull();
+    expect(trailingFlagStart(replay, 1, FLAG_DEFUSING, 0, 200)).toBeNull();
+    expect(
+      trailingFlagStart(makeReplay({ ticks: makeTicks() }), 0, FLAG_DEFUSING, 0, 200),
+    ).toBeNull();
+  });
+
+  it("returns the first tick of the run that still covers toTick", () => {
+    const replay = flagReplay([64, 128, 192, 256], [false, true, true, false]);
+    expect(trailingFlagStart(replay, 0, FLAG_DEFUSING, 0, 128)).toBe(128);
+    expect(trailingFlagStart(replay, 0, FLAG_DEFUSING, 0, 192)).toBe(128);
+    expect(trailingFlagStart(replay, 0, FLAG_DEFUSING, 0, 200)).toBe(128);
+    expect(trailingFlagStart(replay, 0, FLAG_DEFUSING, 0, 256)).toBeNull();
+  });
+
+  it("clamps the start to fromTick when the run was already on", () => {
+    const replay = flagReplay([64, 200], [true, true]);
+    expect(trailingFlagStart(replay, 0, FLAG_DEFUSING, 100, 200)).toBe(100);
+  });
+
+  it("uses the latest run after a gap, not an earlier plant/defuse attempt", () => {
+    const replay = flagReplay([100, 200, 300, 400], [true, false, true, true], FLAG_PLANTING);
+    expect(trailingFlagStart(replay, 0, FLAG_PLANTING, 0, 200)).toBeNull();
+    expect(trailingFlagStart(replay, 0, FLAG_PLANTING, 0, 400)).toBe(300);
+  });
+
+  it("skips a long off prefix (binary search) and keeps the same start while the run lasts", () => {
+    const n = 512;
+    const frameTicks = Array.from({ length: n }, (_, f) => f * 4);
+    const onAtFrame = frameTicks.map((t) => t >= 1800 && t <= 2000);
+    const replay = flagReplay(frameTicks, onAtFrame, FLAG_PLANTING);
+    expect(trailingFlagStart(replay, 0, FLAG_PLANTING, 0, 1796)).toBeNull();
+    expect(trailingFlagStart(replay, 0, FLAG_PLANTING, 0, 1800)).toBe(1800);
+    expect(trailingFlagStart(replay, 0, FLAG_PLANTING, 0, 1900)).toBe(1800);
+    expect(trailingFlagStart(replay, 0, FLAG_PLANTING, 0, 2000)).toBe(1800);
+    expect(trailingFlagStart(replay, 0, FLAG_PLANTING, 0, 2004)).toBeNull();
+  });
+
+  it("does not reuse a cached start across a gap into a later run", () => {
+    const replay = flagReplay(
+      [100, 200, 300, 400, 500, 600],
+      [true, true, false, false, true, true],
+      FLAG_PLANTING,
+    );
+    expect(trailingFlagStart(replay, 0, FLAG_PLANTING, 0, 200)).toBe(100);
+    expect(trailingFlagStart(replay, 0, FLAG_PLANTING, 0, 600)).toBe(500);
+    expect(trailingFlagStart(replay, 0, FLAG_PLANTING, 0, 200)).toBe(100);
+  });
+
+  it("matches the linear scan on sparse frames and mixed runs", () => {
+    const frameTicks = Array.from({ length: 80 }, (_, f) => 40 + f * 8);
+    const onAtFrame = frameTicks.map((t) => (t >= 120 && t < 200) || (t >= 400 && t <= 480));
+    const replay = flagReplay(frameTicks, onAtFrame);
+    for (const fromTick of [0, 100, 150, 400]) {
+      for (let toTick = 20; toTick <= 520; toTick += 7) {
+        expect(trailingFlagStart(replay, 0, FLAG_DEFUSING, fromTick, toTick)).toBe(
+          naiveTrailingFlagStart(replay, 0, FLAG_DEFUSING, fromTick, toTick),
+        );
+      }
+    }
   });
 });

@@ -147,10 +147,60 @@ export function currentRound(replay: Replay, tick: number) {
   return rounds[lo];
 }
 
+function lastFrameAtOrBefore(ticks: Uint32Array, tick: number): number {
+  if (ticks.length === 0 || tick < ticks[0]) return -1;
+  return frameAt(ticks, tick).i;
+}
+
+/**
+ * HUD plant/defuse clocks call this every published tick while the flag is
+ * set. One slot is enough: liveSituation only walks the active clock's flag.
+ */
+let flagStartCache: {
+  replay: Replay;
+  player: number;
+  flag: number;
+  fromTick: number;
+  start: number;
+  startFrame: number;
+  endFrame: number;
+} | null = null;
+
+function cachedFlagStart(
+  replay: Replay,
+  player: number,
+  flag: number,
+  fromTick: number,
+  end: number,
+  pc: number,
+  flags: Uint8Array,
+): number | null {
+  const cached = flagStartCache;
+  if (
+    !cached ||
+    cached.replay !== replay ||
+    cached.player !== player ||
+    cached.flag !== flag ||
+    cached.fromTick !== fromTick
+  ) {
+    return null;
+  }
+  if (end < cached.startFrame) return null;
+  if (end <= cached.endFrame) return cached.start;
+  for (let f = cached.endFrame + 1; f <= end; f++) {
+    if ((flags[f * pc + player] & flag) === 0) return null;
+  }
+  cached.endFrame = end;
+  return cached.start;
+}
+
 /**
  * Tick where the player's latest run of `flag` began, if that run still
  * covers `toTick`. Frames before `fromTick` only seed whether the run was
  * already on when the window opened (sparse GOTV samples).
+ *
+ * Binary-searches `ticks[]` for `toTick`, then walks the short on-run
+ * backward (plant/defuse last a few seconds, not the whole GOTV).
  */
 export function trailingFlagStart(
   replay: Replay,
@@ -162,21 +212,22 @@ export function trailingFlagStart(
   const buf = replay.ticks;
   const pc = buf.playerCount;
   if (pc === 0 || player < 0 || player >= pc || buf.frameCount === 0) return null;
-  let start: number | null = null;
-  let on = false;
-  for (let f = 0; f < buf.frameCount; f++) {
-    const t = buf.ticks[f];
-    if (t > toTick) break;
-    const flags = buf.flags[f * pc + player];
-    if ((flags & flag) !== 0) {
-      if (!on) start = Math.max(t, fromTick);
-      on = true;
-    } else {
-      start = null;
-      on = false;
-    }
+  const end = lastFrameAtOrBefore(buf.ticks, toTick);
+  if (end < 0) return null;
+  if ((buf.flags[end * pc + player] & flag) === 0) return null;
+
+  const hit = cachedFlagStart(replay, player, flag, fromTick, end, pc, buf.flags);
+  if (hit != null) return hit;
+
+  let startFrame = end;
+  while (startFrame > 0) {
+    const prev = startFrame - 1;
+    if ((buf.flags[prev * pc + player] & flag) === 0) break;
+    startFrame = prev;
   }
-  return on ? start : null;
+  const start = Math.max(buf.ticks[startFrame], fromTick);
+  flagStartCache = { replay, player, flag, fromTick, start, startFrame, endFrame: end };
+  return start;
 }
 
 export function sampleTrail(
