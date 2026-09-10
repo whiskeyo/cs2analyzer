@@ -15,9 +15,7 @@ import { SIDEBAR_WIDTH_STORAGE_KEY } from "@/lib/shared/sidebarWidth";
 import { usePanelResize } from "@/lib/shared/usePanelResize";
 import { computeStats, matchEndTick, weaponBreakdown } from "@/lib/stats/stats";
 import { weaponHeadshotLabel } from "@/lib/weapons/weapons";
-import type { Replay, Round } from "@/lib/replay/replayTypes";
-import type { MapPlaces } from "@/lib/match/sites";
-import type { RoundNote } from "@/lib/notes/types";
+import type { Replay } from "@/lib/replay/replayTypes";
 import { Utility } from "./Utility";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
 import { SeriesBucketPanel } from "./SeriesBucketPanel";
@@ -40,30 +38,16 @@ const TAB_LABEL: Record<Tab, string> = {
   weapons: "Weapons",
 };
 
-interface Props {
-  replay: Replay;
-  tick: number;
-  notes: RoundNote[];
-  selected: number | null;
-  onSelect: (index: number | null) => void;
-  onJump: (tick: number) => void;
-  onNotes: (next: RoundNote[]) => void;
-  places: MapPlaces | null;
-  activeRound?: Round | null;
-}
-
-export const Sidebar = memo(function Sidebar({
-  replay,
-  tick,
-  notes,
-  selected,
-  onSelect,
-  onJump,
-  onNotes,
-  places,
-  activeRound,
-}: Props) {
-  const { session, habits, view } = useApp();
+export const Sidebar = memo(function Sidebar() {
+  const { session, playback, review, view, places, habits } = useApp();
+  const replay = session.replay;
+  const tick = playback.tick;
+  const notes = review.notes;
+  const selected = view.selected;
+  const onSelect = view.select;
+  const onJump = playback.jump;
+  const onNotes = review.commitNotes;
+  const activeRound = playback.activeRound;
   const multiDemo = isMultiDemoSeries(session.series);
   const seriesMode = isAggregatedView(session.series, habits);
   const playerKey = habits.playerKey;
@@ -89,6 +73,8 @@ export const Sidebar = memo(function Sidebar({
     stageSelector: ".stage",
     label: "Resize side panel",
   });
+
+  if (!replay) return null;
 
   return (
     <aside className="sidebar" style={{ width }}>
@@ -146,7 +132,7 @@ export const Sidebar = memo(function Sidebar({
                 rows={habits.seriesUtilThrows}
                 playerName={playerName}
                 onJump={habits.playRound}
-                onClearFollow={() => view?.setFollow(false)}
+                onClearFollow={() => view.setFollow(false)}
               />
             ) : (
               <Utility
@@ -155,7 +141,7 @@ export const Sidebar = memo(function Sidebar({
                 selected={selected}
                 onJump={onJump}
                 onSelect={(i) => onSelect(i)}
-                onClearFollow={() => view?.setFollow(false)}
+                onClearFollow={() => view.setFollow(false)}
                 places={places}
               />
             )}
