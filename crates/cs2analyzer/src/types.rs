@@ -16,7 +16,7 @@ pub struct Match {
     pub buy_events: Vec<BuyEvent>,
     pub stats: Vec<PlayerStats>,
     /// Last controller slot + freeze-end fill candidates (`steam == 0` / bot).
-    /// Sampled at freeze-end and demo end only — not per tick.
+    /// Sampled at `round_freeze_end` only — never on the tick hot path.
     pub controller_dump: Vec<ControllerDump>,
 }
 

@@ -323,6 +323,23 @@ describe("buildRadarFrame view", () => {
     expect(f.pawns.find((p) => p.index === 1)?.selected).toBe(true);
   });
 
+  it("draws a present Faceit fill as Operator (BOT)", () => {
+    const ticks = makeTicks(1, 1);
+    ticks.ticks[0] = 64;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.x[0] = 100;
+    ticks.y[0] = 200;
+    const f = frame(
+      makeReplay({
+        players: [makePlayer(0, "T", "Operator", 0xb0700007, true)],
+        rounds: [makeRound({ number: 12, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+        ticks,
+      }),
+      64,
+    );
+    expect(f.pawns).toEqual([expect.objectContaining({ index: 0, name: "Operator (BOT)" })]);
+  });
+
   it("stays on the upper radar when the map has no lower floor", () => {
     expect(frame(matchReplay(), 64).useLowerFloor).toBe(false);
   });

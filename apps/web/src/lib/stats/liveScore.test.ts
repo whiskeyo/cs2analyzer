@@ -102,6 +102,59 @@ describe("onLiveScoreboard", () => {
     ).toEqual([0, 1, 2, 3, 4]);
   });
 
+  it("keeps a $0 Faceit Operator bot at freeze with four humans", () => {
+    const ticks = makeTicks(5, 1);
+    ticks.ticks[0] = 64;
+    for (let i = 0; i < 5; i++) {
+      ticks.flags[i] = FLAG_PRESENT | FLAG_ALIVE;
+      ticks.health[i] = FULL_HEALTH;
+    }
+    const m = makeReplay({
+      players: [
+        makePlayer(0, "T", "A"),
+        makePlayer(1, "T", "B"),
+        makePlayer(2, "T", "C"),
+        makePlayer(3, "T", "D"),
+        makePlayer(4, "T", "Operator", 0xb0700007, true),
+      ],
+      rounds: [makeRound({ number: 12, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+      ticks,
+    });
+    expect(onLiveScoreboard(m, 4, 64)).toBe(true);
+    expect(liveScoreboardPlayers(m, 64)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("keeps a $0 bot when a leftover human would be the sixth on the side", () => {
+    const ticks = makeTicks(6, 2);
+    ticks.ticks.set([64, 640]);
+    for (let i = 0; i < 4; i++) {
+      ticks.flags[i] = FLAG_PRESENT | FLAG_ALIVE;
+      ticks.flags[6 + i] = FLAG_PRESENT | FLAG_ALIVE;
+      ticks.money[6 + i] = 800;
+    }
+    ticks.flags[4] = 0;
+    ticks.flags[10] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[5] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[11] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.health.fill(FULL_HEALTH);
+    const m = makeReplay({
+      players: [
+        makePlayer(0, "T", "A"),
+        makePlayer(1, "T", "B"),
+        makePlayer(2, "T", "C"),
+        makePlayer(3, "T", "D"),
+        makePlayer(4, "T", "Leftover"),
+        makePlayer(5, "T", "Operator", 0xb0700007, true),
+      ],
+      rounds: [makeRound({ number: 12, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+      ticks,
+    });
+    const live = liveScoreboardPlayers(m, 640);
+    expect(live).toContain(5);
+    expect(live).not.toContain(4);
+    expect(live).toHaveLength(5);
+  });
+
   it("keeps a bot fill and drops the disconnected human on the same side", () => {
     const ticks = makeTicks(2, 2);
     ticks.ticks.set([64, 640]);

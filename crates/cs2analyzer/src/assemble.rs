@@ -1157,11 +1157,10 @@ mod tests {
     #[test]
     fn controller_dump_skips_the_per_tick_hot_path() {
         assert!(
-            !snapshot_controller_dump_now(10_000, 100_000, 4, false),
-            "mid-demo ticks must not walk entities for the console dump"
+            !snapshot_controller_dump_now(false),
+            "packet tick vs playback_ticks must never walk entities on the tick path"
         );
-        assert!(snapshot_controller_dump_now(99_997, 100_000, 4, false));
-        assert!(snapshot_controller_dump_now(64, 100_000, 4, true));
+        assert!(snapshot_controller_dump_now(true));
     }
 
     #[test]

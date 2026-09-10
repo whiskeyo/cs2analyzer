@@ -441,8 +441,15 @@ pub(crate) fn controller_identity(
     }
 }
 
+fn pawn_handle_live(handle: u32) -> bool {
+    handle != 0 && handle != u32::MAX
+}
+
 fn controller_has_team_pawn(ctx: &Context, ctrl: &Entity) -> bool {
     let handle = prop_u32(ctrl, "m_hPlayerPawn");
+    if !pawn_handle_live(handle) {
+        return false;
+    }
     let Ok(pawn) = ctx.entities().get_by_handle(handle as usize) else {
         return false;
     };
@@ -455,21 +462,14 @@ pub(crate) fn controller_dump_interesting(row: &crate::ControllerDump) -> bool {
     row.steam == 0 || row.is_bot || crate::is_bot_steam_id(row.assigned)
 }
 
-/// Diagnostics only: freeze-end fills, or the last stride of the demo.
+/// Diagnostics only at `round_freeze_end`. Never on the tick hot path.
 ///
-/// A Faceit Ancient GOTV parse must stay in the ~55s WASM class (master /
-/// first #32). Walking `entities()` + cloning names on every tick was the
-/// 55s → 140s regression — never do that here.
-pub(crate) fn snapshot_controller_dump_now(
-    tick: u32,
-    total_ticks: u32,
-    tick_stride: u32,
-    at_freeze: bool,
-) -> bool {
-    if at_freeze {
-        return true;
-    }
-    total_ticks > 0 && tick.saturating_add(tick_stride.max(1)) >= total_ticks
+/// Faceit GOTV `ctx.tick()` is the packet/server tick, not `playback_ticks`.
+/// `tick + stride >= total` was true for most of the Ancient dem and walked
+/// every entity every tick (~60s). Do not bring that predicate back.
+#[cfg(test)]
+pub(crate) fn snapshot_controller_dump_now(at_freeze: bool) -> bool {
+    at_freeze
 }
 
 fn record_controllers(c: &mut Collector, ctx: &Context, tick: u32, at_freeze: bool) {
@@ -502,12 +502,15 @@ fn record_controllers(c: &mut Collector, ctx: &Context, tick: u32, at_freeze: bo
             assigned,
             at_freeze,
         };
-        if at_freeze {
-            if controller_dump_interesting(&row) {
-                c.controller_freeze.push(row);
-            }
-        } else {
-            c.controller_last.insert(ctrl.index(), row);
+        c.controller_last.insert(
+            ctrl.index(),
+            crate::ControllerDump {
+                at_freeze: false,
+                ..row.clone()
+            },
+        );
+        if at_freeze && controller_dump_interesting(&row) {
+            c.controller_freeze.push(row);
         }
     }
 }
@@ -533,11 +536,19 @@ fn controller_playable_id(c: &Collector, ctx: &Context, ctrl: &Entity) -> Option
             false,
         );
     }
+    if prop_truthy(ctrl, "m_bIsHLTV") {
+        return None;
+    }
+    let is_bot = prop_truthy(ctrl, "m_bIsBot");
+    // Official bots: flag + in-server, no pawn read. Faceit fill: pawn only.
+    if is_bot && crate::player_connected_in_server(connected) {
+        return Some(crate::bot_steam_id(ctrl.index()));
+    }
     controller_identity(
         steam,
         ctrl.index(),
-        prop_truthy(ctrl, "m_bIsBot"),
-        prop_truthy(ctrl, "m_bIsHLTV"),
+        is_bot,
+        false,
         connected,
         false,
         controller_has_team_pawn(ctx, ctrl),
@@ -684,12 +695,11 @@ impl Collector {
                 continue;
             };
             let handle = prop_u32(ctrl, "m_hPlayerPawn");
-            if let Ok(pawn) = ctx.entities().get_by_handle(handle as usize) {
-                self.pawn_to_steam.insert(pawn.index(), steam);
+            if pawn_handle_live(handle) {
+                if let Ok(pawn) = ctx.entities().get_by_handle(handle as usize) {
+                    self.pawn_to_steam.insert(pawn.index(), steam);
+                }
             }
-        }
-        if snapshot_controller_dump_now(tick, self.total_ticks, self.opts.tick_stride, false) {
-            record_controllers(self, ctx, tick, false);
         }
 
         let warmup = in_warmup(ctx);
