@@ -70,7 +70,7 @@ describe("UtilThrowDetail", () => {
     expect(screen.getByText("Bob 1.2s")).toBeInTheDocument();
   });
 
-  it("keeps HE hits as chips without Enemy/Team kickers", () => {
+  it("splits HE hits into Enemy and Team chips like flashes", () => {
     render(
       <UtilThrowDetail
         row={row({
@@ -78,12 +78,30 @@ describe("UtilThrowDetail", () => {
           hits: [
             { victim: 1, victimName: "Bob", damage: 13, enemy: true },
             { victim: 2, victimName: "Dave", damage: 55, enemy: true },
+            { victim: 0, victimName: "Alice", damage: 8, enemy: false },
           ],
         })}
       />,
     );
-    expect(screen.queryByText("Enemy")).not.toBeInTheDocument();
-    expect(screen.getByText("Bob (13)")).toHaveClass("util-throw-chip");
-    expect(screen.getByText("Dave (55)")).toHaveClass("util-throw-chip");
+    expect(screen.queryByText(/Bob \(13\), Dave \(55\)/)).not.toBeInTheDocument();
+    expect(screen.getByText("Enemy")).toHaveClass("util-throw-kicker");
+    expect(screen.getByText("Team")).toHaveClass("util-throw-kicker");
+    expect(screen.getByText("Bob (13)")).toHaveClass("util-throw-chip", "enemy");
+    expect(screen.getByText("Dave (55)")).toHaveClass("util-throw-chip", "enemy");
+    expect(screen.getByText("Alice (8)")).toHaveClass("util-throw-chip", "team");
+  });
+
+  it("labels a one-sided molly the same way as a one-sided flash", () => {
+    render(
+      <UtilThrowDetail
+        row={row({
+          kind: "molotov",
+          hits: [{ victim: 1, victimName: "Bob", damage: 22, enemy: true }],
+        })}
+      />,
+    );
+    expect(screen.getByText("Enemy")).toBeInTheDocument();
+    expect(screen.queryByText("Team")).not.toBeInTheDocument();
+    expect(screen.getByText("Bob (22)")).toHaveClass("util-throw-chip", "enemy");
   });
 });

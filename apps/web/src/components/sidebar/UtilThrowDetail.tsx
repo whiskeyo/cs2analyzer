@@ -2,8 +2,7 @@ import {
   formatBlind,
   formatUtilHit,
   splitUtilBlinds,
-  type UtilBlind,
-  type UtilHit,
+  splitUtilHits,
   type UtilThrowRow,
 } from "@/lib/match/utility";
 
@@ -11,54 +10,77 @@ interface Props {
   row: UtilThrowRow;
 }
 
-function BlindChips({ blinds, tone }: { blinds: UtilBlind[]; tone: "enemy" | "team" }) {
+function ChipLine({
+  kicker,
+  tone,
+  chips,
+}: {
+  kicker: "Enemy" | "Team";
+  tone: "enemy" | "team";
+  chips: { key: string; label: string }[];
+}) {
+  if (chips.length === 0) return null;
   return (
-    <span className="util-throw-chips">
-      {blinds.map((blind, i) => (
-        <span key={`${tone}-${blind.victim}-${i}`} className={`util-throw-chip ${tone}`}>
-          {formatBlind(blind)}
-        </span>
-      ))}
+    <span className="util-throw-line">
+      <span className="util-throw-kicker">{kicker}</span>
+      <span className="util-throw-chips">
+        {chips.map((chip) => (
+          <span key={chip.key} className={`util-throw-chip ${tone}`}>
+            {chip.label}
+          </span>
+        ))}
+      </span>
     </span>
   );
 }
 
-function HitChips({ hits }: { hits: UtilHit[] }) {
-  return (
-    <span className="util-throw-chips">
-      {hits.map((hit, i) => (
-        <span key={`hit-${hit.victim}-${i}`} className="util-throw-chip">
-          {formatUtilHit(hit)}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-/** Enemy / team flash times and HE hits as labeled chips, not one wrapping sentence. */
+/** Enemy / team flash times and HE / molly hits as labeled chips, not one wrapping sentence. */
 export function UtilThrowDetail({ row }: Props) {
-  const { enemy, team } = splitUtilBlinds(row.blinds);
-  if (enemy.length === 0 && team.length === 0 && row.hits.length === 0) return null;
+  const blinds = splitUtilBlinds(row.blinds);
+  const hits = splitUtilHits(row.hits);
+  if (
+    blinds.enemy.length === 0 &&
+    blinds.team.length === 0 &&
+    hits.enemy.length === 0 &&
+    hits.team.length === 0
+  ) {
+    return null;
+  }
 
   return (
     <span className="util-throw-detail">
-      {enemy.length > 0 ? (
-        <span className="util-throw-line">
-          <span className="util-throw-kicker">Enemy</span>
-          <BlindChips blinds={enemy} tone="enemy" />
-        </span>
-      ) : null}
-      {team.length > 0 ? (
-        <span className="util-throw-line">
-          <span className="util-throw-kicker">Team</span>
-          <BlindChips blinds={team} tone="team" />
-        </span>
-      ) : null}
-      {row.hits.length > 0 ? (
-        <span className="util-throw-line">
-          <HitChips hits={row.hits} />
-        </span>
-      ) : null}
+      <ChipLine
+        kicker="Enemy"
+        tone="enemy"
+        chips={blinds.enemy.map((blind, i) => ({
+          key: `blind-enemy-${blind.victim}-${i}`,
+          label: formatBlind(blind),
+        }))}
+      />
+      <ChipLine
+        kicker="Team"
+        tone="team"
+        chips={blinds.team.map((blind, i) => ({
+          key: `blind-team-${blind.victim}-${i}`,
+          label: formatBlind(blind),
+        }))}
+      />
+      <ChipLine
+        kicker="Enemy"
+        tone="enemy"
+        chips={hits.enemy.map((hit, i) => ({
+          key: `hit-enemy-${hit.victim}-${i}`,
+          label: formatUtilHit(hit),
+        }))}
+      />
+      <ChipLine
+        kicker="Team"
+        tone="team"
+        chips={hits.team.map((hit, i) => ({
+          key: `hit-team-${hit.victim}-${i}`,
+          label: formatUtilHit(hit),
+        }))}
+      />
     </span>
   );
 }

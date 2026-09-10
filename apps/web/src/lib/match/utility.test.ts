@@ -435,6 +435,19 @@ describe("utilityThrough", () => {
     expect(utilRowTone(u.throws[0]!)).toBe("good");
   });
 
+  it("tones a mixed HE the same way as a mixed flash", () => {
+    const m = replay({ grenades: [nade("he", 80, 0)] });
+    const row = {
+      ...utilityThrough(m, 640, null).throws[0]!,
+      hits: [
+        { victim: 1, victimName: "Bob", damage: 13, enemy: true },
+        { victim: 0, victimName: "Alice", damage: 8, enemy: false },
+      ],
+    };
+    expect(utilRowTone(row)).toBe("mixed");
+    expect(throwDetail(row)).toBe("Enemy: Bob (13) · Team: Alice (8)");
+  });
+
   it("labels landings and counts A/B only when a layout exists", () => {
     const m = replay({
       grenades: [

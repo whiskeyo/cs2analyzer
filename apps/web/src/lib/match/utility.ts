@@ -550,11 +550,19 @@ export function formatUtilHit(hit: UtilHit): string {
   return `${hit.victimName} (${hit.damage})`;
 }
 
-export function splitUtilBlinds(blinds: UtilBlind[]): { enemy: UtilBlind[]; team: UtilBlind[] } {
+function splitByEnemy<T extends { enemy: boolean }>(items: T[]): { enemy: T[]; team: T[] } {
   return {
-    enemy: blinds.filter((blind) => blind.enemy),
-    team: blinds.filter((blind) => !blind.enemy),
+    enemy: items.filter((item) => item.enemy),
+    team: items.filter((item) => !item.enemy),
   };
+}
+
+export function splitUtilBlinds(blinds: UtilBlind[]): { enemy: UtilBlind[]; team: UtilBlind[] } {
+  return splitByEnemy(blinds);
+}
+
+export function splitUtilHits(hits: UtilHit[]): { enemy: UtilHit[]; team: UtilHit[] } {
+  return splitByEnemy(hits);
 }
 
 function flashBlindDetail(blinds: UtilBlind[]): string {
@@ -565,17 +573,22 @@ function flashBlindDetail(blinds: UtilBlind[]): string {
   return blinds.map(formatBlind).join(" · ");
 }
 
+function hitDetail(hits: UtilHit[]): string {
+  const { enemy, team } = splitUtilHits(hits);
+  if (enemy.length > 0 && team.length > 0) {
+    return `Enemy: ${enemy.map(formatUtilHit).join(" · ")} · Team: ${team.map(formatUtilHit).join(" · ")}`;
+  }
+  return hits.map(formatUtilHit).join(", ");
+}
+
 /** Colour only from who was hit or flashed. Misses stay white (site is already on the row). */
 export function utilRowTone(row: UtilThrowRow): "" | "good" | "high" | "mixed" {
-  if (row.kind === "flash") {
-    const enemies = row.blinds.some((blind) => blind.enemy);
-    const team = row.blinds.some((blind) => !blind.enemy);
-    if (enemies && team) return "mixed";
-    if (enemies) return "good";
-    if (team) return "high";
-    return "";
-  }
-  if (row.hits.some((hit) => hit.enemy)) return "good";
+  const marks = row.blinds.length > 0 ? row.blinds : row.hits;
+  const enemies = marks.some((mark) => mark.enemy);
+  const team = marks.some((mark) => !mark.enemy);
+  if (enemies && team) return "mixed";
+  if (enemies) return "good";
+  if (team) return "high";
   return "";
 }
 
@@ -585,7 +598,7 @@ export function throwDetail(row: UtilThrowRow): string {
     parts.push(flashBlindDetail(row.blinds));
   }
   if (row.hits.length > 0) {
-    parts.push(row.hits.map(formatUtilHit).join(", "));
+    parts.push(hitDetail(row.hits));
   }
   return parts.join(" · ");
 }
