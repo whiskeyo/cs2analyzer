@@ -250,36 +250,8 @@ describe("Controls", () => {
     expect(onJump).toHaveBeenCalled();
   });
 
-  it("selects another round from the dropdown", async () => {
-    const onJump = vi.fn();
-    const replay = makeReplay({
-      rounds: [
-        makeRound({
-          number: 1,
-          start_tick: 0,
-          freeze_end_tick: 2 * tps,
-          end_tick: 20 * tps,
-        }),
-        makeRound({
-          number: 2,
-          start_tick: 21 * tps,
-          freeze_end_tick: 23 * tps,
-          end_tick: 40 * tps,
-        }),
-      ],
-    });
-    renderControls(
-      baseProps({
-        replay,
-        tick: 5 * tps,
-        onJump,
-      }),
-    );
-
-    await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Round" }),
-      String(21 * tps),
-    );
-    expect(onJump).toHaveBeenCalledWith(0, true, expect.objectContaining({ number: 2 }));
+  it("does not render a Round dropdown on the scrubber chrome", () => {
+    renderControls(baseProps());
+    expect(screen.queryByRole("combobox", { name: "Round" })).not.toBeInTheDocument();
   });
 });

@@ -2926,8 +2926,7 @@ button.link:hover:not(:disabled) {
 .controls button.round-autoplay:not(.on) {
   color: var(--text-muted);
 }
-.speed,
-.round {
+.speed {
   display: flex;
   align-items: center;
   gap: 0.35rem;
