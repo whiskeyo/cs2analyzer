@@ -5,8 +5,8 @@ import { emptyLayout, formatLayout } from "@/lib/layouts/layout";
 import { poly } from "@/lib/layouts/testing/callouts";
 import { createMockCanvas } from "@/lib/layouts/testing/mockCanvas";
 
-vi.mock("@/lib/layouts/maps", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/layouts/maps")>();
+vi.mock("@/lib/radar/maps", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/radar/maps")>();
   return {
     ...actual,
     loadCalibrations: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock("@/lib/layouts/api", () => ({
   saveLayoutFile: vi.fn(),
 }));
 
-import { loadCalibrations } from "@/lib/layouts/maps";
+import { loadCalibrations } from "@/lib/radar/maps";
 import { loadLayoutFile, saveLayoutFile } from "@/lib/layouts/api";
 import { LayoutsApp } from "./LayoutsApp";
 

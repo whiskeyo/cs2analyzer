@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from "react";
+import { useCanvasLoop } from "@/lib/shared/useCanvasLoop";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { worldToScreen } from "@/lib/radar/maps";
 import { buildRadarFrame } from "@/lib/radar/radarFrame";
@@ -65,48 +66,17 @@ interface Props {
   onHabitsJump?: (target: { demoId: string; jumpTick: number }) => void;
 }
 
-export function RadarCanvas({
-  replay,
-  tick,
-  cal,
-  selected,
-  onSelect,
-  follow,
-  trails,
-  tool,
-  color,
-  strokes,
-  onStrokes,
-  onPan,
-  onPause,
-  moment,
-  layers,
-  summaryFilter,
-  viewEpoch,
-  floorMode,
-  habitsOverlay = null,
-  habitsOverlayDisplay = "trails",
-  habitsShowTrails = false,
-  habitsShowArrows = true,
-  habitsNadeFilter = DEFAULT_HABITS_NADE_FILTER,
-  habitsNadesOn = true,
-  habitsNadeOpacity = 0.4,
-  habitsPlaySecRef,
-  habitsOnly = false,
-  onHabitsJump,
-}: Props) {
+export function RadarCanvas(props: Props) {
+  const { replay, tick, cal, tool, color, strokes, onStrokes, onPan, onPause, moment, viewEpoch } =
+    props;
+  const propsRef = useRef(props);
+  propsRef.current = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const replayRef = useRef(replay);
   replayRef.current = replay;
   const tickRef = useRef(tick);
   tickRef.current = tick;
-  const selectedRef = useRef(selected);
-  selectedRef.current = selected;
-  const followRef = useRef(follow);
-  followRef.current = follow;
-  const trailsRef = useRef(trails);
-  trailsRef.current = trails;
   const toolRef = useRef(tool);
   toolRef.current = tool;
   const colorRef = useRef(color);
@@ -115,42 +85,14 @@ export function RadarCanvas({
   strokesRef.current = strokes;
   const onStrokesRef = useRef(onStrokes);
   onStrokesRef.current = onStrokes;
-  const onSelectRef = useRef(onSelect);
-  onSelectRef.current = onSelect;
   const onPanRef = useRef(onPan);
   onPanRef.current = onPan;
   const onPauseRef = useRef(onPause);
   onPauseRef.current = onPause;
   const momentRef = useRef(moment);
   momentRef.current = moment;
-  const layersRef = useRef(layers);
-  layersRef.current = layers;
-  const summaryFilterRef = useRef(summaryFilter);
-  summaryFilterRef.current = summaryFilter;
-  const floorModeRef = useRef(floorMode);
-  floorModeRef.current = floorMode;
   const calRef = useRef(cal);
   calRef.current = cal;
-  const habitsOverlayRef = useRef(habitsOverlay);
-  habitsOverlayRef.current = habitsOverlay;
-  const habitsOverlayDisplayRef = useRef(habitsOverlayDisplay);
-  habitsOverlayDisplayRef.current = habitsOverlayDisplay;
-  const habitsShowTrailsRef = useRef(habitsShowTrails);
-  habitsShowTrailsRef.current = habitsShowTrails;
-  const habitsShowArrowsRef = useRef(habitsShowArrows);
-  habitsShowArrowsRef.current = habitsShowArrows;
-  const habitsNadesOnRef = useRef(habitsNadesOn);
-  habitsNadesOnRef.current = habitsNadesOn;
-  const habitsNadeOpacityRef = useRef(habitsNadeOpacity);
-  habitsNadeOpacityRef.current = habitsNadeOpacity;
-  const habitsNadeFilterRef = useRef(habitsNadeFilter);
-  habitsNadeFilterRef.current = habitsNadeFilter;
-  const habitsPlaySecRefProp = useRef(habitsPlaySecRef);
-  habitsPlaySecRefProp.current = habitsPlaySecRef;
-  const habitsOnlyRef = useRef(habitsOnly);
-  habitsOnlyRef.current = habitsOnly;
-  const onHabitsJumpRef = useRef(onHabitsJump);
-  onHabitsJumpRef.current = onHabitsJump;
   const { images, c4Icon, nadeIcons } = useRadarImages(cal);
   const view = useRef<RadarPanView>({
     scale: 1,
@@ -186,52 +128,38 @@ export function RadarCanvas({
     view.current.oy = 0;
   }, [viewEpoch]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const wrap = wrapRef.current;
-    if (!canvas || !wrap) return;
-
-    let raf = 0;
-    const draw = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const w = wrap.clientWidth;
-      const h = wrap.clientHeight;
-      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
-        canvas.style.width = `${w}px`;
-        canvas.style.height = `${h}px`;
-      }
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  useCanvasLoop(
+    canvasRef,
+    wrapRef,
+    (ctx, w, h) => {
       ctx.fillStyle = "#0b0e12";
       ctx.fillRect(0, 0, w, h);
 
-      const tickNow = tickRef.current;
-      const calNow = calRef.current;
+      const p = propsRef.current;
+      const tickNow = p.tick;
+      const calNow = p.cal;
       const v = view.current;
       const frame = buildRadarFrame({
-        replay,
+        replay: p.replay,
         tick: tickNow,
-        layers: layersRef.current,
-        summaryFilter: summaryFilterRef.current,
-        selected: selectedRef.current,
-        trails: trailsRef.current,
-        floorMode: floorModeRef.current,
+        layers: p.layers,
+        summaryFilter: p.summaryFilter,
+        selected: p.selected,
+        trails: p.trails,
+        floorMode: p.floorMode,
         cal: calNow,
         scale: v.scale,
-        habitsOnly: habitsOnlyRef.current,
+        habitsOnly: p.habitsOnly ?? false,
       });
 
-      if (followRef.current && selectedRef.current != null && calNow) {
-        const p = frame.players.find((x) => x.index === selectedRef.current && x.present);
-        if (p) {
+      if (p.follow && p.selected != null && calNow) {
+        const pawn = frame.players.find((x) => x.index === p.selected && x.present);
+        if (pawn) {
           const pad = 16;
           const fit = Math.min(w, h) - pad * 2;
           const r = {
-            x: (p.x - calNow.pos_x) / calNow.scale,
-            y: (calNow.pos_y - p.y) / calNow.scale,
+            x: (pawn.x - calNow.pos_x) / calNow.scale,
+            y: (calNow.pos_y - pawn.y) / calNow.scale,
           };
           v.ox = w / 2 - (w - fit) / 2 - (r.x / 1024) * fit * v.scale;
           v.oy = h / 2 - (h - fit) / 2 - (r.y / 1024) * fit * v.scale;
@@ -252,21 +180,21 @@ export function RadarCanvas({
         packC4Icon: c4Icon.current,
         nadeIcons: nadeIcons.current,
       });
-      const habitsNow = habitsOverlayRef.current;
+      const habitsNow = p.habitsOverlay ?? null;
       if (habitsNow) {
-        const playSec = habitsPlaySecRefProp.current?.current;
+        const playSec = p.habitsPlaySecRef?.current;
         paintHabitsOverlay(
           ctx,
           habitsNow,
-          habitsOverlayDisplayRef.current,
-          habitsNadeFilterRef.current,
+          p.habitsOverlayDisplay ?? "trails",
+          p.habitsNadeFilter ?? DEFAULT_HABITS_NADE_FILTER,
           toScreen,
           v.scale,
           {
-            showTrails: habitsShowTrailsRef.current,
-            showArrows: habitsShowArrowsRef.current,
-            nadesOn: habitsNadesOnRef.current,
-            nadeOpacity: habitsNadeOpacityRef.current,
+            showTrails: p.habitsShowTrails ?? false,
+            showArrows: p.habitsShowArrows ?? true,
+            nadesOn: p.habitsNadesOn ?? true,
+            nadeOpacity: p.habitsNadeOpacity ?? 0.4,
             playSec,
             cal: calNow,
             nadeIcons: nadeIcons.current,
@@ -274,7 +202,7 @@ export function RadarCanvas({
         );
       }
 
-      paintNoteStrokes(ctx, strokesRef.current, toScreen, {
+      paintNoteStrokes(ctx, p.strokes, toScreen, {
         tick: tickNow,
         round: frame.round?.number ?? 0,
         skipTextIndex: editingRef.current?.index,
@@ -290,14 +218,11 @@ export function RadarCanvas({
       }
 
       paintViewCone(ctx, frame, toScreen);
-      paintPawns(ctx, frame, toScreen, layersRef.current.names, c4Icon.current);
+      paintPawns(ctx, frame, toScreen, p.layers.names, c4Icon.current);
       ctx.restore();
-      raf = requestAnimationFrame(draw);
-    };
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- rAF loop reads latest refs
-  }, [replay]);
+    },
+    [replay],
+  );
 
   useRadarPointer({
     wrapRef,
@@ -334,38 +259,40 @@ export function RadarCanvas({
     }
     if (toolRef.current !== "pan") return;
     if (view.current.dragged) return;
-    if (habitsOverlayRef.current) return;
+    const p = propsRef.current;
+    if (p.habitsOverlay) return;
     const canvas = canvasRef.current;
     const wrap = wrapRef.current;
-    const calNow = calRef.current;
+    const calNow = p.cal;
     if (!canvas || !wrap || !calNow) {
-      onSelectRef.current(null);
+      p.onSelect(null);
       return;
     }
     const { x: mx, y: my } = canvasLocalPoint(canvas, e.clientX, e.clientY);
-    const players = samplePlayers(replay, tickRef.current);
+    const players = samplePlayers(p.replay, p.tick);
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
     const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, view.current, wx, wy);
-    onSelectRef.current(nearestPlayerIndexAtScreen(players, mx, my, toScreen));
+    p.onSelect(nearestPlayerIndexAtScreen(players, mx, my, toScreen));
   };
 
   const onDoubleClick = (e: ReactMouseEvent<HTMLCanvasElement>) => {
     if (toolRef.current !== "pan") return;
     const canvas = canvasRef.current;
     const wrap = wrapRef.current;
-    const calNow = calRef.current;
-    if (!canvas || !wrap || !calNow || !onHabitsJumpRef.current) return;
-    const habitsNow = habitsOverlayRef.current;
+    const p = propsRef.current;
+    const calNow = p.cal;
+    if (!canvas || !wrap || !calNow || !p.onHabitsJump) return;
+    const habitsNow = p.habitsOverlay;
     if (!habitsNow) return;
     const { x: mx, y: my } = canvasLocalPoint(canvas, e.clientX, e.clientY);
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
     const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, view.current, wx, wy);
-    const playSec = habitsPlaySecRefProp.current?.current;
+    const playSec = p.habitsPlaySecRef?.current;
     const jump = habitsJumpAtScreen(
       habitsNow,
-      habitsShowArrowsRef.current,
+      p.habitsShowArrows ?? true,
       mx,
       my,
       toScreen,
@@ -373,7 +300,7 @@ export function RadarCanvas({
     );
     if (jump) {
       e.preventDefault();
-      onHabitsJumpRef.current(jump);
+      p.onHabitsJump(jump);
     }
   };
 
