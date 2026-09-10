@@ -63,10 +63,9 @@ export const PARSE_POOL_MAX = 3;
 /** Habits overlay: default seconds after freeze end when round length is unknown. */
 export const SERIES_HABITS_WINDOW_SECONDS = 20;
 
-/** Habits overlay trail window control range (legacy manual setting). */
+/** Habits overlay trail window clamp when round length is known. */
 export const SERIES_HABITS_WINDOW_MIN_SECONDS = 5;
 export const SERIES_HABITS_WINDOW_MAX_SECONDS = 60;
-export const SERIES_HABITS_WINDOW_STORAGE_KEY = "cs2analyzer.seriesTrailWindowSec";
 
 /** First-wave util multiset window after freeze (util-set chips). */
 export const SERIES_FIRST_WAVE_SECONDS = 8;
@@ -216,19 +215,21 @@ export const SIDEBAR_MAX_WIDTH = 640;
 export const PLAYBOOK_TREE_MIN_WIDTH = 200;
 export const PLAYBOOK_TREE_DEFAULT_WIDTH = 260;
 export const PLAYBOOK_TREE_MAX_WIDTH = 420;
-export const PLAYBOOK_TREE_WIDTH_STORAGE_KEY = "cs2analyzer.playbookTreeWidth";
+export {
+  PLAYBOOK_TREE_WIDTH_STORAGE_KEY,
+  PLAYBOOK_DETAIL_WIDTH_STORAGE_KEY,
+  LAYOUTS_SIDEBAR_WIDTH_STORAGE_KEY,
+} from "./storageKeys";
 
 /** Playbook strat data panel (left of the tree). */
 export const PLAYBOOK_DETAIL_MIN_WIDTH = 280;
 export const PLAYBOOK_DETAIL_DEFAULT_WIDTH = 360;
 export const PLAYBOOK_DETAIL_MAX_WIDTH = 560;
-export const PLAYBOOK_DETAIL_WIDTH_STORAGE_KEY = "cs2analyzer.playbookDetailWidth";
 
 /** Layouts editor callout panel. */
 export const LAYOUTS_SIDEBAR_MIN_WIDTH = 280;
 export const LAYOUTS_SIDEBAR_DEFAULT_WIDTH = 360;
 export const LAYOUTS_SIDEBAR_MAX_WIDTH = 560;
-export const LAYOUTS_SIDEBAR_WIDTH_STORAGE_KEY = "cs2analyzer.layoutsSidebarWidth";
 
 /** Leave at least this much of `.stage` for the radar while resizing. */
 export const RADAR_MIN_WIDTH = 360;
