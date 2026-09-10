@@ -46,24 +46,25 @@ function sidebarReplay() {
   });
 }
 
-function sidebarProps(overrides: Partial<Parameters<typeof Sidebar>[0]> = {}) {
+function sidebarAppState({
+  replay = sidebarReplay(),
+  selected = null,
+  onSelect = vi.fn(),
+  session = {},
+  habits = {},
+}: {
+  replay?: ReturnType<typeof sidebarReplay>;
+  selected?: number | null;
+  onSelect?: (index: number | null) => void;
+  session?: Record<string, unknown>;
+  habits?: Record<string, unknown>;
+} = {}) {
   return {
-    replay: sidebarReplay(),
-    tick: 640,
-    notes: [],
-    selected: null,
-    onSelect: vi.fn(),
-    onJump: vi.fn(),
-    onNotes: vi.fn(),
+    session: { series: null, replay, ...session },
+    playback: { tick: 640, jump: vi.fn(), activeRound: null },
+    review: { notes: [], commitNotes: vi.fn() },
+    view: { selected, select: onSelect, setFollow: vi.fn() },
     places: null,
-    ...overrides,
-  };
-}
-
-function sidebarAppState(overrides: Record<string, unknown> = {}) {
-  return {
-    session: { series: null },
-    view: { setFollow: vi.fn() },
     habits: {
       aggregated: false,
       playerKey: null,
@@ -75,25 +76,31 @@ function sidebarAppState(overrides: Record<string, unknown> = {}) {
       util: null,
       utilSets: null,
       action: null,
-      ...overrides,
+      ...habits,
     },
   };
+}
+
+function mockSidebar(overrides?: Parameters<typeof sidebarAppState>[0]) {
+  vi.mocked(useApp).mockReturnValue(
+    sidebarAppState(overrides) as unknown as ReturnType<typeof useApp>,
+  );
 }
 
 describe("Sidebar", () => {
   beforeEach(() => {
     vi.mocked(useApp).mockReset();
-    vi.mocked(useApp).mockReturnValue(sidebarAppState() as unknown as ReturnType<typeof useApp>);
+    mockSidebar();
   });
 
   it("starts on the scoreboard tab", () => {
-    render(<Sidebar {...sidebarProps()} />);
+    render(<Sidebar />);
     expect(screen.getByRole("button", { name: "Score" })).toHaveClass("on");
     expect(screen.getByText("Astralis")).toBeInTheDocument();
   });
 
   it("switches tabs", async () => {
-    render(<Sidebar {...sidebarProps()} />);
+    render(<Sidebar />);
     await userEvent.click(screen.getByRole("button", { name: "Notes" }));
     expect(screen.getByRole("button", { name: "Notes" })).toHaveClass("on");
     expect(screen.getByText(/Draw or add a text box/)).toBeInTheDocument();
@@ -104,7 +111,7 @@ describe("Sidebar", () => {
   });
 
   it("opens rounds and review tabs and has no clutch tab", async () => {
-    render(<Sidebar {...sidebarProps()} />);
+    render(<Sidebar />);
     expect(screen.queryByRole("button", { name: "Clutch" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Rounds" }));
@@ -118,7 +125,8 @@ describe("Sidebar", () => {
 
   it("shows weapon rows and clears the selected player", async () => {
     const onSelect = vi.fn();
-    render(<Sidebar {...sidebarProps({ selected: 0, onSelect })} />);
+    mockSidebar({ selected: 0, onSelect });
+    render(<Sidebar />);
 
     await userEvent.click(screen.getByRole("button", { name: "Weapons" }));
     expect(screen.getByText("Alice")).toBeInTheDocument();
@@ -134,14 +142,16 @@ describe("Sidebar", () => {
   it("omits headshot percent for grenades", async () => {
     const replay = sidebarReplay();
     replay.kills.push(makeKill(300, 0, 2, { weapon: "hegrenade" }));
-    render(<Sidebar {...sidebarProps({ replay, selected: 0 })} />);
+    mockSidebar({ replay, selected: 0 });
+    render(<Sidebar />);
     await userEvent.click(screen.getByRole("button", { name: "Weapons" }));
     expect(screen.getByText("AK-47").closest("tr")).toHaveTextContent("100%");
     expect(screen.getByText("HE").closest("tr")).not.toHaveTextContent("%");
   });
 
   it("shows the rating hint for a selected player on score", () => {
-    render(<Sidebar {...sidebarProps({ selected: 0 })} />);
+    mockSidebar({ selected: 0 });
+    render(<Sidebar />);
     expect(screen.getByText(/rating through this tick/)).toBeInTheDocument();
   });
 
@@ -149,16 +159,7 @@ describe("Sidebar", () => {
     const demoA = loadedDemo(makeReplay(), "a.dem", new File([], "a.dem"));
     const demoB = loadedDemo(makeReplay(), "b.dem", new File([], "b.dem"));
     const series = buildSeries("de_mirage", [demoA, demoB], "Team A");
-    vi.mocked(useApp).mockReturnValue(
-      sidebarAppState({
-        aggregated: true,
-        seriesActionBeats: [],
-        util: { roundCount: 2, entries: [{ kind: "smoke", callout: "A", count: 1 }] },
-        utilSets: { roundCount: 2, entries: [{ key: "a", label: "A smokes", count: 1 }] },
-        action: { roundCount: 1, entries: [{ title: "A execute", count: 1 }] },
-      }) as unknown as ReturnType<typeof useApp>,
-    );
-    vi.mocked(useApp).mockReturnValue({
+    mockSidebar({
       session: { series },
       habits: {
         aggregated: true,
@@ -172,16 +173,16 @@ describe("Sidebar", () => {
         utilSets: { roundCount: 2, entries: [{ key: "a", label: "A smokes", count: 1 }] },
         action: { roundCount: 1, entries: [{ title: "A execute", count: 1 }] },
       },
-    } as unknown as ReturnType<typeof useApp>);
+    });
 
-    render(<Sidebar {...sidebarProps()} />);
+    render(<Sidebar />);
     expect(screen.getByRole("button", { name: "Action" })).toHaveClass("on");
     expect(screen.getByText(/Team A · CT full/)).toBeInTheDocument();
     expect(screen.getByText("A execute")).toBeInTheDocument();
   });
 
   it("opens the utility tab for single-demo matches", async () => {
-    render(<Sidebar {...sidebarProps()} />);
+    render(<Sidebar />);
     await userEvent.click(screen.getByRole("button", { name: "Utility" }));
     expect(screen.getByRole("button", { name: "Utility" })).toHaveClass("on");
   });
@@ -200,7 +201,8 @@ describe("Sidebar", () => {
     );
     const demoB = loadedDemo(makeReplay(), "b.dem", new File([], "b.dem"));
     const series = buildSeries("de_mirage", [demoA, demoB], focal);
-    vi.mocked(useApp).mockReturnValue({
+    mockSidebar({
+      replay: demoA.replay,
       session: { series },
       habits: {
         aggregated: false,
@@ -214,16 +216,17 @@ describe("Sidebar", () => {
         utilSets: null,
         action: null,
       },
-    } as unknown as ReturnType<typeof useApp>);
+    });
 
-    render(<Sidebar {...sidebarProps()} />);
+    render(<Sidebar />);
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByText(/Donk/)).toBeInTheDocument();
     expect(screen.getByRole("toolbar", { name: "Review sort" })).toBeInTheDocument();
   });
 
   it("opens single-demo review from the sidebar", async () => {
-    render(<Sidebar {...sidebarProps({ selected: 0 })} />);
+    mockSidebar({ selected: 0 });
+    render(<Sidebar />);
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByText(/Alice/)).toBeInTheDocument();
     expect(screen.getByRole("toolbar", { name: "Review sort" })).toBeInTheDocument();
@@ -233,7 +236,7 @@ describe("Sidebar", () => {
   it("resizes with the separator handle", () => {
     const stage = stageShell();
 
-    render(<Sidebar {...sidebarProps()} />);
+    render(<Sidebar />);
     const handle = screen.getByRole("separator", { name: "Resize side panel" });
     mockPointerCapture(handle);
     fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 300 });
@@ -247,7 +250,7 @@ describe("Sidebar", () => {
   it("snaps to minimum width on double click", async () => {
     const stage = stageShell();
 
-    render(<Sidebar {...sidebarProps()} />);
+    render(<Sidebar />);
     mockPointerCapture(screen.getByRole("separator", { name: "Resize side panel" }));
     await userEvent.dblClick(screen.getByRole("separator", { name: "Resize side panel" }));
     expect(screen.getByRole("separator", { name: "Resize side panel" })).toHaveAttribute(

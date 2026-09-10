@@ -10,13 +10,13 @@ import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
 
 export function Viewer() {
-  const { session, playback, review, view, places, habits } = useApp();
+  const { session, playback, review, places, habits } = useApp();
   const replay = session.replay;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
   const bucketMode = replay != null && isBucketOverlayActive(session.series, habits);
 
   if (!replay) return null;
-  const { tick, jump } = playback;
+  const { tick } = playback;
   const switching = session.switching;
 
   return (
@@ -32,17 +32,7 @@ export function Viewer() {
           <>
             <main className="stage">
               <RadarStage />
-              <Sidebar
-                replay={replay}
-                tick={tick}
-                notes={review.notes}
-                selected={view.selected}
-                onSelect={view.select}
-                onJump={jump}
-                onNotes={review.commitNotes}
-                places={places}
-                activeRound={playback.activeRound}
-              />
+              <Sidebar />
             </main>
             {!aggregated ? (
               <RoundStrip
