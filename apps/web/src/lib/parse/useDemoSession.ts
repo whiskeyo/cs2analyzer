@@ -14,6 +14,7 @@ import {
 } from "./parsePool";
 import { buildSeries, withFocalTeam, type DemoSeries, type LoadedDemo } from "./session";
 import { formatParseTimings } from "./timings";
+import { parseDump } from "./parseDump";
 import { clearSeriesReviewCache } from "@/lib/notes/seriesReviewCache";
 
 export type { CreateWorker };
@@ -138,7 +139,12 @@ export function useDemoSession(opts: {
             return;
           }
           const parseNotice = formatParseTimings(result.timings);
-          console.info("[cs2analyzer parse]", result.timings, parseNotice);
+          console.info(
+            "[cs2analyzer parse]",
+            result.timings,
+            parseNotice,
+            parseDump(result.demo.replay),
+          );
           statusRef.current.setNotice(parseNotice);
           finishSingle(result.demo);
         });

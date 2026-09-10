@@ -19,7 +19,14 @@ export {
   type BombView,
   type LiveSituation,
 } from "./hud";
-export { currentSide, liveScore, liveTeams, onLiveScoreboard, type LiveTeams } from "./liveScore";
+export {
+  currentSide,
+  liveScore,
+  liveScoreboardPlayers,
+  liveTeams,
+  onLiveScoreboard,
+  type LiveTeams,
+} from "./liveScore";
 export {
   formatScorecard,
   matchEndTick,

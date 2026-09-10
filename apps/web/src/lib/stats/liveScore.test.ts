@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { currentSide, liveScore, liveTeams, onLiveScoreboard } from "./liveScore";
+import {
+  currentSide,
+  liveScore,
+  liveScoreboardPlayers,
+  liveTeams,
+  onLiveScoreboard,
+} from "./liveScore";
 import { FULL_HEALTH } from "@/lib/shared/constants";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import { makePlayer, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
@@ -58,6 +64,37 @@ describe("onLiveScoreboard", () => {
     });
     expect(onLiveScoreboard(m, 0, 640)).toBe(true);
     expect(onLiveScoreboard(m, 1, 640)).toBe(false);
+  });
+
+  it("drops a sixth $0 leftover when the side already has five", () => {
+    const ticks = makeTicks(6, 2);
+    ticks.ticks.set([64, 640]);
+    for (let i = 0; i < 5; i++) {
+      ticks.flags[i] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+      ticks.flags[6 + i] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    }
+    ticks.flags[5] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[11] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.health.fill(FULL_HEALTH);
+    ticks.money[6] = 800;
+    ticks.money[7] = 800;
+    ticks.money[8] = 800;
+    ticks.money[9] = 800;
+    ticks.money[10] = 800;
+    const m = makeReplay({
+      players: [
+        makePlayer(0, "CT", "A"),
+        makePlayer(1, "CT", "B"),
+        makePlayer(2, "CT", "C"),
+        makePlayer(3, "CT", "D"),
+        makePlayer(4, "CT", "E"),
+        makePlayer(5, "CT", "KatolikCOO"),
+      ],
+      rounds: [makeRound({ number: 13, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+      ticks,
+    });
+    expect(onLiveScoreboard(m, 5, 640)).toBe(true);
+    expect(liveScoreboardPlayers(m, 640)).toEqual([0, 1, 2, 3, 4]);
   });
 
   it("keeps a player who died broke after being alive at freeze", () => {
