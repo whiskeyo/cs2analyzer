@@ -62,7 +62,15 @@ describe("blindsAt", () => {
       { tick: 100, attacker: 1, victim: 1, duration: 5.1 },
     ];
     expect(blindsAt(blinds, 100, 64).get(0)).toBeCloseTo(1.3, 5);
-    expect(blindsAt(blinds, 100, 64).get(1)).toBeCloseTo(5.1, 5);
+    expect(blindsAt(blinds, 100, 64).get(1)).toBeUndefined();
+  });
+
+  it("does not paint overlay-only 5.0s yellow on a far pawn", () => {
+    const blinds = [
+      { tick: 100, attacker: 1, victim: 0, duration: 5.0 },
+      { tick: 100, attacker: 1, victim: 1, duration: 5.0 },
+    ];
+    expect(blindsAt(blinds, 100, 64).size).toBe(0);
   });
 
   it("formats remaining flash time for the radar label", () => {

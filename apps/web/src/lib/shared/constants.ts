@@ -112,8 +112,8 @@ export const FLASH_FULL_SECONDS = 5.47;
 
 /**
  * Pawn `m_flFlashDuration` often snaps to the full overlay (~5.1–5.47s) even on
- * a weak pop. `player_blind` carries the real white-time. Treat this band as
- * that spike unless it is the only sample.
+ * a weak pop. `player_blind` can repeat the same band for every marked pawn.
+ * Radar and Utility ignore this band; they use shorter samples only.
  */
 export const FLASH_OVERLAY_SLACK_SECONDS = 0.5;
 export const FLASH_OVERLAY_SPIKE_SECONDS = FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
