@@ -194,7 +194,8 @@ describe("Playbook", () => {
       "smoke CT, flash palace",
     );
     expect(screen.getByRole("textbox", { name: "YouTube link" })).toBeInTheDocument();
-    expect(screen.getByText(/Lineup or tutorial clips/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "YouTube" })).toBeInTheDocument();
+    expect(screen.getByText(/Place a YouTube token/)).toBeInTheDocument();
     const youtube = screen.getByRole("textbox", { name: "YouTube link" });
     const notes = screen.getByRole("textbox", { name: "Strat notes" });
     expect(youtube.compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

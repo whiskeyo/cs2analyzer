@@ -29,6 +29,8 @@ import {
   rotateHandleOffset,
 } from "./pieces";
 import { shouldShowPawnLegend, visiblePieces } from "./legend";
+import type { PlaybookYouTube } from "./types";
+import { YOUTUBE_PIN_HEIGHT, YOUTUBE_PIN_WIDTH, YOUTUBE_PLAY, YOUTUBE_RED } from "./videos";
 
 /** Match Analyzer nade flight trails. */
 export const PLAYBOOK_NADE_TRAIL_OPACITY = 0.4;
@@ -237,6 +239,58 @@ export function paintPlaybookPieces(
   }
 }
 
+export function paintYouTubePin(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  selected = false,
+): void {
+  const w = YOUTUBE_PIN_WIDTH;
+  const h = YOUTUBE_PIN_HEIGHT;
+  const x = at.x - w / 2;
+  const y = at.y - h / 2;
+  const radius = 3;
+  ctx.save();
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(x, y, w, h, radius);
+  } else {
+    ctx.rect(x, y, w, h);
+  }
+  ctx.fillStyle = YOUTUBE_RED;
+  ctx.fill();
+  if (selected) {
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(at.x - 2.2, at.y - 3.2);
+  ctx.lineTo(at.x + 3.6, at.y);
+  ctx.lineTo(at.x - 2.2, at.y + 3.2);
+  ctx.closePath();
+  ctx.fillStyle = YOUTUBE_PLAY;
+  ctx.fill();
+  ctx.restore();
+}
+
+export function paintYouTubePins(
+  ctx: CanvasRenderingContext2D,
+  videos: readonly PlaybookYouTube[],
+  toScreen: WorldToScreen,
+  selectedId?: string | null,
+  pending?: { x: number; y: number } | null,
+): void {
+  for (const clip of videos) {
+    paintYouTubePin(ctx, toScreen(clip.x, clip.y), clip.id === selectedId);
+  }
+  if (pending) {
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    paintYouTubePin(ctx, toScreen(pending.x, pending.y), true);
+    ctx.restore();
+  }
+}
+
 export function playbookUsesLower(cal: MapCalibration | undefined, floorMode: FloorMode): boolean {
   return radarFloor(cal, [], null, floorMode) === "lower";
 }
@@ -278,6 +332,9 @@ export function paintPlaybookBoard(
   selectedId?: string | null,
   rotateId?: string | null,
   nadeTrail?: NadeTrailDraft | null,
+  videos: readonly PlaybookYouTube[] = [],
+  selectedVideoId?: string | null,
+  pendingPin?: { x: number; y: number } | null,
 ): void {
   paintMapImage(ctx, w, h, view, img, cal);
   const toScreen = (wx: number, wy: number) => worldToScreen(cal, w, h, view, wx, wy);
@@ -318,4 +375,5 @@ export function paintPlaybookBoard(
       aimed.color ?? pawnColor(aimed.side),
     );
   }
+  paintYouTubePins(ctx, videos, toScreen, selectedVideoId, pendingPin);
 }

@@ -452,4 +452,56 @@ describe("PlaybookCanvas", () => {
     });
     fireEvent.mouseUp(window);
   });
+
+  it("places a YouTube pin, opens it on click, and drags it", () => {
+    const onPlaceYouTube = vi.fn();
+    const onOpenVideo = vi.fn();
+    const onVideos = vi.fn();
+    const clip = {
+      id: "yt1",
+      videoId: "dQw4w9WgXcQ",
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      title: "A smoke",
+      x: 0,
+      y: 0,
+    };
+    const { container, rerender } = render(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        tool="youtube"
+        videos={[]}
+        onPlaceYouTube={onPlaceYouTube}
+      />,
+    );
+    const wrap = sizedWrap(container);
+    fireEvent.mouseDown(wrap, { clientX: 200, clientY: 200, button: 0 });
+    expect(onPlaceYouTube).toHaveBeenCalledWith(expect.objectContaining({ x: expect.any(Number) }));
+
+    rerender(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        tool="pan"
+        videos={[clip]}
+        onOpenVideo={onOpenVideo}
+        onVideos={onVideos}
+      />,
+    );
+    const at = worldToScreen(UNIT_CALIBRATION, 400, 400, identityView, 0, 0);
+    fireEvent.mouseDown(wrap, { clientX: at.x, clientY: at.y, button: 0 });
+    fireEvent.mouseUp(window);
+    expect(onOpenVideo).toHaveBeenCalledWith("yt1");
+    expect(onVideos).not.toHaveBeenCalled();
+
+    onOpenVideo.mockClear();
+    fireEvent.mouseDown(wrap, { clientX: at.x, clientY: at.y, button: 0 });
+    fireEvent.mouseMove(window, { clientX: at.x + 30, clientY: at.y });
+    fireEvent.mouseUp(window);
+    expect(onVideos).toHaveBeenCalled();
+    expect(onVideos.mock.calls.at(-1)?.[0][0].x).not.toBe(0);
+    expect(onOpenVideo).not.toHaveBeenCalled();
+  });
 });

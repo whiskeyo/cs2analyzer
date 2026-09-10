@@ -112,6 +112,8 @@ describe("addSnapshotPage", () => {
               videoId: "dQw4w9WgXcQ",
               url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
               title: "A smoke",
+              x: 1,
+              y: 2,
             },
           ],
         },

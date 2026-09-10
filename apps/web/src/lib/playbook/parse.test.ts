@@ -33,9 +33,17 @@ describe("parsePlaybookPage", () => {
         videoId: "dQw4w9WgXcQ",
         url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30",
         title: "A smoke",
+        x: 0,
+        y: 0,
         startSeconds: 30,
       },
     ]);
+    expect(
+      parsePlaybookPage({
+        id: "p7",
+        videos: [{ id: "v2", videoId: "dQw4w9WgXcQ", title: "B", x: 12, y: 34 }],
+      })?.videos[0],
+    ).toMatchObject({ x: 12, y: 34 });
     expect(parsePlaybookPage({ id: "p3", floor: "nope" })?.floor).toBe("auto");
     expect(parsePlaybookPage({ id: "  " })).toBeNull();
     expect(parsePlaybookPage(null)).toBeNull();

@@ -1,12 +1,12 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { PlaybookYouTube } from "@/lib/playbook/types";
+import { nextVideoPin } from "@/lib/playbook/videos";
 import {
   fetchYouTubeTitle,
   formatVideoStart,
   parseYouTubeUrl,
   sameYouTubeVideo,
   youtubeEmbedUrl,
-  youtubeThumbUrl,
   youtubeWatchUrl,
   YOUTUBE_UNTITLED,
 } from "@/lib/playbook/youtube";
@@ -14,24 +14,32 @@ import {
 interface Props {
   videos: PlaybookYouTube[];
   onVideos: (videos: PlaybookYouTube[]) => void;
+  openId: string | null;
+  onOpen: (id: string | null) => void;
+  pendingPin: { x: number; y: number } | null;
 }
 
-export function PlaybookVideos({ videos, onVideos }: Props) {
+export function PlaybookVideos({ videos, onVideos, openId, onOpen, pendingPin }: Props) {
   const titleId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
   const open = videos.find((clip) => clip.id === openId) ?? null;
+
+  useEffect(() => {
+    if (!pendingPin) return;
+    inputRef.current?.focus();
+  }, [pendingPin]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenId(null);
+      if (event.key === "Escape") onOpen(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, onOpen]);
 
   const add = async () => {
     const parsed = parseYouTubeUrl(input);
@@ -46,18 +54,26 @@ export function PlaybookVideos({ videos, onVideos }: Props) {
     setPending(true);
     setError(null);
     const title = (await fetchYouTubeTitle(parsed.videoId)) ?? YOUTUBE_UNTITLED;
-    onVideos([
-      ...videos,
-      {
-        id: crypto.randomUUID(),
-        videoId: parsed.videoId,
-        url: youtubeWatchUrl(parsed.videoId, parsed.startSeconds),
-        title,
-        ...(parsed.startSeconds != null ? { startSeconds: parsed.startSeconds } : {}),
-      },
-    ]);
+    const at = pendingPin ?? nextVideoPin(videos);
+    const clip: PlaybookYouTube = {
+      id: crypto.randomUUID(),
+      videoId: parsed.videoId,
+      url: youtubeWatchUrl(parsed.videoId, parsed.startSeconds),
+      title,
+      x: at.x,
+      y: at.y,
+      ...(parsed.startSeconds != null ? { startSeconds: parsed.startSeconds } : {}),
+    };
+    onVideos([...videos, clip]);
     setInput("");
     setPending(false);
+    onOpen(clip.id);
+  };
+
+  const removeOpen = () => {
+    if (!open) return;
+    onVideos(videos.filter((clip) => clip.id !== open.id));
+    onOpen(null);
   };
 
   return (
@@ -72,6 +88,7 @@ export function PlaybookVideos({ videos, onVideos }: Props) {
         <label className="playbook-field">
           YouTube
           <input
+            ref={inputRef}
             aria-label="YouTube link"
             value={input}
             placeholder="https://youtu.be/…"
@@ -86,34 +103,28 @@ export function PlaybookVideos({ videos, onVideos }: Props) {
         </button>
       </form>
       {error ? <p className="error">{error}</p> : null}
-      {videos.length === 0 ? (
+      {pendingPin ? (
+        <p className="playbook-lead">Pin on the radar — paste a YouTube link.</p>
+      ) : null}
+      {videos.length === 0 && !pendingPin ? (
         <p className="playbook-lead">
-          Lineup or tutorial clips for this strat. Stays on this machine.
+          Place a YouTube token or paste a link. Clips stay on this machine.
         </p>
       ) : (
-        <ul className="playbook-video-list">
+        <ul className="playbook-pieces">
           {videos.map((clip) => {
             const label =
               clip.startSeconds != null
                 ? `${clip.title} · ${formatVideoStart(clip.startSeconds)}`
                 : clip.title;
             return (
-              <li key={clip.id} className="playbook-video">
+              <li key={clip.id} className="playbook-piece playbook-piece-mark">
                 <button
                   type="button"
-                  className="playbook-video-open"
-                  onClick={() => setOpenId(clip.id)}
+                  className={clip.id === openId ? "playbook-book is-active" : "playbook-book"}
+                  onClick={() => onOpen(clip.id)}
                 >
-                  <img src={youtubeThumbUrl(clip.videoId)} alt="" loading="lazy" />
-                  <span>{label}</span>
-                </button>
-                <button
-                  type="button"
-                  className="ghost"
-                  aria-label={`Remove ${clip.title}`}
-                  onClick={() => onVideos(videos.filter((row) => row.id !== clip.id))}
-                >
-                  Delete
+                  {label}
                 </button>
               </li>
             );
@@ -121,7 +132,7 @@ export function PlaybookVideos({ videos, onVideos }: Props) {
         </ul>
       )}
       {open ? (
-        <div className="home-modal playbook-video-modal" onClick={() => setOpenId(null)}>
+        <div className="home-modal playbook-video-modal" onClick={() => onOpen(null)}>
           <div
             className="home-modal-card"
             role="dialog"
@@ -143,7 +154,10 @@ export function PlaybookVideos({ videos, onVideos }: Props) {
               <a href={open.url} target="_blank" rel="noreferrer">
                 Open on YouTube
               </a>
-              <button type="button" className="ghost" onClick={() => setOpenId(null)}>
+              <button type="button" className="ghost" onClick={removeOpen}>
+                Delete
+              </button>
+              <button type="button" className="ghost" onClick={() => onOpen(null)}>
                 Close
               </button>
             </div>

@@ -115,6 +115,8 @@ function parsePlaybookYouTube(value: unknown): PlaybookYouTube | null {
     videoId,
     url: youtubeWatchUrl(videoId, startSeconds),
     title: title === "" ? videoId : title,
+    x: isFiniteNumber(value.x) ? value.x : 0,
+    y: isFiniteNumber(value.y) ? value.y : 0,
     ...(startSeconds != null ? { startSeconds } : {}),
   };
 }

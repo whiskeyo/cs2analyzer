@@ -7,6 +7,7 @@ import { playbookToolCursor, type PlaybookTool } from "@/lib/playbook/pieces";
 import type { NadeTrailDraft } from "@/lib/playbook/nadeTrail";
 import { createPlaybookView, usePlaybookPointer } from "@/lib/playbook/pointer";
 import type { LegendEntry } from "@/lib/playbook/legend";
+import type { PlaybookYouTube } from "@/lib/playbook/types";
 import { nadeIconLoadCount } from "@/lib/radar/draw";
 import { useRadarImages } from "@/lib/radar/useRadarImages";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
@@ -22,8 +23,14 @@ interface Props {
   nadeStyle?: NadeStyle;
   viewEpoch?: number;
   legend?: LegendEntry[];
+  videos?: readonly PlaybookYouTube[];
+  selectedVideoId?: string | null;
+  pendingPin?: { x: number; y: number } | null;
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
+  onVideos?: (videos: PlaybookYouTube[]) => void;
+  onOpenVideo?: (id: string) => void;
+  onPlaceYouTube?: (at: { x: number; y: number }) => void;
 }
 
 export function PlaybookCanvas(props: Props) {
@@ -36,8 +43,12 @@ export function PlaybookCanvas(props: Props) {
     nadeStyle = "icon",
     viewEpoch = 0,
     legend = [],
+    videos = [],
     onNote,
     onSelect,
+    onVideos,
+    onOpenVideo,
+    onPlaceYouTube,
   } = props;
   const propsRef = useRef(props);
   propsRef.current = props;
@@ -59,6 +70,8 @@ export function PlaybookCanvas(props: Props) {
   const nadeStyleRef = useRef(nadeStyle);
   nadeStyleRef.current = nadeStyle;
   const nadeTrailRef = useRef<NadeTrailDraft | null>(null);
+  const videosRef = useRef(videos);
+  videosRef.current = videos;
   const lastPaintInputs = useRef<readonly unknown[] | null>(null);
   const { images, c4Icon, nadeIcons } = useRadarImages(cal);
 
@@ -83,8 +96,12 @@ export function PlaybookCanvas(props: Props) {
     nadeTrailOnRef,
     nadeStyleRef,
     nadeTrailRef,
+    videosRef,
     onNote,
     onSelect,
+    onVideos,
+    onOpenVideo,
+    onPlaceYouTube,
   });
 
   useCanvasLoop(
@@ -109,6 +126,9 @@ export function PlaybookCanvas(props: Props) {
         p.selectedId ?? null,
         gizmoRef.current,
         nadeTrailRef.current,
+        p.videos ?? [],
+        p.selectedVideoId ?? null,
+        p.pendingPin ?? null,
       );
     },
     [cal],
@@ -132,6 +152,10 @@ export function PlaybookCanvas(props: Props) {
         trail?.hover?.x ?? null,
         trail?.hover?.y ?? null,
         trail?.points.length ?? 0,
+        p.videos,
+        p.selectedVideoId ?? null,
+        p.pendingPin?.x ?? null,
+        p.pendingPin?.y ?? null,
         images.current.upper,
         images.current.lower,
         c4Icon.current,

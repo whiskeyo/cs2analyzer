@@ -9,6 +9,7 @@ import {
   paintPlaybookPiece,
   paintPlaybookPieces,
   paintRotateGizmo,
+  paintYouTubePin,
   playbookUsesLower,
 } from "./paint";
 import { makePiece, PLAYBOOK_ROTATE_RADIUS_PX } from "./pieces";
@@ -291,5 +292,15 @@ describe("paintPlaybookBoard", () => {
     expect(ctx.setLineDash).toHaveBeenCalledWith([]);
     paintRotateGizmo(ctx, { x: 10, y: 20 }, 90, "#5b9fd6");
     expect(ctx.arc).toHaveBeenCalledWith(10, 20, PLAYBOOK_ROTATE_RADIUS_PX, 0, Math.PI * 2);
+  });
+});
+
+describe("paintYouTubePin", () => {
+  it("fills the YouTube mark", () => {
+    const ctx = createMockCanvas();
+    paintYouTubePin(ctx, { x: 20, y: 10 }, true);
+    expect(ctx.roundRect).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalled();
+    expect(ctx.stroke).toHaveBeenCalled();
   });
 });

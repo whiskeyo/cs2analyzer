@@ -16,6 +16,8 @@ function clip(partial: Partial<PlaybookYouTube> = {}): PlaybookYouTube {
     videoId: VIDEO,
     url: `https://www.youtube.com/watch?v=${VIDEO}`,
     title: "Mirage A smoke",
+    x: 10,
+    y: 20,
     ...partial,
   };
 }
@@ -25,7 +27,7 @@ describe("PlaybookVideos", () => {
     vi.unstubAllGlobals();
   });
 
-  it("adds a valid link, opens the embed, and removes it", async () => {
+  it("adds a pin, lists it like other strat rows, and deletes from the player", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -34,40 +36,65 @@ describe("PlaybookVideos", () => {
       }),
     );
     const onVideos = vi.fn();
-    const { rerender } = render(<PlaybookVideos videos={[]} onVideos={onVideos} />);
-    expect(screen.getByText(/Lineup or tutorial clips/)).toBeInTheDocument();
+    const onOpen = vi.fn();
+    const { rerender } = render(
+      <PlaybookVideos
+        videos={[]}
+        onVideos={onVideos}
+        openId={null}
+        onOpen={onOpen}
+        pendingPin={{ x: 40, y: 50 }}
+      />,
+    );
+    expect(screen.getByText(/Pin on the radar/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "YouTube link" }), {
       target: { value: `https://youtu.be/${VIDEO}?t=30` },
     });
     await userEvent.click(screen.getByRole("button", { name: "Add" }));
     await waitFor(() => expect(onVideos).toHaveBeenCalled());
     const added = onVideos.mock.calls[0]?.[0] as PlaybookYouTube[];
-    expect(added).toHaveLength(1);
     expect(added[0]).toMatchObject({
       videoId: VIDEO,
       title: "Mirage A smoke",
       startSeconds: 30,
+      x: 40,
+      y: 50,
     });
+    expect(onOpen).toHaveBeenCalledWith(added[0]?.id);
 
-    rerender(<PlaybookVideos videos={added} onVideos={onVideos} />);
+    rerender(
+      <PlaybookVideos
+        videos={added}
+        onVideos={onVideos}
+        openId={added[0]!.id}
+        onOpen={onOpen}
+        pendingPin={null}
+      />,
+    );
     expect(screen.getByRole("button", { name: /Mirage A smoke · 0:30/ })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Mirage A smoke · 0:30/ }));
+    expect(screen.queryByRole("button", { name: "Remove Mirage A smoke" })).not.toBeInTheDocument();
     const dialog = screen.getByRole("dialog", { name: "Mirage A smoke" });
-    const frame = dialog.querySelector("iframe");
-    expect(frame?.getAttribute("src")).toContain(`youtube-nocookie.com/embed/${VIDEO}`);
-    expect(frame?.getAttribute("src")).toContain("start=30");
-    expect(frame?.getAttribute("referrerpolicy")).toBe("strict-origin-when-cross-origin");
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Remove Mirage A smoke" }));
+    expect(dialog.querySelector("iframe")?.getAttribute("src")).toContain(
+      `youtube-nocookie.com/embed/${VIDEO}`,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(onVideos).toHaveBeenLastCalledWith([]);
+    expect(onOpen).toHaveBeenLastCalledWith(null);
   });
 
   it("rejects junk and duplicate links, and falls back when oEmbed fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     const onVideos = vi.fn();
-    const { rerender } = render(<PlaybookVideos videos={[clip()]} onVideos={onVideos} />);
+    const onOpen = vi.fn();
+    const { rerender } = render(
+      <PlaybookVideos
+        videos={[clip()]}
+        onVideos={onVideos}
+        openId={null}
+        onOpen={onOpen}
+        pendingPin={null}
+      />,
+    );
     fireEvent.change(screen.getByRole("textbox", { name: "YouTube link" }), {
       target: { value: "https://example.com/watch?v=dQw4w9WgXcQ" },
     });
@@ -81,7 +108,15 @@ describe("PlaybookVideos", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add" }));
     expect(screen.getByText(/already on this strat/)).toBeInTheDocument();
 
-    rerender(<PlaybookVideos videos={[]} onVideos={onVideos} />);
+    rerender(
+      <PlaybookVideos
+        videos={[]}
+        onVideos={onVideos}
+        openId={null}
+        onOpen={onOpen}
+        pendingPin={null}
+      />,
+    );
     fireEvent.change(screen.getByRole("textbox", { name: "YouTube link" }), {
       target: { value: `https://www.youtube.com/shorts/${VIDEO}` },
     });
@@ -90,6 +125,8 @@ describe("PlaybookVideos", () => {
     expect(onVideos.mock.calls.at(-1)?.[0][0]).toMatchObject({
       videoId: VIDEO,
       title: YOUTUBE_UNTITLED,
+      x: 0,
+      y: 0,
     });
   });
 });

@@ -14,6 +14,9 @@ export interface PlaybookYouTube {
   videoId: string;
   url: string;
   title: string;
+  /** World XY — same space as playbook tokens. */
+  x: number;
+  y: number;
   startSeconds?: number;
 }
 

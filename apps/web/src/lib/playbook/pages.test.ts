@@ -200,6 +200,8 @@ describe("commitTitle / setPageBody", () => {
         videoId: "dQw4w9WgXcQ",
         url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         title: "A smoke",
+        x: 8,
+        y: 9,
       },
     ];
     book = setPageVideos(book, id, videos);
