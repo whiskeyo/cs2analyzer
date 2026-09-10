@@ -26,7 +26,7 @@ vi.mock("./RadarCanvas", () => ({
 function radarState(replay = makeReplay()) {
   const setPaletteId = vi.fn();
   const setColor = vi.fn();
-  const commitStrokes = vi.fn();
+  const commitNotes = vi.fn();
   const undo = vi.fn();
   const setPlaying = vi.fn();
   const setLayers = vi.fn();
@@ -41,9 +41,16 @@ function radarState(replay = makeReplay()) {
       color: COLOR_PRESETS[0].colors[0],
       paletteId: COLOR_PRESETS[0].id,
       floorMode: "auto",
-      strokes: [
-        { type: "pen", round: 1, color: "#fff", points: [{ x: 0, y: 0 }] },
-        { type: "bookmark", round: 1, color: "#fff", text: "Peek" },
+      notes: [
+        {
+          round: 1,
+          note: {
+            groups: [],
+            drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+            pieces: [],
+            bookmarks: [{ color: "#fff", text: "Peek", tick: 100 }],
+          },
+        },
       ],
       canUndo: true,
       canRedo: false,
@@ -52,7 +59,7 @@ function radarState(replay = makeReplay()) {
       setFloorMode: vi.fn(),
       undo,
       redo: vi.fn(),
-      commitStrokes,
+      commitNotes,
       summaryFilter: DEFAULT_SUMMARY_FILTER,
       setSummaryFilter: vi.fn(),
     },
@@ -86,7 +93,7 @@ function radarState(replay = makeReplay()) {
       bucketPlaySecRef: { current: 0 },
       bucketOverlay: null as { kind: RoundKind; side: Side } | null,
     },
-    _actions: { setPaletteId, setColor, commitStrokes, undo, setPlaying, setLayers },
+    _actions: { setPaletteId, setColor, commitNotes, undo, setPlaying, setLayers },
   };
 }
 
@@ -124,14 +131,19 @@ describe("RadarStage", () => {
     expect(state._actions.undo).toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: "Clear drawings on this round" }));
-    expect(state._actions.commitStrokes).toHaveBeenCalledWith([
-      expect.objectContaining({ type: "bookmark" }),
+    expect(state._actions.commitNotes).toHaveBeenCalledWith([
+      expect.objectContaining({
+        note: expect.objectContaining({
+          drawings: [],
+          bookmarks: [expect.objectContaining({ text: "Peek" })],
+        }),
+      }),
     ]);
 
     await userEvent.click(screen.getByRole("button", { name: /Bookmark this tick/ }));
-    expect(state._actions.commitStrokes).toHaveBeenCalledTimes(2);
-    expect(state._actions.commitStrokes.mock.calls[1][0]).toEqual(
-      expect.arrayContaining([expect.objectContaining({ type: "bookmark" })]),
+    expect(state._actions.commitNotes).toHaveBeenCalledTimes(2);
+    expect(state._actions.commitNotes.mock.calls[1][0][0].note.bookmarks).toEqual(
+      expect.arrayContaining([expect.objectContaining({ text: "Peek" })]),
     );
   });
 

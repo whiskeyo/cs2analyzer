@@ -11,13 +11,17 @@ import {
   loadProject,
   matchKey,
   pendingDemoFileHandle,
-  notesFromStrokes,
   PROJECT_SCHEMA,
   saveDemoFileHandle,
   saveProject,
   type ReviewProject,
 } from "./projectStore";
-import { DEFAULT_SUMMARY_FILTER, type FloorMode, type Stroke, type SummaryFilter } from "./types";
+import {
+  DEFAULT_SUMMARY_FILTER,
+  type FloorMode,
+  type RoundNote,
+  type SummaryFilter,
+} from "./types";
 
 export interface ReviewOverlay {
   summaryFilter: SummaryFilter;
@@ -50,7 +54,7 @@ export async function applyPendingDemoLink(project: ReviewProject): Promise<Revi
 export function projectFromDemo(
   target: LoadedDemo,
   tick: number,
-  strokes: Stroke[],
+  notes: RoundNote[],
   overlay: ReviewOverlay,
   existing: ReviewProject | null | undefined,
   opts: PersistReviewOpts = {},
@@ -71,7 +75,7 @@ export function projectFromDemo(
       fileName: target.fileName,
       mapName: target.replay.header.map_name,
       tick,
-      ...notesFromStrokes(strokes),
+      notes,
       summaryFilter: overlay.summaryFilter,
       floorMode: overlay.floorMode,
       paletteId: overlay.paletteId,
@@ -98,7 +102,7 @@ export async function seedDemoStats(target: LoadedDemo): Promise<ReviewProject> 
         fileName: target.fileName,
         mapName: target.replay.header.map_name,
         tick: existing?.tick ?? 0,
-        ...notesFromStrokes(existing?.strokes ?? []),
+        notes: existing?.notes ?? [],
         summaryFilter: existing?.summaryFilter ?? DEFAULT_SUMMARY_FILTER,
         floorMode: existing?.floorMode ?? "auto",
         paletteId: existing?.paletteId ?? defaultPaletteId(),
@@ -128,7 +132,7 @@ export async function flushSeriesReviewCache(): Promise<void> {
             fileName: entry.demo.fileName,
             mapName: entry.demo.replay.header.map_name,
             tick: entry.tick,
-            ...notesFromStrokes(entry.strokes),
+            notes: entry.notes,
             summaryFilter: entry.summaryFilter,
             floorMode: entry.floorMode,
             paletteId: entry.paletteId,
@@ -148,13 +152,13 @@ export async function flushSeriesReviewCache(): Promise<void> {
 export function reviewSnapshot(
   demo: LoadedDemo,
   tick: number,
-  strokes: Stroke[],
+  notes: RoundNote[],
   overlay: ReviewOverlay,
 ): SeriesReviewSnapshot {
   return {
     demo,
     tick,
-    strokes,
+    notes,
     summaryFilter: overlay.summaryFilter,
     floorMode: overlay.floorMode,
     paletteId: overlay.paletteId,

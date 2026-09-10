@@ -10,7 +10,7 @@ import {
   requestOf,
 } from "@/lib/storage/idb";
 import { isFiniteNumber, isRecord } from "@/lib/validate/guards.ts";
-import { flattenRoundNotes, strokesToRoundNotes } from "./migrate";
+import { strokesToRoundNotes } from "./migrate";
 import { parseRoundNotes } from "./noteParse";
 import { COLOR_PRESETS } from "./palettes";
 import {
@@ -21,7 +21,8 @@ import {
   type SummaryFilter,
 } from "./types";
 
-export const PROJECT_SCHEMA = 3;
+/** Schema 4 writes `notes[]` only. 1–3 still load via a one-way stroke migrate. */
+export const PROJECT_SCHEMA = 4;
 const MIN_PROJECT_SCHEMA = 1;
 const STORE = PROJECT_STORE;
 
@@ -35,7 +36,6 @@ export interface ReviewProject {
   mapName: string;
   tick: number;
   notes: RoundNote[];
-  strokes: Stroke[];
   summaryFilter: SummaryFilter;
   floorMode: FloorMode;
   paletteId: string;
@@ -71,15 +71,6 @@ export function defaultColor(): string {
   return COLOR_PRESETS[0].colors[0];
 }
 
-/** Canonical notes plus flattened strokes for the current Analyzer canvas. */
-export function notesFromStrokes(strokes: readonly Stroke[]): {
-  notes: RoundNote[];
-  strokes: Stroke[];
-} {
-  const notes = strokesToRoundNotes(strokes);
-  return { notes, strokes: flattenRoundNotes(notes) };
-}
-
 function isPoint(v: unknown): v is { x: number; y: number } {
   if (!isRecord(v)) {
     return false;
@@ -109,6 +100,7 @@ function withWindow<T extends Stroke>(base: T, o: Record<string, unknown>): T {
   };
 }
 
+/** Schema ≤3 flat stroke. Import-only — new saves never write this shape. */
 function parseStroke(v: unknown): Stroke | null {
   if (!isRecord(v)) {
     return null;
@@ -251,7 +243,6 @@ export function parseProject(raw: unknown): ReviewProject | null {
     return null;
   }
   const notes = parsedNotes.length > 0 ? parsedNotes : strokesToRoundNotes(parsedStrokes);
-  const strokes = parsedNotes.length > 0 ? flattenRoundNotes(notes) : parsedStrokes;
   const paletteId =
     typeof o.paletteId === "string" && COLOR_PRESETS.some((p) => p.id === o.paletteId)
       ? o.paletteId
@@ -273,7 +264,6 @@ export function parseProject(raw: unknown): ReviewProject | null {
     mapName: o.mapName,
     tick: typeof o.tick === "number" ? o.tick : 0,
     notes,
-    strokes,
     summaryFilter: parseFilter(o.summaryFilter),
     floorMode: parseFloor(o.floorMode),
     paletteId,

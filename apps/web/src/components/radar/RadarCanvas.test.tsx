@@ -23,7 +23,7 @@ vi.mock("@/lib/radar/paintRadarFrame", () => ({
 
 vi.mock("@/lib/radar/staticMapPaint", () => ({
   paintMapImage: vi.fn(),
-  paintNoteStrokes: vi.fn(),
+  paintNote: vi.fn(),
 }));
 
 vi.mock("@/lib/parse/seriesOverlay", async (importOriginal) => {
@@ -55,8 +55,8 @@ function canvasProps(overrides: Partial<Parameters<typeof RadarCanvas>[0]> = {})
     trails: true,
     tool: "pan" as const,
     color: "#ff0000",
-    strokes: [],
-    onStrokes: vi.fn(),
+    note: { groups: [], drawings: [], pieces: [], bookmarks: [] },
+    onNote: vi.fn(),
     onPan: vi.fn(),
     onPause: vi.fn(),
     moment: false,
@@ -118,7 +118,7 @@ describe("RadarCanvas", () => {
 
     expect(paintRadarFrame.paintRadarFrame).toHaveBeenCalled();
     expect(staticMapPaint.paintMapImage).toHaveBeenCalled();
-    expect(staticMapPaint.paintNoteStrokes).toHaveBeenCalled();
+    expect(staticMapPaint.paintNote).toHaveBeenCalled();
   });
 
   it("selects a nearby player on click in pan mode", () => {

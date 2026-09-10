@@ -1,4 +1,4 @@
-import { cloneNote } from "@/lib/notes/note";
+import { cloneNote, windowVisible } from "@/lib/notes/note";
 import { removeItems, type NoteItemRef } from "@/lib/notes/noteGroups";
 import type { Drawing, Note } from "@/lib/notes/types";
 import { hitTextLabel } from "@/lib/radar/draw";
@@ -87,20 +87,21 @@ export function hitTestDrawingRef(
   screen: { x: number; y: number },
   toScreen: (wx: number, wy: number) => { x: number; y: number },
   ctx: CanvasRenderingContext2D | null,
+  tick: number | null = null,
 ): NoteItemRef | null {
   for (let i = note.drawings.length - 1; i >= 0; i--) {
     const item = note.drawings[i];
-    if (!item || item.hidden) continue;
+    if (!item || item.hidden || !windowVisible(item, tick)) continue;
     if (drawingHit(item, world, screen, toScreen, ctx)) {
       return { kind: "loose", index: i };
     }
   }
   for (let g = note.groups.length - 1; g >= 0; g--) {
     const group = note.groups[g];
-    if (!group || group.hidden) continue;
+    if (!group || group.hidden || !windowVisible(group, tick)) continue;
     for (let d = group.drawings.length - 1; d >= 0; d--) {
       const drawing = group.drawings[d];
-      if (!drawing) continue;
+      if (!drawing || drawing.hidden) continue;
       if (drawingHit(drawing, world, screen, toScreen, ctx)) {
         return { kind: "group", groupIndex: g, drawingIndex: d };
       }
@@ -129,10 +130,11 @@ export function eraseAt(
   screen: { x: number; y: number },
   toScreen: (wx: number, wy: number) => { x: number; y: number },
   ctx: CanvasRenderingContext2D | null,
+  tick: number | null = null,
 ): Note {
   const piece = hitTestPiece(note.pieces, screen, toScreen, PIECE_HIT_PX);
   if (piece) return removePiece(note, piece.id);
-  const ref = hitTestDrawingRef(note, world, screen, toScreen, ctx);
+  const ref = hitTestDrawingRef(note, world, screen, toScreen, ctx, tick);
   if (!ref) return note;
   return removeItems(note, [ref]);
 }

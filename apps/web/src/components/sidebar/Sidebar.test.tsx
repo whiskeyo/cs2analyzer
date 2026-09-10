@@ -50,11 +50,11 @@ function sidebarProps(overrides: Partial<Parameters<typeof Sidebar>[0]> = {}) {
   return {
     replay: sidebarReplay(),
     tick: 640,
-    strokes: [],
+    notes: [],
     selected: null,
     onSelect: vi.fn(),
     onJump: vi.fn(),
-    onStrokes: vi.fn(),
+    onNotes: vi.fn(),
     places: null,
     ...overrides,
   };

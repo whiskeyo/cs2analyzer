@@ -170,8 +170,8 @@ export interface RoundNote {
 }
 
 /**
- * Flat Analyzer stroke. Owned by a round via `round`; prefer `Note` for new code.
- * Kept so schema ≤2 JSON and the current canvas/sidebar can migrate in place.
+ * Flat schema ≤3 review stroke. Persist migrates this to `Note` on load.
+ * Analyzer canvas and sidebar use `Note` only.
  */
 export type Stroke = {
   round: number;
