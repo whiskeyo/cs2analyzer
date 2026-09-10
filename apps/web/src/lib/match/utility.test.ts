@@ -136,7 +136,9 @@ describe("utilityThrough", () => {
   it("ignores full-overlay pawn snaps when a weaker player_blind exists", () => {
     expect(pickFlashDuration([1.2, FLASH_FULL_SECONDS, 5.1])).toBeCloseTo(1.2);
     expect(pickFlashDuration([0.2, 5.1])).toBeCloseTo(0.2);
-    expect(pickFlashDuration([5.1, FLASH_FULL_SECONDS])).toBe(0);
+    expect(pickFlashDuration([5.1, FLASH_FULL_SECONDS]), "overlay-only samples are not chips").toBe(
+      0,
+    );
     const m = replay({
       grenades: [nade("flash", 90, 0)],
       blinds: [
@@ -160,17 +162,18 @@ describe("utilityThrough", () => {
       blinds: [makeBlind(110, 0, 0, 5.1), makeBlind(112, 0, 1, FLASH_FULL_SECONDS)],
     });
     const u = utilityThrough(m, 640, null);
-    expect(u.throws[0]?.blinds).toEqual([]);
+    expect(u.throws[0]?.blinds, "overlay-only samples are not chips").toEqual([]);
     expect(throwDetail(u.throws[0]!)).toBe("");
   });
 
   it("lists a player_blind that lands a few ticks before detonate", () => {
+    // nade("flash", 90) detonates at 110. Revert flashWindowHas slack → empty chips.
     const m = replay({
       grenades: [nade("flash", 90, 0)],
       blinds: [makeBlind(108, 0, 1, 1.4), makeBlind(109, 0, 0, 0.6)],
     });
     const u = utilityThrough(m, 640, null);
-    expect(u.throws[0]?.blinds).toEqual([
+    expect(u.throws[0]?.blinds, "pre-detonate player_blind must attach").toEqual([
       { victim: 1, victimName: "Bob", duration: 1.4, enemy: true },
       { victim: 0, victimName: "Alice", duration: 0.6, enemy: false },
     ]);
@@ -197,6 +200,33 @@ describe("utilityThrough", () => {
     expect(u.throws[1]?.blinds).toEqual([
       { victim: 0, victimName: "Alice", duration: 2.1, enemy: true },
     ]);
+  });
+
+  it("does not chip yazuyy leftover on Matt's Cave throw", () => {
+    // Elbow leftover still yellow on yazuyy when Matt's Cave pops. Revert
+    // isFreshOnset leftover isolation → yazuyy appears on throw B chips.
+    const m = makeReplay({
+      players: [
+        makePlayer(0, "CT", "Alice"),
+        makePlayer(1, "T", "Mattiii208"),
+        makePlayer(2, "T", "yazuyy"),
+      ],
+      grenades: [nade("flash", 90, 2), nade("flash", 160, 1)],
+      blinds: [
+        makeBlind(110, 2, 2, 1.3),
+        makeBlind(182, 1, 2, 5.1),
+        makeBlind(183, 1, 2, 4.1),
+        makeBlind(184, 1, 1, 1.6),
+      ],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.throwerName).toBe("yazuyy");
+    expect(u.throws[1]?.throwerName).toBe("Mattiii208");
+    expect(u.throws[0]?.blinds.map((b) => b.victimName)).toEqual(["yazuyy"]);
+    expect(
+      u.throws[1]?.blinds.map((b) => b.victimName),
+      "leftover from throw A must not chip on throw B",
+    ).toEqual(["Mattiii208"]);
   });
 
   it("does not put a teammate leftover / overlay on the later throw (R21 Cave)", () => {

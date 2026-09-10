@@ -63,7 +63,9 @@ describe("onLiveScoreboard", () => {
       ticks,
     });
     expect(onLiveScoreboard(m, 0, 640)).toBe(true);
-    expect(onLiveScoreboard(m, 1, 640)).toBe(false);
+    expect(onLiveScoreboard(m, 1, 640), "ghost $0 leaver must not appear on live scoreboard").toBe(
+      false,
+    );
   });
 
   it("drops a sixth $0 leftover when the side already has five", () => {
@@ -94,7 +96,10 @@ describe("onLiveScoreboard", () => {
       ticks,
     });
     expect(onLiveScoreboard(m, 5, 640)).toBe(true);
-    expect(liveScoreboardPlayers(m, 640)).toEqual([0, 1, 2, 3, 4]);
+    expect(
+      liveScoreboardPlayers(m, 640),
+      "ghost $0 leaver must not appear on live scoreboard",
+    ).toEqual([0, 1, 2, 3, 4]);
   });
 
   it("keeps a player who died broke after being alive at freeze", () => {

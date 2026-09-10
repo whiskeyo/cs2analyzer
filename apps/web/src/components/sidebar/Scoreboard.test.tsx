@@ -98,6 +98,43 @@ describe("Scoreboard", () => {
     expect(screen.queryByText("KatolikCOO")).not.toBeInTheDocument();
   });
 
+  it("does not show a sixth $0 leftover on a 5-stack side", () => {
+    const ticks = makeTicks(6, 2);
+    ticks.ticks.set([64, 640]);
+    for (let i = 0; i < 5; i++) {
+      ticks.flags[i] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+      ticks.flags[6 + i] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    }
+    ticks.flags[5] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[11] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.health.fill(FULL_HEALTH);
+    ticks.money[6] = 800;
+    ticks.money[7] = 800;
+    ticks.money[8] = 800;
+    ticks.money[9] = 800;
+    ticks.money[10] = 800;
+    const m = makeReplay({
+      header: { team_ct: "AdaskoBlyat", team_t: "Bricaa" },
+      players: [
+        makePlayer(0, "CT", "Adasko"),
+        makePlayer(1, "CT", "arko2211"),
+        makePlayer(2, "CT", "yazuyy"),
+        makePlayer(3, "CT", "Olivvkaxx"),
+        makePlayer(4, "CT", "Mattiii208"),
+        makePlayer(5, "CT", "KatolikCOO"),
+      ],
+      rounds: [makeRound({ number: 13, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+      ticks,
+    });
+    render(<Scoreboard replay={m} tick={640} selected={null} onSelect={() => {}} />);
+    expect(
+      screen.queryByText("KatolikCOO"),
+      "ghost $0 leaver must not appear on live scoreboard",
+    ).not.toBeInTheDocument();
+    expect(within(teamTable("AdaskoBlyat")).getByText("Mattiii208")).toBeInTheDocument();
+    expect(within(teamTable("AdaskoBlyat")).getByText("Adasko")).toBeInTheDocument();
+  });
+
   it("hides a leftover controller still flagged present after they left", () => {
     const ticks = makeTicks(3, 2);
     ticks.ticks.set([64, 640]);

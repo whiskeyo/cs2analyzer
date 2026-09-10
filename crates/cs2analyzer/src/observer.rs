@@ -210,10 +210,7 @@ impl Collector {
     }
 
     fn record_blind(&mut self, tick: u32, victim: u64, duration: f32, attacker: Option<u64>) {
-        // Overlay-band (~5.0–5.47s) is the engine snap GOTV also sends as
-        // `player_blind`. ed5b8fa skipped it only on pawn samples; the event
-        // path still stored identical 5.0s on every marked steam.
-        if duration <= 0.0 || crate::flash_overlay_spike(duration) {
+        if !accept_blind_duration(duration) {
             return;
         }
         if self
@@ -382,20 +379,40 @@ fn controller_in_server(ctrl: &Entity) -> bool {
     crate::player_connected_in_server(prop_i32_opt(ctrl, "m_iConnected"))
 }
 
+/// Pawn `m_flFlashDuration` samples and `player_blind` both call `record_blind`.
+/// Overlay-band (~≥4.90s, including labeled 5.0s / ~5.1s) must not enter `blinds`.
+pub(crate) fn accept_blind_duration(duration: f32) -> bool {
+    duration > 0.0 && !crate::flash_overlay_spike(duration)
+}
+
+/// Leftover GOTV controllers keep `m_steamID` after a leave. Steam ≠ 0 is not enough.
+pub(crate) fn controller_steam_playable(
+    steam: u64,
+    connected: Option<i32>,
+    previously_left: bool,
+) -> bool {
+    if steam == 0 {
+        return false;
+    }
+    match connected {
+        Some(state) if !crate::player_connected_in_server(Some(state)) => false,
+        Some(_) => true,
+        None if previously_left => false,
+        None => true,
+    }
+}
+
 /// Steam for a controller that is still in the match this tick.
 ///
 /// Leftover CCSPlayerController entities keep `m_steamID` after a leave, so
 /// `FLAG_PRESENT` used to stay set and the scoreboard grew a ghost row.
 fn controller_active_steam(c: &Collector, ctrl: &Entity) -> Option<u64> {
     let steam = prop_u64(ctrl, "m_steamID");
-    if steam == 0 {
-        return None;
-    }
-    match prop_i32_opt(ctrl, "m_iConnected") {
-        Some(state) if !crate::player_connected_in_server(Some(state)) => None,
-        Some(_) => Some(steam),
-        None if c.left_steams.contains(&steam) => None,
-        None => Some(steam),
+    let connected = prop_i32_opt(ctrl, "m_iConnected");
+    if controller_steam_playable(steam, connected, c.left_steams.contains(&steam)) {
+        Some(steam)
+    } else {
+        None
     }
 }
 

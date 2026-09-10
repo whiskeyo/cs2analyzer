@@ -721,7 +721,8 @@ fn appeared_items(
 mod tests {
     use super::*;
     use crate::observer::{
-        bind_userid_steam, new_flash_duration, Collector, FireSpan, RawHurt, RawKill,
+        accept_blind_duration, bind_userid_steam, controller_steam_playable, new_flash_duration,
+        Collector, FireSpan, RawHurt, RawKill,
     };
     use crate::ParseOptions;
 
@@ -886,6 +887,70 @@ mod tests {
         assert!(crate::flash_overlay_spike(5.0));
         assert!(crate::flash_overlay_spike(5.1));
         assert!(crate::flash_overlay_spike(crate::FLASH_FULL_SECONDS));
+    }
+
+    #[test]
+    fn accept_blind_duration_rejects_overlay_from_pawn_and_player_blind() {
+        // record_blind is the only writer; pawn sampling and player_blind both
+        // call it. Revert the overlay check there → 5.0s enters blinds again
+        // (ed5b8fa left that hole on the event path).
+        assert!(
+            accept_blind_duration(1.3),
+            "short player_blind must enter blinds"
+        );
+        assert!(
+            accept_blind_duration(4.1),
+            "real leftover under the overlay band must enter blinds"
+        );
+        assert!(
+            !accept_blind_duration(4.95),
+            "overlay-band must not enter blinds"
+        );
+        assert!(
+            !accept_blind_duration(5.0),
+            "overlay-band must not enter blinds"
+        );
+        assert!(
+            !accept_blind_duration(5.1),
+            "overlay-band must not enter blinds"
+        );
+        assert!(
+            !accept_blind_duration(crate::FLASH_FULL_SECONDS),
+            "overlay-band must not enter blinds"
+        );
+        assert!(!accept_blind_duration(0.0));
+    }
+
+    #[test]
+    fn leftover_disconnected_controller_is_not_sampled() {
+        // steam ≠ 0 is the old FLAG_PRESENT rule. Revert controller_steam_playable
+        // → leftover KatolikCOO is sampled present and the live scoreboard grows.
+        let steam = 76_561_198_000_000_001;
+        assert!(
+            !controller_steam_playable(steam, Some(crate::PLAYER_DISCONNECTED), false),
+            "ghost $0 leaver must not be sampled as live"
+        );
+        assert!(
+            !controller_steam_playable(steam, Some(crate::PLAYER_DISCONNECTING), false),
+            "ghost $0 leaver must not be sampled as live"
+        );
+        assert!(
+            !controller_steam_playable(steam, None, true),
+            "ghost $0 leaver must not be sampled as live"
+        );
+        assert!(
+            controller_steam_playable(steam, Some(crate::PLAYER_CONNECTED), false),
+            "connected human must still be sampled"
+        );
+        assert!(
+            controller_steam_playable(steam, None, false),
+            "missing m_iConnected must not drop the roster"
+        );
+        assert!(!controller_steam_playable(
+            0,
+            Some(crate::PLAYER_CONNECTED),
+            false
+        ));
     }
 
     #[test]
