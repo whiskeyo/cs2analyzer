@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import {
+  canonicalPlaybookSearch,
   findPlaybook,
   findStrat,
   parsePlaybookQuery,
@@ -51,6 +52,7 @@ export function Playbook() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchKey = searchParams.toString();
   const query = useMemo(() => parsePlaybookQuery(searchKey), [searchKey]);
+  const incomingSearch = useMemo(() => canonicalPlaybookSearch(query), [query]);
   const initialMapFromUrl = useRef(query.map);
   const appliedSearchRef = useRef<string | null>(null);
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
@@ -141,11 +143,11 @@ export function Playbook() {
 
   useEffect(() => {
     if (!mapName) return;
-    if (appliedSearchRef.current === searchKey) return;
+    if (appliedSearchRef.current === incomingSearch) return;
     if (query.playbook) {
       const match = findPlaybook(allBooks, mapName, query.playbook);
       if (!match) return;
-      appliedSearchRef.current = searchKey;
+      appliedSearchRef.current = incomingSearch;
       if (activeKey !== match.key) select(match.key);
       if (query.strat) {
         const strat = findStrat(match, query.strat);
@@ -153,13 +155,13 @@ export function Playbook() {
       }
       return;
     }
-    appliedSearchRef.current = searchKey;
+    appliedSearchRef.current = incomingSearch;
     const focus = pendingFocus.current;
     if (focus && mapName === focus.mapName && allBooks.some((row) => row.key === focus.bookKey)) {
       if (activeKey !== focus.bookKey) select(focus.bookKey);
       pendingFocus.current = null;
     }
-  }, [activeKey, allBooks, mapName, query.playbook, query.strat, searchKey, select]);
+  }, [activeKey, allBooks, incomingSearch, mapName, query.playbook, query.strat, select]);
 
   useEffect(() => {
     if (!book) return;
@@ -228,18 +230,18 @@ export function Playbook() {
 
   useEffect(() => {
     if (!mapName) return;
-    if (query.playbook && appliedSearchRef.current !== searchKey) return;
+    if (query.playbook && appliedSearchRef.current !== incomingSearch) return;
     const next = playbookSearch({
       map: mapName,
       playbook: book ? playbookQueryLabel(allBooks, book) : null,
       strat: book && page ? stratQueryLabel(book.pages, page) : null,
     });
-    const current = playbookSearch(query);
-    if (next === current) return;
+    if (next === incomingSearch) return;
+    appliedSearchRef.current = next;
     setSearchParams(next === "" ? {} : Object.fromEntries(new URLSearchParams(next.slice(1))), {
       replace: true,
     });
-  }, [allBooks, book, mapName, page, query, searchKey, setSearchParams]);
+  }, [allBooks, book, incomingSearch, mapName, page, query.playbook, setSearchParams]);
 
   const treeBooks = booksWithDraft(allBooks, book);
   const treeExpandedBooks = useMemo(() => {

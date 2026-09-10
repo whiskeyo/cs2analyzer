@@ -30,6 +30,11 @@ export function parsePlaybookQuery(search: string): PlaybookQuery {
   };
 }
 
+/** `+` vs `%20` and param order collapse so apply/write compare the same query. */
+export function canonicalPlaybookSearch(query: PlaybookQuery): string {
+  return playbookSearch(query);
+}
+
 export function playbookSearch(query: {
   map?: string | null;
   playbook?: string | null;

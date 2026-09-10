@@ -111,7 +111,9 @@ describe("Playbook", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "A exec" }));
     await stratMenu("A exec", "Duplicate strat");
-    expect(screen.getByRole("button", { name: `A exec${COPY_SUFFIX}` })).toHaveClass("is-active");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: `A exec${COPY_SUFFIX}` })).toHaveClass("is-active");
+    });
 
     await stratMenu(`A exec${COPY_SUFFIX}`, "Delete strat");
     expect(screen.queryByRole("button", { name: `A exec${COPY_SUFFIX}` })).not.toBeInTheDocument();

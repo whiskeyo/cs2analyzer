@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import type { Playbook, PlaybookPage } from "@/lib/playbook/types";
 import {
+  canonicalPlaybookSearch,
   findPlaybook,
   findStrat,
   parsePlaybookQuery,
@@ -54,6 +55,14 @@ describe("playbookSearch", () => {
       strat: null,
     });
     expect(playbookSearch({})).toBe("");
+  });
+
+  it("treats + and %20 encodings as the same share URL", () => {
+    const plus = parsePlaybookQuery("map=de_mirage&playbook=A+execs&strat=A+exec");
+    const percent = parsePlaybookQuery("map=de_mirage&playbook=A%20execs&strat=A%20exec");
+    expect(plus).toEqual(percent);
+    expect(canonicalPlaybookSearch(plus)).toBe(canonicalPlaybookSearch(percent));
+    expect(canonicalPlaybookSearch(plus)).toBe("?map=de_mirage&playbook=A+execs&strat=A+exec");
   });
 });
 
