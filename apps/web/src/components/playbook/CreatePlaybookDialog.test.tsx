@@ -56,7 +56,7 @@ describe("CreatePlaybookDialog", () => {
   it("creates a playbook on the chosen map and opens the empty strat", async () => {
     const onClose = renderDialog();
     const map = await screen.findByRole("combobox", { name: "Map" });
-    expect(map).toHaveValue("de_mirage");
+    await waitFor(() => expect(map).toHaveValue("de_mirage"));
     await userEvent.selectOptions(map, "de_inferno");
     await userEvent.type(screen.getByRole("textbox", { name: "Playbook title" }), "A execs");
     await userEvent.click(screen.getByRole("button", { name: "Create" }));

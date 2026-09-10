@@ -84,30 +84,32 @@ export function CreatePlaybookDialog({ onClose }: Props) {
       >
         <h2 id={titleId}>New playbook</h2>
         <p>Pick a map and name the book. Opens an empty strat on that radar.</p>
-        <label className="playbook-field">
-          Map
-          <select
-            aria-label="Map"
-            value={mapName}
-            disabled={maps == null}
-            onChange={(e) => setMapName(e.target.value)}
-          >
-            {(maps ?? []).map((name) => (
-              <option key={name} value={name}>
-                {prettyMap(name)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="playbook-field">
-          Playbook title
-          <input
-            aria-label="Playbook title"
-            value={title}
-            placeholder={UNTITLED_PLAYBOOK}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </label>
+        <div className="home-create-fields">
+          <label className="playbook-field">
+            Map
+            <select
+              aria-label="Map"
+              value={mapName}
+              disabled={maps == null}
+              onChange={(e) => setMapName(e.target.value)}
+            >
+              {(maps ?? []).map((name) => (
+                <option key={name} value={name}>
+                  {prettyMap(name)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="playbook-field">
+            Playbook title
+            <input
+              aria-label="Playbook title"
+              value={title}
+              placeholder={UNTITLED_PLAYBOOK}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </label>
+        </div>
         {error ? <p className="error">{error}</p> : null}
         <div className="home-modal-actions">
           <button type="button" className="ghost" onClick={onClose}>

@@ -326,6 +326,11 @@ body,
   color: #c5d0da;
   font-size: var(--page-body-size);
 }
+.home-create-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
 .error {
   color: #ff6b6b;
 }
