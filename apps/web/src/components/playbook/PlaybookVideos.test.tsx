@@ -53,10 +53,10 @@ describe("PlaybookVideos", () => {
     expect(screen.getByRole("button", { name: /Mirage A smoke · 0:30/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Mirage A smoke · 0:30/ }));
     const dialog = screen.getByRole("dialog", { name: "Mirage A smoke" });
-    expect(dialog.querySelector("iframe")?.getAttribute("src")).toContain(
-      `youtube-nocookie.com/embed/${VIDEO}`,
-    );
-    expect(dialog.querySelector("iframe")?.getAttribute("src")).toContain("start=30");
+    const frame = dialog.querySelector("iframe");
+    expect(frame?.getAttribute("src")).toContain(`youtube-nocookie.com/embed/${VIDEO}`);
+    expect(frame?.getAttribute("src")).toContain("start=30");
+    expect(frame?.getAttribute("referrerpolicy")).toBe("strict-origin-when-cross-origin");
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 

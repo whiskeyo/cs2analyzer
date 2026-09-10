@@ -134,7 +134,8 @@ export function PlaybookVideos({ videos, onVideos }: Props) {
               <iframe
                 src={youtubeEmbedUrl(open.videoId, open.startSeconds)}
                 title={open.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
               />
             </div>

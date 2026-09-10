@@ -53,6 +53,7 @@ export function PlaybookStratPanel({
     <>
       <h2>Strat</h2>
       <p className="playbook-lead">{stratTitle}</p>
+      <PlaybookVideos videos={videos} onVideos={onVideos} />
       <label className="playbook-field playbook-notes-field">
         Strat notes
         <textarea
@@ -63,7 +64,6 @@ export function PlaybookStratPanel({
           onChange={(e) => onBody(e.target.value)}
         />
       </label>
-      <PlaybookVideos videos={videos} onVideos={onVideos} />
       <div className="playbook-tokens">
         <button
           type="button"
