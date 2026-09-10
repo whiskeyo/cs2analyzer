@@ -23,9 +23,18 @@ function project(partial: Partial<ReviewProject> = {}): ReviewProject {
     fileName: "a.dem",
     mapName: "de_mirage",
     tick: 120,
-    notes: [],
-    strokes: [
-      { type: "arrow", round: 1, color: "#ff1744", from: { x: 0, y: 0 }, to: { x: 10, y: 10 } },
+    notes: [
+      {
+        round: 1,
+        note: {
+          groups: [],
+          drawings: [
+            { type: "arrow", color: "#ff1744", from: { x: 0, y: 0 }, to: { x: 10, y: 10 } },
+          ],
+          pieces: [],
+          bookmarks: [],
+        },
+      },
     ],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",
@@ -49,8 +58,8 @@ describe("projectStore indexedDB", () => {
     await saveProject(row);
     const loaded = await loadProject(row.key);
     expect(loaded?.key).toBe(row.key);
-    expect(loaded?.strokes[0]?.type).toBe("arrow");
     expect(loaded?.notes[0]?.note.drawings[0]?.type).toBe("arrow");
+    expect(loaded && "strokes" in loaded).toBe(false);
     expect(loaded?.savedAt).toBeGreaterThanOrEqual(row.savedAt);
   });
 

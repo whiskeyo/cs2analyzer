@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
-import { navigate, ROUTES } from "@/lib/app/devNavigate";
+import { useNavigate } from "react-router";
+import { playbookHref } from "@/lib/app/playbookSearch";
 import type { DrawingGroup, FloorMode, NoteRadarFx, Piece } from "@/lib/notes/types";
 import { rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { listPlaybooksForMap } from "@/lib/playbook/playbookStore";
@@ -29,6 +30,7 @@ export function SnapshotDialog({
   onClose,
 }: Props) {
   const titleId = useId();
+  const navigate = useNavigate();
   const [books, setBooks] = useState<Playbook[] | null>(null);
   const [target, setTarget] = useState(NEW_BOOK);
   const [newTitle, setNewTitle] = useState("");
@@ -67,6 +69,7 @@ export function SnapshotDialog({
         groups,
         floor,
       });
+      // Playbook reads this once on mount (`consumePlaybookFocus`) after navigate.
       rememberPlaybookFocus({ mapName, bookKey: book.key });
       setSaved({ title: book.title, key: book.key });
     } catch (err: unknown) {
@@ -99,7 +102,13 @@ export function SnapshotDialog({
                 type="button"
                 onClick={() => {
                   rememberPlaybookFocus({ mapName, bookKey: saved.key });
-                  navigate(ROUTES.playbook);
+                  navigate(
+                    playbookHref({
+                      map: mapName,
+                      playbook: saved.title,
+                      strat: stratTitle,
+                    }),
+                  );
                   onClose();
                 }}
               >

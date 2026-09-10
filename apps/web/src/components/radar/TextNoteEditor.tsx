@@ -1,10 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MutableRefObject, RefObject } from "react";
 import { NOTE_TEXT_MIN_HEIGHT, NOTE_TEXT_MIN_WIDTH } from "@/lib/shared/constants";
-import type { Stroke } from "@/lib/notes/types";
+import { addDrawing } from "@/lib/playbook/drawings";
+import { removeItems, type NoteItemRef } from "@/lib/notes/noteGroups";
+import { cloneNote } from "@/lib/notes/note";
+import type { Note } from "@/lib/notes/types";
 
 export interface TextEdit {
-  index: number | null;
+  ref: NoteItemRef | null;
   x: number;
   y: number;
   /** Wrap-local px so the first paint sits on the click, not after the canvas. */
@@ -12,7 +15,6 @@ export interface TextEdit {
   sy: number;
   text: string;
   color: string;
-  round: number;
   start_tick?: number;
   end_tick?: number;
   box_w?: number;
@@ -20,7 +22,7 @@ export interface TextEdit {
 }
 
 export interface TextMove {
-  index: number;
+  ref: NoteItemRef;
   grabWx: number;
   grabWy: number;
   grabSx: number;
@@ -42,33 +44,45 @@ export interface TextEditDrag {
 export function applyTextCommit(
   ed: TextEdit,
   box: { box_w?: number; box_h?: number },
-  list: Stroke[],
-): Stroke[] {
+  note: Note,
+): Note {
   const trimmed = ed.text.trim();
-  if (ed.index == null) {
-    if (!trimmed) return list;
-    const st: Stroke = {
+  if (ed.ref == null) {
+    if (!trimmed) return note;
+    return addDrawing(note, {
       type: "text",
-      round: ed.round,
       color: ed.color,
       x: ed.x,
       y: ed.y,
       text: trimmed,
       ...box,
       ...(ed.start_tick != null ? { start_tick: ed.start_tick, end_tick: ed.end_tick } : {}),
-    };
-    return [...list, st];
+    });
   }
-  if (!trimmed) return list.filter((_, i) => i !== ed.index);
-  return list.map((s, i) =>
-    i === ed.index && s.type === "text" ? { ...s, text: trimmed, x: ed.x, y: ed.y, ...box } : s,
-  );
+  if (!trimmed) return removeItems(note, [ed.ref]);
+  const next = cloneNote(note);
+  if (ed.ref.kind === "loose") {
+    const drawing = next.drawings[ed.ref.index];
+    if (!drawing || drawing.type !== "text") return note;
+    next.drawings[ed.ref.index] = { ...drawing, text: trimmed, x: ed.x, y: ed.y, ...box };
+    return next;
+  }
+  if (ed.ref.kind === "group") {
+    const drawing = next.groups[ed.ref.groupIndex]?.drawings[ed.ref.drawingIndex];
+    if (!drawing || drawing.type !== "text") return note;
+    next.groups[ed.ref.groupIndex].drawings[ed.ref.drawingIndex] = {
+      ...drawing,
+      text: trimmed,
+      x: ed.x,
+      y: ed.y,
+      ...box,
+    };
+    return next;
+  }
+  return note;
 }
 
-export function useTextNotes(
-  strokesRef: MutableRefObject<Stroke[]>,
-  onStrokes: (next: Stroke[]) => void,
-) {
+export function useTextNotes(noteRef: MutableRefObject<Note>, onNote: (next: Note) => void) {
   const [editing, setEditing] = useState<TextEdit | null>(null);
   const editingRef = useRef<TextEdit | null>(null);
   editingRef.current = editing;
@@ -76,8 +90,8 @@ export function useTextNotes(
   const editWrapRef = useRef<HTMLDivElement>(null);
   const ignoreBlurRef = useRef(false);
   const editDragRef = useRef<TextEditDrag | null>(null);
-  const onStrokesRef = useRef(onStrokes);
-  onStrokesRef.current = onStrokes;
+  const onNoteRef = useRef(onNote);
+  onNoteRef.current = onNote;
 
   const focusEditor = () => {
     const el = editAreaRef.current;
@@ -93,7 +107,7 @@ export function useTextNotes(
     const id = window.setTimeout(focusEditor, 0);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- typing / drag should not steal the caret
-  }, [editing?.index]);
+  }, [editing?.ref]);
 
   useEffect(() => {
     if (!editing) return;
@@ -113,7 +127,7 @@ export function useTextNotes(
     ro.observe(el);
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-bind when the editor opens
-  }, [editing?.index]);
+  }, [editing?.ref]);
 
   const commitEditing = () => {
     const ed = editingRef.current;
@@ -131,8 +145,8 @@ export function useTextNotes(
           };
     editingRef.current = null;
     setEditing(null);
-    if (ed.index == null && !ed.text.trim()) return;
-    onStrokesRef.current(applyTextCommit(ed, box, strokesRef.current));
+    if (ed.ref == null && !ed.text.trim()) return;
+    onNoteRef.current(applyTextCommit(ed, box, noteRef.current));
   };
 
   const commitEditingRef = useRef(commitEditing);

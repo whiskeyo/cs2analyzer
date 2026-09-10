@@ -228,7 +228,7 @@ describe("usePlayback", () => {
     setSeriesReview({
       demo,
       tick: 400,
-      strokes: [],
+      notes: [],
       summaryFilter: {
         kinds: {
           smoke: true,

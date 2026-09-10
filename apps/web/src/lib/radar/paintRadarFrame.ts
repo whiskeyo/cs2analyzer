@@ -3,6 +3,7 @@
  * mechanics: if something looks wrong on the radar, the frame model says why.
  */
 
+import { darkenHexColor } from "@/lib/shared/color";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import {
   drawArrow,
@@ -40,17 +41,6 @@ const DIAL_START = -Math.PI / 2;
 const DIAL_BACKDROP = "#12181f";
 /** Flight-path line; effects (smoke, molly, HE, flash pop) stay at full paint alpha. */
 const NADE_TRAIL_OPACITY = 0.4;
-
-function darkenHexColor(color: string, factor: number): string {
-  if (!color.startsWith("#") || color.length !== 7) return color;
-  const f = Math.max(0, Math.min(1, factor));
-  const r = Math.round(parseInt(color.slice(1, 3), 16) * f);
-  const g = Math.round(parseInt(color.slice(3, 5), 16) * f);
-  const b = Math.round(parseInt(color.slice(5, 7), 16) * f);
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b
-    .toString(16)
-    .padStart(2, "0")}`;
-}
 
 function paintDeathCross(ctx: CanvasRenderingContext2D, toScreen: ToScreen, x: number, y: number) {
   const s = toScreen(x, y);

@@ -1,4 +1,6 @@
-export const PLAYBOOK_FOCUS_KEY = "cs2analyzer.playbook.focus";
+import { PLAYBOOK_FOCUS_KEY } from "@/lib/shared/storageKeys";
+
+export { PLAYBOOK_FOCUS_KEY };
 
 export type PlaybookFocus = {
   mapName: string;
@@ -20,6 +22,7 @@ export function rememberPlaybookFocus(focus: PlaybookFocus): void {
   store.setItem(PLAYBOOK_FOCUS_KEY, JSON.stringify(focus));
 }
 
+/** One-shot sessionStorage handoff from SnapshotDialog → Playbook mount. */
 export function consumePlaybookFocus(): PlaybookFocus | null {
   const store = sessionStore();
   if (!store) return null;

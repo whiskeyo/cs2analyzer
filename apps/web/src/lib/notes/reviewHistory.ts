@@ -1,23 +1,23 @@
 import { useCallback, useRef, useState } from "react";
 import { DRAW_HISTORY_LIMIT } from "@/lib/shared/constants";
-import type { Stroke } from "./types";
+import type { RoundNote } from "./types";
 
-/** Undo/redo stack for review strokes (in-memory only). */
-export function useStrokeHistory() {
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
+/** Undo/redo stack for review notes (in-memory only). */
+export function useRoundNoteHistory() {
+  const [notes, setNotes] = useState<RoundNote[]>([]);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  const historyRef = useRef<Stroke[][]>([[]]);
+  const historyRef = useRef<RoundNote[][]>([[]]);
   const histIdxRef = useRef(0);
-  const strokesRef = useRef(strokes);
-  strokesRef.current = strokes;
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
 
   const syncHistoryButtons = useCallback(() => {
     setCanUndo(histIdxRef.current > 0);
     setCanRedo(histIdxRef.current < historyRef.current.length - 1);
   }, []);
 
-  const commitStrokes = useCallback((next: Stroke[], reset = false) => {
+  const commitNotes = useCallback((next: RoundNote[], reset = false) => {
     if (reset) {
       historyRef.current = [next];
       histIdxRef.current = 0;
@@ -30,7 +30,7 @@ export function useStrokeHistory() {
       historyRef.current = trimmed;
       histIdxRef.current = trimmed.length - 1;
     }
-    setStrokes(next);
+    setNotes(next);
     setCanUndo(histIdxRef.current > 0);
     setCanRedo(histIdxRef.current < historyRef.current.length - 1);
   }, []);
@@ -40,7 +40,7 @@ export function useStrokeHistory() {
       return;
     }
     histIdxRef.current -= 1;
-    setStrokes(historyRef.current[histIdxRef.current] ?? []);
+    setNotes(historyRef.current[histIdxRef.current] ?? []);
     syncHistoryButtons();
   }, [syncHistoryButtons]);
 
@@ -49,16 +49,16 @@ export function useStrokeHistory() {
       return;
     }
     histIdxRef.current += 1;
-    setStrokes(historyRef.current[histIdxRef.current] ?? []);
+    setNotes(historyRef.current[histIdxRef.current] ?? []);
     syncHistoryButtons();
   }, [syncHistoryButtons]);
 
   return {
-    strokes,
-    strokesRef,
+    notes,
+    notesRef,
     canUndo,
     canRedo,
-    commitStrokes,
+    commitNotes,
     undo,
     redo,
   };

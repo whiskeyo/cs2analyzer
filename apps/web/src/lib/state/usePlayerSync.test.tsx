@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
@@ -47,7 +50,6 @@ describe("usePlayerSync", () => {
         series,
         replay: solo.replay,
         activeDemoId: solo.id,
-        selected: null,
         setSelected,
         playerKey: "steam:100",
       }),
@@ -64,14 +66,12 @@ describe("usePlayerSync", () => {
       series: ReturnType<typeof buildSeries>;
       replay: typeof a.replay;
       activeDemoId: string;
-      selected: number | null;
       setSelected: typeof setSelected;
       playerKey: string | null;
     } = {
       series,
       replay: a.replay,
       activeDemoId: a.id,
-      selected: 0,
       setSelected,
       playerKey: "steam:100",
     };
@@ -83,10 +83,35 @@ describe("usePlayerSync", () => {
         ...state,
         replay: b.replay,
         activeDemoId: b.id,
-        selected: null,
       });
     });
 
     expect(setSelected).toHaveBeenCalledWith(1);
+  });
+
+  it("writes the slot even when the index is unchanged so a view reset cannot stick", () => {
+    const a = makeDemo("a.dem", 0);
+    const b = makeDemo("b.dem", 0);
+    const series = buildSeries("de_mirage", [a, b], FOCAL);
+    const setSelected = vi.fn();
+    const state = {
+      series,
+      replay: a.replay,
+      activeDemoId: a.id,
+      setSelected,
+      playerKey: "steam:100" as string | null,
+    };
+    const { rerender } = renderHook((s) => usePlayerSync(s), { initialProps: state });
+    setSelected.mockClear();
+
+    act(() => {
+      rerender({
+        ...state,
+        replay: b.replay,
+        activeDemoId: b.id,
+      });
+    });
+
+    expect(setSelected).toHaveBeenCalledWith(0);
   });
 });

@@ -1,5 +1,6 @@
 import type { MouseEvent, WheelEvent, RefObject } from "react";
 import { useEffect, useRef } from "react";
+import { useCanvasLoop } from "@/lib/shared/useCanvasLoop";
 import { paintLayoutFrame } from "@/lib/layouts/paintLayout";
 import { radarFile, radarLayout, radarToScreen, type RadarView } from "@/lib/layouts/maps";
 import type {
@@ -27,29 +28,24 @@ interface Props {
   onContextMenu: (e: MouseEvent<HTMLDivElement>) => void;
 }
 
-export function LayoutCanvas({
-  cal,
-  floor,
-  tool,
-  callouts,
-  selectedIds,
-  wrapRef,
-  view,
-  draftRef,
-  cursorRef,
-  onMouseDown,
-  onDoubleClick,
-  onWheel,
-  onContextMenu,
-}: Props) {
+export function LayoutCanvas(props: Props) {
+  const {
+    cal,
+    floor,
+    tool,
+    wrapRef,
+    view,
+    draftRef,
+    cursorRef,
+    onMouseDown,
+    onDoubleClick,
+    onWheel,
+    onContextMenu,
+  } = props;
+  const propsRef = useRef(props);
+  propsRef.current = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
-  const calloutsRef = useRef(callouts);
-  calloutsRef.current = callouts;
-  const selectedIdsRef = useRef(selectedIds);
-  selectedIdsRef.current = selectedIds;
-  const floorRef = useRef(floor);
-  floorRef.current = floor;
 
   useEffect(() => {
     const img = new Image();
@@ -60,46 +56,31 @@ export function LayoutCanvas({
     imageRef.current = null;
   }, [cal, floor]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const wrap = wrapRef.current;
-    if (!canvas || !wrap) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    let raf = 0;
-    const draw = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const w = wrap.clientWidth;
-      const h = wrap.clientHeight;
-      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
-        canvas.style.width = `${w}px`;
-        canvas.style.height = `${h}px`;
-      }
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const v = view.current as RadarView;
+  useCanvasLoop(
+    canvasRef,
+    wrapRef,
+    (ctx, w, h) => {
+      const p = propsRef.current;
+      const v = p.view.current as RadarView;
       const { fit, baseX, baseY } = radarLayout(w, h, v);
       paintLayoutFrame(ctx, {
         w,
         h,
         view: v,
-        floor: floorRef.current,
-        callouts: calloutsRef.current,
-        selectedIds: selectedIdsRef.current,
-        draft: draftRef.current,
-        cursor: cursorRef.current,
+        floor: p.floor,
+        callouts: p.callouts,
+        selectedIds: p.selectedIds,
+        draft: p.draftRef.current,
+        cursor: p.cursorRef.current,
         image: imageRef.current,
-        toScreen: (p) => radarToScreen(w, h, v, p.x, p.y),
+        toScreen: (pt) => radarToScreen(w, h, v, pt.x, pt.y),
         fit,
         baseX,
         baseY,
       });
-      raf = requestAnimationFrame(draw);
-    };
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
-  }, [cursorRef, draftRef, view, wrapRef]);
+    },
+    [wrapRef, view, draftRef, cursorRef],
+  );
 
   return (
     <div

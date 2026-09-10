@@ -5,16 +5,18 @@ import "fake-indexeddb/auto";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { navigate, ROUTES } from "@/lib/app/devNavigate";
+import { playbookHref } from "@/lib/app/playbookSearch";
+import { TestRouter } from "@/lib/testing/router";
 import { PLAYBOOK_FOCUS_KEY } from "@/lib/playbook/focus";
 import * as playbookStore from "@/lib/playbook/playbookStore";
 import * as snapshot from "@/lib/playbook/snapshot";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
 import { SnapshotDialog } from "./SnapshotDialog";
 
-vi.mock("@/lib/app/devNavigate", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/app/devNavigate")>();
-  return { ...actual, navigate: vi.fn() };
+const navigate = vi.fn();
+vi.mock("react-router", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router")>();
+  return { ...actual, useNavigate: () => navigate };
 });
 
 const DEFAULT_TITLE = "NaVi - FaZe (faceit.dem) · R12 0:00";
@@ -22,13 +24,15 @@ const DEFAULT_TITLE = "NaVi - FaZe (faceit.dem) · R12 0:00";
 function renderDialog() {
   const onClose = vi.fn();
   render(
-    <SnapshotDialog
-      mapName="de_anubis"
-      pieces={[]}
-      stratTitle={DEFAULT_TITLE}
-      floor="auto"
-      onClose={onClose}
-    />,
+    <TestRouter path="/analyzer">
+      <SnapshotDialog
+        mapName="de_anubis"
+        pieces={[]}
+        stratTitle={DEFAULT_TITLE}
+        floor="auto"
+        onClose={onClose}
+      />
+    </TestRouter>,
   );
   return onClose;
 }
@@ -57,7 +61,13 @@ describe("SnapshotDialog", () => {
       mapName: "de_anubis",
     });
     await userEvent.click(screen.getByRole("button", { name: "Open strat" }));
-    expect(navigate).toHaveBeenCalledWith(ROUTES.playbook);
+    expect(navigate).toHaveBeenCalledWith(
+      playbookHref({
+        map: "de_anubis",
+        playbook: "A execs",
+        strat: DEFAULT_TITLE,
+      }),
+    );
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -136,13 +146,15 @@ describe("SnapshotDialog", () => {
         }),
     );
     const { unmount } = render(
-      <SnapshotDialog
-        mapName="de_anubis"
-        pieces={[]}
-        stratTitle={DEFAULT_TITLE}
-        floor="auto"
-        onClose={() => undefined}
-      />,
+      <TestRouter path="/analyzer">
+        <SnapshotDialog
+          mapName="de_anubis"
+          pieces={[]}
+          stratTitle={DEFAULT_TITLE}
+          floor="auto"
+          onClose={() => undefined}
+        />
+      </TestRouter>,
     );
     unmount();
     resolve([]);

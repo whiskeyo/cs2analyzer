@@ -8,7 +8,12 @@ import { DEFAULT_HABITS_NADE_FILTER, type SeriesOverlay } from "@/lib/parse/seri
 import type { RoundKind } from "@/lib/parse/roundTags";
 import type { Side } from "@/lib/replay/replayTypes";
 import { makeReplay, makeRound } from "@/lib/testing/fixtures";
+import { TestRouter } from "@/lib/testing/router";
 import { RadarStage } from "./RadarStage";
+
+function renderStage(ui = <RadarStage />) {
+  return render(<TestRouter>{ui}</TestRouter>);
+}
 
 vi.mock("@/lib/state/appState", () => ({
   useApp: vi.fn(),
@@ -21,7 +26,7 @@ vi.mock("./RadarCanvas", () => ({
 function radarState(replay = makeReplay()) {
   const setPaletteId = vi.fn();
   const setColor = vi.fn();
-  const commitStrokes = vi.fn();
+  const commitNotes = vi.fn();
   const undo = vi.fn();
   const setPlaying = vi.fn();
   const setLayers = vi.fn();
@@ -36,9 +41,16 @@ function radarState(replay = makeReplay()) {
       color: COLOR_PRESETS[0].colors[0],
       paletteId: COLOR_PRESETS[0].id,
       floorMode: "auto",
-      strokes: [
-        { type: "pen", round: 1, color: "#fff", points: [{ x: 0, y: 0 }] },
-        { type: "bookmark", round: 1, color: "#fff", text: "Peek" },
+      notes: [
+        {
+          round: 1,
+          note: {
+            groups: [],
+            drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+            pieces: [],
+            bookmarks: [{ color: "#fff", text: "Peek", tick: 100 }],
+          },
+        },
       ],
       canUndo: true,
       canRedo: false,
@@ -47,7 +59,7 @@ function radarState(replay = makeReplay()) {
       setFloorMode: vi.fn(),
       undo,
       redo: vi.fn(),
-      commitStrokes,
+      commitNotes,
       summaryFilter: DEFAULT_SUMMARY_FILTER,
       setSummaryFilter: vi.fn(),
     },
@@ -81,7 +93,7 @@ function radarState(replay = makeReplay()) {
       bucketPlaySecRef: { current: 0 },
       bucketOverlay: null as { kind: RoundKind; side: Side } | null,
     },
-    _actions: { setPaletteId, setColor, commitStrokes, undo, setPlaying, setLayers },
+    _actions: { setPaletteId, setColor, commitNotes, undo, setPlaying, setLayers },
   };
 }
 
@@ -94,13 +106,13 @@ describe("RadarStage", () => {
     vi.mocked(useApp).mockReturnValue({
       session: { replay: null },
     } as unknown as ReturnType<typeof useApp>);
-    const { container } = render(<RadarStage />);
+    const { container } = renderStage();
     expect(container).toBeEmptyDOMElement();
   });
 
   it("renders the radar column when a replay is loaded", () => {
     vi.mocked(useApp).mockReturnValue(radarState() as unknown as ReturnType<typeof useApp>);
-    const { container } = render(<RadarStage />);
+    const { container } = renderStage();
     expect(container.querySelector(".radar-col")).toBeInTheDocument();
     expect(screen.getByTestId("radar-canvas")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Draw" })).toBeInTheDocument();
@@ -113,27 +125,32 @@ describe("RadarStage", () => {
       }),
     );
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
 
     await userEvent.click(screen.getByRole("button", { name: "Undo drawing (Ctrl+Z)" }));
     expect(state._actions.undo).toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: "Clear drawings on this round" }));
-    expect(state._actions.commitStrokes).toHaveBeenCalledWith([
-      expect.objectContaining({ type: "bookmark" }),
+    expect(state._actions.commitNotes).toHaveBeenCalledWith([
+      expect.objectContaining({
+        note: expect.objectContaining({
+          drawings: [],
+          bookmarks: [expect.objectContaining({ text: "Peek" })],
+        }),
+      }),
     ]);
 
     await userEvent.click(screen.getByRole("button", { name: /Bookmark this tick/ }));
-    expect(state._actions.commitStrokes).toHaveBeenCalledTimes(2);
-    expect(state._actions.commitStrokes.mock.calls[1][0]).toEqual(
-      expect.arrayContaining([expect.objectContaining({ type: "bookmark" })]),
+    expect(state._actions.commitNotes).toHaveBeenCalledTimes(2);
+    expect(state._actions.commitNotes.mock.calls[1][0][0].note.bookmarks).toEqual(
+      expect.arrayContaining([expect.objectContaining({ text: "Peek" })]),
     );
   });
 
   it("resets the active color when the palette changes", async () => {
     const state = radarState();
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
 
     await userEvent.click(screen.getByRole("button", { name: "Night" }));
     expect(state._actions.setPaletteId).toHaveBeenCalledWith("night");
@@ -143,7 +160,7 @@ describe("RadarStage", () => {
   it("pauses playback when summary is enabled", async () => {
     const state = radarState();
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
 
     await userEvent.click(screen.getByRole("button", { name: "Summary" }));
     expect(state._actions.setPlaying).toHaveBeenCalledWith(false);
@@ -163,14 +180,14 @@ describe("RadarStage", () => {
       windowSec: 5,
     };
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
     expect(screen.queryByRole("button", { name: /Round autoplay/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Snapshot to playbook" })).toBeInTheDocument();
   });
 
   it("opens the snapshot dialog from the toolbar", async () => {
     vi.mocked(useApp).mockReturnValue(radarState() as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
     await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
     expect(screen.getByRole("dialog", { name: "Snapshot to playbook" })).toBeInTheDocument();
   });
@@ -192,7 +209,7 @@ describe("RadarStage", () => {
       demos: Array.from({ length: 12 }, () => ({})),
     };
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<RadarStage />);
+    renderStage();
     await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
     expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue(
       "Spirit series (12 demos) · CT pistol · 0:24",

@@ -33,6 +33,26 @@ function replay(): Replay {
   });
 }
 
+const arrowNote = {
+  round: 1,
+  note: {
+    groups: [],
+    drawings: [
+      { type: "arrow" as const, color: "#ff1744", from: { x: 0, y: 0 }, to: { x: 10, y: 10 } },
+    ],
+    pieces: [],
+    bookmarks: [],
+  },
+};
+
+const legacyArrow = {
+  type: "arrow" as const,
+  round: 1,
+  color: "#ff1744",
+  from: { x: 0, y: 0 },
+  to: { x: 10, y: 10 },
+};
+
 function project(partial: Partial<ReviewProject> = {}): ReviewProject {
   return {
     schema: PROJECT_SCHEMA,
@@ -41,10 +61,7 @@ function project(partial: Partial<ReviewProject> = {}): ReviewProject {
     fileName: "a.dem",
     mapName: "de_mirage",
     tick: 120,
-    notes: [],
-    strokes: [
-      { type: "arrow", round: 1, color: "#ff1744", from: { x: 0, y: 0 }, to: { x: 10, y: 10 } },
-    ],
+    notes: [arrowNote],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",
     paletteId: COLOR_PRESETS[0].id,
@@ -64,7 +81,7 @@ describe("parseBundle", () => {
     const raw = parseJson(serializeBundle([project()]));
     const bundle = parseBundle(raw);
     expect(bundle?.projects).toHaveLength(1);
-    expect(bundle?.projects[0]?.strokes[0]?.type).toBe("arrow");
+    expect(bundle?.projects[0]?.notes[0]?.note.drawings[0]?.type).toBe("arrow");
     expect(parseBundle({ schema: 0, projects: [] })).toBeNull();
   });
 
@@ -73,19 +90,22 @@ describe("parseBundle", () => {
     expect(bundle?.projects[0]?.key).toBe("de_mirage|1|50,100|a.dem");
   });
 
-  it("drops malformed strokes", () => {
+  it("drops malformed strokes when migrating schema ≤3", () => {
     const p = parseProject({
       ...project(),
-      strokes: [{ type: "pen", round: 1, color: "#fff" }, project().strokes[0]],
+      notes: undefined,
+      strokes: [{ type: "pen", round: 1, color: "#fff" }, legacyArrow],
     });
-    expect(p?.strokes).toHaveLength(1);
+    expect(p?.notes[0]?.note.drawings).toHaveLength(1);
+    expect(p?.notes[0]?.note.drawings[0]?.type).toBe("arrow");
   });
 
   it("keeps old files without ticks and loads text plus a moment window", () => {
     const p = parseProject({
       ...project(),
+      notes: undefined,
       strokes: [
-        project().strokes[0],
+        legacyArrow,
         {
           type: "text",
           round: 1,
@@ -99,9 +119,9 @@ describe("parseBundle", () => {
         { type: "text", round: 1, color: "#fff", x: 0, y: 0 },
       ],
     });
-    expect(p?.strokes).toHaveLength(2);
-    expect(p?.strokes[0]).toEqual(project().strokes[0]);
-    expect(p?.strokes[1]).toMatchObject({
+    expect(p?.notes[0]?.note.drawings).toHaveLength(2);
+    expect(p?.notes[0]?.note.drawings[0]).toMatchObject({ type: "arrow" });
+    expect(p?.notes[0]?.note.drawings[1]).toMatchObject({
       type: "text",
       text: "hold mid",
       start_tick: 120,
@@ -112,6 +132,7 @@ describe("parseBundle", () => {
   it("keeps a resized text box", () => {
     const p = parseProject({
       ...project(),
+      notes: undefined,
       strokes: [
         {
           type: "text",
@@ -125,7 +146,7 @@ describe("parseBundle", () => {
         },
       ],
     });
-    expect(p?.strokes[0]).toMatchObject({
+    expect(p?.notes[0]?.note.drawings[0]).toMatchObject({
       type: "text",
       text: "hold mid",
       box_w: 240,
@@ -133,15 +154,15 @@ describe("parseBundle", () => {
     });
   });
 
-  it("keeps a group id on a stroke", () => {
+  it("migrates a grouped hidden stroke into a Note group", () => {
     const p = parseProject({
       ...project(),
-      strokes: [
-        { ...project().strokes[0], group: "g2", start_tick: 10, end_tick: 80, hidden: true },
-      ],
+      notes: undefined,
+      strokes: [{ ...legacyArrow, group: "g2", start_tick: 10, end_tick: 80, hidden: true }],
     });
-    expect(p?.strokes[0]).toMatchObject({
-      group: "g2",
+    expect(p?.notes[0]?.note.groups[0]).toMatchObject({
+      id: "g2",
+      name: "g2",
       start_tick: 10,
       end_tick: 80,
       hidden: true,
@@ -188,6 +209,7 @@ describe("parseBundle", () => {
   it("keeps a bookmark and fills a blank title", () => {
     const p = parseProject({
       ...project(),
+      notes: undefined,
       strokes: [
         {
           type: "bookmark",
@@ -199,8 +221,7 @@ describe("parseBundle", () => {
         },
       ],
     });
-    expect(p?.strokes[0]).toMatchObject({
-      type: "bookmark",
+    expect(p?.notes[0]?.note.bookmarks[0]).toMatchObject({
       text: NOTE_BOOKMARK_TITLE,
       start_tick: 80,
       end_tick: 80,
@@ -212,33 +233,40 @@ describe("parseBundle", () => {
       ...project(),
       schema: 2,
       notes: undefined,
+      strokes: [legacyArrow],
     });
     expect(p?.schema).toBe(PROJECT_SCHEMA);
     expect(p?.notes).toHaveLength(1);
     expect(p?.notes[0]?.round).toBe(1);
     expect(p?.notes[0]?.note.drawings[0]?.type).toBe("arrow");
+    expect(p && "strokes" in p).toBe(false);
   });
 
-  it("flattens schema 3 notes back to strokes", () => {
+  it("round-trips schema 4 notes without writing strokes", () => {
+    const notes = [
+      {
+        round: 4,
+        note: {
+          drawings: [{ type: "pen" as const, color: "#fff", points: [{ x: 0, y: 0 }] }],
+          groups: [],
+          pieces: [],
+          bookmarks: [],
+        },
+      },
+    ];
     const p = parseProject({
       ...project(),
       strokes: undefined,
-      notes: [
-        {
-          round: 4,
-          note: {
-            drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
-            groups: [],
-            pieces: [],
-            bookmarks: [],
-          },
-        },
-      ],
+      notes,
     });
-    expect(p?.strokes).toEqual([
-      { type: "pen", round: 4, color: "#fff", points: [{ x: 0, y: 0 }] },
-    ]);
     expect(p?.notes[0]?.round).toBe(4);
+    expect(p && "strokes" in p).toBe(false);
+    const raw = parseJson(serializeBundle([p!])) as {
+      schema: number;
+      projects: Record<string, unknown>[];
+    };
+    expect(raw.projects[0]).not.toHaveProperty("strokes");
+    expect(raw.schema).toBe(PROJECT_SCHEMA);
   });
 
   it("rejects a project with neither notes nor strokes", () => {

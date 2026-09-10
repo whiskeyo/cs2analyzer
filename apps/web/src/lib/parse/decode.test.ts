@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { decodeList, decodeObject, PayloadError } from "./decode";
-import type { Hurt, Kill, MatchHeader, Round } from "@/lib/replay/replayTypes";
+import { DECODE_LIST_SAMPLE_STRIDE, decodeList, decodeObject, PayloadError } from "./decode";
+import type { BombEvent, Hurt, Kill, MatchHeader, Round } from "@/lib/replay/replayTypes";
 import { makeHurt } from "@/lib/testing/fixtures";
 
 const header: MatchHeader = {
@@ -115,7 +115,55 @@ describe("decodeList", () => {
     );
   });
 
+  it("requires round is_knife so a Rust rename fails on drop", () => {
+    const round: Round = {
+      number: 1,
+      start_tick: 0,
+      freeze_end_tick: 64,
+      end_tick: 640,
+      winner: "CT",
+      win_reason: 8,
+      score_ct: 1,
+      score_t: 0,
+      is_knife: false,
+    };
+    expect(decodeList<Round>("rounds", JSON.stringify([round]))[0].is_knife).toBe(false);
+    expect(() => decodeList<Round>("rounds", `[${without(round, "is_knife")}]`)).toThrow(
+      /"rounds\[0\]".*"is_knife".*expected boolean/s,
+    );
+  });
+
+  it("requires bomb event z so a Rust rename fails on drop", () => {
+    const planted: BombEvent = {
+      tick: 400,
+      kind: "planted",
+      player: 3,
+      x: 100,
+      y: 200,
+      z: 50,
+    };
+    expect(decodeList<BombEvent>("bombEvents", JSON.stringify([planted]))).toEqual([planted]);
+    expect(() => decodeList<BombEvent>("bombEvents", `[${without(planted, "z")}]`)).toThrow(
+      /"bombEvents\[0\]".*"z".*expected number/s,
+    );
+  });
+
   it("rejects an object where a list belongs", () => {
     expect(() => decodeList("kills", JSON.stringify(kill))).toThrow(/expected an array/);
+  });
+
+  it("also checks the last element and a stride sample", () => {
+    const lastBad = Array.from({ length: 3 }, () => ({ ...kill }));
+    delete (lastBad[2] as { headshot?: boolean }).headshot;
+    expect(() => decodeList<Kill>("kills", JSON.stringify(lastBad))).toThrow(
+      /"kills\[2\]".*"headshot".*expected boolean/s,
+    );
+
+    const mid = Array.from({ length: DECODE_LIST_SAMPLE_STRIDE + 2 }, () => kill);
+    mid[DECODE_LIST_SAMPLE_STRIDE] = { ...kill };
+    delete (mid[DECODE_LIST_SAMPLE_STRIDE] as { weapon?: string }).weapon;
+    expect(() => decodeList<Kill>("kills", JSON.stringify(mid))).toThrow(
+      new RegExp(`"kills\\[${DECODE_LIST_SAMPLE_STRIDE}\\]".*"weapon"`, "s"),
+    );
   });
 });

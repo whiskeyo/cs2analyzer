@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useLocation } from "react-router";
 import { normalizePath } from "./routes";
 
-/** Soft client navigation (no react-router). */
+/**
+ * Soft navigation for callers outside a hook (tests, SnapshotDialog fallback).
+ * Prefer `useNavigate` / `<NavLink>` inside React.
+ */
 export function navigate(path: string): void {
   if (normalizePath(window.location.pathname) === normalizePath(path)) return;
   window.history.pushState({}, "", path);
@@ -9,13 +12,7 @@ export function navigate(path: string): void {
 }
 
 export function usePathname(): string {
-  const [path, setPath] = useState(() => window.location.pathname);
-  useEffect(() => {
-    const sync = () => setPath(window.location.pathname);
-    window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
-  }, []);
-  return path;
+  return useLocation().pathname;
 }
 
 export {

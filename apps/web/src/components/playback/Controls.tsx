@@ -1,6 +1,6 @@
 import { memo, useCallback, useRef, useState } from "react";
 import { tickRate } from "@/lib/shared/constants";
-import { roundBookmarkMarks } from "@/lib/notes";
+import { noteForRound, roundBookmarkMarks } from "@/lib/notes";
 import {
   freezeWidth,
   markLabelShift,
@@ -9,14 +9,14 @@ import {
   roundTimelineMarks,
   type RoundScrubEventMark,
 } from "@/lib/playback/roundTimeline";
-import { sendPlaybackCommand } from "@/lib/playback/playbackCommands";
+import { useSendPlaybackCommand } from "@/lib/playback/playbackCommandContext";
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
-import type { Stroke } from "@/lib/notes/types";
+import type { RoundNote } from "@/lib/notes/types";
 import { formatClock } from "@/lib/weapons/weapons";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { TransportButton } from "./TransportButton";
-import { TransportButtonish } from "./TransportButtonish";
+import { UnfocusableButton } from "./UnfocusableButton";
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
@@ -88,7 +88,7 @@ function RoundAutoplayIcon({ on }: { on: boolean }) {
 interface Props {
   replay: Replay;
   tick: number;
-  strokes: Stroke[];
+  notes: RoundNote[];
   playing: boolean;
   speed: number;
   roundAutoplay: boolean;
@@ -104,7 +104,7 @@ interface Props {
 export const Controls = memo(function Controls({
   replay,
   tick,
-  strokes,
+  notes,
   playing,
   speed,
   roundAutoplay,
@@ -116,6 +116,7 @@ export const Controls = memo(function Controls({
   onRoundAutoplay,
   activeRound,
 }: Props) {
+  const send = useSendPlaybackCommand();
   const round = activeRound ?? currentRound(replay, tick);
   const fallback = {
     min: replay.ticks.ticks[0] ?? 0,
@@ -162,7 +163,9 @@ export const Controls = memo(function Controls({
     ? `Freeze ${freezeLeft.toFixed(1)}s`
     : formatClock(Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps));
   const marks = round ? roundTimelineMarks(round, tps, activeRange) : [];
-  const bookmarks = round ? roundBookmarkMarks(strokes, round, activeRange) : [];
+  const bookmarks = round
+    ? roundBookmarkMarks(noteForRound(notes, round.number), round, activeRange)
+    : [];
   const eventMarks = round ? roundScrubEventMarks(replay, round, activeRange) : [];
   const freezeAt = round ? freezeWidth(round, activeRange) : 0;
   const span = activeRange.max - activeRange.min;
@@ -178,45 +181,42 @@ export const Controls = memo(function Controls({
   return (
     <div className="controls">
       <TransportButton playing={playing} onToggle={onTogglePlay} />
-      <TransportButtonish
+      <UnfocusableButton
         title="Previous round ([)"
-        onClick={() => sendPlaybackCommand({ type: "jump-round", dir: -1 })}
+        onClick={() => send({ type: "jump-round", dir: -1 })}
       >
         ◀ R
-      </TransportButtonish>
-      <TransportButtonish
+      </UnfocusableButton>
+      <UnfocusableButton
         title="Next round (])"
-        onClick={() => sendPlaybackCommand({ type: "jump-round", dir: 1 })}
+        onClick={() => send({ type: "jump-round", dir: 1 })}
       >
         R ▶
-      </TransportButtonish>
-      <TransportButtonish
+      </UnfocusableButton>
+      <UnfocusableButton
         title="Previous kill (,)"
-        onClick={() => sendPlaybackCommand({ type: "jump-kill", dir: -1 })}
+        onClick={() => send({ type: "jump-kill", dir: -1 })}
       >
         ◀ K
-      </TransportButtonish>
-      <TransportButtonish
-        title="Next kill (.)"
-        onClick={() => sendPlaybackCommand({ type: "jump-kill", dir: 1 })}
-      >
+      </UnfocusableButton>
+      <UnfocusableButton title="Next kill (.)" onClick={() => send({ type: "jump-kill", dir: 1 })}>
         K ▶
-      </TransportButtonish>
-      <TransportButtonish title="Step back" onClick={() => step(-1)}>
+      </UnfocusableButton>
+      <UnfocusableButton title="Step back" onClick={() => step(-1)}>
         −
-      </TransportButtonish>
-      <TransportButtonish title="Step forward" onClick={() => step(1)}>
+      </UnfocusableButton>
+      <UnfocusableButton title="Step forward" onClick={() => step(1)}>
         +
-      </TransportButtonish>
+      </UnfocusableButton>
       {inFreeze && round && (
-        <TransportButtonish
+        <UnfocusableButton
           title="Skip freeze (Home)"
           onClick={() => {
             onJump(round.freeze_end_tick);
           }}
         >
           Skip freeze
-        </TransportButtonish>
+        </UnfocusableButton>
       )}
       <label className="speed">
         Speed
@@ -240,7 +240,7 @@ export const Controls = memo(function Controls({
           onChange={(e) => {
             const start = Number(e.target.value);
             const r = replay.rounds.find((x) => x.start_tick === start);
-            if (r) sendPlaybackCommand({ type: "jump", tick: 0, pause: true, round: r });
+            if (r) send({ type: "jump", tick: 0, pause: true, round: r });
           }}
         >
           {replay.rounds.map((r) => (

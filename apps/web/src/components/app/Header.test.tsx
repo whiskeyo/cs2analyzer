@@ -8,7 +8,16 @@ import { makeKill, makeReplay } from "@/lib/testing/fixtures";
 import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
 import { newPlaybook } from "@/lib/playbook/pages";
 import { serializePlaybookBundle } from "@/lib/playbook/transfer";
+import { TestRouter } from "@/lib/testing/router";
 import { Header } from "./Header";
+
+function renderHeader(path = "/") {
+  return render(
+    <TestRouter path={path}>
+      <Header />
+    </TestRouter>,
+  );
+}
 
 vi.mock("@/lib/state/appState", () => ({
   useApp: vi.fn(),
@@ -86,7 +95,7 @@ describe("Header", () => {
 
   it("shows brand and settings on the splash", async () => {
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader();
     expect(screen.getByRole("button", { name: "Home" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
     expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("href", "/playbook");
@@ -110,7 +119,7 @@ describe("Header", () => {
 
   it("enables Export notes in settings when saved notes exist", async () => {
     vi.mocked(useApp).mockReturnValue(splashState(1) as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader();
     await openSettings();
     expect(screen.getByRole("button", { name: "Export notes" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Remove notes" })).toBeEnabled();
@@ -119,7 +128,7 @@ describe("Header", () => {
   it("shows map, file meta, and viewer actions with a loaded replay", async () => {
     const state = viewerState();
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader();
     expect(screen.getByText(/Mirage · match\.dem · 1 kills/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeInTheDocument();
@@ -131,7 +140,7 @@ describe("Header", () => {
   it("returns home from the brand and New demo", async () => {
     const state = viewerState();
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader();
     await userEvent.click(screen.getByRole("button", { name: "Home" }));
     expect(state.close).toHaveBeenCalledTimes(1);
     await userEvent.click(screen.getByRole("button", { name: "New demo" }));
@@ -141,14 +150,14 @@ describe("Header", () => {
   it("disables CSV export in aggregated view", () => {
     const state = viewerState(true);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader();
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
   });
 
   it("downloads per-demo stats as CSV", async () => {
     const state = viewerState(false);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader();
     await userEvent.click(screen.getByRole("button", { name: "Export CSV" }));
     expect(downloadBlob).toHaveBeenCalledWith(
       "match-stats.csv",
@@ -160,7 +169,7 @@ describe("Header", () => {
   it("exports notes from settings", async () => {
     const state = splashState(1);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader();
     await openSettings();
     await userEvent.click(screen.getByRole("button", { name: "Export notes" }));
     expect(state.exportNotes).toHaveBeenCalled();
@@ -170,7 +179,7 @@ describe("Header", () => {
   it("opens the remove-notes modal from settings and requires confirmation", async () => {
     const state = splashState(1);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader();
     await openSettings();
     await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
 
@@ -187,9 +196,8 @@ describe("Header", () => {
   });
 
   it("hides viewer actions on Playbook even with a loaded replay", () => {
-    window.history.replaceState({}, "", "/playbook");
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader("/playbook");
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
@@ -197,9 +205,8 @@ describe("Header", () => {
   });
 
   it("hides viewer actions on the FAQ page even with a loaded replay", () => {
-    window.history.replaceState({}, "", "/faq");
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader("/faq");
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
@@ -208,7 +215,7 @@ describe("Header", () => {
 
   it("closes settings on Escape", async () => {
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader();
     await openSettings();
     expect(screen.getByRole("button", { name: "Export notes" })).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
@@ -217,7 +224,7 @@ describe("Header", () => {
 
   it("offers the layouts editor in development settings", async () => {
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader();
     await openSettings();
     if (import.meta.env.DEV) {
       expect(screen.getByRole("button", { name: "Layouts editor" })).toBeInTheDocument();
@@ -228,9 +235,8 @@ describe("Header", () => {
 
   it("shows Callout Layout Editor title and a [dev] badge on /layouts", async () => {
     if (!import.meta.env.DEV) return;
-    window.history.replaceState({}, "", "/layouts");
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
-    render(<Header />);
+    renderHeader("/layouts");
     expect(screen.getByText("Callout Layout Editor")).toBeInTheDocument();
     expect(screen.getByText("[pre-release testing]")).toBeInTheDocument();
     expect(screen.getByText("[dev]")).toBeInTheDocument();
@@ -244,7 +250,7 @@ describe("Header", () => {
   it("exports, imports, and removes playbooks from settings", async () => {
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
     await createPlaybook("de_mirage", "Defaults");
-    render(<Header />);
+    renderHeader();
     await openSettings();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Export playbooks" })).toBeEnabled(),

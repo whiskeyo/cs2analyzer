@@ -2,7 +2,16 @@ import { afterEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { navigate } from "@/lib/app/devNavigate";
+import { TestRouter } from "@/lib/testing/router";
 import { SiteNav } from "./SiteNav";
+
+function renderNav(path = "/") {
+  return render(
+    <TestRouter path={path}>
+      <SiteNav />
+    </TestRouter>,
+  );
+}
 
 describe("SiteNav", () => {
   afterEach(() => {
@@ -10,8 +19,7 @@ describe("SiteNav", () => {
   });
 
   it("does not mark Analyzer as the current page on the home route", () => {
-    window.history.replaceState({}, "", "/");
-    render(<SiteNav />);
+    renderNav("/");
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Playbook" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "FAQ" })).not.toHaveAttribute("aria-current");
@@ -21,47 +29,41 @@ describe("SiteNav", () => {
   });
 
   it("marks Analyzer as the current page on /analyzer", () => {
-    window.history.replaceState({}, "", "/analyzer");
-    render(<SiteNav />);
+    renderNav("/analyzer");
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Playbook" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "FAQ" })).not.toHaveAttribute("aria-current");
   });
 
   it("marks FAQ as the current page on /faq", () => {
-    window.history.replaceState({}, "", "/faq");
-    render(<SiteNav />);
+    renderNav("/faq");
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Playbook" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
   });
 
   it("marks Playbook as the current page on /playbook", () => {
-    window.history.replaceState({}, "", "/playbook");
-    render(<SiteNav />);
+    renderNav("/playbook");
     expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
   });
 
   it("navigates to FAQ without a full reload", async () => {
-    window.history.replaceState({}, "", "/");
-    render(<SiteNav />);
+    renderNav("/");
     await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
-    expect(window.location.pathname).toBe("/faq");
+    expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
   });
 
   it("navigates to Playbook without a full reload", async () => {
-    window.history.replaceState({}, "", "/");
-    render(<SiteNav />);
+    renderNav("/");
     await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
-    expect(window.location.pathname).toBe("/playbook");
+    expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("aria-current", "page");
   });
 
   it("navigates to Analyzer without a full reload", async () => {
-    window.history.replaceState({}, "", "/");
-    render(<SiteNav />);
+    renderNav("/");
     await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
-    expect(window.location.pathname).toBe("/analyzer");
+    expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("aria-current", "page");
   });
 });
 

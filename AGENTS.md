@@ -11,7 +11,7 @@ crates/cs2analyzer       Parse, assemble Match, stats, radar math
 crates/cs2analyzer-cli   `cs2analyzer` binary: dump a demo as JSON (fixtures, cross-checks)
 crates/cs2analyzer-wasm  wasm-bindgen wrapper (no mimalloc)
 apps/web                 Vite + React viewer (dev: http://localhost:5173/; layouts editor: /layouts via Settings)
-                         pages: `/` home, `/analyzer`, `/faq`
+                         pages: `/` home, `/analyzer`, `/faq`, `/playbook` (React Router; share `?map=&playbook=&strat=`)
                          FAQ articles: `apps/web/src/content/faq/*.md`
 scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored; never commit)
@@ -72,7 +72,7 @@ Web `src/` is pages vs pieces vs logic: `pages/` (route screens), `components/` 
 | Home, Analyzer, FAQ | `apps/web/src/pages/` (`/`, `/analyzer`, `/faq`); FAQ copy in `src/content/faq/*.md` |
 | Parse worker / drop | `lib/parse/`, `components/app/DropZone.tsx` |
 | Executes, clutches, util, round story | `lib/match/` (site labels from layout JSON in `sites.ts`; empty layout → hide positions), matching tab in `components/sidebar/` |
-| Map callout overlays | DEV layouts editor (`components/layouts/`, Settings → Layouts editor); JSON in `public/layouts/`; `lib/radar/layouts.ts` / `lib/layout/` |
+| Map callout overlays | Three “layout” packages — do not mix them: `lib/layout/` = shared callout JSON schema (`mapLayout`); DEV editor = `lib/layouts/` + `components/layouts/` (`layoutEditor`); viewer fetch = `lib/radar/layouts.ts` (`public/layouts/{map}.json`) |
 
 Tick buffers are structure-of-arrays: index = `frame * playerCount + player`. Flags: `PRESENT`, `ALIVE`, `DUCKED`, `SCOPED`, `CT` (`1<<4`). Max 16 player slots (`MAX_PLAYERS`).
 
