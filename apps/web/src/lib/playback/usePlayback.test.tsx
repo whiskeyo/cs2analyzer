@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { setSeriesReview, clearSeriesReviewCache } from "@/lib/notes/seriesReviewCache";
 import { loadedDemo } from "@/lib/parse/session";
 import { makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
+import { HUD_TICK_INTERVAL_MS } from "@/lib/shared/constants";
 import { ROUND_AUTOPLAY_STORAGE_KEY } from "./roundAutoplay";
 import { usePlayback } from "./usePlayback";
 
@@ -396,6 +397,64 @@ describe("usePlayback", () => {
       });
       act(() => frames.shift()?.(16));
       expect(result.current.tick).toBe(1064);
+      expect(result.current.playing).toBe(true);
+    });
+  });
+
+  describe("HUD tick publish rate", () => {
+    let now = 0;
+    let frames: FrameRequestCallback[];
+
+    beforeEach(() => {
+      now = 0;
+      frames = [];
+      vi.stubGlobal("performance", { now: () => now });
+      vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+        frames.push(cb);
+        return frames.length;
+      });
+      vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    });
+
+    function step(dtMs: number) {
+      now += dtMs;
+      const cb = frames.shift();
+      if (cb) {
+        cb(now);
+      }
+    }
+
+    it("keeps tickRef live while React tick waits for the HUD interval", () => {
+      const { result } = renderPlayback();
+      const start = result.current.tick;
+      act(() => result.current.setPlaying(true));
+      act(() => step(16));
+      expect(result.current.tickRef.current).toBeGreaterThan(start);
+      expect(result.current.tick).toBe(start);
+
+      act(() => step(HUD_TICK_INTERVAL_MS));
+      expect(result.current.tick).toBe(Math.floor(result.current.tickRef.current));
+      expect(result.current.tick).toBeGreaterThan(start);
+    });
+
+    it("flushes React tick when pausing mid-interval", () => {
+      const { result } = renderPlayback();
+      const start = result.current.tick;
+      act(() => result.current.setPlaying(true));
+      act(() => step(16));
+      expect(result.current.tick).toBe(start);
+      act(() => result.current.setPlaying(false));
+      expect(result.current.tick).toBe(Math.floor(result.current.tickRef.current));
+      expect(result.current.tick).toBeGreaterThan(start);
+    });
+
+    it("publishes a scrub immediately during playback", () => {
+      const { result } = renderPlayback();
+      act(() => result.current.setPlaying(true));
+      act(() => step(16));
+      act(() => result.current.scrub(400));
+      expect(result.current.tick).toBe(400);
+      expect(result.current.tickRef.current).toBe(400);
       expect(result.current.playing).toBe(true);
     });
   });
