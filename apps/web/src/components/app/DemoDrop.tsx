@@ -8,11 +8,19 @@ import { DropZone } from "./DropZone";
 interface Props {
   showSavedNotes: boolean;
   openAnalyzerOnDrop?: boolean;
+  beside?: ReactNode;
+  below?: ReactNode;
   children?: ReactNode;
 }
 
 /** DropZone wired to the live parse/notes session. */
-export function DemoDrop({ showSavedNotes, openAnalyzerOnDrop = false, children }: Props) {
+export function DemoDrop({
+  showSavedNotes,
+  openAnalyzerOnDrop = false,
+  beside,
+  below,
+  children,
+}: Props) {
   const { session, status, review, onFiles } = useApp();
   const navigate = useNavigate();
   return (
@@ -30,6 +38,8 @@ export function DemoDrop({ showSavedNotes, openAnalyzerOnDrop = false, children 
       notice={status.notice}
       saved={review.saved}
       showSavedNotes={showSavedNotes}
+      beside={beside}
+      below={below}
       onDeleteNotes={(key) => {
         void deleteProject(key).then(review.refreshSaved);
       }}

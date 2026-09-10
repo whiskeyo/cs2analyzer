@@ -28,6 +28,10 @@ interface Props {
   notice: string | null;
   saved: ReviewProject[];
   showSavedNotes?: boolean;
+  /** Optional sibling of the drop card. */
+  beside?: ReactNode;
+  /** Optional content under the drop row. */
+  below?: ReactNode;
   children?: ReactNode;
 }
 
@@ -86,6 +90,8 @@ export function DropZone({
   notice,
   saved,
   showSavedNotes = false,
+  beside,
+  below,
   children,
 }: Props) {
   const [page, setPage] = useState(0);
@@ -111,54 +117,60 @@ export function DropZone({
     return () => window.removeEventListener("keydown", onKey);
   }, [wantedDemo]);
 
+  const drop = (
+    <label
+      className="drop"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => void takeDroppedFiles(e, onFiles)}
+      onClick={(e) => {
+        if (!demoFilePickerAvailable()) return;
+        e.preventDefault();
+        void pickOpenFiles().then((picked) => {
+          if (!picked) return;
+          takePickedFiles(picked.files, picked.handles, onFiles);
+        });
+      }}
+    >
+      <input
+        type="file"
+        accept=".dem,.json,application/octet-stream,application/json"
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])];
+          if (files.length > 0) onFiles(files);
+        }}
+      />
+      <img className="brand-mark" src={publicUrl("favicon.svg")} width={56} height={56} alt="" />
+      <div className="drop-title">Drop a demo</div>
+      <p>
+        One Counter-Strike 2 <code>.dem</code> to watch the match, or several for habits (same map,
+        or mixed maps with a map picker).
+      </p>
+      <p className="muted">Parsed entirely in your browser. Nothing is uploaded.</p>
+      {parsing && (
+        <div className="drop-parse">
+          <ParseProgressPanel overallPct={overallPct} files={parseFiles} />
+        </div>
+      )}
+      {error && <p className="error">{error}</p>}
+      {notice && <p className="notice">{notice}</p>}
+    </label>
+  );
+
   return (
     <div className="home">
       <div className="home-hero">
         {children}
-        <label
-          className="drop"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => void takeDroppedFiles(e, onFiles)}
-          onClick={(e) => {
-            if (!demoFilePickerAvailable()) return;
-            e.preventDefault();
-            void pickOpenFiles().then((picked) => {
-              if (!picked) return;
-              takePickedFiles(picked.files, picked.handles, onFiles);
-            });
-          }}
-        >
-          <input
-            type="file"
-            accept=".dem,.json,application/octet-stream,application/json"
-            multiple
-            hidden
-            onChange={(e) => {
-              const files = [...(e.target.files ?? [])];
-              if (files.length > 0) onFiles(files);
-            }}
-          />
-          <img
-            className="brand-mark"
-            src={publicUrl("favicon.svg")}
-            width={56}
-            height={56}
-            alt=""
-          />
-          <div className="drop-title">Drop a demo</div>
-          <p>
-            One Counter-Strike 2 <code>.dem</code> to watch the match, or several for habits (same
-            map, or mixed maps with a map picker).
-          </p>
-          <p className="muted">Parsed entirely in your browser. Nothing is uploaded.</p>
-          {parsing && (
-            <div className="drop-parse">
-              <ParseProgressPanel overallPct={overallPct} files={parseFiles} />
-            </div>
-          )}
-          {error && <p className="error">{error}</p>}
-          {notice && <p className="notice">{notice}</p>}
-        </label>
+        {beside ? (
+          <div className="home-shortcuts">
+            {drop}
+            {beside}
+          </div>
+        ) : (
+          drop
+        )}
+        {below}
       </div>
       {showSavedNotes ? (
         <div className="home-notes">

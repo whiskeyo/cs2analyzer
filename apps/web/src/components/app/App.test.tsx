@@ -114,6 +114,30 @@ describe("App", () => {
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
+    expect(screen.getByRole("button", { name: "New playbook" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
+  });
+
+  it("opens a create-playbook dialog from the home plus button", async () => {
+    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
+    expect(await screen.findByRole("heading", { name: "New playbook" })).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Map" })).toHaveValue("de_mirage");
+    expect(screen.getByRole("textbox", { name: "Playbook title" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("heading", { name: "New playbook" })).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+  });
+
+  it("opens FAQ from the home hint", async () => {
+    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    await userEvent.click(screen.getByRole("link", { name: "see the FAQ" }));
+    expect(window.location.pathname).toBe("/faq");
+    expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
   });
 
   it("shows the parsed match on the radar, HUD, and scoreboard", async () => {
