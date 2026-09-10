@@ -120,6 +120,14 @@ describe("parseWorker", () => {
     expect(done?.timings.totalMs).toBeGreaterThanOrEqual(0);
   });
 
+  it("inits wasm once when parsing two files on the same worker", async () => {
+    await runWorker();
+    await runWorker(new ArrayBuffer(16));
+    expect(wasmMocks.init).toHaveBeenCalledOnce();
+    expect(wasmMocks.parseDemo).toHaveBeenCalledTimes(2);
+    expect(wasmMocks.free).toHaveBeenCalledTimes(2);
+  });
+
   it("posts an error when wasm fetch fails", async () => {
     vi.stubGlobal(
       "fetch",
@@ -132,6 +140,32 @@ describe("parseWorker", () => {
     await runWorker();
     const err = workerSelf.postMessage.mock.calls.at(-1)?.[0];
     expect(err).toEqual({ type: "error", message: "failed to fetch Wasm: 404 Not Found" });
+  });
+
+  it("retries wasm init after a failed fetch", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+      }),
+    );
+    await runWorker();
+    expect(wasmMocks.init).not.toHaveBeenCalled();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)),
+      }),
+    );
+    workerSelf.postMessage.mockClear();
+    await runWorker();
+    expect(wasmMocks.init).toHaveBeenCalledOnce();
+    const done = workerSelf.postMessage.mock.calls.find((call) => call[0].type === "done")?.[0];
+    expect(done?.type).toBe("done");
   });
 
   it("posts an error when parsing throws", async () => {

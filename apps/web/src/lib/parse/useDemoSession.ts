@@ -1,27 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { WorkerOut } from "@/lib/replay/replayTypes";
 import type { Status } from "@/lib/state/status";
 import { SERIES_MAX_FILES } from "@/lib/shared/constants";
 import {
+  createParseWorkerPool,
   groupParsedDemosByMap,
   parsePoolBar,
   parsePoolSize,
   runParsePool,
+  type CreateWorker,
   type ParseFileProgress,
   type ParsePoolProgress,
+  type ParseWorkerPool,
 } from "./parsePool";
-import {
-  buildSeries,
-  loadedDemo,
-  withFocalTeam,
-  type DemoSeries,
-  type LoadedDemo,
-} from "./session";
+import { buildSeries, withFocalTeam, type DemoSeries, type LoadedDemo } from "./session";
 import { formatParseTimings } from "./timings";
 import { clearSeriesReviewCache } from "@/lib/notes/seriesReviewCache";
 
-/** Injectable so tests can drive the app without instantiating WASM. */
-export type CreateWorker = () => Worker;
+export type { CreateWorker };
 
 function defaultCreateWorker(): Worker {
   return new Worker(new URL("./parseWorker.ts", import.meta.url), { type: "module" });
@@ -57,15 +52,21 @@ export function useDemoSession(opts: {
   const [progress, setProgress] = useState<ParseProgress | null>(null);
   const [parseFiles, setParseFiles] = useState<ParseFileProgress[] | null>(null);
   const [switching, setSwitching] = useState(false);
-  const workerRef = useRef<Worker | null>(null);
+  const poolRef = useRef<ParseWorkerPool | null>(null);
   const parseGenRef = useRef(0);
+  const parsingRef = useRef(false);
   const progressRafRef = useRef(0);
   const onBeforeSelectRef = useRef(onBeforeSelectDemo);
   onBeforeSelectRef.current = onBeforeSelectDemo;
 
+  const getPool = useCallback((): ParseWorkerPool => {
+    poolRef.current ??= createParseWorkerPool(() => createWorkerRef.current());
+    return poolRef.current;
+  }, []);
+
   useEffect(
     () => () => {
-      workerRef.current?.terminate();
+      poolRef.current?.reset();
       if (progressRafRef.current) cancelAnimationFrame(progressRafRef.current);
     },
     [],
@@ -93,9 +94,25 @@ export function useDemoSession(opts: {
     setDemo(group.demos[0]);
   }, []);
 
+  const beginParse = useCallback(() => {
+    const gen = ++parseGenRef.current;
+    if (parsingRef.current) {
+      poolRef.current?.reset();
+    }
+    parsingRef.current = true;
+    return gen;
+  }, []);
+
+  const endParse = useCallback(() => {
+    parsingRef.current = false;
+    if (progressRafRef.current) cancelAnimationFrame(progressRafRef.current);
+    progressRafRef.current = 0;
+    setParsing(false);
+  }, []);
+
   const parseDemo = useCallback(
     (file: File) => {
-      const gen = ++parseGenRef.current;
+      const gen = beginParse();
       statusRef.current.clear();
       setParsing(true);
       setProgress({ current: 0, total: 100 });
@@ -105,41 +122,28 @@ export function useDemoSession(opts: {
       setMapGroups([]);
       setSelectedMapName(null);
       setParsedDemos([]);
-      workerRef.current?.terminate();
-      const worker = createWorkerRef.current();
-      workerRef.current = worker;
-      worker.onmessage = (ev: MessageEvent<WorkerOut>) => {
-        if (gen !== parseGenRef.current) return;
-        const msg = ev.data;
-        if (msg.type === "progress") {
-          const workerTotal = msg.total > 0 ? msg.total : 1;
-          scheduleProgress(Math.round((100 * msg.current) / workerTotal), 100);
-          return;
-        }
-        if (progressRafRef.current) cancelAnimationFrame(progressRafRef.current);
-        progressRafRef.current = 0;
-        setParsing(false);
-        worker.terminate();
-        workerRef.current = null;
-        if (msg.type !== "done") {
-          statusRef.current.setError(msg.message);
-          return;
-        }
-        const parseNotice = formatParseTimings(msg.timings);
-        console.info("[cs2analyzer parse]", msg.timings, parseNotice);
-        statusRef.current.setNotice(parseNotice);
-        finishSingle(loadedDemo(msg.replay, file.name, file));
-      };
-      worker.onerror = (e) => {
-        if (gen !== parseGenRef.current) return;
-        statusRef.current.setError(e.message || "Worker failed");
-        setParsing(false);
-        worker.terminate();
-        workerRef.current = null;
-      };
-      void file.arrayBuffer().then((bytes) => worker.postMessage({ bytes }, [bytes]));
+
+      void getPool()
+        .parseFile(file, (current, workerTotal) => {
+          if (gen !== parseGenRef.current) return;
+          const total = workerTotal > 0 ? workerTotal : 1;
+          scheduleProgress(Math.round((100 * current) / total), 100);
+        })
+        .then((result) => {
+          if (gen !== parseGenRef.current) return;
+          endParse();
+          if (result.cancelled) return;
+          if (result.error || !result.demo || !result.timings) {
+            statusRef.current.setError(result.error ?? "Parse failed");
+            return;
+          }
+          const parseNotice = formatParseTimings(result.timings);
+          console.info("[cs2analyzer parse]", result.timings, parseNotice);
+          statusRef.current.setNotice(parseNotice);
+          finishSingle(result.demo);
+        });
     },
-    [finishSingle, scheduleProgress],
+    [beginParse, endParse, finishSingle, getPool, scheduleProgress],
   );
 
   const parseDemos = useCallback(
@@ -154,7 +158,7 @@ export function useDemoSession(opts: {
         return;
       }
 
-      const gen = ++parseGenRef.current;
+      const gen = beginParse();
       statusRef.current.clear();
       clearSeriesReviewCache();
       setParsing(true);
@@ -172,8 +176,6 @@ export function useDemoSession(opts: {
       setMapGroups([]);
       setSelectedMapName(null);
       setParsedDemos([]);
-      workerRef.current?.terminate();
-      workerRef.current = null;
 
       const onPoolProgress = (pool: ParsePoolProgress) => {
         if (gen !== parseGenRef.current) return;
@@ -184,11 +186,11 @@ export function useDemoSession(opts: {
 
       const wall0 = performance.now();
       const poolWorkers = parsePoolSize(files.length);
-      const results = await runParsePool(createWorkerRef.current, files, onPoolProgress);
+      const results = await runParsePool(getPool(), files, onPoolProgress);
       if (gen !== parseGenRef.current) return;
 
       const wallMs = performance.now() - wall0;
-      setParsing(false);
+      endParse();
       setParseFiles(null);
       const { groups, skipped } = groupParsedDemosByMap(results);
       for (const line of skipped) statusRef.current.setNotice(line);
@@ -227,7 +229,7 @@ export function useDemoSession(opts: {
         `Series: ${groups[0].demos.length} ${groups[0].mapName} demo${groups[0].demos.length === 1 ? "" : "s"} · ${nextSeries.focalTeam}${groups.length > 1 ? ` · ${mapSummary}` : ""}`,
       );
     },
-    [loadMapGroup, parseDemo, scheduleProgress],
+    [beginParse, endParse, getPool, loadMapGroup, parseDemo, scheduleProgress],
   );
 
   const selectMap = useCallback(
@@ -266,8 +268,8 @@ export function useDemoSession(opts: {
   /** "New demo": back to the splash. Saved notes are untouched. */
   const close = useCallback(() => {
     parseGenRef.current += 1;
-    workerRef.current?.terminate();
-    workerRef.current = null;
+    parsingRef.current = false;
+    poolRef.current?.reset();
     setDemo(null);
     setSeries(null);
     setMapGroups([]);

@@ -13,10 +13,10 @@ import { useDemoSession } from "./useDemoSession";
 vi.mock("./parsePool", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./parsePool")>();
   return {
+    ...actual,
     runParsePool: vi.fn(),
     parsePoolSize: () => 2,
     parsePoolBar: vi.fn(),
-    groupParsedDemosByMap: actual.groupParsedDemosByMap,
   };
 });
 
@@ -29,6 +29,7 @@ class FakeWorker {
   onmessage: ((ev: MessageEvent<WorkerOut>) => void) | null = null;
   onerror: ((ev: ErrorEvent) => void) | null = null;
   posted: Promise<void>;
+  terminate = vi.fn();
   private resolvePosted!: () => void;
 
   constructor() {
@@ -39,9 +40,10 @@ class FakeWorker {
 
   postMessage() {
     this.resolvePosted();
+    this.posted = new Promise((resolve) => {
+      this.resolvePosted = resolve;
+    });
   }
-
-  terminate() {}
 
   emit(msg: WorkerOut) {
     this.onmessage?.({ data: msg } as MessageEvent<WorkerOut>);
@@ -86,7 +88,7 @@ async function parseSingle(
     result.current.parseDemo(file);
   });
   await workers[0].posted;
-  act(() => {
+  await act(async () => {
     workers[0].emit({ type: "done", replay, timings: TIMINGS });
   });
   return { file, replay };
@@ -133,7 +135,7 @@ describe("useDemoSession", () => {
       result.current.parseDemo(file);
     });
     await workers[0].posted;
-    act(() => {
+    await act(async () => {
       workers[0].emit({ type: "error", message: "Supports only Source 2 replays" });
     });
 
@@ -150,7 +152,7 @@ describe("useDemoSession", () => {
       result.current.parseDemo(file);
     });
     await workers[0].posted;
-    act(() => {
+    await act(async () => {
       workers[0].emitError("Worker failed");
     });
 
@@ -163,10 +165,13 @@ describe("useDemoSession", () => {
     const { result, workers } = renderSession();
     await parseSingle(result, workers);
 
+    expect(workers[0].terminate).not.toHaveBeenCalled();
+
     act(() => {
       result.current.close();
     });
 
+    expect(workers[0].terminate).toHaveBeenCalledOnce();
     expect(result.current.demo).toBeNull();
     expect(result.current.series).toBeNull();
     expect(result.current.mapGroups).toEqual([]);
@@ -178,6 +183,54 @@ describe("useDemoSession", () => {
     expect(result.current.switching).toBe(false);
     expect(result.current.replay).toBeNull();
     expect(result.current.fileName).toBe("");
+  });
+
+  it("reuses the warm worker for a second single-file parse", async () => {
+    const { result, workers } = renderSession();
+    await parseSingle(result, workers);
+    expect(workers).toHaveLength(1);
+    expect(workers[0].terminate).not.toHaveBeenCalled();
+
+    const file2 = new File(["fake2"], "second.dem");
+    const replay2 = makeReplay({
+      header: { team_ct: "NaVi", team_t: "FaZe", map_name: "de_mirage" },
+    });
+    act(() => {
+      result.current.parseDemo(file2);
+    });
+    await workers[0].posted;
+    await act(async () => {
+      workers[0].emit({ type: "done", replay: replay2, timings: TIMINGS });
+    });
+
+    expect(workers).toHaveLength(1);
+    expect(result.current.fileName).toBe("second.dem");
+    expect(result.current.demo?.replay).toBe(replay2);
+  });
+
+  it("resets the in-flight worker when a new parse starts", async () => {
+    const { result, workers } = renderSession();
+    const file1 = new File(["a"], "first.dem");
+    const file2 = new File(["b"], "second.dem");
+    const replay2 = makeReplay({ header: { team_ct: "NaVi", team_t: "FaZe" } });
+
+    act(() => {
+      result.current.parseDemo(file1);
+    });
+    await workers[0].posted;
+
+    act(() => {
+      result.current.parseDemo(file2);
+    });
+    expect(workers[0].terminate).toHaveBeenCalledOnce();
+    expect(workers).toHaveLength(2);
+    await workers[1].posted;
+    await act(async () => {
+      workers[1].emit({ type: "done", replay: replay2, timings: TIMINGS });
+    });
+
+    expect(result.current.fileName).toBe("second.dem");
+    expect(result.current.parsing).toBe(false);
   });
 
   it("parses a multi-file series through the pool", async () => {
