@@ -170,9 +170,8 @@ export interface RoundNote {
 }
 
 /**
- * Flat Analyzer canvas stroke. Disk/export is `Note` only (schema 4).
- * Review history is `RoundNote[]`; canvas/sidebar still flatten at the edge
- * until they cut over to `Note`.
+ * Flat schema ≤3 review stroke. Persist migrates this to `Note` on load.
+ * Analyzer canvas and sidebar use `Note` only.
  */
 export type Stroke = {
   round: number;

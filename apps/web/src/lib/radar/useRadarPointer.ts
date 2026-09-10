@@ -5,17 +5,27 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
-import { NOTE_TEXT_DRAG_PX, PEN_MIN_SAMPLE_DISTANCE, tickRate } from "@/lib/shared/constants";
+import { NOTE_TEXT_DRAG_PX, tickRate } from "@/lib/shared/constants";
 import { wrapLocalPoint } from "@/lib/shared/pointer";
 import { clampViewScale, wheelZoomFactor } from "@/lib/radar/panZoom.ts";
 import { screenToWorld, worldToScreen, type RadarView } from "@/lib/radar/maps";
-import { makeBookmarkStroke, overlayVisible, withMoment } from "@/lib/notes";
-import { findTextIndex, hitStroke, hitTextLabel } from "./draw";
+import { addBookmark, makeBookmark, withMoment } from "@/lib/notes";
+import {
+  addDrawing,
+  beginArrow,
+  beginPen,
+  commitDraft,
+  drawingFromRef,
+  eraseAt,
+  extendDraft,
+  moveDrawingAt,
+} from "@/lib/playbook/drawings";
+import { findTextRef } from "./draw";
 import type { TextEdit, TextEditDrag, TextMove } from "@/components/radar/TextNoteEditor";
 import { currentRound } from "@/lib/replay/sample";
 import { simplifyStroke } from "@/lib/radar/strokes";
 import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
-import type { DrawTool, Stroke } from "@/lib/notes/types";
+import type { DrawTool, Drawing, Note } from "@/lib/notes/types";
 
 export type RadarPanView = RadarView & {
   dragging: boolean;
@@ -35,11 +45,11 @@ export interface RadarPointerOpts {
   tickRef: MutableRefObject<number>;
   colorRef: MutableRefObject<string>;
   momentRef: MutableRefObject<boolean>;
-  strokesRef: MutableRefObject<Stroke[]>;
-  onStrokesRef: MutableRefObject<(next: Stroke[]) => void>;
+  noteRef: MutableRefObject<Note>;
+  onNoteRef: MutableRefObject<(next: Note) => void>;
   onPauseRef: MutableRefObject<() => void>;
   onPanRef: MutableRefObject<() => void>;
-  draft: MutableRefObject<Stroke | null>;
+  draft: MutableRefObject<Drawing | null>;
   penTip: MutableRefObject<{ x: number; y: number } | null>;
   suppressClickRef: MutableRefObject<boolean>;
   textMoveRef: MutableRefObject<TextMove | null>;
@@ -64,8 +74,8 @@ export function useRadarPointer(opts: RadarPointerOpts) {
     tickRef,
     colorRef,
     momentRef,
-    strokesRef,
-    onStrokesRef,
+    noteRef,
+    onNoteRef,
     onPauseRef,
     onPanRef,
     draft,
@@ -88,6 +98,9 @@ export function useRadarPointer(opts: RadarPointerOpts) {
 
     const pos = (e: MouseEvent) => wrapLocalPoint(wrap, e);
 
+    const toScreen = (wx: number, wy: number) =>
+      worldToScreen(calRef.current, wrap.clientWidth, wrap.clientHeight, view.current, wx, wy);
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const v = view.current;
@@ -103,47 +116,27 @@ export function useRadarPointer(opts: RadarPointerOpts) {
       const h = wrap.clientHeight;
       const toolNow = toolRef.current;
       const rnd = currentRound(replayRef.current, tickRef.current);
-      const roundNow = rnd?.number ?? 0;
       const tickNow = tickRef.current;
       const tps = tickRate(replayRef.current);
       const ctx = canvasRef.current?.getContext("2d");
 
       if (toolNow === "eraser" && calNow) {
         const world = screenToWorld(calNow, w, h, view.current, x, y);
-        const next = strokesRef.current.filter((st) => {
-          if (st.round !== roundNow || !overlayVisible(st, tickNow, roundNow, strokesRef.current))
-            return true;
-          if (st.type === "text") {
-            if (!ctx) return true;
-            const s = worldToScreen(calNow, w, h, view.current, st.x, st.y);
-            return !hitTextLabel(ctx, st, s, x, y);
-          }
-          return !hitStroke(st, world.x, world.y, 48);
-        });
-        onStrokesRef.current(next);
+        onNoteRef.current(
+          eraseAt(noteRef.current, world, { x, y }, toScreen, ctx ?? null, tickNow),
+        );
         return;
       }
 
       if ((toolNow === "text" || toolNow === "pan") && calNow && ctx) {
-        const hit = findTextIndex(
-          ctx,
-          calNow,
-          w,
-          h,
-          view.current,
-          strokesRef.current,
-          tickNow,
-          roundNow,
-          x,
-          y,
-        );
-        if (hit >= 0) {
-          const st = strokesRef.current[hit];
-          if (st.type === "text") {
+        const hit = findTextRef(ctx, noteRef.current, tickNow, toScreen, x, y);
+        if (hit) {
+          const st = drawingFromRef(noteRef.current, hit);
+          if (st?.type === "text") {
             const world = screenToWorld(calNow, w, h, view.current, x, y);
             suppressClickRef.current = true;
             textMoveRef.current = {
-              index: hit,
+              ref: hit,
               grabWx: world.x,
               grabWy: world.y,
               grabSx: x,
@@ -162,17 +155,12 @@ export function useRadarPointer(opts: RadarPointerOpts) {
       if (toolNow === "bookmark") {
         e.preventDefault();
         onPauseRef.current();
-        onStrokesRef.current([
-          ...strokesRef.current,
-          makeBookmarkStroke(
-            colorRef.current,
-            roundNow,
-            tickNow,
-            momentRef.current,
-            rnd?.end_tick ?? 0,
-            tps,
+        onNoteRef.current(
+          addBookmark(
+            noteRef.current,
+            makeBookmark(colorRef.current, tickNow, momentRef.current, rnd?.end_tick ?? 0, tps),
           ),
-        ]);
+        );
         return;
       }
 
@@ -183,17 +171,22 @@ export function useRadarPointer(opts: RadarPointerOpts) {
         commitEditingRef.current();
         const world = screenToWorld(calNow, w, h, view.current, x, y);
         const next: TextEdit = {
-          index: null,
+          ref: null,
           x: world.x,
           y: world.y,
           sx: x,
           sy: y,
           text: "",
           color: colorRef.current,
-          round: roundNow,
         };
         const stamped = withMoment(
-          { type: "text", round: roundNow, color: next.color, x: next.x, y: next.y, text: "" },
+          {
+            type: "text" as const,
+            color: next.color,
+            x: next.x,
+            y: next.y,
+            text: "",
+          } satisfies Drawing,
           momentRef.current,
           tickNow,
           rnd?.end_tick ?? 0,
@@ -211,10 +204,10 @@ export function useRadarPointer(opts: RadarPointerOpts) {
         if (!calNow) return;
         view.current.drawing = true;
         const world = screenToWorld(calNow, w, h, view.current, x, y);
-        const base: Stroke =
+        const base =
           toolNow === "pen"
-            ? { type: "pen", color: colorRef.current, round: roundNow, points: [world] }
-            : { type: "arrow", color: colorRef.current, round: roundNow, from: world, to: world };
+            ? beginPen(colorRef.current, world)
+            : beginArrow(colorRef.current, world);
         draft.current = withMoment(base, momentRef.current, tickNow, rnd?.end_tick ?? 0, tps);
         penTip.current = toolNow === "pen" ? world : null;
         return;
@@ -274,26 +267,19 @@ export function useRadarPointer(opts: RadarPointerOpts) {
         return;
       }
       if (view.current.drawing && draft.current && calNow) {
-        const wrapEl = wrapRef.current;
-        if (!wrapEl) return;
+        const wrapNow = wrapRef.current;
+        if (!wrapNow) return;
         const { x, y } = pos(e);
         const world = screenToWorld(
           calNow,
-          wrapEl.clientWidth,
-          wrapEl.clientHeight,
+          wrapNow.clientWidth,
+          wrapNow.clientHeight,
           view.current,
           x,
           y,
         );
-        if (draft.current.type === "pen") {
-          penTip.current = world;
-          const last = draft.current.points[draft.current.points.length - 1];
-          if (Math.hypot(world.x - last.x, world.y - last.y) >= PEN_MIN_SAMPLE_DISTANCE) {
-            draft.current.points.push(world);
-          }
-        } else if (draft.current.type === "arrow") {
-          draft.current.to = world;
-        }
+        if (draft.current.type === "pen") penTip.current = world;
+        draft.current = extendDraft(draft.current, world);
         return;
       }
       if (!view.current.dragging) return;
@@ -310,31 +296,23 @@ export function useRadarPointer(opts: RadarPointerOpts) {
       view.current.ly = e.clientY;
     };
 
-    const editTextAt = (index: number) => {
-      const st = strokesRef.current[index];
+    const editTextAt = (ref: NonNullable<TextEdit["ref"]>) => {
+      const st = drawingFromRef(noteRef.current, ref);
       if (st?.type !== "text") return;
       const calNow = calRef.current;
       if (!calNow) return;
-      const s = worldToScreen(
-        calNow,
-        wrap.clientWidth,
-        wrap.clientHeight,
-        view.current,
-        st.x,
-        st.y,
-      );
+      const s = toScreen(st.x, st.y);
       suppressClickRef.current = true;
       onPauseRef.current();
       commitEditingRef.current();
       beginEditingRef.current({
-        index,
+        ref,
         x: st.x,
         y: st.y,
         sx: s.x,
         sy: s.y,
         text: st.text,
         color: st.color,
-        round: st.round,
         start_tick: st.start_tick,
         end_tick: st.end_tick,
         box_w: st.box_w,
@@ -354,37 +332,37 @@ export function useRadarPointer(opts: RadarPointerOpts) {
       if (moving) {
         textMoveRef.current = null;
         if (moving.moved) {
-          onStrokesRef.current(
-            strokesRef.current.map((s, i) =>
-              i === moving.index && s.type === "text" ? { ...s, x: moving.x, y: moving.y } : s,
+          onNoteRef.current(
+            moveDrawingAt(
+              noteRef.current,
+              moving.ref,
+              moving.x - moving.origX,
+              moving.y - moving.origY,
             ),
           );
         } else {
-          editTextAt(moving.index);
+          editTextAt(moving.ref);
         }
       }
       if (view.current.drawing && draft.current) {
-        let st = draft.current;
-        if (st.type === "pen") {
+        let drawing = draft.current;
+        if (drawing.type === "pen") {
           const tip = penTip.current;
-          if (tip) {
-            const last = st.points[st.points.length - 1];
-            if (Math.hypot(tip.x - last.x, tip.y - last.y) > 0) st.points.push(tip);
-          }
-          if (st.points.length < 2) {
+          if (tip) drawing = extendDraft(drawing, tip);
+          const committed = commitDraft(drawing);
+          if (!committed || committed.type !== "pen") {
             draft.current = null;
             penTip.current = null;
             view.current.drawing = false;
             return;
           }
-          st = { ...st, points: simplifyStroke(st.points) };
-        } else if (st.type !== "arrow") {
-          draft.current = null;
-          penTip.current = null;
-          view.current.drawing = false;
-          return;
+          onNoteRef.current(
+            addDrawing(noteRef.current, { ...committed, points: simplifyStroke(committed.points) }),
+          );
+        } else {
+          const committed = commitDraft(drawing);
+          if (committed) onNoteRef.current(addDrawing(noteRef.current, committed));
         }
-        onStrokesRef.current([...strokesRef.current, st]);
         draft.current = null;
         penTip.current = null;
       }
@@ -399,23 +377,8 @@ export function useRadarPointer(opts: RadarPointerOpts) {
       const ctx = canvasRef.current?.getContext("2d");
       if (!calNow || !ctx) return;
       const { x, y } = pos(e);
-      const w = wrap.clientWidth;
-      const h = wrap.clientHeight;
-      const rnd = currentRound(replayRef.current, tickRef.current);
-      const roundNow = rnd?.number ?? 0;
-      const hit = findTextIndex(
-        ctx,
-        calNow,
-        w,
-        h,
-        view.current,
-        strokesRef.current,
-        tickRef.current,
-        roundNow,
-        x,
-        y,
-      );
-      if (hit < 0) return;
+      const hit = findTextRef(ctx, noteRef.current, tickRef.current, toScreen, x, y);
+      if (!hit) return;
       editTextAt(hit);
     };
 

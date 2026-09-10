@@ -3,11 +3,11 @@ import {
   paintDrawings,
   paintDrawing,
   paintMapImage,
-  paintNoteStrokes,
+  paintNote,
   paintStaticMap,
-  paintStroke,
 } from "./staticMapPaint";
-import type { Stroke } from "@/lib/notes/types";
+import { emptyNote } from "@/lib/notes/note";
+import type { Note } from "@/lib/notes/types";
 
 function mockCtx() {
   return {
@@ -53,76 +53,75 @@ describe("paintMapImage", () => {
   });
 });
 
-describe("paintNoteStrokes", () => {
+describe("paintNote", () => {
   const toScreen = (x: number, y: number) => ({ x, y });
 
-  it("skips the text stroke currently being edited", () => {
+  it("skips the text drawing currently being edited", () => {
     const ctx = mockCtx();
-    const strokes: Stroke[] = [
-      { type: "text", round: 1, color: "#fff", x: 0, y: 0, text: "edit me" },
-      {
-        type: "pen",
-        round: 1,
-        color: "#fff",
-        points: [
-          { x: 0, y: 0 },
-          { x: 5, y: 5 },
-        ],
-      },
-    ];
-    paintNoteStrokes(ctx, strokes, toScreen, { tick: 100, round: 1, skipTextIndex: 0 });
+    const note: Note = {
+      ...emptyNote(),
+      drawings: [
+        { type: "text", color: "#fff", x: 0, y: 0, text: "edit me" },
+        {
+          type: "pen",
+          color: "#fff",
+          points: [
+            { x: 0, y: 0 },
+            { x: 5, y: 5 },
+          ],
+        },
+      ],
+    };
+    paintNote(ctx, note, toScreen, { tick: 100, skipText: { kind: "loose", index: 0 } });
     expect(ctx.stroke).toHaveBeenCalled();
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 
-  it("skips bookmarks and hidden strokes", () => {
+  it("skips bookmarks and hidden drawings", () => {
     const ctx = mockCtx();
-    const strokes: Stroke[] = [
-      {
-        type: "bookmark",
-        round: 1,
-        color: "#fff",
-        text: "exec",
-      },
-      {
-        type: "arrow",
-        round: 1,
-        color: "#f00",
-        from: { x: 0, y: 0 },
-        to: { x: 10, y: 10 },
-        hidden: true,
-      },
-      {
-        type: "arrow",
-        round: 1,
-        color: "#0f0",
-        from: { x: 1, y: 1 },
-        to: { x: 11, y: 11 },
-      },
-    ];
-    paintNoteStrokes(ctx, strokes, toScreen, { tick: 100, round: 1 });
+    const note: Note = {
+      ...emptyNote(),
+      bookmarks: [{ color: "#fff", text: "exec", tick: 100 }],
+      drawings: [
+        {
+          type: "arrow",
+          color: "#f00",
+          from: { x: 0, y: 0 },
+          to: { x: 10, y: 10 },
+          hidden: true,
+        },
+        {
+          type: "arrow",
+          color: "#0f0",
+          from: { x: 1, y: 1 },
+          to: { x: 11, y: 11 },
+        },
+      ],
+    };
+    paintNote(ctx, note, toScreen, { tick: 100 });
     expect(ctx.stroke).toHaveBeenCalledTimes(1);
   });
 
   it("moves a text note while dragging and paints static maps", () => {
     const ctx = mockCtx();
-    const strokes: Stroke[] = [
-      {
-        type: "text",
-        round: 1,
-        color: "#fff",
-        x: 10,
-        y: 20,
-        text: "note",
-        box_w: 80,
-        box_h: 40,
-      },
-    ];
-    paintNoteStrokes(ctx, strokes, toScreen, {
+    const note: Note = {
+      ...emptyNote(),
+      drawings: [
+        {
+          type: "text",
+          color: "#fff",
+          x: 10,
+          y: 20,
+          text: "note",
+          box_w: 80,
+          box_h: 40,
+        },
+      ],
+    };
+    paintNote(ctx, note, toScreen, {
       tick: 100,
-      round: 1,
       textMove: {
-        index: 0,
+        ref: { kind: "loose", index: 0 },
         x: 30,
         y: 40,
         moved: true,
@@ -138,8 +137,8 @@ describe("paintNoteStrokes", () => {
       { scale: 1, ox: 0, oy: 0 },
       img,
       undefined,
-      strokes,
-      { tick: 100, round: 1 },
+      note,
+      { tick: 100 },
       toScreen,
     );
     expect(ctx.drawImage).toHaveBeenCalled();
@@ -180,16 +179,5 @@ describe("paintDrawing", () => {
     );
     expect(ctx.stroke).toHaveBeenCalled();
     expect(ctx.fillText).toHaveBeenCalled();
-  });
-});
-
-describe("paintStroke", () => {
-  it("ignores bookmarks", () => {
-    const ctx = mockCtx();
-    paintStroke(ctx, { type: "bookmark", round: 1, color: "#fff", text: "mid" }, (x, y) => ({
-      x,
-      y,
-    }));
-    expect(ctx.beginPath).not.toHaveBeenCalled();
   });
 });

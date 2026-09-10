@@ -4,6 +4,7 @@ import { loadedDemo, type DemoSeries } from "@/lib/parse/session";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
 import type { Status } from "@/lib/state/status";
+import { emptyNote } from "./note";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
 import { PROJECT_SCHEMA, type ReviewProject } from "./projectStore";
 import { clearSeriesReviewCache, getSeriesReview } from "./seriesReviewCache";
@@ -169,13 +170,11 @@ describe("useReviewProject", () => {
       }),
     );
 
-    await waitFor(() => {
-      expect(result.current.notes[0]?.note.drawings).toHaveLength(1);
-      expect(result.current.strokes).toEqual([expect.objectContaining({ type: "pen" })]);
-      expect(st.notice).toContain("Restored drawings");
-    });
+    await waitFor(() => expect(result.current.notes[0]?.note.drawings[0]?.type).toBe("pen"));
+    expect(result.current.notes[0]?.note.drawings).toHaveLength(1);
     expect(pb.jump).toHaveBeenCalledWith(300, true);
     expect(pb.setPlaying).toHaveBeenCalledWith(false);
+    expect(st.notice).toContain("Restored drawings");
   });
 
   it("delegates export and bulk delete to reviewImportExport", async () => {
@@ -244,9 +243,9 @@ describe("useReviewProject", () => {
 
     await waitFor(() => expect(pb.setPlaying).toHaveBeenCalledWith(true));
 
-    const stroke = { type: "pen" as const, round: 1, color: "#fff", points: [{ x: 1, y: 2 }] };
+    const drawing = { type: "pen" as const, color: "#fff", points: [{ x: 1, y: 2 }] };
     act(() => {
-      result.current.commitStrokes([stroke]);
+      result.current.commitNotes([{ round: 1, note: { ...emptyNote(), drawings: [drawing] } }]);
     });
     mocks.saveProject.mockClear();
 
@@ -270,6 +269,6 @@ describe("useReviewProject", () => {
     });
     rerender({ current: first });
 
-    await waitFor(() => expect(result.current.strokes).toEqual([stroke]));
+    await waitFor(() => expect(result.current.notes[0]?.note.drawings).toEqual([drawing]));
   });
 });

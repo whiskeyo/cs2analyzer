@@ -1,25 +1,32 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { groupStrokes } from "@/lib/notes";
+import { emptyNote, groupItems } from "@/lib/notes";
 import { NoteActions } from "./NoteActions";
+import type { RoundNote } from "@/lib/notes/types";
 
-function twoPens() {
+const pen = { type: "pen" as const, color: "#fff", points: [{ x: 0, y: 0 }] };
+
+function twoPens(): RoundNote[] {
   return [
-    { type: "pen" as const, round: 1, color: "#fff", points: [{ x: 0, y: 0 }] },
-    { type: "pen" as const, round: 1, color: "#fff", points: [{ x: 1, y: 1 }] },
+    { round: 1, note: { ...emptyNote(), drawings: [pen, { ...pen, points: [{ x: 1, y: 1 }] }] } },
   ];
 }
+
+const picks = [
+  { round: 1, ref: { kind: "loose" as const, index: 0 } },
+  { round: 1, ref: { kind: "loose" as const, index: 1 } },
+];
 
 describe("NoteActions", () => {
   it("disables group actions without a valid selection", () => {
     render(
       <NoteActions
-        strokes={twoPens()}
+        notes={twoPens()}
         selected={[]}
         canGroup={false}
         canUngroup={false}
-        onStrokes={() => {}}
+        onNotes={() => {}}
         onClearSelection={() => {}}
       />,
     );
@@ -27,56 +34,64 @@ describe("NoteActions", () => {
     expect(screen.getByRole("button", { name: "Squash" })).toBeDisabled();
   });
 
-  it("groups selected strokes", async () => {
-    const strokes = twoPens();
-    const onStrokes = vi.fn();
+  it("groups selected drawings", async () => {
+    const notes = twoPens();
+    const onNotes = vi.fn();
     const onClearSelection = vi.fn();
     render(
       <NoteActions
-        strokes={strokes}
-        selected={[0, 1]}
+        notes={notes}
+        selected={picks}
         canGroup
         canUngroup={false}
-        onStrokes={onStrokes}
+        onNotes={onNotes}
         onClearSelection={onClearSelection}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "Group" }));
-    expect(onStrokes).toHaveBeenCalledWith(groupStrokes(strokes, [0, 1]));
+    expect(onNotes).toHaveBeenCalledWith([
+      expect.objectContaining({
+        note: expect.objectContaining({
+          groups: [expect.objectContaining({ drawings: expect.any(Array) })],
+        }),
+      }),
+    ]);
     expect(onClearSelection).toHaveBeenCalled();
   });
 
-  it("ungroups when a grouped stroke is selected", async () => {
-    const grouped = groupStrokes(twoPens(), [0, 1]);
-    const onStrokes = vi.fn();
+  it("ungroups when a grouped drawing is selected", async () => {
+    const grouped = groupItems(twoPens()[0].note, [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const onNotes = vi.fn();
     render(
       <NoteActions
-        strokes={grouped}
-        selected={[0]}
+        notes={[{ round: 1, note: grouped }]}
+        selected={[{ round: 1, ref: { kind: "group", groupIndex: 0, drawingIndex: 0 } }]}
         canGroup={false}
         canUngroup
-        onStrokes={onStrokes}
+        onNotes={onNotes}
         onClearSelection={() => {}}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "Ungroup" }));
-    expect(onStrokes).toHaveBeenCalled();
+    expect(onNotes).toHaveBeenCalled();
   });
 
-  it("squashes selected strokes", async () => {
-    const strokes = twoPens();
-    const onStrokes = vi.fn();
+  it("squashes selected drawings", async () => {
+    const onNotes = vi.fn();
     render(
       <NoteActions
-        strokes={strokes}
-        selected={[0, 1]}
+        notes={twoPens()}
+        selected={picks}
         canGroup
         canUngroup={false}
-        onStrokes={onStrokes}
+        onNotes={onNotes}
         onClearSelection={() => {}}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "Squash" }));
-    expect(onStrokes).toHaveBeenCalled();
+    expect(onNotes).toHaveBeenCalled();
   });
 });

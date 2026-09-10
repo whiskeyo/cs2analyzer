@@ -1,22 +1,24 @@
 import { NOTE_GROUP_NAME_MAX } from "@/lib/shared/constants";
 import { useEditableName } from "@/lib/shared/useEditableName";
 import { groupLabel, renameGroup } from "@/lib/notes";
-import type { Stroke } from "@/lib/notes/types";
+import type { Note } from "@/lib/notes/types";
 
 export function GroupNameField({
-  groupId,
-  strokes,
-  onStrokes,
+  groupIndex,
+  groupName,
+  note,
+  onNote,
 }: {
-  groupId: string;
-  strokes: Stroke[];
-  onStrokes: (next: Stroke[]) => void;
+  groupIndex: number;
+  groupName: string;
+  note: Note;
+  onNote: (next: Note) => void;
 }) {
-  const shown = groupLabel(groupId);
+  const shown = groupLabel(groupName);
   const { draft, editing, beginEdit, setDraft, commit, onKeyDown } = useEditableName(
     shown,
-    (next) => onStrokes(renameGroup(strokes, groupId, next)),
-    [groupId],
+    (next) => onNote(renameGroup(note, groupIndex, next)),
+    [groupName],
   );
 
   if (!editing) {

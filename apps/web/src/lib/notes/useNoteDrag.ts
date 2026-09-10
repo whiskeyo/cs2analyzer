@@ -1,23 +1,27 @@
 import { useCallback, useRef, useState } from "react";
 import type { DragEvent as ReactDragEvent } from "react";
-import { dropStrokesOn, type NoteDropDest } from "@/lib/notes";
-import { isDragControl, parseDrag, type NoteDrag } from "@/lib/notes/drag";
-import type { Stroke } from "@/lib/notes/types";
+import { dropItems, type NoteDropDest } from "./noteGroups";
+import { updateRoundNote } from "./roundNotes";
+import { isDragControl, parseDrag, type NoteDrag } from "./drag";
+import type { NoteItemRef } from "./noteGroups";
+import type { RoundNote } from "./types";
+
+export type RoundNoteDropDest = { round: number } & NoteDropDest;
 
 export function useNoteDrag(opts: {
-  strokes: Stroke[];
-  onStrokes: (next: Stroke[]) => void;
+  notes: RoundNote[];
+  onNotes: (next: RoundNote[]) => void;
   clearSelection: () => void;
 }) {
-  const { strokes, onStrokes, clearSelection } = opts;
+  const { notes, onNotes, clearSelection } = opts;
   const [dragging, setDragging] = useState<NoteDrag | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
   const dragRef = useRef<NoteDrag | null>(null);
-  const skipClick = useRef(false);
+  const skipClickRef = useRef(false);
   const dragged = useRef(false);
   const downOnRef = useRef<EventTarget | null>(null);
 
-  const startDrag = useCallback((e: ReactDragEvent, round: number, indexes: number[]) => {
+  const startDrag = useCallback((e: ReactDragEvent, round: number, refs: NoteItemRef[]) => {
     if (isDragControl(downOnRef.current)) {
       e.preventDefault();
       e.stopPropagation();
@@ -25,8 +29,8 @@ export function useNoteDrag(opts: {
     }
     e.stopPropagation();
     dragged.current = false;
-    skipClick.current = false;
-    const payload: NoteDrag = { round, indexes };
+    skipClickRef.current = false;
+    const payload: NoteDrag = { round, refs };
     dragRef.current = payload;
     setDragging(payload);
     e.dataTransfer.effectAllowed = "move";
@@ -38,18 +42,18 @@ export function useNoteDrag(opts: {
   }, []);
 
   const endDrag = useCallback(() => {
-    skipClick.current = dragged.current;
+    skipClickRef.current = dragged.current;
     dragged.current = false;
     dragRef.current = null;
     setDragging(null);
     setDropOn(null);
     window.setTimeout(() => {
-      skipClick.current = false;
+      skipClickRef.current = false;
     }, 80);
   }, []);
 
   const dropAt = useCallback(
-    (e: ReactDragEvent, dest: NoteDropDest) => {
+    (e: ReactDragEvent, dest: RoundNoteDropDest) => {
       e.preventDefault();
       e.stopPropagation();
       const payload = dragRef.current ?? parseDrag(e.dataTransfer.getData("text/plain"));
@@ -57,11 +61,12 @@ export function useNoteDrag(opts: {
         endDrag();
         return;
       }
-      onStrokes(dropStrokesOn(strokes, payload.indexes, dest));
+      const { round, ...layerDest } = dest;
+      onNotes(updateRoundNote(notes, round, (note) => dropItems(note, payload.refs, layerDest)));
       clearSelection();
       endDrag();
     },
-    [clearSelection, endDrag, onStrokes, strokes],
+    [clearSelection, endDrag, notes, onNotes],
   );
 
   const allowDrop = useCallback(
@@ -83,7 +88,7 @@ export function useNoteDrag(opts: {
     dragging,
     dropOn,
     downOnRef,
-    skipClick,
+    skipClickRef,
     startDrag,
     markDrag,
     endDrag,
