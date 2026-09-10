@@ -136,7 +136,7 @@ describe("utilityThrough", () => {
   it("ignores full-overlay pawn snaps when a weaker player_blind exists", () => {
     expect(pickFlashDuration([1.2, FLASH_FULL_SECONDS, 5.1])).toBeCloseTo(1.2);
     expect(pickFlashDuration([0.2, 5.1])).toBeCloseTo(0.2);
-    expect(pickFlashDuration([5.1, FLASH_FULL_SECONDS])).toBe(0);
+    expect(pickFlashDuration([5.1, FLASH_FULL_SECONDS])).toBeCloseTo(FLASH_FULL_SECONDS);
     const m = replay({
       grenades: [nade("flash", 90, 0)],
       blinds: [
@@ -154,14 +154,17 @@ describe("utilityThrough", () => {
     expect(throwDetail(u.throws[0]!)).toBe("Enemy: Bob 0.2s · Team: Alice 1.2s");
   });
 
-  it("omits a chip when the only samples are full-overlay snaps", () => {
+  it("lists who was blinded when the only samples are full-overlay snaps", () => {
     const m = replay({
       grenades: [nade("flash", 90, 0)],
       blinds: [makeBlind(110, 0, 0, 5.1), makeBlind(112, 0, 1, FLASH_FULL_SECONDS)],
     });
     const u = utilityThrough(m, 640, null);
-    expect(u.throws[0]?.blinds).toEqual([]);
-    expect(throwDetail(u.throws[0]!)).toBe("");
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 0, victimName: "Alice", duration: 5.1, enemy: false },
+      { victim: 1, victimName: "Bob", duration: FLASH_FULL_SECONDS, enemy: true },
+    ]);
+    expect(throwDetail(u.throws[0]!)).toBe("Enemy: Bob 5.5s · Team: Alice 5.1s");
   });
 
   it("keeps the first pop's blinds when a second flash lands before they expire", () => {
@@ -245,13 +248,27 @@ describe("utilityThrough", () => {
     ]);
   });
 
-  it("does not assign a blind by time proximity when attacker is a different thrower", () => {
+  it("still lists a first onset when attacker is a stale last_flash_thrower", () => {
     const m = replay({
       grenades: [nade("flash", 90, 0)],
-      blinds: [makeBlind(110, 1, 1, 1.2)],
+      blinds: [makeBlind(110, 1, 1, 1.2), makeBlind(111, 1, 0, 0.8)],
     });
     const u = utilityThrough(m, 640, null);
-    expect(u.throws[0]?.blinds).toEqual([]);
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 1, victimName: "Bob", duration: 1.2, enemy: true },
+      { victim: 0, victimName: "Alice", duration: 0.8, enemy: false },
+    ]);
+  });
+
+  it("does not list an unmapped victim (bot / steam_id 0 → index -1)", () => {
+    const m = replay({
+      grenades: [nade("flash", 90, 0)],
+      blinds: [makeBlind(110, 0, -1, 1.8), makeBlind(111, 0, 1, 1.2)],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 1, victimName: "Bob", duration: 1.2, enemy: true },
+    ]);
   });
 
   it("only lists players who were alive at the flash, not leftover dead-pawn blinds", () => {

@@ -113,12 +113,12 @@ function overlaySpike(duration: number): boolean {
   return duration >= FLASH_OVERLAY_SPIKE_SECONDS;
 }
 
-/** Peak real pop. Overlay-only snaps (~5.1s) return 0 so the chip is omitted. */
+/** Peak real pop. Overlay-only snaps (~5.1s) are a last-resort “who”, not a blank row. */
 export function pickFlashDuration(durations: readonly number[]): number {
   if (durations.length === 0) return 0;
   const real = durations.filter((duration) => !overlaySpike(duration));
-  if (real.length === 0) return 0;
-  return real.reduce((best, duration) => (duration > best ? duration : best));
+  const pool = real.length > 0 ? real : durations;
+  return pool.reduce((best, duration) => (duration > best ? duration : best));
 }
 
 /** One chip per victim: player_blind + pawn flash samples otherwise stack. */
@@ -128,33 +128,19 @@ function addBlind(
   victim: number,
   duration: number,
   tick: number,
-  allowOverlay = false,
 ): void {
   const existing = row.blinds.find((blind) => blind.victim === victim);
   if (existing) {
     const next = pickFlashDuration([existing.duration, duration]);
-    if (next > 0) {
-      existing.duration = next;
-      return;
-    }
-    if (allowOverlay && duration > existing.duration) existing.duration = duration;
+    if (next > 0) existing.duration = next;
     return;
   }
   const picked = pickFlashDuration([duration]);
-  if (picked > 0) {
-    row.blinds.push({
-      victim,
-      victimName: nameOf(replay, victim),
-      duration: picked,
-      enemy: row.thrower >= 0 && victim >= 0 && isEnemy(replay, row.thrower, victim, tick),
-    });
-    return;
-  }
-  if (!allowOverlay) return;
+  if (picked <= 0) return;
   row.blinds.push({
     victim,
     victimName: nameOf(replay, victim),
-    duration,
+    duration: picked,
     enemy: row.thrower >= 0 && victim >= 0 && isEnemy(replay, row.thrower, victim, tick),
   });
 }
@@ -219,9 +205,9 @@ function latestDetonated(rows: UtilThrowRow[]): UtilThrowRow | null {
 }
 
 /**
- * Prefer `blind.attacker === throw.player`. If attacker is set but matches no
- * in-window throw, do not guess by time proximity (leftover duration is not
- * “this pop blinded them”).
+ * Prefer `blind.attacker === throw.player`. If attacker is missing or does not
+ * match any in-window throw (stale `last_flash_thrower`), use the latest pop
+ * so a first onset is not dropped. Leftover vs new-onset is `isFreshOnset`.
  */
 function pickFlashForBlind(
   flashes: UtilThrowRow[],
@@ -231,7 +217,8 @@ function pickFlashForBlind(
 ): UtilThrowRow | null {
   const inWindow = flashes.filter((row) => flashWindowHas(row, tick, tps));
   if (attacker >= 0) {
-    return latestDetonated(inWindow.filter((row) => row.thrower === attacker));
+    const matched = latestDetonated(inWindow.filter((row) => row.thrower === attacker));
+    if (matched) return matched;
   }
   return latestDetonated(inWindow);
 }
@@ -323,6 +310,7 @@ function attachBlinds(rows: UtilThrowRow[], replay: Replay, untilTick: number): 
     .sort((a, b) => a.tick - b.tick || a.victim - b.victim);
 
   for (const blind of blinds) {
+    if (blind.victim < 0) continue;
     const candidate = pickFlashForBlind(flashes, blind.attacker, blind.tick, tps);
     if (!candidate) continue;
     if (!victimAliveAt(replay, blind.victim, candidate.detonateTick)) continue;
@@ -349,9 +337,7 @@ function attachBlinds(rows: UtilThrowRow[], replay: Replay, untilTick: number): 
       continue;
     }
 
-    const allowOverlay =
-      prev != null && prev.row !== candidate && blind.victim === candidate.thrower;
-    addBlind(candidate, replay, blind.victim, blind.duration, blind.tick, allowOverlay);
+    addBlind(candidate, replay, blind.victim, blind.duration, blind.tick);
     const attached = candidate.blinds.find((entry) => entry.victim === blind.victim);
     const same = prev?.row === candidate;
     onsets.set(blind.victim, {
