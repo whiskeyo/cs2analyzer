@@ -1,4 +1,6 @@
-export const PLAYBOOK_FOCUS_KEY = "cs2analyzer.playbook.focus";
+import { PLAYBOOK_FOCUS_KEY } from "@/lib/shared/storageKeys";
+
+export { PLAYBOOK_FOCUS_KEY };
 
 export type PlaybookFocus = {
   mapName: string;
