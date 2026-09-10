@@ -13,7 +13,6 @@ export {
   setMomentClockEdge,
 } from "./visibility";
 export {
-  nextGroupId,
   renameStrokeText,
   removeStrokesAt,
   setStrokesHidden,

@@ -4,13 +4,13 @@ import {
   dropStrokesOn,
   groupLabel,
   groupStrokes,
-  nextGroupId,
   overlayVisible,
   renameGroup,
   setStrokesHidden,
   squashLooseDrawings,
   ungroupStrokes,
 } from "@/lib/notes";
+import { nextGroupId } from "./groups";
 import type { Stroke } from "./types";
 
 function pen(
