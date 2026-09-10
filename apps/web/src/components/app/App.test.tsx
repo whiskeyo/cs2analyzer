@@ -105,13 +105,16 @@ describe("App", () => {
   });
 
   it("starts on the home page with a drop zone and no Analyzer highlight", () => {
-    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    const { container } = render(
+      <App createWorker={() => new FakeWorker() as unknown as Worker} />,
+    );
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
+    expect(container.querySelector(".app-backdrop")).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
     expect(screen.getByRole("button", { name: "New playbook" })).toBeInTheDocument();
@@ -147,6 +150,7 @@ describe("App", () => {
     expect(window.location.pathname).toBe("/analyzer");
     expect(hudMeta(container)).toBe("Anubis · R1");
     expect(screen.getByText("Astralis")).toBeInTheDocument();
+    expect(container.querySelector(".app-backdrop")).toBeTruthy();
 
     // Both rosters reach the scoreboard, grouped by the side they are on.
     const [ct, t] = container.querySelectorAll(".sb-team");
@@ -195,24 +199,31 @@ describe("App", () => {
   });
 
   it("opens the FAQ from the site nav and returns to Analyzer", async () => {
-    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    const { container } = render(
+      <App createWorker={() => new FakeWorker() as unknown as Worker} />,
+    );
     await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
     expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
+    expect(container.querySelector(".app-backdrop")).toBeTruthy();
     expect(document.title).toBe("FAQ · CS2 Analyzer");
 
     await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
     expect(window.location.pathname).toBe("/analyzer");
     expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
     expect(screen.getByText(/Notes auto-save/)).toBeInTheDocument();
+    expect(container.querySelector(".app-backdrop")).toBeTruthy();
     expect(document.title).toBe("Analyzer · CS2 Analyzer");
   });
 
   it("shows FAQ when opened at /faq", async () => {
     window.history.replaceState({}, "", "/faq");
-    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    const { container } = render(
+      <App createWorker={() => new FakeWorker() as unknown as Worker} />,
+    );
     expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
+    expect(container.querySelector(".app-backdrop")).toBeTruthy();
   });
 
   it("keeps a loaded demo while visiting FAQ", async () => {
@@ -227,11 +238,14 @@ describe("App", () => {
   });
 
   it("opens Playbook from the site nav without a demo", async () => {
-    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    const { container } = render(
+      <App createWorker={() => new FakeWorker() as unknown as Worker} />,
+    );
     await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
     expect(window.location.pathname).toBe("/playbook");
     expect(document.title).toBe("Playbook · CS2 Analyzer");
     expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
+    expect(container.querySelector(".app-backdrop")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
   });
 

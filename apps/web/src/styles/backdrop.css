@@ -1,0 +1,150 @@
+/* Product skin behind every AppLayout route. Fixed so tall splash pages
+   (FAQ) never scroll past a hard clip. Panels stay opaque on top. */
+.app {
+  position: relative;
+  isolation: isolate;
+}
+
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.app > :not(.app-backdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+.app-backdrop-wash,
+.app-backdrop-grid,
+.app-backdrop-grain,
+.app-backdrop-vignette,
+.app-backdrop-radar {
+  position: absolute;
+  inset: 0;
+}
+
+.app-backdrop-wash {
+  background:
+    radial-gradient(
+      ellipse 75% 62% at 6% 0%,
+      color-mix(in srgb, var(--accent) 36%, transparent),
+      transparent 64%
+    ),
+    radial-gradient(
+      ellipse 68% 58% at 98% 94%,
+      color-mix(in srgb, #c9a227 28%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(ellipse 52% 42% at 50% 100%, rgba(86, 48, 22, 0.4), transparent 72%),
+    linear-gradient(180deg, #141c26 0%, #0e1319 48%, #0d1014 100%);
+}
+
+.app-backdrop-grid {
+  background-image:
+    linear-gradient(rgba(106, 164, 216, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(106, 164, 216, 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 42%, #000 20%, transparent 78%);
+  opacity: 0.9;
+}
+
+.app-backdrop-radar {
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0.72;
+}
+
+.app-radar-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.15;
+  opacity: 0.5;
+}
+
+.app-radar-sweep {
+  fill: url(#app-sweep-fill);
+  transform-box: view-box;
+  transform-origin: 780px 390px;
+  animation: app-radar-spin 36s linear infinite;
+}
+
+.app-radar-path {
+  fill: none;
+  stroke: #c9a227;
+  stroke-width: 1.6;
+  stroke-dasharray: 7 11;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.app-radar-smoke {
+  fill: none;
+  stroke: #c5d0da;
+  stroke-width: 1.4;
+  stroke-dasharray: 4 6;
+  opacity: 0.22;
+}
+
+.app-radar-t {
+  fill: #c9a227;
+  opacity: 0.62;
+}
+
+.app-radar-ct {
+  fill: var(--accent);
+  opacity: 0.68;
+}
+
+.app-backdrop-grain {
+  opacity: 0.11;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+.app-backdrop-vignette {
+  background: radial-gradient(
+    ellipse 78% 68% at 50% 36%,
+    transparent 28%,
+    rgba(11, 14, 18, 0.16) 58%,
+    rgba(11, 14, 18, 0.62) 100%
+  );
+}
+
+.app.splash .home-intro,
+.app.splash .faq h2,
+.app.splash .faq-lead {
+  text-shadow: 0 1px 18px rgba(11, 14, 18, 0.55);
+}
+
+.app .drop,
+.app .home-card {
+  background: color-mix(in srgb, #12171d 92%, transparent);
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(232, 238, 244, 0.04);
+}
+
+@media (max-width: 900px) {
+  .app-backdrop-radar {
+    opacity: 0.32;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-radar-sweep {
+    animation: none;
+  }
+}
+
+@keyframes app-radar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
