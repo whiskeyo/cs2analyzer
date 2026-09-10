@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useReviewProject, type ReviewStore } from "@/lib/notes/useReviewProject";
+import { useReviewProject, type ReviewSession } from "@/lib/notes/useReviewProject";
 import { isBucketOverlayActive } from "@/lib/parse/seriesMode";
 import { useHotkeys } from "@/lib/playback/useHotkeys";
 import { PlaybackCommandProvider } from "@/lib/playback/playbackCommandContext";
@@ -25,7 +25,7 @@ import { useViewState, type ViewState } from "./viewState";
 
 export interface AnalyzerState {
   playback: Playback;
-  review: ReviewStore;
+  review: ReviewSession;
   view: ViewState;
   habits: SeriesHabitsState;
   cal: MapCalibration | undefined;
@@ -167,6 +167,6 @@ export function usePlayback(): Playback {
   return useAnalyzer().playback;
 }
 
-export function useReview(): ReviewStore {
+export function useReview(): ReviewSession {
   return useAnalyzer().review;
 }

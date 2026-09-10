@@ -1,25 +1,25 @@
-import { overlayVisible } from "@/lib/notes";
+import { overlayVisible, refsEqual } from "@/lib/notes";
+import type { NoteItemRef } from "@/lib/notes/noteGroups";
 import { drawArrow, drawTextLabel } from "@/lib/radar/draw";
 import { radarLayout, type RadarView } from "@/lib/radar/maps";
 import { drawSmoothLine, simplifyStroke } from "@/lib/radar/strokes";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
-import type { Drawing, Stroke } from "@/lib/notes/types";
+import type { Drawing, Note } from "@/lib/notes/types";
 
 export type WorldToScreen = (wx: number, wy: number) => { x: number; y: number };
 
 export interface TextMoveState {
-  index: number;
+  ref: NoteItemRef;
   x: number;
   y: number;
   moved: boolean;
 }
 
-export interface NoteStrokePaintOpts {
+export interface NotePaintOpts {
   tick: number;
-  round: number;
-  skipTextIndex?: number | null;
+  skipText?: NoteItemRef | null;
   textMove?: TextMoveState | null;
-  draft?: Stroke | null;
+  draft?: Drawing | null;
 }
 
 const NO_CAL_LABEL = "No radar for this map — showing world XY";
@@ -92,46 +92,60 @@ export function paintDrawings(
   }
 }
 
-/** One review stroke on the map layer (pen, arrow, or text). */
-export function paintStroke(
+function paintVisibleDrawing(
   ctx: CanvasRenderingContext2D,
-  st: Stroke,
+  drawing: Drawing,
+  ref: NoteItemRef,
   toScreen: WorldToScreen,
-  opts: { alpha?: number; live?: boolean } = {},
+  opts: NotePaintOpts,
 ): void {
-  if (st.type === "bookmark") {
+  if (drawing.type === "text" && opts.skipText && refsEqual(opts.skipText, ref)) return;
+  if (
+    drawing.type === "text" &&
+    opts.textMove &&
+    refsEqual(opts.textMove.ref, ref) &&
+    opts.textMove.moved
+  ) {
+    paintDrawing(ctx, { ...drawing, x: opts.textMove.x, y: opts.textMove.y }, toScreen);
     return;
   }
-  paintDrawing(ctx, st, toScreen, opts);
+  paintDrawing(ctx, drawing, toScreen);
 }
 
-/** Visible note strokes for the current tick/round, plus any in-progress draft. */
-export function paintNoteStrokes(
+/** Visible note drawings for the current tick, plus any in-progress draft. */
+export function paintNote(
   ctx: CanvasRenderingContext2D,
-  strokes: Stroke[],
+  note: Note,
   toScreen: WorldToScreen,
-  opts: NoteStrokePaintOpts,
+  opts: NotePaintOpts,
 ): void {
-  const { tick, round, skipTextIndex, textMove, draft } = opts;
-  strokes.forEach((st, i) => {
-    if (!overlayVisible(st, tick, round, strokes)) {
-      return;
+  const { tick, draft } = opts;
+  for (let g = 0; g < note.groups.length; g++) {
+    const group = note.groups[g];
+    if (!group || group.hidden || !overlayVisible(group, tick)) continue;
+    for (let d = 0; d < group.drawings.length; d++) {
+      const drawing = group.drawings[d];
+      if (!drawing || drawing.hidden) continue;
+      paintVisibleDrawing(
+        ctx,
+        drawing,
+        { kind: "group", groupIndex: g, drawingIndex: d },
+        toScreen,
+        opts,
+      );
     }
-    if (st.type === "text" && skipTextIndex === i) {
-      return;
-    }
-    if (st.type === "text" && textMove && textMove.index === i && textMove.moved) {
-      paintStroke(ctx, { ...st, x: textMove.x, y: textMove.y }, toScreen);
-      return;
-    }
-    paintStroke(ctx, st, toScreen);
-  });
-  if (draft && overlayVisible(draft, tick, round, strokes)) {
-    paintStroke(ctx, draft, toScreen, { alpha: 0.85, live: true });
+  }
+  for (let i = 0; i < note.drawings.length; i++) {
+    const drawing = note.drawings[i];
+    if (!drawing || !overlayVisible(drawing, tick)) continue;
+    paintVisibleDrawing(ctx, drawing, { kind: "loose", index: i }, toScreen, opts);
+  }
+  if (draft && overlayVisible(draft, tick)) {
+    paintDrawing(ctx, draft, toScreen, { alpha: 0.85, live: true });
   }
 }
 
-/** Map PNG plus note strokes — no replay entities. For PDF snapshots and strat planner. */
+/** Map PNG plus note drawings — no replay entities. For PDF snapshots and strat planner. */
 export function paintStaticMap(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -139,10 +153,10 @@ export function paintStaticMap(
   view: RadarView,
   img: HTMLImageElement | null | undefined,
   cal: MapCalibration | undefined,
-  strokes: Stroke[],
-  strokeOpts: NoteStrokePaintOpts,
+  note: Note,
+  paintOpts: NotePaintOpts,
   toScreen: WorldToScreen,
 ): void {
   paintMapImage(ctx, w, h, view, img, cal);
-  paintNoteStrokes(ctx, strokes, toScreen, strokeOpts);
+  paintNote(ctx, note, toScreen, paintOpts);
 }

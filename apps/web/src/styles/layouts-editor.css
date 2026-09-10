@@ -16,16 +16,16 @@
   align-items: center;
   gap: 0.4rem;
   font-size: 0.8rem;
-  color: #8b98a5;
+  color: var(--text-muted);
 }
 .panel-map select,
 .panel button:not(.callout-cluster-fold):not(.callout-cluster-nudge),
 .panel input:not([type="checkbox"]),
 .panel textarea,
 .panel select {
-  background: #1c242e;
+  background: var(--bg-panel);
   color: #c5d0da;
-  border: 1px solid #2c3846;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.28rem 0.5rem;
   font: inherit;
@@ -40,11 +40,11 @@
 }
 .panel button:hover:not(:disabled):not(.callout-cluster-fold):not(.callout-cluster-nudge),
 .callout-list .pick:hover {
-  border-color: #6aa4d8;
+  border-color: var(--accent);
 }
 .callout-list .pick.on,
 .callout-list .pick.selected {
-  border-color: #6aa4d8;
+  border-color: var(--accent);
   background: #243040;
   color: #fff;
 }
@@ -108,7 +108,7 @@
   flex-direction: column;
   gap: 0.55rem;
   padding: 0.75rem;
-  border-left: 1px solid #2c3846;
+  border-left: 1px solid var(--border);
   background: #12171d;
   overflow: auto;
 }
@@ -117,7 +117,7 @@
   font-size: 0.78rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #8b98a5;
+  color: var(--text-muted);
 }
 .panel-actions {
   display: flex;
@@ -126,20 +126,20 @@
 }
 .panel button.primary {
   background: #243040;
-  border-color: #6aa4d8;
+  border-color: var(--accent);
   color: #fff;
 }
 .panel button.primary:disabled {
   opacity: 0.45;
   cursor: default;
-  border-color: #2c3846;
+  border-color: var(--border);
 }
 .panel button.danger {
   border-color: #8a3a3a;
   color: #f0b4b4;
 }
 .muted {
-  color: #8b98a5;
+  color: var(--text-muted);
   font-size: 0.78rem;
   margin: 0;
 }
@@ -159,8 +159,8 @@
   overflow: hidden;
   display: inline-flex;
   align-items: center;
-  background: #1c242e;
-  border: 1px solid #2c3846;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.28rem 0.5rem;
   font-size: 0.8rem;
@@ -189,7 +189,7 @@
 }
 .callout-row.on .pick,
 .callout-list .pick.selected {
-  border-color: #6aa4d8;
+  border-color: var(--accent);
 }
 .callout-list .pick {
   flex: 1;
@@ -198,9 +198,9 @@
   justify-content: space-between;
   gap: 0.5rem;
   text-align: left;
-  background: #1c242e;
+  background: var(--bg-panel);
   color: #c5d0da;
-  border: 1px solid #2c3846;
+  border: 1px solid var(--border);
   border-left-width: 3px;
   border-radius: 6px;
   padding: 0.28rem 0.5rem;
@@ -230,22 +230,22 @@
   margin: 0 0 0.45rem;
 }
 .callout-cluster:not(.callout-loose) {
-  border: 1px solid #2c3846;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.3rem 0.4rem 0.15rem;
   background: #151c24;
 }
 .callout-cluster.callout-drop,
 .callout-drop-slot.on {
-  outline: 1px dashed #6aa4d8;
+  outline: 1px dashed var(--accent);
   background: #18222c;
 }
 .callout-drop-slot {
   margin: 0 0 0.4rem;
   padding: 0.35rem 0.5rem;
-  border: 1px dashed #2c3846;
+  border: 1px dashed var(--border);
   border-radius: 6px;
-  color: #8b98a5;
+  color: var(--text-muted);
   font-size: 0.75rem;
   text-align: center;
 }
@@ -264,22 +264,22 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #1c242e;
+  background: var(--bg-panel);
   color: #c5d0da;
-  border: 1px solid #2c3846;
+  border: 1px solid var(--border);
   border-radius: 4px;
   cursor: pointer;
   line-height: 1;
   font-size: 0.7rem;
 }
 .callout-cluster-fold:hover {
-  border-color: #6aa4d8;
+  border-color: var(--accent);
 }
 .callout-cluster-count {
   flex: 0 0 auto;
   font-size: 0.7rem;
   font-variant-numeric: tabular-nums;
-  color: #8b98a5;
+  color: var(--text-muted);
 }
 .callout-cluster-order {
   display: flex;
@@ -294,16 +294,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #1c242e;
+  background: var(--bg-panel);
   color: #c5d0da;
-  border: 1px solid #2c3846;
+  border: 1px solid var(--border);
   border-radius: 4px;
   cursor: pointer;
   line-height: 1;
   font-size: 0.7rem;
 }
 .callout-cluster-nudge:hover:not(:disabled) {
-  border-color: #6aa4d8;
+  border-color: var(--accent);
 }
 .callout-cluster-nudge:disabled {
   opacity: 0.35;
@@ -323,9 +323,9 @@
 .callout-group-name {
   display: block;
   box-sizing: border-box;
-  background: #1c242e;
-  color: #e8eef4;
-  border: 1px solid #2c3846;
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.2rem 0.4rem;
   font: inherit;
@@ -333,7 +333,7 @@
   font-weight: 650;
 }
 .callout-group-name:focus {
-  border-color: #6aa4d8;
+  border-color: var(--accent);
   outline: none;
 }
 .callout-pick {
@@ -352,7 +352,7 @@
   background: none;
   border: none;
   border-radius: 0;
-  accent-color: #6aa4d8;
+  accent-color: var(--accent);
 }
 .selected-order {
   display: flex;
@@ -372,10 +372,10 @@
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.78rem;
-  color: #8b98a5;
+  color: var(--text-muted);
 }
 .selected input {
-  color: #e8eef4;
+  color: var(--text);
 }
 .callout-regions {
   list-style: none;

@@ -10,29 +10,14 @@ import {
   nextLayerName,
   removeItems,
   renameGroup,
+  setGroupHidden,
   setItemsHidden,
   squashLooseDrawings,
   ungroup,
   type NoteItemRef,
 } from "./noteGroups";
-import { strokesToNote } from "./migrate";
 import { visibleDrawings } from "./note";
-import type { Drawing, Note, Stroke } from "./types";
-
-function penStroke(
-  partial: Partial<Pick<Stroke, "round" | "start_tick" | "end_tick" | "group" | "hidden">> = {},
-): Stroke {
-  return {
-    type: "pen",
-    round: 1,
-    color: "#fff",
-    points: [
-      { x: 0, y: 0 },
-      { x: 1, y: 1 },
-    ],
-    ...partial,
-  };
-}
+import type { Drawing, Note } from "./types";
 
 const pen: Drawing = {
   type: "pen",
@@ -54,8 +39,18 @@ function looseNote(count: number, extra: Partial<Note> = {}): Note {
 describe("nextGroupId / nextLayerName", () => {
   it("increments from auto and named groups", () => {
     expect(nextGroupId(emptyNote())).toBe("Group 1");
-    expect(nextGroupId(strokesToNote([penStroke({ group: "Group 1" })]))).toBe("Group 2");
-    expect(nextGroupId(strokesToNote([penStroke({ group: "g3" })]))).toBe("Group 4");
+    expect(
+      nextGroupId({
+        ...emptyNote(),
+        groups: [{ id: "Group 1", name: "Group 1", drawings: [pen] }],
+      }),
+    ).toBe("Group 2");
+    expect(
+      nextGroupId({
+        ...emptyNote(),
+        groups: [{ id: "g3", name: "g3", drawings: [pen] }],
+      }),
+    ).toBe("Group 4");
     expect(nextLayerName(emptyNote())).toBe(NOTE_LAYER_NAME);
     const named = groupItems(looseNote(2), [
       { kind: "loose", index: 0 },
@@ -107,7 +102,9 @@ describe("ungroup / renameGroup", () => {
     expect(ungroup(named, 9)).toEqual(named);
     const hidden = setItemsHidden(named, [{ kind: "group", groupIndex: 0, drawingIndex: 0 }], true);
     const opened = ungroup(hidden, 0);
-    expect(opened.drawings.every((i) => i.hidden)).toBe(true);
+    expect(opened.drawings.filter((i) => i.hidden)).toHaveLength(1);
+    const layerHidden = ungroup(setGroupHidden(named, 0, true), 0);
+    expect(layerHidden.drawings.every((i) => i.hidden)).toBe(true);
   });
 });
 
@@ -204,7 +201,7 @@ describe("removeItems / setItemsHidden", () => {
     expect(next.bookmarks).toHaveLength(0);
   });
 
-  it("hides a group from the radar", () => {
+  it("hides one grouped drawing without hiding the layer", () => {
     const grouped = groupItems(looseNote(2), [
       { kind: "loose", index: 0 },
       { kind: "loose", index: 1 },
@@ -214,13 +211,23 @@ describe("removeItems / setItemsHidden", () => {
       [{ kind: "group", groupIndex: 0, drawingIndex: 0 }],
       true,
     );
-    expect(visibleDrawings(hidden, 100)).toHaveLength(0);
+    expect(visibleDrawings(hidden, 100)).toHaveLength(1);
     const shown = setItemsHidden(
       hidden,
       [{ kind: "group", groupIndex: 0, drawingIndex: 0 }],
       false,
     );
     expect(visibleDrawings(shown, 100)).toHaveLength(2);
+  });
+
+  it("hides a whole layer from the radar", () => {
+    const grouped = groupItems(looseNote(2), [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const hidden = setGroupHidden(grouped, 0, true);
+    expect(visibleDrawings(hidden, 100)).toHaveLength(0);
+    expect(visibleDrawings(setGroupHidden(hidden, 0, false), 100)).toHaveLength(2);
   });
 
   it("toggles hidden on a loose item and bookmark", () => {

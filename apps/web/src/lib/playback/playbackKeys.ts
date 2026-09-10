@@ -6,8 +6,8 @@ export function hotkeyTargetBlocksKeys(target: EventTarget | null): boolean {
   if (target.closest(".radar-text-edit")) return true;
   const tag = target.tagName;
   if (tag === "TEXTAREA" || tag === "SELECT") return true;
-  if (tag === "INPUT") {
-    return (target as HTMLInputElement).type !== "range";
+  if (target instanceof HTMLInputElement) {
+    return target.type !== "range";
   }
   return false;
 }

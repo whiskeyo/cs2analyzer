@@ -1,34 +1,51 @@
 import { useCallback, useMemo, useState } from "react";
-import { canGroupIndexes } from "@/lib/notes";
-import type { Stroke } from "@/lib/notes/types";
+import { canGroup, itemExists } from "./noteGroups";
+import { noteForRound } from "./roundNotes";
+import type { RoundNote } from "./types";
+import { picksEqual, type NotePick } from "./drag";
 
-export function useNoteSelection(strokes: Stroke[]) {
-  const [picked, setPicked] = useState<number[]>([]);
-  const selected = useMemo(() => picked.filter((i) => strokes[i] != null), [picked, strokes]);
-  const canGroup = canGroupIndexes(strokes, selected);
-  const canUngroup = selected.some((i) => strokes[i]?.group);
+export function useNoteSelection(notes: RoundNote[]) {
+  const [picked, setPicked] = useState<NotePick[]>([]);
+  const selected = useMemo(
+    () => picked.filter((pick) => itemExists(noteForRound(notes, pick.round), pick.ref)),
+    [picked, notes],
+  );
+  const rounds = new Set(selected.map((pick) => pick.round));
+  const sameRound = rounds.size === 1;
+  const round = selected[0]?.round ?? 0;
+  const refs = selected.map((pick) => pick.ref);
+  const canGroupItems = sameRound && canGroup(noteForRound(notes, round), refs);
+  const canUngroup = selected.some((pick) => pick.ref.kind === "group");
 
   const clearSelection = useCallback(() => {
     setPicked([]);
   }, []);
 
-  const toggle = useCallback((index: number) => {
-    setPicked((cur) => (cur.includes(index) ? cur.filter((i) => i !== index) : [...cur, index]));
+  const toggle = useCallback((pick: NotePick) => {
+    setPicked((cur) =>
+      cur.some((row) => picksEqual(row, pick))
+        ? cur.filter((row) => !picksEqual(row, pick))
+        : [...cur, pick],
+    );
   }, []);
 
-  const toggleAll = useCallback((indexes: number[]) => {
+  const toggleAll = useCallback((picks: NotePick[]) => {
     setPicked((cur) => {
-      const allOn = indexes.every((i) => cur.includes(i));
+      const allOn = picks.every((pick) => cur.some((row) => picksEqual(row, pick)));
       if (allOn) {
-        return cur.filter((i) => !indexes.includes(i));
+        return cur.filter((row) => !picks.some((pick) => picksEqual(row, pick)));
       }
-      return [...new Set([...cur, ...indexes])];
+      const next = [...cur];
+      for (const pick of picks) {
+        if (!next.some((row) => picksEqual(row, pick))) next.push(pick);
+      }
+      return next;
     });
   }, []);
 
   return {
     selected,
-    canGroup,
+    canGroup: canGroupItems,
     canUngroup,
     toggle,
     toggleAll,

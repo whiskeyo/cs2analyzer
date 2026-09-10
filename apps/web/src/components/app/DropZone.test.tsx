@@ -45,7 +45,6 @@ function savedProject(overrides: Partial<ReviewProject> = {}): ReviewProject {
     mapName: "de_mirage",
     tick: 120,
     notes: [],
-    strokes: [],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",
     paletteId: COLOR_PRESETS[0].id,
@@ -276,7 +275,17 @@ describe("DropZone", () => {
         fileSizeBytes: 2 * 1024 * 1024,
         linkedFileLabel: "linked.dem",
         savedAt: 0,
-        strokes: [{ type: "pen", round: 1, color: "#fff", points: [{ x: 0, y: 0 }] }],
+        notes: [
+          {
+            round: 1,
+            note: {
+              groups: [],
+              drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+              pieces: [],
+              bookmarks: [],
+            },
+          },
+        ],
       }),
     );
     render(<DropZone {...props({ saved })} />);
