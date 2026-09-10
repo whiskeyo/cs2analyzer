@@ -1,7 +1,6 @@
 import {
   FLASH_BLIND_ATTRIBUTION_SECONDS,
   FLASH_OVERLAY_SPIKE_SECONDS,
-  MIN_REVIEW_FLASH_SECONDS,
   MOLOTOV_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
@@ -216,7 +215,7 @@ function attachBlinds(rows: UtilThrowRow[], replay: Replay, untilTick: number): 
   if (flashes.length === 0) return;
   const tps = tickRate(replay);
   for (const blind of replay.blinds ?? []) {
-    if (blind.tick > untilTick || blind.duration < MIN_REVIEW_FLASH_SECONDS) continue;
+    if (blind.tick > untilTick || blind.duration <= 0) continue;
     if (inKnifeRound(replay, blind.tick)) continue;
     const best = nearestFlash(flashes, blind.attacker, blind.tick, tps);
     if (!best) continue;
