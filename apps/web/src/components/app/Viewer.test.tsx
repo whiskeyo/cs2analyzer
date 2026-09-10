@@ -17,9 +17,6 @@ vi.mock("@/components/radar/RadarStage", () => ({
 vi.mock("@/components/sidebar/Sidebar", () => ({
   Sidebar: () => <div data-testid="sidebar" />,
 }));
-vi.mock("@/components/playback/RoundStrip", () => ({
-  RoundStrip: () => <div data-testid="round-strip" />,
-}));
 vi.mock("@/components/playback/SeriesAggregatedRoundStrip", () => ({
   SeriesAggregatedRoundStrip: () => <div data-testid="aggregated-round-strip" />,
 }));
@@ -89,7 +86,7 @@ describe("Viewer", () => {
     render(<Viewer />);
     expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
     expect(screen.getByTestId("sidebar")).toBeInTheDocument();
-    expect(screen.getByTestId("round-strip")).toBeInTheDocument();
+    expect(screen.queryByTestId("aggregated-round-strip")).not.toBeInTheDocument();
     expect(screen.getByTestId("controls")).toBeInTheDocument();
     expect(screen.getByText(/Space play/)).toBeInTheDocument();
   });
@@ -114,7 +111,6 @@ describe("Viewer", () => {
     render(<Viewer />);
     expect(screen.getByTestId("aggregated-round-strip")).toBeInTheDocument();
     expect(screen.getByTestId("bucket-controls")).toBeInTheDocument();
-    expect(screen.queryByTestId("round-strip")).not.toBeInTheDocument();
     expect(screen.queryByTestId("controls")).not.toBeInTheDocument();
   });
 
