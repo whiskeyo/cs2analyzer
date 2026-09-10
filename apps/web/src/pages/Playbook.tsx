@@ -64,6 +64,7 @@ export function Playbook() {
     commitBookTitle,
     commitStratTitle,
     setBody,
+    setVideos,
     removeStrat,
     duplicateStrat,
     selectStrat,
@@ -275,8 +276,10 @@ export function Playbook() {
             <PlaybookStratPanel
               stratTitle={page.title}
               body={page.body}
+              videos={page.videos}
               selectedId={board.visibleSelectedId}
               onBody={(body) => setBody(page.id, body)}
+              onVideos={(videos) => setVideos(page.id, videos)}
               onSelect={board.setSelectedId}
               onNote={board.commitNote}
               note={page.note}

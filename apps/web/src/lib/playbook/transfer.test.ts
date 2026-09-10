@@ -40,6 +40,9 @@ describe("parsePlaybookBundle", () => {
     expect(parsePlaybookBundle(JSON.parse(json))?.playbooks).toHaveLength(1);
     expect(parsePlaybookBundle(book)?.playbooks).toEqual([book]);
     expect(parsePlaybookBundle(null)).toBeNull();
+    expect(parsePlaybookBundle({ schema: 1, playbooks: [book] })?.playbooks[0]?.schema).toBe(
+      PLAYBOOK_SCHEMA,
+    );
     expect(parsePlaybookBundle({ schema: 0, playbooks: [book] })).toBeNull();
     expect(parsePlaybookBundle({ schema: PLAYBOOK_SCHEMA, playbooks: [{}] })).toBeNull();
     expect(

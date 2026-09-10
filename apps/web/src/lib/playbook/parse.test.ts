@@ -17,6 +17,25 @@ describe("parsePlaybookPage", () => {
     expect(parsePlaybookPage({ id: "p2" })?.title).toBe(UNTITLED_STRAT);
     expect(parsePlaybookPage({ id: "p2" })?.body).toBe("");
     expect(parsePlaybookPage({ id: "p5", body: "hold mid" })?.body).toBe("hold mid");
+    expect(parsePlaybookPage({ id: "p2" })?.videos).toEqual([]);
+    expect(
+      parsePlaybookPage({
+        id: "p6",
+        videos: [
+          { id: "v1", videoId: "dQw4w9WgXcQ", title: "  A smoke  ", startSeconds: 30 },
+          { id: "bad", videoId: "nope" },
+          { videoId: "dQw4w9WgXcQ" },
+        ],
+      })?.videos,
+    ).toEqual([
+      {
+        id: "v1",
+        videoId: "dQw4w9WgXcQ",
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30",
+        title: "A smoke",
+        startSeconds: 30,
+      },
+    ]);
     expect(parsePlaybookPage({ id: "p3", floor: "nope" })?.floor).toBe("auto");
     expect(parsePlaybookPage({ id: "  " })).toBeNull();
     expect(parsePlaybookPage(null)).toBeNull();
@@ -100,9 +119,28 @@ describe("parsePlaybook", () => {
     expect(parsed?.sort).toBe(2);
   });
 
+  it("migrates a schema 1 book and fills videos", () => {
+    const parsed = parsePlaybook({
+      schema: 1,
+      key: "old",
+      mapName: "de_mirage",
+      pages: [{ id: "p", title: "A exec" }],
+    });
+    expect(parsed?.schema).toBe(PLAYBOOK_SCHEMA);
+    expect(parsed?.pages[0]).toMatchObject({ title: "A exec", videos: [] });
+  });
+
   it("rejects a bad schema, missing key, or empty pages", () => {
     expect(parsePlaybook(null)).toBeNull();
     expect(parsePlaybook({ schema: 0, key: "k", mapName: "de_mirage", pages: [] })).toBeNull();
+    expect(
+      parsePlaybook({
+        schema: 3,
+        key: "k",
+        mapName: "de_mirage",
+        pages: [{ id: "p" }],
+      }),
+    ).toBeNull();
     expect(
       parsePlaybook({
         schema: PLAYBOOK_SCHEMA,

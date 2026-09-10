@@ -1,7 +1,7 @@
 import { parseJson } from "@/lib/validate/json.ts";
 import { isFiniteNumber, isRecord } from "@/lib/validate/guards.ts";
 import { downloadBlob } from "@/lib/shared/download";
-import { parsePlaybook } from "./parse";
+import { isPlaybookSchema, parsePlaybook } from "./parse";
 import { loadAllPlaybooks, savePlaybook } from "./playbookStore";
 import { emitPlaybooksChanged } from "./events";
 import {
@@ -41,7 +41,7 @@ export function serializePlaybookBundle(playbooks: Playbook[], exportedAt = Date
 
 export function parsePlaybookBundle(value: unknown): PlaybookBundle | null {
   if (!isRecord(value)) return null;
-  if (value.schema !== PLAYBOOK_BUNDLE_SCHEMA) return null;
+  if (!isPlaybookSchema(value.schema)) return null;
   if (Array.isArray(value.playbooks)) {
     const playbooks: Playbook[] = [];
     for (const row of value.playbooks) {

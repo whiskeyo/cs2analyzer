@@ -193,6 +193,8 @@ describe("Playbook", () => {
     expect(screen.getByRole("textbox", { name: "Strat notes" })).toHaveValue(
       "smoke CT, flash palace",
     );
+    expect(screen.getByRole("textbox", { name: "YouTube link" })).toBeInTheDocument();
+    expect(screen.getByText(/Lineup or tutorial clips/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Flash" }));
     expect(screen.getByRole("button", { name: "Flash" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Reset view" })).toBeInTheDocument();

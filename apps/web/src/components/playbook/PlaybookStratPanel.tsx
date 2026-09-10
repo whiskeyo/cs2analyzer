@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { PieceList } from "@/components/playbook/PieceList";
+import { PlaybookVideos } from "@/components/playbook/PlaybookVideos";
 import type { Note } from "@/lib/notes/types";
+import type { PlaybookYouTube } from "@/lib/playbook/types";
 import {
   groupOverlayItems,
   renamePlaybookGroup,
@@ -13,8 +15,10 @@ import { setPieceLabel } from "@/lib/playbook/pieces";
 interface Props {
   stratTitle: string;
   body: string;
+  videos: PlaybookYouTube[];
   selectedId: string | null;
   onBody: (body: string) => void;
+  onVideos: (videos: PlaybookYouTube[]) => void;
   onSelect: (id: string | null) => void;
   onNote: (note: Note) => void;
   note: Note;
@@ -23,8 +27,10 @@ interface Props {
 export function PlaybookStratPanel({
   stratTitle,
   body,
+  videos,
   selectedId,
   onBody,
+  onVideos,
   onSelect,
   onNote,
   note,
@@ -57,6 +63,7 @@ export function PlaybookStratPanel({
           onChange={(e) => onBody(e.target.value)}
         />
       </label>
+      <PlaybookVideos videos={videos} onVideos={onVideos} />
       <div className="playbook-tokens">
         <button
           type="button"

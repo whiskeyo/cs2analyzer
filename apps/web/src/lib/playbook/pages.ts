@@ -8,6 +8,7 @@ import {
   UNTITLED_STRAT,
   type Playbook,
   type PlaybookPage,
+  type PlaybookYouTube,
 } from "./types";
 
 export function newId(): string {
@@ -39,6 +40,7 @@ export function newPage(title = UNTITLED_STRAT, floor: FloorMode = "auto"): Play
     body: "",
     floor,
     note: emptyNote(),
+    videos: [],
   };
 }
 
@@ -119,6 +121,10 @@ export function setPageBody(book: Playbook, pageId: string, body: string): Playb
   return updatePage(book, pageId, (page) => ({ ...page, body }));
 }
 
+export function setPageVideos(book: Playbook, pageId: string, videos: PlaybookYouTube[]): Playbook {
+  return updatePage(book, pageId, (page) => ({ ...page, videos }));
+}
+
 export function setPageFloor(book: Playbook, pageId: string, floor: FloorMode): Playbook {
   return updatePage(book, pageId, (page) => ({ ...page, floor }));
 }
@@ -158,6 +164,7 @@ export function duplicatePage(book: Playbook, pageId: string): Playbook {
     title: copiedTitle(source.title),
     body: source.body,
     note: cloneNote(source.note),
+    videos: cloneVideos(source.videos),
   };
   const pages = book.pages.slice();
   pages.splice(index + 1, 0, copy);
@@ -195,7 +202,7 @@ export function duplicatePlaybook(book: Playbook): Playbook {
   const pages = book.pages.map((page) => {
     const id = newId();
     idMap.set(page.id, id);
-    return { ...page, id, note: cloneNote(page.note) };
+    return { ...page, id, note: cloneNote(page.note), videos: cloneVideos(page.videos) };
   });
   const activePageId = idMap.get(book.activePageId) ?? pages[0]?.id ?? newId();
   return {
@@ -207,4 +214,8 @@ export function duplicatePlaybook(book: Playbook): Playbook {
     pages,
     activePageId,
   };
+}
+
+function cloneVideos(videos: PlaybookYouTube[]): PlaybookYouTube[] {
+  return videos.map((clip) => ({ ...clip, id: newId() }));
 }

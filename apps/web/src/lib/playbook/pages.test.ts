@@ -21,6 +21,7 @@ import {
   setPageBody,
   setPageFloor,
   setPageNote,
+  setPageVideos,
 } from "./pages";
 import { COPY_SUFFIX, PLAYBOOK_SCHEMA, UNTITLED_PLAYBOOK, UNTITLED_STRAT } from "./types";
 
@@ -175,6 +176,7 @@ describe("newPage", () => {
   it("defaults title and floor", () => {
     expect(newPage().title).toBe(UNTITLED_STRAT);
     expect(newPage().body).toBe("");
+    expect(newPage().videos).toEqual([]);
     expect(newPage().floor).toBe("auto");
     expect(newPage("Split A", "upper")).toMatchObject({
       title: "Split A",
@@ -192,5 +194,20 @@ describe("commitTitle / setPageBody", () => {
     book = setPageBody(book, id, "flash mid, smoke stairs");
     expect(book.pages[0]?.body).toBe("flash mid, smoke stairs");
     expect(setPageBody(book, "missing", "x")).toBe(book);
+    const videos = [
+      {
+        id: "v1",
+        videoId: "dQw4w9WgXcQ",
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        title: "A smoke",
+      },
+    ];
+    book = setPageVideos(book, id, videos);
+    expect(book.pages[0]?.videos).toEqual(videos);
+    expect(setPageVideos(book, "missing", videos)).toBe(book);
+    const copied = duplicatePage(book, id);
+    expect(copied.pages[1]?.videos[0]?.videoId).toBe("dQw4w9WgXcQ");
+    expect(copied.pages[1]?.videos[0]?.id).not.toBe("v1");
+    expect(copied.pages[0]?.videos[0]?.id).toBe("v1");
   });
 });

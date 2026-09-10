@@ -1206,6 +1206,96 @@ code {
   min-height: 16rem;
   flex: 1;
 }
+.playbook-videos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.playbook-video-add {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-end;
+}
+.playbook-video-add .playbook-field {
+  flex: 1;
+  min-width: 0;
+}
+.playbook-video-add button {
+  flex: 0 0 auto;
+}
+.playbook-video-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.playbook-video {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+.playbook-video-open {
+  display: grid;
+  grid-template-columns: 4.4rem 1fr;
+  gap: 0.45rem;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 0.25rem 0.4rem 0.25rem 0.25rem;
+  font: inherit;
+  cursor: pointer;
+}
+.playbook-video-open img {
+  width: 4.4rem;
+  height: 2.48rem;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--bg-panel);
+}
+.playbook-video-open span {
+  min-width: 0;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.playbook-video-modal .home-modal-card {
+  width: min(52rem, 100%);
+}
+.playbook-video-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 0 0 1rem;
+  background: #000;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.playbook-video-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.playbook-video-modal .home-modal-actions {
+  align-items: center;
+}
+.playbook-video-modal .home-modal-actions a {
+  margin-right: auto;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
 .playbook-books {
   list-style: none;
   margin: 0;
