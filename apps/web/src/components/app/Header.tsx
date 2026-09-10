@@ -7,7 +7,8 @@ import { useApp } from "@/lib/state/appState";
 import { isAggregatedView } from "@/lib/parse/seriesMode";
 import { prettyMap } from "@/lib/weapons/weapons";
 import type { Replay } from "@/lib/replay/replayTypes";
-import { navigate, ROUTES, usePathname } from "@/lib/app/devNavigate";
+import { useNavigate } from "react-router";
+import { ROUTES, usePathname } from "@/lib/app/devNavigate";
 import { isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
 import { PLAYBOOKS_CHANGED_EVENT } from "@/lib/playbook/events";
 import { countPlaybooks, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
@@ -49,6 +50,7 @@ export function Header() {
   const canExportNotes = replay != null || review.saved.length > 0;
   const canRemoveNotes = review.saved.length > 0;
 
+  const navigate = useNavigate();
   const pathname = usePathname();
   const onLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
   const onFaq = isFaqPath(pathname);

@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { useApp } from "@/lib/state/appState";
 import type { ReviewProject } from "@/lib/notes/projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
+import { TestRouter } from "@/lib/testing/router";
 import { Home } from "./Home";
 
 vi.mock("@/lib/state/appState", () => ({
@@ -55,7 +56,11 @@ describe("Home", () => {
     vi.mocked(useApp).mockReturnValue(
       homeState([savedProject()]) as unknown as ReturnType<typeof useApp>,
     );
-    const { container } = render(<Home />);
+    const { container } = render(
+      <TestRouter>
+        <Home />
+      </TestRouter>,
+    );
     expect(
       screen.getByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
     ).toBeInTheDocument();

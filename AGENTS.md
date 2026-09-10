@@ -11,7 +11,7 @@ crates/cs2analyzer       Parse, assemble Match, stats, radar math
 crates/cs2analyzer-cli   `cs2analyzer` binary: dump a demo as JSON (fixtures, cross-checks)
 crates/cs2analyzer-wasm  wasm-bindgen wrapper (no mimalloc)
 apps/web                 Vite + React viewer (dev: http://localhost:5173/; layouts editor: /layouts via Settings)
-                         pages: `/` home, `/analyzer`, `/faq`
+                         pages: `/` home, `/analyzer`, `/faq`, `/playbook` (React Router; share `?map=&playbook=&strat=`)
                          FAQ articles: `apps/web/src/content/faq/*.md`
 scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored; never commit)

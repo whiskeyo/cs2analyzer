@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
+import { useNavigate } from "react-router";
 import { deleteProject } from "@/lib/notes/projectStore";
-import { navigate, ROUTES } from "@/lib/app/devNavigate";
+import { ROUTES } from "@/lib/app/routes";
 import { useApp } from "@/lib/state/appState";
 import { DropZone } from "./DropZone";
 
@@ -13,6 +14,7 @@ interface Props {
 /** DropZone wired to the live parse/notes session. */
 export function DemoDrop({ showSavedNotes, openAnalyzerOnDrop = false, children }: Props) {
   const { session, status, review, onFiles } = useApp();
+  const navigate = useNavigate();
   return (
     <DropZone
       onFiles={(files) => {

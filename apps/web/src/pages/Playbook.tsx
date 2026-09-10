@@ -1,4 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
+import {
+  findPlaybook,
+  findStrat,
+  parsePlaybookQuery,
+  playbookQueryLabel,
+  playbookSearch,
+  stratQueryLabel,
+} from "@/lib/app/playbookSearch";
 import { PlaybookCanvas } from "@/components/playbook/PlaybookCanvas";
 import { PlaybookEmpty } from "@/components/playbook/PlaybookEmpty";
 import { PlaybookStratPanel } from "@/components/playbook/PlaybookStratPanel";
@@ -39,6 +48,11 @@ import { errorMessage } from "@/lib/validate/json.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
 export function Playbook() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchKey = searchParams.toString();
+  const query = useMemo(() => parsePlaybookQuery(searchKey), [searchKey]);
+  const initialMapFromUrl = useRef(query.map);
+  const appliedSearchRef = useRef<string | null>(null);
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapName, setMapName] = useState<string | null>(null);
@@ -109,6 +123,8 @@ export function Playbook() {
         setMaps(cals);
         setMapName((current) => {
           if (current) return current;
+          const mapFromUrl = initialMapFromUrl.current;
+          if (mapFromUrl && cals[mapFromUrl]) return mapFromUrl;
           const focus = pendingFocus.current;
           if (focus && cals[focus.mapName]) return focus.mapName;
           return pickInitialMap(sortedMapNames(cals));
@@ -124,13 +140,26 @@ export function Playbook() {
   }, []);
 
   useEffect(() => {
+    if (!mapName) return;
+    if (appliedSearchRef.current === searchKey) return;
+    if (query.playbook) {
+      const match = findPlaybook(allBooks, mapName, query.playbook);
+      if (!match) return;
+      appliedSearchRef.current = searchKey;
+      if (activeKey !== match.key) select(match.key);
+      if (query.strat) {
+        const strat = findStrat(match, query.strat);
+        if (strat) pendingPage.current = strat.id;
+      }
+      return;
+    }
+    appliedSearchRef.current = searchKey;
     const focus = pendingFocus.current;
-    if (!focus || mapName !== focus.mapName) return;
-    if (!allBooks.some((row) => row.key === focus.bookKey)) return;
-    select(focus.bookKey);
-    setExpandedBooks((prev) => new Set(prev).add(focus.bookKey));
-    pendingFocus.current = null;
-  }, [allBooks, mapName, select]);
+    if (focus && mapName === focus.mapName && allBooks.some((row) => row.key === focus.bookKey)) {
+      if (activeKey !== focus.bookKey) select(focus.bookKey);
+      pendingFocus.current = null;
+    }
+  }, [activeKey, allBooks, mapName, query.playbook, query.strat, searchKey, select]);
 
   useEffect(() => {
     if (!book) return;
@@ -197,7 +226,27 @@ export function Playbook() {
     return () => window.removeEventListener("keydown", onKey);
   }, [book, history, setNote, setPalette]);
 
+  useEffect(() => {
+    if (!mapName) return;
+    if (query.playbook && appliedSearchRef.current !== searchKey) return;
+    const next = playbookSearch({
+      map: mapName,
+      playbook: book ? playbookQueryLabel(allBooks, book) : null,
+      strat: book && page ? stratQueryLabel(book.pages, page) : null,
+    });
+    const current = playbookSearch(query);
+    if (next === current) return;
+    setSearchParams(next === "" ? {} : Object.fromEntries(new URLSearchParams(next.slice(1))), {
+      replace: true,
+    });
+  }, [allBooks, book, mapName, page, query, searchKey, setSearchParams]);
+
   const treeBooks = booksWithDraft(allBooks, book);
+  const treeExpandedBooks = useMemo(() => {
+    const next = new Set(expandedBooks);
+    if (activeKey) next.add(activeKey);
+    return next;
+  }, [activeKey, expandedBooks]);
   const cal = mapName && maps ? maps[mapName] : undefined;
   const visibleSelectedId = page?.note.pieces.some((piece) => piece.id === selectedId)
     ? selectedId
@@ -308,7 +357,7 @@ export function Playbook() {
             mapName={mapName}
             activeKey={activeKey}
             activePageId={book?.activePageId ?? null}
-            expandedBooks={expandedBooks}
+            expandedBooks={treeExpandedBooks}
             collapsedMaps={collapsedMaps}
             onSelectMap={setMapName}
             onToggleMap={(map) => {
