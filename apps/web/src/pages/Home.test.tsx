@@ -105,21 +105,22 @@ describe("Home", () => {
     if (playbook && faq) {
       expect(playbook.compareDocumentPosition(faq) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     }
-    expect(screen.getByRole("button", { name: "New playbook" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Create a playbook/ })).toBeInTheDocument();
+    expect(container.querySelector(".home-playbook-add")).toBeNull();
     expect(container.querySelector(".home-playbook-mark")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
   });
 
-  it("opens the create dialog from the green plus", async () => {
+  it("opens the create dialog from the playbook card", async () => {
     vi.mocked(useApp).mockReturnValue(homeState() as unknown as ReturnType<typeof useApp>);
     render(
       <TestRouter>
         <Home />
       </TestRouter>,
     );
-    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
+    await userEvent.click(screen.getByRole("button", { name: /Create a playbook/ }));
     expect(await screen.findByRole("heading", { name: "New playbook" })).toBeInTheDocument();
     expect(await screen.findByRole("combobox", { name: "Map" })).toHaveValue("de_mirage");
     expect(screen.getByRole("textbox", { name: "Playbook title" })).toBeInTheDocument();

@@ -117,15 +117,15 @@ describe("App", () => {
     expect(container.querySelector(".app-backdrop")).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
-    expect(screen.getByRole("button", { name: "New playbook" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Create a playbook/ })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
   });
 
-  it("opens a create-playbook dialog from the home plus button", async () => {
+  it("opens a create-playbook dialog from the home playbook card", async () => {
     render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
-    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
+    await userEvent.click(screen.getByRole("button", { name: /Create a playbook/ }));
     expect(await screen.findByRole("heading", { name: "New playbook" })).toBeInTheDocument();
     expect(await screen.findByRole("combobox", { name: "Map" })).toHaveValue("de_mirage");
     expect(screen.getByRole("textbox", { name: "Playbook title" })).toBeInTheDocument();
