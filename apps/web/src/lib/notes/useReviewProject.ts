@@ -21,7 +21,6 @@ import {
   saveProject,
   type ReviewProject,
 } from "./projectStore";
-import { flattenRoundNotes } from "./migrate";
 import { DEFAULT_SUMMARY_FILTER, type FloorMode, type SummaryFilter } from "./types";
 import { useStrokeHistory } from "./reviewHistory";
 import {
@@ -57,7 +56,18 @@ export function useReviewProject(opts: {
 }) {
   const { demo, series, parsedDemos, status, playback } = opts;
   const [saved, setSaved] = useState<ReviewProject[]>([]);
-  const { strokes, strokesRef, canUndo, canRedo, commitStrokes, undo, redo } = useStrokeHistory();
+  const {
+    strokes,
+    strokesRef,
+    notes,
+    notesRef,
+    canUndo,
+    canRedo,
+    commitStrokes,
+    commitNotes,
+    undo,
+    redo,
+  } = useStrokeHistory();
   const [paletteId, setPaletteId] = useState(defaultPaletteId);
   const [color, setColor] = useState(defaultColor);
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>(DEFAULT_SUMMARY_FILTER);
@@ -86,7 +96,7 @@ export function useReviewProject(opts: {
 
   const applySnapshot = useCallback(
     (snap: SeriesReviewSnapshot, jumpTick: boolean) => {
-      commitStrokes(snap.strokes, true);
+      commitNotes(snap.notes, true);
       setSummaryFilter(snap.summaryFilter);
       setFloorMode(snap.floorMode);
       setPaletteId(snap.paletteId);
@@ -95,12 +105,12 @@ export function useReviewProject(opts: {
         playbackRef.current.jump(snap.tick, true);
       }
     },
-    [commitStrokes],
+    [commitNotes],
   );
 
   const applyProject = useCallback(
     (p: ReviewProject, jumpTick: boolean) => {
-      commitStrokes(flattenRoundNotes(p.notes), true);
+      commitNotes(p.notes, true);
       setSummaryFilter(p.summaryFilter);
       setFloorMode(p.floorMode);
       setPaletteId(p.paletteId);
@@ -109,7 +119,7 @@ export function useReviewProject(opts: {
         playbackRef.current.jump(p.tick, true);
       }
     },
-    [commitStrokes],
+    [commitNotes],
   );
 
   const snapshotNow = useCallback((): SeriesReviewSnapshot | null => {
@@ -120,10 +130,10 @@ export function useReviewProject(opts: {
     return reviewSnapshot(
       target,
       playbackRef.current.tickRef.current,
-      strokesRef.current,
+      notesRef.current,
       overlayRef.current,
     );
-  }, [strokesRef]);
+  }, [notesRef]);
 
   const exportNotes = useCallback(async () => {
     await exportSavedNotes(loadAllProjects, statusRef.current);
@@ -157,7 +167,7 @@ export function useReviewProject(opts: {
           projectFromDemo(
             target,
             playbackRef.current.tickRef.current,
-            strokesRef.current,
+            notesRef.current,
             overlayRef.current,
             existing,
             { withStats: opts?.stats !== false },
@@ -168,7 +178,7 @@ export function useReviewProject(opts: {
         refreshSaved();
       }
     },
-    [refreshSaved, strokesRef],
+    [refreshSaved, notesRef],
   );
 
   const seededPoolRef = useRef<string | null>(null);
@@ -222,12 +232,12 @@ export function useReviewProject(opts: {
     if (!enter.clearStrokes) {
       return;
     }
-    commitStrokes([], true);
+    commitNotes([], true);
     if (enter.resetOverlay) {
       setSummaryFilter(DEFAULT_SUMMARY_FILTER);
       setFloorMode("auto");
     }
-  }, [demo?.id, series, commitStrokes]);
+  }, [demo?.id, series, commitNotes]);
 
   /** Call before swapping the active file in a series (refs still point at the outgoing demo). */
   const stashForSeriesSwitch = useCallback(() => {
@@ -344,6 +354,8 @@ export function useReviewProject(opts: {
 
   return {
     saved,
+    notes,
+    notesRef,
     strokes,
     strokesRef,
     canUndo,
@@ -357,6 +369,7 @@ export function useReviewProject(opts: {
     floorMode,
     setFloorMode,
     refreshSaved,
+    commitNotes,
     commitStrokes,
     undo,
     redo,

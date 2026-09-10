@@ -59,6 +59,7 @@ export {
 } from "./note";
 export { parseDrawing, parseNote, parseRoundNote, parseRoundNotes } from "./noteParse";
 export { strokesToRoundNotes, strokesToNote, flattenRoundNotes, flattenNote } from "./migrate";
+export { noteForRound, upsertRoundNote, updateRoundNote, noteRoundNumbers } from "./roundNotes";
 export {
   nextGroupId as nextNoteGroupId,
   nextLayerName as nextNoteLayerName,

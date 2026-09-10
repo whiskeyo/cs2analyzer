@@ -171,7 +171,8 @@ export interface RoundNote {
 
 /**
  * Flat Analyzer canvas stroke. Disk/export is `Note` only (schema 4).
- * Kept in memory until the canvas/sidebar cut over to `Note`.
+ * Review history is `RoundNote[]`; canvas/sidebar still flatten at the edge
+ * until they cut over to `Note`.
  */
 export type Stroke = {
   round: number;

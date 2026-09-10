@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { useStrokeHistory } from "./reviewHistory";
+import { emptyNote } from "./note";
+import { useRoundNoteHistory, useStrokeHistory } from "./reviewHistory";
 
 describe("useStrokeHistory", () => {
   it("supports undo and redo", () => {
@@ -42,5 +43,29 @@ describe("useStrokeHistory", () => {
       result.current.redo();
     });
     expect(result.current.strokes).toHaveLength(2);
+  });
+
+  it("undoes RoundNote history without flattening", () => {
+    const first = [{ round: 1, note: { ...emptyNote(), drawings: [] } }];
+    const { result } = renderHook(() => useRoundNoteHistory());
+    act(() => {
+      result.current.commitNotes(first, true);
+    });
+    act(() => {
+      result.current.commitNotes([
+        {
+          round: 1,
+          note: {
+            ...emptyNote(),
+            drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+          },
+        },
+      ]);
+    });
+    expect(result.current.notes[0]?.note.drawings).toHaveLength(1);
+    act(() => {
+      result.current.undo();
+    });
+    expect(result.current.notes[0]?.note.drawings).toHaveLength(0);
   });
 });

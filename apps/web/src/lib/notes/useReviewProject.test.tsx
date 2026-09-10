@@ -170,6 +170,7 @@ describe("useReviewProject", () => {
     );
 
     await waitFor(() => {
+      expect(result.current.notes[0]?.note.drawings).toHaveLength(1);
       expect(result.current.strokes).toEqual([expect.objectContaining({ type: "pen" })]);
       expect(st.notice).toContain("Restored drawings");
     });
@@ -259,7 +260,9 @@ describe("useReviewProject", () => {
     });
 
     expect(mocks.saveProject).not.toHaveBeenCalled();
-    expect(getSeriesReview(first.id)?.strokes).toEqual([stroke]);
+    expect(getSeriesReview(first.id)?.notes[0]?.note.drawings).toEqual([
+      { type: "pen", color: "#fff", points: [{ x: 1, y: 2 }] },
+    ]);
     expect(PROJECT_SAVE_DEBOUNCE_MS).toBeGreaterThan(0);
 
     act(() => {
