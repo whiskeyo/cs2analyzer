@@ -4,7 +4,7 @@ import { loadedDemo } from "@/lib/parse/session";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
 import type { Status } from "@/lib/state/status";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
-import type { ReviewProject } from "./projectStore";
+import { PROJECT_SCHEMA, type ReviewProject } from "./projectStore";
 import { useReviewProject } from "./useReviewProject";
 
 const mocks = vi.hoisted(() => ({
@@ -48,7 +48,7 @@ function demo(fileName = "match.dem") {
 
 function project(partial: Partial<ReviewProject> = {}): ReviewProject {
   return {
-    schema: 2,
+    schema: PROJECT_SCHEMA,
     key: "de_mirage|1|50,100|match.dem",
     savedAt: 2,
     fileName: "match.dem",
@@ -166,11 +166,12 @@ describe("useReviewProject", () => {
       }),
     );
 
-    await waitFor(() => expect(result.current.strokes[0]?.type).toBe("pen"));
-    expect(result.current.strokes).toHaveLength(1);
+    await waitFor(() => {
+      expect(result.current.strokes).toEqual([expect.objectContaining({ type: "pen" })]);
+      expect(st.notice).toContain("Restored drawings");
+    });
     expect(pb.jump).toHaveBeenCalledWith(300, true);
     expect(pb.setPlaying).toHaveBeenCalledWith(false);
-    expect(st.notice).toContain("Restored drawings");
   });
 
   it("delegates export and bulk delete to reviewImportExport", async () => {
