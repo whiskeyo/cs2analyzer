@@ -7,20 +7,20 @@ import { NoteActions } from "./notes/NoteActions";
 import { NoteRoundList } from "./notes/NoteRoundList";
 import { useNoteMoments } from "./notes/useNoteMoments";
 import type { Replay } from "@/lib/replay/replayTypes";
-import type { Stroke } from "@/lib/notes/types";
+import type { RoundNote } from "@/lib/notes/types";
 
 interface Props {
   replay: Replay;
   tick: number;
-  strokes: Stroke[];
+  notes: RoundNote[];
   onJump: (tick: number) => void;
-  onStrokes: (next: Stroke[]) => void;
+  onNotes: (next: RoundNote[]) => void;
 }
 
-export function Notes({ replay, tick, strokes, onJump, onStrokes }: Props) {
-  const rounds = useMemo(() => notesByRound(strokes), [strokes]);
+export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
+  const rounds = useMemo(() => notesByRound(notes), [notes]);
   const { selected, canGroup, canUngroup, toggle, toggleAll, clearSelection } =
-    useNoteSelection(strokes);
+    useNoteSelection(notes);
   const {
     dragging,
     dropOn,
@@ -31,12 +31,12 @@ export function Notes({ replay, tick, strokes, onJump, onStrokes }: Props) {
     endDrag,
     dropAt,
     allowDrop,
-  } = useNoteDrag({ strokes, onStrokes, clearSelection });
+  } = useNoteDrag({ notes, onNotes, clearSelection });
   const { tps, setEdge, setClock, clearWindow } = useNoteMoments({
     replay,
     tick,
-    strokes,
-    onStrokes,
+    notes,
+    onNotes,
   });
 
   if (rounds.length === 0) {
@@ -62,24 +62,23 @@ export function Notes({ replay, tick, strokes, onJump, onStrokes }: Props) {
         playhead. The eye hides a map note or a timeline bookmark.
       </p>
       <NoteActions
-        strokes={strokes}
+        notes={notes}
         selected={selected}
         canGroup={canGroup}
         canUngroup={canUngroup}
-        onStrokes={onStrokes}
+        onNotes={onNotes}
         onClearSelection={clearSelection}
       />
       <NoteRoundList
         replay={replay}
         rounds={rounds}
-        strokes={strokes}
         selected={selected}
         dragging={dragging}
         dropOn={dropOn}
         skipClick={skipClick}
         tps={tps}
         onJump={onJump}
-        onStrokes={onStrokes}
+        onNotes={onNotes}
         toggle={toggle}
         toggleAll={toggleAll}
         startDrag={startDrag}

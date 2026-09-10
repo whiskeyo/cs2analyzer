@@ -49,7 +49,7 @@ function viewerState(replay = makeReplay()) {
       roundAutoplay: false,
       setRoundAutoplay: vi.fn(),
     },
-    review: { strokes: [], commitStrokes: vi.fn() },
+    review: { notes: [], commitNotes: vi.fn() },
     view: { selected: null, select: vi.fn() },
     places: null,
     habits: {

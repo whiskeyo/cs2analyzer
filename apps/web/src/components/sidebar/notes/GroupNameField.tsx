@@ -1,18 +1,20 @@
 import { useRef, useState } from "react";
 import { NOTE_GROUP_NAME_MAX } from "@/lib/shared/constants";
 import { groupLabel, renameGroup } from "@/lib/notes";
-import type { Stroke } from "@/lib/notes/types";
+import type { Note } from "@/lib/notes/types";
 
 export function GroupNameField({
-  groupId,
-  strokes,
-  onStrokes,
+  groupIndex,
+  groupName,
+  note,
+  onNote,
 }: {
-  groupId: string;
-  strokes: Stroke[];
-  onStrokes: (next: Stroke[]) => void;
+  groupIndex: number;
+  groupName: string;
+  note: Note;
+  onNote: (next: Note) => void;
 }) {
-  const shown = groupLabel(groupId);
+  const shown = groupLabel(groupName);
   const [draft, setDraft] = useState(shown);
   const [editing, setEditing] = useState(false);
   const skipBlur = useRef(false);
@@ -29,11 +31,11 @@ export function GroupNameField({
       setDraft(shown);
       return;
     }
-    if (next === groupId || next === shown) {
+    if (next === groupName || next === shown) {
       setDraft(shown);
       return;
     }
-    onStrokes(renameGroup(strokes, groupId, next));
+    onNote(renameGroup(note, groupIndex, next));
   };
 
   if (!editing) {

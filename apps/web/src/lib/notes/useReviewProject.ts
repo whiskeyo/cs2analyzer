@@ -14,7 +14,7 @@ import {
   type ReviewProject,
 } from "./projectStore";
 import { DEFAULT_SUMMARY_FILTER, type FloorMode, type SummaryFilter } from "./types";
-import { useStrokeHistory } from "./reviewHistory";
+import { useRoundNoteHistory } from "./reviewHistory";
 import {
   exportSavedNotes,
   importNotesFromText,
@@ -48,18 +48,7 @@ export function useReviewProject(opts: {
 }) {
   const { demo, series, parsedDemos, status, playback } = opts;
   const [saved, setSaved] = useState<ReviewProject[]>([]);
-  const {
-    strokes,
-    strokesRef,
-    notes,
-    notesRef,
-    canUndo,
-    canRedo,
-    commitStrokes,
-    commitNotes,
-    undo,
-    redo,
-  } = useStrokeHistory();
+  const { notes, notesRef, canUndo, canRedo, commitNotes, undo, redo } = useRoundNoteHistory();
   const [paletteId, setPaletteId] = useState(defaultPaletteId);
   const [color, setColor] = useState(defaultColor);
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>(DEFAULT_SUMMARY_FILTER);
@@ -319,7 +308,7 @@ export function useReviewProject(opts: {
       void persistNow();
     }, PROJECT_SAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(id);
-  }, [demo, playback.playing, strokes, summaryFilter, floorMode, paletteId, color, persistNow]);
+  }, [demo, playback.playing, notes, summaryFilter, floorMode, paletteId, color, persistNow]);
 
   useEffect(() => {
     const onUnload = () => {
@@ -345,8 +334,6 @@ export function useReviewProject(opts: {
     saved,
     notes,
     notesRef,
-    strokes,
-    strokesRef,
     canUndo,
     canRedo,
     paletteId,
@@ -359,7 +346,6 @@ export function useReviewProject(opts: {
     setFloorMode,
     refreshSaved,
     commitNotes,
-    commitStrokes,
     undo,
     redo,
     applyProject,

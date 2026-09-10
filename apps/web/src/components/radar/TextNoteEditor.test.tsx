@@ -5,11 +5,12 @@ import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { MutableRefObject } from "react";
-import type { Stroke } from "@/lib/notes/types";
+import { emptyNote } from "@/lib/notes/note";
+import type { Note } from "@/lib/notes/types";
 import { TextNoteEditor, useTextNotes } from "./TextNoteEditor";
 
-function strokesRef(list: Stroke[] = []): MutableRefObject<Stroke[]> {
-  return { current: list };
+function noteRef(note: Note = emptyNote()): MutableRefObject<Note> {
+  return { current: note };
 }
 
 function renderEditor(
@@ -35,56 +36,56 @@ function renderEditor(
 
 describe("useTextNotes", () => {
   it("commits a new note on Enter", async () => {
-    const onStrokes = vi.fn();
-    const strokes = strokesRef([]);
-    const { result } = renderHook(() => useTextNotes(strokes, onStrokes));
+    const onNote = vi.fn();
+    const note = noteRef();
+    const { result } = renderHook(() => useTextNotes(note, onNote));
 
     act(() => {
       result.current.beginEditing({
-        index: null,
+        ref: null,
         x: 1,
         y: 2,
         sx: 10,
         sy: 20,
         text: "hello",
         color: "#fff",
-        round: 1,
       });
     });
 
     renderEditor(result);
     await userEvent.type(screen.getByPlaceholderText("Note"), "{Enter}");
-    expect(onStrokes).toHaveBeenCalledWith([
-      expect.objectContaining({ type: "text", text: "hello", x: 1, y: 2 }),
-    ]);
+    expect(onNote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        drawings: [expect.objectContaining({ type: "text", text: "hello", x: 1, y: 2 })],
+      }),
+    );
   });
 
   it("cancels editing on Escape", async () => {
-    const onStrokes = vi.fn();
-    const strokes = strokesRef([]);
-    const { result } = renderHook(() => useTextNotes(strokes, onStrokes));
+    const onNote = vi.fn();
+    const note = noteRef();
+    const { result } = renderHook(() => useTextNotes(note, onNote));
 
     act(() => {
       result.current.beginEditing({
-        index: null,
+        ref: null,
         x: 0,
         y: 0,
         sx: 0,
         sy: 0,
         text: "draft",
         color: "#fff",
-        round: 1,
       });
     });
 
     renderEditor(result);
     await userEvent.type(screen.getByPlaceholderText("Note"), "{Escape}");
-    expect(onStrokes).not.toHaveBeenCalled();
+    expect(onNote).not.toHaveBeenCalled();
     expect(result.current.editing).toBeNull();
   });
 
   it("starts a drag from the grip handle", () => {
-    const onStrokes = vi.fn();
+    const onNote = vi.fn();
     const wrap = document.createElement("div");
     wrap.getBoundingClientRect = () =>
       ({
@@ -99,19 +100,18 @@ describe("useTextNotes", () => {
         toJSON: () => ({}),
       }) as DOMRect;
 
-    const strokes = strokesRef([]);
-    const { result } = renderHook(() => useTextNotes(strokes, onStrokes));
+    const note = noteRef();
+    const { result } = renderHook(() => useTextNotes(note, onNote));
 
     act(() => {
       result.current.beginEditing({
-        index: null,
+        ref: null,
         x: 0,
         y: 0,
         sx: 40,
         sy: 50,
         text: "move me",
         color: "#fff",
-        round: 1,
       });
     });
 
@@ -126,20 +126,19 @@ describe("useTextNotes", () => {
   });
 
   it("commits on blur and updates text while typing", async () => {
-    const onStrokes = vi.fn();
-    const strokes = strokesRef([]);
-    const { result } = renderHook(() => useTextNotes(strokes, onStrokes));
+    const onNote = vi.fn();
+    const note = noteRef();
+    const { result } = renderHook(() => useTextNotes(note, onNote));
 
     act(() => {
       result.current.beginEditing({
-        index: null,
+        ref: null,
         x: 0,
         y: 0,
         sx: 0,
         sy: 0,
         text: "",
         color: "#fff",
-        round: 1,
       });
     });
 
@@ -150,8 +149,10 @@ describe("useTextNotes", () => {
       window.dispatchEvent(new MouseEvent("mouseup"));
     });
     fireEvent.blur(area);
-    expect(onStrokes).toHaveBeenCalledWith([
-      expect.objectContaining({ type: "text", text: "saved on blur" }),
-    ]);
+    expect(onNote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        drawings: [expect.objectContaining({ type: "text", text: "saved on blur" })],
+      }),
+    );
   });
 });

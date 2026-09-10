@@ -166,8 +166,8 @@ describe("useReviewProject", () => {
       }),
     );
 
-    await waitFor(() => expect(result.current.strokes[0]?.type).toBe("pen"));
-    expect(result.current.strokes).toHaveLength(1);
+    await waitFor(() => expect(result.current.notes[0]?.note.drawings[0]?.type).toBe("pen"));
+    expect(result.current.notes[0]?.note.drawings).toHaveLength(1);
     expect(pb.jump).toHaveBeenCalledWith(300, true);
     expect(pb.setPlaying).toHaveBeenCalledWith(false);
     expect(st.notice).toContain("Restored drawings");

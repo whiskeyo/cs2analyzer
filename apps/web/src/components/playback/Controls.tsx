@@ -1,6 +1,6 @@
 import { memo, useCallback, useRef, useState } from "react";
 import { tickRate } from "@/lib/shared/constants";
-import { roundBookmarkMarks } from "@/lib/notes";
+import { noteForRound, roundBookmarkMarks } from "@/lib/notes";
 import {
   freezeWidth,
   markLabelShift,
@@ -12,7 +12,7 @@ import {
 import { sendPlaybackCommand } from "@/lib/playback/playbackCommands";
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
-import type { Stroke } from "@/lib/notes/types";
+import type { RoundNote } from "@/lib/notes/types";
 import { formatClock } from "@/lib/weapons/weapons";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { TransportButton } from "./TransportButton";
@@ -88,7 +88,7 @@ function RoundAutoplayIcon({ on }: { on: boolean }) {
 interface Props {
   replay: Replay;
   tick: number;
-  strokes: Stroke[];
+  notes: RoundNote[];
   playing: boolean;
   speed: number;
   roundAutoplay: boolean;
@@ -104,7 +104,7 @@ interface Props {
 export const Controls = memo(function Controls({
   replay,
   tick,
-  strokes,
+  notes,
   playing,
   speed,
   roundAutoplay,
@@ -162,7 +162,9 @@ export const Controls = memo(function Controls({
     ? `Freeze ${freezeLeft.toFixed(1)}s`
     : formatClock(Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps));
   const marks = round ? roundTimelineMarks(round, tps, activeRange) : [];
-  const bookmarks = round ? roundBookmarkMarks(strokes, round, activeRange) : [];
+  const bookmarks = round
+    ? roundBookmarkMarks(noteForRound(notes, round.number), round, activeRange)
+    : [];
   const eventMarks = round ? roundScrubEventMarks(replay, round, activeRange) : [];
   const freezeAt = round ? freezeWidth(round, activeRange) : 0;
   const span = activeRange.max - activeRange.min;

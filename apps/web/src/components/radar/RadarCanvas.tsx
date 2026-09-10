@@ -8,7 +8,7 @@ import {
   paintViewCone,
   paintHabitsOverlay,
 } from "@/lib/radar/paintRadarFrame";
-import { paintMapImage, paintNoteStrokes } from "@/lib/radar/staticMapPaint";
+import { paintMapImage, paintNote } from "@/lib/radar/staticMapPaint";
 import {
   DEFAULT_HABITS_NADE_FILTER,
   type HabitsNadeFilter,
@@ -28,9 +28,10 @@ import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
 import {
   RADAR_TOOL_CURSOR,
   type DrawTool,
+  type Drawing,
   type FloorMode,
   type MapLayers,
-  type Stroke,
+  type Note,
   type SummaryFilter,
 } from "@/lib/notes/types";
 
@@ -44,8 +45,8 @@ interface Props {
   trails: boolean;
   tool: DrawTool;
   color: string;
-  strokes: Stroke[];
-  onStrokes: (next: Stroke[]) => void;
+  note: Note;
+  onNote: (next: Note) => void;
   onPan: () => void;
   onPause: () => void;
   moment: boolean;
@@ -75,8 +76,8 @@ export function RadarCanvas({
   trails,
   tool,
   color,
-  strokes,
-  onStrokes,
+  note,
+  onNote,
   onPan,
   onPause,
   moment,
@@ -111,10 +112,10 @@ export function RadarCanvas({
   toolRef.current = tool;
   const colorRef = useRef(color);
   colorRef.current = color;
-  const strokesRef = useRef(strokes);
-  strokesRef.current = strokes;
-  const onStrokesRef = useRef(onStrokes);
-  onStrokesRef.current = onStrokes;
+  const noteRef = useRef(note);
+  noteRef.current = note;
+  const onNoteRef = useRef(onNote);
+  onNoteRef.current = onNote;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const onPanRef = useRef(onPan);
@@ -162,11 +163,11 @@ export function RadarCanvas({
     lx: 0,
     ly: 0,
   });
-  const draft = useRef<Stroke | null>(null);
+  const draft = useRef<Drawing | null>(null);
   const penTip = useRef<{ x: number; y: number } | null>(null);
   const suppressClickRef = useRef(false);
   const textMoveRef = useRef<TextMove | null>(null);
-  const notes = useTextNotes(strokesRef, onStrokes);
+  const notes = useTextNotes(noteRef, onNote);
   const {
     editing,
     setEditing,
@@ -274,10 +275,9 @@ export function RadarCanvas({
         );
       }
 
-      paintNoteStrokes(ctx, strokesRef.current, toScreen, {
+      paintNote(ctx, noteRef.current, toScreen, {
         tick: tickNow,
-        round: frame.round?.number ?? 0,
-        skipTextIndex: editingRef.current?.index,
+        skipText: editingRef.current?.ref,
         textMove: textMoveRef.current,
         draft: draft.current,
       });
@@ -309,8 +309,8 @@ export function RadarCanvas({
     tickRef,
     colorRef,
     momentRef,
-    strokesRef,
-    onStrokesRef,
+    noteRef,
+    onNoteRef,
     onPauseRef,
     onPanRef,
     draft,

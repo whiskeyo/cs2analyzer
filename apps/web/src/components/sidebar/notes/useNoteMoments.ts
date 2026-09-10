@@ -2,59 +2,71 @@ import { useCallback } from "react";
 import { tickRate } from "@/lib/shared/constants";
 import { roundWindowEnd } from "@/components/sidebar/NoteClocks";
 import { clearMomentWindow, setMomentClockEdge, setMomentEdge } from "@/lib/notes";
+import { updateRoundNote } from "@/lib/notes/roundNotes";
+import type { NoteItemRef } from "@/lib/notes/noteGroups";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
-import type { Stroke } from "@/lib/notes/types";
+import type { RoundNote } from "@/lib/notes/types";
 
 export function useNoteMoments(opts: {
   replay: Replay;
   tick: number;
-  strokes: Stroke[];
-  onStrokes: (next: Stroke[]) => void;
+  notes: RoundNote[];
+  onNotes: (next: RoundNote[]) => void;
 }) {
-  const { replay, tick, strokes, onStrokes } = opts;
+  const { replay, tick, notes, onNotes } = opts;
   const tps = tickRate(replay);
 
   const setEdge = useCallback(
-    (index: number, edge: "start" | "end", rnd: Round | undefined) => {
-      onStrokes(
-        setMomentEdge(
-          strokes,
-          index,
-          edge,
-          tick,
-          rnd?.start_tick ?? 0,
-          roundWindowEnd(rnd, replay),
-          tps,
+    (round: number, ref: NoteItemRef, edge: "start" | "end", rnd: Round | undefined) => {
+      onNotes(
+        updateRoundNote(notes, round, (note) =>
+          setMomentEdge(
+            note,
+            ref,
+            edge,
+            tick,
+            rnd?.start_tick ?? 0,
+            roundWindowEnd(rnd, replay),
+            tps,
+          ),
         ),
       );
     },
-    [onStrokes, replay, strokes, tick, tps],
+    [notes, onNotes, replay, tick, tps],
   );
 
   const setClock = useCallback(
-    (index: number, edge: "start" | "end", seconds: number, rnd: Round | undefined) => {
+    (
+      round: number,
+      ref: NoteItemRef,
+      edge: "start" | "end",
+      seconds: number,
+      rnd: Round | undefined,
+    ) => {
       const origin = rnd ? rnd.freeze_end_tick || rnd.start_tick : 0;
-      onStrokes(
-        setMomentClockEdge(
-          strokes,
-          index,
-          edge,
-          seconds,
-          origin,
-          rnd?.start_tick ?? 0,
-          roundWindowEnd(rnd, replay),
-          tps,
+      onNotes(
+        updateRoundNote(notes, round, (note) =>
+          setMomentClockEdge(
+            note,
+            ref,
+            edge,
+            seconds,
+            origin,
+            rnd?.start_tick ?? 0,
+            roundWindowEnd(rnd, replay),
+            tps,
+          ),
         ),
       );
     },
-    [onStrokes, replay, strokes, tps],
+    [notes, onNotes, replay, tps],
   );
 
   const clearWindow = useCallback(
-    (index: number) => {
-      onStrokes(clearMomentWindow(strokes, index));
+    (round: number, ref: NoteItemRef) => {
+      onNotes(updateRoundNote(notes, round, (note) => clearMomentWindow(note, ref)));
     },
-    [onStrokes, strokes],
+    [notes, onNotes],
   );
 
   return { tps, setEdge, setClock, clearWindow };

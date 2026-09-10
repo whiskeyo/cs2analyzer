@@ -4,7 +4,7 @@ import { tickRate } from "@/lib/shared/constants";
 import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execute";
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
-import type { Stroke } from "@/lib/notes/types";
+import type { RoundNote } from "@/lib/notes/types";
 import { noteRounds } from "@/lib/notes";
 import { sendPlaybackCommand } from "@/lib/playback/playbackCommands";
 import type { MapPlaces } from "@/lib/match/sites";
@@ -12,7 +12,7 @@ import type { MapPlaces } from "@/lib/match/sites";
 interface Props {
   replay: Replay;
   tick: number;
-  strokes: Stroke[];
+  notes: RoundNote[];
   places: MapPlaces | null;
   activeRound?: Round | null;
 }
@@ -20,7 +20,7 @@ interface Props {
 export const RoundStrip = memo(function RoundStrip({
   replay,
   tick,
-  strokes,
+  notes,
   places,
   activeRound,
 }: Props) {
@@ -47,7 +47,7 @@ export const RoundStrip = memo(function RoundStrip({
   }, [replay, places]);
 
   const actionRounds = new Set(beats.map((b) => b.round));
-  const noted = noteRounds(strokes);
+  const noted = noteRounds(notes);
   const live = activeExecute(beats, tick, tickRate(replay));
   return (
     <div className="round-strip" role="list">

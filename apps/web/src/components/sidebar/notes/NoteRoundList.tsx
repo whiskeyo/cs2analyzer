@@ -1,61 +1,63 @@
 import { useState } from "react";
 import type { DragEvent as ReactDragEvent, MutableRefObject } from "react";
-import { roundClock } from "@/lib/match/roundEvents";
 import {
-  clusterNoteRound,
+  clusterNote,
   groupLabel,
-  looseDrawingIndexes,
+  isPenOrArrow,
+  itemWindow,
   overlayJumpTick,
-  overlayWindow,
-  removeStrokesAt,
-  setStrokesHidden,
+  setGroupHidden,
   squashLooseDrawings,
-  strokeTitle,
-  strokeWindowKind,
-  type NoteDropDest,
-  type NoteRound,
 } from "@/lib/notes";
-import { indexesForDrag, lockNoteDrag, unlockNoteDrag, type NoteDrag } from "@/lib/notes/drag";
+import { lockNoteDrag, picksEqual, unlockNoteDrag, type NotePick } from "@/lib/notes/drag";
+import type { NoteDrag } from "@/lib/notes/drag";
+import type { NoteItemRef } from "@/lib/notes/noteGroups";
+import { updateRoundNote } from "@/lib/notes/roundNotes";
 import { MomentInOut, roundWindowEnd } from "@/components/sidebar/NoteClocks";
-import { BookmarkTitleField } from "./BookmarkTitleField";
 import { GroupNameField } from "./GroupNameField";
+import { NoteListRow } from "./NoteListRow";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
-import type { Stroke } from "@/lib/notes/types";
+import type { Note, RoundNote } from "@/lib/notes/types";
+import type { RoundNoteDropDest } from "@/lib/notes/useNoteDrag";
 
 interface NoteRoundListProps {
   replay: Replay;
-  rounds: NoteRound[];
-  strokes: Stroke[];
-  selected: number[];
+  rounds: RoundNote[];
+  selected: NotePick[];
   dragging: NoteDrag | null;
   dropOn: string | null;
   skipClick: MutableRefObject<boolean>;
   tps: number;
   onJump: (tick: number) => void;
-  onStrokes: (next: Stroke[]) => void;
-  toggle: (index: number) => void;
-  toggleAll: (indexes: number[]) => void;
-  startDrag: (e: ReactDragEvent, round: number, indexes: number[]) => void;
+  onNotes: (next: RoundNote[]) => void;
+  toggle: (pick: NotePick) => void;
+  toggleAll: (picks: NotePick[]) => void;
+  startDrag: (e: ReactDragEvent, round: number, refs: NoteItemRef[]) => void;
   markDrag: () => void;
   endDrag: () => void;
-  dropAt: (e: ReactDragEvent, dest: NoteDropDest) => void;
+  dropAt: (e: ReactDragEvent, dest: RoundNoteDropDest) => void;
   allowDrop: (e: ReactDragEvent, key: string, sameRound: boolean) => void;
-  setEdge: (index: number, edge: "start" | "end", rnd: Round | undefined) => void;
-  setClock: (index: number, edge: "start" | "end", seconds: number, rnd: Round | undefined) => void;
-  clearWindow: (index: number) => void;
+  setEdge: (round: number, ref: NoteItemRef, edge: "start" | "end", rnd: Round | undefined) => void;
+  setClock: (
+    round: number,
+    ref: NoteItemRef,
+    edge: "start" | "end",
+    seconds: number,
+    rnd: Round | undefined,
+  ) => void;
+  clearWindow: (round: number, ref: NoteItemRef) => void;
 }
 
 export function NoteRoundList({
   replay,
   rounds,
-  strokes,
   selected,
   dragging,
   dropOn,
   skipClick,
   tps,
   onJump,
-  onStrokes,
+  onNotes,
   toggle,
   toggleAll,
   startDrag,
@@ -69,23 +71,27 @@ export function NoteRoundList({
 }: NoteRoundListProps) {
   const [open, setOpen] = useState<string[]>([]);
 
+  const commitNote = (round: number, note: Note) => {
+    onNotes(updateRoundNote(rounds, round, () => note));
+  };
+
   return (
     <>
-      {rounds.map((g) => {
-        const rnd = replay.rounds.find((r) => r.number === g.round);
+      {rounds.map((row) => {
+        const rnd = replay.rounds.find((r) => r.number === row.round);
         const windowEnd = roundWindowEnd(rnd, replay);
-        const jump = rnd ? overlayJumpTick(strokes, rnd) : 0;
-        const clusters = clusterNoteRound(g.items);
-        const looseDraw = looseDrawingIndexes(strokes, g.round);
-        const sameRound = dragging?.round === g.round;
+        const jump = rnd ? overlayJumpTick(row.note, rnd) : 0;
+        const clusters = clusterNote(row.note);
+        const looseDraw = row.note.drawings.filter(isPenOrArrow).length;
+        const sameRound = dragging?.round === row.round;
         return (
-          <div key={g.round} className="notes-round">
+          <div key={row.round} className="notes-round">
             <div className="notes-round-head">
-              <p className="notes-round-label">{rnd?.is_knife ? "Knife" : `Round ${g.round}`}</p>
-              {looseDraw.length >= 2 && (
+              <p className="notes-round-label">{rnd?.is_knife ? "Knife" : `Round ${row.round}`}</p>
+              {looseDraw >= 2 && (
                 <button
                   type="button"
-                  onClick={() => onStrokes(squashLooseDrawings(strokes, g.round))}
+                  onClick={() => commitNote(row.round, squashLooseDrawings(row.note))}
                 >
                   Squash drawings
                 </button>
@@ -93,71 +99,86 @@ export function NoteRoundList({
             </div>
             {sameRound && (
               <div
-                className={`note-drop-slot${dropOn === `out-${g.round}` ? " on" : ""}`}
-                onDragOver={(e) => allowDrop(e, `out-${g.round}`, true)}
-                onDrop={(e) => dropAt(e, { round: g.round, kind: "ungroup" })}
+                className={`note-drop-slot${dropOn === `out-${row.round}` ? " on" : ""}`}
+                onDragOver={(e) => allowDrop(e, `out-${row.round}`, true)}
+                onDrop={(e) => dropAt(e, { round: row.round, kind: "ungroup" })}
               >
                 Drop at top to ungroup
               </div>
             )}
             {clusters.map((cluster) => {
-              const foldedAway = cluster.group != null && !open.includes(cluster.group);
-              const memberIdx = cluster.items.map((item) => item.index);
+              const foldKey = cluster.groupId ?? `loose-${row.round}`;
+              const foldedAway = cluster.groupId != null && !open.includes(foldKey);
+              const memberPicks: NotePick[] = cluster.items.map((item) => ({
+                round: row.round,
+                ref: item.ref,
+              }));
               const head = cluster.items[0];
-              const headStroke = head?.stroke;
-              const win = headStroke ? overlayWindow(headStroke, strokes) : null;
+              const win = head ? itemWindow(row.note, head.ref) : null;
               const at = win?.start ?? rnd?.freeze_end_tick ?? rnd?.start_tick ?? jump;
-              const dropKey = `g-${g.round}-${cluster.group ?? "loose"}`;
-              const groupHidden =
-                cluster.group != null && cluster.items.every((item) => item.stroke.hidden);
+              const dropKey = `g-${row.round}-${cluster.groupId ?? "loose"}`;
+              const groupHidden = cluster.groupHidden;
               const draggingThisLayer =
-                cluster.group != null &&
+                cluster.groupIndex != null &&
                 dragging != null &&
-                dragging.indexes.length === memberIdx.length &&
-                memberIdx.every((i) => dragging.indexes.includes(i));
-              const canDropInto = Boolean(cluster.group) && sameRound && !draggingThisLayer;
+                dragging.refs.length === memberPicks.length &&
+                memberPicks.every((pick) =>
+                  dragging.refs.some(
+                    (ref) =>
+                      ref.kind === pick.ref.kind &&
+                      (ref.kind === "group" && pick.ref.kind === "group"
+                        ? ref.groupIndex === pick.ref.groupIndex &&
+                          ref.drawingIndex === pick.ref.drawingIndex
+                        : false),
+                  ),
+                );
+              const canDropInto = cluster.groupIndex != null && sameRound && !draggingThisLayer;
               return (
                 <div
-                  key={cluster.group ?? "loose"}
-                  className={`note-cluster${cluster.group ? "" : " note-loose"}${
+                  key={foldKey}
+                  className={`note-cluster${cluster.groupId ? "" : " note-loose"}${
                     dropOn === dropKey && canDropInto ? " note-drop" : ""
                   }`}
-                  draggable={Boolean(cluster.group)}
+                  draggable={cluster.groupIndex != null}
                   onPointerDownCapture={(e) => {
-                    lockNoteDrag(e.currentTarget, e.target, Boolean(cluster.group));
+                    lockNoteDrag(e.currentTarget, e.target, cluster.groupIndex != null);
                   }}
-                  onPointerUp={(e) => unlockNoteDrag(e.currentTarget, Boolean(cluster.group))}
-                  onPointerCancel={(e) => unlockNoteDrag(e.currentTarget, Boolean(cluster.group))}
+                  onPointerUp={(e) => unlockNoteDrag(e.currentTarget, cluster.groupIndex != null)}
+                  onPointerCancel={(e) =>
+                    unlockNoteDrag(e.currentTarget, cluster.groupIndex != null)
+                  }
                   onDragStart={(e) => {
-                    if (!cluster.group) {
-                      return;
-                    }
-                    startDrag(e, g.round, memberIdx);
+                    if (cluster.groupIndex == null) return;
+                    startDrag(
+                      e,
+                      row.round,
+                      memberPicks.map((pick) => pick.ref),
+                    );
                   }}
                   onDrag={markDrag}
                   onDragEnd={(e) => {
-                    unlockNoteDrag(e.currentTarget, Boolean(cluster.group));
+                    unlockNoteDrag(e.currentTarget, cluster.groupIndex != null);
                     endDrag();
                   }}
                   onDragOver={(e) => {
-                    if (cluster.group) {
-                      allowDrop(e, dropKey, canDropInto);
-                    }
+                    if (cluster.groupIndex != null) allowDrop(e, dropKey, canDropInto);
                   }}
                   onDrop={(e) => {
-                    if (cluster.group) {
-                      dropAt(e, { round: g.round, kind: "into", group: cluster.group });
+                    if (cluster.groupIndex != null) {
+                      dropAt(e, { round: row.round, kind: "into", groupIndex: cluster.groupIndex });
                     }
                   }}
                 >
-                  {cluster.group && head && (
+                  {cluster.groupIndex != null && cluster.groupId && head && (
                     <div
                       className="note-cluster-head"
                       onDragOver={(e) => allowDrop(e, dropKey, canDropInto)}
                       onDrop={(e) => {
-                        if (cluster.group) {
-                          dropAt(e, { round: g.round, kind: "into", group: cluster.group });
-                        }
+                        dropAt(e, {
+                          round: row.round,
+                          kind: "into",
+                          groupIndex: cluster.groupIndex!,
+                        });
                       }}
                     >
                       <button
@@ -167,12 +188,10 @@ export function NoteRoundList({
                         aria-label={foldedAway ? "Show layer members" : "Hide layer members"}
                         title={foldedAway ? "Show layer members" : "Hide layer members"}
                         onClick={() => {
-                          const id = cluster.group;
-                          if (!id) {
-                            return;
-                          }
                           setOpen((cur) =>
-                            cur.includes(id) ? cur.filter((name) => name !== id) : [...cur, id],
+                            cur.includes(foldKey)
+                              ? cur.filter((name) => name !== foldKey)
+                              : [...cur, foldKey],
                           );
                         }}
                       >
@@ -181,16 +200,19 @@ export function NoteRoundList({
                       <label className="note-pick">
                         <input
                           type="checkbox"
-                          checked={memberIdx.every((i) => selected.includes(i))}
-                          onChange={() => toggleAll(memberIdx)}
-                          aria-label={`Select ${groupLabel(cluster.group)}`}
+                          checked={memberPicks.every((pick) =>
+                            selected.some((rowPick) => picksEqual(rowPick, pick)),
+                          )}
+                          onChange={() => toggleAll(memberPicks)}
+                          aria-label={`Select ${groupLabel(cluster.groupName ?? cluster.groupId)}`}
                         />
                       </label>
                       <GroupNameField
-                        key={cluster.group}
-                        groupId={cluster.group}
-                        strokes={strokes}
-                        onStrokes={onStrokes}
+                        key={cluster.groupId}
+                        groupIndex={cluster.groupIndex}
+                        groupName={cluster.groupName ?? cluster.groupId}
+                        note={row.note}
+                        onNote={(next) => commitNote(row.round, next)}
                       />
                       <button
                         type="button"
@@ -209,147 +231,62 @@ export function NoteRoundList({
                           checked={!groupHidden}
                           aria-label={groupHidden ? "Show layer on radar" : "Hide layer on radar"}
                           onChange={() =>
-                            onStrokes(setStrokesHidden(strokes, memberIdx, !groupHidden))
+                            commitNote(
+                              row.round,
+                              setGroupHidden(row.note, cluster.groupIndex!, !groupHidden),
+                            )
                           }
                         />
                         {groupHidden ? "○" : "●"}
                       </label>
                     </div>
                   )}
-                  {cluster.group && head && (
+                  {cluster.groupIndex != null && head && (
                     <div className="note-cluster-io">
                       <MomentInOut
                         win={win}
                         round={rnd}
                         tps={tps}
                         roundEndTick={windowEnd}
-                        onSetEdge={(edge) => setEdge(head.index, edge, rnd)}
-                        onClear={() => clearWindow(head.index)}
-                        onClockEdge={(edge, seconds) => setClock(head.index, edge, seconds, rnd)}
+                        onSetEdge={(edge) => setEdge(row.round, head.ref, edge, rnd)}
+                        onClear={() => clearWindow(row.round, head.ref)}
+                        onClockEdge={(edge, seconds) =>
+                          setClock(row.round, head.ref, edge, seconds, rnd)
+                        }
                       />
                     </div>
                   )}
                   {!foldedAway && (
                     <ul className="review-notes">
-                      {cluster.items.map(({ index, stroke: st }) => {
-                        const itemWin = overlayWindow(st, strokes);
-                        const itemAt =
-                          itemWin?.start ?? rnd?.freeze_end_tick ?? rnd?.start_tick ?? jump;
-                        return (
-                          <li
-                            key={index}
-                            className={`note-row${selected.includes(index) ? " on" : ""}${
-                              st.hidden ? " dim" : ""
-                            }`}
-                            draggable
-                            onDragStart={(e) =>
-                              startDrag(e, g.round, indexesForDrag(index, selected, strokes))
-                            }
-                            onDrag={markDrag}
-                            onDragEnd={endDrag}
-                          >
-                            <label className="note-pick">
-                              <input
-                                type="checkbox"
-                                checked={selected.includes(index)}
-                                onChange={() => toggle(index)}
-                                aria-label={`Select ${strokeTitle(st)}`}
-                              />
-                            </label>
-                            <div
-                              className="review-note"
-                              role="button"
-                              tabIndex={0}
-                              aria-label={strokeTitle(st)}
-                              onClick={() => {
-                                if (skipClick.current) {
-                                  skipClick.current = false;
-                                  return;
-                                }
-                                onJump(itemAt);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key !== "Enter" && e.key !== " ") {
-                                  return;
-                                }
-                                e.preventDefault();
-                                onJump(itemAt);
-                              }}
-                            >
-                              <span className="note-swatch" style={{ background: st.color }} />
-                              <span className="review-copy">
-                                {st.type === "bookmark" ? (
-                                  <BookmarkTitleField
-                                    index={index}
-                                    title={strokeTitle(st)}
-                                    strokes={strokes}
-                                    onStrokes={onStrokes}
-                                  />
-                                ) : (
-                                  <span className="review-title">{strokeTitle(st)}</span>
-                                )}
-                                <span className="review-detail">
-                                  {rnd ? `${roundClock(rnd, itemAt, tps)} · ` : ""}
-                                  {strokeWindowKind(itemWin)}
-                                  {st.hidden ? " · Hidden" : ""}
-                                </span>
-                              </span>
-                            </div>
-                            <label
-                              className={`note-eye${st.hidden ? " off" : ""}`}
-                              title={
-                                st.type === "bookmark"
-                                  ? st.hidden
-                                    ? "Show on timeline"
-                                    : "Hide on timeline"
-                                  : st.hidden
-                                    ? "Show on radar"
-                                    : "Hide on radar"
-                              }
-                            >
-                              <input
-                                type="checkbox"
-                                checked={!st.hidden}
-                                aria-label={
-                                  st.type === "bookmark"
-                                    ? st.hidden
-                                      ? "Show on timeline"
-                                      : "Hide on timeline"
-                                    : st.hidden
-                                      ? "Show on radar"
-                                      : "Hide on radar"
-                                }
-                                onChange={() =>
-                                  onStrokes(setStrokesHidden(strokes, [index], !st.hidden))
-                                }
-                              />
-                              {st.hidden ? "○" : "●"}
-                            </label>
-                            {st.type === "bookmark" && (
-                              <button
-                                type="button"
-                                className="note-remove"
-                                title="Remove bookmark"
-                                aria-label="Remove bookmark"
-                                onClick={() => onStrokes(removeStrokesAt(strokes, [index]))}
-                              >
-                                ×
-                              </button>
-                            )}
-                            {cluster.group == null && (
-                              <MomentInOut
-                                win={itemWin}
-                                round={rnd}
-                                tps={tps}
-                                roundEndTick={windowEnd}
-                                onSetEdge={(edge) => setEdge(index, edge, rnd)}
-                                onClear={() => clearWindow(index)}
-                                onClockEdge={(edge, seconds) => setClock(index, edge, seconds, rnd)}
-                              />
-                            )}
-                          </li>
-                        );
-                      })}
+                      {cluster.items.map((item) => (
+                        <NoteListRow
+                          key={
+                            item.ref.kind === "group"
+                              ? `${item.ref.kind}-${item.ref.groupIndex}-${item.ref.drawingIndex}`
+                              : `${item.ref.kind}-${item.ref.index}`
+                          }
+                          item={item}
+                          round={row.round}
+                          note={row.note}
+                          rnd={rnd}
+                          jump={jump}
+                          tps={tps}
+                          windowEnd={windowEnd}
+                          groupHidden={groupHidden}
+                          showMoment={cluster.groupIndex == null}
+                          selected={selected}
+                          skipClick={skipClick}
+                          onJump={onJump}
+                          onNote={(next) => commitNote(row.round, next)}
+                          toggle={toggle}
+                          startDrag={startDrag}
+                          markDrag={markDrag}
+                          endDrag={endDrag}
+                          setEdge={setEdge}
+                          setClock={setClock}
+                          clearWindow={clearWindow}
+                        />
+                      ))}
                     </ul>
                   )}
                 </div>
@@ -357,9 +294,9 @@ export function NoteRoundList({
             })}
             {sameRound && (
               <div
-                className={`note-drop-slot${dropOn === `new-${g.round}` ? " on" : ""}`}
-                onDragOver={(e) => allowDrop(e, `new-${g.round}`, true)}
-                onDrop={(e) => dropAt(e, { round: g.round, kind: "new-group" })}
+                className={`note-drop-slot${dropOn === `new-${row.round}` ? " on" : ""}`}
+                onDragOver={(e) => allowDrop(e, `new-${row.round}`, true)}
+                onDrop={(e) => dropAt(e, { round: row.round, kind: "new-group" })}
               >
                 Drop at bottom to make a new group
               </div>

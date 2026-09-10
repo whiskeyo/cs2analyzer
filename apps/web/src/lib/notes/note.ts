@@ -36,7 +36,7 @@ export function drawingWithWindow(
   delete next.hidden;
   delete next.start_tick;
   delete next.end_tick;
-  if (src.hidden) next.hidden = true;
+  if (src.hidden || drawing.hidden) next.hidden = true;
   const win = overlayWindowOf(src);
   if (win) {
     next.start_tick = win.start;
@@ -48,7 +48,7 @@ export function drawingWithWindow(
 function groupDrawings(group: DrawingGroup, tick: number | null): Drawing[] {
   if (group.hidden) return [];
   if (!windowVisible(group, tick)) return [];
-  return group.drawings;
+  return group.drawings.filter((drawing) => !drawing.hidden);
 }
 
 function ungroupedDrawing(drawing: Drawing, tick: number | null): Drawing | null {
@@ -78,6 +78,14 @@ export function noteDrawingCount(notes: readonly RoundNote[]): number {
     for (const group of row.note.groups) count += group.drawings.length;
   }
   return count;
+}
+
+/** Drop pen/arrow/text layers; bookmarks stay on the round. */
+export function clearRoundDrawings(note: Note): Note {
+  const next = cloneNote(note);
+  next.drawings = [];
+  next.groups = [];
+  return next;
 }
 
 export function earliestTimedTick(note: Note): number | undefined {

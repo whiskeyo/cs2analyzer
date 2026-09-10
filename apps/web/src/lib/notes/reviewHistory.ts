@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { DRAW_HISTORY_LIMIT } from "@/lib/shared/constants";
-import { flattenRoundNotes, strokesToRoundNotes } from "./migrate";
-import type { RoundNote, Stroke } from "./types";
+import type { RoundNote } from "./types";
 
 /** Undo/redo stack for review notes (in-memory only). */
 export function useRoundNoteHistory() {
@@ -62,31 +61,5 @@ export function useRoundNoteHistory() {
     commitNotes,
     undo,
     redo,
-  };
-}
-
-/** Flat Stroke view of `useRoundNoteHistory` for canvas/sidebar until they cut over. */
-export function useStrokeHistory() {
-  const { notes, notesRef, canUndo, canRedo, commitNotes, undo, redo } = useRoundNoteHistory();
-  const strokes = useMemo(() => flattenRoundNotes(notes), [notes]);
-  const strokesRef = useRef(strokes);
-  strokesRef.current = strokes;
-  const commitStrokes = useCallback(
-    (next: Stroke[], reset = false) => {
-      commitNotes(strokesToRoundNotes(next), reset);
-    },
-    [commitNotes],
-  );
-  return {
-    strokes,
-    strokesRef,
-    canUndo,
-    canRedo,
-    commitStrokes,
-    undo,
-    redo,
-    notes,
-    notesRef,
-    commitNotes,
   };
 }

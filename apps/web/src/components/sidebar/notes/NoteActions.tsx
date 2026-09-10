@@ -1,50 +1,53 @@
-import { groupStrokes, squashStrokes, ungroupStrokes } from "@/lib/notes";
-import type { Stroke } from "@/lib/notes/types";
+import { groupItems, squashItems, ungroupRefs } from "@/lib/notes";
+import { updateRoundNote } from "@/lib/notes/roundNotes";
+import type { NotePick } from "@/lib/notes/drag";
+import type { RoundNote } from "@/lib/notes/types";
 
 export function NoteActions({
-  strokes,
+  notes,
   selected,
   canGroup,
   canUngroup,
-  onStrokes,
+  onNotes,
   onClearSelection,
 }: {
-  strokes: Stroke[];
-  selected: number[];
+  notes: RoundNote[];
+  selected: NotePick[];
   canGroup: boolean;
   canUngroup: boolean;
-  onStrokes: (next: Stroke[]) => void;
+  onNotes: (next: RoundNote[]) => void;
   onClearSelection: () => void;
 }) {
+  const applyRound = (
+    fn: (note: RoundNote["note"], refs: NotePick["ref"][]) => RoundNote["note"],
+  ) => {
+    const round = selected[0]?.round;
+    if (round == null) return;
+    const refs = selected.filter((pick) => pick.round === round).map((pick) => pick.ref);
+    onNotes(updateRoundNote(notes, round, (note) => fn(note, refs)));
+    onClearSelection();
+  };
+
   return (
     <div className="notes-actions">
       <button
         type="button"
         disabled={!canGroup}
-        onClick={() => {
-          onStrokes(squashStrokes(strokes, selected));
-          onClearSelection();
-        }}
+        onClick={() => applyRound((note, refs) => squashItems(note, refs))}
       >
         Squash
       </button>
       <button
         type="button"
         disabled={!canGroup}
-        onClick={() => {
-          onStrokes(groupStrokes(strokes, selected));
-          onClearSelection();
-        }}
+        onClick={() => applyRound((note, refs) => groupItems(note, refs))}
       >
         Group
       </button>
       <button
         type="button"
         disabled={!canUngroup}
-        onClick={() => {
-          onStrokes(ungroupStrokes(strokes, selected));
-          onClearSelection();
-        }}
+        onClick={() => applyRound((note, refs) => ungroupRefs(note, refs))}
       >
         Ungroup
       </button>
