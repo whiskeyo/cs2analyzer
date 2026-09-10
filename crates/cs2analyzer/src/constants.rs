@@ -82,6 +82,27 @@ pub fn player_connected_in_server(state: Option<i32>) -> bool {
     }
 }
 
+/// Synthetic Steam IDs for GOTV / offline bots (`m_steamID == 0`).
+/// Identity is `BOT_STEAM_ID_BASE + CCSPlayerController` entity index.
+/// Real SteamID64 values start at [`STEAMID64_MIN`], so this range never collides.
+pub const BOT_STEAM_ID_BASE: u64 = 0xB070_0000;
+
+/// Controller-index span reserved for synthetic bot ids. Keep aligned with web.
+pub const BOT_STEAM_ID_SPAN: u64 = 0x1_0000;
+
+/// First valid individual SteamID64 (universe 1, account type 1, instance 1).
+pub const STEAMID64_MIN: u64 = 76_561_197_960_265_728;
+
+/// Stable synthetic id for a bot on this controller slot. Not a real Steam ID.
+pub fn bot_steam_id(controller_slot: u32) -> u64 {
+    BOT_STEAM_ID_BASE.saturating_add(u64::from(controller_slot))
+}
+
+/// True for parser-assigned bot identities, never for a human SteamID64.
+pub fn is_bot_steam_id(steam_id: u64) -> bool {
+    (BOT_STEAM_ID_BASE..STEAMID64_MIN).contains(&steam_id)
+}
+
 /// CS2 buy menu prices. Keep aligned with `apps/web/src/lib/shared/constants.ts`.
 pub const COST_GLOCK: u16 = 200;
 pub const COST_USP: u16 = 200;

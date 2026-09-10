@@ -17,6 +17,7 @@ import {
   saveLeadInSec,
   type RoundEvent,
 } from "@/lib/match/roundEvents";
+import { attackerLabel } from "@/lib/replay/playerLabel";
 import { currentRound } from "@/lib/replay/sample";
 import { currentSide } from "@/lib/stats/stats";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
@@ -173,8 +174,7 @@ export function RoundList({ replay, tick, onJump, onSelect, activeRound }: Props
 }
 
 function playerName(replay: Replay, index: number): string {
-  if (index < 0) return "World";
-  return replay.players[index]?.name ?? "World";
+  return attackerLabel(replay, index);
 }
 
 function sideClass(replay: Replay, index: number, tick: number): string {

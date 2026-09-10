@@ -8,6 +8,7 @@ import {
 } from "@/lib/shared/constants";
 import { nadeLandPos } from "@/lib/radar/radarFx";
 import { NADE_LABEL } from "@/lib/match/roundEvents";
+import { attackerLabel } from "@/lib/replay/playerLabel";
 import { currentRound, samplePlayer } from "@/lib/replay/sample";
 import { calloutsInLocation, placeAt, type MapPlaces, type SiteCallout } from "./sites";
 import { clusterLayoutCallouts, groupLabel, type MapLayout } from "@/lib/radar/layouts";
@@ -297,7 +298,7 @@ function victimAliveAt(replay: Replay, victim: number, tick: number): boolean {
 }
 
 function nameOf(replay: Replay, i: number): string {
-  return i < 0 ? "World" : (replay.players[i]?.name ?? "?");
+  return attackerLabel(replay, i);
 }
 
 function attachBlinds(rows: UtilThrowRow[], replay: Replay, untilTick: number): void {

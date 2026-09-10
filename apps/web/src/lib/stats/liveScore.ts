@@ -113,6 +113,7 @@ export function liveScoreboardPlayers(replay: Replay, tick: number): number[] {
       let best: number | null = null;
       let bestScore = 0;
       for (const i of list) {
+        if (replay.players[i]?.is_bot) continue;
         if ((sampled[i]?.money ?? 0) > 0) continue;
         let score = 4;
         if (missedThisFreeze(replay, i, tick)) score += 2;

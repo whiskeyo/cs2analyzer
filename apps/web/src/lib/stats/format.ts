@@ -45,7 +45,7 @@ export function exportStatsCsv(replay: Replay, stats: PlayerStats[]): string {
     const p = replay.players[s.player];
     return [
       p?.name ?? "?",
-      p?.steam_id ?? "",
+      p?.is_bot ? "" : (p?.steam_id ?? ""),
       s.rounds,
       s.kills,
       s.deaths,

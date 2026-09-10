@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { DECODE_LIST_SAMPLE_STRIDE, decodeList, decodeObject, PayloadError } from "./decode";
-import type { BombEvent, Hurt, Kill, MatchHeader, Round } from "@/lib/replay/replayTypes";
-import { makeHurt } from "@/lib/testing/fixtures";
+import type {
+  BombEvent,
+  ControllerDump,
+  Hurt,
+  Kill,
+  MatchHeader,
+  Player,
+  Round,
+} from "@/lib/replay/replayTypes";
+import { makeHurt, makePlayer } from "@/lib/testing/fixtures";
 
 const header: MatchHeader = {
   map_name: "de_anubis",
@@ -131,6 +139,32 @@ describe("decodeList", () => {
     expect(() => decodeList<Round>("rounds", `[${without(round, "is_knife")}]`)).toThrow(
       /"rounds\[0\]".*"is_knife".*expected boolean/s,
     );
+  });
+
+  it("requires player is_bot so a Rust rename fails on drop", () => {
+    const player: Player = makePlayer(0, "T", "Mike", 0xb0700005, true);
+    expect(decodeList<Player>("players", JSON.stringify([player]))).toEqual([player]);
+    expect(() => decodeList<Player>("players", `[${without(player, "is_bot")}]`)).toThrow(
+      /"players\[0\]".*"is_bot".*expected boolean/s,
+    );
+  });
+
+  it("requires controller dump assigned so a Rust rename fails on drop", () => {
+    const row: ControllerDump = {
+      tick: 64,
+      slot: 7,
+      name: "Mike",
+      steam: 0,
+      is_bot: false,
+      connected: 0,
+      has_team_pawn: true,
+      assigned: 0xb0700007,
+      at_freeze: true,
+    };
+    expect(decodeList<ControllerDump>("controllerDump", JSON.stringify([row]))).toEqual([row]);
+    expect(() =>
+      decodeList<ControllerDump>("controllerDump", `[${without(row, "assigned")}]`),
+    ).toThrow(/"controllerDump\[0\]".*"assigned".*expected number/s);
   });
 
   it("requires bomb event z so a Rust rename fails on drop", () => {

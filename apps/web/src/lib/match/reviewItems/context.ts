@@ -1,5 +1,6 @@
 import { currentSide, isEnemyKill } from "@/lib/stats/stats";
 import { prettyWeapon } from "@/lib/weapons/weapons";
+import { attackerLabel } from "@/lib/replay/playerLabel";
 import type { Kill, Replay, Round } from "@/lib/replay/replayTypes";
 import type { DeathDraft, DeathReviewContext, ReviewNote, RoundReviewContext } from "../review";
 import { aliveOnSide, roundLabel } from "./support";
@@ -31,7 +32,7 @@ export function roundContext(
     teamLost: round.end_tick <= untilTick && round.winner != null && round.winner !== side,
     completed: round.end_tick <= untilTick,
     freeze,
-    playerName: (i) => (i < 0 ? "World" : (replay.players[i]?.name ?? "?")),
+    playerName: (i) => attackerLabel(replay, i),
   };
 }
 

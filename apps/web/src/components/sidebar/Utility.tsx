@@ -10,6 +10,7 @@ import {
   utilityThrough,
 } from "@/lib/match/utility";
 import { placesReady, type MapPlaces } from "@/lib/match/sites";
+import { playerLabel } from "@/lib/replay/playerLabel";
 import type { GrenadeKind, Replay } from "@/lib/replay/replayTypes";
 import { matchEndTick } from "@/lib/stats/stats";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
@@ -43,7 +44,7 @@ export function Utility({
   places,
 }: Props) {
   const u = utilityThrough(replay, matchEndTick(replay), selected, places);
-  const who = selected != null ? (replay.players[selected]?.name ?? "Player") : "Match";
+  const who = selected != null ? playerLabel(replay.players[selected], "Player") : "Match";
   const hasPlaces = placesReady(places);
   const kinds = usedUtilKinds(u.throws);
   const placeChips = usedUtilPlaces(u.throws, places?.layout);

@@ -485,12 +485,14 @@ mod tests {
                     steam_id: 1,
                     name: "A".into(),
                     start_side: Side::Ct,
+                    is_bot: false,
                 },
                 Player {
                     index: 1,
                     steam_id: 2,
                     name: "B".into(),
                     start_side: Side::T,
+                    is_bot: false,
                 },
             ],
             rounds: vec![Round {
@@ -516,6 +518,7 @@ mod tests {
             bomb_events: vec![],
             buy_events: vec![],
             stats: vec![],
+            controller_dump: vec![],
         }
     }
 
@@ -608,6 +611,7 @@ mod tests {
             steam_id: 3,
             name: "C".into(),
             start_side: Side::Ct,
+            is_bot: false,
         });
         m.kills.push(kill(100, 1, 0));
         m.kills.push(kill(120, 1, 2));
@@ -626,6 +630,7 @@ mod tests {
             steam_id: 3,
             name: "C".into(),
             start_side: Side::Ct,
+            is_bot: false,
         });
         m.kills.push(kill(100, 1, 0));
         m.kills.push(kill(120, 2, 1));
@@ -684,6 +689,7 @@ mod tests {
             steam_id: 3,
             name: "C".into(),
             start_side: Side::Ct,
+            is_bot: false,
         });
         m.kills.push(kill(100, 0, 2));
         m.kills.push(kill(200, 0, 1));

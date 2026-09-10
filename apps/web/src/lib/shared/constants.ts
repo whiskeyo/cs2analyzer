@@ -87,6 +87,21 @@ export const SERIES_TEAM_MERGE_MIN_STEAM_OVERLAP = 3;
 /** Overtime side-swap block length. */
 export const OVERTIME_BLOCK_ROUNDS = 3;
 
+/**
+ * Synthetic Steam IDs for GOTV / offline bots (`m_steamID == 0`).
+ * Identity is `BOT_STEAM_ID_BASE + CCSPlayerController` entity index.
+ * Keep aligned with `crates/cs2analyzer/src/constants.rs`.
+ */
+export const BOT_STEAM_ID_BASE = 0xb0700000;
+
+/** Controller-index span reserved for synthetic bot ids (safe JS integers). */
+export const BOT_STEAM_ID_SPAN = 0x10000;
+
+/** True for parser-assigned bot identities, never for a human SteamID64. */
+export function isBotSteamId(steamId: number): boolean {
+  return steamId >= BOT_STEAM_ID_BASE && steamId < BOT_STEAM_ID_BASE + BOT_STEAM_ID_SPAN;
+}
+
 /** KAST / trade window: teammate kills the attacker. */
 export const TRADE_SECONDS = 5;
 

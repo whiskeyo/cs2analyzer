@@ -71,8 +71,9 @@ export function makePlayer(
   side: Player["start_side"],
   name: string,
   steamId = index + 1,
+  isBot = false,
 ): Player {
-  return { index, steam_id: steamId, name, start_side: side };
+  return { index, steam_id: steamId, name, start_side: side, is_bot: isBot };
 }
 
 export function makeRound(partial: Partial<Round> & Pick<Round, "number">): Round {

@@ -10,6 +10,7 @@ import {
   weaponHasMagazine,
   WID_KNIFE,
 } from "@/lib/weapons/loadout";
+import { playerLabel } from "@/lib/replay/playerLabel";
 import { samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
 import { freezeBuysForPlayer } from "@/lib/match/buys";
 import { computeStats, liveScoreboardPlayers, liveTeams } from "@/lib/stats/stats";
@@ -127,7 +128,7 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
       const s = stats[p.index];
       return {
         p,
-        name: replay.players[p.index]?.name ?? "?",
+        name: playerLabel(replay.players[p.index]),
         kd: s ? `${s.kills}-${s.deaths}` : "0-0",
       };
     });

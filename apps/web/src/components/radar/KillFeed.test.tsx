@@ -91,6 +91,17 @@ describe("KillFeed", () => {
     expect(screen.queryByTitle("Blind")).not.toBeInTheDocument();
   });
 
+  it("names a mapped bot instead of World", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Mike", 0xb0700005, true)],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
+      kills: [makeKill(1000, 1, 0)],
+    });
+    render(<KillFeed replay={replay} tick={1000} onJump={() => {}} />);
+    expect(screen.getByText("Mike (BOT)")).toHaveClass("att", "t");
+    expect(screen.queryByText("World")).not.toBeInTheDocument();
+  });
+
   it("names the world as the attacker when there is no killer", () => {
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "Alice")],

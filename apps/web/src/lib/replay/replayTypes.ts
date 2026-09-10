@@ -38,6 +38,21 @@ export interface Player {
   steam_id: number;
   name: string;
   start_side: Side;
+  /** GOTV / offline bot (`m_bIsBot`, synthetic steam id). */
+  is_bot: boolean;
+}
+
+/** Per-controller parse diagnostic from WASM. Not used by radar/stats. */
+export interface ControllerDump {
+  tick: number;
+  slot: number;
+  name: string;
+  steam: number;
+  is_bot: boolean;
+  connected: number;
+  has_team_pawn: boolean;
+  assigned: number;
+  at_freeze: boolean;
 }
 
 export interface Round {
@@ -265,6 +280,8 @@ export interface Replay {
   bombEvents: BombEvent[];
   buyEvents: BuyEvent[];
   ticks: TickBuffers;
+  /** Last controller slot + freeze-end fill candidates. */
+  controllerDump?: ControllerDump[];
 }
 
 export interface FloorSection {
