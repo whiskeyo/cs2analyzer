@@ -125,6 +125,7 @@ export function RadarStage() {
         <RadarCanvas
           replay={replay}
           tick={tick}
+          tickRef={playback.tickRef}
           cal={cal}
           selected={view.selected}
           onSelect={view.select}

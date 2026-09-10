@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { radarLayout, radarToScreen, screenToRadar } from "./viewport.ts";
+import { centerViewOnRadarPoint, radarLayout, radarToScreen, screenToRadar } from "./viewport.ts";
+
+describe("centerViewOnRadarPoint", () => {
+  it("puts the radar origin at the canvas centre at scale 1", () => {
+    const view = { scale: 1, ox: 0, oy: 0 };
+    centerViewOnRadarPoint(view, 400, 400, 0, 0);
+    const screen = radarToScreen(400, 400, view, 0, 0);
+    expect(screen.x).toBeCloseTo(200, 5);
+    expect(screen.y).toBeCloseTo(200, 5);
+  });
+});
 
 describe("radarLayout", () => {
   it("fits the overview inside the canvas with padding", () => {

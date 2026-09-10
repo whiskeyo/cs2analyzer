@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useCanvasLoop } from "@/lib/shared/useCanvasLoop";
+import { canvasInputsChanged, useCanvasLoop } from "@/lib/shared/useCanvasLoop";
 import { type Drawing, type FloorMode, type NadeStyle, type Note } from "@/lib/notes/types";
 import { defaultPlaybookColor } from "@/lib/playbook/pages";
 import { paintPlaybookBoard, playbookUsesLower } from "@/lib/playbook/paint";
@@ -7,6 +7,7 @@ import { playbookToolCursor, type PlaybookTool } from "@/lib/playbook/pieces";
 import type { NadeTrailDraft } from "@/lib/playbook/nadeTrail";
 import { createPlaybookView, usePlaybookPointer } from "@/lib/playbook/pointer";
 import type { LegendEntry } from "@/lib/playbook/legend";
+import { nadeIconLoadCount } from "@/lib/radar/draw";
 import { useRadarImages } from "@/lib/radar/useRadarImages";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
@@ -58,6 +59,7 @@ export function PlaybookCanvas(props: Props) {
   const nadeStyleRef = useRef(nadeStyle);
   nadeStyleRef.current = nadeStyle;
   const nadeTrailRef = useRef<NadeTrailDraft | null>(null);
+  const lastPaintInputs = useRef<readonly unknown[] | null>(null);
   const { images, c4Icon, nadeIcons } = useRadarImages(cal);
 
   useEffect(() => {
@@ -110,6 +112,32 @@ export function PlaybookCanvas(props: Props) {
       );
     },
     [cal],
+    () => {
+      const p = propsRef.current;
+      const v = view.current;
+      const trail = nadeTrailRef.current;
+      return canvasInputsChanged(lastPaintInputs, [
+        p.cal,
+        p.floorMode,
+        p.note,
+        p.selectedId ?? null,
+        p.nadeStyle ?? "icon",
+        p.nadeTrail ?? false,
+        v.scale,
+        v.ox,
+        v.oy,
+        draftRef.current,
+        gizmoRef.current,
+        trail,
+        trail?.hover?.x ?? null,
+        trail?.hover?.y ?? null,
+        trail?.points.length ?? 0,
+        images.current.upper,
+        images.current.lower,
+        c4Icon.current,
+        nadeIconLoadCount(nadeIcons.current),
+      ]);
+    },
   );
 
   return (

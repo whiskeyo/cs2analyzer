@@ -12,6 +12,17 @@ export const NADE_FLIGHT_ICON_SIZE = 20;
 
 export type NadeIcons = Partial<Record<GrenadeKind, HTMLImageElement | null>>;
 
+/** How many nade SVGs have loaded — dirty bit for the radar paint loop. */
+export function nadeIconLoadCount(icons: NadeIcons): number {
+  let n = 0;
+  for (const icon of Object.values(icons)) {
+    if (icon) {
+      n += 1;
+    }
+  }
+  return n;
+}
+
 export function yawToCanvas(yaw: number): number {
   // CS2 eye yaw 0 is +X, but the pawn forward used on radar is 180° from that.
   return ((-yaw + 180) * Math.PI) / 180;

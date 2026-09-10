@@ -1,5 +1,6 @@
-import { useEffect, useRef, type RefObject } from "react";
-import { useCanvasLoop } from "@/lib/shared/useCanvasLoop";
+import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
+import { canvasInputsChanged, useCanvasLoop } from "@/lib/shared/useCanvasLoop";
+import { applyRadarFollowCam, radarPaintInputs } from "@/lib/radar/radarPaintDirty";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { worldToScreen } from "@/lib/radar/maps";
 import { buildRadarFrame } from "@/lib/radar/radarFrame";
@@ -39,6 +40,8 @@ import {
 interface Props {
   replay: Replay;
   tick: number;
+  /** Live playhead. When set, rAF / pointer read this instead of React `tick`. */
+  tickRef?: MutableRefObject<number>;
   cal: MapCalibration | undefined;
   selected: number | null;
   onSelect: (index: number | null) => void;
@@ -75,8 +78,11 @@ export function RadarCanvas(props: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const replayRef = useRef(replay);
   replayRef.current = replay;
-  const tickRef = useRef(tick);
-  tickRef.current = tick;
+  const fallbackTickRef = useRef(tick);
+  if (!props.tickRef) {
+    fallbackTickRef.current = tick;
+  }
+  const tickRef = props.tickRef ?? fallbackTickRef;
   const toolRef = useRef(tool);
   toolRef.current = tool;
   const colorRef = useRef(color);
@@ -108,6 +114,7 @@ export function RadarCanvas(props: Props) {
   const penTip = useRef<{ x: number; y: number } | null>(null);
   const suppressClickRef = useRef(false);
   const textMoveRef = useRef<TextMove | null>(null);
+  const lastPaintInputs = useRef<readonly unknown[] | null>(null);
   const notes = useTextNotes(noteRef, onNote);
   const {
     editing,
@@ -136,7 +143,7 @@ export function RadarCanvas(props: Props) {
       ctx.fillRect(0, 0, w, h);
 
       const p = propsRef.current;
-      const tickNow = p.tick;
+      const tickNow = p.tickRef?.current ?? p.tick;
       const calNow = p.cal;
       const v = view.current;
       const frame = buildRadarFrame({
@@ -151,20 +158,6 @@ export function RadarCanvas(props: Props) {
         scale: v.scale,
         habitsOnly: p.habitsOnly ?? false,
       });
-
-      if (p.follow && p.selected != null && calNow) {
-        const pawn = frame.players.find((x) => x.index === p.selected && x.present);
-        if (pawn) {
-          const pad = 16;
-          const fit = Math.min(w, h) - pad * 2;
-          const r = {
-            x: (pawn.x - calNow.pos_x) / calNow.scale,
-            y: (calNow.pos_y - pawn.y) / calNow.scale,
-          };
-          v.ox = w / 2 - (w - fit) / 2 - (r.x / 1024) * fit * v.scale;
-          v.oy = h / 2 - (h - fit) / 2 - (r.y / 1024) * fit * v.scale;
-        }
-      }
 
       const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, v, wx, wy);
       const img = frame.useLowerFloor ? images.current.lower : images.current.upper;
@@ -221,6 +214,51 @@ export function RadarCanvas(props: Props) {
       ctx.restore();
     },
     [replay],
+    (w, h) => {
+      const p = propsRef.current;
+      const v = view.current;
+      const tickNow = p.tickRef?.current ?? p.tick;
+      applyRadarFollowCam(v, w, h, p.replay, tickNow, p.selected, p.follow, p.cal);
+      const move = textMoveRef.current;
+      const ed = editingRef.current;
+      return canvasInputsChanged(
+        lastPaintInputs,
+        radarPaintInputs({
+          tick: tickNow,
+          view: v,
+          layers: p.layers,
+          summaryFilter: p.summaryFilter,
+          note: noteRef.current,
+          draft: draft.current,
+          playSec: p.habitsPlaySecRef?.current,
+          follow: p.follow,
+          selected: p.selected,
+          trails: p.trails,
+          floorMode: p.floorMode,
+          habitsOnly: p.habitsOnly ?? false,
+          habitsOverlay: p.habitsOverlay,
+          habitsOverlayDisplay: p.habitsOverlayDisplay,
+          habitsShowTrails: p.habitsShowTrails ?? false,
+          habitsShowArrows: p.habitsShowArrows ?? true,
+          habitsNadesOn: p.habitsNadesOn ?? true,
+          habitsNadeOpacity: p.habitsNadeOpacity ?? 0.4,
+          habitsNadeFilter: p.habitsNadeFilter,
+          cal: p.cal,
+          replay: p.replay,
+          viewEpoch: p.viewEpoch,
+          imgUpper: images.current.upper,
+          imgLower: images.current.lower,
+          c4: c4Icon.current,
+          nadeIcons: nadeIcons.current,
+          textMoveX: move?.x ?? null,
+          textMoveY: move?.y ?? null,
+          editing: ed != null,
+          skipText: ed?.ref ?? null,
+          editX: ed?.x ?? null,
+          editY: ed?.y ?? null,
+        }),
+      );
+    },
   );
 
   useRadarPointer({
@@ -268,7 +306,7 @@ export function RadarCanvas(props: Props) {
       return;
     }
     const { x: mx, y: my } = canvasLocalPoint(canvas, e.clientX, e.clientY);
-    const players = samplePlayers(p.replay, p.tick);
+    const players = samplePlayers(p.replay, p.tickRef?.current ?? p.tick);
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
     const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, view.current, wx, wy);

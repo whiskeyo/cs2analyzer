@@ -3,6 +3,14 @@
 /** GOTV tick rate when the demo header omits one. */
 export const DEFAULT_TICK_RATE = 64;
 
+/**
+ * How often React HUD / scoreboard `tick` may change during playback.
+ * The canvas rAF path reads `tickRef` at full rate.
+ */
+export const HUD_TICK_HZ = 10;
+
+export const HUD_TICK_INTERVAL_MS = 1000 / HUD_TICK_HZ;
+
 /** Competitive spawn HP (reset each round). */
 export const FULL_HEALTH = 100;
 

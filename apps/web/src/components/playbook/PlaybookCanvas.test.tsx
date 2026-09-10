@@ -105,7 +105,7 @@ describe("PlaybookCanvas", () => {
     act(() => {
       rafCb?.(0);
     });
-    expect(paintPlaybookBoard).toHaveBeenCalledTimes(2);
+    expect(paintPlaybookBoard).toHaveBeenCalledTimes(1);
     Object.defineProperty(window, "devicePixelRatio", {
       value: 2,
       configurable: true,
@@ -113,7 +113,22 @@ describe("PlaybookCanvas", () => {
     act(() => {
       rafCb?.(0);
     });
-    expect(paintPlaybookBoard).toHaveBeenCalledTimes(3);
+    expect(paintPlaybookBoard).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips paint when the board is unchanged", () => {
+    const { container } = render(
+      <PlaybookCanvas cal={UNIT_CALIBRATION} floorMode="auto" note={emptyNote()} />,
+    );
+    sizedWrap(container);
+    act(() => {
+      rafCb?.(0);
+    });
+    expect(paintPlaybookBoard).toHaveBeenCalledTimes(1);
+    act(() => {
+      rafCb?.(1);
+    });
+    expect(paintPlaybookBoard).toHaveBeenCalledTimes(1);
   });
 
   it("pans on drag and zooms on wheel", () => {
