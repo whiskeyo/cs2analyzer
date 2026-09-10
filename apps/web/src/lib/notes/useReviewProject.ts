@@ -3,7 +3,15 @@ import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import type { LoadedDemo, DemoSeries } from "@/lib/parse/session";
 import type { Playback } from "@/lib/playback/usePlayback";
 import type { Status } from "@/lib/state/status";
-import { getSeriesReview, setSeriesReview, type SeriesReviewSnapshot } from "./seriesReviewCache";
+import type { SeriesReviewSnapshot } from "./seriesReviewCache";
+import {
+  demoEnterClear,
+  restorePlan,
+  shouldDebouncePersist,
+  shouldFlushSeriesCache,
+  stashSeriesReview,
+  takeSeriesReview,
+} from "./reviewLifecycle";
 import {
   defaultColor,
   defaultPaletteId,
@@ -14,7 +22,7 @@ import {
   type ReviewProject,
 } from "./projectStore";
 import { DEFAULT_SUMMARY_FILTER, type FloorMode, type SummaryFilter } from "./types";
-import { useStrokeHistory } from "./reviewHistory";
+import { useRoundNoteHistory } from "./reviewHistory";
 import {
   exportSavedNotes,
   importNotesFromText,
@@ -48,7 +56,7 @@ export function useReviewProject(opts: {
 }) {
   const { demo, series, parsedDemos, status, playback } = opts;
   const [saved, setSaved] = useState<ReviewProject[]>([]);
-  const { strokes, strokesRef, canUndo, canRedo, commitStrokes, undo, redo } = useStrokeHistory();
+  const { notes, notesRef, canUndo, canRedo, commitNotes, undo, redo } = useRoundNoteHistory();
   const [paletteId, setPaletteId] = useState(defaultPaletteId);
   const [color, setColor] = useState(defaultColor);
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>(DEFAULT_SUMMARY_FILTER);
@@ -77,7 +85,7 @@ export function useReviewProject(opts: {
 
   const applySnapshot = useCallback(
     (snap: SeriesReviewSnapshot, jumpTick: boolean) => {
-      commitStrokes(snap.strokes, true);
+      commitNotes(snap.notes, true);
       setSummaryFilter(snap.summaryFilter);
       setFloorMode(snap.floorMode);
       setPaletteId(snap.paletteId);
@@ -86,12 +94,12 @@ export function useReviewProject(opts: {
         playbackRef.current.jump(snap.tick, true);
       }
     },
-    [commitStrokes],
+    [commitNotes],
   );
 
   const applyProject = useCallback(
     (p: ReviewProject, jumpTick: boolean) => {
-      commitStrokes(p.strokes, true);
+      commitNotes(p.notes, true);
       setSummaryFilter(p.summaryFilter);
       setFloorMode(p.floorMode);
       setPaletteId(p.paletteId);
@@ -100,7 +108,7 @@ export function useReviewProject(opts: {
         playbackRef.current.jump(p.tick, true);
       }
     },
-    [commitStrokes],
+    [commitNotes],
   );
 
   const snapshotNow = useCallback((): SeriesReviewSnapshot | null => {
@@ -111,10 +119,10 @@ export function useReviewProject(opts: {
     return reviewSnapshot(
       target,
       playbackRef.current.tickRef.current,
-      strokesRef.current,
+      notesRef.current,
       overlayRef.current,
     );
-  }, [strokesRef]);
+  }, [notesRef]);
 
   const exportNotes = useCallback(async () => {
     await exportSavedNotes(loadAllProjects, statusRef.current);
@@ -148,7 +156,7 @@ export function useReviewProject(opts: {
           projectFromDemo(
             target,
             playbackRef.current.tickRef.current,
-            strokesRef.current,
+            notesRef.current,
             overlayRef.current,
             existing,
             { withStats: opts?.stats !== false },
@@ -159,7 +167,7 @@ export function useReviewProject(opts: {
         refreshSaved();
       }
     },
-    [refreshSaved, strokesRef],
+    [refreshSaved, notesRef],
   );
 
   const seededPoolRef = useRef<string | null>(null);
@@ -204,22 +212,27 @@ export function useReviewProject(opts: {
     if (!demo?.id) {
       return;
     }
-    const switchingSeries =
-      series != null && prevDemoIdRef.current != null && prevDemoIdRef.current !== demo.id;
     restoredRef.current = false;
-    if (switchingSeries) {
+    const enter = demoEnterClear({
+      prevDemoId: prevDemoIdRef.current,
+      nextDemoId: demo.id,
+      hasSeries: series != null,
+    });
+    if (!enter.clearStrokes) {
       return;
     }
-    commitStrokes([], true);
-    setSummaryFilter(DEFAULT_SUMMARY_FILTER);
-    setFloorMode("auto");
-  }, [demo?.id, series, commitStrokes]);
+    commitNotes([], true);
+    if (enter.resetOverlay) {
+      setSummaryFilter(DEFAULT_SUMMARY_FILTER);
+      setFloorMode("auto");
+    }
+  }, [demo?.id, series, commitNotes]);
 
   /** Call before swapping the active file in a series (refs still point at the outgoing demo). */
   const stashForSeriesSwitch = useCallback(() => {
     const snap = snapshotNow();
     if (snap) {
-      setSeriesReview(snap);
+      stashSeriesReview(snap);
     }
   }, [snapshotNow]);
 
@@ -229,19 +242,25 @@ export function useReviewProject(opts: {
       prevDemoIdRef.current = null;
       return;
     }
-    const isSwitch = prevDemoIdRef.current !== null && prevDemoIdRef.current !== demo.id;
+    const prevDemoId = prevDemoIdRef.current;
     prevDemoIdRef.current = demo.id;
     let cancelled = false;
 
     const inSeries = series?.demos.some((d) => d.id === demo.id) ?? false;
-    const cached = inSeries ? getSeriesReview(demo.id) : undefined;
+    const cached = inSeries ? takeSeriesReview(demo.id) : undefined;
+    const plan = restorePlan({
+      prevDemoId,
+      demoId: demo.id,
+      inSeries,
+      hasCache: cached != null,
+    });
 
-    if (cached) {
+    if (plan.source === "cache" && cached) {
       queueMicrotask(() => {
         if (cancelled) {
           return;
         }
-        applySnapshot(cached, false);
+        applySnapshot(cached, plan.jumpTick);
         restoredRef.current = true;
       });
       return () => {
@@ -249,20 +268,8 @@ export function useReviewProject(opts: {
       };
     }
 
-    if (inSeries && isSwitch) {
+    if (plan.markRestoredImmediately) {
       restoredRef.current = true;
-      void loadProject(matchKey(demo.replay, demo.fileName))
-        .then((project) => {
-          if (cancelled || !project) {
-            return;
-          }
-          applyProject(project, false);
-          playbackRef.current.setPlaying(false);
-        })
-        .catch(() => undefined);
-      return () => {
-        cancelled = true;
-      };
     }
 
     const settle = (project: ReviewProject | null) => {
@@ -271,44 +278,48 @@ export function useReviewProject(opts: {
       }
       restoredRef.current = true;
       if (!project) {
-        if (!isSwitch) {
+        if (plan.autoplayIfEmpty) {
           playbackRef.current.setPlaying(true);
         }
         return;
       }
-      applyProject(project, true);
-      playbackRef.current.setPlaying(false);
-      statusRef.current.setNotice((prev) =>
-        prev ? `${prev}. Restored drawings for this match.` : "Restored drawings for this match.",
-      );
+      applyProject(project, plan.jumpTick);
+      if (plan.pauseOnRestore) {
+        playbackRef.current.setPlaying(false);
+      }
+      if (plan.noticeOnRestore) {
+        statusRef.current.setNotice((prev) =>
+          prev ? `${prev}. Restored drawings for this match.` : "Restored drawings for this match.",
+        );
+      }
     };
     void loadProject(matchKey(demo.replay, demo.fileName))
       .then(settle)
       .catch(() => settle(null));
     return () => {
       cancelled = true;
-      if (!inSeries) {
+      if (plan.persistOutgoingOnLeave) {
         void persist(demo, { stats: false, refreshList: false }).catch(() => undefined);
       }
     };
   }, [demo, series, applyProject, applySnapshot, persist]);
 
   useEffect(() => {
-    if (series) {
+    if (!shouldFlushSeriesCache(series != null)) {
       return;
     }
     void flushSeriesReviewCache().catch(() => undefined);
   }, [series]);
 
   useEffect(() => {
-    if (!demo || !restoredRef.current) {
+    if (!shouldDebouncePersist({ hasDemo: demo != null, restored: restoredRef.current })) {
       return;
     }
     const id = window.setTimeout(() => {
       void persistNow();
     }, PROJECT_SAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(id);
-  }, [demo, playback.playing, strokes, summaryFilter, floorMode, paletteId, color, persistNow]);
+  }, [demo, playback.playing, notes, summaryFilter, floorMode, paletteId, color, persistNow]);
 
   useEffect(() => {
     const onUnload = () => {
@@ -332,8 +343,8 @@ export function useReviewProject(opts: {
 
   return {
     saved,
-    strokes,
-    strokesRef,
+    notes,
+    notesRef,
     canUndo,
     canRedo,
     paletteId,
@@ -345,7 +356,7 @@ export function useReviewProject(opts: {
     floorMode,
     setFloorMode,
     refreshSaved,
-    commitStrokes,
+    commitNotes,
     undo,
     redo,
     applyProject,
@@ -359,4 +370,4 @@ export function useReviewProject(opts: {
   };
 }
 
-export type ReviewStore = ReturnType<typeof useReviewProject>;
+export type ReviewSession = ReturnType<typeof useReviewProject>;

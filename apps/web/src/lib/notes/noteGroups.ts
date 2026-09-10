@@ -51,6 +51,15 @@ function refKey(ref: NoteItemRef): string {
   return `${ref.kind}:${ref.index}`;
 }
 
+export function refsEqual(a: NoteItemRef, b: NoteItemRef): boolean {
+  return refKey(a) === refKey(b);
+}
+
+export function itemExists(note: Note, ref: NoteItemRef): boolean {
+  if (ref.kind === "bookmark") return note.bookmarks[ref.index] != null;
+  return drawingAt(note, ref) != null;
+}
+
 function uniqueRefs(refs: readonly NoteItemRef[]): NoteItemRef[] {
   const seen = new Set<string>();
   const out: NoteItemRef[] = [];
@@ -187,10 +196,10 @@ export function setItemsHidden(note: Note, refs: readonly NoteItemRef[], hidden:
       if (hidden) item.hidden = true;
       else delete item.hidden;
     } else if (ref.kind === "group") {
-      const group = next.groups[ref.groupIndex];
-      if (!group) continue;
-      if (hidden) group.hidden = true;
-      else delete group.hidden;
+      const drawing = next.groups[ref.groupIndex]?.drawings[ref.drawingIndex];
+      if (!drawing) continue;
+      if (hidden) drawing.hidden = true;
+      else delete drawing.hidden;
     } else {
       const mark = next.bookmarks[ref.index];
       if (!mark) continue;
@@ -247,6 +256,54 @@ export function dropItems(note: Note, refs: readonly NoteItemRef[], dest: NoteDr
   if (unique.length < 2) return note;
   if (wholeGroupSelected(note, unique)) return note;
   return groupItems(note, unique);
+}
+
+export function setGroupHidden(note: Note, groupIndex: number, hidden: boolean): Note {
+  const group = note.groups[groupIndex];
+  if (!group) return note;
+  const next = cloneNote(note);
+  if (hidden) next.groups[groupIndex] = { ...group, hidden: true };
+  else {
+    const copy = { ...group };
+    delete copy.hidden;
+    next.groups[groupIndex] = copy;
+  }
+  return next;
+}
+
+export function renameItemText(note: Note, ref: NoteItemRef, text: string): Note {
+  const nextName = text.trim().slice(0, NOTE_GROUP_NAME_MAX);
+  if (!nextName) return note;
+  const next = cloneNote(note);
+  if (ref.kind === "bookmark") {
+    const mark = next.bookmarks[ref.index];
+    if (!mark || mark.text === nextName) return note;
+    next.bookmarks[ref.index] = { ...mark, text: nextName };
+    return next;
+  }
+  const drawing = drawingAt(next, ref);
+  if (!drawing || drawing.type !== "text" || drawing.text === nextName) return note;
+  const updated = { ...drawing, text: nextName };
+  if (ref.kind === "loose") next.drawings[ref.index] = updated;
+  else next.groups[ref.groupIndex].drawings[ref.drawingIndex] = updated;
+  return next;
+}
+
+export function squashItems(note: Note, refs: readonly NoteItemRef[]): Note {
+  const grouped = groupItems(note, refs);
+  if (grouped === note) return note;
+  const last = grouped.groups.length - 1;
+  if (last < 0) return grouped;
+  return renameGroup(grouped, last, nextLayerName(note));
+}
+
+export function ungroupRefs(note: Note, refs: readonly NoteItemRef[]): Note {
+  const indexes = [
+    ...new Set(uniqueRefs(refs).flatMap((ref) => (ref.kind === "group" ? [ref.groupIndex] : []))),
+  ].sort((a, b) => b - a);
+  let next = note;
+  for (const index of indexes) next = ungroup(next, index);
+  return next;
 }
 
 export function squashLooseDrawings(note: Note): Note {

@@ -1,12 +1,8 @@
 import { useEffect, type MutableRefObject } from "react";
+import { typingInField } from "@/lib/shared/typing";
 import { canGroupIds, canUngroupIds, groupCallouts, ungroupCallouts } from "./groups";
 import type { LayoutCallout, MapLayout } from "./types";
 import type { LayoutTool } from "./useLayoutPointer";
-
-function typingInField(): boolean {
-  const el = document.activeElement;
-  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
-}
 
 const TOOL_KEYS: Record<string, LayoutTool> = {
   "1": "pan",

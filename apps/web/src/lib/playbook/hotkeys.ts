@@ -25,10 +25,7 @@ export const PLAYBOOK_KEYS_HINT =
 export const LAYOUT_KEYS_HINT =
   "1 pan · 2 polygon · 3 rect · 4 circle · 5 select · R reset view · G group · U ungroup · Ctrl+S save · Esc cancel · Del delete";
 
-export function typingInField(): boolean {
-  const el = document.activeElement;
-  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
-}
+export { typingInField } from "@/lib/shared/typing";
 
 export function cyclePaletteId(current: string, delta: -1 | 1): string {
   const index = COLOR_PRESETS.findIndex((preset) => preset.id === current);

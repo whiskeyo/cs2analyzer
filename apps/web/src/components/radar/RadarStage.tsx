@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { SnapshotDialog } from "@/components/playbook/SnapshotDialog";
-import { makeBookmarkStroke } from "@/lib/notes";
+import {
+  addBookmark,
+  clearRoundDrawings,
+  makeBookmark,
+  noteForRound,
+  updateRoundNote,
+} from "@/lib/notes";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { snapshotFromAnalyzer } from "@/lib/playbook/snapshot";
 import { currentRound } from "@/lib/replay/sample";
@@ -59,28 +65,25 @@ export function RadarStage() {
           onRedo: review.redo,
           onClear: () => {
             const round = currentRound(replay, tick)?.number;
-            review.commitStrokes(
-              round == null
-                ? []
-                : review.strokes.filter((st) => st.round !== round || st.type === "bookmark"),
-            );
+            if (round == null) {
+              review.commitNotes([]);
+              return;
+            }
+            review.commitNotes(updateRoundNote(review.notes, round, clearRoundDrawings));
           },
           onStampBookmark: () => {
             const round = currentRound(replay, tick);
             if (!round) {
               return;
             }
-            review.commitStrokes([
-              ...review.strokes,
-              makeBookmarkStroke(
-                review.color,
-                round.number,
-                tick,
-                view.moment,
-                round.end_tick,
-                tickRate(replay),
+            review.commitNotes(
+              updateRoundNote(review.notes, round.number, (note) =>
+                addBookmark(
+                  note,
+                  makeBookmark(review.color, tick, view.moment, round.end_tick, tickRate(replay)),
+                ),
               ),
-            ]);
+            );
           },
         }}
         viewActions={{
@@ -129,8 +132,11 @@ export function RadarStage() {
           trails={view.trails}
           tool={view.tool}
           color={review.color}
-          strokes={review.strokes}
-          onStrokes={(next) => review.commitStrokes(next)}
+          note={noteForRound(review.notes, currentRound(replay, tick)?.number ?? 0)}
+          onNote={(next) => {
+            const round = currentRound(replay, tick)?.number ?? 0;
+            review.commitNotes(updateRoundNote(review.notes, round, () => next));
+          }}
           onPan={() => view.setFollow(false)}
           onPause={() => playback.setPlaying(false)}
           moment={view.moment}

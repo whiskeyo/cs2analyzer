@@ -1,3 +1,5 @@
+import { ToolbarIcon } from "@/components/map/ToolbarIcon";
+import { TOOLBAR_PATHS } from "@/components/map/toolbarPaths";
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import type { ReactNode } from "react";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
@@ -33,26 +35,11 @@ interface Props {
 }
 
 const TOOL_PATHS: Record<"pan" | PlaybookDrawTool, string> = {
-  pan: "M8 1.5v13M1.5 8h13M8 1.5 6 3.5M8 1.5 10 3.5M8 14.5 6 12.5M8 14.5 10 12.5M1.5 8 3.5 6M1.5 8 3.5 10M14.5 8 12.5 6M14.5 8 12.5 10",
-  pen: "M11 2.5 13.5 5 6 12.5H3.5V10Z M8.5 5 11 7.5",
-  arrow: "M3 13 13 3M8 3h5v5",
-  eraser: "M4.5 11.5 10 6l2.5 2.5-5.5 5.5H4.5v-2.5Z M6.5 13.5h6",
+  pan: TOOLBAR_PATHS.pan,
+  pen: TOOLBAR_PATHS.pen,
+  arrow: TOOLBAR_PATHS.arrow,
+  eraser: TOOLBAR_PATHS.erase,
 };
-
-function ToolGlyph({ d }: { d: string }) {
-  return (
-    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-      <path
-        d={d}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 function PawnGlyph({ color }: { color: string }) {
   return (
@@ -88,12 +75,6 @@ function tokenGlyph(token: PaletteToken) {
   }
   return token.label;
 }
-
-const EXTRA_PATHS = {
-  undo: "M5 5 2 8l3 3M2 8h7.5a3.5 3.5 0 1 1 0 7",
-  redo: "M11 5 14 8l-3 3M14 8H6.5a3.5 3.5 0 1 0 0 7",
-  reset: "M3 8a5 5 0 1 0 1.5-3.5M3 3v3h3",
-};
 
 function ToolBtn({
   label,
@@ -145,7 +126,7 @@ export function TokenPalette({
   return (
     <div className="playbook-toolbar map-toolbar" role="toolbar" aria-label="Playbook tools">
       <ToolBtn label="Pan" title="Pan (V)" on={tool === "pan"} onClick={() => onTool("pan")}>
-        <ToolGlyph d={TOOL_PATHS.pan} />
+        <ToolbarIcon d={TOOL_PATHS.pan} />
       </ToolBtn>
       {DRAW_TOOLS.map((row) => (
         <ToolBtn
@@ -155,7 +136,7 @@ export function TokenPalette({
           on={tool === row.tool}
           onClick={() => onTool(row.tool)}
         >
-          <ToolGlyph d={TOOL_PATHS[row.tool]} />
+          <ToolbarIcon d={TOOL_PATHS[row.tool]} />
         </ToolBtn>
       ))}
       <span className="toolbar-sep" />
@@ -165,7 +146,7 @@ export function TokenPalette({
         disabled={!canUndo}
         onClick={onUndo}
       >
-        <ToolGlyph d={EXTRA_PATHS.undo} />
+        <ToolbarIcon d={TOOLBAR_PATHS.undo} />
       </ToolBtn>
       <ToolBtn
         label="Redo drawing (Ctrl+Y)"
@@ -173,10 +154,10 @@ export function TokenPalette({
         disabled={!canRedo}
         onClick={onRedo}
       >
-        <ToolGlyph d={EXTRA_PATHS.redo} />
+        <ToolbarIcon d={TOOLBAR_PATHS.redo} />
       </ToolBtn>
       <ToolBtn label="Reset view" title="Reset view (R)" onClick={onResetView}>
-        <ToolGlyph d={EXTRA_PATHS.reset} />
+        <ToolbarIcon d={TOOLBAR_PATHS.reset} />
       </ToolBtn>
       <ColorPalette paletteId={paletteId} color={color} onPalette={onPalette} onColor={onColor} />
       <span className="toolbar-sep" />
@@ -198,7 +179,7 @@ export function TokenPalette({
         on={nadeTrail}
         onClick={() => onNadeTrail(!nadeTrail)}
       >
-        <ToolGlyph d="M2 13c3-1 4-7 6-7s2 4 6 1M8 6.5a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4" />
+        <ToolbarIcon d={TOOLBAR_PATHS.nadeTrail} />
       </ToolBtn>
       <ToolBtn
         label="Nade icon"
@@ -206,7 +187,7 @@ export function TokenPalette({
         on={nadeStyle === "icon"}
         onClick={() => onNadeStyle("icon")}
       >
-        <ToolGlyph d="M4 3.5h8v9H4Z M8 3.5v9" />
+        <ToolbarIcon d={TOOLBAR_PATHS.nadeIcon} />
       </ToolBtn>
       <ToolBtn
         label="Nade effect"
@@ -214,7 +195,7 @@ export function TokenPalette({
         on={nadeStyle === "effect"}
         onClick={() => onNadeStyle("effect")}
       >
-        <ToolGlyph d="M8 3.5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" />
+        <ToolbarIcon d={TOOLBAR_PATHS.nadeEffect} />
       </ToolBtn>
     </div>
   );
