@@ -210,7 +210,10 @@ impl Collector {
     }
 
     fn record_blind(&mut self, tick: u32, victim: u64, duration: f32, attacker: Option<u64>) {
-        if duration <= 0.0 {
+        // Overlay-band (~5.0–5.47s) is the engine snap GOTV also sends as
+        // `player_blind`. ed5b8fa skipped it only on pawn samples; the event
+        // path still stored identical 5.0s on every marked steam.
+        if duration <= 0.0 || crate::flash_overlay_spike(duration) {
             return;
         }
         if self
@@ -249,12 +252,7 @@ impl Collector {
             let dur = prop_f32(pawn, "m_flFlashDuration");
             let prev = self.flash_duration.get(&steam).copied().unwrap_or(0.0);
             if let Some(next) = new_flash_duration(prev, dur) {
-                // Pawn overlay snaps (~5.1s) fire on everyone the engine marks,
-                // including far teammates with no LOS. `player_blind` still
-                // records the real white-time (and a true full-face pop).
-                if !crate::flash_overlay_spike(next) {
-                    self.record_blind(tick, steam, next, self.last_flash_thrower);
-                }
+                self.record_blind(tick, steam, next, self.last_flash_thrower);
             }
             self.flash_duration.insert(steam, dur);
         }

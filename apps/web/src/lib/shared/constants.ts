@@ -56,6 +56,9 @@ export const REGULATION_ROUNDS_PER_HALF = 12;
 /** MR12: both halves (12+12). */
 export const REGULATION_ROUNDS = 24;
 
+/** Competitive 5v5 roster size per side. */
+export const COMPETITIVE_PLAYERS_PER_SIDE = 5;
+
 /** First 1-based round number of overtime. */
 export const FIRST_OVERTIME_ROUND = 25;
 
@@ -115,7 +118,8 @@ export const FLASH_FULL_SECONDS = 5.47;
  * a weak pop. `player_blind` can repeat the same band for every marked pawn.
  * Radar and Utility ignore this band; they use shorter samples only.
  */
-export const FLASH_OVERLAY_SLACK_SECONDS = 0.5;
+/** Wide enough that `4.95.toFixed(1) === "5.0"` leftover snaps are excluded. */
+export const FLASH_OVERLAY_SLACK_SECONDS = 0.57;
 export const FLASH_OVERLAY_SPIKE_SECONDS = FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
 
 /**

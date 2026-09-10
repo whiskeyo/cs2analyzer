@@ -73,6 +73,12 @@ describe("blindsAt", () => {
     expect(blindsAt(blinds, 100, 64).size).toBe(0);
   });
 
+  it("does not paint 4.95s leftover that labels as 5.0s", () => {
+    const blinds = [{ tick: 100, attacker: 1, victim: 0, duration: 4.95 }];
+    expect(blindsAt(blinds, 100, 64).size).toBe(0);
+    expect(formatBlindLeft(4.95)).toBe("5.0s");
+  });
+
   it("formats remaining flash time for the radar label", () => {
     expect(formatBlindLeft(1.42)).toBe("1.4s");
     expect(formatBlindLeft(0.05)).toBe("0.1s");

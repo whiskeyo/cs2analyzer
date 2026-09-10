@@ -55,7 +55,8 @@ pub const FLASH_POP_SECONDS: f32 = 0.4;
 /// Full-face CS2 flash. Pawn `m_flFlashDuration` often snaps into this band
 /// even when `player_blind` is a short pop. Keep aligned with the web constants.
 pub const FLASH_FULL_SECONDS: f32 = 5.47;
-pub const FLASH_OVERLAY_SLACK_SECONDS: f32 = 0.5;
+/// Wide enough that `4.95.toFixed(1) === "5.0"` leftover snaps are excluded.
+pub const FLASH_OVERLAY_SLACK_SECONDS: f32 = 0.57;
 pub const FLASH_OVERLAY_SPIKE_SECONDS: f32 = FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
 
 pub fn flash_overlay_spike(duration: f32) -> bool {
