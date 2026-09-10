@@ -11,7 +11,7 @@ interface Props {
 }
 
 /** Toolbar control that never steals keyboard focus from global hotkeys. */
-export function TransportButtonish({
+export function UnfocusableButton({
   title,
   className,
   ariaLabel,

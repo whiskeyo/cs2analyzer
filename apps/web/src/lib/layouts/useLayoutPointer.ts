@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from "react";
+import { wrapLocalPoint } from "@/lib/shared/pointer";
 import { zoomViewAtCursor, wheelZoomFactor } from "@/lib/radar/panZoom.ts";
 import { CLOSE_LOOP_HIT_PX, MIN_POLYGON_VERTICES } from "./constants";
 import { draftToRegion, splitPolygonEdge } from "./geometry";
@@ -43,8 +44,7 @@ export interface LayoutPointerOpts {
 }
 
 function pos(wrap: HTMLDivElement, e: MouseEvent): Point {
-  const rect = wrap.getBoundingClientRect();
-  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  return wrapLocalPoint(wrap, e);
 }
 
 export function useLayoutPointer(opts: LayoutPointerOpts) {

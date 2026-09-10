@@ -1,8 +1,9 @@
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
+import { ROUND_AUTOPLAY_STORAGE_KEY } from "@/lib/shared/storageKeys";
 import { roundScrubRange } from "./roundTimeline";
 
-export const ROUND_AUTOPLAY_STORAGE_KEY = "cs2analyzer.roundAutoplay";
+export { ROUND_AUTOPLAY_STORAGE_KEY };
 
 export function loadRoundAutoplay(): boolean {
   try {

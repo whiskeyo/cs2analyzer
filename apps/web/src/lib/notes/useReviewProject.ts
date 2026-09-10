@@ -3,7 +3,15 @@ import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import type { LoadedDemo, DemoSeries } from "@/lib/parse/session";
 import type { Playback } from "@/lib/playback/usePlayback";
 import type { Status } from "@/lib/state/status";
-import { getSeriesReview, setSeriesReview, type SeriesReviewSnapshot } from "./seriesReviewCache";
+import type { SeriesReviewSnapshot } from "./seriesReviewCache";
+import {
+  demoEnterClear,
+  restorePlan,
+  shouldDebouncePersist,
+  shouldFlushSeriesCache,
+  stashSeriesReview,
+  takeSeriesReview,
+} from "./reviewLifecycle";
 import {
   defaultColor,
   defaultPaletteId,
@@ -215,22 +223,27 @@ export function useReviewProject(opts: {
     if (!demo?.id) {
       return;
     }
-    const switchingSeries =
-      series != null && prevDemoIdRef.current != null && prevDemoIdRef.current !== demo.id;
     restoredRef.current = false;
-    if (switchingSeries) {
+    const enter = demoEnterClear({
+      prevDemoId: prevDemoIdRef.current,
+      nextDemoId: demo.id,
+      hasSeries: series != null,
+    });
+    if (!enter.clearStrokes) {
       return;
     }
     commitNotes([], true);
-    setSummaryFilter(DEFAULT_SUMMARY_FILTER);
-    setFloorMode("auto");
+    if (enter.resetOverlay) {
+      setSummaryFilter(DEFAULT_SUMMARY_FILTER);
+      setFloorMode("auto");
+    }
   }, [demo?.id, series, commitNotes]);
 
   /** Call before swapping the active file in a series (refs still point at the outgoing demo). */
   const stashForSeriesSwitch = useCallback(() => {
     const snap = snapshotNow();
     if (snap) {
-      setSeriesReview(snap);
+      stashSeriesReview(snap);
     }
   }, [snapshotNow]);
 
@@ -240,19 +253,25 @@ export function useReviewProject(opts: {
       prevDemoIdRef.current = null;
       return;
     }
-    const isSwitch = prevDemoIdRef.current !== null && prevDemoIdRef.current !== demo.id;
+    const prevDemoId = prevDemoIdRef.current;
     prevDemoIdRef.current = demo.id;
     let cancelled = false;
 
     const inSeries = series?.demos.some((d) => d.id === demo.id) ?? false;
-    const cached = inSeries ? getSeriesReview(demo.id) : undefined;
+    const cached = inSeries ? takeSeriesReview(demo.id) : undefined;
+    const plan = restorePlan({
+      prevDemoId,
+      demoId: demo.id,
+      inSeries,
+      hasCache: cached != null,
+    });
 
-    if (cached) {
+    if (plan.source === "cache" && cached) {
       queueMicrotask(() => {
         if (cancelled) {
           return;
         }
-        applySnapshot(cached, false);
+        applySnapshot(cached, plan.jumpTick);
         restoredRef.current = true;
       });
       return () => {
@@ -260,20 +279,8 @@ export function useReviewProject(opts: {
       };
     }
 
-    if (inSeries && isSwitch) {
+    if (plan.markRestoredImmediately) {
       restoredRef.current = true;
-      void loadProject(matchKey(demo.replay, demo.fileName))
-        .then((project) => {
-          if (cancelled || !project) {
-            return;
-          }
-          applyProject(project, false);
-          playbackRef.current.setPlaying(false);
-        })
-        .catch(() => undefined);
-      return () => {
-        cancelled = true;
-      };
     }
 
     const settle = (project: ReviewProject | null) => {
@@ -282,37 +289,41 @@ export function useReviewProject(opts: {
       }
       restoredRef.current = true;
       if (!project) {
-        if (!isSwitch) {
+        if (plan.autoplayIfEmpty) {
           playbackRef.current.setPlaying(true);
         }
         return;
       }
-      applyProject(project, true);
-      playbackRef.current.setPlaying(false);
-      statusRef.current.setNotice((prev) =>
-        prev ? `${prev}. Restored drawings for this match.` : "Restored drawings for this match.",
-      );
+      applyProject(project, plan.jumpTick);
+      if (plan.pauseOnRestore) {
+        playbackRef.current.setPlaying(false);
+      }
+      if (plan.noticeOnRestore) {
+        statusRef.current.setNotice((prev) =>
+          prev ? `${prev}. Restored drawings for this match.` : "Restored drawings for this match.",
+        );
+      }
     };
     void loadProject(matchKey(demo.replay, demo.fileName))
       .then(settle)
       .catch(() => settle(null));
     return () => {
       cancelled = true;
-      if (!inSeries) {
+      if (plan.persistOutgoingOnLeave) {
         void persist(demo, { stats: false, refreshList: false }).catch(() => undefined);
       }
     };
   }, [demo, series, applyProject, applySnapshot, persist]);
 
   useEffect(() => {
-    if (series) {
+    if (!shouldFlushSeriesCache(series != null)) {
       return;
     }
     void flushSeriesReviewCache().catch(() => undefined);
   }, [series]);
 
   useEffect(() => {
-    if (!demo || !restoredRef.current) {
+    if (!shouldDebouncePersist({ hasDemo: demo != null, restored: restoredRef.current })) {
       return;
     }
     const id = window.setTimeout(() => {
@@ -373,4 +384,4 @@ export function useReviewProject(opts: {
   };
 }
 
-export type ReviewStore = ReturnType<typeof useReviewProject>;
+export type ReviewSession = ReturnType<typeof useReviewProject>;

@@ -37,8 +37,10 @@ function orNull(check: Check): Check {
 type Shape = Record<string, Check>;
 
 /**
- * Fields the viewer cannot work without. Anything `#[serde(default)]` on the
- * Rust side is left out on purpose: the UI already copes when it is missing.
+ * Fields TypeScript marks required on `replayTypes.ts`. Optional TS fields
+ * (`playback_end_tick`, `team_ct` / `team_t`, `GrenadeThrow.fires`,
+ * `BombEvent.haskit` / `site`) stay off this list — they are optional in the
+ * types, not `#[serde(default)]` shims for stale WASM caches.
  */
 const HEADER: Shape = {
   map_name: text,
@@ -63,6 +65,7 @@ const ROUND: Shape = {
   win_reason: number,
   score_ct: number,
   score_t: number,
+  is_knife: flag,
 };
 
 const GRENADE: Shape = {
@@ -111,7 +114,14 @@ const HURT: Shape = {
 
 const BLIND: Shape = { tick: number, attacker: number, victim: number, duration: number };
 
-const BOMB_EVENT: Shape = { tick: number, kind: text, player: number, x: number, y: number };
+const BOMB_EVENT: Shape = {
+  tick: number,
+  kind: text,
+  player: number,
+  x: number,
+  y: number,
+  z: number,
+};
 
 const BUY_EVENT: Shape = { tick: number, player: number, weapon: number, cost: number };
 
@@ -167,15 +177,33 @@ export function decodeObject<T>(name: PayloadName, json: string): T {
 }
 
 /**
- * A rename hits every element, so only the first is checked — walking 100k
- * kills on the drop path would cost more than it catches. An empty array
- * therefore passes, which is the same thing the UI sees for a quiet demo.
+ * Extra samples between first and last. Walking every kill on drop is too
+ * expensive; a mid-list serde rename still fails if it lands on a sample.
+ */
+export const DECODE_LIST_SAMPLE_STRIDE = 256;
+
+function listSampleIndexes(length: number): number[] {
+  if (length === 0) return [];
+  const indexes = [0];
+  if (length > 1) indexes.push(length - 1);
+  for (let i = DECODE_LIST_SAMPLE_STRIDE; i < length - 1; i += DECODE_LIST_SAMPLE_STRIDE) {
+    indexes.push(i);
+  }
+  return indexes;
+}
+
+/**
+ * Checks first, last, and a stride of elements. An empty array passes — a
+ * quiet demo looks the same to the UI.
  */
 export function decodeList<T>(name: PayloadName, json: string): T[] {
   const value = parseJson(name, json);
   if (!Array.isArray(value)) {
     throw new PayloadError(`Parser sent ${describe(value)} for "${name}", expected an array.`);
   }
-  if (value.length > 0) checkShape(`${name}[0]`, value[0], PAYLOAD_SHAPES[name]);
+  const shape = PAYLOAD_SHAPES[name];
+  for (const index of listSampleIndexes(value.length)) {
+    checkShape(`${name}[${index}]`, value[index], shape);
+  }
   return value as T[];
 }

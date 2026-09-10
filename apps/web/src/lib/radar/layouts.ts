@@ -1,3 +1,7 @@
+/**
+ * Viewer loader for `public/layouts/{map}.json`. Schema: `lib/layout`.
+ * DEV editor (not shipped): `lib/layouts` + `components/layouts`.
+ */
 import { publicUrl } from "@/lib/shared/publicUrl";
 import {
   emptyMapLayout,
