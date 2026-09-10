@@ -47,3 +47,17 @@ export function radarToScreen(
     y: baseY + (ry / imgSize) * fit * view.scale,
   };
 }
+
+/** Pan so a radar-pixel point sits at the canvas centre. Follow-cam uses this. */
+export function centerViewOnRadarPoint(
+  view: RadarView,
+  w: number,
+  h: number,
+  rx: number,
+  ry: number,
+): void {
+  const unpanned = { scale: view.scale, ox: 0, oy: 0 };
+  const screen = radarToScreen(w, h, unpanned, rx, ry);
+  view.ox = w / 2 - screen.x;
+  view.oy = h / 2 - screen.y;
+}
