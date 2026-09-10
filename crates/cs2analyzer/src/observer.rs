@@ -85,9 +85,9 @@ pub(crate) struct Collector {
     last_flash_thrower: Option<u64>,
     pub frames: Vec<RawFrame>,
     pub pawn_to_steam: HashMap<u32, u64>,
-    /// Last seen CCSPlayerController props, keyed by entity index.
+    /// Last-slot dump, filled only at demo end (not per tick).
     pub controller_last: HashMap<u32, crate::ControllerDump>,
-    /// Freeze-end rows that look like a bot / Faceit fill (`steam == 0`).
+    /// Freeze-end fill candidates. One walk per `round_freeze_end`, not per tick.
     pub controller_freeze: Vec<crate::ControllerDump>,
     pub last_cap: u32,
     pub total_ticks: u32,
@@ -441,17 +441,6 @@ pub(crate) fn controller_identity(
     }
 }
 
-fn entity_is_bot(ctrl: &Entity, ctx: &Context) -> bool {
-    if prop_truthy(ctrl, "m_bIsBot") {
-        return true;
-    }
-    let handle = prop_u32(ctrl, "m_hPlayerPawn");
-    ctx.entities()
-        .get_by_handle(handle as usize)
-        .ok()
-        .is_some_and(|pawn| prop_truthy(pawn, "m_bIsBot"))
-}
-
 fn controller_has_team_pawn(ctx: &Context, ctrl: &Entity) -> bool {
     let handle = prop_u32(ctrl, "m_hPlayerPawn");
     let Ok(pawn) = ctx.entities().get_by_handle(handle as usize) else {
@@ -461,13 +450,26 @@ fn controller_has_team_pawn(ctx: &Context, ctrl: &Entity) -> bool {
         || side_of(prop_i32(ctrl, "m_iTeamNum")).is_some()
 }
 
-/// Playable identity for a controller that is still in the match this tick.
-///
-/// Leftover CCSPlayerController entities keep `m_steamID` after a leave, so
-/// `FLAG_PRESENT` used to stay set and the scoreboard grew a ghost row.
 /// True when a dump row can prove a bot / Faceit fill (not a leftover human).
 pub(crate) fn controller_dump_interesting(row: &crate::ControllerDump) -> bool {
     row.steam == 0 || row.is_bot || crate::is_bot_steam_id(row.assigned)
+}
+
+/// Diagnostics only: freeze-end fills, or the last stride of the demo.
+///
+/// A Faceit Ancient GOTV parse must stay in the ~55s WASM class (master /
+/// first #32). Walking `entities()` + cloning names on every tick was the
+/// 55s → 140s regression — never do that here.
+pub(crate) fn snapshot_controller_dump_now(
+    tick: u32,
+    total_ticks: u32,
+    tick_stride: u32,
+    at_freeze: bool,
+) -> bool {
+    if at_freeze {
+        return true;
+    }
+    total_ticks > 0 && tick.saturating_add(tick_stride.max(1)) >= total_ticks
 }
 
 fn record_controllers(c: &mut Collector, ctx: &Context, tick: u32, at_freeze: bool) {
@@ -476,15 +478,15 @@ fn record_controllers(c: &mut Collector, ctx: &Context, tick: u32, at_freeze: bo
             continue;
         }
         let steam = prop_u64(ctrl, "m_steamID");
-        let is_bot = entity_is_bot(ctrl, ctx);
-        let connected = prop_i32_opt(ctrl, "m_iConnected").unwrap_or(-1);
-        let has_team_pawn = controller_has_team_pawn(ctx, ctrl);
+        let is_bot = prop_truthy(ctrl, "m_bIsBot");
+        let connected = prop_i32_opt(ctrl, "m_iConnected");
+        let has_team_pawn = steam == 0 && controller_has_team_pawn(ctx, ctrl);
         let assigned = controller_identity(
             steam,
             ctrl.index(),
             is_bot,
             prop_truthy(ctrl, "m_bIsHLTV"),
-            prop_i32_opt(ctrl, "m_iConnected"),
+            connected,
             steam != 0 && c.left_steams.contains(&steam),
             has_team_pawn,
         )
@@ -495,7 +497,7 @@ fn record_controllers(c: &mut Collector, ctx: &Context, tick: u32, at_freeze: bo
             name: controller_name(ctrl),
             steam,
             is_bot,
-            connected,
+            connected: connected.unwrap_or(-1),
             has_team_pawn,
             assigned,
             at_freeze,
@@ -510,20 +512,39 @@ fn record_controllers(c: &mut Collector, ctx: &Context, tick: u32, at_freeze: bo
     }
 }
 
+/// Playable identity for a controller that is still in the match this tick.
+///
+/// Leftover CCSPlayerController entities keep `m_steamID` after a leave, so
+/// `FLAG_PRESENT` used to stay set and the scoreboard grew a ghost row.
+///
+/// Humans (`steam != 0`) skip pawn lookups — `has_team_pawn` / `m_bIsBot` are
+/// unused on that branch. Faceit fills (`steam == 0`) pay one pawn read.
 fn controller_playable_id(c: &Collector, ctx: &Context, ctrl: &Entity) -> Option<u64> {
     let steam = prop_u64(ctrl, "m_steamID");
+    let connected = prop_i32_opt(ctrl, "m_iConnected");
+    if steam != 0 {
+        return controller_identity(
+            steam,
+            ctrl.index(),
+            false,
+            prop_truthy(ctrl, "m_bIsHLTV"),
+            connected,
+            c.left_steams.contains(&steam),
+            false,
+        );
+    }
     controller_identity(
         steam,
         ctrl.index(),
-        entity_is_bot(ctrl, ctx),
+        prop_truthy(ctrl, "m_bIsBot"),
         prop_truthy(ctrl, "m_bIsHLTV"),
-        prop_i32_opt(ctrl, "m_iConnected"),
-        steam != 0 && c.left_steams.contains(&steam),
+        connected,
+        false,
         controller_has_team_pawn(ctx, ctrl),
     )
 }
 
-fn bind_controller_userid(c: &mut Collector, ctx: &Context, ctrl: &Entity) {
+fn bind_controller_userid(c: &mut Collector, ctx: &Context, ctrl: &Entity) -> Option<u64> {
     let userid = ctrl.index() as i32;
     let steam = prop_u64(ctrl, "m_steamID");
     if steam != 0 && !controller_in_server(ctrl) {
@@ -537,10 +558,12 @@ fn bind_controller_userid(c: &mut Collector, ctx: &Context, ctrl: &Entity) {
     {
         c.left_steams.remove(&steam);
     }
-    match controller_playable_id(c, ctx, ctrl) {
-        Some(id) => bind_userid_steam(&mut c.userid_to_steam, userid, id),
+    let id = controller_playable_id(c, ctx, ctrl);
+    match id {
+        Some(mapped) => bind_userid_steam(&mut c.userid_to_steam, userid, mapped),
         None => bind_userid_steam(&mut c.userid_to_steam, userid, 0),
     }
+    id
 }
 
 fn steam_from_userid(c: &Collector, ctx: &Context, uid: i32) -> Option<u64> {
@@ -657,8 +680,7 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
-            bind_controller_userid(self, ctx, ctrl);
-            let Some(steam) = controller_playable_id(self, ctx, ctrl) else {
+            let Some(steam) = bind_controller_userid(self, ctx, ctrl) else {
                 continue;
             };
             let handle = prop_u32(ctrl, "m_hPlayerPawn");
@@ -666,7 +688,9 @@ impl Collector {
                 self.pawn_to_steam.insert(pawn.index(), steam);
             }
         }
-        record_controllers(self, ctx, tick, false);
+        if snapshot_controller_dump_now(tick, self.total_ticks, self.opts.tick_stride, false) {
+            record_controllers(self, ctx, tick, false);
+        }
 
         let warmup = in_warmup(ctx);
         if self.opts.skip_warmup && warmup {

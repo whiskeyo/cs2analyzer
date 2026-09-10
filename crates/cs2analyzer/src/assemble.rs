@@ -727,8 +727,8 @@ mod tests {
     use super::*;
     use crate::observer::{
         accept_blind_duration, bind_userid_steam, controller_dump_interesting, controller_identity,
-        controller_steam_playable, new_flash_duration, Collector, FireSpan, PlayerMeta, RawFrame,
-        RawFramePlayer, RawHurt, RawKill,
+        controller_steam_playable, new_flash_duration, snapshot_controller_dump_now, Collector,
+        FireSpan, PlayerMeta, RawFrame, RawFramePlayer, RawHurt, RawKill,
     };
     use crate::{bot_steam_id, is_bot_steam_id, ControllerDump, ParseOptions, FLAG_ALIVE, FLAG_CT};
 
@@ -1019,6 +1019,47 @@ mod tests {
     }
 
     #[test]
+    fn controller_identity_stays_cheap_without_entity_walks() {
+        // The 55s → 140s WASM hit was `entities().iter()` + name clones on every
+        // tick, not this function. 200k identity calls (≈ a full GOTV tick loop
+        // over 10 slots) must stay well under a millisecond-class budget.
+        let human = 76_561_198_000_000_001;
+        let t0 = std::time::Instant::now();
+        let mut n = 0u64;
+        for i in 0..200_000u32 {
+            n = n.wrapping_add(
+                identity(
+                    human,
+                    i % 16,
+                    false,
+                    false,
+                    Some(crate::PLAYER_CONNECTED),
+                    false,
+                    false,
+                )
+                .unwrap_or(0),
+            );
+            n = n.wrapping_add(
+                identity(
+                    0,
+                    i % 16,
+                    false,
+                    false,
+                    Some(crate::PLAYER_CONNECTED),
+                    false,
+                    true,
+                )
+                .unwrap_or(0),
+            );
+        }
+        std::hint::black_box(n);
+        assert!(
+            t0.elapsed() < std::time::Duration::from_millis(50),
+            "controller_identity itself is not the parse cost"
+        );
+    }
+
+    #[test]
     fn steam_id_zero_bot_maps_to_synthetic_id() {
         let slot = 5;
         let bot = identity(
@@ -1111,6 +1152,16 @@ mod tests {
             assigned,
             at_freeze: true,
         }
+    }
+
+    #[test]
+    fn controller_dump_skips_the_per_tick_hot_path() {
+        assert!(
+            !snapshot_controller_dump_now(10_000, 100_000, 4, false),
+            "mid-demo ticks must not walk entities for the console dump"
+        );
+        assert!(snapshot_controller_dump_now(99_997, 100_000, 4, false));
+        assert!(snapshot_controller_dump_now(64, 100_000, 4, true));
     }
 
     #[test]
