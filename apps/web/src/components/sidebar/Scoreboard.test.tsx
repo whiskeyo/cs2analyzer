@@ -117,7 +117,9 @@ describe("Scoreboard", () => {
         makePlayer(1, "T", "Bob"),
         makePlayer(2, "T", "KatolikCOO"),
       ],
-      rounds: [makeRound({ number: 13, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+      rounds: [
+        makeRound({ number: 13, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
+      ],
       ticks,
     });
     render(<Scoreboard replay={m} tick={640} selected={null} onSelect={() => {}} />);
