@@ -167,15 +167,33 @@ export function decodeObject<T>(name: PayloadName, json: string): T {
 }
 
 /**
- * A rename hits every element, so only the first is checked — walking 100k
- * kills on the drop path would cost more than it catches. An empty array
- * therefore passes, which is the same thing the UI sees for a quiet demo.
+ * Extra samples between first and last. Walking every kill on drop is too
+ * expensive; a mid-list serde rename still fails if it lands on a sample.
+ */
+export const DECODE_LIST_SAMPLE_STRIDE = 256;
+
+function listSampleIndexes(length: number): number[] {
+  if (length === 0) return [];
+  const indexes = [0];
+  if (length > 1) indexes.push(length - 1);
+  for (let i = DECODE_LIST_SAMPLE_STRIDE; i < length - 1; i += DECODE_LIST_SAMPLE_STRIDE) {
+    indexes.push(i);
+  }
+  return indexes;
+}
+
+/**
+ * Checks first, last, and a stride of elements. An empty array passes — a
+ * quiet demo looks the same to the UI.
  */
 export function decodeList<T>(name: PayloadName, json: string): T[] {
   const value = parseJson(name, json);
   if (!Array.isArray(value)) {
     throw new PayloadError(`Parser sent ${describe(value)} for "${name}", expected an array.`);
   }
-  if (value.length > 0) checkShape(`${name}[0]`, value[0], PAYLOAD_SHAPES[name]);
+  const shape = PAYLOAD_SHAPES[name];
+  for (const index of listSampleIndexes(value.length)) {
+    checkShape(`${name}[${index}]`, value[index], shape);
+  }
   return value as T[];
 }

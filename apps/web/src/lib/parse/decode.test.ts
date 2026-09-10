@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeList, decodeObject, PayloadError } from "./decode";
+import { DECODE_LIST_SAMPLE_STRIDE, decodeList, decodeObject, PayloadError } from "./decode";
 import type { Hurt, Kill, MatchHeader, Round } from "@/lib/replay/replayTypes";
 import { makeHurt } from "@/lib/testing/fixtures";
 
@@ -117,5 +117,20 @@ describe("decodeList", () => {
 
   it("rejects an object where a list belongs", () => {
     expect(() => decodeList("kills", JSON.stringify(kill))).toThrow(/expected an array/);
+  });
+
+  it("also checks the last element and a stride sample", () => {
+    const lastBad = Array.from({ length: 3 }, () => ({ ...kill }));
+    delete (lastBad[2] as { headshot?: boolean }).headshot;
+    expect(() => decodeList<Kill>("kills", JSON.stringify(lastBad))).toThrow(
+      /"kills\[2\]".*"headshot".*expected boolean/s,
+    );
+
+    const mid = Array.from({ length: DECODE_LIST_SAMPLE_STRIDE + 2 }, () => kill);
+    mid[DECODE_LIST_SAMPLE_STRIDE] = { ...kill };
+    delete (mid[DECODE_LIST_SAMPLE_STRIDE] as { weapon?: string }).weapon;
+    expect(() => decodeList<Kill>("kills", JSON.stringify(mid))).toThrow(
+      new RegExp(`"kills\\[${DECODE_LIST_SAMPLE_STRIDE}\\]".*"weapon"`, "s"),
+    );
   });
 });
