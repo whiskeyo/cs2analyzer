@@ -1,5 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
-import { calibrationFor, floorForZ, loadCalibrations, radarFloor, worldOnRadar } from "./maps";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  calibrationFor,
+  floorForZ,
+  loadCalibrations,
+  parseCalibrations,
+  radarFloor,
+  resetCalibrationsCache,
+  worldOnRadar,
+} from "./maps";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
 const nuke: MapCalibration = {
@@ -50,7 +58,22 @@ describe("radarFloor", () => {
   });
 });
 
+describe("parseCalibrations", () => {
+  it("requires pos_x, pos_y, scale, and radar", () => {
+    expect(parseCalibrations({ de_mirage: nuke })).toEqual({ de_mirage: nuke });
+    expect(() => parseCalibrations(null)).toThrow(/must be an object/);
+    expect(() => parseCalibrations({ de_mirage: { pos_x: 1, pos_y: 2, scale: 3 } })).toThrow(
+      /invalid entry "de_mirage"/,
+    );
+  });
+});
+
 describe("loadCalibrations", () => {
+  afterEach(() => {
+    resetCalibrationsCache();
+    vi.unstubAllGlobals();
+  });
+
   it("fetches once and caches map calibrations", async () => {
     const payload = { de_test: nuke };
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
@@ -60,7 +83,14 @@ describe("loadCalibrations", () => {
     expect(first).toEqual(payload);
     expect(second).toBe(first);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    vi.unstubAllGlobals();
+  });
+
+  it("throws when the request fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false })),
+    );
+    await expect(loadCalibrations()).rejects.toThrow("could not load map calibrations");
   });
 });
 
