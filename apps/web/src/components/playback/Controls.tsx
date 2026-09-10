@@ -233,24 +233,6 @@ export const Controls = memo(function Controls({
           ))}
         </select>
       </label>
-      <label className="round">
-        Round
-        <select
-          value={round?.start_tick ?? 0}
-          onChange={(e) => {
-            const start = Number(e.target.value);
-            const r = replay.rounds.find((x) => x.start_tick === start);
-            if (r) send({ type: "jump", tick: 0, pause: true, round: r });
-          }}
-        >
-          {replay.rounds.map((r) => (
-            <option key={r.start_tick} value={r.start_tick}>
-              {r.is_knife ? "Knife" : `R${r.number}`}
-              {r.winner ? ` (${r.winner})` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
       <div className="timeline-wrap">
         <div className="timeline-bar">
           <div className="timeline-track" aria-hidden="true">

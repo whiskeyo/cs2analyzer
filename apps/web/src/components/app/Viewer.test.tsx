@@ -9,13 +9,20 @@ vi.mock("@/lib/state/appState", () => ({
   useApp: vi.fn(),
 }));
 
-vi.mock("./SeriesBar", () => ({ SeriesBar: () => <div data-testid="series-bar" /> }));
-vi.mock("./SeriesFilters", () => ({ SeriesFilters: () => <div data-testid="series-filters" /> }));
+vi.mock("./SeriesBar", () => ({
+  SeriesBar: () => <div data-testid="series-bar" />,
+}));
+vi.mock("./SeriesFilters", () => ({
+  SeriesFilters: () => <div data-testid="series-filters" />,
+}));
 vi.mock("@/components/radar/RadarStage", () => ({
   RadarStage: () => <div data-testid="radar-stage" />,
 }));
 vi.mock("@/components/sidebar/Sidebar", () => ({
   Sidebar: () => <div data-testid="sidebar" />,
+}));
+vi.mock("@/components/playback/RoundStrip", () => ({
+  RoundStrip: () => <div data-testid="round-strip" />,
 }));
 vi.mock("@/components/playback/SeriesAggregatedRoundStrip", () => ({
   SeriesAggregatedRoundStrip: () => <div data-testid="aggregated-round-strip" />,
@@ -75,7 +82,11 @@ describe("Viewer", () => {
     vi.mocked(useApp).mockReturnValue({
       session: { replay: null, series: null, switching: false },
       playback: { playing: false, speed: 1, setPlaying: vi.fn(), tick: 0 },
-      habits: { bucketPlaySecRef: { current: 0 }, setBucketPlaySec: vi.fn(), bucketWindowSec: 5 },
+      habits: {
+        bucketPlaySecRef: { current: 0 },
+        setBucketPlaySec: vi.fn(),
+        bucketWindowSec: 5,
+      },
     } as unknown as ReturnType<typeof useApp>);
     const { container } = render(<Viewer />);
     expect(container).toBeEmptyDOMElement();
@@ -86,7 +97,7 @@ describe("Viewer", () => {
     render(<Viewer />);
     expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
     expect(screen.getByTestId("sidebar")).toBeInTheDocument();
-    expect(screen.queryByTestId("aggregated-round-strip")).not.toBeInTheDocument();
+    expect(screen.getByTestId("round-strip")).toBeInTheDocument();
     expect(screen.getByTestId("controls")).toBeInTheDocument();
     expect(screen.getByText(/Space play/)).toBeInTheDocument();
   });
@@ -111,6 +122,7 @@ describe("Viewer", () => {
     render(<Viewer />);
     expect(screen.getByTestId("aggregated-round-strip")).toBeInTheDocument();
     expect(screen.getByTestId("bucket-controls")).toBeInTheDocument();
+    expect(screen.queryByTestId("round-strip")).not.toBeInTheDocument();
     expect(screen.queryByTestId("controls")).not.toBeInTheDocument();
   });
 

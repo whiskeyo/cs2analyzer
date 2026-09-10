@@ -1,8 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, renderHook } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DEFAULT_TICK_RATE } from "@/lib/shared/constants";
-import { setPlaybackCommandSink } from "@/lib/playback/playbackCommands";
+import { PlaybackCommandProvider } from "@/lib/playback/playbackCommandContext";
+import { createPlaybackCommandBus, setPlaybackCommandSink } from "@/lib/playback/playbackCommands";
 import { usePlaybackCommandSink } from "@/lib/playback/usePlaybackCommandSink";
 import { makeBombEvent, makeKill, makeReplay, makeRound } from "@/lib/testing/fixtures";
 import { Controls } from "./Controls";
@@ -45,24 +46,44 @@ function baseProps(overrides: Partial<Parameters<typeof Controls>[0]> = {}) {
 }
 
 function renderControls(props: Parameters<typeof Controls>[0]) {
+  const bus = createPlaybackCommandBus();
   const replayRef = { current: props.replay };
   const tickRef = { current: props.tick };
-  renderHook(() =>
+
+  function Tree({ controls }: { controls: Parameters<typeof Controls>[0] }) {
+    replayRef.current = controls.replay;
+    tickRef.current = controls.tick;
     usePlaybackCommandSink({
       replayRef,
       tickRef,
       selectedRef: { current: null },
       placesRef: { current: null },
-      jump: props.onJump,
+      jump: controls.onJump,
       undo: vi.fn(),
       redo: vi.fn(),
-      togglePlaying: props.onTogglePlay,
+      togglePlaying: controls.onTogglePlay,
       setFollow: vi.fn(),
       setTrails: vi.fn(),
       setSelected: vi.fn(),
-    }),
+    });
+    return <Controls {...controls} />;
+  }
+
+  const view = render(
+    <PlaybackCommandProvider bus={bus}>
+      <Tree controls={props} />
+    </PlaybackCommandProvider>,
   );
-  return { ...render(<Controls {...props} />), tickRef, replayRef };
+
+  const rerender = (next: Parameters<typeof Controls>[0]) => {
+    view.rerender(
+      <PlaybackCommandProvider bus={bus}>
+        <Tree controls={next} />
+      </PlaybackCommandProvider>,
+    );
+  };
+
+  return { ...view, rerender, tickRef, replayRef };
 }
 
 describe("Controls", () => {
@@ -81,7 +102,7 @@ describe("Controls", () => {
     await userEvent.click(screen.getByRole("button", { name: "Play" }));
     expect(onTogglePlay).toHaveBeenCalledTimes(1);
 
-    rerender(<Controls {...baseProps({ playing: true, onTogglePlay })} />);
+    rerender(baseProps({ playing: true, onTogglePlay }));
     await userEvent.click(screen.getByRole("button", { name: "Pause" }));
     expect(onTogglePlay).toHaveBeenCalledTimes(2);
   });
@@ -142,7 +163,7 @@ describe("Controls", () => {
     fireEvent.change(slider, { target: { value: String(12 * tps) } });
     expect(onTick).not.toHaveBeenCalled();
 
-    rerender(<Controls {...baseProps({ tick: 23 * tps, onTick })} />);
+    rerender(baseProps({ tick: 23 * tps, onTick }));
     fireEvent.change(screen.getByLabelText("Round timeline"), {
       target: { value: String(20 * tps) },
     });
@@ -196,7 +217,7 @@ describe("Controls", () => {
 
     onJump.mockClear();
     tickRef.current = 30 * tps;
-    rerender(<Controls {...props} tick={30 * tps} />);
+    rerender({ ...props, tick: 30 * tps });
     await userEvent.click(screen.getByTitle("Previous round ([)"));
     expect(onJump).toHaveBeenCalledWith(0, true, expect.objectContaining({ number: 1 }));
   });
@@ -250,36 +271,8 @@ describe("Controls", () => {
     expect(onJump).toHaveBeenCalled();
   });
 
-  it("selects another round from the dropdown", async () => {
-    const onJump = vi.fn();
-    const replay = makeReplay({
-      rounds: [
-        makeRound({
-          number: 1,
-          start_tick: 0,
-          freeze_end_tick: 2 * tps,
-          end_tick: 20 * tps,
-        }),
-        makeRound({
-          number: 2,
-          start_tick: 21 * tps,
-          freeze_end_tick: 23 * tps,
-          end_tick: 40 * tps,
-        }),
-      ],
-    });
-    renderControls(
-      baseProps({
-        replay,
-        tick: 5 * tps,
-        onJump,
-      }),
-    );
-
-    await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Round" }),
-      String(21 * tps),
-    );
-    expect(onJump).toHaveBeenCalledWith(0, true, expect.objectContaining({ number: 2 }));
+  it("does not render a Round dropdown on the scrubber chrome", () => {
+    renderControls(baseProps());
+    expect(screen.queryByRole("combobox", { name: "Round" })).not.toBeInTheDocument();
   });
 });

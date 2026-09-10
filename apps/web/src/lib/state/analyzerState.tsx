@@ -37,9 +37,18 @@ export interface AnalyzerState {
 
 const AnalyzerContext = createContext<AnalyzerState | null>(null);
 
+/** Owns the per-demo command bus. Playback hooks must run under this provider. */
 function AnalyzerRuntime({ children }: { children: ReactNode }) {
-  const { status, session, bridgeRef } = useSession();
   const commandBus = useRef(createPlaybackCommandBus()).current;
+  return (
+    <PlaybackCommandProvider bus={commandBus}>
+      <AnalyzerPlayback>{children}</AnalyzerPlayback>
+    </PlaybackCommandProvider>
+  );
+}
+
+function AnalyzerPlayback({ children }: { children: ReactNode }) {
+  const { status, session, bridgeRef } = useSession();
   const bucketTransportRef = useRef(false);
   const playback = usePlaybackClock(session.replay, session.demo?.id ?? null, bucketTransportRef);
   const review = useReviewProject({
@@ -182,11 +191,7 @@ function AnalyzerRuntime({ children }: { children: ReactNode }) {
     [playback, review, viewOut, habitsOut, cal, places],
   );
 
-  return (
-    <PlaybackCommandProvider bus={commandBus}>
-      <AnalyzerContext.Provider value={value}>{children}</AnalyzerContext.Provider>
-    </PlaybackCommandProvider>
-  );
+  return <AnalyzerContext.Provider value={value}>{children}</AnalyzerContext.Provider>;
 }
 
 /** Mounts playback/review/hotkeys only while a demo is parsing or loaded. */

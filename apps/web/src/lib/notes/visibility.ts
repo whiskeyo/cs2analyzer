@@ -6,7 +6,7 @@ import {
 import type { Round } from "@/lib/replay/replayTypes";
 import { cloneNote, earliestTimedTick as noteEarliestTick, overlayWindowOf } from "./note";
 import type { NoteItemRef } from "./noteGroups";
-import type { Note } from "./types";
+import type { Note, RoundNote } from "./types";
 
 export function overlayWindow(item: {
   start_tick?: number;
@@ -52,6 +52,10 @@ export function withMoment<T extends object>(
 ): T & { start_tick?: number; end_tick?: number } {
   if (!moment) return item;
   return { ...item, ...momentBounds(tick, roundEnd, tickRate) };
+}
+
+export function noteRounds(notes: readonly RoundNote[]): Set<number> {
+  return new Set(notes.map((row) => row.round));
 }
 
 export function earliestTimedTick(note: Note): number | undefined {
