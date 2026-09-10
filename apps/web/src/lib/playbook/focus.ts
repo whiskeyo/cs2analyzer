@@ -22,6 +22,7 @@ export function rememberPlaybookFocus(focus: PlaybookFocus): void {
   store.setItem(PLAYBOOK_FOCUS_KEY, JSON.stringify(focus));
 }
 
+/** One-shot sessionStorage handoff from SnapshotDialog → Playbook mount. */
 export function consumePlaybookFocus(): PlaybookFocus | null {
   const store = sessionStore();
   if (!store) return null;
