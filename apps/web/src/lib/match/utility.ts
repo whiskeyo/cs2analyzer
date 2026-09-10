@@ -2,6 +2,7 @@ import {
   FLASH_BLIND_ATTRIBUTION_SECONDS,
   FLASH_ONSET_RISE_SECONDS,
   FLASH_OVERLAY_SPIKE_SECONDS,
+  FLASH_POP_SECONDS,
   MOLOTOV_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
@@ -113,12 +114,12 @@ function overlaySpike(duration: number): boolean {
   return duration >= FLASH_OVERLAY_SPIKE_SECONDS;
 }
 
-/** Peak real pop. Overlay-only snaps (~5.1s) are a last-resort “who”, not a blank row. */
+/** Peak real pop. Overlay-only snaps (~5.1s) are not a Utility chip. */
 export function pickFlashDuration(durations: readonly number[]): number {
   if (durations.length === 0) return 0;
   const real = durations.filter((duration) => !overlaySpike(duration));
-  const pool = real.length > 0 ? real : durations;
-  return pool.reduce((best, duration) => (duration > best ? duration : best));
+  if (real.length === 0) return 0;
+  return real.reduce((best, duration) => (duration > best ? duration : best));
 }
 
 /** One chip per victim: player_blind + pawn flash samples otherwise stack. */
@@ -193,7 +194,9 @@ function nearestThrow(
 }
 
 function flashWindowHas(row: UtilThrowRow, tick: number, tps: number): boolean {
-  return tick >= row.detonateTick && tick <= flashBlindWindowEnd(row, tps);
+  // `player_blind` often lands a few ticks before `flashbang_detonate`.
+  const slack = Math.round(FLASH_POP_SECONDS * tps);
+  return tick >= row.detonateTick - slack && tick <= flashBlindWindowEnd(row, tps);
 }
 
 function latestDetonated(rows: UtilThrowRow[]): UtilThrowRow | null {

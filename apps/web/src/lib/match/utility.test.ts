@@ -136,7 +136,7 @@ describe("utilityThrough", () => {
   it("ignores full-overlay pawn snaps when a weaker player_blind exists", () => {
     expect(pickFlashDuration([1.2, FLASH_FULL_SECONDS, 5.1])).toBeCloseTo(1.2);
     expect(pickFlashDuration([0.2, 5.1])).toBeCloseTo(0.2);
-    expect(pickFlashDuration([5.1, FLASH_FULL_SECONDS])).toBeCloseTo(FLASH_FULL_SECONDS);
+    expect(pickFlashDuration([5.1, FLASH_FULL_SECONDS])).toBe(0);
     const m = replay({
       grenades: [nade("flash", 90, 0)],
       blinds: [
@@ -154,17 +154,26 @@ describe("utilityThrough", () => {
     expect(throwDetail(u.throws[0]!)).toBe("Enemy: Bob 0.2s · Team: Alice 1.2s");
   });
 
-  it("lists who was blinded when the only samples are full-overlay snaps", () => {
+  it("does not list overlay-only snaps as Utility chips", () => {
     const m = replay({
       grenades: [nade("flash", 90, 0)],
       blinds: [makeBlind(110, 0, 0, 5.1), makeBlind(112, 0, 1, FLASH_FULL_SECONDS)],
     });
     const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds).toEqual([]);
+    expect(throwDetail(u.throws[0]!)).toBe("");
+  });
+
+  it("lists a player_blind that lands a few ticks before detonate", () => {
+    const m = replay({
+      grenades: [nade("flash", 90, 0)],
+      blinds: [makeBlind(108, 0, 1, 1.4), makeBlind(109, 0, 0, 0.6)],
+    });
+    const u = utilityThrough(m, 640, null);
     expect(u.throws[0]?.blinds).toEqual([
-      { victim: 0, victimName: "Alice", duration: 5.1, enemy: false },
-      { victim: 1, victimName: "Bob", duration: FLASH_FULL_SECONDS, enemy: true },
+      { victim: 1, victimName: "Bob", duration: 1.4, enemy: true },
+      { victim: 0, victimName: "Alice", duration: 0.6, enemy: false },
     ]);
-    expect(throwDetail(u.throws[0]!)).toBe("Enemy: Bob 5.5s · Team: Alice 5.1s");
   });
 
   it("keeps the first pop's blinds when a second flash lands before they expire", () => {
@@ -220,7 +229,7 @@ describe("utilityThrough", () => {
     ]);
   });
 
-  it("can list the thrower's Cave self-blind from an overlay snap after Elbow", () => {
+  it("does not chip a Cave self-blind that is only an overlay snap after Elbow", () => {
     const m = replay({
       grenades: [nade("flash", 90, 2), nade("flash", 160, 1)],
       blinds: [makeBlind(110, 2, 1, 0.5), makeBlind(182, 1, 1, 5.1)],
@@ -229,9 +238,7 @@ describe("utilityThrough", () => {
     expect(u.throws[0]?.blinds).toEqual([
       { victim: 1, victimName: "Bob", duration: 0.5, enemy: false },
     ]);
-    expect(u.throws[1]?.blinds).toEqual([
-      { victim: 1, victimName: "Bob", duration: 5.1, enemy: false },
-    ]);
+    expect(u.throws[1]?.blinds).toEqual([]);
   });
 
   it("moves a victim to the later throw only after the first peak expires", () => {
