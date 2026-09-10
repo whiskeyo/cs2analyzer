@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { ReactNode } from "react";
 import { isNotesFile } from "@/lib/notes/projectStore";
 import { isBucketOverlayActive } from "@/lib/parse/seriesMode";
-import { useReviewProject, type ReviewStore } from "@/lib/notes/useReviewProject";
+import { useReviewProject, type ReviewSession } from "@/lib/notes/useReviewProject";
 import { useDemoSession, type CreateWorker, type DemoSession } from "@/lib/parse/useDemoSession";
 import { useHotkeys } from "@/lib/playback/useHotkeys";
 import { usePlayback, type Playback } from "@/lib/playback/usePlayback";
@@ -19,7 +19,7 @@ export interface AppState {
   status: Status;
   session: DemoSession;
   playback: Playback;
-  review: ReviewStore;
+  review: ReviewSession;
   view: ViewState;
   habits: SeriesHabitsState;
   /** Radar calibration for the loaded map, or undefined until it is fetched. */
