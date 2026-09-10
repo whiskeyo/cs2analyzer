@@ -8,6 +8,7 @@ import {
 } from "@/lib/shared/constants";
 import { makeFreezeTicks, makeReplay, makeRound } from "@/lib/testing/fixtures";
 import {
+  createParseWorkerPool,
   groupParsedDemosByMap,
   mapNameFromReplay,
   parsePoolBar,
@@ -97,11 +98,15 @@ describe("runParsePool", () => {
     vi.unstubAllGlobals();
   });
 
+  type MockOutcome = "done" | "error" | "fail" | "unknown";
+
   function mockWorker(
     replay: Replay,
-    outcome: "done" | "error" | "fail" | "unknown" = "done",
+    outcome: MockOutcome | MockOutcome[] = "done",
     message = "Parse failed",
   ) {
+    const outcomes = Array.isArray(outcome) ? outcome : [outcome];
+    let outcomeIndex = 0;
     let onmessage: ((ev: MessageEvent) => void) | null = null;
     let onerror: ((ev: ErrorEvent) => void) | null = null;
     return {
@@ -119,14 +124,16 @@ describe("runParsePool", () => {
       },
       terminate: vi.fn(),
       postMessage: vi.fn(() => {
-        if (outcome === "fail") {
+        const current = outcomes[Math.min(outcomeIndex, outcomes.length - 1)] ?? "done";
+        outcomeIndex += 1;
+        if (current === "fail") {
           onerror?.({ message: "Worker failed" } as ErrorEvent);
           return;
         }
         onmessage?.({
           data: { type: "progress", current: 1, total: 2 },
         } as MessageEvent);
-        if (outcome === "done") {
+        if (current === "done") {
           onmessage?.({
             data: {
               type: "done",
@@ -136,7 +143,7 @@ describe("runParsePool", () => {
           } as MessageEvent);
           return;
         }
-        if (outcome === "error") {
+        if (current === "error") {
           onmessage?.({ data: { type: "error", message } } as MessageEvent);
           return;
         }
@@ -147,7 +154,13 @@ describe("runParsePool", () => {
 
   it("returns an empty array for no files", async () => {
     const onProgress = vi.fn();
-    await expect(runParsePool(() => mockWorker(makeReplay()), [], onProgress)).resolves.toEqual([]);
+    await expect(
+      runParsePool(
+        createParseWorkerPool(() => mockWorker(makeReplay())),
+        [],
+        onProgress,
+      ),
+    ).resolves.toEqual([]);
     expect(onProgress).not.toHaveBeenCalled();
   });
 
@@ -158,7 +171,7 @@ describe("runParsePool", () => {
     const createWorker = () => mockWorker(n++ === 0 ? replayA : replayB);
     const onProgress = vi.fn();
     const files = [new File([], "a.dem"), new File([], "b.dem")];
-    const results = await runParsePool(createWorker, files, onProgress);
+    const results = await runParsePool(createParseWorkerPool(createWorker), files, onProgress);
     expect(results).toHaveLength(2);
     expect(results[0].demo?.replay.header.map_name).toBe("de_a");
     expect(results[1].demo?.replay.header.map_name).toBe("de_b");
@@ -170,7 +183,7 @@ describe("runParsePool", () => {
   it("records worker errors on the matching file row", async () => {
     const onProgress = vi.fn();
     const results = await runParsePool(
-      () => mockWorker(makeReplay(), "error", "bad header"),
+      createParseWorkerPool(() => mockWorker(makeReplay(), "error", "bad header")),
       [new File([], "broken.dem")],
       onProgress,
     );
@@ -182,17 +195,95 @@ describe("runParsePool", () => {
   it("handles worker onerror and unknown message types", async () => {
     const onProgress = vi.fn();
     const fail = await runParsePool(
-      () => mockWorker(makeReplay(), "fail"),
+      createParseWorkerPool(() => mockWorker(makeReplay(), "fail")),
       [new File([], "fail.dem")],
       onProgress,
     );
     expect(fail[0].error).toBe("Worker failed");
     const unknown = await runParsePool(
-      () => mockWorker(makeReplay(), "unknown"),
+      createParseWorkerPool(() => mockWorker(makeReplay(), "unknown")),
       [new File([], "weird.dem")],
       onProgress,
     );
     expect(unknown[0].error).toBe("Parse failed");
+  });
+
+  it("reuses a warm worker across files instead of terminating after each parse", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 1 });
+    const workers: Worker[] = [];
+    const createWorker = vi.fn(() => {
+      const worker = mockWorker(makeReplay(), "done");
+      workers.push(worker);
+      return worker;
+    });
+    const pool = createParseWorkerPool(createWorker);
+    const files = [new File([], "a.dem"), new File([], "b.dem"), new File([], "c.dem")];
+    const results = await runParsePool(pool, files, vi.fn());
+    expect(results).toHaveLength(3);
+    expect(results.every((r) => r.demo)).toBe(true);
+    expect(createWorker).toHaveBeenCalledOnce();
+    expect(workers[0]?.terminate).not.toHaveBeenCalled();
+    expect(workers[0]?.postMessage).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps the warm pool across sequential runParsePool calls", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 1 });
+    const createWorker = vi.fn(() => mockWorker(makeReplay()));
+    const pool = createParseWorkerPool(createWorker);
+    await runParsePool(pool, [new File([], "a.dem")], vi.fn());
+    await runParsePool(pool, [new File([], "b.dem")], vi.fn());
+    expect(createWorker).toHaveBeenCalledOnce();
+  });
+
+  it("does not terminate a slot after a parse error message so the next file can reuse it", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 1 });
+    const worker = mockWorker(makeReplay(), ["error", "done"], "bad header");
+    const createWorker = vi.fn(() => worker);
+    const pool = createParseWorkerPool(createWorker);
+    const results = await runParsePool(
+      pool,
+      [new File([], "bad.dem"), new File([], "ok.dem")],
+      vi.fn(),
+    );
+    expect(createWorker).toHaveBeenCalledOnce();
+    expect(worker.terminate).not.toHaveBeenCalled();
+    expect(results[0].error).toBe("bad header");
+    expect(results[1].demo).toBeDefined();
+  });
+
+  it("discards a slot on worker onerror and creates a replacement for the next file", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 1 });
+    const workers: Worker[] = [];
+    let n = 0;
+    const createWorker = vi.fn(() => {
+      const worker = mockWorker(makeReplay(), n++ === 0 ? "fail" : "done");
+      workers.push(worker);
+      return worker;
+    });
+    const pool = createParseWorkerPool(createWorker);
+    const results = await runParsePool(
+      pool,
+      [new File([], "crash.dem"), new File([], "ok.dem")],
+      vi.fn(),
+    );
+    expect(results[0].error).toBe("Worker failed");
+    expect(results[1].demo).toBeDefined();
+    expect(createWorker).toHaveBeenCalledTimes(2);
+    expect(workers[0]?.terminate).toHaveBeenCalledOnce();
+    expect(workers[1]?.terminate).not.toHaveBeenCalled();
+  });
+
+  it("terminates live slots on reset and cancels in-flight jobs", async () => {
+    const worker = mockWorker(makeReplay());
+    const pool = createParseWorkerPool(() => worker);
+    let progressCalls = 0;
+    const parse = pool.parseFile(new File([], "slow.dem"), () => {
+      progressCalls += 1;
+      if (progressCalls === 1) pool.reset();
+    });
+    const result = await parse;
+    expect(result.cancelled).toBe(true);
+    expect(worker.terminate).toHaveBeenCalledOnce();
   });
 });
 

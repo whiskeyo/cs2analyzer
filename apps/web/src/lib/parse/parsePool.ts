@@ -1,13 +1,17 @@
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
 import { PARSE_POOL_MAX } from "@/lib/shared/constants";
 import { loadedDemo, type LoadedDemo } from "./session";
-import type { CreateWorker } from "./useDemoSession";
+
+/** Injectable so tests can drive parse without instantiating WASM. */
+export type CreateWorker = () => Worker;
 
 export interface ParseFileResult {
   file: File;
   demo?: LoadedDemo;
   error?: string;
   timings?: ParseTimings;
+  /** True when the pool was reset while this job was in flight. */
+  cancelled?: boolean;
 }
 
 export interface ParsePoolProgress {
@@ -67,39 +71,114 @@ export function groupParsedDemosByMap(results: ParseFileResult[]): {
   return { groups, skipped };
 }
 
-function parseOneFile(
-  createWorker: CreateWorker,
-  file: File,
-  onWorkerProgress: (current: number, total: number) => void,
-): Promise<ParseFileResult> {
-  return new Promise((resolve) => {
+interface PendingParseJob {
+  settle: () => void;
+}
+
+export interface ParseWorkerPool {
+  parseFile(
+    file: File,
+    onWorkerProgress: (current: number, total: number) => void,
+  ): Promise<ParseFileResult>;
+  /** Terminate every slot. In-flight jobs settle as cancelled. */
+  reset(): void;
+}
+
+/**
+ * Warm parse workers: WASM inits once per slot. Callers cap concurrency with
+ * `parsePoolSize`. `reset` on session close, cancelled in-flight parse, or tests.
+ */
+export function createParseWorkerPool(createWorker: CreateWorker): ParseWorkerPool {
+  const live = new Set<Worker>();
+  const idle: Worker[] = [];
+  const pending = new Map<Worker, PendingParseJob>();
+  let generation = 0;
+
+  const acquire = (): Worker => {
+    const existing = idle.pop();
+    if (existing) return existing;
     const worker = createWorker();
-    worker.onmessage = (ev: MessageEvent<WorkerOut>) => {
-      const msg = ev.data;
-      if (msg.type === "progress") {
-        onWorkerProgress(msg.current, msg.total);
-        return;
-      }
-      worker.terminate();
-      if (msg.type !== "done") {
-        resolve({
-          file,
-          error: msg.type === "error" ? msg.message : "Parse failed",
+    live.add(worker);
+    return worker;
+  };
+
+  return {
+    parseFile(file, onWorkerProgress) {
+      return new Promise((resolve) => {
+        const jobGen = generation;
+        const worker = acquire();
+        let settled = false;
+
+        const settle = (result: ParseFileResult, discardSlot: boolean) => {
+          if (settled) return;
+          settled = true;
+          pending.delete(worker);
+          worker.onmessage = null;
+          worker.onerror = null;
+          if (jobGen === generation && live.has(worker)) {
+            if (discardSlot) {
+              live.delete(worker);
+              worker.terminate();
+            } else {
+              idle.push(worker);
+            }
+          }
+          resolve(result);
+        };
+
+        pending.set(worker, {
+          settle: () => settle({ file, cancelled: true }, true),
         });
-        return;
-      }
-      resolve({
-        file,
-        demo: loadedDemo(msg.replay, file.name, file),
-        timings: msg.timings,
+
+        worker.onmessage = (ev: MessageEvent<WorkerOut>) => {
+          const msg = ev.data;
+          if (msg.type === "progress") {
+            onWorkerProgress(msg.current, msg.total);
+            return;
+          }
+          if (msg.type !== "done") {
+            settle(
+              {
+                file,
+                error: msg.type === "error" ? msg.message : "Parse failed",
+              },
+              false,
+            );
+            return;
+          }
+          settle(
+            {
+              file,
+              demo: loadedDemo(msg.replay, file.name, file),
+              timings: msg.timings,
+            },
+            false,
+          );
+        };
+        worker.onerror = (e) => {
+          settle({ file, error: e.message || "Worker failed" }, true);
+        };
+        void file.arrayBuffer().then((bytes) => {
+          if (settled || jobGen !== generation) return;
+          worker.postMessage({ bytes }, [bytes]);
+        });
       });
-    };
-    worker.onerror = (e) => {
-      worker.terminate();
-      resolve({ file, error: e.message || "Worker failed" });
-    };
-    void file.arrayBuffer().then((bytes) => worker.postMessage({ bytes }, [bytes]));
-  });
+    },
+
+    reset() {
+      generation += 1;
+      const jobs = [...pending.values()];
+      pending.clear();
+      for (const worker of live) {
+        worker.onmessage = null;
+        worker.onerror = null;
+        worker.terminate();
+      }
+      live.clear();
+      idle.length = 0;
+      for (const job of jobs) job.settle();
+    },
+  };
 }
 
 /**
@@ -107,7 +186,7 @@ function parseOneFile(
  * Progress blends completed files with in-flight WASM tick callbacks.
  */
 export async function runParsePool(
-  createWorker: CreateWorker,
+  pool: ParseWorkerPool,
   files: File[],
   onProgress: (progress: ParsePoolProgress) => void,
 ): Promise<ParseFileResult[]> {
@@ -175,26 +254,35 @@ export async function runParsePool(
         setFile(job.index, { state: "parsing", pct: 0 });
         report();
 
-        void parseOneFile(createWorker, job.file, (current, workerTotal) => {
-          inFlight.set(job.index, { current, total: workerTotal });
-          const pct =
-            workerTotal > 0 ? Math.min(100, Math.round((100 * current) / workerTotal)) : 0;
-          setFile(job.index, { state: "parsing", pct });
-          report();
-        }).then((result) => {
-          inFlight.delete(job.index);
-          results[job.index] = result;
-          completed += 1;
-          active -= 1;
-          if (result.error) setFile(job.index, { state: "error", pct: 100 });
-          else setFile(job.index, { state: "done", pct: 100 });
-          report();
-          if (queue.length > 0) pump();
-          else if (active === 0) {
-            flushProgress();
-            resolve();
-          }
-        });
+        void pool
+          .parseFile(job.file, (current, workerTotal) => {
+            inFlight.set(job.index, { current, total: workerTotal });
+            const pct =
+              workerTotal > 0 ? Math.min(100, Math.round((100 * current) / workerTotal)) : 0;
+            setFile(job.index, { state: "parsing", pct });
+            report();
+          })
+          .then((result) => {
+            inFlight.delete(job.index);
+            active -= 1;
+            if (result.cancelled) {
+              if (active === 0) {
+                flushProgress();
+                resolve();
+              }
+              return;
+            }
+            results[job.index] = result;
+            completed += 1;
+            if (result.error) setFile(job.index, { state: "error", pct: 100 });
+            else setFile(job.index, { state: "done", pct: 100 });
+            report();
+            if (queue.length > 0) pump();
+            else if (active === 0) {
+              flushProgress();
+              resolve();
+            }
+          });
       }
       if (active === 0 && queue.length === 0) {
         flushProgress();

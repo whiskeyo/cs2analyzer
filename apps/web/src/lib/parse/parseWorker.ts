@@ -31,7 +31,10 @@ async function loadWasm(): Promise<void> {
 
 function ensureWasm(): Promise<void> {
   if (!wasmReady) {
-    wasmReady = loadWasm();
+    wasmReady = loadWasm().catch((err) => {
+      wasmReady = null;
+      throw err;
+    });
   }
   return wasmReady;
 }
