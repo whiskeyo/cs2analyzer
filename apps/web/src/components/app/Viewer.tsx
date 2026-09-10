@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { Controls } from "@/components/playback/Controls";
 import { RoundStrip } from "@/components/playback/RoundStrip";
 import { SeriesAggregatedRoundStrip } from "@/components/playback/SeriesAggregatedRoundStrip";
@@ -15,48 +14,6 @@ export function Viewer() {
   const replay = session.replay;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
   const bucketMode = replay != null && isBucketOverlayActive(session.series, habits);
-  const bucketPlayingRef = useRef(playback.playing);
-  bucketPlayingRef.current = bucketMode ? playback.playing : false;
-
-  useEffect(() => {
-    if (!bucketMode || !playback.playing) return;
-    let last = performance.now();
-    let lastUi = last;
-    let id = 0;
-    const maxSec = habits.bucketWindowSec;
-    const playRef = habits.bucketPlaySecRef;
-    const setPlaySec = habits.setBucketPlaySec;
-    const loop = (now: number) => {
-      if (!bucketPlayingRef.current) return;
-      const dt = (now - last) / 1000;
-      last = now;
-      const next = Math.min(maxSec, playRef.current + dt * playback.speed);
-      playRef.current = next;
-      if (next >= maxSec) {
-        playback.setPlaying(false);
-        setPlaySec(next);
-      } else if (now - lastUi >= 100) {
-        lastUi = now;
-        setPlaySec(next);
-      }
-      id = requestAnimationFrame(loop);
-    };
-    id = requestAnimationFrame(loop);
-    return () => {
-      cancelAnimationFrame(id);
-      if (bucketPlayingRef.current === false && bucketMode) {
-        setPlaySec(playRef.current);
-      }
-    };
-  }, [
-    bucketMode,
-    playback.playing,
-    playback.speed,
-    playback.setPlaying,
-    habits.bucketWindowSec,
-    habits.bucketPlaySecRef,
-    habits.setBucketPlaySec,
-  ]);
 
   if (!replay) return null;
   const { tick, jump } = playback;

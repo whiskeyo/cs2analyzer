@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useReviewProject, type ReviewStore } from "@/lib/notes/useReviewProject";
 import { isBucketOverlayActive } from "@/lib/parse/seriesMode";
+import { useBucketTransport } from "@/lib/playback/useBucketTransport";
 import { useHotkeys } from "@/lib/playback/useHotkeys";
 import { PlaybackCommandProvider } from "@/lib/playback/playbackCommandContext";
 import { createPlaybackCommandBus } from "@/lib/playback/playbackCommands";
@@ -98,7 +99,19 @@ function AnalyzerRuntime({ children }: { children: ReactNode }) {
     jump: playback.jump,
   });
 
-  bucketTransportRef.current = isBucketOverlayActive(session.series, habits);
+  const bucketActive = isBucketOverlayActive(session.series, habits);
+  useLayoutEffect(() => {
+    bucketTransportRef.current = bucketActive;
+  }, [bucketActive]);
+  useBucketTransport({
+    active: bucketActive,
+    playing: playback.playing,
+    speed: playback.speed,
+    setPlaying: playback.setPlaying,
+    bucketWindowSec: habits.bucketWindowSec,
+    bucketPlaySecRef: habits.bucketPlaySecRef,
+    setBucketPlaySec: habits.setBucketPlaySec,
+  });
 
   usePlayerSync({
     series: session.series,
