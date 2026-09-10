@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { PlaybookYouTube } from "@/lib/playbook/types";
-import { nextVideoPin } from "@/lib/playbook/videos";
+import { nextVideoPin, removeVideo } from "@/lib/playbook/videos";
 import {
   fetchYouTubeTitle,
   formatVideoStart,
@@ -93,10 +93,9 @@ export function PlaybookVideos({
     onOpen(clip.id);
   };
 
-  const removeOpen = () => {
-    if (!open) return;
-    onVideos(videos.filter((clip) => clip.id !== open.id));
-    onOpen(null);
+  const remove = (id: string) => {
+    onVideos(removeVideo(videos, id));
+    if (openId === id) onOpen(null);
   };
 
   const addForm = (
@@ -150,8 +149,18 @@ export function PlaybookVideos({
                   }
                   onClick={() => onOpen(clip.id)}
                 >
-                  <img src={youtubeThumbUrl(clip.videoId)} alt="" loading="lazy" />
+                  <span className="playbook-video-thumb">
+                    <img src={youtubeThumbUrl(clip.videoId)} alt="" loading="lazy" />
+                  </span>
                   <span>{label}</span>
+                </button>
+                <button
+                  type="button"
+                  className="playbook-video-remove"
+                  aria-label={`Remove ${clip.title}`}
+                  onClick={() => remove(clip.id)}
+                >
+                  ×
                 </button>
               </li>
             );
@@ -202,7 +211,7 @@ export function PlaybookVideos({
               <a href={open.url} target="_blank" rel="noreferrer">
                 Open on YouTube
               </a>
-              <button type="button" className="ghost" onClick={removeOpen}>
+              <button type="button" className="ghost" onClick={() => remove(open.id)}>
                 Delete
               </button>
               <button type="button" className="ghost" onClick={() => onOpen(null)}>

@@ -77,7 +77,7 @@ describe("PlaybookVideos", () => {
     );
     const row = screen.getByRole("button", { name: /Mirage A smoke · 0:30/ });
     expect(row.querySelector("img")?.getAttribute("src")).toContain(`/vi/${VIDEO}/hqdefault.jpg`);
-    expect(screen.queryByRole("button", { name: "Remove Mirage A smoke" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Mirage A smoke" })).toHaveTextContent("×");
     const dialog = screen.getByRole("dialog", { name: "Mirage A smoke" });
     expect(dialog.querySelector("iframe")?.getAttribute("src")).toContain(
       `youtube-nocookie.com/embed/${VIDEO}`,
@@ -85,6 +85,24 @@ describe("PlaybookVideos", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(onVideos).toHaveBeenLastCalledWith([]);
     expect(onOpen).toHaveBeenLastCalledWith(null);
+  });
+
+  it("deletes from the list row X without opening the player", async () => {
+    const onVideos = vi.fn();
+    const onOpen = vi.fn();
+    render(
+      <PlaybookVideos
+        videos={[clip()]}
+        onVideos={onVideos}
+        openId={null}
+        onOpen={onOpen}
+        pendingPin={null}
+        onCancelPin={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Remove Mirage A smoke" }));
+    expect(onVideos).toHaveBeenCalledWith([]);
+    expect(onOpen).not.toHaveBeenCalled();
   });
 
   it("cancels a pending pin from the paste dialog", async () => {

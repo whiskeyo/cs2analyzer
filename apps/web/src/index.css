@@ -1236,34 +1236,61 @@ code {
   flex-direction: column;
   gap: 0.4rem;
 }
+.playbook-video {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.playbook-video:has(.playbook-video-open.is-active) {
+  border-color: var(--accent);
+  background: #17202a;
+}
 .playbook-video-open {
   display: grid;
-  grid-template-columns: 4.4rem 1fr;
+  grid-template-columns: 4.4rem minmax(0, 1fr);
   gap: 0.45rem;
   align-items: center;
   width: 100%;
   min-width: 0;
   text-align: left;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: 6px;
-  background: var(--bg);
+  background: transparent;
   color: var(--text);
-  padding: 0.25rem 0.4rem 0.25rem 0.25rem;
+  padding: 0.25rem 0.35rem 0.25rem 0.25rem;
   font: inherit;
   cursor: pointer;
 }
-.playbook-video-open.is-active {
-  border-color: var(--accent);
-  background: #17202a;
-}
-.playbook-video-open img {
+.playbook-video-thumb {
+  display: block;
   width: 4.4rem;
   height: 2.48rem;
+}
+.playbook-video-thumb img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   border-radius: 4px;
   background: var(--bg-panel);
 }
-.playbook-video-open span {
+.playbook-video-remove {
+  width: 1.7rem;
+  height: 1.7rem;
+  margin: 0 0.4rem 0 0.1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #ff3b3b;
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.playbook-video-open > span:not(.playbook-video-thumb) {
   min-width: 0;
   font-size: 0.8rem;
   line-height: 1.3;
