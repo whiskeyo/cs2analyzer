@@ -74,8 +74,9 @@ export interface RadarPaintDirtyArgs {
 }
 
 /**
- * Inputs that force a radar rebuild. Tick / view / layers / strokes / habits
- * `playSec` plus follow-cam, images, and the text editor.
+ * Inputs that force a radar rebuild. Tick is the live playhead (`tickRef`),
+ * not the throttled React HUD tick. View / layers / strokes / habits `playSec`
+ * plus follow-cam, images, and the text editor.
  */
 export function radarPaintInputs(args: RadarPaintDirtyArgs): readonly unknown[] {
   const nadeFilter = args.habitsNadeFilter ?? DEFAULT_HABITS_NADE_FILTER;
