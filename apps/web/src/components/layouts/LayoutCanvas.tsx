@@ -1,6 +1,6 @@
 import type { MouseEvent, WheelEvent, RefObject } from "react";
 import { useEffect, useRef } from "react";
-import { useCanvasLoop } from "@/lib/shared/useCanvasLoop";
+import { canvasInputsChanged, useCanvasLoop } from "@/lib/shared/useCanvasLoop";
 import { paintLayoutFrame } from "@/lib/layouts/paintLayout";
 import { radarFile, radarLayout, radarToScreen, type RadarView } from "@/lib/layouts/maps";
 import type {
@@ -46,6 +46,7 @@ export function LayoutCanvas(props: Props) {
   propsRef.current = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const lastPaintInputs = useRef<readonly unknown[] | null>(null);
 
   useEffect(() => {
     const img = new Image();
@@ -80,6 +81,25 @@ export function LayoutCanvas(props: Props) {
       });
     },
     [wrapRef, view, draftRef, cursorRef],
+    () => {
+      const p = propsRef.current;
+      const v = p.view.current;
+      const cursor = p.cursorRef.current;
+      const draft = p.draftRef.current;
+      return canvasInputsChanged(lastPaintInputs, [
+        p.cal,
+        p.floor,
+        p.callouts,
+        p.selectedIds.join("\0"),
+        v.scale,
+        v.ox,
+        v.oy,
+        draft,
+        cursor?.x ?? null,
+        cursor?.y ?? null,
+        imageRef.current,
+      ]);
+    },
   );
 
   return (
