@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -19,6 +20,7 @@ import { calibrationFor, loadCalibrations } from "@/lib/radar/maps";
 import { loadMapLayout, mapKey, type MapLayout } from "@/lib/radar/layouts";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
+import { habitsKeyPatch, radarSelectPatch } from "./playerSelection";
 import { usePlayerSync } from "./usePlayerSync";
 import { useSession } from "./sessionState";
 import { useSeriesHabits, type SeriesHabitsState } from "./useSeriesHabits";
@@ -117,13 +119,42 @@ function AnalyzerRuntime({ children }: { children: ReactNode }) {
     series: session.series,
     replay: session.replay,
     activeDemoId: session.demo?.id ?? null,
-    tick: playback.tick,
-    selected: view.selected,
-    select: view.select,
+    setSelected: view.setSelected,
     playerKey: habits.playerKey,
-    setPlayerKey: habits.setPlayerKey,
-    setFocalTeam: session.setFocalTeam,
   });
+
+  const select = useCallback(
+    (index: number | null) => {
+      const patch = radarSelectPatch({
+        index,
+        series: session.series,
+        replay: session.replay,
+        tick: playback.tickRef.current,
+      });
+      view.select(patch.selected);
+      if (patch.playerKey !== undefined) habits.setPlayerKey(patch.playerKey);
+      if (patch.focalTeam) session.setFocalTeam(patch.focalTeam);
+    },
+    [habits, playback.tickRef, session, view],
+  );
+
+  const setPlayerKey = useCallback(
+    (key: string | null) => {
+      const patch = habitsKeyPatch({ playerKey: key, replay: session.replay });
+      habits.setPlayerKey(patch.playerKey);
+      view.select(patch.selected);
+    },
+    [habits, session.replay, view],
+  );
+
+  const viewOut = useMemo(
+    (): ViewState => ({ ...view, select, setSelected: select }),
+    [view, select],
+  );
+  const habitsOut = useMemo(
+    (): SeriesHabitsState => ({ ...habits, setPlayerKey }),
+    [habits, setPlayerKey],
+  );
 
   const placesRef = useRef(places);
   placesRef.current = places;
@@ -143,12 +174,12 @@ function AnalyzerRuntime({ children }: { children: ReactNode }) {
     togglePlaying: playback.togglePlaying,
     setFollow: view.setFollow,
     setTrails: view.setTrails,
-    setSelected: view.setSelected,
+    setSelected: select,
   });
 
   const value = useMemo(
-    (): AnalyzerState => ({ playback, review, view, habits, cal, places }),
-    [playback, review, view, habits, cal, places],
+    (): AnalyzerState => ({ playback, review, view: viewOut, habits: habitsOut, cal, places }),
+    [playback, review, viewOut, habitsOut, cal, places],
   );
 
   return (

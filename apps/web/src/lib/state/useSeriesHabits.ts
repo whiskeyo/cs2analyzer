@@ -94,6 +94,11 @@ export interface SeriesHabitsState {
 
 const DEFAULT_FILTER: SeriesHabitsFilter = { side: "CT", kind: "full", playerKey: null };
 
+/**
+ * Habits filters survive demo hops inside a series (same overlay query).
+ * They are not reset here when `series` identity changes — drop a new series
+ * to get a new hook instance / default filter.
+ */
 export function useSeriesHabits(opts: {
   series: DemoSeries | null;
   places: MapPlaces | null;
