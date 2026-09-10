@@ -6,6 +6,7 @@ import {
   type SetStateAction,
 } from "react";
 import { NOTE_TEXT_DRAG_PX, PEN_MIN_SAMPLE_DISTANCE, tickRate } from "@/lib/shared/constants";
+import { wrapLocalPoint } from "@/lib/shared/pointer";
 import { clampViewScale, wheelZoomFactor } from "@/lib/radar/panZoom.ts";
 import { screenToWorld, worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { makeBookmarkStroke, overlayVisible, withMoment } from "@/lib/notes";
@@ -85,10 +86,7 @@ export function useRadarPointer(opts: RadarPointerOpts) {
     const wrap = wrapRef.current;
     if (!wrap) return;
 
-    const pos = (e: MouseEvent) => {
-      const rect = wrap.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    };
+    const pos = (e: MouseEvent) => wrapLocalPoint(wrap, e);
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
