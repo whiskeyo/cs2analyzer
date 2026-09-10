@@ -18,6 +18,7 @@ pub(crate) struct PlayerMeta {
     pub steam_id: u64,
     pub name: String,
     pub start_side: Side,
+    pub is_bot: bool,
 }
 
 pub(crate) struct RawFramePlayer {
@@ -239,7 +240,7 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
-            let Some(steam) = controller_active_steam(self, ctrl) else {
+            let Some(steam) = controller_playable_id(self, ctx, ctrl) else {
                 continue;
             };
             let handle = prop_u32(ctrl, "m_hPlayerPawn");
@@ -402,21 +403,59 @@ pub(crate) fn controller_steam_playable(
     }
 }
 
-/// Steam for a controller that is still in the match this tick.
+/// Stable id for a controller this tick: human SteamID64, or a synthetic bot id.
 ///
-/// Leftover CCSPlayerController entities keep `m_steamID` after a leave, so
-/// `FLAG_PRESENT` used to stay set and the scoreboard grew a ghost row.
-fn controller_active_steam(c: &Collector, ctrl: &Entity) -> Option<u64> {
-    let steam = prop_u64(ctrl, "m_steamID");
-    let connected = prop_i32_opt(ctrl, "m_iConnected");
-    if controller_steam_playable(steam, connected, c.left_steams.contains(&steam)) {
-        Some(steam)
+/// `steam == 0` without `m_bIsBot` is an empty leftover slot — do not invent a
+/// bot, or a leave-fill ghosts a second copy of the human.
+pub(crate) fn controller_identity(
+    steam: u64,
+    controller_slot: u32,
+    is_bot: bool,
+    is_hltv: bool,
+    connected: Option<i32>,
+    previously_left: bool,
+) -> Option<u64> {
+    if is_hltv {
+        return None;
+    }
+    if steam != 0 {
+        return controller_steam_playable(steam, connected, previously_left).then_some(steam);
+    }
+    if is_bot && crate::player_connected_in_server(connected) {
+        Some(crate::bot_steam_id(controller_slot))
     } else {
         None
     }
 }
 
-fn bind_controller_userid(c: &mut Collector, ctrl: &Entity) {
+fn entity_is_bot(ctrl: &Entity, ctx: &Context) -> bool {
+    if prop_bool(ctrl, "m_bIsBot") {
+        return true;
+    }
+    let handle = prop_u32(ctrl, "m_hPlayerPawn");
+    ctx.entities()
+        .get_by_handle(handle as usize)
+        .ok()
+        .is_some_and(|pawn| prop_bool(pawn, "m_bIsBot"))
+}
+
+/// Playable identity for a controller that is still in the match this tick.
+///
+/// Leftover CCSPlayerController entities keep `m_steamID` after a leave, so
+/// `FLAG_PRESENT` used to stay set and the scoreboard grew a ghost row.
+fn controller_playable_id(c: &Collector, ctx: &Context, ctrl: &Entity) -> Option<u64> {
+    let steam = prop_u64(ctrl, "m_steamID");
+    controller_identity(
+        steam,
+        ctrl.index(),
+        entity_is_bot(ctrl, ctx),
+        prop_bool(ctrl, "m_bIsHLTV"),
+        prop_i32_opt(ctrl, "m_iConnected"),
+        steam != 0 && c.left_steams.contains(&steam),
+    )
+}
+
+fn bind_controller_userid(c: &mut Collector, ctx: &Context, ctrl: &Entity) {
     let userid = ctrl.index() as i32;
     let steam = prop_u64(ctrl, "m_steamID");
     if steam != 0 && !controller_in_server(ctrl) {
@@ -430,8 +469,8 @@ fn bind_controller_userid(c: &mut Collector, ctrl: &Entity) {
     {
         c.left_steams.remove(&steam);
     }
-    match controller_active_steam(c, ctrl) {
-        Some(steam) => bind_userid_steam(&mut c.userid_to_steam, userid, steam),
+    match controller_playable_id(c, ctx, ctrl) {
+        Some(id) => bind_userid_steam(&mut c.userid_to_steam, userid, id),
         None => bind_userid_steam(&mut c.userid_to_steam, userid, 0),
     }
 }
@@ -448,6 +487,9 @@ fn steam_from_userid(c: &Collector, ctx: &Context, uid: i32) -> Option<u64> {
             let steam = prop_u64(ent, "m_steamID");
             if steam != 0 {
                 return Some(steam);
+            }
+            if entity_is_bot(ent, ctx) && !prop_bool(ent, "m_bIsHLTV") {
+                return Some(crate::bot_steam_id(ent.index()));
             }
         }
     }
@@ -551,8 +593,8 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
-            bind_controller_userid(self, ctrl);
-            let Some(steam) = controller_active_steam(self, ctrl) else {
+            bind_controller_userid(self, ctx, ctrl);
+            let Some(steam) = controller_playable_id(self, ctx, ctrl) else {
                 continue;
             };
             let handle = prop_u32(ctrl, "m_hPlayerPawn");
@@ -591,7 +633,7 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
-            let Some(steam) = controller_active_steam(self, ctrl) else {
+            let Some(steam) = controller_playable_id(self, ctx, ctrl) else {
                 continue;
             };
             if side_of(prop_i32(ctrl, "m_iTeamNum")).is_none() {
@@ -619,6 +661,7 @@ impl Collector {
                         steam_id: steam,
                         name: controller_name(ctrl),
                         start_side: side,
+                        is_bot: crate::is_bot_steam_id(steam),
                     },
                 );
             } else if let Some(m) = self.meta.get_mut(&steam) {
@@ -910,12 +953,16 @@ impl Collector {
                     bind_userid_steam(&mut self.userid_to_steam, uid, 0);
                 }
                 if let Some(steam) = steam_from_game_event(self, ctx, ge) {
-                    self.left_steams.insert(steam);
+                    if !crate::is_bot_steam_id(steam) {
+                        self.left_steams.insert(steam);
+                    }
                 }
             }
             "player_connect" | "player_connect_full" => {
                 if let Some(steam) = steam_from_game_event(self, ctx, ge) {
-                    self.left_steams.remove(&steam);
+                    if !crate::is_bot_steam_id(steam) {
+                        self.left_steams.remove(&steam);
+                    }
                 }
             }
             "player_blind" => {

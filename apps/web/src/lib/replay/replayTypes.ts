@@ -38,6 +38,8 @@ export interface Player {
   steam_id: number;
   name: string;
   start_side: Side;
+  /** GOTV / offline bot (`m_bIsBot`, synthetic steam id). */
+  is_bot: boolean;
 }
 
 export interface Round {

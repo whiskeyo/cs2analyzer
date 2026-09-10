@@ -36,6 +36,8 @@ pub struct Player {
     pub steam_id: u64,
     pub name: String,
     pub start_side: Side,
+    /// GOTV / offline bot (`m_bIsBot`, synthetic [`crate::bot_steam_id`]).
+    pub is_bot: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

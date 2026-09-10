@@ -8,6 +8,7 @@ import {
   liveTeams,
   teamEntryShare,
 } from "@/lib/stats/stats";
+import { playerLabel } from "@/lib/replay/playerLabel";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { PlayerStats, Replay } from "@/lib/replay/replayTypes";
 
@@ -66,7 +67,7 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
               className={rowClass(s, side, selected)}
               onClick={() => onSelect(s.player)}
             >
-              <td>{replay.players[s.player]?.name ?? "?"}</td>
+              <td>{playerLabel(replay.players[s.player])}</td>
               <td className="eco-money">${sampled[s.player]?.money ?? 0}</td>
               <td>{s.kills}</td>
               <td>{s.deaths}</td>
@@ -105,8 +106,10 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
       {table(teams.tName, t, teams.t)}
       {sel && selPlayer && (
         <div className="detail">
-          <h3>{selPlayer.name}</h3>
-          <p className="steam">{selPlayer.steam_id ? String(selPlayer.steam_id) : ""}</p>
+          <h3>{playerLabel(selPlayer)}</h3>
+          <p className="steam">
+            {selPlayer.is_bot ? "Bot" : selPlayer.steam_id ? String(selPlayer.steam_id) : ""}
+          </p>
           <dl>
             <dt>K / D / A</dt>
             <dd>

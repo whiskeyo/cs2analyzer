@@ -102,6 +102,28 @@ describe("onLiveScoreboard", () => {
     ).toEqual([0, 1, 2, 3, 4]);
   });
 
+  it("keeps a bot fill and drops the disconnected human on the same side", () => {
+    const ticks = makeTicks(2, 2);
+    ticks.ticks.set([64, 640]);
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = 0;
+    ticks.flags[2] = 0;
+    ticks.flags[3] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.health.fill(FULL_HEALTH);
+    ticks.money[3] = 800;
+    const m = makeReplay({
+      players: [
+        makePlayer(0, "CT", "KatolikCOO"),
+        makePlayer(1, "CT", "KatolikCOO", 0xb0700005, true),
+      ],
+      rounds: [makeRound({ number: 13, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+      ticks,
+    });
+    expect(onLiveScoreboard(m, 0, 640)).toBe(false);
+    expect(onLiveScoreboard(m, 1, 640)).toBe(true);
+    expect(liveScoreboardPlayers(m, 640)).toEqual([1]);
+  });
+
   it("keeps a player who died broke after being alive at freeze", () => {
     const ticks = makeTicks(1, 2);
     ticks.ticks.set([64, 640]);

@@ -74,6 +74,29 @@ describe("Scoreboard", () => {
     expect(onSelect).toHaveBeenCalledWith(2);
   });
 
+  it("labels a live bot and does not keep the disconnected human", () => {
+    const ticks = makeTicks(2, 1);
+    ticks.ticks[0] = 640;
+    ticks.flags[0] = 0;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.health.fill(FULL_HEALTH);
+    ticks.money[1] = 800;
+    const m = makeReplay({
+      header: { team_ct: "AdaskoBlyat", team_t: "Bricaa" },
+      players: [
+        makePlayer(0, "CT", "KatolikCOO"),
+        makePlayer(1, "CT", "KatolikCOO", 0xb0700005, true),
+      ],
+      rounds: [makeRound({ number: 13, winner: "CT", start_tick: 0, end_tick: 640 })],
+      ticks,
+    });
+    render(<Scoreboard replay={m} tick={640} selected={1} onSelect={() => {}} />);
+    expect(within(teamTable("AdaskoBlyat")).getByText("KatolikCOO (BOT)")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "KatolikCOO (BOT)" })).toBeInTheDocument();
+    expect(screen.getByText("Bot")).toBeInTheDocument();
+    expect(within(teamTable("AdaskoBlyat")).queryByText(/^KatolikCOO$/)).not.toBeInTheDocument();
+  });
+
   it("hides a disconnected player so a leave does not add a ghost row after swap", () => {
     const ticks = makeTicks(3, 1);
     ticks.ticks[0] = 640;

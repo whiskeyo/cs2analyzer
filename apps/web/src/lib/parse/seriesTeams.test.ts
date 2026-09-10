@@ -11,6 +11,7 @@ function demoWithTeam(teamCt: string, teamT: string, steamIds: number[]) {
       steam_id,
       name: `P${index}`,
       start_side: index < steamIds.length / 2 ? "CT" : "T",
+      is_bot: false,
     })),
     ticks: makeFreezeTicks(Math.max(steamIds.length, 2), Math.ceil(steamIds.length / 2), 64),
     rounds: [

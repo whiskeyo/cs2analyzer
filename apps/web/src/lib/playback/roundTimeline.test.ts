@@ -120,8 +120,8 @@ describe("roundScrubEventMarks", () => {
         makeBombEvent({ tick: 1800, kind: "exploded" }),
       ],
       players: [
-        { index: 0, steam_id: 1, name: "A", start_side: "T" },
-        { index: 1, steam_id: 2, name: "B", start_side: "CT" },
+        { index: 0, steam_id: 1, name: "A", start_side: "T", is_bot: false },
+        { index: 1, steam_id: 2, name: "B", start_side: "CT", is_bot: false },
       ],
     });
     const range = { min: 64, max: 2100 };

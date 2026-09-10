@@ -44,8 +44,8 @@ describe("focalRosterForSeries", () => {
     const replay = makeReplay({
       header: { team_ct: focal, team_t: "Enemy" },
       players: [
-        { index: 0, steam_id: 100, name: "A1", start_side: "CT" },
-        { index: 1, steam_id: 200, name: "E1", start_side: "T" },
+        { index: 0, steam_id: 100, name: "A1", start_side: "CT", is_bot: false },
+        { index: 1, steam_id: 200, name: "E1", start_side: "T", is_bot: false },
       ],
       ticks: makeFreezeTicks(2, 1, 64),
       rounds: [

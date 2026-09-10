@@ -30,6 +30,7 @@ import {
   TRACER_SECONDS,
 } from "@/lib/radar/radarFx";
 import { inTickWindow, upToTick } from "@/lib/replay/eventIndex";
+import { playerLabel } from "@/lib/replay/playerLabel";
 import { currentRound, samplePlayers, sampleTrail, type SampledPlayer } from "@/lib/replay/sample";
 import { bombView, type BombView } from "@/lib/stats/hud";
 import type {
@@ -560,7 +561,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
       alive: p.alive,
       selected: selected === p.index,
       flash,
-      name: replay.players[p.index]?.name ?? "",
+      name: playerLabel(replay.players[p.index], ""),
       health: p.health,
       carriesC4: bomb.state === "carried" && bomb.player === p.index,
       planting: p.planting,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DECODE_LIST_SAMPLE_STRIDE, decodeList, decodeObject, PayloadError } from "./decode";
-import type { BombEvent, Hurt, Kill, MatchHeader, Round } from "@/lib/replay/replayTypes";
-import { makeHurt } from "@/lib/testing/fixtures";
+import type { BombEvent, Hurt, Kill, MatchHeader, Player, Round } from "@/lib/replay/replayTypes";
+import { makeHurt, makePlayer } from "@/lib/testing/fixtures";
 
 const header: MatchHeader = {
   map_name: "de_anubis",
@@ -130,6 +130,14 @@ describe("decodeList", () => {
     expect(decodeList<Round>("rounds", JSON.stringify([round]))[0].is_knife).toBe(false);
     expect(() => decodeList<Round>("rounds", `[${without(round, "is_knife")}]`)).toThrow(
       /"rounds\[0\]".*"is_knife".*expected boolean/s,
+    );
+  });
+
+  it("requires player is_bot so a Rust rename fails on drop", () => {
+    const player: Player = makePlayer(0, "T", "Mike", 0xb0700005, true);
+    expect(decodeList<Player>("players", JSON.stringify([player]))).toEqual([player]);
+    expect(() => decodeList<Player>("players", `[${without(player, "is_bot")}]`)).toThrow(
+      /"players\[0\]".*"is_bot".*expected boolean/s,
     );
   });
 

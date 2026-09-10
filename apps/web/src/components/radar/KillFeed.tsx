@@ -2,6 +2,7 @@ import { memo } from "react";
 import { KILL_FEED_MAX_ROWS, KILL_FEED_SECONDS, tickRate } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { currentSide, recentKills } from "@/lib/stats/stats";
+import { attackerLabel, playerLabel } from "@/lib/replay/playerLabel";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { GearIcon, WeaponIcon } from "@/components/weapons/WeaponIcon";
 
@@ -26,7 +27,7 @@ export const KillFeed = memo(function KillFeed({ replay, tick, onJump }: Props) 
         <li key={`${k.tick}-${i}`}>
           <button type="button" onClick={() => onJump(k.tick)}>
             <span className={`att ${sideClass(replay, k.attacker, k.tick)}`.trim()}>
-              {replay.players[k.attacker]?.name ?? "World"}
+              {attackerLabel(replay, k.attacker)}
             </span>
             {k.assisted_flash && <GearIcon name="flashbang_assist" title="Flash assist" />}
             <span className="gun">
@@ -46,7 +47,7 @@ export const KillFeed = memo(function KillFeed({ replay, tick, onJump }: Props) 
               )}
             </span>
             <span className={`vic ${sideClass(replay, k.victim, k.tick)}`.trim()}>
-              {replay.players[k.victim]?.name ?? "?"}
+              {playerLabel(replay.players[k.victim])}
             </span>
           </button>
         </li>

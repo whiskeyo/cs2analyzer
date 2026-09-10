@@ -54,7 +54,13 @@ const HEADER: Shape = {
   score_t: number,
 };
 
-const PLAYER: Shape = { index: number, steam_id: number, name: text, start_side: text };
+const PLAYER: Shape = {
+  index: number,
+  steam_id: number,
+  name: text,
+  start_side: text,
+  is_bot: flag,
+};
 
 const ROUND: Shape = {
   number: number,
