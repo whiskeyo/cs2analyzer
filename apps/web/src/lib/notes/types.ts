@@ -170,8 +170,8 @@ export interface RoundNote {
 }
 
 /**
- * Flat Analyzer stroke. Owned by a round via `round`; prefer `Note` for new code.
- * Kept so schema ≤2 JSON and the current canvas/sidebar can migrate in place.
+ * Flat Analyzer canvas stroke. Disk/export is `Note` only (schema 4).
+ * Kept in memory until the canvas/sidebar cut over to `Note`.
  */
 export type Stroke = {
   round: number;

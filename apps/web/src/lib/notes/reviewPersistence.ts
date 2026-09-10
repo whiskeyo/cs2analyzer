@@ -11,12 +11,12 @@ import {
   loadProject,
   matchKey,
   pendingDemoFileHandle,
-  notesFromStrokes,
   PROJECT_SCHEMA,
   saveDemoFileHandle,
   saveProject,
   type ReviewProject,
 } from "./projectStore";
+import { strokesToRoundNotes } from "./migrate";
 import { DEFAULT_SUMMARY_FILTER, type FloorMode, type Stroke, type SummaryFilter } from "./types";
 
 export interface ReviewOverlay {
@@ -71,7 +71,7 @@ export function projectFromDemo(
       fileName: target.fileName,
       mapName: target.replay.header.map_name,
       tick,
-      ...notesFromStrokes(strokes),
+      notes: strokesToRoundNotes(strokes),
       summaryFilter: overlay.summaryFilter,
       floorMode: overlay.floorMode,
       paletteId: overlay.paletteId,
@@ -98,7 +98,7 @@ export async function seedDemoStats(target: LoadedDemo): Promise<ReviewProject> 
         fileName: target.fileName,
         mapName: target.replay.header.map_name,
         tick: existing?.tick ?? 0,
-        ...notesFromStrokes(existing?.strokes ?? []),
+        notes: existing?.notes ?? [],
         summaryFilter: existing?.summaryFilter ?? DEFAULT_SUMMARY_FILTER,
         floorMode: existing?.floorMode ?? "auto",
         paletteId: existing?.paletteId ?? defaultPaletteId(),
@@ -128,7 +128,7 @@ export async function flushSeriesReviewCache(): Promise<void> {
             fileName: entry.demo.fileName,
             mapName: entry.demo.replay.header.map_name,
             tick: entry.tick,
-            ...notesFromStrokes(entry.strokes),
+            notes: strokesToRoundNotes(entry.strokes),
             summaryFilter: entry.summaryFilter,
             floorMode: entry.floorMode,
             paletteId: entry.paletteId,

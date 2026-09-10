@@ -3,6 +3,7 @@ import {
   cloneNote,
   earliestTimedTick,
   emptyNote,
+  noteDrawingCount,
   overlayWindowOf,
   visibleDrawings,
   windowVisible,
@@ -84,6 +85,25 @@ describe("visibleDrawings", () => {
     expect(visibleDrawings(note, 240)).toHaveLength(1);
     expect(visibleDrawings(note, 300)).toHaveLength(0);
     expect(visibleDrawings(note, null)).toHaveLength(2);
+  });
+});
+
+describe("noteDrawingCount", () => {
+  it("counts loose drawings, grouped drawings, and bookmarks", () => {
+    expect(noteDrawingCount([])).toBe(0);
+    expect(
+      noteDrawingCount([
+        {
+          round: 1,
+          note: {
+            groups: [{ id: "A", name: "A", drawings: [pen] }],
+            drawings: [pen],
+            pieces: [],
+            bookmarks: [{ color: "#f00", text: "x", tick: 10 }],
+          },
+        },
+      ]),
+    ).toBe(3);
   });
 });
 

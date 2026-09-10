@@ -4,6 +4,7 @@ import { Credits } from "@/components/app/Credits";
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
 import { SAVED_NOTES_PAGE_SIZE } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
+import { noteDrawingCount } from "@/lib/notes/note";
 import {
   demoFilePickerAvailable,
   filesFromDataTransfer,
@@ -40,6 +41,11 @@ function formatDemoSize(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   if (mb < 1024) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
   return `${(mb / 1024).toFixed(1)} GB`;
+}
+
+function drawingCountLabel(notes: ReviewProject["notes"]): string {
+  const count = noteDrawingCount(notes);
+  return `${count} drawing${count === 1 ? "" : "s"}`;
 }
 
 function noteTitle(p: ReviewProject): ReactNode {
@@ -180,7 +186,7 @@ export function DropZone({
                       <span className="saved-demo-map">{noteTitle(p)}</span>
                       <span className="saved-demo-file">{p.fileName || "unnamed.dem"}</span>
                       <span className="saved-demo-meta">
-                        {p.strokes.length} drawing{p.strokes.length === 1 ? "" : "s"}
+                        {drawingCountLabel(p.notes)}
                         {p.fileSizeBytes ? ` · ${formatDemoSize(p.fileSizeBytes)}` : ""}
                         {p.linkedFileLabel ? ` · linked: ${p.linkedFileLabel}` : ""} ·{" "}
                         {savedWhen(p.savedAt)}

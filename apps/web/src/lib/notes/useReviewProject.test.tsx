@@ -5,7 +5,7 @@ import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
 import type { Status } from "@/lib/state/status";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
-import type { ReviewProject } from "./projectStore";
+import { PROJECT_SCHEMA, type ReviewProject } from "./projectStore";
 import { clearSeriesReviewCache, getSeriesReview } from "./seriesReviewCache";
 import { useReviewProject } from "./useReviewProject";
 
@@ -50,14 +50,23 @@ function demo(fileName = "match.dem") {
 
 function project(partial: Partial<ReviewProject> = {}): ReviewProject {
   return {
-    schema: 2,
+    schema: PROJECT_SCHEMA,
     key: "de_mirage|1|50,100|match.dem",
     savedAt: 2,
     fileName: "match.dem",
     mapName: "de_mirage",
     tick: 300,
-    notes: [],
-    strokes: [{ type: "pen", round: 1, color: "#fff", points: [{ x: 0, y: 0 }] }],
+    notes: [
+      {
+        round: 1,
+        note: {
+          groups: [],
+          drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+          pieces: [],
+          bookmarks: [],
+        },
+      },
+    ],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",
     paletteId: "default",
@@ -160,11 +169,12 @@ describe("useReviewProject", () => {
       }),
     );
 
-    await waitFor(() => expect(result.current.strokes).toHaveLength(1));
+    await waitFor(() => {
+      expect(result.current.strokes).toEqual([expect.objectContaining({ type: "pen" })]);
+      expect(st.notice).toContain("Restored drawings");
+    });
     expect(pb.jump).toHaveBeenCalledWith(300, true);
     expect(pb.setPlaying).toHaveBeenCalledWith(false);
-    expect(st.notice).toContain("Restored drawings");
-    expect(result.current.strokes[0]?.type).toBe("pen");
   });
 
   it("delegates export and bulk delete to reviewImportExport", async () => {
