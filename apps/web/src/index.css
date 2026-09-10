@@ -331,6 +331,9 @@ body,
   flex-direction: column;
   gap: 0.85rem;
 }
+.home-create-fields + .home-modal-actions {
+  margin-top: 1.15rem;
+}
 .error {
   color: #ff6b6b;
 }
