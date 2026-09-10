@@ -36,6 +36,7 @@ vi.mock("@/lib/parse/seriesOverlay", async (importOriginal) => {
 });
 
 import * as paintRadarFrame from "@/lib/radar/paintRadarFrame";
+import * as radarFrame from "@/lib/radar/radarFrame";
 import * as staticMapPaint from "@/lib/radar/staticMapPaint";
 import { habitsArrowAtScreen } from "@/lib/parse/seriesOverlay";
 
@@ -213,5 +214,20 @@ describe("RadarCanvas", () => {
 
     fireEvent.doubleClick(canvas, { clientX: 120, clientY: 120 });
     expect(onHabitsJump).toHaveBeenCalledWith({ demoId: "d1", jumpTick: 200 });
+  });
+
+  it("paints from tickRef so a throttled React tick does not stall the radar", () => {
+    const spy = vi.spyOn(radarFrame, "buildRadarFrame");
+    const tickRef = { current: 240 };
+    const { container } = render(<RadarCanvas {...canvasProps({ tick: 100, tickRef })} />);
+    const wrap = container.querySelector(".radar-wrap");
+    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+
+    act(() => {
+      rafCb?.(0);
+    });
+
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ tick: 240 }));
   });
 });

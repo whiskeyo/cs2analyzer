@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { useCanvasLoop } from "@/lib/shared/useCanvasLoop";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { worldToScreen } from "@/lib/radar/maps";
@@ -39,6 +39,8 @@ import {
 interface Props {
   replay: Replay;
   tick: number;
+  /** Live playhead. When set, rAF / pointer read this instead of React `tick`. */
+  tickRef?: MutableRefObject<number>;
   cal: MapCalibration | undefined;
   selected: number | null;
   onSelect: (index: number | null) => void;
@@ -75,8 +77,11 @@ export function RadarCanvas(props: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const replayRef = useRef(replay);
   replayRef.current = replay;
-  const tickRef = useRef(tick);
-  tickRef.current = tick;
+  const fallbackTickRef = useRef(tick);
+  if (!props.tickRef) {
+    fallbackTickRef.current = tick;
+  }
+  const tickRef = props.tickRef ?? fallbackTickRef;
   const toolRef = useRef(tool);
   toolRef.current = tool;
   const colorRef = useRef(color);
@@ -136,7 +141,7 @@ export function RadarCanvas(props: Props) {
       ctx.fillRect(0, 0, w, h);
 
       const p = propsRef.current;
-      const tickNow = p.tick;
+      const tickNow = p.tickRef?.current ?? p.tick;
       const calNow = p.cal;
       const v = view.current;
       const frame = buildRadarFrame({
@@ -268,7 +273,7 @@ export function RadarCanvas(props: Props) {
       return;
     }
     const { x: mx, y: my } = canvasLocalPoint(canvas, e.clientX, e.clientY);
-    const players = samplePlayers(p.replay, p.tick);
+    const players = samplePlayers(p.replay, p.tickRef?.current ?? p.tick);
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
     const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, view.current, wx, wy);

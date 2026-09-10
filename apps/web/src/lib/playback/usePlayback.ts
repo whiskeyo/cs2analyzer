@@ -5,6 +5,7 @@ import { getSeriesReviewTick } from "@/lib/notes/seriesReviewCache";
 import { tickRate } from "@/lib/shared/constants";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import { currentRound } from "@/lib/replay/sample";
+import { shouldPublishHudTick } from "./hudTick";
 import {
   advanceAtRoundEnd,
   clampTickToRound,
@@ -19,10 +20,10 @@ import { roundScrubRange } from "./roundTimeline";
  * Playback clock for the active demo. Overlay demos do not drive this loop.
  *
  * `tickRef` is the real playhead and carries the sub-tick fraction the rAF loop
- * accumulates; the canvas reads it every frame. The `tick` state is only
- * published when the whole tick changes, so at 0.25x speed the React tree
- * re-renders 16 times a second instead of 60 and the per-tick caches in
- * `lib/stats` keep hitting.
+ * accumulates; the canvas reads it every frame. React `tick` is published at
+ * ~`HUD_TICK_HZ` during play (and immediately on jump, scrub, pause, and
+ * round/demo/freeze boundaries) so HUD / scoreboard / `computeStats` are not
+ * committed at demo-tick rate.
  *
  * `activeRoundRef` is the round the user jumped to (or scrubbed into). Round-end
  * detection uses that pin, not `currentRound(tick)` — those disagree at
@@ -42,6 +43,8 @@ export function usePlayback(
   const playingRef = useRef(playing);
   const rafRef = useRef(0);
   const activeRoundRef = useRef<Round | null>(null);
+  const lastHudPublishMsRef = useRef(Number.NEGATIVE_INFINITY);
+  const publishedTickRef = useRef(0);
   const roundAutoplayRef = useRef(roundAutoplay);
   roundAutoplayRef.current = roundAutoplay;
 
@@ -54,7 +57,7 @@ export function usePlayback(
   const replayRef = useRef(replay);
   replayRef.current = replay;
 
-  const publish = useCallback((t: number) => {
+  const publish = useCallback((t: number, immediate = true) => {
     let next = t;
     const pin = activeRoundRef.current;
     const r = replayRef.current;
@@ -64,7 +67,23 @@ export function usePlayback(
       next = jumpToRound(r, pin);
       tickRef.current = next;
     }
-    setTick((prev) => (Math.floor(next) === prev ? prev : Math.floor(next)));
+    const floor = Math.floor(next);
+    const now = performance.now();
+    if (
+      !shouldPublishHudTick({
+        publishedTick: publishedTickRef.current,
+        nextTick: floor,
+        lastPublishMs: lastHudPublishMsRef.current,
+        nowMs: now,
+        immediate,
+        freezeEndTick: pin?.freeze_end_tick,
+      })
+    ) {
+      return;
+    }
+    lastHudPublishMsRef.current = now;
+    publishedTickRef.current = floor;
+    setTick((prev) => (prev === floor ? prev : floor));
   }, []);
 
   const pinRound = useCallback(
@@ -116,6 +135,7 @@ export function usePlayback(
           cancelAnimationFrame(rafRef.current);
           rafRef.current = 0;
         }
+        publish(tickRef.current);
       }
       setPlayingState(v);
     },
@@ -151,7 +171,8 @@ export function usePlayback(
   const pauseNow = useCallback(() => {
     stopPlaybackLoop();
     setPlayingState(false);
-  }, [stopPlaybackLoop]);
+    publish(tickRef.current);
+  }, [stopPlaybackLoop, publish]);
 
   /** Scrubbing keeps the transport state: dragging the bar does not pause. */
   const scrub = useCallback((t: number) => jump(t, false), [jump]);
@@ -170,7 +191,7 @@ export function usePlayback(
       tickRef.current = land;
       activeRoundRef.current = first ?? null;
       setActiveRound(first ?? null);
-      setTick(Math.floor(land));
+      publish(land);
     },
     Boolean(demoId && replay),
   );
@@ -226,7 +247,7 @@ export function usePlayback(
         tickRef.current = min;
         publish(min);
       }
-      publish(tickRef.current);
+      publish(tickRef.current, false);
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
