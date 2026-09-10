@@ -3,6 +3,7 @@ import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router"
 import { AppStateProvider, useApp } from "@/lib/state/appState";
 import type { CreateWorker } from "@/lib/parse/useDemoSession";
 import { isAnalyzerPath, isFaqPath, isLayoutsPath, isPlaybookPath, ROUTES } from "@/lib/app/routes";
+import { AppBackdrop } from "@/components/app/AppBackdrop";
 import { Header } from "@/components/app/Header";
 import { Analyzer } from "@/pages/Analyzer";
 import { Home } from "@/pages/Home";
@@ -36,17 +37,11 @@ function AppLayout() {
     if (root) root.scrollTop = 0;
   }, [pathname]);
 
-  if (showLayouts) {
-    return (
-      <div className="app layouts-app">
-        <Header />
-        <Outlet />
-      </div>
-    );
-  }
+  const shellClass = showLayouts ? "app layouts-app" : fillBoard ? "app" : "app splash";
 
   return (
-    <div className={fillBoard ? "app" : "app splash"}>
+    <div className={shellClass}>
+      <AppBackdrop />
       <Header />
       <Outlet />
     </div>

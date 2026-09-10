@@ -71,7 +71,7 @@ describe("Analyzer", () => {
     vi.mocked(useApp).mockReturnValue(
       analyzerState([savedProject()]) as unknown as ReturnType<typeof useApp>,
     );
-    const { container } = render(
+    render(
       <TestRouter path="/analyzer">
         <Analyzer />
       </TestRouter>,
@@ -83,7 +83,6 @@ describe("Analyzer", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New playbook" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "see the FAQ" })).not.toBeInTheDocument();
-    expect(container.querySelector(".landing-backdrop")).toBeNull();
   });
 
   it("deletes saved notes and refreshes the list", async () => {

@@ -6,9 +6,8 @@ import { Faq } from "./Faq";
 
 describe("Faq", () => {
   it("renders every listed question and a GitHub issues link", () => {
-    const { container } = render(<Faq />);
+    render(<Faq />);
     expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
-    expect(container.querySelector(".landing-backdrop")).toBeNull();
     for (const item of FAQ_ITEMS) {
       expect(screen.getByRole("heading", { level: 3, name: item.question })).toBeInTheDocument();
     }
