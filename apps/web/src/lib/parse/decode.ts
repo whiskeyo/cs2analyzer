@@ -37,8 +37,10 @@ function orNull(check: Check): Check {
 type Shape = Record<string, Check>;
 
 /**
- * Fields the viewer cannot work without. Anything `#[serde(default)]` on the
- * Rust side is left out on purpose: the UI already copes when it is missing.
+ * Fields TypeScript marks required on `replayTypes.ts`. Optional TS fields
+ * (`playback_end_tick`, `team_ct` / `team_t`, `GrenadeThrow.fires`,
+ * `BombEvent.haskit` / `site`) stay off this list — they are optional in the
+ * types, not `#[serde(default)]` shims for stale WASM caches.
  */
 const HEADER: Shape = {
   map_name: text,
@@ -63,6 +65,7 @@ const ROUND: Shape = {
   win_reason: number,
   score_ct: number,
   score_t: number,
+  is_knife: flag,
 };
 
 const GRENADE: Shape = {
@@ -111,7 +114,14 @@ const HURT: Shape = {
 
 const BLIND: Shape = { tick: number, attacker: number, victim: number, duration: number };
 
-const BOMB_EVENT: Shape = { tick: number, kind: text, player: number, x: number, y: number };
+const BOMB_EVENT: Shape = {
+  tick: number,
+  kind: text,
+  player: number,
+  x: number,
+  y: number,
+  z: number,
+};
 
 const BUY_EVENT: Shape = { tick: number, player: number, weapon: number, cost: number };
 

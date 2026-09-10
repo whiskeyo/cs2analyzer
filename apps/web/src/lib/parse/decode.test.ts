@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DECODE_LIST_SAMPLE_STRIDE, decodeList, decodeObject, PayloadError } from "./decode";
-import type { Hurt, Kill, MatchHeader, Round } from "@/lib/replay/replayTypes";
+import type { BombEvent, Hurt, Kill, MatchHeader, Round } from "@/lib/replay/replayTypes";
 import { makeHurt } from "@/lib/testing/fixtures";
 
 const header: MatchHeader = {
@@ -112,6 +112,39 @@ describe("decodeList", () => {
     expect(decodeList<Round>("rounds", JSON.stringify([round]))[0].winner).toBeNull();
     expect(() => decodeList<Round>("rounds", `[${without(round, "winner")}]`)).toThrow(
       /"winner".*expected string or null/s,
+    );
+  });
+
+  it("requires round is_knife so a Rust rename fails on drop", () => {
+    const round: Round = {
+      number: 1,
+      start_tick: 0,
+      freeze_end_tick: 64,
+      end_tick: 640,
+      winner: "CT",
+      win_reason: 8,
+      score_ct: 1,
+      score_t: 0,
+      is_knife: false,
+    };
+    expect(decodeList<Round>("rounds", JSON.stringify([round]))[0].is_knife).toBe(false);
+    expect(() => decodeList<Round>("rounds", `[${without(round, "is_knife")}]`)).toThrow(
+      /"rounds\[0\]".*"is_knife".*expected boolean/s,
+    );
+  });
+
+  it("requires bomb event z so a Rust rename fails on drop", () => {
+    const planted: BombEvent = {
+      tick: 400,
+      kind: "planted",
+      player: 3,
+      x: 100,
+      y: 200,
+      z: 50,
+    };
+    expect(decodeList<BombEvent>("bombEvents", JSON.stringify([planted]))).toEqual([planted]);
+    expect(() => decodeList<BombEvent>("bombEvents", `[${without(planted, "z")}]`)).toThrow(
+      /"bombEvents\[0\]".*"z".*expected number/s,
     );
   });
 

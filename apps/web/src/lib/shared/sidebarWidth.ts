@@ -4,8 +4,9 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "./constants";
+import { SIDEBAR_WIDTH_STORAGE_KEY } from "./storageKeys";
 
-export const SIDEBAR_WIDTH_STORAGE_KEY = "cs2analyzer.sidebarWidth";
+export { SIDEBAR_WIDTH_STORAGE_KEY } from "./storageKeys";
 
 export function clampPanelWidth(
   width: number,
