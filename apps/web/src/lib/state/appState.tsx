@@ -1,19 +1,26 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { isNotesFile } from "@/lib/notes/projectStore";
-import { isBucketOverlayActive } from "@/lib/parse/seriesMode";
-import { useReviewProject, type ReviewSession } from "@/lib/notes/useReviewProject";
-import { useDemoSession, type CreateWorker, type DemoSession } from "@/lib/parse/useDemoSession";
-import { useHotkeys } from "@/lib/playback/useHotkeys";
-import { usePlayback, type Playback } from "@/lib/playback/usePlayback";
-import { calibrationFor, loadCalibrations } from "@/lib/radar/maps";
-import { loadMapLayout, mapKey, type MapLayout } from "@/lib/radar/layouts";
+import type { ReviewSession } from "@/lib/notes/useReviewProject";
+import type { CreateWorker, DemoSession } from "@/lib/parse/useDemoSession";
 import type { MapPlaces } from "@/lib/match/sites";
+import type { Playback } from "@/lib/playback/usePlayback";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
-import { useStatus, type Status } from "./status";
-import { useViewState, type ViewState } from "./viewState";
-import { useSeriesHabits, type SeriesHabitsState } from "./useSeriesHabits";
-import { usePlayerSync } from "./usePlayerSync";
+import {
+  AnalyzerHost,
+  useAnalyzer,
+  useOptionalAnalyzer,
+  usePlayback,
+  useReview,
+  type AnalyzerState,
+} from "./analyzerState";
+import { idleHabits, idlePlayback, idleView } from "./idleAnalyzer";
+import { SessionProvider, useSession, type SessionState } from "./sessionState";
+import type { Status } from "./status";
+import type { SeriesHabitsState } from "./useSeriesHabits";
+import type { ViewState } from "./viewState";
+
+const IDLE_PLAYBACK = idlePlayback();
+const IDLE_VIEW = idleView();
+const IDLE_HABITS = idleHabits();
 
 export interface AppState {
   status: Status;
@@ -30,127 +37,11 @@ export interface AppState {
   onFiles: (files: File[]) => void;
 }
 
-const AppStateContext = createContext<AppState | null>(null);
-
 /**
- * Composition root for the viewer's state. Four stores own their own slice and
- * only talk to each other through the arguments below, which keeps each one
- * testable on its own and mirrors the "UI-agnostic playback model" in
- * `docs/frontend-migration.md`.
+ * Session at the root (Home drop, saved notes). AnalyzerRuntime — playback,
+ * review history, habits, hotkeys, command sink — mounts only while a demo is
+ * parsing or loaded, so FAQ/Playbook do not construct that graph on a cold visit.
  */
-function useAppState(createWorker?: CreateWorker): AppState {
-  const status = useStatus();
-  const stashSeriesReviewRef = useRef<() => void>(() => undefined);
-  const pausePlaybackRef = useRef<() => void>(() => undefined);
-  const bucketTransportRef = useRef(false);
-  const session = useDemoSession({
-    status,
-    createWorker,
-    onBeforeSelectDemo: () => {
-      pausePlaybackRef.current();
-      stashSeriesReviewRef.current();
-    },
-  });
-  const playback = usePlayback(session.replay, session.demo?.id ?? null, bucketTransportRef);
-  const review = useReviewProject({
-    demo: session.demo,
-    series: session.series,
-    parsedDemos: session.parsedDemos,
-    status,
-    playback,
-  });
-  stashSeriesReviewRef.current = review.stashForSeriesSwitch;
-  pausePlaybackRef.current = playback.pauseNow;
-  const view = useViewState(session.demo?.id ?? null);
-
-  const [maps, setMaps] = useState<Record<string, MapCalibration>>({});
-  const [layout, setLayout] = useState<MapLayout | null>(null);
-  const { replay } = session;
-
-  useEffect(() => {
-    loadCalibrations()
-      .then(setMaps)
-      .catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    if (!replay) return;
-    let cancelled = false;
-    loadMapLayout(replay.header.map_name)
-      .then((next) => {
-        if (!cancelled) setLayout(next);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [replay]);
-
-  const cal = replay ? calibrationFor(maps, replay.header.map_name) : undefined;
-  const places = useMemo((): MapPlaces | null => {
-    if (!replay || !cal || !layout || layout.callouts.length === 0) return null;
-    if (layout.map !== mapKey(replay.header.map_name)) return null;
-    return { layout, cal };
-  }, [replay, cal, layout]);
-
-  const habits = useSeriesHabits({
-    series: session.series,
-    places,
-    activeDemoId: session.demo?.id ?? null,
-    selectDemo: session.selectDemo,
-    jump: playback.jump,
-  });
-
-  bucketTransportRef.current = isBucketOverlayActive(session.series, habits);
-
-  usePlayerSync({
-    series: session.series,
-    replay: session.replay,
-    activeDemoId: session.demo?.id ?? null,
-    tick: playback.tick,
-    selected: view.selected,
-    select: view.select,
-    playerKey: habits.playerKey,
-    setPlayerKey: habits.setPlayerKey,
-    setFocalTeam: session.setFocalTeam,
-  });
-
-  const placesRef = useRef(places);
-  placesRef.current = places;
-  const replayRef = useRef(replay);
-  replayRef.current = replay;
-
-  useHotkeys({
-    replayRef,
-    placesRef,
-    tickRef: playback.tickRef,
-    playingRef: playback.playingRef,
-    selectedRef: view.selectedRef,
-    jump: playback.jump,
-    undo: review.undo,
-    redo: review.redo,
-    setPlaying: playback.setPlaying,
-    togglePlaying: playback.togglePlaying,
-    setFollow: view.setFollow,
-    setTrails: view.setTrails,
-    setSelected: view.setSelected,
-  });
-
-  const onFiles = (files: File[]) => {
-    if (files.length === 0) return;
-    if (files.length === 1 && isNotesFile(files[0])) {
-      void files[0].text().then((text) => void review.importNotesText(text));
-      return;
-    }
-    const demos = files.filter((f) => !isNotesFile(f));
-    if (demos.length === 0) return;
-    if (demos.length === 1) session.parseDemo(demos[0]);
-    else void session.parseDemos(demos);
-  };
-
-  return { status, session, playback, review, view, habits, cal, places, onFiles };
-}
-
 export function AppStateProvider({
   children,
   createWorker,
@@ -158,12 +49,28 @@ export function AppStateProvider({
   children: ReactNode;
   createWorker?: CreateWorker;
 }) {
-  const state = useAppState(createWorker);
-  return <AppStateContext.Provider value={state}>{children}</AppStateContext.Provider>;
+  return (
+    <SessionProvider createWorker={createWorker}>
+      <AnalyzerHost>{children}</AnalyzerHost>
+    </SessionProvider>
+  );
 }
 
 export function useApp(): AppState {
-  const state = useContext(AppStateContext);
-  if (!state) throw new Error("useApp must be used inside <AppStateProvider>");
-  return state;
+  const { status, session, notes, onFiles } = useSession();
+  const analyzer = useOptionalAnalyzer();
+  return {
+    status,
+    session,
+    onFiles,
+    playback: analyzer?.playback ?? IDLE_PLAYBACK,
+    review: analyzer?.review ?? notes,
+    view: analyzer?.view ?? IDLE_VIEW,
+    habits: analyzer?.habits ?? IDLE_HABITS,
+    cal: analyzer?.cal,
+    places: analyzer?.places ?? null,
+  };
 }
+
+export { useAnalyzer, useOptionalAnalyzer, usePlayback, useReview, useSession };
+export type { AnalyzerState, SessionState };

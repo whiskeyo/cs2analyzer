@@ -4,7 +4,8 @@ import type { MapPlaces } from "@/lib/match/sites";
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import { nextEventTick } from "@/lib/stats/stats";
-import { type PlaybackCommand, setPlaybackCommandSink } from "./playbackCommands";
+import { type PlaybackCommand } from "./playbackCommands";
+import { usePlaybackCommandBus } from "./playbackCommandContext";
 import { roundScrubRange } from "./roundTimeline";
 
 export function usePlaybackCommandSink(opts: {
@@ -22,6 +23,7 @@ export function usePlaybackCommandSink(opts: {
 }) {
   const optsRef = useRef(opts);
   optsRef.current = opts;
+  const bus = usePlaybackCommandBus();
 
   useEffect(() => {
     const run = (cmd: PlaybackCommand) => {
@@ -96,7 +98,7 @@ export function usePlaybackCommandSink(opts: {
       }
     };
 
-    setPlaybackCommandSink(run);
-    return () => setPlaybackCommandSink(null);
-  }, []);
+    bus.setSink(run);
+    return () => bus.setSink(null);
+  }, [bus]);
 }

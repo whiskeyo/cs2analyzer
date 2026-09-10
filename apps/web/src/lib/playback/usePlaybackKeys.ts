@@ -1,11 +1,14 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
-import { sendPlaybackCommand } from "./playbackCommands";
+import { useSendPlaybackCommand } from "./playbackCommandContext";
 import { keyToPlaybackCommand } from "./playbackKeys";
 
 export function usePlaybackKeys(ctx: {
   replayRef: MutableRefObject<unknown | null>;
   selectedRef: MutableRefObject<number | null>;
 }) {
+  const send = useSendPlaybackCommand();
+  const sendRef = useRef(send);
+  sendRef.current = send;
   const ctxRef = useRef({
     hasReplay: false,
     hasSelection: false,
@@ -20,7 +23,7 @@ export function usePlaybackKeys(ctx: {
       if (!cmd) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      sendPlaybackCommand(cmd);
+      sendRef.current(cmd);
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
