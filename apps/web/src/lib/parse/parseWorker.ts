@@ -5,6 +5,7 @@ import type {
   Blind,
   BombEvent,
   BuyEvent,
+  ControllerDump,
   GrenadeThrow,
   Hurt,
   Kill,
@@ -81,6 +82,10 @@ self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
     const blinds = decodeList<Blind>("blinds", parsed.blindsJson());
     const bombEvents = decodeList<BombEvent>("bombEvents", parsed.bombEventsJson());
     const buyEvents = decodeList<BuyEvent>("buyEvents", parsed.buyEventsJson());
+    const controllerDump = decodeList<ControllerDump>(
+      "controllerDump",
+      parsed.controllerDumpJson(),
+    );
     const jsonMs = performance.now() - tJson;
 
     const tBuffers = performance.now();
@@ -95,6 +100,7 @@ self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
       blinds,
       bombEvents,
       buyEvents,
+      controllerDump,
       ticks: {
         frameCount: parsed.frameCount(),
         playerCount: parsed.playerCount(),

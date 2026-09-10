@@ -518,6 +518,7 @@ mod tests {
             bomb_events: vec![],
             buy_events: vec![],
             stats: vec![],
+            controller_dump: vec![],
         }
     }
 

@@ -131,6 +131,18 @@ const BOMB_EVENT: Shape = {
 
 const BUY_EVENT: Shape = { tick: number, player: number, weapon: number, cost: number };
 
+const CONTROLLER_DUMP: Shape = {
+  tick: number,
+  slot: number,
+  name: text,
+  steam: number,
+  is_bot: flag,
+  connected: number,
+  has_team_pawn: flag,
+  assigned: number,
+  at_freeze: flag,
+};
+
 export const PAYLOAD_SHAPES = {
   header: HEADER,
   players: PLAYER,
@@ -142,6 +154,7 @@ export const PAYLOAD_SHAPES = {
   blinds: BLIND,
   bombEvents: BOMB_EVENT,
   buyEvents: BUY_EVENT,
+  controllerDump: CONTROLLER_DUMP,
 } as const;
 
 export type PayloadName = keyof typeof PAYLOAD_SHAPES;

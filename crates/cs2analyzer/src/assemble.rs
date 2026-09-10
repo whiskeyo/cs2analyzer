@@ -144,6 +144,9 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     };
 
     let buy_events = freeze_buys(&ticks, &rounds);
+    let mut controller_dump: Vec<ControllerDump> = c.controller_last.values().cloned().collect();
+    controller_dump.sort_by_key(|row| row.slot);
+    controller_dump.extend(c.controller_freeze.iter().cloned());
     let mut m = Match {
         header,
         players,
@@ -157,6 +160,7 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         bomb_events,
         buy_events,
         stats: Vec::new(),
+        controller_dump,
     };
     #[cfg(feature = "match-stats")]
     {
@@ -722,11 +726,11 @@ fn appeared_items(
 mod tests {
     use super::*;
     use crate::observer::{
-        accept_blind_duration, bind_userid_steam, controller_identity, controller_steam_playable,
-        new_flash_duration, Collector, FireSpan, PlayerMeta, RawFrame, RawFramePlayer, RawHurt,
-        RawKill,
+        accept_blind_duration, bind_userid_steam, controller_dump_interesting, controller_identity,
+        controller_steam_playable, new_flash_duration, Collector, FireSpan, PlayerMeta, RawFrame,
+        RawFramePlayer, RawHurt, RawKill,
     };
-    use crate::{bot_steam_id, is_bot_steam_id, ParseOptions, FLAG_ALIVE, FLAG_CT};
+    use crate::{bot_steam_id, is_bot_steam_id, ControllerDump, ParseOptions, FLAG_ALIVE, FLAG_CT};
 
     fn molly(detonate: u32, x: f32, y: f32) -> GrenadeThrow {
         GrenadeThrow {
@@ -994,10 +998,38 @@ mod tests {
         assert_eq!(map.get(&5), Some(&bot_steam_id(5)));
     }
 
+    fn identity(
+        steam: u64,
+        slot: u32,
+        is_bot: bool,
+        is_hltv: bool,
+        connected: Option<i32>,
+        previously_left: bool,
+        has_team_pawn: bool,
+    ) -> Option<u64> {
+        controller_identity(
+            steam,
+            slot,
+            is_bot,
+            is_hltv,
+            connected,
+            previously_left,
+            has_team_pawn,
+        )
+    }
+
     #[test]
     fn steam_id_zero_bot_maps_to_synthetic_id() {
         let slot = 5;
-        let bot = controller_identity(0, slot, true, false, Some(crate::PLAYER_CONNECTED), false);
+        let bot = identity(
+            0,
+            slot,
+            true,
+            false,
+            Some(crate::PLAYER_CONNECTED),
+            false,
+            false,
+        );
         assert_eq!(bot, Some(bot_steam_id(slot)));
         assert!(is_bot_steam_id(bot.expect("bot id")));
         assert_ne!(bot, Some(0));
@@ -1006,19 +1038,129 @@ mod tests {
     #[test]
     fn steam_id_zero_without_bot_flag_is_empty_slot() {
         assert_eq!(
-            controller_identity(0, 5, false, false, Some(crate::PLAYER_CONNECTED), false),
+            identity(
+                0,
+                5,
+                false,
+                false,
+                Some(crate::PLAYER_CONNECTED),
+                false,
+                false
+            ),
             None,
             "empty leftover must not become a bot"
         );
         assert_eq!(
-            controller_identity(0, 5, true, false, Some(crate::PLAYER_DISCONNECTED), false),
+            identity(
+                0,
+                5,
+                true,
+                false,
+                Some(crate::PLAYER_DISCONNECTED),
+                false,
+                false
+            ),
             None,
             "disconnected bot controller must not be sampled"
         );
         assert_eq!(
-            controller_identity(0, 5, true, true, Some(crate::PLAYER_CONNECTED), false),
+            identity(0, 5, true, true, Some(crate::PLAYER_CONNECTED), false, true),
             None,
             "HLTV must not become a bot player"
+        );
+    }
+
+    #[test]
+    fn faceit_fill_steam_zero_without_bot_flag_maps() {
+        // Ancient Faceit leave→fill: steam 0, m_bIsBot unset, pawn still on T/CT.
+        let id = identity(
+            0,
+            7,
+            false,
+            false,
+            Some(crate::PLAYER_CONNECTED),
+            false,
+            true,
+        );
+        assert_eq!(id, Some(bot_steam_id(7)));
+        let after_disconnect = identity(
+            0,
+            7,
+            false,
+            false,
+            Some(crate::PLAYER_DISCONNECTED),
+            false,
+            true,
+        );
+        assert_eq!(
+            after_disconnect,
+            Some(bot_steam_id(7)),
+            "GOTV may flag DISCONNECTED while the fill pawn is still playing"
+        );
+    }
+
+    fn dump_row(steam: u64, is_bot: bool, assigned: u64) -> ControllerDump {
+        ControllerDump {
+            tick: 64,
+            slot: 7,
+            name: "Mike".into(),
+            steam,
+            is_bot,
+            connected: crate::PLAYER_CONNECTED,
+            has_team_pawn: true,
+            assigned,
+            at_freeze: true,
+        }
+    }
+
+    #[test]
+    fn leftover_human_dump_is_not_a_fill_candidate() {
+        let human = 76_561_198_000_000_001;
+        assert!(
+            !controller_dump_interesting(&dump_row(human, false, 0)),
+            "KatolikCOO leftover must not enter fillFreeze"
+        );
+        assert!(controller_dump_interesting(&dump_row(
+            0,
+            false,
+            bot_steam_id(7)
+        )));
+    }
+
+    #[test]
+    fn assemble_copies_controller_dump() {
+        let mut c = Collector::new(ParseOptions::default());
+        let last = dump_row(0, false, bot_steam_id(7));
+        c.controller_last.insert(
+            7,
+            ControllerDump {
+                at_freeze: false,
+                ..last.clone()
+            },
+        );
+        c.controller_freeze.push(last.clone());
+        let m = assemble(&mut c, 200, 3.0);
+        assert_eq!(m.controller_dump.len(), 2);
+        assert!(!m.controller_dump[0].at_freeze);
+        assert!(m.controller_dump[1].at_freeze);
+        assert_eq!(m.controller_dump[1].assigned, bot_steam_id(7));
+    }
+
+    #[test]
+    fn leftover_human_pawn_is_not_a_bot() {
+        let human = 76_561_198_000_000_001;
+        assert_eq!(
+            identity(
+                human,
+                5,
+                false,
+                false,
+                Some(crate::PLAYER_DISCONNECTED),
+                true,
+                true
+            ),
+            None,
+            "KatolikCOO leftover steam must not become a synthetic bot"
         );
     }
 
@@ -1026,18 +1168,27 @@ mod tests {
     fn human_disconnect_bot_fill_does_not_reuse_human_steam() {
         let human = 76_561_198_000_000_001;
         assert_eq!(
-            controller_identity(
+            identity(
                 human,
                 5,
                 false,
                 false,
                 Some(crate::PLAYER_DISCONNECTED),
-                false
+                false,
+                true
             ),
             None
         );
-        let bot = controller_identity(0, 5, true, false, Some(crate::PLAYER_CONNECTED), false)
-            .expect("bot fill");
+        let bot = identity(
+            0,
+            5,
+            false,
+            false,
+            Some(crate::PLAYER_CONNECTED),
+            false,
+            true,
+        )
+        .expect("Faceit fill");
         assert_ne!(bot, human);
         assert!(is_bot_steam_id(bot));
         assert!(!is_bot_steam_id(human));

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { DECODE_LIST_SAMPLE_STRIDE, decodeList, decodeObject, PayloadError } from "./decode";
-import type { BombEvent, Hurt, Kill, MatchHeader, Player, Round } from "@/lib/replay/replayTypes";
+import type {
+  BombEvent,
+  ControllerDump,
+  Hurt,
+  Kill,
+  MatchHeader,
+  Player,
+  Round,
+} from "@/lib/replay/replayTypes";
 import { makeHurt, makePlayer } from "@/lib/testing/fixtures";
 
 const header: MatchHeader = {
@@ -139,6 +147,24 @@ describe("decodeList", () => {
     expect(() => decodeList<Player>("players", `[${without(player, "is_bot")}]`)).toThrow(
       /"players\[0\]".*"is_bot".*expected boolean/s,
     );
+  });
+
+  it("requires controller dump assigned so a Rust rename fails on drop", () => {
+    const row: ControllerDump = {
+      tick: 64,
+      slot: 7,
+      name: "Mike",
+      steam: 0,
+      is_bot: false,
+      connected: 0,
+      has_team_pawn: true,
+      assigned: 0xb0700007,
+      at_freeze: true,
+    };
+    expect(decodeList<ControllerDump>("controllerDump", JSON.stringify([row]))).toEqual([row]);
+    expect(() =>
+      decodeList<ControllerDump>("controllerDump", `[${without(row, "assigned")}]`),
+    ).toThrow(/"controllerDump\[0\]".*"assigned".*expected number/s);
   });
 
   it("requires bomb event z so a Rust rename fails on drop", () => {

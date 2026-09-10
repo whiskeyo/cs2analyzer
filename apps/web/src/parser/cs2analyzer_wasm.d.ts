@@ -19,6 +19,7 @@ export class ParsedMatch {
     bombEventsJson(): string;
     buyEventsJson(): string;
     clip(): Uint8Array;
+    controllerDumpJson(): string;
     equip(): Uint16Array;
     flags(): Uint8Array;
     frameCount(): number;
@@ -62,6 +63,7 @@ export interface InitOutput {
     readonly parsedmatch_bombEventsJson: (a: number, b: number) => void;
     readonly parsedmatch_buyEventsJson: (a: number, b: number) => void;
     readonly parsedmatch_clip: (a: number) => number;
+    readonly parsedmatch_controllerDumpJson: (a: number, b: number) => void;
     readonly parsedmatch_equip: (a: number) => number;
     readonly parsedmatch_flags: (a: number) => number;
     readonly parsedmatch_frameCount: (a: number) => number;

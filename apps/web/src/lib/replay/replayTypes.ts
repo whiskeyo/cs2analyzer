@@ -42,6 +42,19 @@ export interface Player {
   is_bot: boolean;
 }
 
+/** Per-controller parse diagnostic from WASM. Not used by radar/stats. */
+export interface ControllerDump {
+  tick: number;
+  slot: number;
+  name: string;
+  steam: number;
+  is_bot: boolean;
+  connected: number;
+  has_team_pawn: boolean;
+  assigned: number;
+  at_freeze: boolean;
+}
+
 export interface Round {
   number: number;
   start_tick: number;
@@ -267,6 +280,8 @@ export interface Replay {
   bombEvents: BombEvent[];
   buyEvents: BuyEvent[];
   ticks: TickBuffers;
+  /** Last controller slot + freeze-end fill candidates. */
+  controllerDump?: ControllerDump[];
 }
 
 export interface FloorSection {

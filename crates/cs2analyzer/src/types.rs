@@ -15,6 +15,26 @@ pub struct Match {
     pub bomb_events: Vec<BombEvent>,
     pub buy_events: Vec<BuyEvent>,
     pub stats: Vec<PlayerStats>,
+    /// Last controller slot + freeze-end fill candidates (`steam == 0` / bot).
+    pub controller_dump: Vec<ControllerDump>,
+}
+
+/// Per-controller parse diagnostic. Not used by radar/stats.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ControllerDump {
+    pub tick: u32,
+    pub slot: u32,
+    pub name: String,
+    /// Raw `m_steamID` (0 when GOTV cleared the human).
+    pub steam: u64,
+    /// Truthy `m_bIsBot` on controller or pawn.
+    pub is_bot: bool,
+    /// `m_iConnected`, or `-1` when the prop is missing.
+    pub connected: i32,
+    pub has_team_pawn: bool,
+    /// Identity this tick (`bot_steam_id` / SteamID64), or 0 if dropped.
+    pub assigned: u64,
+    pub at_freeze: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
