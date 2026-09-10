@@ -126,6 +126,12 @@ export const FLASH_OVERLAY_SPIKE_SECONDS = FLASH_FULL_SECONDS - FLASH_OVERLAY_SL
  */
 export const FLASH_BLIND_ATTRIBUTION_SECONDS = 2;
 
+/**
+ * A later flash may take a victim only when duration jumps by more than this
+ * after that flash’s detonate. Smaller steps are leftover decay / re-reports.
+ */
+export const FLASH_ONSET_RISE_SECONDS = 0.2;
+
 /** How long an HE/flash pop stays drawn after detonate. */
 export const HE_BURST_SECONDS = 0.55;
 export const FLASH_BURST_SECONDS = 0.35;

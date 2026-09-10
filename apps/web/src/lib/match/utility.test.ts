@@ -136,7 +136,7 @@ describe("utilityThrough", () => {
   it("ignores full-overlay pawn snaps when a weaker player_blind exists", () => {
     expect(pickFlashDuration([1.2, FLASH_FULL_SECONDS, 5.1])).toBeCloseTo(1.2);
     expect(pickFlashDuration([0.2, 5.1])).toBeCloseTo(0.2);
-    expect(pickFlashDuration([5.1, FLASH_FULL_SECONDS])).toBeCloseTo(FLASH_FULL_SECONDS);
+    expect(pickFlashDuration([5.1, FLASH_FULL_SECONDS])).toBe(0);
     const m = replay({
       grenades: [nade("flash", 90, 0)],
       blinds: [
@@ -152,6 +152,40 @@ describe("utilityThrough", () => {
       { victim: 1, victimName: "Bob", duration: 0.2, enemy: true },
     ]);
     expect(throwDetail(u.throws[0]!)).toBe("Enemy: Bob 0.2s · Team: Alice 1.2s");
+  });
+
+  it("omits a chip when the only samples are full-overlay snaps", () => {
+    const m = replay({
+      grenades: [nade("flash", 90, 0)],
+      blinds: [makeBlind(110, 0, 0, 5.1), makeBlind(112, 0, 1, FLASH_FULL_SECONDS)],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds).toEqual([]);
+    expect(throwDetail(u.throws[0]!)).toBe("");
+  });
+
+  it("keeps the first pop's blinds when a second flash lands before they expire", () => {
+    const m = replay({
+      grenades: [nade("flash", 90, 0), nade("flash", 200, 1)],
+      blinds: [
+        makeBlind(110, 0, 2, 3.0),
+        makeBlind(115, 0, 2, 2.8),
+        makeBlind(222, 0, 2, 2.4),
+        makeBlind(222, 1, 2, 5.1),
+        makeBlind(225, 1, 2, 3.4),
+        makeBlind(226, 1, 0, 2.1),
+      ],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.kind).toBe("flash");
+    expect(u.throws[1]?.kind).toBe("flash");
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 2, victimName: "Dave", duration: 3.0, enemy: true },
+    ]);
+    expect(u.throws[1]?.blinds).toEqual([
+      { victim: 2, victimName: "Dave", duration: 3.4, enemy: false },
+      { victim: 0, victimName: "Alice", duration: 2.1, enemy: true },
+    ]);
   });
 
   it("only lists players who were alive at the flash, not leftover dead-pawn blinds", () => {
