@@ -1,5 +1,4 @@
 import { Controls } from "@/components/playback/Controls";
-import { RoundStrip } from "@/components/playback/RoundStrip";
 import { SeriesAggregatedRoundStrip } from "@/components/playback/SeriesAggregatedRoundStrip";
 import { BucketControls } from "@/components/playback/BucketControls";
 import { RadarStage } from "@/components/radar/RadarStage";
@@ -10,7 +9,7 @@ import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
 
 export function Viewer() {
-  const { session, playback, review, places, habits } = useApp();
+  const { session, playback, review, habits } = useApp();
   const replay = session.replay;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
   const bucketMode = replay != null && isBucketOverlayActive(session.series, habits);
@@ -34,15 +33,7 @@ export function Viewer() {
               <RadarStage />
               <Sidebar />
             </main>
-            {!aggregated ? (
-              <RoundStrip
-                replay={replay}
-                tick={tick}
-                notes={review.notes}
-                places={places}
-                activeRound={playback.activeRound}
-              />
-            ) : (
+            {aggregated && (
               <SeriesAggregatedRoundStrip
                 groups={habits.seriesRoundsByKind}
                 demoColors={habits.demoColors}
