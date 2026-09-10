@@ -4,6 +4,7 @@ export {
   itemWindow,
   momentBounds,
   withMoment,
+  noteRounds,
   earliestTimedTick,
   overlayJumpTick,
   momentLengthSeconds,
