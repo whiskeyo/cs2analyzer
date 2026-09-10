@@ -129,6 +129,8 @@ export const FLASH_BLIND_ATTRIBUTION_SECONDS = 2;
 /**
  * A later flash may take a victim only when duration jumps by more than this
  * after that flash’s detonate. Smaller steps are leftover decay / re-reports.
+ * Overlay snaps and remaining time from an earlier attributed peak are not a
+ * new onset — radar “still yellow” is not “blinded by this throw”.
  */
 export const FLASH_ONSET_RISE_SECONDS = 0.2;
 

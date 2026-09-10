@@ -183,9 +183,75 @@ describe("utilityThrough", () => {
       { victim: 2, victimName: "Dave", duration: 3.0, enemy: true },
     ]);
     expect(u.throws[1]?.blinds).toEqual([
-      { victim: 2, victimName: "Dave", duration: 3.4, enemy: false },
       { victim: 0, victimName: "Alice", duration: 2.1, enemy: true },
     ]);
+  });
+
+  it("does not put a teammate leftover / overlay on the later throw (R21 Cave)", () => {
+    // Dave · Elbow, then Bob · Cave. Dave's 4.1s radar leftover / 5.1 overlay
+    // re-snap is still Elbow — even when attacker is rewritten to Bob.
+    const m = replay({
+      grenades: [nade("flash", 90, 2), nade("flash", 160, 1)],
+      blinds: [
+        makeBlind(110, 2, 2, 1.3),
+        makeBlind(110, 2, 1, 0.5),
+        makeBlind(111, 2, 2, 5.1),
+        makeBlind(111, 2, 1, 5.1),
+        makeBlind(182, 1, 2, 5.1),
+        makeBlind(182, 1, 1, 5.1),
+        makeBlind(183, 1, 2, 4.1),
+        makeBlind(184, 1, 1, 1.6),
+        makeBlind(185, 1, 0, 1.1),
+      ],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.throwerName).toBe("Dave");
+    expect(u.throws[1]?.throwerName).toBe("Bob");
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 1, victimName: "Bob", duration: 0.5, enemy: false },
+      { victim: 2, victimName: "Dave", duration: 1.3, enemy: false },
+    ]);
+    expect(u.throws[1]?.blinds).toEqual([
+      { victim: 1, victimName: "Bob", duration: 1.6, enemy: false },
+      { victim: 0, victimName: "Alice", duration: 1.1, enemy: true },
+    ]);
+  });
+
+  it("can list the thrower's Cave self-blind from an overlay snap after Elbow", () => {
+    const m = replay({
+      grenades: [nade("flash", 90, 2), nade("flash", 160, 1)],
+      blinds: [makeBlind(110, 2, 1, 0.5), makeBlind(182, 1, 1, 5.1)],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 1, victimName: "Bob", duration: 0.5, enemy: false },
+    ]);
+    expect(u.throws[1]?.blinds).toEqual([
+      { victim: 1, victimName: "Bob", duration: 5.1, enemy: false },
+    ]);
+  });
+
+  it("moves a victim to the later throw only after the first peak expires", () => {
+    const m = replay({
+      grenades: [nade("flash", 90, 0), nade("flash", 400, 1)],
+      blinds: [makeBlind(110, 0, 2, 0.4), makeBlind(420, 1, 2, 2.1)],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 2, victimName: "Dave", duration: 0.4, enemy: true },
+    ]);
+    expect(u.throws[1]?.blinds).toEqual([
+      { victim: 2, victimName: "Dave", duration: 2.1, enemy: false },
+    ]);
+  });
+
+  it("does not assign a blind by time proximity when attacker is a different thrower", () => {
+    const m = replay({
+      grenades: [nade("flash", 90, 0)],
+      blinds: [makeBlind(110, 1, 1, 1.2)],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds).toEqual([]);
   });
 
   it("only lists players who were alive at the flash, not leftover dead-pawn blinds", () => {
