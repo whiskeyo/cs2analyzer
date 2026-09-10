@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
+import { FULL_HEALTH } from "@/lib/shared/constants";
 import {
   makeFreezeTicks,
   makeKill,
   makePlayer,
   makeReplay,
   makeRound,
+  makeTicks,
 } from "@/lib/testing/fixtures";
 import { Scoreboard } from "./Scoreboard";
 
@@ -69,6 +72,30 @@ describe("Scoreboard", () => {
 
     await userEvent.click(screen.getByText("Cara"));
     expect(onSelect).toHaveBeenCalledWith(2);
+  });
+
+  it("hides a disconnected player so a leave does not add a ghost row after swap", () => {
+    const ticks = makeTicks(3, 1);
+    ticks.ticks[0] = 640;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[2] = 0;
+    ticks.health.fill(FULL_HEALTH);
+    const m = makeReplay({
+      header: { team_ct: "Bricaa", team_t: "AdaskoBlyat" },
+      players: [
+        makePlayer(0, "CT", "Alice"),
+        makePlayer(1, "T", "Bob"),
+        makePlayer(2, "T", "KatolikCOO"),
+      ],
+      rounds: [makeRound({ number: 13, winner: "T", start_tick: 0, end_tick: 640 })],
+      ticks,
+    });
+    render(<Scoreboard replay={m} tick={640} selected={null} onSelect={() => {}} />);
+
+    expect(within(teamTable("Bricaa")).getByText("Alice")).toBeInTheDocument();
+    expect(within(teamTable("AdaskoBlyat")).getByText("Bob")).toBeInTheDocument();
+    expect(screen.queryByText("KatolikCOO")).not.toBeInTheDocument();
   });
 
   it("marks the selected row so the radar and table stay in sync", () => {

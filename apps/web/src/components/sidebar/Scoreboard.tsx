@@ -26,10 +26,12 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
   const teams = liveTeams(replay, tick);
   const sampled = samplePlayers(replay, tick);
 
-  const withSide = stats.map((s) => ({
-    s,
-    side: currentSide(replay, s.player, tick),
-  }));
+  const withSide = stats
+    .filter((s) => sampled[s.player]?.present)
+    .map((s) => ({
+      s,
+      side: currentSide(replay, s.player, tick),
+    }));
   const ct = withSide.filter((x) => x.side === "CT").sort((a, b) => b.s.rating - a.s.rating);
   const t = withSide.filter((x) => x.side === "T").sort((a, b) => b.s.rating - a.s.rating);
 
