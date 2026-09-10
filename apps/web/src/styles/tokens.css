@@ -3,8 +3,15 @@
   font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   line-height: 1.4;
   font-weight: 450;
-  color: #e8eef4;
-  background: #0b0e12;
+  --bg: #0b0e12;
+  --bg-panel: #1c242e;
+  --border: #2c3846;
+  --accent: #6aa4d8;
+  --text: #e8eef4;
+  --text-muted: #8b98a5;
+  --danger: #e04b4b;
+  color: var(--text);
+  background: var(--bg);
   /* Home, Analyzer splash, and FAQ share one column and type scale. */
   --page-width: 760px;
   --page-title-size: 1.7rem;

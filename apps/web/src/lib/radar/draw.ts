@@ -1,4 +1,5 @@
 import { NOTE_TEXT_MAX_WIDTH, DEFAULT_TICK_RATE, LOOSE_C4_PULSE_HZ } from "@/lib/shared/constants";
+import { darkenHexColor } from "@/lib/shared/color";
 import { worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { overlayVisible } from "@/lib/notes";
 import type { GrenadeKind, MapCalibration } from "@/lib/replay/replayTypes";
@@ -82,17 +83,6 @@ export function drawLooseC4(
 
 function iconReady(icon: HTMLImageElement | null | undefined): icon is HTMLImageElement {
   return Boolean(icon && icon.complete && icon.naturalWidth > 0);
-}
-
-function darkenHexColor(color: string, factor: number): string {
-  if (!color.startsWith("#") || color.length !== 7) return color;
-  const f = Math.max(0, Math.min(1, factor));
-  const r = Math.round(parseInt(color.slice(1, 3), 16) * f);
-  const g = Math.round(parseInt(color.slice(3, 5), 16) * f);
-  const b = Math.round(parseInt(color.slice(5, 7), 16) * f);
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b
-    .toString(16)
-    .padStart(2, "0")}`;
 }
 
 /** In-flight grenade: weapon SVG, or the old colored dot/diamond if the icon is not ready. */

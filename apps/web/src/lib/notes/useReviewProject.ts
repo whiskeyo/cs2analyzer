@@ -370,4 +370,4 @@ export function useReviewProject(opts: {
   };
 }
 
-export type ReviewStore = ReturnType<typeof useReviewProject>;
+export type ReviewSession = ReturnType<typeof useReviewProject>;
