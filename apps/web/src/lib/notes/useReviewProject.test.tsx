@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { loadedDemo } from "@/lib/parse/session";
+import { loadedDemo, type DemoSeries } from "@/lib/parse/session";
+import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
 import type { Status } from "@/lib/state/status";
+import { emptyNote } from "./note";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
-import type { ReviewProject } from "./projectStore";
+import { PROJECT_SCHEMA, type ReviewProject } from "./projectStore";
+import { clearSeriesReviewCache, getSeriesReview } from "./seriesReviewCache";
 import { useReviewProject } from "./useReviewProject";
 
 const mocks = vi.hoisted(() => ({
@@ -48,14 +51,23 @@ function demo(fileName = "match.dem") {
 
 function project(partial: Partial<ReviewProject> = {}): ReviewProject {
   return {
-    schema: 2,
+    schema: PROJECT_SCHEMA,
     key: "de_mirage|1|50,100|match.dem",
     savedAt: 2,
     fileName: "match.dem",
     mapName: "de_mirage",
     tick: 300,
-    notes: [],
-    strokes: [{ type: "pen", round: 1, color: "#fff", points: [{ x: 0, y: 0 }] }],
+    notes: [
+      {
+        round: 1,
+        note: {
+          groups: [],
+          drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+          pieces: [],
+          bookmarks: [],
+        },
+      },
+    ],
     summaryFilter: DEFAULT_SUMMARY_FILTER,
     floorMode: "auto",
     paletteId: "default",
@@ -111,6 +123,7 @@ function status(): Status {
 describe("useReviewProject", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearSeriesReviewCache();
     mocks.loadAllProjects.mockResolvedValue([project({ savedAt: 10 })]);
     mocks.loadProject.mockResolvedValue(null);
     mocks.matchKey.mockReturnValue("de_mirage|1|50,100|match.dem");
@@ -157,11 +170,11 @@ describe("useReviewProject", () => {
       }),
     );
 
-    await waitFor(() => expect(result.current.strokes).toHaveLength(1));
+    await waitFor(() => expect(result.current.notes[0]?.note.drawings[0]?.type).toBe("pen"));
+    expect(result.current.notes[0]?.note.drawings).toHaveLength(1);
     expect(pb.jump).toHaveBeenCalledWith(300, true);
     expect(pb.setPlaying).toHaveBeenCalledWith(false);
     expect(st.notice).toContain("Restored drawings");
-    expect(result.current.strokes[0]?.type).toBe("pen");
   });
 
   it("delegates export and bulk delete to reviewImportExport", async () => {
@@ -203,5 +216,59 @@ describe("useReviewProject", () => {
 
     expect(result.current.color).toBe("#00ff00");
     expect(pb.jump).toHaveBeenCalledWith(500, true);
+  });
+
+  it("stashes drawings on a series hop mid-debounce without persisting the outgoing demo", async () => {
+    const first = demo("a.dem");
+    const second = demo("b.dem");
+    const series: DemoSeries = {
+      mapName: "de_mirage",
+      demos: [first, second],
+      focalTeam: "A",
+      focalTeamNames: ["A"],
+      tagsByDemo: new Map(),
+    };
+    const pb = playback();
+    const { result, rerender } = renderHook(
+      ({ current }) =>
+        useReviewProject({
+          demo: current,
+          series,
+          parsedDemos: [],
+          status: status(),
+          playback: pb,
+        }),
+      { initialProps: { current: first } },
+    );
+
+    await waitFor(() => expect(pb.setPlaying).toHaveBeenCalledWith(true));
+
+    const drawing = { type: "pen" as const, color: "#fff", points: [{ x: 1, y: 2 }] };
+    act(() => {
+      result.current.commitNotes([{ round: 1, note: { ...emptyNote(), drawings: [drawing] } }]);
+    });
+    mocks.saveProject.mockClear();
+
+    act(() => {
+      result.current.stashForSeriesSwitch();
+    });
+    rerender({ current: second });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mocks.saveProject).not.toHaveBeenCalled();
+    expect(getSeriesReview(first.id)?.notes[0]?.note.drawings).toEqual([
+      { type: "pen", color: "#fff", points: [{ x: 1, y: 2 }] },
+    ]);
+    expect(PROJECT_SAVE_DEBOUNCE_MS).toBeGreaterThan(0);
+
+    act(() => {
+      result.current.stashForSeriesSwitch();
+    });
+    rerender({ current: first });
+
+    await waitFor(() => expect(result.current.notes[0]?.note.drawings).toEqual([drawing]));
   });
 });

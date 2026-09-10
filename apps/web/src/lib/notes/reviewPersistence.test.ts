@@ -10,6 +10,7 @@ import {
   type ReviewProject,
 } from "./projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
+import { emptyNote } from "./note";
 import { applyPendingDemoLink, projectFromDemo, reviewSnapshot } from "./reviewPersistence";
 
 function demo(fileName = "match.dem") {
@@ -31,14 +32,22 @@ const overlay = {
 describe("projectFromDemo", () => {
   it("builds a project keyed by match identity", () => {
     const target = demo();
-    const strokes = [
-      { type: "arrow" as const, round: 1, color: "#fff", from: { x: 0, y: 0 }, to: { x: 1, y: 1 } },
+    const notes = [
+      {
+        round: 1,
+        note: {
+          ...emptyNote(),
+          drawings: [
+            { type: "arrow" as const, color: "#fff", from: { x: 0, y: 0 }, to: { x: 1, y: 1 } },
+          ],
+        },
+      },
     ];
-    const row = projectFromDemo(target, 640, strokes, overlay, undefined);
+    const row = projectFromDemo(target, 640, notes, overlay, undefined);
     expect(row.key).toBe(matchKey(target.replay, target.fileName));
     expect(row.schema).toBe(PROJECT_SCHEMA);
-    expect(row.strokes).toEqual(strokes);
     expect(row.notes[0]?.note.drawings[0]?.type).toBe("arrow");
+    expect("strokes" in row).toBe(false);
     expect(row.scorecard).toBeDefined();
     expect(row.playerStats).toBeDefined();
   });
@@ -53,7 +62,6 @@ describe("projectFromDemo", () => {
       mapName: "de_mirage",
       tick: 100,
       notes: [],
-      strokes: [],
       summaryFilter: DEFAULT_SUMMARY_FILTER,
       floorMode: "auto",
       paletteId: overlay.paletteId,
@@ -95,7 +103,6 @@ describe("projectFromDemo", () => {
       mapName: "de_mirage",
       tick: 100,
       notes: [],
-      strokes: [],
       summaryFilter: DEFAULT_SUMMARY_FILTER,
       floorMode: "auto",
       paletteId: overlay.paletteId,
@@ -136,13 +143,21 @@ describe("applyPendingDemoLink", () => {
 });
 
 describe("reviewSnapshot", () => {
-  it("captures demo, tick, strokes, and overlay for series cache", () => {
+  it("captures demo, tick, notes, and overlay for series cache", () => {
     const target = demo();
-    const strokes = [{ type: "pen" as const, round: 1, color: "#000", points: [{ x: 0, y: 0 }] }];
-    const snap = reviewSnapshot(target, 128, strokes, overlay);
+    const notes = [
+      {
+        round: 1,
+        note: {
+          ...emptyNote(),
+          drawings: [{ type: "pen" as const, color: "#000", points: [{ x: 0, y: 0 }] }],
+        },
+      },
+    ];
+    const snap = reviewSnapshot(target, 128, notes, overlay);
     expect(snap.demo).toBe(target);
     expect(snap.tick).toBe(128);
-    expect(snap.strokes).toEqual(strokes);
+    expect(snap.notes).toEqual(notes);
     expect(snap.paletteId).toBe(overlay.paletteId);
   });
 });

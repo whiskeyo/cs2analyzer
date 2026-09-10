@@ -1,6 +1,7 @@
 export {
   overlayWindow,
   overlayVisible,
+  itemWindow,
   momentBounds,
   withMoment,
   noteRounds,
@@ -13,59 +14,55 @@ export {
   setMomentClockEdge,
 } from "./visibility";
 export {
-  nextGroupId,
-  renameStrokeText,
-  removeStrokesAt,
-  setStrokesHidden,
-  groupStrokes,
-  ungroupStrokes,
-  renameGroup,
-  assignStrokesToGroup,
-  dropStrokesOn,
-  canGroupIndexes,
-  isDrawingStroke,
-  looseDrawingIndexes,
-  nextLayerName,
-  squashStrokes,
-  squashLooseDrawings,
-  type NoteDropDest,
-} from "./groups";
-export {
-  strokeTitle,
-  strokeWindowKind,
+  itemTitle,
+  itemColor,
+  itemHidden,
+  drawingTitle,
+  windowKind,
   groupLabel,
   notesByRound,
-  clusterNoteRound,
-  groupOverlays,
-  type TextStroke,
-  type NoteItem,
-  type NoteRound,
-  type NoteCluster,
-  type NoteGroup,
+  clusterNote,
+  type NoteListItem,
+  type NoteListCluster,
 } from "./list";
 export {
-  isBookmarkStroke,
-  makeBookmarkStroke,
+  bookmarkTitle,
+  makeBookmark,
+  addBookmark,
   roundBookmarkMarks,
-  type BookmarkStroke,
   type BookmarkScrubMark,
 } from "./bookmarks";
-export { emptyNote, cloneNote, overlayWindowOf, windowVisible, visibleDrawings } from "./note";
-export { parseDrawing, parseNote, parseRoundNote, parseRoundNotes } from "./noteParse";
-export { strokesToRoundNotes, strokesToNote, flattenRoundNotes, flattenNote } from "./migrate";
 export {
-  nextGroupId as nextNoteGroupId,
-  nextLayerName as nextNoteLayerName,
+  emptyNote,
+  cloneNote,
+  overlayWindowOf,
+  windowVisible,
+  visibleDrawings,
+  noteDrawingCount,
+  clearRoundDrawings,
+} from "./note";
+export { parseDrawing, parseNote, parseRoundNote, parseRoundNotes } from "./noteParse";
+export { strokesToRoundNotes, strokesToNote } from "./migrate";
+export { noteForRound, upsertRoundNote, updateRoundNote, noteRoundNumbers } from "./roundNotes";
+export {
+  nextGroupId,
+  nextLayerName,
   isPenOrArrow,
   canGroup,
   groupItems,
   ungroup,
-  renameGroup as renameNoteGroup,
+  renameGroup,
   removeItems,
   setItemsHidden,
+  setGroupHidden,
   assignToGroup,
   dropItems,
-  squashLooseDrawings as squashNoteLooseDrawings,
+  squashLooseDrawings,
+  squashItems,
+  ungroupRefs,
+  renameItemText,
+  refsEqual,
+  itemExists,
   type NoteItemRef,
-  type NoteDropDest as NoteLayerDropDest,
+  type NoteDropDest,
 } from "./noteGroups";

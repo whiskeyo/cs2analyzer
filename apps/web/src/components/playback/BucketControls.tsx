@@ -2,7 +2,7 @@ import { memo, useMemo } from "react";
 import { bucketTimelineMarks, markLabelShift } from "@/lib/playback/roundTimeline";
 import { formatClock } from "@/lib/weapons/weapons";
 import { TransportButton } from "./TransportButton";
-import { TransportButtonish } from "./TransportButtonish";
+import { UnfocusableButton } from "./UnfocusableButton";
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
@@ -40,12 +40,12 @@ export const BucketControls = memo(function BucketControls({
   return (
     <div className="controls">
       <TransportButton playing={playing} onToggle={onTogglePlay} />
-      <TransportButtonish title="Step back 1s" onClick={() => step(-1)}>
+      <UnfocusableButton title="Step back 1s" onClick={() => step(-1)}>
         −
-      </TransportButtonish>
-      <TransportButtonish title="Step forward 1s" onClick={() => step(1)}>
+      </UnfocusableButton>
+      <UnfocusableButton title="Step forward 1s" onClick={() => step(1)}>
         +
-      </TransportButtonish>
+      </UnfocusableButton>
       <label className="speed">
         Speed
         <select value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>

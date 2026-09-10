@@ -1,6 +1,6 @@
 import { defaultColor, defaultPaletteId } from "@/lib/notes/projectStore";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
-import type { ReviewStore } from "@/lib/notes/useReviewProject";
+import type { ReviewSession } from "@/lib/notes/useReviewProject";
 import { DEFAULT_HABITS_NADE_FILTER } from "@/lib/parse/seriesOverlay";
 import type { Playback } from "@/lib/playback/usePlayback";
 import type { SeriesHabitsState } from "./useSeriesHabits";
@@ -93,11 +93,11 @@ export function idleHabits(): SeriesHabitsState {
   };
 }
 
-export function idleReview(partial: Partial<ReviewStore> = {}): ReviewStore {
+export function idleReview(partial: Partial<ReviewSession> = {}): ReviewSession {
   return {
     saved: [],
-    strokes: [],
-    strokesRef: { current: [] },
+    notes: [],
+    notesRef: { current: [] },
     canUndo: false,
     canRedo: false,
     paletteId: defaultPaletteId(),
@@ -109,7 +109,7 @@ export function idleReview(partial: Partial<ReviewStore> = {}): ReviewStore {
     floorMode: "auto",
     setFloorMode: noop,
     refreshSaved: noop,
-    commitStrokes: noop,
+    commitNotes: noop,
     undo: noop,
     redo: noop,
     applyProject: noop,

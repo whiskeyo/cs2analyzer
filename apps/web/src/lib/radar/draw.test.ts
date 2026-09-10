@@ -3,7 +3,9 @@ import { NOTE_TEXT_MAX_WIDTH } from "@/lib/shared/constants";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { createMockCanvas, identityToScreen } from "@/lib/testing/mockCanvas";
 import { worldToScreen } from "./maps";
-import type { Stroke } from "@/lib/notes/types";
+import { emptyNote } from "@/lib/notes/note";
+import type { Drawing, Note } from "@/lib/notes/types";
+import { hitDrawing } from "@/lib/playbook/drawings";
 import {
   drawArrow,
   drawC4,
@@ -11,9 +13,8 @@ import {
   drawHeBurst,
   drawNadeFlightHead,
   drawTextLabel,
-  findTextIndex,
+  findTextRef,
   grenadePosAt,
-  hitStroke,
   hitTextLabel,
   NADE_FLIGHT_ICON_SIZE,
   canvasToYaw,
@@ -211,9 +212,8 @@ describe("drawHeBurst", () => {
 });
 
 describe("drawTextLabel", () => {
-  const stroke: Extract<Stroke, { type: "text" }> = {
+  const stroke: Extract<Drawing, { type: "text" }> = {
     type: "text",
-    round: 1,
     color: "#5b9fd6",
     x: 0,
     y: 0,
@@ -257,9 +257,8 @@ describe("drawTextLabel", () => {
 });
 
 describe("hitTextLabel", () => {
-  const stroke: Extract<Stroke, { type: "text" }> = {
+  const stroke: Extract<Drawing, { type: "text" }> = {
     type: "text",
-    round: 1,
     color: "#fff",
     x: 0,
     y: 0,
@@ -279,103 +278,96 @@ describe("hitTextLabel", () => {
   });
 });
 
-describe("findTextIndex", () => {
-  const strokes: Stroke[] = [
-    {
-      type: "text",
-      round: 1,
-      color: "#fff",
-      x: 10,
-      y: 20,
-      text: "Top",
-      box_w: 60,
-      box_h: 30,
-    },
-    {
-      type: "arrow",
-      round: 1,
-      color: "#f00",
-      from: { x: 0, y: 0 },
-      to: { x: 50, y: 50 },
-    },
-  ];
+describe("findTextRef", () => {
+  const note: Note = {
+    ...emptyNote(),
+    drawings: [
+      {
+        type: "text",
+        color: "#fff",
+        x: 10,
+        y: 20,
+        text: "Top",
+        box_w: 60,
+        box_h: 30,
+      },
+      {
+        type: "arrow",
+        color: "#f00",
+        from: { x: 0, y: 0 },
+        to: { x: 50, y: 50 },
+      },
+    ],
+  };
 
-  it("returns the topmost visible text stroke under the cursor", () => {
+  it("returns the topmost visible text drawing under the cursor", () => {
     const ctx = createMockCanvas();
     const view = { scale: 1, ox: 0, oy: 0 };
     const screen = worldToScreen(UNIT_CALIBRATION, 400, 400, view, 10, 20);
-    const idx = findTextIndex(
-      ctx,
-      UNIT_CALIBRATION,
-      400,
-      400,
-      view,
-      strokes,
-      100,
-      1,
-      screen.x,
-      screen.y,
-    );
-    expect(idx).toBe(0);
+    const toScreen = (wx: number, wy: number) =>
+      worldToScreen(UNIT_CALIBRATION, 400, 400, view, wx, wy);
+    const ref = findTextRef(ctx, note, 100, toScreen, screen.x, screen.y);
+    expect(ref).toEqual({ kind: "loose", index: 0 });
   });
 
-  it("returns -1 when nothing is hit", () => {
+  it("returns null when nothing is hit", () => {
     const ctx = createMockCanvas();
     const view = { scale: 1, ox: 0, oy: 0 };
-    expect(findTextIndex(ctx, UNIT_CALIBRATION, 400, 400, view, strokes, 100, 1, 0, 0)).toBe(-1);
+    const toScreen = (wx: number, wy: number) =>
+      worldToScreen(UNIT_CALIBRATION, 400, 400, view, wx, wy);
+    expect(findTextRef(ctx, note, 100, toScreen, 0, 0)).toBeNull();
   });
 
-  it("skips hidden text strokes", () => {
+  it("skips hidden text drawings", () => {
     const ctx = createMockCanvas();
-    const hidden: Stroke[] = [{ ...strokes[0], hidden: true } as Stroke];
+    const hidden: Note = {
+      ...emptyNote(),
+      drawings: [{ ...(note.drawings[0] as Drawing), hidden: true }],
+    };
     const view = { scale: 1, ox: 0, oy: 0 };
-    expect(findTextIndex(ctx, UNIT_CALIBRATION, 400, 400, view, hidden, 100, 1, 10, 1004)).toBe(-1);
+    const toScreen = (wx: number, wy: number) =>
+      worldToScreen(UNIT_CALIBRATION, 400, 400, view, wx, wy);
+    expect(findTextRef(ctx, hidden, 100, toScreen, 10, 1004)).toBeNull();
   });
 });
 
-describe("hitStroke", () => {
+describe("hitDrawing", () => {
   it("hits pen points within maxDist", () => {
-    const pen: Stroke = {
+    const pen: Drawing = {
       type: "pen",
-      round: 1,
       color: "#fff",
       points: [
         { x: 0, y: 0 },
         { x: 100, y: 100 },
       ],
     };
-    expect(hitStroke(pen, 100, 100, 5)).toBe(true);
-    expect(hitStroke(pen, 200, 200, 5)).toBe(false);
+    expect(hitDrawing(pen, { x: 100, y: 100 }, 5)).toBe(true);
+    expect(hitDrawing(pen, { x: 200, y: 200 }, 5)).toBe(false);
   });
 
   it("hits along an arrow segment", () => {
-    const arrow: Stroke = {
+    const arrow: Drawing = {
       type: "arrow",
-      round: 1,
       color: "#fff",
       from: { x: 0, y: 0 },
       to: { x: 100, y: 0 },
     };
-    expect(hitStroke(arrow, 50, 0, 3)).toBe(true);
-    expect(hitStroke(arrow, 50, 50, 3)).toBe(false);
+    expect(hitDrawing(arrow, { x: 50, y: 0 }, 3)).toBe(true);
+    expect(hitDrawing(arrow, { x: 50, y: 50 }, 3)).toBe(false);
   });
 
-  it("ignores text and bookmarks", () => {
+  it("ignores text", () => {
     expect(
-      hitStroke({ type: "text", round: 1, color: "#fff", x: 0, y: 0, text: "x" }, 0, 0, 100),
+      hitDrawing({ type: "text", color: "#fff", x: 0, y: 0, text: "x" }, { x: 0, y: 0 }, 100),
     ).toBe(false);
-    expect(hitStroke({ type: "bookmark", round: 1, color: "#fff", text: "exec" }, 0, 0, 100)).toBe(
-      false,
-    );
   });
 });
 
 describe("drawTextLabel width fallback", () => {
   it("uses NOTE_TEXT_MAX_WIDTH when box_w is omitted", () => {
     const ctx = createMockCanvas({ textWidth: NOTE_TEXT_MAX_WIDTH + 10 });
-    const stroke: Extract<Stroke, { type: "text" }> = {
+    const stroke: Extract<Drawing, { type: "text" }> = {
       type: "text",
-      round: 1,
       color: "#fff",
       x: 0,
       y: 0,

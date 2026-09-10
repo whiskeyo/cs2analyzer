@@ -1,18 +1,19 @@
 import { useRef, useState } from "react";
 import { NOTE_GROUP_NAME_MAX } from "@/lib/shared/constants";
-import { renameStrokeText } from "@/lib/notes";
-import type { Stroke } from "@/lib/notes/types";
+import { renameItemText } from "@/lib/notes";
+import type { NoteItemRef } from "@/lib/notes/noteGroups";
+import type { Note } from "@/lib/notes/types";
 
 export function BookmarkTitleField({
-  index,
+  refItem,
   title,
-  strokes,
-  onStrokes,
+  note,
+  onNote,
 }: {
-  index: number;
+  refItem: NoteItemRef;
   title: string;
-  strokes: Stroke[];
-  onStrokes: (next: Stroke[]) => void;
+  note: Note;
+  onNote: (next: Note) => void;
 }) {
   const [draft, setDraft] = useState(title);
   const [editing, setEditing] = useState(false);
@@ -30,7 +31,7 @@ export function BookmarkTitleField({
       setDraft(title);
       return;
     }
-    onStrokes(renameStrokeText(strokes, index, next));
+    onNote(renameItemText(note, refItem, next));
   };
 
   if (!editing) {

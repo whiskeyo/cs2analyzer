@@ -22,7 +22,7 @@ describe("RoundStrip", () => {
         makeRound({ number: 2, start_tick: 1000, freeze_end_tick: 1064, end_tick: 1600 }),
       ],
     });
-    render(<RoundStrip replay={replay} tick={300} strokes={[]} places={null} />);
+    render(<RoundStrip replay={replay} tick={300} notes={[]} places={null} />);
 
     await waitFor(() => expect(screen.getByRole("list")).toBeInTheDocument());
     expect(screen.getByTitle("Knife")).toHaveTextContent("K");
@@ -41,7 +41,7 @@ describe("RoundStrip", () => {
       <RoundStrip
         replay={replay}
         tick={6999}
-        strokes={[]}
+        notes={[]}
         places={null}
         activeRound={replay.rounds[1]}
       />,
@@ -59,7 +59,7 @@ describe("RoundStrip", () => {
     const replay = makeReplay({
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 2 * tps, end_tick: 640 })],
     });
-    render(<RoundStrip replay={replay} tick={tps} strokes={[]} places={null} />);
+    render(<RoundStrip replay={replay} tick={tps} notes={[]} places={null} />);
 
     await userEvent.click(screen.getByTitle("Round 1"));
     expect(onJump).toHaveBeenCalledWith(2 * tps);
@@ -73,7 +73,17 @@ describe("RoundStrip", () => {
       <RoundStrip
         replay={replay}
         tick={100}
-        strokes={[{ type: "pen", round: 1, color: "#fff", points: [{ x: 0, y: 0 }] }]}
+        notes={[
+          {
+            round: 1,
+            note: {
+              groups: [],
+              drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+              pieces: [],
+              bookmarks: [],
+            },
+          },
+        ]}
         places={null}
       />,
     );

@@ -1,25 +1,30 @@
 import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
 import type { Round } from "@/lib/replay/replayTypes";
-import type { Stroke } from "@/lib/notes/types";
-import { overlayWindow, withMoment } from "./visibility";
+import { cloneNote, overlayWindowOf } from "./note";
+import type { Bookmark, Note } from "./types";
+import { withMoment } from "./visibility";
 
-export type BookmarkStroke = Extract<Stroke, { type: "bookmark" }>;
-
-export function isBookmarkStroke(st: Stroke): st is BookmarkStroke {
-  return st.type === "bookmark";
+export function bookmarkTitle(mark: Bookmark): string {
+  const text = mark.text.trim();
+  return text !== "" ? text : NOTE_BOOKMARK_TITLE;
 }
 
-export function makeBookmarkStroke(
+export function makeBookmark(
   color: string,
-  round: number,
   tick: number,
   moment: boolean,
   roundEnd: number,
   tickRate: number,
-): Stroke {
-  const base: Stroke = { type: "bookmark", color, round, text: NOTE_BOOKMARK_TITLE };
+): Bookmark {
+  const base: Bookmark = { color, text: NOTE_BOOKMARK_TITLE, tick };
   if (moment) return withMoment(base, true, tick, roundEnd, tickRate);
   return { ...base, start_tick: tick, end_tick: tick };
+}
+
+export function addBookmark(note: Note, mark: Bookmark): Note {
+  const next = cloneNote(note);
+  next.bookmarks.push(mark);
+  return next;
 }
 
 export interface BookmarkScrubMark {
@@ -33,14 +38,9 @@ export interface BookmarkScrubMark {
   kind: "pin" | "span" | "round";
 }
 
-function bookmarkTitle(st: BookmarkStroke): string {
-  const text = st.text.trim();
-  return text !== "" ? text : NOTE_BOOKMARK_TITLE;
-}
-
 /** Current-round bookmarks along the scrubber (0–1). Hidden ones are omitted. */
 export function roundBookmarkMarks(
-  strokes: readonly Stroke[],
+  note: Note,
   round: Round,
   range: { min: number; max: number },
 ): BookmarkScrubMark[] {
@@ -49,14 +49,14 @@ export function roundBookmarkMarks(
   const at = (tick: number) => (Math.min(range.max, Math.max(range.min, tick)) - range.min) / span;
   const freeze = round.freeze_end_tick || round.start_tick;
   const out: BookmarkScrubMark[] = [];
-  strokes.forEach((st, index) => {
-    if (!isBookmarkStroke(st) || st.round !== round.number || st.hidden) return;
-    const title = bookmarkTitle(st);
-    const win = overlayWindow(st, strokes);
+  note.bookmarks.forEach((mark, index) => {
+    if (mark.hidden) return;
+    const title = bookmarkTitle(mark);
+    const win = overlayWindowOf(mark);
     if (!win) {
       out.push({
         index,
-        color: st.color,
+        color: mark.color,
         title,
         tick: freeze,
         startAt: 0,
@@ -70,7 +70,7 @@ export function roundBookmarkMarks(
     const pin = win.end <= win.start;
     out.push({
       index,
-      color: st.color,
+      color: mark.color,
       title,
       tick: win.start,
       startAt,

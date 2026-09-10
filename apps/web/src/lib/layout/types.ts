@@ -1,3 +1,7 @@
+/**
+ * Shared callout-JSON schema (`mapLayout`). Not the DEV editor (`lib/layouts`)
+ * and not the viewer loader (`lib/radar/layouts.ts`).
+ */
 export type LayoutFloor = "default" | "lower";
 
 export interface LayoutPoint {

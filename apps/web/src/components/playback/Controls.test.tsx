@@ -30,7 +30,7 @@ function baseProps(overrides: Partial<Parameters<typeof Controls>[0]> = {}) {
   return {
     replay,
     tick: 0,
-    strokes: [],
+    notes: [],
     playing: false,
     speed: 1,
     roundAutoplay: false,
@@ -215,21 +215,30 @@ describe("Controls", () => {
       kills: [makeKill(10 * tps, 0, 1)],
       bombEvents: [makeBombEvent({ tick: 15 * tps, kind: "planted", player: 1 })],
     });
-    const strokes = [
+    const notes = [
       {
-        type: "bookmark" as const,
         round: 1,
-        color: "#fff",
-        text: "Exec",
-        start_tick: 8 * tps,
-        end_tick: 12 * tps,
+        note: {
+          groups: [],
+          drawings: [],
+          pieces: [],
+          bookmarks: [
+            {
+              color: "#fff",
+              text: "Exec",
+              tick: 8 * tps,
+              start_tick: 8 * tps,
+              end_tick: 12 * tps,
+            },
+          ],
+        },
       },
     ];
     renderControls(
       baseProps({
         replay,
         tick: 5 * tps,
-        strokes,
+        notes,
         onJump,
       }),
     );

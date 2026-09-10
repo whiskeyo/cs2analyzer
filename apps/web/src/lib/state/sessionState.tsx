@@ -17,7 +17,7 @@ import {
   removeAllSavedNotes,
   tryOpenLinkedDemo,
 } from "@/lib/notes/reviewImportExport";
-import type { ReviewStore } from "@/lib/notes/useReviewProject";
+import type { ReviewSession } from "@/lib/notes/useReviewProject";
 import { useDemoSession, type CreateWorker, type DemoSession } from "@/lib/parse/useDemoSession";
 import { useStatus, type Status } from "./status";
 import { idleReview } from "./idleAnalyzer";
@@ -31,7 +31,7 @@ export interface AnalyzerBridge {
 export interface SessionState {
   status: Status;
   session: DemoSession;
-  notes: ReviewStore;
+  notes: ReviewSession;
   onFiles: (files: File[]) => void;
   bridgeRef: MutableRefObject<AnalyzerBridge>;
 }

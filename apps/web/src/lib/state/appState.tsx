@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { ReviewStore } from "@/lib/notes/useReviewProject";
+import type { ReviewSession } from "@/lib/notes/useReviewProject";
 import type { CreateWorker, DemoSession } from "@/lib/parse/useDemoSession";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { Playback } from "@/lib/playback/usePlayback";
@@ -13,20 +13,20 @@ import {
   type AnalyzerState,
 } from "./analyzerState";
 import { idleHabits, idlePlayback, idleView } from "./idleAnalyzer";
-
-const IDLE_PLAYBACK = idlePlayback();
-const IDLE_VIEW = idleView();
-const IDLE_HABITS = idleHabits();
 import { SessionProvider, useSession, type SessionState } from "./sessionState";
 import type { Status } from "./status";
 import type { SeriesHabitsState } from "./useSeriesHabits";
 import type { ViewState } from "./viewState";
 
+const IDLE_PLAYBACK = idlePlayback();
+const IDLE_VIEW = idleView();
+const IDLE_HABITS = idleHabits();
+
 export interface AppState {
   status: Status;
   session: DemoSession;
   playback: Playback;
-  review: ReviewStore;
+  review: ReviewSession;
   view: ViewState;
   habits: SeriesHabitsState;
   /** Radar calibration for the loaded map, or undefined until it is fetched. */

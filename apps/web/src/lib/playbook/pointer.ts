@@ -1,6 +1,7 @@
 import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { isPenOrArrow, type NoteItemRef } from "@/lib/notes/noteGroups";
 import type { Drawing, NadeStyle, Note, Piece } from "@/lib/notes/types";
+import { wrapLocalPoint } from "@/lib/shared/pointer";
 import { screenToWorld, worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { zoomViewAtCursor, wheelZoomFactor } from "@/lib/radar/panZoom.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
@@ -166,10 +167,7 @@ export function usePlaybookPointer(opts: {
     let pieceDrag: PieceDrag | null = null;
     let drawingDrag: DrawingDrag | null = null;
 
-    const pos = (e: MouseEvent | WheelEvent) => {
-      const rect = wrap.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    };
+    const pos = (e: MouseEvent | WheelEvent) => wrapLocalPoint(wrap, e);
 
     const toScreen = (wx: number, wy: number) =>
       worldToScreen(calRef.current, wrap.clientWidth, wrap.clientHeight, view.current, wx, wy);
