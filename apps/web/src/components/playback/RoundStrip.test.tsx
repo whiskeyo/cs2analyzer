@@ -7,6 +7,7 @@ import { PlaybackCommandProvider } from "@/lib/playback/playbackCommandContext";
 import { createPlaybackCommandBus, setPlaybackCommandSink } from "@/lib/playback/playbackCommands";
 import { usePlaybackCommandSink } from "@/lib/playback/usePlaybackCommandSink";
 import { jumpToRound } from "@/lib/playback/roundAutoplay";
+import type { Replay, Round } from "@/lib/replay/replayTypes";
 import { RoundStrip } from "./RoundStrip";
 
 const tps = DEFAULT_TICK_RATE;
@@ -16,9 +17,9 @@ function CommandSink({
   tick,
   jump,
 }: {
-  replay: ReturnType<typeof makeReplay>;
+  replay: Replay;
   tick: number;
-  jump: ReturnType<typeof vi.fn>;
+  jump: (t: number, pause?: boolean, round?: Round | null) => void;
 }) {
   usePlaybackCommandSink({
     replayRef: { current: replay },

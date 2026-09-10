@@ -8,6 +8,7 @@ import { PlaybackCommandProvider, useSendPlaybackCommand } from "./playbackComma
 import { createPlaybackCommandBus } from "./playbackCommands";
 import { usePlaybackCommandSink } from "./usePlaybackCommandSink";
 import { makeReplay } from "@/lib/testing/fixtures";
+import type { Round } from "@/lib/replay/replayTypes";
 
 function JumpButton() {
   const send = useSendPlaybackCommand();
@@ -18,7 +19,7 @@ function JumpButton() {
   );
 }
 
-function Sink({ jump }: { jump: ReturnType<typeof vi.fn> }) {
+function Sink({ jump }: { jump: (t: number, pause?: boolean, round?: Round | null) => void }) {
   const replay = makeReplay();
   usePlaybackCommandSink({
     replayRef: { current: replay },

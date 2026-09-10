@@ -12,7 +12,7 @@ import {
 import { useReviewProject, type ReviewSession } from "@/lib/notes/useReviewProject";
 import { isBucketOverlayActive } from "@/lib/parse/seriesMode";
 import { useBucketTransport } from "@/lib/playback/useBucketTransport";
-import { useHotkeys, type Hotkeys } from "@/lib/playback/useHotkeys";
+import { useHotkeys } from "@/lib/playback/useHotkeys";
 import { PlaybackCommandProvider } from "@/lib/playback/playbackCommandContext";
 import { createPlaybackCommandBus } from "@/lib/playback/playbackCommands";
 import { usePlayback as usePlaybackClock, type Playback } from "@/lib/playback/usePlayback";
@@ -37,15 +37,18 @@ export interface AnalyzerState {
 
 const AnalyzerContext = createContext<AnalyzerState | null>(null);
 
-/** Must render under PlaybackCommandProvider so strip/controls share the sink. */
-function AnalyzerCommandSink(opts: Hotkeys) {
-  useHotkeys(opts);
-  return null;
+/** Owns the per-demo command bus. Playback hooks must run under this provider. */
+function AnalyzerRuntime({ children }: { children: ReactNode }) {
+  const commandBus = useRef(createPlaybackCommandBus()).current;
+  return (
+    <PlaybackCommandProvider bus={commandBus}>
+      <AnalyzerPlayback>{children}</AnalyzerPlayback>
+    </PlaybackCommandProvider>
+  );
 }
 
-function AnalyzerRuntime({ children }: { children: ReactNode }) {
+function AnalyzerPlayback({ children }: { children: ReactNode }) {
   const { status, session, bridgeRef } = useSession();
-  const commandBus = useRef(createPlaybackCommandBus()).current;
   const bucketTransportRef = useRef(false);
   const playback = usePlaybackClock(session.replay, session.demo?.id ?? null, bucketTransportRef);
   const review = useReviewProject({
@@ -167,38 +170,28 @@ function AnalyzerRuntime({ children }: { children: ReactNode }) {
   const replayRef = useRef(replay);
   replayRef.current = replay;
 
+  useHotkeys({
+    replayRef,
+    placesRef,
+    tickRef: playback.tickRef,
+    playingRef: playback.playingRef,
+    selectedRef: view.selectedRef,
+    jump: playback.jump,
+    undo: review.undo,
+    redo: review.redo,
+    setPlaying: playback.setPlaying,
+    togglePlaying: playback.togglePlaying,
+    setFollow: view.setFollow,
+    setTrails: view.setTrails,
+    setSelected: select,
+  });
+
   const value = useMemo(
-    (): AnalyzerState => ({
-      playback,
-      review,
-      view: viewOut,
-      habits: habitsOut,
-      cal,
-      places,
-    }),
+    (): AnalyzerState => ({ playback, review, view: viewOut, habits: habitsOut, cal, places }),
     [playback, review, viewOut, habitsOut, cal, places],
   );
 
-  return (
-    <PlaybackCommandProvider bus={commandBus}>
-      <AnalyzerCommandSink
-        replayRef={replayRef}
-        placesRef={placesRef}
-        tickRef={playback.tickRef}
-        playingRef={playback.playingRef}
-        selectedRef={view.selectedRef}
-        jump={playback.jump}
-        undo={review.undo}
-        redo={review.redo}
-        setPlaying={playback.setPlaying}
-        togglePlaying={playback.togglePlaying}
-        setFollow={view.setFollow}
-        setTrails={view.setTrails}
-        setSelected={select}
-      />
-      <AnalyzerContext.Provider value={value}>{children}</AnalyzerContext.Provider>
-    </PlaybackCommandProvider>
-  );
+  return <AnalyzerContext.Provider value={value}>{children}</AnalyzerContext.Provider>;
 }
 
 /** Mounts playback/review/hotkeys only while a demo is parsing or loaded. */

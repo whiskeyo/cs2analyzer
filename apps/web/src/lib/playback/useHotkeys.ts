@@ -4,7 +4,7 @@ import type { Replay, Round } from "@/lib/replay/replayTypes";
 import { usePlaybackCommandSink } from "./usePlaybackCommandSink";
 import { usePlaybackKeys } from "./usePlaybackKeys";
 
-export type Hotkeys = {
+type Hotkeys = {
   replayRef: MutableRefObject<Replay | null>;
   tickRef: MutableRefObject<number>;
   playingRef: MutableRefObject<boolean>;
