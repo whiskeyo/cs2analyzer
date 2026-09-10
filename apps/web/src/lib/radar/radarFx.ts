@@ -1,5 +1,6 @@
 import {
   FLASH_POP_SECONDS,
+  FLASH_OVERLAY_SPIKE_SECONDS,
   FLASH_BURST_SECONDS,
   HE_BURST_SECONDS,
   HE_DECOY_SECONDS,
@@ -77,6 +78,9 @@ export function blindsAt(
   if (!blinds || tps <= 0) return out;
   for (const b of blinds) {
     if (b.victim < 0 || b.duration <= 0) continue;
+    // Overlay-band (~5.0–5.47s) is a pawn/engine snap, not white-time.
+    // Painting it puts identical 5.0s yellow on two far pawns.
+    if (b.duration >= FLASH_OVERLAY_SPIKE_SECONDS) continue;
     const end = b.tick + b.duration * tps;
     if (tick < b.tick || tick >= end) continue;
     const left = (end - tick) / tps;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HE_BURST_SECONDS, KILL_LINE_MIN_LENGTH } from "@/lib/shared/constants";
+import { FLASH_FULL_SECONDS, HE_BURST_SECONDS, KILL_LINE_MIN_LENGTH } from "@/lib/shared/constants";
 import {
   blindsAt,
   formatBlindLeft,
@@ -53,6 +53,35 @@ describe("blindsAt", () => {
       { tick: 110, attacker: 2, victim: 0, duration: 2 },
     ];
     expect(blindsAt(blinds, 120, 64).get(0)).toBeCloseTo(2 - 10 / 64, 5);
+  });
+
+  it("does not let a 5.1s overlay snap hide a shorter player_blind", () => {
+    // Revert blindsAt overlay skip → victim 0 paints 5.47s and victim 1 paints 5.1s.
+    const blinds = [
+      { tick: 100, attacker: 1, victim: 0, duration: 1.3 },
+      { tick: 100, attacker: 1, victim: 0, duration: FLASH_FULL_SECONDS },
+      { tick: 100, attacker: 1, victim: 1, duration: 5.1 },
+    ];
+    expect(blindsAt(blinds, 100, 64).get(0), "prefer short player_blind over overlay").toBeCloseTo(
+      1.3,
+      5,
+    );
+    expect(blindsAt(blinds, 100, 64).get(1), "overlay-band must not paint").toBeUndefined();
+  });
+
+  it("does not paint overlay-only 5.0s yellow on a far pawn", () => {
+    // Twin Matt + yazuyy yellow: two overlay-only victims. Revert → size === 2.
+    const blinds = [
+      { tick: 100, attacker: 1, victim: 0, duration: 5.0 },
+      { tick: 100, attacker: 1, victim: 1, duration: 5.0 },
+    ];
+    expect(blindsAt(blinds, 100, 64).size, "overlay-band must not paint").toBe(0);
+  });
+
+  it("does not paint 4.95s leftover that labels as 5.0s", () => {
+    const blinds = [{ tick: 100, attacker: 1, victim: 0, duration: 4.95 }];
+    expect(blindsAt(blinds, 100, 64).size, "overlay-band must not paint").toBe(0);
+    expect(formatBlindLeft(4.95)).toBe("5.0s");
   });
 
   it("formats remaining flash time for the radar label", () => {

@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { makeBlind, makeGrenade, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
+import {
+  makeBlind,
+  makeGrenade,
+  makeHurt,
+  makePlayer,
+  makeReplay,
+  makeRound,
+} from "@/lib/testing/fixtures";
 import { Utility } from "./Utility";
 
 describe("Utility", () => {
@@ -143,6 +150,41 @@ describe("Utility", () => {
     expect(rows[2]).toHaveClass("mixed");
     expect(screen.getByText("Bob 1.2s")).toBeInTheDocument();
     expect(screen.getByText("Alice 1.1s")).toBeInTheDocument();
-    expect(screen.getByText("Enemy: Bob 0.9s · Team: Alice 0.8s")).toBeInTheDocument();
+    expect(screen.getByText("Bob 0.9s")).toBeInTheDocument();
+    expect(screen.getByText("Alice 0.8s")).toBeInTheDocument();
+    expect(screen.queryByText(/Enemy: Bob 0\.9s · Team: Alice 0\.8s/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Enemy")).toHaveLength(2);
+    expect(screen.getAllByText("Team")).toHaveLength(2);
+  });
+
+  it("shows HE hits as Enemy chips, not a damage sentence", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+      grenades: [
+        makeGrenade({
+          kind: "he",
+          thrower: 0,
+          start_tick: 100,
+          detonate_tick: 120,
+          end_tick: 160,
+        }),
+      ],
+      hurts: [makeHurt(122, 0, 1, 42, { weapon: "hegrenade" })],
+    });
+    render(
+      <Utility
+        replay={replay}
+        tick={200}
+        selected={null}
+        onJump={() => {}}
+        onSelect={() => {}}
+        places={null}
+      />,
+    );
+    expect(screen.queryByText(/Bob \(42\)/)).toBeInTheDocument();
+    expect(screen.getByText("Enemy")).toHaveClass("util-throw-kicker");
+    expect(screen.getByText("Bob (42)")).toHaveClass("util-throw-chip", "enemy");
+    expect(screen.queryByText(/Enemy: Bob \(42\)/)).not.toBeInTheDocument();
   });
 });

@@ -1,12 +1,14 @@
 import {
-  FLASH_FULL_SECONDS,
-  MIN_REVIEW_FLASH_SECONDS,
+  FLASH_BLIND_ATTRIBUTION_SECONDS,
+  FLASH_ONSET_RISE_SECONDS,
+  FLASH_OVERLAY_SPIKE_SECONDS,
+  FLASH_POP_SECONDS,
   MOLOTOV_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
 import { nadeLandPos } from "@/lib/radar/radarFx";
 import { NADE_LABEL } from "@/lib/match/roundEvents";
-import { currentRound } from "@/lib/replay/sample";
+import { currentRound, samplePlayer } from "@/lib/replay/sample";
 import { calloutsInLocation, placeAt, type MapPlaces, type SiteCallout } from "./sites";
 import { clusterLayoutCallouts, groupLabel, type MapLayout } from "@/lib/radar/layouts";
 import { inKnifeRound, isEnemy } from "@/lib/stats/stats";
@@ -108,26 +110,64 @@ function addHit(
   });
 }
 
+function overlaySpike(duration: number): boolean {
+  return duration >= FLASH_OVERLAY_SPIKE_SECONDS;
+}
+
+/** Peak real pop. Overlay-only snaps (~5.1s) are not a Utility chip. */
+export function pickFlashDuration(durations: readonly number[]): number {
+  if (durations.length === 0) return 0;
+  const real = durations.filter((duration) => !overlaySpike(duration));
+  if (real.length === 0) return 0;
+  return real.reduce((best, duration) => (duration > best ? duration : best));
+}
+
+/** One chip per victim: player_blind + pawn flash samples otherwise stack. */
+function addBlind(
+  row: UtilThrowRow,
+  replay: Replay,
+  victim: number,
+  duration: number,
+  tick: number,
+): void {
+  const existing = row.blinds.find((blind) => blind.victim === victim);
+  if (existing) {
+    const next = pickFlashDuration([existing.duration, duration]);
+    if (next > 0) existing.duration = next;
+    return;
+  }
+  const picked = pickFlashDuration([duration]);
+  if (picked <= 0) return;
+  row.blinds.push({
+    victim,
+    victimName: nameOf(replay, victim),
+    duration: picked,
+    enemy: row.thrower >= 0 && victim >= 0 && isEnemy(replay, row.thrower, victim, tick),
+  });
+}
+
 function attachEndTick(row: UtilThrowRow, tps: number): number {
   if (isFireGrenade(row.kind)) {
     return Math.max(row.endTick, row.detonateTick + Math.round(MOLOTOV_SECONDS * tps));
   }
-  if (row.kind === "flash") {
-    return Math.max(row.endTick, row.detonateTick + Math.round(FLASH_FULL_SECONDS * tps));
-  }
   return row.endTick;
 }
 
-function nearestThrow(
+function flashBlindWindowEnd(row: UtilThrowRow, tps: number): number {
+  return row.detonateTick + Math.round(FLASH_BLIND_ATTRIBUTION_SECONDS * tps);
+}
+
+function nearestInWindow(
   rows: UtilThrowRow[],
   attacker: number,
   tick: number,
-  tps: number,
+  startTick: (row: UtilThrowRow) => number,
+  endTick: (row: UtilThrowRow) => number,
 ): UtilThrowRow | null {
   let best: UtilThrowRow | null = null;
   let bestDist = Number.POSITIVE_INFINITY;
   for (const row of rows) {
-    if (tick < row.tick || tick > attachEndTick(row, tps)) continue;
+    if (tick < startTick(row) || tick > endTick(row)) continue;
     if (attacker >= 0 && row.thrower >= 0 && row.thrower !== attacker) continue;
     const dist = Math.abs(tick - row.detonateTick);
     if (dist < bestDist) {
@@ -138,6 +178,124 @@ function nearestThrow(
   return best;
 }
 
+function nearestThrow(
+  rows: UtilThrowRow[],
+  attacker: number,
+  tick: number,
+  tps: number,
+): UtilThrowRow | null {
+  return nearestInWindow(
+    rows,
+    attacker,
+    tick,
+    (row) => row.tick,
+    (row) => attachEndTick(row, tps),
+  );
+}
+
+function flashWindowHas(row: UtilThrowRow, tick: number, tps: number): boolean {
+  // `player_blind` often lands a few ticks before `flashbang_detonate`.
+  const slack = Math.round(FLASH_POP_SECONDS * tps);
+  return tick >= row.detonateTick - slack && tick <= flashBlindWindowEnd(row, tps);
+}
+
+function latestDetonated(rows: UtilThrowRow[]): UtilThrowRow | null {
+  let best: UtilThrowRow | null = null;
+  for (const row of rows) {
+    if (!best || row.detonateTick > best.detonateTick) best = row;
+  }
+  return best;
+}
+
+/**
+ * Prefer `blind.attacker === throw.player`. If attacker is missing or does not
+ * match any in-window throw (stale `last_flash_thrower`), use the latest pop
+ * so a first onset is not dropped. Leftover vs new-onset is `isFreshOnset`.
+ */
+function pickFlashForBlind(
+  flashes: UtilThrowRow[],
+  attacker: number,
+  tick: number,
+  tps: number,
+): UtilThrowRow | null {
+  const inWindow = flashes.filter((row) => flashWindowHas(row, tick, tps));
+  if (attacker >= 0) {
+    const matched = latestDetonated(inWindow.filter((row) => row.thrower === attacker));
+    if (matched) return matched;
+  }
+  return latestDetonated(inWindow);
+}
+
+interface VictimOnset {
+  row: UtilThrowRow;
+  peak: number;
+  seenMax: number;
+  lastDuration: number;
+  onsetTick: number;
+}
+
+function elapsedSinceOnset(prev: VictimOnset, tick: number, tps: number): number {
+  return (tick - prev.onsetTick) / tps;
+}
+
+function peakDecayRemaining(prev: VictimOnset, tick: number, tps: number): number {
+  return prev.peak - elapsedSinceOnset(prev, tick, tps);
+}
+
+/** Remaining time if `seenMax` (incl. overlay) is decaying from the A onset. */
+function leftoverRemaining(prev: VictimOnset, tick: number, tps: number): number {
+  return prev.seenMax - elapsedSinceOnset(prev, tick, tps);
+}
+
+function isLeftoverSample(prev: VictimOnset, duration: number, tick: number, tps: number): boolean {
+  const expected = leftoverRemaining(prev, tick, tps);
+  if (expected <= 0) return false;
+  return duration <= expected + FLASH_ONSET_RISE_SECONDS;
+}
+
+/**
+ * Throw B gets a victim only on a new onset attributable to B — not because
+ * they are still yellow from A. Overlay / leftover remainder stay on A.
+ * Thrower self-blind on B may use a thrower-matched overlay snap.
+ */
+function isFreshOnset(
+  prev: VictimOnset,
+  duration: number,
+  tick: number,
+  attacker: number,
+  victim: number,
+  candidate: UtilThrowRow,
+  tps: number,
+): boolean {
+  if (prev.row === candidate) return true;
+  if (tick < candidate.detonateTick) return false;
+  if (candidate.detonateTick <= prev.row.detonateTick) return false;
+
+  const attackerMatch = attacker >= 0 && attacker === candidate.thrower;
+  const self = victim === candidate.thrower;
+  if (self && attackerMatch) return true;
+
+  if (overlaySpike(duration)) return false;
+  if (peakDecayRemaining(prev, tick, tps) > 0) return false;
+  if (isLeftoverSample(prev, duration, tick, tps)) return false;
+
+  // A's leftover/peak has expired: a thrower-matched sample after B is a new onset
+  // even when the new white-time is shorter than A's chip.
+  if (attackerMatch) return true;
+  const rise =
+    duration > prev.lastDuration + FLASH_ONSET_RISE_SECONDS ||
+    duration > prev.peak + FLASH_ONSET_RISE_SECONDS;
+  if (attacker < 0 && leftoverRemaining(prev, tick, tps) <= 0 && rise) return true;
+  return false;
+}
+
+/** Dead / missing pawns still report leftover `m_flFlashDuration`; skip those. */
+function victimAliveAt(replay: Replay, victim: number, tick: number): boolean {
+  if (replay.ticks.frameCount === 0 || replay.ticks.playerCount === 0) return true;
+  const snap = samplePlayer(replay, victim, tick);
+  return snap != null && snap.present && snap.alive;
+}
+
 function nameOf(replay: Replay, i: number): string {
   return i < 0 ? "World" : (replay.players[i]?.name ?? "?");
 }
@@ -146,18 +304,55 @@ function attachBlinds(rows: UtilThrowRow[], replay: Replay, untilTick: number): 
   const flashes = rows.filter((row) => row.kind === "flash");
   if (flashes.length === 0) return;
   const tps = tickRate(replay);
-  for (const blind of replay.blinds ?? []) {
-    if (blind.tick > untilTick || blind.duration < MIN_REVIEW_FLASH_SECONDS) continue;
-    if (inKnifeRound(replay, blind.tick)) continue;
-    const best = nearestThrow(flashes, blind.attacker, blind.tick, tps);
-    if (!best) continue;
-    const flasher = blind.attacker >= 0 ? blind.attacker : best.thrower;
-    best.blinds.push({
-      victim: blind.victim,
-      victimName: nameOf(replay, blind.victim),
-      duration: blind.duration,
-      enemy:
-        flasher >= 0 && blind.victim >= 0 && isEnemy(replay, flasher, blind.victim, blind.tick),
+  const onsets = new Map<number, VictimOnset>();
+  const blinds = (replay.blinds ?? [])
+    .filter(
+      (blind) => blind.tick <= untilTick && blind.duration > 0 && !inKnifeRound(replay, blind.tick),
+    )
+    .slice()
+    .sort((a, b) => a.tick - b.tick || a.victim - b.victim);
+
+  for (const blind of blinds) {
+    if (blind.victim < 0) continue;
+    const candidate = pickFlashForBlind(flashes, blind.attacker, blind.tick, tps);
+    if (!candidate) continue;
+    if (!victimAliveAt(replay, blind.victim, candidate.detonateTick)) continue;
+    if (!victimAliveAt(replay, blind.victim, blind.tick)) continue;
+    const prev = onsets.get(blind.victim);
+    const fresh =
+      !prev ||
+      isFreshOnset(prev, blind.duration, blind.tick, blind.attacker, blind.victim, candidate, tps);
+    if (prev && !fresh) {
+      if (candidate === prev.row) {
+        addBlind(prev.row, replay, blind.victim, blind.duration, blind.tick);
+      }
+      const attached = prev.row.blinds.find((entry) => entry.victim === blind.victim);
+      onsets.set(blind.victim, {
+        row: prev.row,
+        peak: attached?.duration ?? prev.peak,
+        seenMax: candidate === prev.row ? Math.max(prev.seenMax, blind.duration) : prev.seenMax,
+        lastDuration:
+          candidate === prev.row && !overlaySpike(blind.duration)
+            ? blind.duration
+            : prev.lastDuration,
+        onsetTick: prev.onsetTick,
+      });
+      continue;
+    }
+
+    addBlind(candidate, replay, blind.victim, blind.duration, blind.tick);
+    const attached = candidate.blinds.find((entry) => entry.victim === blind.victim);
+    const same = prev?.row === candidate;
+    onsets.set(blind.victim, {
+      row: candidate,
+      peak: attached?.duration ?? (same ? prev.peak : 0),
+      seenMax: Math.max(same && prev ? prev.seenMax : 0, blind.duration),
+      lastDuration: overlaySpike(blind.duration)
+        ? same && prev
+          ? prev.lastDuration
+          : 0
+        : blind.duration,
+      onsetTick: same && prev ? prev.onsetTick : blind.tick,
     });
   }
 }
@@ -347,30 +542,53 @@ export function utilKindSummary(byKind: Record<GrenadeKind, number>): string {
     .join(" · ");
 }
 
-function formatBlind(blind: UtilBlind): string {
+export function formatBlind(blind: UtilBlind): string {
   return `${blind.victimName} ${blind.duration.toFixed(1)}s`;
 }
 
+export function formatUtilHit(hit: UtilHit): string {
+  return `${hit.victimName} (${hit.damage})`;
+}
+
+function splitByEnemy<T extends { enemy: boolean }>(items: T[]): { enemy: T[]; team: T[] } {
+  return {
+    enemy: items.filter((item) => item.enemy),
+    team: items.filter((item) => !item.enemy),
+  };
+}
+
+export function splitUtilBlinds(blinds: UtilBlind[]): { enemy: UtilBlind[]; team: UtilBlind[] } {
+  return splitByEnemy(blinds);
+}
+
+export function splitUtilHits(hits: UtilHit[]): { enemy: UtilHit[]; team: UtilHit[] } {
+  return splitByEnemy(hits);
+}
+
 function flashBlindDetail(blinds: UtilBlind[]): string {
-  const enemies = blinds.filter((blind) => blind.enemy);
-  const team = blinds.filter((blind) => !blind.enemy);
-  if (enemies.length > 0 && team.length > 0) {
-    return `Enemy: ${enemies.map(formatBlind).join(" · ")} · Team: ${team.map(formatBlind).join(" · ")}`;
+  const { enemy, team } = splitUtilBlinds(blinds);
+  if (enemy.length > 0 && team.length > 0) {
+    return `Enemy: ${enemy.map(formatBlind).join(" · ")} · Team: ${team.map(formatBlind).join(" · ")}`;
   }
   return blinds.map(formatBlind).join(" · ");
 }
 
+function hitDetail(hits: UtilHit[]): string {
+  const { enemy, team } = splitUtilHits(hits);
+  if (enemy.length > 0 && team.length > 0) {
+    return `Enemy: ${enemy.map(formatUtilHit).join(" · ")} · Team: ${team.map(formatUtilHit).join(" · ")}`;
+  }
+  return hits.map(formatUtilHit).join(", ");
+}
+
 /** Colour only from who was hit or flashed. Misses stay white (site is already on the row). */
 export function utilRowTone(row: UtilThrowRow): "" | "good" | "high" | "mixed" {
-  if (row.kind === "flash") {
-    const enemies = row.blinds.some((blind) => blind.enemy);
-    const team = row.blinds.some((blind) => !blind.enemy);
-    if (enemies && team) return "mixed";
-    if (enemies) return "good";
-    if (team) return "high";
-    return "";
-  }
-  if (row.hits.some((hit) => hit.enemy)) return "good";
+  const marks = row.blinds.length > 0 ? row.blinds : row.hits;
+  const enemies = marks.some((mark) => mark.enemy);
+  const team = marks.some((mark) => !mark.enemy);
+  if (enemies && team) return "mixed";
+  if (enemies) return "good";
+  if (team) return "high";
   return "";
 }
 
@@ -380,7 +598,7 @@ export function throwDetail(row: UtilThrowRow): string {
     parts.push(flashBlindDetail(row.blinds));
   }
   if (row.hits.length > 0) {
-    parts.push(row.hits.map((hit) => `${hit.victimName} (${hit.damage})`).join(", "));
+    parts.push(hitDetail(row.hits));
   }
   return parts.join(" · ");
 }

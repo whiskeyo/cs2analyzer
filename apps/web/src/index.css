@@ -2698,6 +2698,49 @@ button.link:hover:not(:disabled) {
   font-size: 0.72rem;
   color: var(--text-muted);
 }
+.util-throw-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+}
+.util-throw-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.util-throw-kicker {
+  flex: 0 0 2.6rem;
+  margin-top: 0.14rem;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.util-throw-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.18rem;
+  min-width: 0;
+}
+.util-throw-chip {
+  padding: 0.06rem 0.32rem;
+  border-radius: 3px;
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.util-throw-chip.enemy {
+  color: #7dcea0;
+  background: #1a2a22;
+}
+.util-throw-chip.team {
+  color: #ff8a8a;
+  background: #2a1a1e;
+}
 .util-head {
   margin: 0.85rem 0 0.25rem;
   font-size: 0.78rem;

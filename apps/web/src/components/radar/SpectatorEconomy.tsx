@@ -12,7 +12,7 @@ import {
 } from "@/lib/weapons/loadout";
 import { samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
 import { freezeBuysForPlayer } from "@/lib/match/buys";
-import { computeStats, liveTeams } from "@/lib/stats/stats";
+import { computeStats, liveScoreboardPlayers, liveTeams } from "@/lib/stats/stats";
 import { formatLastHit, lastHitTaken } from "@/lib/stats/lastHit";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { GearIcon, WeaponIcon } from "@/components/weapons/WeaponIcon";
@@ -120,8 +120,9 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
   const samples = samplePlayers(replay, tick);
   const stats = computeStats(replay, tick);
   const teams = liveTeams(replay, tick);
+  const live = new Set(liveScoreboardPlayers(replay, tick));
   const rows = samples
-    .filter((p) => p.present)
+    .filter((p) => live.has(p.index))
     .map((p) => {
       const s = stats[p.index];
       return {

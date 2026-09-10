@@ -56,6 +56,9 @@ export const REGULATION_ROUNDS_PER_HALF = 12;
 /** MR12: both halves (12+12). */
 export const REGULATION_ROUNDS = 24;
 
+/** Competitive 5v5 roster size per side. */
+export const COMPETITIVE_PLAYERS_PER_SIDE = 5;
+
 /** First 1-based round number of overtime. */
 export const FIRST_OVERTIME_ROUND = 25;
 
@@ -109,6 +112,31 @@ export const FLASH_POP_SECONDS = 0.4;
 
 /** Full-face CS2 flash; scales the radar countdown dial around a blinded pawn. */
 export const FLASH_FULL_SECONDS = 5.47;
+
+/**
+ * Pawn `m_flFlashDuration` often snaps to the full overlay (~5.1–5.47s) even on
+ * a weak pop. `player_blind` can repeat the same band for every marked pawn.
+ * Radar and Utility ignore this band; they use shorter samples only.
+ */
+/** Wide enough that `4.95.toFixed(1) === "5.0"` leftover snaps are excluded. */
+export const FLASH_OVERLAY_SLACK_SECONDS = 0.57;
+export const FLASH_OVERLAY_SPIKE_SECONDS = FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
+
+/**
+ * How long after detonate a blind may still be attributed to that flash.
+ * GOTV can deliver `player_blind` after the projectile `end_tick`; this is not
+ * the 5.47s overlay — leftover duration samples later in the round are a
+ * different flash (or a dead pawn still reporting).
+ */
+export const FLASH_BLIND_ATTRIBUTION_SECONDS = 2;
+
+/**
+ * A later flash may take a victim only when duration jumps by more than this
+ * after that flash’s detonate. Smaller steps are leftover decay / re-reports.
+ * Overlay snaps and remaining time from an earlier attributed peak are not a
+ * new onset — radar “still yellow” is not “blinded by this throw”.
+ */
+export const FLASH_ONSET_RISE_SECONDS = 0.2;
 
 /** How long an HE/flash pop stays drawn after detonate. */
 export const HE_BURST_SECONDS = 0.55;

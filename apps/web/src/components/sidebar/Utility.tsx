@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { NADE_LABEL, NADE_WEAPON } from "@/lib/match/roundEvents";
 import {
-  throwDetail,
   usedUtilKinds,
   usedUtilPlaces,
   utilKindSelected,
@@ -14,6 +13,7 @@ import { placesReady, type MapPlaces } from "@/lib/match/sites";
 import type { GrenadeKind, Replay } from "@/lib/replay/replayTypes";
 import { matchEndTick } from "@/lib/stats/stats";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
+import { UtilThrowDetail } from "./UtilThrowDetail";
 
 interface Props {
   replay: Replay;
@@ -135,7 +135,6 @@ export function Utility({
       ) : (
         <ul className="review-notes">
           {rows.map((row, i) => {
-            const detail = throwDetail(row);
             const tone = utilRowTone(row);
             return (
               <li key={`${row.tick}-${row.thrower}-${row.kind}-${i}`}>
@@ -154,7 +153,7 @@ export function Utility({
                       <WeaponIcon weapon={NADE_WEAPON[row.kind]} />
                       {row.throwerName} · {row.location ?? "—"}
                     </span>
-                    {detail ? <span className="review-detail">{detail}</span> : null}
+                    <UtilThrowDetail row={row} />
                   </span>
                 </button>
               </li>

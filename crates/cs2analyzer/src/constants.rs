@@ -52,6 +52,36 @@ pub const MOLOTOV_SECONDS: f32 = 7.0;
 pub const HE_DECOY_SECONDS: f32 = 0.5;
 pub const FLASH_POP_SECONDS: f32 = 0.4;
 
+/// Full-face CS2 flash. Pawn `m_flFlashDuration` often snaps into this band
+/// even when `player_blind` is a short pop. Keep aligned with the web constants.
+pub const FLASH_FULL_SECONDS: f32 = 5.47;
+/// Wide enough that `4.95.toFixed(1) === "5.0"` leftover snaps are excluded.
+pub const FLASH_OVERLAY_SLACK_SECONDS: f32 = 0.57;
+pub const FLASH_OVERLAY_SPIKE_SECONDS: f32 = FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
+
+pub fn flash_overlay_spike(duration: f32) -> bool {
+    duration >= FLASH_OVERLAY_SPIKE_SECONDS
+}
+
+/// `CCSPlayerController.m_iConnected` (`PlayerConnectedState`). Missing GOTV
+/// field must not drop the roster — `prop_i32_opt` is `None`, treated as in-server.
+pub const PLAYER_NEVER_CONNECTED: i32 = -1;
+pub const PLAYER_CONNECTED: i32 = 0;
+pub const PLAYER_CONNECTING: i32 = 1;
+pub const PLAYER_RECONNECTING: i32 = 2;
+pub const PLAYER_DISCONNECTING: i32 = 3;
+pub const PLAYER_DISCONNECTED: i32 = 4;
+pub const PLAYER_RESERVED: i32 = 5;
+
+/// True when the controller is still in the server (or GOTV omitted the field).
+pub fn player_connected_in_server(state: Option<i32>) -> bool {
+    match state {
+        None => true,
+        Some(PLAYER_CONNECTED | PLAYER_CONNECTING | PLAYER_RECONNECTING) => true,
+        Some(_) => false,
+    }
+}
+
 /// CS2 buy menu prices. Keep aligned with `apps/web/src/lib/shared/constants.ts`.
 pub const COST_GLOCK: u16 = 200;
 pub const COST_USP: u16 = 200;

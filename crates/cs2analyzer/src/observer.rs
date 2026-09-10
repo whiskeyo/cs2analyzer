@@ -77,6 +77,9 @@ pub(crate) struct Collector {
     pub blinds: Vec<(u32, Option<u64>, f32, Option<u64>)>,
     pub bomb_events: Vec<BombRec>,
     pub userid_to_steam: HashMap<i32, u64>,
+    /// Steams that left (`player_disconnect` or `m_iConnected` out of server).
+    /// Used when GOTV omits `m_iConnected` so leftover controllers stay flagged.
+    left_steams: HashSet<u64>,
     flash_duration: HashMap<u64, f32>,
     last_flash_thrower: Option<u64>,
     pub frames: Vec<RawFrame>,
@@ -170,6 +173,7 @@ impl Collector {
             blinds: Vec::new(),
             bomb_events: Vec::new(),
             userid_to_steam: HashMap::new(),
+            left_steams: HashSet::new(),
             flash_duration: HashMap::new(),
             last_flash_thrower: None,
             frames: Vec::new(),
@@ -206,7 +210,7 @@ impl Collector {
     }
 
     fn record_blind(&mut self, tick: u32, victim: u64, duration: f32, attacker: Option<u64>) {
-        if duration <= 0.0 {
+        if !accept_blind_duration(duration) {
             return;
         }
         if self
@@ -235,10 +239,9 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
-            let steam = prop_u64(ctrl, "m_steamID");
-            if steam == 0 {
+            let Some(steam) = controller_active_steam(self, ctrl) else {
                 continue;
-            }
+            };
             let handle = prop_u32(ctrl, "m_hPlayerPawn");
             let Ok(pawn) = ctx.entities().get_by_handle(handle as usize) else {
                 continue;
@@ -362,6 +365,77 @@ fn steam_from_game_event(c: &Collector, ctx: &Context, ge: &GameEvent<'_>) -> Op
         .or_else(|| ev_i32(ge, "userid").and_then(|uid| steam_from_userid(c, ctx, uid)))
 }
 
+/// Controllers with `m_steamID == 0` are bots (or an empty slot after a leave).
+/// Drop the stale userid→steam binding so `player_blind` does not keep the leaver.
+pub(crate) fn bind_userid_steam(map: &mut HashMap<i32, u64>, userid: i32, steam: u64) {
+    if steam == 0 {
+        map.remove(&userid);
+    } else {
+        map.insert(userid, steam);
+    }
+}
+
+fn controller_in_server(ctrl: &Entity) -> bool {
+    crate::player_connected_in_server(prop_i32_opt(ctrl, "m_iConnected"))
+}
+
+/// Pawn `m_flFlashDuration` samples and `player_blind` both call `record_blind`.
+/// Overlay-band (~≥4.90s, including labeled 5.0s / ~5.1s) must not enter `blinds`.
+pub(crate) fn accept_blind_duration(duration: f32) -> bool {
+    duration > 0.0 && !crate::flash_overlay_spike(duration)
+}
+
+/// Leftover GOTV controllers keep `m_steamID` after a leave. Steam ≠ 0 is not enough.
+pub(crate) fn controller_steam_playable(
+    steam: u64,
+    connected: Option<i32>,
+    previously_left: bool,
+) -> bool {
+    if steam == 0 {
+        return false;
+    }
+    match connected {
+        Some(state) if !crate::player_connected_in_server(Some(state)) => false,
+        Some(_) => true,
+        None if previously_left => false,
+        None => true,
+    }
+}
+
+/// Steam for a controller that is still in the match this tick.
+///
+/// Leftover CCSPlayerController entities keep `m_steamID` after a leave, so
+/// `FLAG_PRESENT` used to stay set and the scoreboard grew a ghost row.
+fn controller_active_steam(c: &Collector, ctrl: &Entity) -> Option<u64> {
+    let steam = prop_u64(ctrl, "m_steamID");
+    let connected = prop_i32_opt(ctrl, "m_iConnected");
+    if controller_steam_playable(steam, connected, c.left_steams.contains(&steam)) {
+        Some(steam)
+    } else {
+        None
+    }
+}
+
+fn bind_controller_userid(c: &mut Collector, ctrl: &Entity) {
+    let userid = ctrl.index() as i32;
+    let steam = prop_u64(ctrl, "m_steamID");
+    if steam != 0 && !controller_in_server(ctrl) {
+        c.left_steams.insert(steam);
+    }
+    if steam != 0
+        && matches!(
+            prop_i32_opt(ctrl, "m_iConnected"),
+            Some(crate::PLAYER_CONNECTED | crate::PLAYER_CONNECTING | crate::PLAYER_RECONNECTING)
+        )
+    {
+        c.left_steams.remove(&steam);
+    }
+    match controller_active_steam(c, ctrl) {
+        Some(steam) => bind_userid_steam(&mut c.userid_to_steam, userid, steam),
+        None => bind_userid_steam(&mut c.userid_to_steam, userid, 0),
+    }
+}
+
 fn steam_from_userid(c: &Collector, ctx: &Context, uid: i32) -> Option<u64> {
     if uid <= 0 {
         return None;
@@ -477,13 +551,13 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
+            bind_controller_userid(self, ctrl);
+            let Some(steam) = controller_active_steam(self, ctrl) else {
+                continue;
+            };
             let handle = prop_u32(ctrl, "m_hPlayerPawn");
             if let Ok(pawn) = ctx.entities().get_by_handle(handle as usize) {
-                let steam = prop_u64(ctrl, "m_steamID");
-                if steam != 0 {
-                    self.pawn_to_steam.insert(pawn.index(), steam);
-                    self.userid_to_steam.insert(ctrl.index() as i32, steam);
-                }
+                self.pawn_to_steam.insert(pawn.index(), steam);
             }
         }
 
@@ -517,10 +591,9 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
-            let steam = prop_u64(ctrl, "m_steamID");
-            if steam == 0 {
+            let Some(steam) = controller_active_steam(self, ctrl) else {
                 continue;
-            }
+            };
             if side_of(prop_i32(ctrl, "m_iTeamNum")).is_none() {
                 continue;
             }
@@ -831,6 +904,19 @@ impl Collector {
                 // Optional: some GOTV demos include impact points. We keep weapon_fire
                 // tracers as the primary shot viz; impacts are not stored separately
                 // in the MVP snapshot.
+            }
+            "player_disconnect" => {
+                if let Some(uid) = ev_i32(ge, "userid") {
+                    bind_userid_steam(&mut self.userid_to_steam, uid, 0);
+                }
+                if let Some(steam) = steam_from_game_event(self, ctx, ge) {
+                    self.left_steams.insert(steam);
+                }
+            }
+            "player_connect" | "player_connect_full" => {
+                if let Some(steam) = steam_from_game_event(self, ctx, ge) {
+                    self.left_steams.remove(&steam);
+                }
             }
             "player_blind" => {
                 let dur = ev_f32(ge, "blind_duration");
