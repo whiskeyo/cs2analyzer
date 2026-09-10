@@ -1,3 +1,7 @@
+/**
+ * DEV layouts-editor types (`layoutEditor`). Schema lives in `lib/layout`;
+ * the shipped viewer loads JSON via `lib/radar/layouts.ts`.
+ */
 import type { LayoutPoint } from "@/lib/layout/types.ts";
 import type { MapCalibration as ReplayMapCalibration } from "@/lib/replay/replayTypes";
 
