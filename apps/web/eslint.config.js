@@ -40,6 +40,17 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/components/**/*.{ts,tsx}"],
+    ignores: [
+      "src/components/radar/**",
+      "src/components/playbook/PlaybookCanvas.tsx",
+      "src/components/layouts/LayoutCanvas.tsx",
+    ],
+    rules: {
+      "react-hooks/immutability": "error",
+    },
+  },
+  {
     files: ["src/lib/**/*.{ts,tsx}"],
     ignores: ["src/parser/**"],
     rules: {
