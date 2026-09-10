@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MIN_REVIEW_FLASH_SECONDS } from "@/lib/shared/constants";
+import { FLASH_FULL_SECONDS, MIN_REVIEW_FLASH_SECONDS } from "@/lib/shared/constants";
 import {
   FLAG_ALIVE,
   FLAG_CT,
@@ -20,6 +20,7 @@ import {
   type ReplayOverrides,
 } from "@/lib/testing/fixtures";
 import {
+  pickFlashDuration,
   throwDetail,
   usedUtilKinds,
   usedUtilPlaces,
@@ -130,6 +131,27 @@ describe("utilityThrough", () => {
     ]);
     expect(u.enemyFlashCount).toBe(1);
     expect(throwDetail(u.throws[0]!)).toBe("Enemy: Bob 1.4s · Team: Alice 0.5s");
+  });
+
+  it("ignores full-overlay pawn snaps when a weaker player_blind exists", () => {
+    expect(pickFlashDuration([1.2, FLASH_FULL_SECONDS, 5.1])).toBeCloseTo(1.2);
+    expect(pickFlashDuration([0.2, 5.1])).toBeCloseTo(0.2);
+    expect(pickFlashDuration([5.1, FLASH_FULL_SECONDS])).toBeCloseTo(FLASH_FULL_SECONDS);
+    const m = replay({
+      grenades: [nade("flash", 90, 0)],
+      blinds: [
+        makeBlind(110, 0, 0, 5.1),
+        makeBlind(111, 0, 0, 1.2),
+        makeBlind(112, 0, 1, FLASH_FULL_SECONDS),
+        makeBlind(113, 0, 1, 0.2),
+      ],
+    });
+    const u = utilityThrough(m, 640, null);
+    expect(u.throws[0]?.blinds).toEqual([
+      { victim: 0, victimName: "Alice", duration: 1.2, enemy: false },
+      { victim: 1, victimName: "Bob", duration: 0.2, enemy: true },
+    ]);
+    expect(throwDetail(u.throws[0]!)).toBe("Enemy: Bob 0.2s · Team: Alice 1.2s");
   });
 
   it("only lists players who were alive at the flash, not leftover dead-pawn blinds", () => {

@@ -1,5 +1,6 @@
 import {
   FLASH_BLIND_ATTRIBUTION_SECONDS,
+  FLASH_OVERLAY_SPIKE_SECONDS,
   MIN_REVIEW_FLASH_SECONDS,
   MOLOTOV_SECONDS,
   tickRate,
@@ -108,6 +109,14 @@ function addHit(
   });
 }
 
+/** Peak real pop; ignore pawn overlay snaps (~FLASH_FULL) when a shorter sample exists. */
+export function pickFlashDuration(durations: readonly number[]): number {
+  if (durations.length === 0) return 0;
+  const real = durations.filter((duration) => duration < FLASH_OVERLAY_SPIKE_SECONDS);
+  const pool = real.length > 0 ? real : durations;
+  return pool.reduce((best, duration) => (duration > best ? duration : best));
+}
+
 /** One chip per victim: player_blind + pawn flash samples otherwise stack. */
 function addBlind(
   row: UtilThrowRow,
@@ -118,7 +127,7 @@ function addBlind(
 ): void {
   const existing = row.blinds.find((blind) => blind.victim === victim);
   if (existing) {
-    if (duration > existing.duration) existing.duration = duration;
+    existing.duration = pickFlashDuration([existing.duration, duration]);
     return;
   }
   row.blinds.push({

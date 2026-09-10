@@ -111,6 +111,14 @@ export const FLASH_POP_SECONDS = 0.4;
 export const FLASH_FULL_SECONDS = 5.47;
 
 /**
+ * Pawn `m_flFlashDuration` often snaps to the full overlay (~5.1–5.47s) even on
+ * a weak pop. `player_blind` carries the real white-time. Treat this band as
+ * that spike unless it is the only sample.
+ */
+export const FLASH_OVERLAY_SLACK_SECONDS = 0.5;
+export const FLASH_OVERLAY_SPIKE_SECONDS = FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
+
+/**
  * How long after detonate a blind may still be attributed to that flash.
  * GOTV can deliver `player_blind` after the projectile `end_tick`; this is not
  * the 5.47s overlay — leftover duration samples later in the round are a
