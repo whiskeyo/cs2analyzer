@@ -362,6 +362,16 @@ fn steam_from_game_event(c: &Collector, ctx: &Context, ge: &GameEvent<'_>) -> Op
         .or_else(|| ev_i32(ge, "userid").and_then(|uid| steam_from_userid(c, ctx, uid)))
 }
 
+/// Controllers with `m_steamID == 0` are bots (or an empty slot after a leave).
+/// Drop the stale userid→steam binding so `player_blind` does not keep the leaver.
+pub(crate) fn bind_userid_steam(map: &mut HashMap<i32, u64>, userid: i32, steam: u64) {
+    if steam == 0 {
+        map.remove(&userid);
+    } else {
+        map.insert(userid, steam);
+    }
+}
+
 fn steam_from_userid(c: &Collector, ctx: &Context, uid: i32) -> Option<u64> {
     if uid <= 0 {
         return None;
@@ -477,13 +487,14 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
+            let steam = prop_u64(ctrl, "m_steamID");
+            bind_userid_steam(&mut self.userid_to_steam, ctrl.index() as i32, steam);
+            if steam == 0 {
+                continue;
+            }
             let handle = prop_u32(ctrl, "m_hPlayerPawn");
             if let Ok(pawn) = ctx.entities().get_by_handle(handle as usize) {
-                let steam = prop_u64(ctrl, "m_steamID");
-                if steam != 0 {
-                    self.pawn_to_steam.insert(pawn.index(), steam);
-                    self.userid_to_steam.insert(ctrl.index() as i32, steam);
-                }
+                self.pawn_to_steam.insert(pawn.index(), steam);
             }
         }
 

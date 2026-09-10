@@ -720,7 +720,9 @@ fn appeared_items(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::observer::{new_flash_duration, Collector, FireSpan, RawHurt, RawKill};
+    use crate::observer::{
+        bind_userid_steam, new_flash_duration, Collector, FireSpan, RawHurt, RawKill,
+    };
     use crate::ParseOptions;
 
     fn molly(detonate: u32, x: f32, y: f32) -> GrenadeThrow {
@@ -874,6 +876,17 @@ mod tests {
         assert_eq!(new_flash_duration(2.4, 1.1), None);
         assert_eq!(new_flash_duration(0.0, 0.0), None);
         assert_eq!(new_flash_duration(0.02, 0.04), None);
+    }
+
+    #[test]
+    fn bind_userid_steam_drops_leaver_when_bot_takes_slot() {
+        let mut map = HashMap::new();
+        bind_userid_steam(&mut map, 5, 76561198000000000);
+        assert_eq!(map.get(&5), Some(&76561198000000000));
+        bind_userid_steam(&mut map, 5, 0);
+        assert!(!map.contains_key(&5));
+        bind_userid_steam(&mut map, 5, 76561198000000001);
+        assert_eq!(map.get(&5), Some(&76561198000000001));
     }
 
     fn freeze_ticks(frames: &[u32]) -> TickBuffer {
