@@ -14,6 +14,7 @@ import {
   type PlaybookDrawTool,
   type PlaybookTool,
 } from "@/lib/playbook/pieces";
+import { YOUTUBE_PLAY, YOUTUBE_RED } from "@/lib/playbook/videos";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
 
 interface Props {
@@ -63,6 +64,14 @@ function tokenGlyph(token: PaletteToken) {
       <span aria-hidden="true">
         <WeaponIcon weapon="planted_c4" />
       </span>
+    );
+  }
+  if (token.tool === "youtube") {
+    return (
+      <svg className="playbook-youtube-icon" viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="1" y="3.5" width="14" height="9" rx="2.2" fill={YOUTUBE_RED} />
+        <path d="M7 6.2 11 8 7 9.8Z" fill={YOUTUBE_PLAY} />
+      </svg>
     );
   }
   if ((GRENADE_PIECE_KINDS as readonly string[]).includes(token.tool)) {
@@ -221,6 +230,8 @@ function tokenKey(tool: PaletteToken["tool"]): string {
       return "Y";
     case "bomb":
       return "B";
+    case "youtube":
+      return "U";
     default:
       return "";
   }

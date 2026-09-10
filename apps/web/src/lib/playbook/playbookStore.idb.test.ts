@@ -15,6 +15,7 @@ import {
   savePlaybook,
 } from "./playbookStore";
 import { newPlaybook } from "./pages";
+import { PLAYBOOK_SCHEMA } from "./types";
 
 describe("playbookStore indexedDB", () => {
   beforeEach(async () => {
@@ -69,5 +70,35 @@ describe("playbookStore indexedDB", () => {
     }
     const all = await loadAllPlaybooks();
     expect(all.map((book) => book.title)).toEqual(["Zulu", "Alpha"]);
+  });
+
+  it("migrates a schema 1 row and keeps videos empty", async () => {
+    const book = newPlaybook("de_mirage", "Legacy");
+    const first = book.pages[0]!;
+    const db = await openCs2Db();
+    try {
+      const tx = db.transaction(PLAYBOOK_STORE, "readwrite");
+      await requestOf(
+        tx.objectStore(PLAYBOOK_STORE).put({
+          ...book,
+          schema: 1,
+          pages: [
+            {
+              id: first.id,
+              title: first.title,
+              body: first.body,
+              floor: first.floor,
+              note: first.note,
+            },
+          ],
+        }),
+      );
+    } finally {
+      db.close();
+    }
+    const loaded = await loadPlaybook(book.key);
+    expect(loaded?.schema).toBe(PLAYBOOK_SCHEMA);
+    expect(loaded?.pages[0]?.videos).toEqual([]);
+    expect(loaded?.title).toBe("Legacy");
   });
 });

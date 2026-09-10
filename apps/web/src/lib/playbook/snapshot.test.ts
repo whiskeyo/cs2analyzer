@@ -98,6 +98,33 @@ describe("addSnapshotPage", () => {
     expect(next.activePageId).toBe(next.pages[1]?.id);
   });
 
+  it("does not overwrite an untitled strat that already has a YouTube clip", () => {
+    let book = newPlaybook("de_mirage", "Defaults");
+    const first = book.pages[0]!;
+    book = {
+      ...book,
+      pages: [
+        {
+          ...first,
+          videos: [
+            {
+              id: "v1",
+              videoId: "dQw4w9WgXcQ",
+              url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+              title: "A smoke",
+              x: 1,
+              y: 2,
+            },
+          ],
+        },
+      ],
+    };
+    const next = addSnapshotPage(book, "Snap", [makePiece("he", 1, 1)]);
+    expect(next.pages).toHaveLength(2);
+    expect(next.pages[0]?.videos).toHaveLength(1);
+    expect(next.pages[1]?.title).toBe("Snap");
+  });
+
   it("does not overwrite an untitled strat that already has tokens", () => {
     let book = newPlaybook("de_mirage", "Defaults");
     const first = book.pages[0]!;

@@ -15,6 +15,7 @@ import {
   setActivePage,
   setPageBody,
   setPageNote,
+  setPageVideos,
   setPlaybookPalette,
 } from "./pages";
 import {
@@ -25,7 +26,7 @@ import {
   savePlaybook,
 } from "./playbookStore";
 import { booksWithDraft, movePlaybookTo, nextPlaybookSort } from "./tree";
-import type { Playbook } from "./types";
+import type { Playbook, PlaybookYouTube } from "./types";
 
 export function usePlaybooks(mapName: string | null) {
   const [allBooks, setAllBooks] = useState<Playbook[]>([]);
@@ -165,6 +166,13 @@ export function usePlaybooks(mapName: string | null) {
   const setBody = useCallback(
     (pageId: string, body: string) => {
       patch((current) => setPageBody(current, pageId, body));
+    },
+    [patch],
+  );
+
+  const setVideos = useCallback(
+    (pageId: string, videos: PlaybookYouTube[]) => {
+      patch((current) => setPageVideos(current, pageId, videos));
     },
     [patch],
   );
@@ -356,6 +364,7 @@ export function usePlaybooks(mapName: string | null) {
     commitBookTitle,
     commitStratTitle,
     setBody,
+    setVideos,
     removeStrat,
     duplicateStrat,
     selectStrat,

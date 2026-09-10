@@ -109,6 +109,35 @@ describe("usePlaybooks", () => {
     expect(result.current.book?.pages).toHaveLength(1);
   });
 
+  it("writes YouTube clips onto the active strat", async () => {
+    const { result } = renderHook(() => usePlaybooks("de_mirage"));
+    await act(async () => {
+      await result.current.create("Defaults");
+    });
+    const pageId = result.current.book?.pages[0]?.id ?? "";
+    const videos = [
+      {
+        id: "v1",
+        videoId: "dQw4w9WgXcQ",
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        title: "A smoke",
+        x: 1,
+        y: 2,
+      },
+    ];
+    await act(async () => {
+      result.current.setVideos(pageId, videos);
+    });
+    expect(result.current.book?.pages[0]?.videos).toEqual(videos);
+    act(() => {
+      vi.advanceTimersByTime(PROJECT_SAVE_DEBOUNCE_MS);
+    });
+    await waitFor(async () => {
+      const saved = await loadPlaybook(result.current.book?.key ?? "");
+      expect(saved?.pages[0]?.videos).toEqual(videos);
+    });
+  });
+
   it("writes tokens onto the active strat note", async () => {
     const { result } = renderHook(() => usePlaybooks("de_mirage"));
     await act(async () => {

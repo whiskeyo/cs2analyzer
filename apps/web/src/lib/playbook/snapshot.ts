@@ -57,7 +57,12 @@ function noteIsEmpty(note: Note): boolean {
 }
 
 function isBlankStrat(page: PlaybookPage): boolean {
-  return page.title === UNTITLED_STRAT && noteIsEmpty(page.note) && page.body.trim() === "";
+  return (
+    page.title === UNTITLED_STRAT &&
+    noteIsEmpty(page.note) &&
+    page.body.trim() === "" &&
+    page.videos.length === 0
+  );
 }
 
 export function nadePiecePos(nade: NadeRender): { x: number; y: number } | null {

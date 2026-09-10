@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { PieceList } from "@/components/playbook/PieceList";
+import { PlaybookVideos } from "@/components/playbook/PlaybookVideos";
 import type { Note } from "@/lib/notes/types";
+import type { PlaybookYouTube } from "@/lib/playbook/types";
 import {
   groupOverlayItems,
   renamePlaybookGroup,
@@ -13,8 +15,14 @@ import { setPieceLabel } from "@/lib/playbook/pieces";
 interface Props {
   stratTitle: string;
   body: string;
+  videos: PlaybookYouTube[];
+  openVideoId: string | null;
+  pendingPin: { x: number; y: number } | null;
+  onCancelPin: () => void;
   selectedId: string | null;
   onBody: (body: string) => void;
+  onVideos: (videos: PlaybookYouTube[]) => void;
+  onOpenVideo: (id: string | null) => void;
   onSelect: (id: string | null) => void;
   onNote: (note: Note) => void;
   note: Note;
@@ -23,8 +31,14 @@ interface Props {
 export function PlaybookStratPanel({
   stratTitle,
   body,
+  videos,
+  openVideoId,
+  pendingPin,
+  onCancelPin,
   selectedId,
   onBody,
+  onVideos,
+  onOpenVideo,
   onSelect,
   onNote,
   note,
@@ -47,6 +61,14 @@ export function PlaybookStratPanel({
     <>
       <h2>Strat</h2>
       <p className="playbook-lead">{stratTitle}</p>
+      <PlaybookVideos
+        videos={videos}
+        onVideos={onVideos}
+        openId={openVideoId}
+        onOpen={onOpenVideo}
+        pendingPin={pendingPin}
+        onCancelPin={onCancelPin}
+      />
       <label className="playbook-field playbook-notes-field">
         Strat notes
         <textarea

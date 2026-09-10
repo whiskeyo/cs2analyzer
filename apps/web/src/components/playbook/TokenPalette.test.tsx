@@ -90,6 +90,9 @@ describe("TokenPalette", () => {
       "src",
       expect.stringContaining("planted_c4"),
     );
+    expect(screen.getByRole("button", { name: "YouTube" }).querySelector("svg")).toHaveClass(
+      "playbook-youtube-icon",
+    );
     expect(screen.queryByRole("button", { name: "CT pawn" })).not.toHaveTextContent("CT");
     expect(screen.getByRole("button", { name: "Reset view" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Neon" })).toBeInTheDocument();

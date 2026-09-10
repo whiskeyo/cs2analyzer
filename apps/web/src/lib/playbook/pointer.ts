@@ -36,6 +36,8 @@ import {
   startNadeTrail,
   type NadeTrailDraft,
 } from "./nadeTrail";
+import type { PlaybookYouTube } from "./types";
+import { hitTestVideo, moveVideo, removeVideo, YOUTUBE_CLICK_PX } from "./videos";
 
 export type PlaybookPanView = RadarView & {
   dragging: boolean;
@@ -137,8 +139,12 @@ export function usePlaybookPointer(opts: {
   nadeTrailOnRef: MutableRefObject<boolean>;
   nadeStyleRef: MutableRefObject<NadeStyle>;
   nadeTrailRef: MutableRefObject<NadeTrailDraft | null>;
+  videosRef: MutableRefObject<readonly PlaybookYouTube[]>;
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
+  onVideos?: (videos: PlaybookYouTube[]) => void;
+  onOpenVideo?: (id: string) => void;
+  onPlaceYouTube?: (at: { x: number; y: number }) => void;
 }): void {
   const {
     wrapRef,
@@ -153,19 +159,30 @@ export function usePlaybookPointer(opts: {
     nadeTrailOnRef,
     nadeStyleRef,
     nadeTrailRef,
+    videosRef,
     onNote,
     onSelect,
+    onVideos,
+    onOpenVideo,
+    onPlaceYouTube,
   } = opts;
   const onNoteRef = useRef(onNote);
   onNoteRef.current = onNote;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const onVideosRef = useRef(onVideos);
+  onVideosRef.current = onVideos;
+  const onOpenVideoRef = useRef(onOpenVideo);
+  onOpenVideoRef.current = onOpenVideo;
+  const onPlaceYouTubeRef = useRef(onPlaceYouTube);
+  onPlaceYouTubeRef.current = onPlaceYouTube;
 
   useEffect(() => {
     const wrap = wrapRef.current;
     if (!wrap) return;
     let pieceDrag: PieceDrag | null = null;
     let drawingDrag: DrawingDrag | null = null;
+    let videoDrag: (PieceDrag & { sx: number; sy: number; moved: boolean }) | null = null;
 
     const pos = (e: MouseEvent | WheelEvent) => wrapLocalPoint(wrap, e);
 
@@ -205,9 +222,15 @@ export function usePlaybookPointer(opts: {
           return;
         }
       }
+      const videoHit = hitTestVideo(videosRef.current, { x, y }, toScreen);
       const hit = hitTestPiece(visiblePieces(noteRef.current), { x, y }, toScreen);
       const action = resolvePlaybookDown(toolRef.current, hit, e.shiftKey, nadeTrailOnRef.current);
       if (action === "erase") {
+        if (videoHit && onVideosRef.current) {
+          onVideosRef.current(removeVideo(videosRef.current, videoHit.id));
+          gizmoRef.current = null;
+          return;
+        }
         if (!cal || !onNoteRef.current) return;
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         const ctx = canvasRef.current?.getContext("2d") ?? null;
@@ -241,14 +264,34 @@ export function usePlaybookPointer(opts: {
         return;
       }
       if (action === "place") {
-        if (!cal || !onNoteRef.current) return;
+        if (!cal) return;
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        if (toolRef.current === "youtube") {
+          onPlaceYouTubeRef.current?.(world);
+          gizmoRef.current = null;
+          return;
+        }
+        if (!onNoteRef.current) return;
         const piece = pieceFromTool(toolRef.current, world.x, world.y, {
           nadeStyle: nadeStyleRef.current,
         });
         if (!piece) return;
         onNoteRef.current(addPiece(noteRef.current, piece));
         onSelectRef.current?.(piece.id);
+        gizmoRef.current = null;
+        return;
+      }
+      if (toolRef.current === "pan" && videoHit && cal) {
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        videoDrag = {
+          id: videoHit.id,
+          rotate: false,
+          grabDx: videoHit.x - world.x,
+          grabDy: videoHit.y - world.y,
+          sx: x,
+          sy: y,
+          moved: false,
+        };
         gizmoRef.current = null;
         return;
       }
@@ -299,6 +342,23 @@ export function usePlaybookPointer(opts: {
         draftRef.current = extendDraft(draftRef.current, world);
         return;
       }
+      if (videoDrag && cal && onVideosRef.current) {
+        if (!videoDrag.moved && Math.hypot(x - videoDrag.sx, y - videoDrag.sy) > YOUTUBE_CLICK_PX) {
+          videoDrag.moved = true;
+        }
+        if (videoDrag.moved) {
+          const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+          onVideosRef.current(
+            moveVideo(
+              videosRef.current,
+              videoDrag.id,
+              world.x + videoDrag.grabDx,
+              world.y + videoDrag.grabDy,
+            ),
+          );
+        }
+        return;
+      }
       if (drag && cal && onNoteRef.current) {
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         const piece = noteRef.current.pieces.find((row) => row.id === drag.id);
@@ -330,8 +390,12 @@ export function usePlaybookPointer(opts: {
           onNoteRef.current(addDrawing(noteRef.current, committed));
         }
       }
+      if (videoDrag && !videoDrag.moved) {
+        onOpenVideoRef.current?.(videoDrag.id);
+      }
       pieceDrag = null;
       drawingDrag = null;
+      videoDrag = null;
       endPlaybookPan(view.current);
     };
 
@@ -369,5 +433,6 @@ export function usePlaybookPointer(opts: {
     nadeTrailOnRef,
     nadeStyleRef,
     nadeTrailRef,
+    videosRef,
   ]);
 }

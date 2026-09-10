@@ -6,11 +6,14 @@ import { isFiniteNumber, isRecord, isString } from "@/lib/validate/guards.ts";
 import { defaultPlaybookColor, defaultPlaybookPaletteId } from "./pages";
 import {
   PLAYBOOK_SCHEMA,
+  PLAYBOOK_SCHEMA_MIN,
   UNTITLED_PLAYBOOK,
   UNTITLED_STRAT,
   type Playbook,
   type PlaybookPage,
+  type PlaybookYouTube,
 } from "./types";
+import { isYouTubeVideoId, youtubeWatchUrl } from "./youtube";
 
 function optionalNonEmpty(value: unknown): string | undefined {
   return isString(value) && value.trim() !== "" ? value.trim() : undefined;
@@ -42,12 +45,22 @@ export function parsePlaybookPage(value: unknown): PlaybookPage | null {
     body: isString(value.body) ? value.body : "",
     floor: parseFloor(value.floor),
     note,
+    videos: parseVideos(value.videos),
   };
+}
+
+export function isPlaybookSchema(value: unknown): value is number {
+  return (
+    isFiniteNumber(value) &&
+    Number.isInteger(value) &&
+    value >= PLAYBOOK_SCHEMA_MIN &&
+    value <= PLAYBOOK_SCHEMA
+  );
 }
 
 export function parsePlaybook(value: unknown): Playbook | null {
   if (!isRecord(value)) return null;
-  if (value.schema !== PLAYBOOK_SCHEMA) return null;
+  if (!isPlaybookSchema(value.schema)) return null;
   const key = optionalNonEmpty(value.key);
   const mapName = optionalNonEmpty(value.mapName);
   if (!key || !mapName) return null;
@@ -78,4 +91,37 @@ export function parsePlaybook(value: unknown): Playbook | null {
     paletteId: parsePaletteId(value.paletteId),
     color: parseColor(value.color),
   };
+}
+
+function parseVideos(value: unknown): PlaybookYouTube[] {
+  if (!Array.isArray(value)) return [];
+  const videos: PlaybookYouTube[] = [];
+  for (const row of value) {
+    const clip = parsePlaybookYouTube(row);
+    if (clip) videos.push(clip);
+  }
+  return videos;
+}
+
+function parsePlaybookYouTube(value: unknown): PlaybookYouTube | null {
+  if (!isRecord(value)) return null;
+  const id = optionalNonEmpty(value.id);
+  const videoId = optionalNonEmpty(value.videoId);
+  if (!id || !videoId || !isYouTubeVideoId(videoId)) return null;
+  const startSeconds = parseStartSeconds(value.startSeconds);
+  const title = optionalNonEmpty(value.title) ?? "";
+  return {
+    id,
+    videoId,
+    url: youtubeWatchUrl(videoId, startSeconds),
+    title: title === "" ? videoId : title,
+    x: isFiniteNumber(value.x) ? value.x : 0,
+    y: isFiniteNumber(value.y) ? value.y : 0,
+    ...(startSeconds != null ? { startSeconds } : {}),
+  };
+}
+
+function parseStartSeconds(value: unknown): number | undefined {
+  if (!isFiniteNumber(value) || !Number.isInteger(value) || value <= 0) return undefined;
+  return value;
 }

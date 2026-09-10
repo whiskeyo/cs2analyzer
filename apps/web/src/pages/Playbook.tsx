@@ -49,6 +49,9 @@ export function Playbook() {
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapName, setMapName] = useState<string | null>(null);
+  const [videoPageId, setVideoPageId] = useState<string | null>(null);
+  const [openVideoIdState, setOpenVideoIdState] = useState<string | null>(null);
+  const [pendingPinState, setPendingPinState] = useState<{ x: number; y: number } | null>(null);
   const [collapsedMaps, setCollapsedMaps] = useState<Set<string>>(() => new Set());
   const [expandedBooks, setExpandedBooks] = useState<Set<string>>(() => new Set());
   const pendingFocus = useRef(consumePlaybookFocus());
@@ -64,6 +67,7 @@ export function Playbook() {
     commitBookTitle,
     commitStratTitle,
     setBody,
+    setVideos,
     removeStrat,
     duplicateStrat,
     selectStrat,
@@ -81,6 +85,16 @@ export function Playbook() {
   const treeWidthRef = useRef(PLAYBOOK_TREE_DEFAULT_WIDTH);
   const detailWidthRef = useRef(PLAYBOOK_DETAIL_DEFAULT_WIDTH);
   const page = book ? activePage(book) : null;
+  const openVideoId = videoPageId === page?.id ? openVideoIdState : null;
+  const pendingPin = videoPageId === page?.id ? pendingPinState : null;
+  const setOpenVideoId = (id: string | null) => {
+    setVideoPageId(page?.id ?? null);
+    setOpenVideoIdState(id);
+  };
+  const setPendingPin = (at: { x: number; y: number } | null) => {
+    setVideoPageId(page?.id ?? null);
+    setPendingPinState(at);
+  };
   const history = useNoteHistory(page?.id ?? null, page?.note ?? null);
   const board = usePlaybookBoard({
     book,
@@ -260,8 +274,17 @@ export function Playbook() {
                   nadeStyle={board.nadeStyle}
                   viewEpoch={board.viewEpoch}
                   legend={board.legend}
+                  videos={page.videos}
+                  selectedVideoId={openVideoId}
+                  pendingPin={pendingPin}
                   onNote={board.commitNote}
                   onSelect={board.setSelectedId}
+                  onVideos={(videos) => setVideos(page.id, videos)}
+                  onOpenVideo={setOpenVideoId}
+                  onPlaceYouTube={(at) => {
+                    setPendingPin(at);
+                    setOpenVideoId(null);
+                  }}
                 />
               </div>
             </>
@@ -275,8 +298,17 @@ export function Playbook() {
             <PlaybookStratPanel
               stratTitle={page.title}
               body={page.body}
+              videos={page.videos}
+              openVideoId={openVideoId}
+              pendingPin={pendingPin}
+              onCancelPin={() => setPendingPin(null)}
               selectedId={board.visibleSelectedId}
               onBody={(body) => setBody(page.id, body)}
+              onVideos={(videos) => {
+                setVideos(page.id, videos);
+                setPendingPin(null);
+              }}
+              onOpenVideo={setOpenVideoId}
               onSelect={board.setSelectedId}
               onNote={board.commitNote}
               note={page.note}

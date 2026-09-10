@@ -1,0 +1,34 @@
+import { describe, expect, it } from "vitest";
+import type { PlaybookYouTube } from "./types";
+import { hitTestVideo, moveVideo, nextVideoPin, removeVideo, YOUTUBE_PIN_STACK } from "./videos";
+
+function clip(partial: Partial<PlaybookYouTube> = {}): PlaybookYouTube {
+  return {
+    id: "v1",
+    videoId: "dQw4w9WgXcQ",
+    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    title: "A smoke",
+    x: 0,
+    y: 0,
+    ...partial,
+  };
+}
+
+const identity = (x: number, y: number) => ({ x, y });
+
+describe("video pins", () => {
+  it("hits the topmost pin and moves / removes by id", () => {
+    const pins = [clip({ id: "a", x: 0, y: 0 }), clip({ id: "b", x: 0, y: 0 })];
+    expect(hitTestVideo(pins, { x: 0, y: 0 }, identity)?.id).toBe("b");
+    expect(hitTestVideo(pins, { x: 100, y: 100 }, identity)).toBeNull();
+    expect(moveVideo(pins, "a", 8, 9)[0]).toMatchObject({ id: "a", x: 8, y: 9 });
+    expect(removeVideo(pins, "b").map((row) => row.id)).toEqual(["a"]);
+    expect(removeVideo(pins, "missing")).toEqual(pins);
+  });
+
+  it("stacks a new pin after the last one", () => {
+    expect(nextVideoPin([])).toEqual({ x: 0, y: 0 });
+    expect(nextVideoPin([], { x: 10, y: 20 })).toEqual({ x: 10, y: 20 });
+    expect(nextVideoPin([clip({ x: 5, y: 7 })])).toEqual({ x: 5 + YOUTUBE_PIN_STACK, y: 7 });
+  });
+});
