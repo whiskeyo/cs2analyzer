@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { loadedDemo } from "@/lib/parse/session";
+import { loadedDemo, type DemoSeries } from "@/lib/parse/session";
+import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
 import type { Status } from "@/lib/state/status";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
 import type { ReviewProject } from "./projectStore";
+import { clearSeriesReviewCache, getSeriesReview } from "./seriesReviewCache";
 import { useReviewProject } from "./useReviewProject";
 
 const mocks = vi.hoisted(() => ({
@@ -111,6 +113,7 @@ function status(): Status {
 describe("useReviewProject", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearSeriesReviewCache();
     mocks.loadAllProjects.mockResolvedValue([project({ savedAt: 10 })]);
     mocks.loadProject.mockResolvedValue(null);
     mocks.matchKey.mockReturnValue("de_mirage|1|50,100|match.dem");
@@ -203,5 +206,57 @@ describe("useReviewProject", () => {
 
     expect(result.current.color).toBe("#00ff00");
     expect(pb.jump).toHaveBeenCalledWith(500, true);
+  });
+
+  it("stashes drawings on a series hop mid-debounce without persisting the outgoing demo", async () => {
+    const first = demo("a.dem");
+    const second = demo("b.dem");
+    const series: DemoSeries = {
+      mapName: "de_mirage",
+      demos: [first, second],
+      focalTeam: "A",
+      focalTeamNames: ["A"],
+      tagsByDemo: new Map(),
+    };
+    const pb = playback();
+    const { result, rerender } = renderHook(
+      ({ current }) =>
+        useReviewProject({
+          demo: current,
+          series,
+          parsedDemos: [],
+          status: status(),
+          playback: pb,
+        }),
+      { initialProps: { current: first } },
+    );
+
+    await waitFor(() => expect(pb.setPlaying).toHaveBeenCalledWith(true));
+
+    const stroke = { type: "pen" as const, round: 1, color: "#fff", points: [{ x: 1, y: 2 }] };
+    act(() => {
+      result.current.commitStrokes([stroke]);
+    });
+    mocks.saveProject.mockClear();
+
+    act(() => {
+      result.current.stashForSeriesSwitch();
+    });
+    rerender({ current: second });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mocks.saveProject).not.toHaveBeenCalled();
+    expect(getSeriesReview(first.id)?.strokes).toEqual([stroke]);
+    expect(PROJECT_SAVE_DEBOUNCE_MS).toBeGreaterThan(0);
+
+    act(() => {
+      result.current.stashForSeriesSwitch();
+    });
+    rerender({ current: first });
+
+    await waitFor(() => expect(result.current.strokes).toEqual([stroke]));
   });
 });
