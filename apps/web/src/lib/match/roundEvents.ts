@@ -1,4 +1,5 @@
 import { tickRate } from "@/lib/shared/constants";
+import { LEAD_IN_STORAGE_KEY } from "@/lib/shared/storageKeys";
 import type {
   BombEvent,
   GrenadeKind,
@@ -12,7 +13,7 @@ import { formatClock } from "@/lib/weapons/weapons";
 export const DEFAULT_LEAD_IN_SEC = 1.5;
 export const MIN_LEAD_IN_SEC = 0;
 export const MAX_LEAD_IN_SEC = 5;
-export const LEAD_IN_STORAGE_KEY = "cs2analyzer.eventLeadInSec";
+export { LEAD_IN_STORAGE_KEY };
 
 export type BombEventKind = "planted" | "defused" | "exploded" | "begin_defuse" | "begin_plant";
 

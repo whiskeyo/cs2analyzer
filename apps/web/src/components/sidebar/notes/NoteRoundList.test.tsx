@@ -1,21 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { groupStrokes, notesByRound } from "@/lib/notes";
+import { emptyNote, groupItems, notesByRound } from "@/lib/notes";
 import { makeReplay, makeRound } from "@/lib/testing/fixtures";
-import type { Stroke } from "@/lib/notes/types";
+import type { Note, RoundNote } from "@/lib/notes/types";
 import { NoteRoundList } from "./NoteRoundList";
 
-function pen(round = 1): Stroke {
-  return { type: "pen", round, color: "#fff", points: [{ x: 0, y: 0 }] };
+const pen = { type: "pen" as const, color: "#fff", points: [{ x: 0, y: 0 }] };
+
+function row(note: Note, round = 1): RoundNote[] {
+  return notesByRound([{ round, note }]);
 }
 
 function noopDrag(overrides: Record<string, unknown> = {}) {
   return {
-    selected: [] as number[],
+    selected: [],
     dragging: null,
     dropOn: null,
-    skipClick: { current: false },
+    skipClickRef: { current: false },
     tps: 64,
     toggle: vi.fn(),
     toggleAll: vi.fn(),
@@ -33,25 +35,20 @@ function noopDrag(overrides: Record<string, unknown> = {}) {
 
 describe("NoteRoundList", () => {
   it("renders rounds with note items", () => {
-    const strokes: Stroke[] = [pen(), { type: "bookmark", round: 1, color: "#fff", text: "Peek" }];
-    const replay = makeReplay({
-      rounds: [
-        makeRound({
-          number: 1,
-          start_tick: 0,
-          freeze_end_tick: 64,
-          end_tick: 640,
-        }),
-      ],
+    const rounds = row({
+      ...emptyNote(),
+      drawings: [pen],
+      bookmarks: [{ color: "#fff", text: "Peek", tick: 100 }],
     });
-    const rounds = notesByRound(strokes);
+    const replay = makeReplay({
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+    });
     render(
       <NoteRoundList
         replay={replay}
         rounds={rounds}
-        strokes={strokes}
         onJump={() => {}}
-        onStrokes={() => {}}
+        onNotes={() => {}}
         {...noopDrag()}
       />,
     );
@@ -60,34 +57,24 @@ describe("NoteRoundList", () => {
   });
 
   it("offers squash when multiple loose drawings exist", async () => {
-    const strokes = [pen(), pen()];
+    const onNotes = vi.fn();
     const replay = makeReplay({
-      rounds: [
-        makeRound({
-          number: 1,
-          start_tick: 0,
-          freeze_end_tick: 64,
-          end_tick: 640,
-        }),
-      ],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
     });
-    const onStrokes = vi.fn();
     render(
       <NoteRoundList
         replay={replay}
-        rounds={notesByRound(strokes)}
-        strokes={strokes}
+        rounds={row({ ...emptyNote(), drawings: [pen, { ...pen }] })}
         onJump={() => {}}
-        onStrokes={onStrokes}
+        onNotes={onNotes}
         {...noopDrag()}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "Squash drawings" }));
-    expect(onStrokes).toHaveBeenCalled();
+    expect(onNotes).toHaveBeenCalled();
   });
 
   it("labels knife rounds and jumps from a note row", async () => {
-    const strokes = [pen()];
     const onJump = vi.fn();
     const replay = makeReplay({
       rounds: [
@@ -103,10 +90,9 @@ describe("NoteRoundList", () => {
     render(
       <NoteRoundList
         replay={replay}
-        rounds={notesByRound(strokes.map((s) => ({ ...s, round: 0 })))}
-        strokes={strokes.map((s) => ({ ...s, round: 0 }))}
+        rounds={row({ ...emptyNote(), drawings: [pen] }, 0)}
         onJump={onJump}
-        onStrokes={() => {}}
+        onNotes={() => {}}
         {...noopDrag()}
       />,
     );
@@ -116,9 +102,11 @@ describe("NoteRoundList", () => {
   });
 
   it("toggles group visibility and fold state", async () => {
-    const strokes = groupStrokes([pen(), pen()], [0, 1]);
-    const groupId = strokes[0].group ?? "";
-    const onStrokes = vi.fn();
+    const grouped = groupItems({ ...emptyNote(), drawings: [pen, { ...pen }] }, [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
+    const onNotes = vi.fn();
     const replay = makeReplay({
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
     });
@@ -126,18 +114,23 @@ describe("NoteRoundList", () => {
     render(
       <NoteRoundList
         replay={replay}
-        rounds={notesByRound(strokes)}
-        strokes={strokes}
+        rounds={row(grouped)}
         onJump={() => {}}
-        onStrokes={onStrokes}
-        {...noopDrag({ selected: [0, 1], toggleAll })}
+        onNotes={onNotes}
+        {...noopDrag({
+          selected: [
+            { round: 1, ref: { kind: "group", groupIndex: 0, drawingIndex: 0 } },
+            { round: 1, ref: { kind: "group", groupIndex: 0, drawingIndex: 1 } },
+          ],
+          toggleAll,
+        })}
       />,
     );
-    await userEvent.click(screen.getByLabelText(`Select ${groupId}`));
-    expect(toggleAll).toHaveBeenCalledWith([0, 1]);
+    await userEvent.click(screen.getByLabelText(`Select ${grouped.groups[0]?.name}`));
+    expect(toggleAll).toHaveBeenCalled();
 
     await userEvent.click(screen.getByLabelText("Hide layer on radar"));
-    expect(onStrokes).toHaveBeenCalled();
+    expect(onNotes).toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: "Show layer members" }));
     expect(screen.getAllByLabelText("Select Pen").length).toBeGreaterThan(0);
@@ -146,17 +139,20 @@ describe("NoteRoundList", () => {
   });
 
   it("shows drop slots while dragging in the same round", () => {
-    const strokes = groupStrokes([pen(), pen()], [0, 1]);
+    const grouped = groupItems({ ...emptyNote(), drawings: [pen, { ...pen }] }, [
+      { kind: "loose", index: 0 },
+      { kind: "loose", index: 1 },
+    ]);
     const replay = makeReplay({
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
     });
+    const rounds = row(grouped);
     const { rerender } = render(
       <NoteRoundList
         replay={replay}
-        rounds={notesByRound(strokes)}
-        strokes={strokes}
+        rounds={rounds}
         onJump={() => {}}
-        onStrokes={() => {}}
+        onNotes={() => {}}
         {...noopDrag()}
       />,
     );
@@ -165,11 +161,18 @@ describe("NoteRoundList", () => {
     rerender(
       <NoteRoundList
         replay={replay}
-        rounds={notesByRound(strokes)}
-        strokes={strokes}
+        rounds={rounds}
         onJump={() => {}}
-        onStrokes={() => {}}
-        {...noopDrag({ dragging: { round: 1, indexes: [0, 1] } })}
+        onNotes={() => {}}
+        {...noopDrag({
+          dragging: {
+            round: 1,
+            refs: [
+              { kind: "group", groupIndex: 0, drawingIndex: 0 },
+              { kind: "group", groupIndex: 0, drawingIndex: 1 },
+            ],
+          },
+        })}
       />,
     );
     expect(screen.getByText("Drop at top to ungroup")).toBeInTheDocument();
@@ -177,51 +180,48 @@ describe("NoteRoundList", () => {
   });
 
   it("removes a bookmark and hides a loose note", async () => {
-    const strokes: Stroke[] = [
-      { type: "bookmark", round: 1, color: "#fff", text: "Save" },
-      { type: "text", round: 1, color: "#fff", x: 0, y: 0, text: "Callout" },
-    ];
-    const onStrokes = vi.fn();
+    const onNotes = vi.fn();
     const replay = makeReplay({
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
     });
     render(
       <NoteRoundList
         replay={replay}
-        rounds={notesByRound(strokes)}
-        strokes={strokes}
+        rounds={row({
+          ...emptyNote(),
+          drawings: [{ type: "text", color: "#fff", x: 0, y: 0, text: "Callout" }],
+          bookmarks: [{ color: "#fff", text: "Save", tick: 100 }],
+        })}
         onJump={() => {}}
-        onStrokes={onStrokes}
+        onNotes={onNotes}
         {...noopDrag()}
       />,
     );
 
     await userEvent.click(screen.getByRole("button", { name: "Remove bookmark" }));
-    expect(onStrokes).toHaveBeenCalled();
+    expect(onNotes).toHaveBeenCalled();
 
     await userEvent.click(screen.getAllByLabelText("Hide on radar")[0]);
-    expect(onStrokes).toHaveBeenCalledTimes(2);
+    expect(onNotes).toHaveBeenCalledTimes(2);
   });
 
   it("skips jump clicks after a drag", () => {
-    const strokes = [pen()];
     const onJump = vi.fn();
-    const skipClick = { current: true };
+    const skipClickRef = { current: true };
     const replay = makeReplay({
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
     });
     render(
       <NoteRoundList
         replay={replay}
-        rounds={notesByRound(strokes)}
-        strokes={strokes}
+        rounds={row({ ...emptyNote(), drawings: [pen] })}
         onJump={onJump}
-        onStrokes={() => {}}
-        {...noopDrag({ skipClick })}
+        onNotes={() => {}}
+        {...noopDrag({ skipClickRef })}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Pen" }));
     expect(onJump).not.toHaveBeenCalled();
-    expect(skipClick.current).toBe(false);
+    expect(skipClickRef.current).toBe(false);
   });
 });

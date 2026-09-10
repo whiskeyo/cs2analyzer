@@ -4,33 +4,30 @@ import {
   NOTE_MOMENT_SECONDS,
 } from "@/lib/shared/constants";
 import type { Round } from "@/lib/replay/replayTypes";
-import type { Stroke } from "@/lib/notes/types";
+import { cloneNote, earliestTimedTick as noteEarliestTick, overlayWindowOf } from "./note";
+import type { NoteItemRef } from "./noteGroups";
+import type { Note, RoundNote } from "./types";
 
-export function overlayWindow(
-  st: Stroke,
-  all: readonly Stroke[] = [st],
-): { start: number; end: number } | null {
-  const members =
-    st.group != null && st.group !== ""
-      ? all.filter((s) => s.group === st.group && s.round === st.round)
-      : [st];
-  const timed = (members.length > 0 ? members : [st]).filter((s) => s.start_tick != null);
-  if (timed.length === 0) return null;
-  const start = Math.min(...timed.map((s) => s.start_tick as number));
-  const end = Math.max(...timed.map((s) => s.end_tick ?? (s.start_tick as number)));
-  return { start, end };
+export function overlayWindow(item: {
+  start_tick?: number;
+  end_tick?: number;
+}): { start: number; end: number } | null {
+  return overlayWindowOf(item);
 }
 
-/** Round-scoped overlays show for the whole round; timed ones only inside the window. */
+export function itemWindow(note: Note, ref: NoteItemRef): { start: number; end: number } | null {
+  if (ref.kind === "group") return overlayWindowOf(note.groups[ref.groupIndex] ?? {});
+  if (ref.kind === "loose") return overlayWindowOf(note.drawings[ref.index] ?? {});
+  return overlayWindowOf(note.bookmarks[ref.index] ?? {});
+}
+
+/** Hidden items stay off the radar. Timed ones only show inside the window. */
 export function overlayVisible(
-  st: Stroke,
+  item: { hidden?: boolean; start_tick?: number; end_tick?: number },
   tick: number,
-  round: number,
-  all: readonly Stroke[] = [st],
 ): boolean {
-  if (st.hidden) return false;
-  if (st.round !== round) return false;
-  const win = overlayWindow(st, all);
+  if (item.hidden) return false;
+  const win = overlayWindowOf(item);
   if (!win) return true;
   return tick >= win.start && tick <= win.end;
 }
@@ -46,100 +43,119 @@ export function momentBounds(
   return { start_tick: tick, end_tick: Math.max(tick, end) };
 }
 
-export function withMoment(
-  st: Stroke,
+export function withMoment<T extends object>(
+  item: T,
   moment: boolean,
   tick: number,
   roundEnd: number,
   tickRate: number,
-): Stroke {
-  if (!moment) return st;
-  return { ...st, ...momentBounds(tick, roundEnd, tickRate) };
+): T & { start_tick?: number; end_tick?: number } {
+  if (!moment) return item;
+  return { ...item, ...momentBounds(tick, roundEnd, tickRate) };
 }
 
-export function noteRounds(strokes: Stroke[]): Set<number> {
-  return new Set(strokes.map((s) => s.round));
+export function noteRounds(notes: readonly RoundNote[]): Set<number> {
+  return new Set(notes.map((row) => row.round));
 }
 
-export function earliestTimedTick(strokes: Stroke[], round: number): number | undefined {
-  let min: number | undefined;
-  for (const s of strokes) {
-    if (s.round !== round || s.start_tick == null) continue;
-    if (min == null || s.start_tick < min) min = s.start_tick;
-  }
-  return min;
+export function earliestTimedTick(note: Note): number | undefined {
+  return noteEarliestTick(note);
 }
 
-export function overlayJumpTick(strokes: Stroke[], round: Round): number {
-  return (earliestTimedTick(strokes, round.number) ?? round.freeze_end_tick) || round.start_tick;
+export function overlayJumpTick(note: Note, round: Round): number {
+  return (noteEarliestTick(note) ?? round.freeze_end_tick) || round.start_tick;
 }
 
-export function momentLengthSeconds(
-  st: Stroke,
-  tickRate: number,
-  all: readonly Stroke[] = [st],
-): number | null {
-  const win = overlayWindow(st, all);
+export function momentLengthSeconds(note: Note, ref: NoteItemRef, tickRate: number): number | null {
+  const win = itemWindow(note, ref);
   if (!win) return null;
   const rate = tickRate || DEFAULT_TICK_RATE;
   return (win.end - win.start) / rate;
 }
 
-function stripWindow(st: Stroke): Stroke {
-  const next = { ...st };
-  delete next.start_tick;
-  delete next.end_tick;
+function stampTarget(note: Note, ref: NoteItemRef, start: number, end: number): Note {
+  const next = cloneNote(note);
+  if (ref.kind === "group") {
+    const group = next.groups[ref.groupIndex];
+    if (!group) return note;
+    next.groups[ref.groupIndex] = { ...group, start_tick: start, end_tick: end };
+    return next;
+  }
+  if (ref.kind === "loose") {
+    const drawing = next.drawings[ref.index];
+    if (!drawing) return note;
+    next.drawings[ref.index] = { ...drawing, start_tick: start, end_tick: end };
+    return next;
+  }
+  const mark = next.bookmarks[ref.index];
+  if (!mark) return note;
+  next.bookmarks[ref.index] = { ...mark, start_tick: start, end_tick: end };
   return next;
 }
 
-function indexesInSameGroup(strokes: readonly Stroke[], index: number): number[] {
-  const st = strokes[index];
-  if (!st) return [];
-  if (!st.group) return [index];
-  return strokes.flatMap((s, i) => (s.group === st.group ? [i] : []));
+function clearTarget(note: Note, ref: NoteItemRef): Note {
+  const next = cloneNote(note);
+  if (ref.kind === "group") {
+    const group = next.groups[ref.groupIndex];
+    if (!group) return note;
+    const copy = { ...group };
+    delete copy.start_tick;
+    delete copy.end_tick;
+    next.groups[ref.groupIndex] = copy;
+    return next;
+  }
+  if (ref.kind === "loose") {
+    const drawing = next.drawings[ref.index];
+    if (!drawing) return note;
+    const copy = { ...drawing };
+    delete copy.start_tick;
+    delete copy.end_tick;
+    next.drawings[ref.index] = copy;
+    return next;
+  }
+  const mark = next.bookmarks[ref.index];
+  if (!mark) return note;
+  const copy = { ...mark };
+  delete copy.start_tick;
+  delete copy.end_tick;
+  next.bookmarks[ref.index] = copy;
+  return next;
 }
 
 export function setMomentSeconds(
-  strokes: Stroke[],
-  index: number,
+  note: Note,
+  ref: NoteItemRef,
   seconds: number,
   tickRate: number,
   roundEnd: number,
   fallbackStart: number,
-): Stroke[] {
-  const st = strokes[index];
-  if (!st) return strokes;
+): Note {
   const rate = tickRate || DEFAULT_TICK_RATE;
-  const start = st.start_tick ?? overlayWindow(st, strokes)?.start ?? fallbackStart;
+  const start = itemWindow(note, ref)?.start ?? fallbackStart;
   const span = Math.max(Math.round(NOTE_MOMENT_MIN_SECONDS * rate), Math.round(seconds * rate));
   let end = start + span;
   if (roundEnd > 0) end = Math.min(end, roundEnd);
   end = Math.max(start, end);
-  const targets = new Set(indexesInSameGroup(strokes, index));
-  return strokes.map((s, i) => (targets.has(i) ? { ...s, start_tick: start, end_tick: end } : s));
+  return stampTarget(note, ref, start, end);
 }
 
-export function clearMomentWindow(strokes: Stroke[], index: number): Stroke[] {
-  const targets = new Set(indexesInSameGroup(strokes, index));
-  if (targets.size === 0) return strokes;
-  return strokes.map((s, i) => (targets.has(i) ? stripWindow(s) : s));
+export function clearMomentWindow(note: Note, ref: NoteItemRef): Note {
+  return clearTarget(note, ref);
 }
 
 export function setMomentEdge(
-  strokes: Stroke[],
-  index: number,
+  note: Note,
+  ref: NoteItemRef,
   edge: "start" | "end",
   tick: number,
   roundStart: number,
   roundEnd: number,
   tickRate: number,
-): Stroke[] {
-  const st = strokes[index];
-  if (!st) return strokes;
+): Note {
   const rate = tickRate || DEFAULT_TICK_RATE;
   const fallback = Math.round(NOTE_MOMENT_SECONDS * rate);
   const minSpan = Math.round(NOTE_MOMENT_MIN_SECONDS * rate);
-  const win = overlayWindow(st, strokes);
+  const win = itemWindow(note, ref);
   let start = win?.start ?? tick;
   let end = win?.end ?? tick;
   if (!win) {
@@ -158,43 +174,42 @@ export function setMomentEdge(
   } else {
     end = Math.max(end, start + fallback);
   }
-  return stampWindow(strokes, index, start, end, roundStart, roundEnd, minSpan);
+  return stampWindow(note, ref, start, end, roundStart, roundEnd, minSpan);
 }
 
 /** Set In or Out from a round-clock time (seconds after freeze). Can pass 60 for 1:00. */
 export function setMomentClockEdge(
-  strokes: Stroke[],
-  index: number,
+  note: Note,
+  ref: NoteItemRef,
   edge: "start" | "end",
   seconds: number,
   origin: number,
   roundStart: number,
   roundEnd: number,
   tickRate: number,
-): Stroke[] {
-  const st = strokes[index];
-  if (!st || !Number.isFinite(seconds)) return strokes;
+): Note {
+  if (!Number.isFinite(seconds)) return note;
   const rate = tickRate || DEFAULT_TICK_RATE;
   const fallback = Math.round(NOTE_MOMENT_SECONDS * rate);
   const minSpan = Math.round(NOTE_MOMENT_MIN_SECONDS * rate);
-  const win = overlayWindow(st, strokes);
+  const win = itemWindow(note, ref);
   let start = win?.start ?? origin;
   let end = win?.end ?? (roundEnd > origin ? roundEnd : origin + fallback);
   const tick = origin + Math.max(0, seconds) * rate;
   if (edge === "start") start = tick;
   else end = tick;
-  return stampWindow(strokes, index, start, end, roundStart, roundEnd, minSpan);
+  return stampWindow(note, ref, start, end, roundStart, roundEnd, minSpan);
 }
 
 function stampWindow(
-  strokes: Stroke[],
-  index: number,
+  note: Note,
+  ref: NoteItemRef,
   start: number,
   end: number,
   roundStart: number,
   roundEnd: number,
   minSpan: number,
-): Stroke[] {
+): Note {
   start = Math.max(roundStart, start);
   end = Math.max(roundStart, end);
   if (roundEnd > 0) {
@@ -208,6 +223,5 @@ function stampWindow(
       start = Math.max(roundStart, end - minSpan);
     }
   }
-  const targets = new Set(indexesInSameGroup(strokes, index));
-  return strokes.map((s, i) => (targets.has(i) ? { ...s, start_tick: start, end_tick: end } : s));
+  return stampTarget(note, ref, start, end);
 }

@@ -17,7 +17,7 @@ import { computeStats, matchEndTick, weaponBreakdown } from "@/lib/stats/stats";
 import { weaponHeadshotLabel } from "@/lib/weapons/weapons";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { MapPlaces } from "@/lib/match/sites";
-import type { Stroke } from "@/lib/notes/types";
+import type { RoundNote } from "@/lib/notes/types";
 import { Utility } from "./Utility";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
 import { SeriesBucketPanel } from "./SeriesBucketPanel";
@@ -43,11 +43,11 @@ const TAB_LABEL: Record<Tab, string> = {
 interface Props {
   replay: Replay;
   tick: number;
-  strokes: Stroke[];
+  notes: RoundNote[];
   selected: number | null;
   onSelect: (index: number | null) => void;
   onJump: (tick: number) => void;
-  onStrokes: (next: Stroke[]) => void;
+  onNotes: (next: RoundNote[]) => void;
   places: MapPlaces | null;
   activeRound?: Round | null;
 }
@@ -55,11 +55,11 @@ interface Props {
 export const Sidebar = memo(function Sidebar({
   replay,
   tick,
-  strokes,
+  notes,
   selected,
   onSelect,
   onJump,
-  onStrokes,
+  onNotes,
   places,
   activeRound,
 }: Props) {
@@ -126,13 +126,7 @@ export const Sidebar = memo(function Sidebar({
             />
           ))}
         {activeTab === "notes" && (
-          <Notes
-            replay={replay}
-            tick={tick}
-            strokes={strokes}
-            onJump={onJump}
-            onStrokes={onStrokes}
-          />
+          <Notes replay={replay} tick={tick} notes={notes} onJump={onJump} onNotes={onNotes} />
         )}
         {activeTab === "action" && (
           <>

@@ -16,7 +16,7 @@ import {
 } from "@/lib/layouts/layout";
 import { parseLayoutText, triggerLayoutDownload } from "@/lib/layouts/layoutIo";
 import { dissolveSmallGroups } from "@/lib/layouts/groups";
-import { loadCalibrations } from "@/lib/layouts/maps";
+import { loadCalibrations } from "@/lib/radar/maps";
 import { useLayoutHotkeys } from "@/lib/layouts/useLayoutHotkeys";
 import type {
   LayoutCallout,

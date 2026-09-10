@@ -35,11 +35,11 @@ export function Viewer() {
               <Sidebar
                 replay={replay}
                 tick={tick}
-                strokes={review.strokes}
+                notes={review.notes}
                 selected={view.selected}
                 onSelect={view.select}
                 onJump={jump}
-                onStrokes={review.commitStrokes}
+                onNotes={review.commitNotes}
                 places={places}
                 activeRound={playback.activeRound}
               />
@@ -48,7 +48,7 @@ export function Viewer() {
               <RoundStrip
                 replay={replay}
                 tick={tick}
-                strokes={review.strokes}
+                notes={review.notes}
                 places={places}
                 activeRound={playback.activeRound}
               />
@@ -79,7 +79,7 @@ export function Viewer() {
               <Controls
                 replay={replay}
                 tick={tick}
-                strokes={review.strokes}
+                notes={review.notes}
                 playing={playback.playing}
                 speed={playback.speed}
                 roundAutoplay={playback.roundAutoplay}
