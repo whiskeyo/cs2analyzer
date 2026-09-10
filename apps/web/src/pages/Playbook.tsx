@@ -14,24 +14,15 @@ import { PlaybookEmpty } from "@/components/playbook/PlaybookEmpty";
 import { PlaybookStratPanel } from "@/components/playbook/PlaybookStratPanel";
 import { PlaybookTree } from "@/components/playbook/PlaybookTree";
 import { TokenPalette } from "@/components/playbook/TokenPalette";
-import type { NadeStyle, Note } from "@/lib/notes/types";
 import { consumePlaybookFocus } from "@/lib/playbook/focus";
 import { useNoteHistory } from "@/lib/playbook/history";
-import {
-  colorAtSwatch,
-  cyclePaletteId,
-  PLAYBOOK_COLOR_KEYS,
-  PLAYBOOK_KEYS_HINT,
-  PLAYBOOK_TOOL_KEYS,
-  typingInField,
-} from "@/lib/playbook/hotkeys";
-import { pawnLegend, shouldShowPawnLegend, visiblePieces } from "@/lib/playbook/legend";
+import { PLAYBOOK_KEYS_HINT } from "@/lib/playbook/hotkeys";
 import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";
 import { activePage } from "@/lib/playbook/pages";
 import { booksWithDraft } from "@/lib/playbook/tree";
-import type { PlaybookTool } from "@/lib/playbook/pieces";
 import type { Playbook as PlaybookDoc } from "@/lib/playbook/types";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
+import { usePlaybookBoard } from "@/lib/playbook/usePlaybookBoard";
 import { usePlaybooks } from "@/lib/playbook/usePlaybooks";
 import { loadCalibrations } from "@/lib/radar/maps";
 import {
@@ -58,13 +49,8 @@ export function Playbook() {
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapName, setMapName] = useState<string | null>(null);
-  const [tool, setTool] = useState<PlaybookTool>("pan");
-  const [nadeTrail, setNadeTrail] = useState(false);
-  const [nadeStyle, setNadeStyle] = useState<NadeStyle>("icon");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collapsedMaps, setCollapsedMaps] = useState<Set<string>>(() => new Set());
   const [expandedBooks, setExpandedBooks] = useState<Set<string>>(() => new Set());
-  const [viewEpoch, setViewEpoch] = useState(0);
   const pendingFocus = useRef(consumePlaybookFocus());
   const pendingPage = useRef<string | null>(null);
   const names = maps ? sortedMapNames(maps) : [];
@@ -96,6 +82,13 @@ export function Playbook() {
   const detailWidthRef = useRef(PLAYBOOK_DETAIL_DEFAULT_WIDTH);
   const page = book ? activePage(book) : null;
   const history = useNoteHistory(page?.id ?? null, page?.note ?? null);
+  const board = usePlaybookBoard({
+    book,
+    page,
+    history,
+    setNote,
+    setPalette,
+  });
   const treeResize = usePanelResize({
     storageKey: PLAYBOOK_TREE_WIDTH_STORAGE_KEY,
     minWidth: PLAYBOOK_TREE_MIN_WIDTH,
@@ -172,61 +165,19 @@ export function Playbook() {
   }, [book, selectStrat]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (typingInField()) return;
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        if (e.shiftKey) {
-          const next = history.redo();
-          if (next) setNote(next);
-        } else {
-          const prev = history.undo();
-          if (prev) setNote(prev);
-        }
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
-        e.preventDefault();
-        const next = history.redo();
-        if (next) setNote(next);
-        return;
-      }
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === "Escape") {
-        setSelectedId(null);
-        setTool("pan");
-        return;
-      }
-      if (e.key.toLowerCase() === "r") {
-        setViewEpoch((n) => n + 1);
-        return;
-      }
-      if (e.key.toLowerCase() === "n") {
-        setNadeTrail((on) => !on);
-        return;
-      }
-      if (e.key.toLowerCase() === "g") {
-        setNadeStyle((style) => (style === "icon" ? "effect" : "icon"));
-        return;
-      }
-      if (e.key === "[" || e.key === "]") {
-        if (!book) return;
-        const nextId = cyclePaletteId(book.paletteId, e.key === "]" ? 1 : -1);
-        setPalette(nextId);
-        return;
-      }
-      const swatch = PLAYBOOK_COLOR_KEYS.findIndex((key) => key === e.key);
-      if (swatch >= 0 && book) {
-        const next = colorAtSwatch(book.paletteId, swatch);
-        if (next) setPalette(book.paletteId, next);
-        return;
-      }
-      const nextTool = PLAYBOOK_TOOL_KEYS[e.key.toLowerCase()];
-      if (nextTool) setTool(nextTool);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [book, history, setNote, setPalette]);
+    if (!mapName) return;
+    if (query.playbook && appliedSearchRef.current !== incomingSearch) return;
+    const next = playbookSearch({
+      map: mapName,
+      playbook: book ? playbookQueryLabel(allBooks, book) : null,
+      strat: book && page ? stratQueryLabel(book.pages, page) : null,
+    });
+    if (next === incomingSearch) return;
+    appliedSearchRef.current = next;
+    setSearchParams(next === "" ? {} : Object.fromEntries(new URLSearchParams(next.slice(1))), {
+      replace: true,
+    });
+  }, [allBooks, book, incomingSearch, mapName, page, query.playbook, setSearchParams]);
 
   useEffect(() => {
     if (!mapName) return;
@@ -250,16 +201,6 @@ export function Playbook() {
     return next;
   }, [activeKey, expandedBooks]);
   const cal = mapName && maps ? maps[mapName] : undefined;
-  const visibleSelectedId = page?.note.pieces.some((piece) => piece.id === selectedId)
-    ? selectedId
-    : null;
-  const boardPieces = page ? visiblePieces(page.note) : [];
-  const legend = shouldShowPawnLegend(boardPieces) ? pawnLegend(boardPieces) : [];
-
-  const commitNote = (note: Note) => {
-    history.pushPresent(note);
-    setNote(note);
-  };
 
   const openBook = (row: PlaybookDoc) => {
     setMapName(row.mapName);
@@ -291,42 +232,36 @@ export function Playbook() {
           {page && book && mapName ? (
             <>
               <TokenPalette
-                tool={tool}
-                onTool={setTool}
-                nadeTrail={nadeTrail}
-                onNadeTrail={setNadeTrail}
-                nadeStyle={nadeStyle}
-                onNadeStyle={setNadeStyle}
+                tool={board.tool}
+                onTool={board.setTool}
+                nadeTrail={board.nadeTrail}
+                onNadeTrail={board.setNadeTrail}
+                nadeStyle={board.nadeStyle}
+                onNadeStyle={board.setNadeStyle}
                 paletteId={book.paletteId}
                 color={book.color}
                 onPalette={(id) => setPalette(id)}
                 onColor={(color) => setPalette(book.paletteId, color)}
-                canUndo={history.canUndo}
-                canRedo={history.canRedo}
-                onUndo={() => {
-                  const prev = history.undo();
-                  if (prev) setNote(prev);
-                }}
-                onRedo={() => {
-                  const next = history.redo();
-                  if (next) setNote(next);
-                }}
-                onResetView={() => setViewEpoch((n) => n + 1)}
+                canUndo={board.canUndo}
+                canRedo={board.canRedo}
+                onUndo={board.undo}
+                onRedo={board.redo}
+                onResetView={board.resetView}
               />
               <div className="playbook-board">
                 <PlaybookCanvas
                   cal={cal}
                   floorMode={page.floor}
                   note={page.note}
-                  tool={tool}
+                  tool={board.tool}
                   color={book.color}
-                  selectedId={visibleSelectedId}
-                  nadeTrail={nadeTrail}
-                  nadeStyle={nadeStyle}
-                  viewEpoch={viewEpoch}
-                  legend={legend}
-                  onNote={commitNote}
-                  onSelect={setSelectedId}
+                  selectedId={board.visibleSelectedId}
+                  nadeTrail={board.nadeTrail}
+                  nadeStyle={board.nadeStyle}
+                  viewEpoch={board.viewEpoch}
+                  legend={board.legend}
+                  onNote={board.commitNote}
+                  onSelect={board.setSelectedId}
                 />
               </div>
             </>
@@ -340,10 +275,10 @@ export function Playbook() {
             <PlaybookStratPanel
               stratTitle={page.title}
               body={page.body}
-              selectedId={visibleSelectedId}
+              selectedId={board.visibleSelectedId}
               onBody={(body) => setBody(page.id, body)}
-              onSelect={setSelectedId}
-              onNote={commitNote}
+              onSelect={board.setSelectedId}
+              onNote={board.commitNote}
               note={page.note}
             />
           </aside>
