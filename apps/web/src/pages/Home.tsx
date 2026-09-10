@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { Link } from "react-router";
 import { DemoDrop } from "@/components/app/DemoDrop";
-import { playbookHref } from "@/lib/app/playbookSearch";
+import { CreatePlaybookDialog } from "@/components/playbook/CreatePlaybookDialog";
+import { PlaybookMark } from "@/components/playbook/PlaybookMark";
 import { ROUTES } from "@/lib/app/routes";
-import { PLAYBOOK_PREFERRED_MAP } from "@/lib/playbook/types";
 
 function HomeIntro() {
   return (
@@ -25,17 +26,24 @@ function HomeIntro() {
 }
 
 function HomePlaybookCta() {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="home-card home-playbook">
-      <p className="home-kicker">Tactics board</p>
-      <div className="drop-title">Create a playbook</div>
-      <p>Draw named strats on a radar. No demo required.</p>
-      <p className="home-playbook-start">
-        <Link to={ROUTES.playbook}>Pick a map</Link>
-        <span aria-hidden="true"> · </span>
-        <Link to={playbookHref({ map: PLAYBOOK_PREFERRED_MAP })}>Start empty board</Link>
-      </p>
-    </div>
+    <>
+      <div className="home-card home-playbook">
+        <PlaybookMark />
+        <div className="drop-title">Create a playbook</div>
+        <p>Draw named strats on a radar. No demo required.</p>
+        <button
+          type="button"
+          className="home-playbook-add"
+          aria-label="New playbook"
+          onClick={() => setOpen(true)}
+        >
+          +
+        </button>
+      </div>
+      {open ? <CreatePlaybookDialog onClose={() => setOpen(false)} /> : null}
+    </>
   );
 }
 

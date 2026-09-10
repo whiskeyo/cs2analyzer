@@ -114,28 +114,22 @@ describe("App", () => {
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
-    expect(screen.getByRole("link", { name: "Pick a map" })).toHaveAttribute("href", "/playbook");
-    expect(screen.getByRole("link", { name: "Start empty board" })).toHaveAttribute(
-      "href",
-      "/playbook?map=de_mirage",
-    );
+    expect(screen.getByRole("button", { name: "New playbook" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
   });
 
-  it("opens Playbook from the home creator card", async () => {
+  it("opens a create-playbook dialog from the home plus button", async () => {
     render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
-    await userEvent.click(screen.getByRole("link", { name: "Pick a map" }));
-    expect(window.location.pathname).toBe("/playbook");
-    expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
-  });
-
-  it("opens an empty Playbook board from the home creator card", async () => {
-    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
-    await userEvent.click(screen.getByRole("link", { name: "Start empty board" }));
-    expect(window.location.pathname).toBe("/playbook");
-    expect(window.location.search).toBe("?map=de_mirage");
-    expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
+    expect(await screen.findByRole("heading", { name: "New playbook" })).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Map" })).toHaveValue("de_mirage");
+    expect(screen.getByRole("textbox", { name: "Playbook title" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("heading", { name: "New playbook" })).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
   });
 
   it("opens FAQ from the home hint", async () => {

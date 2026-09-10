@@ -5,8 +5,9 @@ import "fake-indexeddb/auto";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { playbookHref } from "@/lib/app/playbookSearch";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
-import { COPY_SUFFIX } from "@/lib/playbook/types";
+import { COPY_SUFFIX, UNTITLED_STRAT } from "@/lib/playbook/types";
 import { PLAYBOOK_FOCUS_KEY, rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
 import { TestRouter } from "@/lib/testing/router";
@@ -206,6 +207,21 @@ describe("Playbook", () => {
     expect(await screen.findByTestId("playbook-canvas")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "my_playbook" })).toHaveClass("is-active");
     expect(screen.getByRole("button", { name: "Untitled strat" })).toHaveClass("is-active");
+  });
+
+  it("opens a book from the home create handoff", async () => {
+    const book = await createPlaybook("de_mirage", "A execs");
+    rememberPlaybookFocus({ mapName: book.mapName, bookKey: book.key });
+    renderBoard(
+      playbookHref({
+        map: book.mapName,
+        playbook: book.title,
+        strat: UNTITLED_STRAT,
+      }),
+    );
+    expect(await screen.findByTestId("playbook-canvas")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "A execs" })).toHaveClass("is-active");
+    expect(screen.getByRole("button", { name: UNTITLED_STRAT })).toHaveClass("is-active");
   });
 
   it("opens the remembered snapshot book expanded", async () => {

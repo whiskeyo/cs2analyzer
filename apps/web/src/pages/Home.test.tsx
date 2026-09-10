@@ -1,14 +1,24 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
 import type { ReviewProject } from "@/lib/notes/projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
+import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { TestRouter } from "@/lib/testing/router";
 import { Home } from "./Home";
 
 vi.mock("@/lib/state/appState", () => ({
   useApp: vi.fn(),
 }));
+
+vi.mock("@/lib/radar/maps", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/radar/maps")>();
+  return {
+    ...actual,
+    loadCalibrations: vi.fn(async () => ({ de_mirage: UNIT_CALIBRATION })),
+  };
+});
 
 function savedProject(key = "proj-1"): ReviewProject {
   return {
@@ -95,11 +105,23 @@ describe("Home", () => {
     if (playbook && faq) {
       expect(playbook.compareDocumentPosition(faq) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     }
-    expect(screen.getByRole("link", { name: "Pick a map" })).toHaveAttribute("href", "/playbook");
-    expect(screen.getByRole("link", { name: "Start empty board" })).toHaveAttribute(
-      "href",
-      "/playbook?map=de_mirage",
-    );
+    expect(screen.getByRole("button", { name: "New playbook" })).toBeInTheDocument();
+    expect(container.querySelector(".home-playbook-mark")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
+  });
+
+  it("opens the create dialog from the green plus", async () => {
+    vi.mocked(useApp).mockReturnValue(homeState() as unknown as ReturnType<typeof useApp>);
+    render(
+      <TestRouter>
+        <Home />
+      </TestRouter>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "New playbook" }));
+    expect(await screen.findByRole("heading", { name: "New playbook" })).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Map" })).toHaveValue("de_mirage");
+    expect(screen.getByRole("textbox", { name: "Playbook title" })).toBeInTheDocument();
   });
 });

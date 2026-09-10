@@ -138,21 +138,27 @@ body,
   cursor: default;
   gap: 0.45rem;
 }
-.home-playbook-start {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+.home-playbook-add {
+  display: inline-flex;
   align-items: center;
-  gap: 0.35rem 0.45rem;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
   margin-top: 0.35rem;
-}
-.home-playbook-start a {
-  color: #8ec4ee;
+  border: 1px solid #2f6b4a;
+  border-radius: 999px;
+  background: #1f4d32;
+  color: #8ee0b0;
+  font: inherit;
+  font-size: 1.45rem;
   font-weight: 650;
-  text-decoration: none;
+  line-height: 1;
+  cursor: pointer;
 }
-.home-playbook-start a:hover {
-  color: var(--text);
+.home-playbook-add:hover {
+  background: #27633f;
+  border-color: #3d8a5c;
+  filter: none;
 }
 .home-faq-hint {
   margin: 0;
