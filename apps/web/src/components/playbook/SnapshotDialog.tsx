@@ -69,6 +69,7 @@ export function SnapshotDialog({
         groups,
         floor,
       });
+      // Playbook reads this once on mount (`consumePlaybookFocus`) after navigate.
       rememberPlaybookFocus({ mapName, bookKey: book.key });
       setSaved({ title: book.title, key: book.key });
     } catch (err: unknown) {

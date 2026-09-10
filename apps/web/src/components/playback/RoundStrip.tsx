@@ -6,7 +6,7 @@ import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { Stroke } from "@/lib/notes/types";
 import { noteRounds } from "@/lib/notes";
-import { sendPlaybackCommand } from "@/lib/playback/playbackCommands";
+import { useSendPlaybackCommand } from "@/lib/playback/playbackCommandContext";
 import type { MapPlaces } from "@/lib/match/sites";
 
 interface Props {
@@ -24,6 +24,7 @@ export const RoundStrip = memo(function RoundStrip({
   places,
   activeRound,
 }: Props) {
+  const send = useSendPlaybackCommand();
   const current = activeRound ?? currentRound(replay, tick);
   const [beats, setBeats] = useState<ExecuteBeat[]>([]);
 
@@ -72,7 +73,7 @@ export const RoundStrip = memo(function RoundStrip({
                     .join(" · ")
             }
             onMouseDown={blockTransportFocus}
-            onClick={() => sendPlaybackCommand({ type: "jump", tick: 0, round: r })}
+            onClick={() => send({ type: "jump", tick: 0, round: r })}
           >
             {r.is_knife ? "K" : r.number}
           </button>

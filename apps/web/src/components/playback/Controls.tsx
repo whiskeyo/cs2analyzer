@@ -9,7 +9,7 @@ import {
   roundTimelineMarks,
   type RoundScrubEventMark,
 } from "@/lib/playback/roundTimeline";
-import { sendPlaybackCommand } from "@/lib/playback/playbackCommands";
+import { useSendPlaybackCommand } from "@/lib/playback/playbackCommandContext";
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { Stroke } from "@/lib/notes/types";
@@ -116,6 +116,7 @@ export const Controls = memo(function Controls({
   onRoundAutoplay,
   activeRound,
 }: Props) {
+  const send = useSendPlaybackCommand();
   const round = activeRound ?? currentRound(replay, tick);
   const fallback = {
     min: replay.ticks.ticks[0] ?? 0,
@@ -180,26 +181,23 @@ export const Controls = memo(function Controls({
       <TransportButton playing={playing} onToggle={onTogglePlay} />
       <TransportButtonish
         title="Previous round ([)"
-        onClick={() => sendPlaybackCommand({ type: "jump-round", dir: -1 })}
+        onClick={() => send({ type: "jump-round", dir: -1 })}
       >
         ◀ R
       </TransportButtonish>
       <TransportButtonish
         title="Next round (])"
-        onClick={() => sendPlaybackCommand({ type: "jump-round", dir: 1 })}
+        onClick={() => send({ type: "jump-round", dir: 1 })}
       >
         R ▶
       </TransportButtonish>
       <TransportButtonish
         title="Previous kill (,)"
-        onClick={() => sendPlaybackCommand({ type: "jump-kill", dir: -1 })}
+        onClick={() => send({ type: "jump-kill", dir: -1 })}
       >
         ◀ K
       </TransportButtonish>
-      <TransportButtonish
-        title="Next kill (.)"
-        onClick={() => sendPlaybackCommand({ type: "jump-kill", dir: 1 })}
-      >
+      <TransportButtonish title="Next kill (.)" onClick={() => send({ type: "jump-kill", dir: 1 })}>
         K ▶
       </TransportButtonish>
       <TransportButtonish title="Step back" onClick={() => step(-1)}>
@@ -240,7 +238,7 @@ export const Controls = memo(function Controls({
           onChange={(e) => {
             const start = Number(e.target.value);
             const r = replay.rounds.find((x) => x.start_tick === start);
-            if (r) sendPlaybackCommand({ type: "jump", tick: 0, pause: true, round: r });
+            if (r) send({ type: "jump", tick: 0, pause: true, round: r });
           }}
         >
           {replay.rounds.map((r) => (

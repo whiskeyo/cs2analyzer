@@ -17,12 +17,31 @@ export type PlaybackCommand =
 
 type Sink = (cmd: PlaybackCommand) => void;
 
-let sink: Sink | null = null;
+export interface PlaybackCommandBus {
+  setSink: (next: Sink | null) => void;
+  send: (cmd: PlaybackCommand) => void;
+}
+
+/** One bus per AnalyzerProvider. Tests without a provider use `fallbackBus`. */
+export function createPlaybackCommandBus(): PlaybackCommandBus {
+  let sink: Sink | null = null;
+  return {
+    setSink(next) {
+      sink = next;
+    },
+    send(cmd) {
+      sink?.(cmd);
+    },
+  };
+}
+
+/** Used only by hook/component tests that do not mount AnalyzerProvider. */
+export const fallbackPlaybackCommandBus = createPlaybackCommandBus();
 
 export function setPlaybackCommandSink(next: Sink | null): void {
-  sink = next;
+  fallbackPlaybackCommandBus.setSink(next);
 }
 
 export function sendPlaybackCommand(cmd: PlaybackCommand): void {
-  sink?.(cmd);
+  fallbackPlaybackCommandBus.send(cmd);
 }
