@@ -9,7 +9,7 @@
 # | scripts/**, this workflow                          | yes     | yes  | yes | yes (via Web)             |
 #
 # Root *.md is README.md / AGENTS.md only (`*` does not cross `/`).
-# FAQ articles live under apps/web/src/content/faq/ and still run Web.
+# FAQ articles live under apps/web/src/lib/i18n/translations/faq/ and still run Web.
 
 name: CI
 

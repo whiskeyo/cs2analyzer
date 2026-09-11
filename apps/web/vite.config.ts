@@ -44,14 +44,14 @@ function send(res: ServerResponse, status: number, body: string) {
   res.end(body);
 }
 
-/** Compile `content/faq/*.md` to `{ question, html }` so the client does not ship remark. */
+/** Compile `translations/faq/{locale}/*.md` so the client does not ship remark. */
 function faqMarkdownPlugin(): Plugin {
   return {
     name: "faq-markdown",
     enforce: "pre",
     transform(code, id) {
       const file = (id.split("?")[0] ?? id).replaceAll("\\", "/");
-      if (!file.endsWith(".md") || !file.includes("/content/faq/")) {
+      if (!file.endsWith(".md") || !file.includes("/translations/faq/")) {
         return;
       }
       if (id.includes("?raw")) {
