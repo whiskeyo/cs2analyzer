@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Status } from "@/lib/state/status";
 import { SERIES_MAX_FILES } from "@/lib/shared/constants";
+import { errorMessage } from "@/lib/validate/json.ts";
 import {
   createParseWorkerPool,
   groupParsedDemosByMap,
@@ -12,16 +13,13 @@ import {
   type ParsePoolProgress,
   type ParseWorkerPool,
 } from "./parsePool";
+import { discardParserWarmup, ensureParser, parserFactory } from "./ensureParser";
 import { buildSeries, withFocalTeam, type DemoSeries, type LoadedDemo } from "./session";
 import { formatParseTimings } from "./timings";
 import { parseDump } from "./parseDump";
 import { clearSeriesReviewCache } from "@/lib/notes/seriesReviewCache";
 
 export type { CreateWorker };
-
-function defaultCreateWorker(): Worker {
-  return new Worker(new URL("./parseWorker.ts", import.meta.url), { type: "module" });
-}
 
 export interface ParseProgress {
   current: number;
@@ -38,7 +36,7 @@ export function useDemoSession(opts: {
   onBeforeSelectDemo?: () => void;
 }) {
   const { status, onBeforeSelectDemo } = opts;
-  const createWorkerRef = useRef(opts.createWorker ?? defaultCreateWorker);
+  const createWorkerRef = useRef(opts.createWorker);
   createWorkerRef.current = opts.createWorker ?? createWorkerRef.current;
   const statusRef = useRef(status);
   statusRef.current = status;
@@ -60,14 +58,30 @@ export function useDemoSession(opts: {
   const onBeforeSelectRef = useRef(onBeforeSelectDemo);
   onBeforeSelectRef.current = onBeforeSelectDemo;
 
-  const getPool = useCallback((): ParseWorkerPool => {
-    poolRef.current ??= createParseWorkerPool(() => createWorkerRef.current());
-    return poolRef.current;
+  const getPool = useCallback((): ParseWorkerPool | Promise<ParseWorkerPool> => {
+    if (poolRef.current) {
+      return poolRef.current;
+    }
+    const injected = createWorkerRef.current;
+    if (injected) {
+      poolRef.current = createParseWorkerPool(injected);
+      return poolRef.current;
+    }
+    const ready = parserFactory();
+    if (ready) {
+      poolRef.current = createParseWorkerPool(ready);
+      return poolRef.current;
+    }
+    return ensureParser().then((create) => {
+      poolRef.current ??= createParseWorkerPool(create);
+      return poolRef.current;
+    });
   }, []);
 
   useEffect(
     () => () => {
       poolRef.current?.reset();
+      discardParserWarmup();
       if (progressRafRef.current) cancelAnimationFrame(progressRafRef.current);
     },
     [],
@@ -124,30 +138,45 @@ export function useDemoSession(opts: {
       setSelectedMapName(null);
       setParsedDemos([]);
 
-      void getPool()
-        .parseFile(file, (current, workerTotal) => {
-          if (gen !== parseGenRef.current) return;
-          const total = workerTotal > 0 ? workerTotal : 1;
-          scheduleProgress(Math.round((100 * current) / total), 100);
-        })
-        .then((result) => {
-          if (gen !== parseGenRef.current) return;
-          endParse();
-          if (result.cancelled) return;
-          if (result.error || !result.demo || !result.timings) {
-            statusRef.current.setError(result.error ?? "Parse failed");
-            return;
-          }
-          const parseNotice = formatParseTimings(result.timings);
-          console.info(
-            "[cs2analyzer parse]",
-            result.timings,
-            parseNotice,
-            parseDump(result.demo.replay),
-          );
-          statusRef.current.setNotice(parseNotice);
-          finishSingle(result.demo);
-        });
+      const fail = (err: unknown) => {
+        if (gen !== parseGenRef.current) return;
+        endParse();
+        statusRef.current.setError(errorMessage(err));
+      };
+
+      const run = (pool: ParseWorkerPool) => {
+        void pool
+          .parseFile(file, (current, workerTotal) => {
+            if (gen !== parseGenRef.current) return;
+            const total = workerTotal > 0 ? workerTotal : 1;
+            scheduleProgress(Math.round((100 * current) / total), 100);
+          })
+          .then((result) => {
+            if (gen !== parseGenRef.current) return;
+            endParse();
+            if (result.cancelled) return;
+            if (result.error || !result.demo || !result.timings) {
+              statusRef.current.setError(result.error ?? "Parse failed");
+              return;
+            }
+            const parseNotice = formatParseTimings(result.timings);
+            console.info(
+              "[cs2analyzer parse]",
+              result.timings,
+              parseNotice,
+              parseDump(result.demo.replay),
+            );
+            statusRef.current.setNotice(parseNotice);
+            finishSingle(result.demo);
+          });
+      };
+
+      const poolOrPromise = getPool();
+      if (poolOrPromise instanceof Promise) {
+        void poolOrPromise.then(run).catch(fail);
+        return;
+      }
+      run(poolOrPromise);
     },
     [beginParse, endParse, finishSingle, getPool, scheduleProgress],
   );
@@ -192,7 +221,18 @@ export function useDemoSession(opts: {
 
       const wall0 = performance.now();
       const poolWorkers = parsePoolSize(files.length);
-      const results = await runParsePool(getPool(), files, onPoolProgress);
+      let pool: ParseWorkerPool;
+      try {
+        const poolOrPromise = getPool();
+        pool = poolOrPromise instanceof Promise ? await poolOrPromise : poolOrPromise;
+      } catch (err: unknown) {
+        if (gen !== parseGenRef.current) return;
+        endParse();
+        statusRef.current.setError(errorMessage(err));
+        return;
+      }
+      if (gen !== parseGenRef.current) return;
+      const results = await runParsePool(pool, files, onPoolProgress);
       if (gen !== parseGenRef.current) return;
 
       const wallMs = performance.now() - wall0;
@@ -276,6 +316,7 @@ export function useDemoSession(opts: {
     parseGenRef.current += 1;
     parsingRef.current = false;
     poolRef.current?.reset();
+    discardParserWarmup();
     setDemo(null);
     setSeries(null);
     setMapGroups([]);

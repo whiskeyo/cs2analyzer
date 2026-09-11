@@ -6,6 +6,12 @@ import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import { DropZone } from "./DropZone";
 
+const prefetchParser = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/parse/ensureParser", () => ({
+  prefetchParser,
+}));
+
 vi.mock("@/lib/notes/projectStore", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/notes/projectStore")>();
   return {
@@ -57,6 +63,7 @@ describe("DropZone", () => {
   beforeEach(() => {
     vi.mocked(demoFilePickerAvailable).mockReturnValue(false);
     vi.mocked(pickOpenFiles).mockResolvedValue(null);
+    prefetchParser.mockClear();
   });
 
   it("hands a picked demo to the parser", async () => {
@@ -69,6 +76,19 @@ describe("DropZone", () => {
 
     expect(onFiles).toHaveBeenCalledTimes(1);
     expect(onFiles.mock.calls[0][0][0].name).toBe("match.dem");
+  });
+
+  it("prefetches the parser on dropzone pointer and drag intent", () => {
+    const { container } = render(<DropZone {...props()} />);
+    const drop = container.querySelector(".drop") as HTMLElement;
+    fireEvent.pointerEnter(drop);
+    expect(prefetchParser).toHaveBeenCalled();
+    prefetchParser.mockClear();
+    fireEvent.pointerDown(drop);
+    expect(prefetchParser).toHaveBeenCalled();
+    prefetchParser.mockClear();
+    fireEvent.dragEnter(drop);
+    expect(prefetchParser).toHaveBeenCalled();
   });
 
   it("shows parse progress as a percentage", () => {

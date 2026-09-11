@@ -57,11 +57,17 @@ function copyU16(view: Uint16Array): Uint16Array {
   return view.length === 0 ? new Uint16Array(0) : view.slice();
 }
 
-self.onmessage = async (ev: MessageEvent<{ bytes: ArrayBuffer }>) => {
+type ParseWorkerIn = { bytes: ArrayBuffer } | { type: "warmup" };
+
+self.onmessage = async (ev: MessageEvent<ParseWorkerIn>) => {
   try {
     const t0 = performance.now();
     await ensureWasm();
     const initMs = performance.now() - t0;
+
+    if (!("bytes" in ev.data)) {
+      return;
+    }
 
     const data = new Uint8Array(ev.data.bytes);
     const tParse = performance.now();
