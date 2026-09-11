@@ -230,6 +230,19 @@ describe("DropZone", () => {
     expect(screen.getByText("2 / 3")).toBeInTheDocument();
   });
 
+  it("honors a custom saved-notes page size", () => {
+    const saved = Array.from({ length: 5 }, (_, i) =>
+      savedProject({
+        key: `de_mirage|1|50,100|${i}.dem`,
+        fileName: `${i}.dem`,
+      }),
+    );
+    render(<DropZone {...props({ saved, pageSize: 3 })} />);
+    expect(screen.getByText("0.dem")).toBeInTheDocument();
+    expect(screen.queryByText("3.dem")).not.toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+  });
+
   it("links GitHub, Issues, and Donate in the footer", () => {
     render(<DropZone {...props()} />);
     expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(

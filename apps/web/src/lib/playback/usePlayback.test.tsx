@@ -95,6 +95,18 @@ describe("usePlayback", () => {
     expect(result.current.playing).toBe(false);
   });
 
+  it("applies the settings playback speed when a demo loads", () => {
+    const demo = makeDemo();
+    const { result, rerender } = renderHook(
+      ({ id, speed }) => usePlayback(demo, id, undefined, speed),
+      { initialProps: { id: "a", speed: 2 } },
+    );
+    expect(result.current.speed).toBe(2);
+    act(() => result.current.setSpeed(8));
+    rerender({ id: "b", speed: 2 });
+    expect(result.current.speed).toBe(2);
+  });
+
   it("publishes whole ticks while keeping the sub-tick playhead in the ref", () => {
     const { result } = renderPlayback();
 

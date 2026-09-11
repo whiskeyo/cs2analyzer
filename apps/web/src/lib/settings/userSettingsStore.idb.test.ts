@@ -94,7 +94,19 @@ describe("userSettingsStore indexedDB", () => {
     expect(await countPlaybooks()).toBe(1);
   });
 
-  it("migrates sidebarWidth and eventLeadInSec once, leaving the keys", async () => {
+  it("drops leftover localStorage keys when an IndexedDB row already exists", async () => {
+    await saveUserSettings({ sidebarWidth: 520 });
+    const store = stubLocalStorage({
+      [STORAGE_KEYS.sidebarWidth]: String(SIDEBAR_MAX_WIDTH),
+      [STORAGE_KEYS.eventLeadInSec]: "4",
+    });
+    const loaded = await loadUserSettings();
+    expect(loaded.sidebarWidth).toBe(520);
+    expect(store.get(STORAGE_KEYS.sidebarWidth)).toBeUndefined();
+    expect(store.get(STORAGE_KEYS.eventLeadInSec)).toBeUndefined();
+  });
+
+  it("migrates sidebarWidth and eventLeadInSec once, then removes the keys", async () => {
     const store = stubLocalStorage({
       [STORAGE_KEYS.sidebarWidth]: "520",
       [STORAGE_KEYS.eventLeadInSec]: "2.5",
@@ -103,14 +115,16 @@ describe("userSettingsStore indexedDB", () => {
     const first = await loadUserSettings();
     expect(first.sidebarWidth).toBe(520);
     expect(first.eventLeadInSec).toBe(2.5);
-    expect(store.get(STORAGE_KEYS.sidebarWidth)).toBe("520");
-    expect(store.get(STORAGE_KEYS.eventLeadInSec)).toBe("2.5");
+    expect(store.get(STORAGE_KEYS.sidebarWidth)).toBeUndefined();
+    expect(store.get(STORAGE_KEYS.eventLeadInSec)).toBeUndefined();
 
     store.set(STORAGE_KEYS.sidebarWidth, String(SIDEBAR_MAX_WIDTH));
     store.set(STORAGE_KEYS.eventLeadInSec, "4");
     const second = await loadUserSettings();
     expect(second.sidebarWidth).toBe(520);
     expect(second.eventLeadInSec).toBe(2.5);
+    expect(store.get(STORAGE_KEYS.sidebarWidth)).toBeUndefined();
+    expect(store.get(STORAGE_KEYS.eventLeadInSec)).toBeUndefined();
   });
 
   it("does not persist a defaults row when localStorage has nothing to migrate", async () => {

@@ -89,7 +89,10 @@ export function projectFromDemo(
 }
 
 /** Scorecard + player table for saved-notes list; keeps any existing drawings. */
-export async function seedDemoStats(target: LoadedDemo): Promise<ReviewProject> {
+export async function seedDemoStats(
+  target: LoadedDemo,
+  overlayDefaults?: ReviewOverlay,
+): Promise<ReviewProject> {
   const key = matchKey(target.replay, target.fileName);
   const existing = await loadProject(key);
   const endTick = matchEndTick(target.replay);
@@ -103,10 +106,11 @@ export async function seedDemoStats(target: LoadedDemo): Promise<ReviewProject> 
         mapName: target.replay.header.map_name,
         tick: existing?.tick ?? 0,
         notes: existing?.notes ?? [],
-        summaryFilter: existing?.summaryFilter ?? DEFAULT_SUMMARY_FILTER,
-        floorMode: existing?.floorMode ?? "auto",
-        paletteId: existing?.paletteId ?? defaultPaletteId(),
-        color: existing?.color ?? defaultColor(),
+        summaryFilter:
+          existing?.summaryFilter ?? overlayDefaults?.summaryFilter ?? DEFAULT_SUMMARY_FILTER,
+        floorMode: existing?.floorMode ?? overlayDefaults?.floorMode ?? "auto",
+        paletteId: existing?.paletteId ?? overlayDefaults?.paletteId ?? defaultPaletteId(),
+        color: existing?.color ?? overlayDefaults?.color ?? defaultColor(),
         scorecard: matchScorecard(target.replay, endTick),
         playerStats: savedPlayerSnapshots(target.replay, endTick),
         fileSizeBytes: target.file.size > 0 ? target.file.size : undefined,

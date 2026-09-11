@@ -36,6 +36,7 @@ import {
   projectFromDemo,
   reviewSnapshot,
   seedDemoStats,
+  type ReviewOverlay,
 } from "./reviewPersistence";
 
 /**
@@ -53,14 +54,25 @@ export function useReviewProject(opts: {
   parsedDemos: LoadedDemo[];
   status: Status;
   playback: Playback;
+  /** Global defaults for a demo with no saved project. */
+  overlayDefaults?: ReviewOverlay;
 }) {
   const { demo, series, parsedDemos, status, playback } = opts;
+  const overlayDefaultsRef = useRef<ReviewOverlay>({
+    paletteId: defaultPaletteId(),
+    color: defaultColor(),
+    floorMode: "auto",
+    summaryFilter: DEFAULT_SUMMARY_FILTER,
+  });
+  overlayDefaultsRef.current = opts.overlayDefaults ?? overlayDefaultsRef.current;
   const [saved, setSaved] = useState<ReviewProject[]>([]);
   const { notes, notesRef, canUndo, canRedo, commitNotes, undo, redo } = useRoundNoteHistory();
-  const [paletteId, setPaletteId] = useState(defaultPaletteId);
-  const [color, setColor] = useState(defaultColor);
-  const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>(DEFAULT_SUMMARY_FILTER);
-  const [floorMode, setFloorMode] = useState<FloorMode>("auto");
+  const [paletteId, setPaletteId] = useState(overlayDefaultsRef.current.paletteId);
+  const [color, setColor] = useState(overlayDefaultsRef.current.color);
+  const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>(
+    overlayDefaultsRef.current.summaryFilter,
+  );
+  const [floorMode, setFloorMode] = useState<FloorMode>(overlayDefaultsRef.current.floorMode);
   const demoRef = useRef(demo);
   demoRef.current = demo;
   /** Previous demo id — used to detect series file switches vs first load. */
@@ -196,7 +208,7 @@ export function useReviewProject(opts: {
         if (cancelled) {
           return;
         }
-        await saveProject(await seedDemoStats(d));
+        await saveProject(await seedDemoStats(d, overlayDefaultsRef.current));
       }
       if (!cancelled) {
         refreshSaved();
@@ -223,8 +235,11 @@ export function useReviewProject(opts: {
     }
     commitNotes([], true);
     if (enter.resetOverlay) {
-      setSummaryFilter(DEFAULT_SUMMARY_FILTER);
-      setFloorMode("auto");
+      const defaults = overlayDefaultsRef.current;
+      setSummaryFilter({ ...defaults.summaryFilter, kinds: { ...defaults.summaryFilter.kinds } });
+      setFloorMode(defaults.floorMode);
+      setPaletteId(defaults.paletteId);
+      setColor(defaults.color);
     }
   }, [demo?.id, series, commitNotes]);
 

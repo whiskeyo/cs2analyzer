@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { useResetOnDemoChange } from "@/lib/state/demoReset";
 import { getSeriesReviewTick } from "@/lib/notes/seriesReviewCache";
-import { tickRate } from "@/lib/shared/constants";
+import { tickRate, DEFAULT_PLAYBACK_SPEED } from "@/lib/shared/constants";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import { currentRound } from "@/lib/replay/sample";
 import { shouldPublishHudTick } from "./hudTick";
@@ -33,10 +33,13 @@ export function usePlayback(
   replay: Replay | null,
   demoId: string | null,
   freezeTransportRef?: MutableRefObject<boolean>,
+  defaultSpeed: number = DEFAULT_PLAYBACK_SPEED,
 ) {
   const [tick, setTick] = useState(0);
   const [playing, setPlayingState] = useState(false);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(defaultSpeed);
+  const defaultSpeedRef = useRef(defaultSpeed);
+  defaultSpeedRef.current = defaultSpeed;
   const [roundAutoplay, setRoundAutoplayState] = useState(loadRoundAutoplay);
   const [activeRound, setActiveRound] = useState<Round | null>(null);
   const tickRef = useRef(0);
@@ -191,6 +194,7 @@ export function usePlayback(
       tickRef.current = land;
       activeRoundRef.current = first ?? null;
       setActiveRound(first ?? null);
+      setSpeed(defaultSpeedRef.current);
       publish(land);
     },
     Boolean(demoId && replay),

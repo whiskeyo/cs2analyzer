@@ -4,7 +4,7 @@ import { RADAR_MIN_WIDTH } from "./constants";
 import { clampPanelWidth, loadPanelWidth, savePanelWidth } from "./sidebarWidth";
 
 export interface PanelResizeOptions {
-  storageKey: string;
+  storageKey?: string;
   minWidth: number;
   maxWidth: number;
   defaultWidth: number;
@@ -13,6 +13,10 @@ export interface PanelResizeOptions {
   /** Width of other right-hand panels that must stay on screen with the radar. */
   extraReserved?: number | (() => number);
   label: string;
+  /** Persist after a drag/keyboard resize. Sidebar writes IndexedDB here. */
+  onPersist?: (width: number) => void;
+  /** Keep the panel in sync when the source of truth changes (settings reset). */
+  syncWidth?: number;
 }
 
 export function usePanelResize(opts: PanelResizeOptions) {
@@ -24,19 +28,43 @@ export function usePanelResize(opts: PanelResizeOptions) {
     stageSelector,
     extraReserved = 0,
     label,
+    onPersist,
+    syncWidth,
   } = opts;
   const [width, setWidth] = useState(() =>
-    loadPanelWidth(storageKey, defaultWidth, minWidth, maxWidth),
+    storageKey
+      ? loadPanelWidth(storageKey, defaultWidth, minWidth, maxWidth)
+      : clampPanelWidth(defaultWidth, Number.POSITIVE_INFINITY, minWidth, maxWidth),
   );
-  const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
   const widthRef = useRef(width);
   widthRef.current = width;
   const extraRef = useRef(extraReserved);
   extraRef.current = extraReserved;
+  const onPersistRef = useRef(onPersist);
+  onPersistRef.current = onPersist;
+  const syncRef = useRef(syncWidth);
+  if (syncWidth != null && syncWidth !== syncRef.current) {
+    syncRef.current = syncWidth;
+    const next = clampPanelWidth(syncWidth, Number.POSITIVE_INFINITY, minWidth, maxWidth);
+    if (next !== width) {
+      setWidth(next);
+    }
+  }
   const reserved = () => {
     const extra = extraRef.current;
     const value = typeof extra === "function" ? extra() : (extra ?? 0);
     return RADAR_MIN_WIDTH + value;
+  };
+  const persistWidth = (next: number) => {
+    if (storageKey) {
+      savePanelWidth(storageKey, next, minWidth, maxWidth);
+    }
+    onPersistRef.current?.(next);
   };
 
   useEffect(() => {
@@ -62,7 +90,11 @@ export function usePanelResize(opts: PanelResizeOptions) {
     if (e.button !== 0) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { pointerId: e.pointerId, startX: e.clientX, startWidth: widthRef.current };
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startWidth: widthRef.current,
+    };
     document.body.classList.add("sidebar-resizing");
   };
 
@@ -87,7 +119,7 @@ export function usePanelResize(opts: PanelResizeOptions) {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
-    savePanelWidth(storageKey, widthRef.current, minWidth, maxWidth);
+    persistWidth(widthRef.current);
   };
 
   const onResizeKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -107,12 +139,12 @@ export function usePanelResize(opts: PanelResizeOptions) {
       reserved(),
     );
     setWidth(next);
-    savePanelWidth(storageKey, next, minWidth, maxWidth);
+    persistWidth(next);
   };
 
   const snapMin = () => {
     setWidth(minWidth);
-    savePanelWidth(storageKey, minWidth, minWidth, maxWidth);
+    persistWidth(minWidth);
   };
 
   return {

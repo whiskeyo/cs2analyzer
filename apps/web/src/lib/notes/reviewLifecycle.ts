@@ -21,7 +21,7 @@ export function demoEnterClear(input: {
 }): DemoEnterClear {
   const switchingSeries =
     input.hasSeries && input.prevDemoId != null && input.prevDemoId !== input.nextDemoId;
-  if (switchingSeries) {
+  if (switchingSeries || input.prevDemoId === input.nextDemoId) {
     return { clearStrokes: false, resetOverlay: false };
   }
   return { clearStrokes: true, resetOverlay: true };

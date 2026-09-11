@@ -19,6 +19,13 @@ describe("reviewLifecycle", () => {
     });
   });
 
+  it("does not wipe overlay again while the same demo stays mounted", () => {
+    expect(demoEnterClear({ prevDemoId: "a", nextDemoId: "a", hasSeries: false })).toEqual({
+      clearStrokes: false,
+      resetOverlay: false,
+    });
+  });
+
   it("keeps strokes on screen during a series hop until stash/restore", () => {
     expect(demoEnterClear({ prevDemoId: "a", nextDemoId: "b", hasSeries: true })).toEqual({
       clearStrokes: false,
@@ -27,7 +34,14 @@ describe("reviewLifecycle", () => {
   });
 
   it("restores a series stash from cache without jumping or persisting on leave", () => {
-    expect(restorePlan({ prevDemoId: "a", demoId: "b", inSeries: true, hasCache: true })).toEqual({
+    expect(
+      restorePlan({
+        prevDemoId: "a",
+        demoId: "b",
+        inSeries: true,
+        hasCache: true,
+      }),
+    ).toEqual({
       source: "cache",
       jumpTick: false,
       autoplayIfEmpty: false,
@@ -59,7 +73,12 @@ describe("reviewLifecycle", () => {
 
   it("persists a standalone demo on leave and autoplays when there is nothing to restore", () => {
     expect(
-      restorePlan({ prevDemoId: null, demoId: "a", inSeries: false, hasCache: false }),
+      restorePlan({
+        prevDemoId: null,
+        demoId: "a",
+        inSeries: false,
+        hasCache: false,
+      }),
     ).toMatchObject({
       source: "idb",
       jumpTick: true,

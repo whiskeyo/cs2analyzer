@@ -1,5 +1,5 @@
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
-import { PARSE_POOL_MAX } from "@/lib/shared/constants";
+import { PARSE_POOL_HARD_MAX, PARSE_POOL_MAX, PARSE_POOL_MIN } from "@/lib/shared/constants";
 import { loadedDemo, type LoadedDemo } from "./session";
 
 /** Injectable so tests can drive parse without instantiating WASM. */
@@ -31,13 +31,22 @@ export interface ParseFileProgress {
   pct: number;
 }
 
-/** Worker count: cap RAM use; queue the rest. */
-export function parsePoolSize(fileCount: number): number {
+/** Worker count: user cap, hardware, and file count. */
+export function parsePoolSize(fileCount: number, parsePoolMax = PARSE_POOL_MAX): number {
   const hw =
     typeof navigator !== "undefined" && navigator.hardwareConcurrency
       ? navigator.hardwareConcurrency
       : 2;
-  return Math.min(PARSE_POOL_MAX, 4, hw, fileCount);
+  return Math.min(parsePoolMax, PARSE_POOL_HARD_MAX, hw, fileCount);
+}
+
+/** Slider ceiling: user hard max, limited by this machine's cores. */
+export function parsePoolHardwareCap(): number {
+  const hw =
+    typeof navigator !== "undefined" && navigator.hardwareConcurrency
+      ? navigator.hardwareConcurrency
+      : PARSE_POOL_HARD_MAX;
+  return Math.min(PARSE_POOL_HARD_MAX, Math.max(PARSE_POOL_MIN, hw));
 }
 
 export function mapNameFromReplay(replay: Replay): string {
@@ -189,6 +198,7 @@ export async function runParsePool(
   pool: ParseWorkerPool,
   files: File[],
   onProgress: (progress: ParsePoolProgress) => void,
+  parsePoolMax = PARSE_POOL_MAX,
 ): Promise<ParseFileResult[]> {
   const total = files.length;
   if (total === 0) return [];
@@ -203,7 +213,7 @@ export async function runParsePool(
     pct: 0,
   }));
 
-  const poolSize = parsePoolSize(total);
+  const poolSize = parsePoolSize(total, parsePoolMax);
   const queue = files.map((file, index) => ({ file, index }));
 
   let progressRaf = 0;

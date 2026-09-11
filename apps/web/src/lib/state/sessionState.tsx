@@ -19,6 +19,7 @@ import {
 } from "@/lib/notes/reviewImportExport";
 import type { ReviewSession } from "@/lib/notes/useReviewProject";
 import { useDemoSession, type CreateWorker, type DemoSession } from "@/lib/parse/useDemoSession";
+import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { useStatus, type Status } from "./status";
 import { idleReview } from "./idleAnalyzer";
 
@@ -50,6 +51,7 @@ export function SessionProvider({
   createWorker?: CreateWorker;
 }) {
   const status = useStatus();
+  const { settings } = useUserSettings();
   const bridgeRef = useRef<AnalyzerBridge>({
     pausePlayback: () => undefined,
     stashSeriesReview: () => undefined,
@@ -58,6 +60,8 @@ export function SessionProvider({
   const session = useDemoSession({
     status,
     createWorker,
+    parsePoolMax: settings.parsePoolMax,
+    seriesMaxFiles: settings.seriesMaxFiles,
     onBeforeSelectDemo: () => {
       bridgeRef.current.pausePlayback();
       bridgeRef.current.stashSeriesReview();

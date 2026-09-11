@@ -4,6 +4,7 @@ import type { CreateWorker, DemoSession } from "@/lib/parse/useDemoSession";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { Playback } from "@/lib/playback/usePlayback";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
+import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
 import {
   AnalyzerHost,
   useAnalyzer,
@@ -50,9 +51,11 @@ export function AppStateProvider({
   createWorker?: CreateWorker;
 }) {
   return (
-    <SessionProvider createWorker={createWorker}>
-      <AnalyzerHost>{children}</AnalyzerHost>
-    </SessionProvider>
+    <UserSettingsProvider>
+      <SessionProvider createWorker={createWorker}>
+        <AnalyzerHost>{children}</AnalyzerHost>
+      </SessionProvider>
+    </UserSettingsProvider>
   );
 }
 

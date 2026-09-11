@@ -36,8 +36,9 @@ export function momentBounds(
   tick: number,
   roundEnd: number,
   tickRate: number,
+  momentSec = NOTE_MOMENT_SECONDS,
 ): { start_tick: number; end_tick: number } {
-  const span = Math.round(NOTE_MOMENT_SECONDS * (tickRate || DEFAULT_TICK_RATE));
+  const span = Math.round(momentSec * (tickRate || DEFAULT_TICK_RATE));
   let end = tick + span;
   if (roundEnd > 0) end = Math.min(end, roundEnd);
   return { start_tick: tick, end_tick: Math.max(tick, end) };
@@ -49,9 +50,10 @@ export function withMoment<T extends object>(
   tick: number,
   roundEnd: number,
   tickRate: number,
+  momentSec = NOTE_MOMENT_SECONDS,
 ): T & { start_tick?: number; end_tick?: number } {
   if (!moment) return item;
-  return { ...item, ...momentBounds(tick, roundEnd, tickRate) };
+  return { ...item, ...momentBounds(tick, roundEnd, tickRate, momentSec) };
 }
 
 export function noteRounds(notes: readonly RoundNote[]): Set<number> {
@@ -151,9 +153,10 @@ export function setMomentEdge(
   roundStart: number,
   roundEnd: number,
   tickRate: number,
+  momentSec = NOTE_MOMENT_SECONDS,
 ): Note {
   const rate = tickRate || DEFAULT_TICK_RATE;
-  const fallback = Math.round(NOTE_MOMENT_SECONDS * rate);
+  const fallback = Math.round(momentSec * rate);
   const minSpan = Math.round(NOTE_MOMENT_MIN_SECONDS * rate);
   const win = itemWindow(note, ref);
   let start = win?.start ?? tick;
@@ -187,10 +190,11 @@ export function setMomentClockEdge(
   roundStart: number,
   roundEnd: number,
   tickRate: number,
+  momentSec = NOTE_MOMENT_SECONDS,
 ): Note {
   if (!Number.isFinite(seconds)) return note;
   const rate = tickRate || DEFAULT_TICK_RATE;
-  const fallback = Math.round(NOTE_MOMENT_SECONDS * rate);
+  const fallback = Math.round(momentSec * rate);
   const minSpan = Math.round(NOTE_MOMENT_MIN_SECONDS * rate);
   const win = itemWindow(note, ref);
   let start = win?.start ?? origin;

@@ -66,23 +66,38 @@ async function writeRecord(settings: UserSettings): Promise<void> {
   }
 }
 
-async function persist(settings: UserSettings): Promise<void> {
+function clearMigratedLocalStorage(): void {
+  try {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+    localStorage.removeItem(STORAGE_KEYS.sidebarWidth);
+    localStorage.removeItem(STORAGE_KEYS.eventLeadInSec);
+  } catch {
+    /* private mode / missing storage */
+  }
+}
+
+/** @returns true when the IndexedDB row is the source of truth. */
+async function persist(settings: UserSettings): Promise<boolean> {
   if (!idbAvailable()) {
     memoryFallback = cloneUserSettings(settings);
-    return;
+    return false;
   }
   try {
     await writeRecord(settings);
     memoryFallback = null;
+    return true;
   } catch {
     memoryFallback = cloneUserSettings(settings);
+    return false;
   }
 }
 
 /**
  * Load the user settings document. Missing IndexedDB row: merge live
  * `sidebarWidth` / `eventLeadInSec` localStorage (once, then persist).
- * Those keys stay in localStorage until a later PR wires the UI.
+ * After a successful IndexedDB write, those keys are removed.
  */
 export async function loadUserSettings(): Promise<UserSettings> {
   if (!idbAvailable()) {
@@ -95,12 +110,13 @@ export async function loadUserSettings(): Promise<UserSettings> {
   try {
     const raw = await readRecord();
     if (raw != null && isRecord(raw)) {
+      clearMigratedLocalStorage();
       return parseUserSettings(raw);
     }
     const patch = readLocalStoragePatch();
     const settings = mergeLocalStorage(defaultUserSettings());
-    if (localStoragePatchPresent(patch)) {
-      await persist(settings);
+    if (localStoragePatchPresent(patch) && (await persist(settings))) {
+      clearMigratedLocalStorage();
     }
     return settings;
   } catch {
@@ -116,14 +132,18 @@ export async function saveUserSettings(patch: Partial<UserSettings>): Promise<Us
     schema: USER_SETTINGS_SCHEMA,
     updatedAt: Date.now(),
   });
-  await persist(next);
+  if (await persist(next)) {
+    clearMigratedLocalStorage();
+  }
   return cloneUserSettings(next);
 }
 
 /** Restores shipped defaults. Does not delete notes, handles, or playbooks. */
 export async function resetUserSettings(): Promise<UserSettings> {
   const next = defaultUserSettings();
-  await persist(next);
+  if (await persist(next)) {
+    clearMigratedLocalStorage();
+  }
   return cloneUserSettings(next);
 }
 

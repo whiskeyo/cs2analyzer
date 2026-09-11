@@ -107,6 +107,7 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
 
     await openSettings();
+    expect(screen.getByRole("button", { name: "Preferences" })).toBeInTheDocument();
     expect(screen.getByText("Notes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export playbooks" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export notes" })).toBeDisabled();
@@ -115,6 +116,15 @@ describe("Header", () => {
     expect(screen.getByRole("button", { name: "Export playbooks" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Import playbooks" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove all playbooks" })).toBeDisabled();
+  });
+
+  it("opens the preferences modal from the gear on splash and viewer", async () => {
+    vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
+    renderHeader();
+    await openSettings();
+    await userEvent.click(screen.getByRole("button", { name: "Preferences" }));
+    expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset all settings" })).toBeInTheDocument();
   });
 
   it("enables Export notes in settings when saved notes exist", async () => {

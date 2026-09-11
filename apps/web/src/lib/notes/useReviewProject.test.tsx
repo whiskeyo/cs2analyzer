@@ -158,11 +158,12 @@ describe("useReviewProject", () => {
   it("restores a saved project when a demo loads", async () => {
     const pb = playback();
     const st = status();
+    const d = demo();
     mocks.loadProject.mockResolvedValue(project());
 
     const { result } = renderHook(() =>
       useReviewProject({
-        demo: demo(),
+        demo: d,
         series: null,
         parsedDemos: [],
         status: st,
@@ -175,6 +176,34 @@ describe("useReviewProject", () => {
     expect(pb.jump).toHaveBeenCalledWith(300, true);
     expect(pb.setPlaying).toHaveBeenCalledWith(false);
     expect(st.notice).toContain("Restored drawings");
+    expect(result.current.color).toBe("#ff1744");
+    expect(result.current.paletteId).toBe("default");
+  });
+
+  it("uses overlay defaults for a demo with no saved project", async () => {
+    const overlayDefaults = {
+      paletteId: "neon",
+      color: "#00ff88",
+      floorMode: "lower" as const,
+      summaryFilter: { ...DEFAULT_SUMMARY_FILTER, t: false },
+    };
+    const d = demo();
+    const { result } = renderHook(() =>
+      useReviewProject({
+        demo: d,
+        series: null,
+        parsedDemos: [],
+        status: status(),
+        playback: playback(),
+        overlayDefaults,
+      }),
+    );
+
+    await waitFor(() => expect(mocks.loadProject).toHaveBeenCalled());
+    expect(result.current.color).toBe("#00ff88");
+    expect(result.current.paletteId).toBe("neon");
+    expect(result.current.floorMode).toBe("lower");
+    expect(result.current.summaryFilter.t).toBe(false);
   });
 
   it("delegates export and bulk delete to reviewImportExport", async () => {
@@ -200,9 +229,10 @@ describe("useReviewProject", () => {
 
   it("applies an imported project through applyProject", async () => {
     const pb = playback();
+    const d = demo();
     const { result } = renderHook(() =>
       useReviewProject({
-        demo: demo(),
+        demo: d,
         series: null,
         parsedDemos: [],
         status: status(),
@@ -243,7 +273,11 @@ describe("useReviewProject", () => {
 
     await waitFor(() => expect(pb.setPlaying).toHaveBeenCalledWith(true));
 
-    const drawing = { type: "pen" as const, color: "#fff", points: [{ x: 1, y: 2 }] };
+    const drawing = {
+      type: "pen" as const,
+      color: "#fff",
+      points: [{ x: 1, y: 2 }],
+    };
     act(() => {
       result.current.commitNotes([{ round: 1, note: { ...emptyNote(), drawings: [drawing] } }]);
     });

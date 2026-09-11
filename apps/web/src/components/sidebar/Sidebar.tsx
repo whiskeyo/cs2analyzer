@@ -1,17 +1,13 @@
 import { memo, useMemo, useState } from "react";
-import {
-  SIDEBAR_DEFAULT_WIDTH,
-  SIDEBAR_MAX_WIDTH,
-  SIDEBAR_MIN_WIDTH,
-} from "@/lib/shared/constants";
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
+import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { isAggregatedView, isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { Action } from "./Action";
 import { Review } from "./Review";
 import { Notes } from "./Notes";
 import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
-import { SIDEBAR_WIDTH_STORAGE_KEY } from "@/lib/shared/sidebarWidth";
 import { usePanelResize } from "@/lib/shared/usePanelResize";
 import { computeStats, matchEndTick, weaponBreakdown } from "@/lib/stats/stats";
 import { weaponHeadshotLabel } from "@/lib/weapons/weapons";
@@ -40,6 +36,7 @@ const TAB_LABEL: Record<Tab, string> = {
 
 export const Sidebar = memo(function Sidebar() {
   const { session, playback, review, view, places, habits } = useApp();
+  const { settings, update } = useUserSettings();
   const replay = session.replay;
   const tick = playback.tick;
   const notes = review.notes;
@@ -66,10 +63,13 @@ export const Sidebar = memo(function Sidebar() {
   const [tab, setTab] = useState<Tab>("score");
   const activeTab: Tab = seriesMode && DEMO_ONLY_TABS.includes(tab) ? "action" : tab;
   const { width, handleProps } = usePanelResize({
-    storageKey: SIDEBAR_WIDTH_STORAGE_KEY,
     minWidth: SIDEBAR_MIN_WIDTH,
     maxWidth: SIDEBAR_MAX_WIDTH,
-    defaultWidth: SIDEBAR_DEFAULT_WIDTH,
+    defaultWidth: settings.sidebarWidth,
+    syncWidth: settings.sidebarWidth,
+    onPersist: (next) => {
+      void update({ sidebarWidth: next });
+    },
     stageSelector: ".stage",
     label: "Resize side panel",
   });
@@ -154,6 +154,10 @@ export const Sidebar = memo(function Sidebar() {
             onJump={onJump}
             onSelect={onSelect}
             activeRound={activeRound}
+            leadInSec={settings.eventLeadInSec}
+            onLeadInSecChange={(next) => {
+              void update({ eventLeadInSec: next });
+            }}
           />
         )}
         {activeTab === "weapons" && (

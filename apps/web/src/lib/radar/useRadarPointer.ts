@@ -5,7 +5,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
-import { NOTE_TEXT_DRAG_PX, tickRate } from "@/lib/shared/constants";
+import { NOTE_TEXT_DRAG_PX, NOTE_MOMENT_SECONDS, tickRate } from "@/lib/shared/constants";
 import { wrapLocalPoint } from "@/lib/shared/pointer";
 import { clampViewScale, wheelZoomFactor } from "@/lib/radar/panZoom.ts";
 import { screenToWorld, worldToScreen, type RadarView } from "@/lib/radar/maps";
@@ -45,6 +45,7 @@ export interface RadarPointerOpts {
   tickRef: MutableRefObject<number>;
   colorRef: MutableRefObject<string>;
   momentRef: MutableRefObject<boolean>;
+  momentSecRef?: MutableRefObject<number>;
   noteRef: MutableRefObject<Note>;
   onNoteRef: MutableRefObject<(next: Note) => void>;
   onPauseRef: MutableRefObject<() => void>;
@@ -74,6 +75,7 @@ export function useRadarPointer(opts: RadarPointerOpts) {
     tickRef,
     colorRef,
     momentRef,
+    momentSecRef,
     noteRef,
     onNoteRef,
     onPauseRef,
@@ -118,6 +120,7 @@ export function useRadarPointer(opts: RadarPointerOpts) {
       const rnd = currentRound(replayRef.current, tickRef.current);
       const tickNow = tickRef.current;
       const tps = tickRate(replayRef.current);
+      const momentSec = momentSecRef?.current ?? NOTE_MOMENT_SECONDS;
       const ctx = canvasRef.current?.getContext("2d");
 
       if (toolNow === "eraser" && calNow) {
@@ -158,7 +161,14 @@ export function useRadarPointer(opts: RadarPointerOpts) {
         onNoteRef.current(
           addBookmark(
             noteRef.current,
-            makeBookmark(colorRef.current, tickNow, momentRef.current, rnd?.end_tick ?? 0, tps),
+            makeBookmark(
+              colorRef.current,
+              tickNow,
+              momentRef.current,
+              rnd?.end_tick ?? 0,
+              tps,
+              momentSec,
+            ),
           ),
         );
         return;
@@ -191,6 +201,7 @@ export function useRadarPointer(opts: RadarPointerOpts) {
           tickNow,
           rnd?.end_tick ?? 0,
           tps,
+          momentSec,
         );
         if (stamped.start_tick != null) {
           next.start_tick = stamped.start_tick;
@@ -208,7 +219,14 @@ export function useRadarPointer(opts: RadarPointerOpts) {
           toolNow === "pen"
             ? beginPen(colorRef.current, world)
             : beginArrow(colorRef.current, world);
-        draft.current = withMoment(base, momentRef.current, tickNow, rnd?.end_tick ?? 0, tps);
+        draft.current = withMoment(
+          base,
+          momentRef.current,
+          tickNow,
+          rnd?.end_tick ?? 0,
+          tps,
+          momentSec,
+        );
         penTip.current = toolNow === "pen" ? world : null;
         return;
       }

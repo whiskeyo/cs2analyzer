@@ -16,6 +16,7 @@ import { useHotkeys } from "@/lib/playback/useHotkeys";
 import { PlaybackCommandProvider } from "@/lib/playback/playbackCommandContext";
 import { createPlaybackCommandBus } from "@/lib/playback/playbackCommands";
 import { usePlayback as usePlaybackClock, type Playback } from "@/lib/playback/usePlayback";
+import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { calibrationFor, loadCalibrations } from "@/lib/radar/maps";
 import { loadMapLayout, mapKey, type MapLayout } from "@/lib/radar/layouts";
 import type { MapPlaces } from "@/lib/match/sites";
@@ -49,16 +50,28 @@ function AnalyzerRuntime({ children }: { children: ReactNode }) {
 
 function AnalyzerPlayback({ children }: { children: ReactNode }) {
   const { status, session, bridgeRef } = useSession();
+  const { settings } = useUserSettings();
   const bucketTransportRef = useRef(false);
-  const playback = usePlaybackClock(session.replay, session.demo?.id ?? null, bucketTransportRef);
+  const playback = usePlaybackClock(
+    session.replay,
+    session.demo?.id ?? null,
+    bucketTransportRef,
+    settings.defaultPlaybackSpeed,
+  );
   const review = useReviewProject({
     demo: session.demo,
     series: session.series,
     parsedDemos: session.parsedDemos,
     status,
     playback,
+    overlayDefaults: {
+      paletteId: settings.defaultPaletteId,
+      color: settings.defaultColor,
+      floorMode: settings.defaultFloorMode,
+      summaryFilter: settings.defaultSummaryFilter,
+    },
   });
-  const view = useViewState(session.demo?.id ?? null);
+  const view = useViewState(session.demo?.id ?? null, settings.defaultLayers);
 
   const [maps, setMaps] = useState<Record<string, MapCalibration>>({});
   const [layout, setLayout] = useState<MapLayout | null>(null);

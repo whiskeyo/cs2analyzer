@@ -5,8 +5,13 @@ import "fake-indexeddb/auto";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SIDEBAR_DEFAULT_WIDTH } from "@/lib/shared/constants";
-import { useUserSettings } from "./useUserSettings";
+import { UserSettingsProvider, useUserSettings } from "./useUserSettings";
 import { clearUserSettingsForTests, saveUserSettings } from "./userSettingsStore";
+import type { ReactNode } from "react";
+
+function wrapper({ children }: { children: ReactNode }) {
+  return <UserSettingsProvider>{children}</UserSettingsProvider>;
+}
 
 describe("useUserSettings", () => {
   beforeEach(async () => {
@@ -19,14 +24,14 @@ describe("useUserSettings", () => {
 
   it("hydrates persisted settings after load", async () => {
     await saveUserSettings({ sidebarWidth: 520, eventLeadInSec: 3 });
-    const { result } = renderHook(() => useUserSettings());
+    const { result } = renderHook(() => useUserSettings(), { wrapper });
     await waitFor(() => expect(result.current.ready).toBe(true));
     expect(result.current.settings.sidebarWidth).toBe(520);
     expect(result.current.settings.eventLeadInSec).toBe(3);
   });
 
   it("update patches and reset restores shipped defaults", async () => {
-    const { result } = renderHook(() => useUserSettings());
+    const { result } = renderHook(() => useUserSettings(), { wrapper });
     await waitFor(() => expect(result.current.ready).toBe(true));
 
     await act(async () => {

@@ -1,4 +1,4 @@
-import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
+import { NOTE_BOOKMARK_TITLE, NOTE_MOMENT_SECONDS } from "@/lib/shared/constants";
 import type { Round } from "@/lib/replay/replayTypes";
 import { cloneNote, overlayWindowOf } from "./note";
 import type { Bookmark, Note } from "./types";
@@ -15,9 +15,10 @@ export function makeBookmark(
   moment: boolean,
   roundEnd: number,
   tickRate: number,
+  momentSec = NOTE_MOMENT_SECONDS,
 ): Bookmark {
   const base: Bookmark = { color, text: NOTE_BOOKMARK_TITLE, tick };
-  if (moment) return withMoment(base, true, tick, roundEnd, tickRate);
+  if (moment) return withMoment(base, true, tick, roundEnd, tickRate, momentSec);
   return { ...base, start_tick: tick, end_tick: tick };
 }
 

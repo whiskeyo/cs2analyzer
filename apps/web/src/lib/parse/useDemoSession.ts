@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Status } from "@/lib/state/status";
-import { SERIES_MAX_FILES } from "@/lib/shared/constants";
+import { PARSE_POOL_MAX, SERIES_MAX_FILES } from "@/lib/shared/constants";
 import { errorMessage } from "@/lib/validate/json.ts";
 import {
   createParseWorkerPool,
@@ -34,12 +34,18 @@ export function useDemoSession(opts: {
   status: Status;
   createWorker?: CreateWorker;
   onBeforeSelectDemo?: () => void;
+  parsePoolMax?: number;
+  seriesMaxFiles?: number;
 }) {
   const { status, onBeforeSelectDemo } = opts;
   const createWorkerRef = useRef(opts.createWorker);
   createWorkerRef.current = opts.createWorker ?? createWorkerRef.current;
   const statusRef = useRef(status);
   statusRef.current = status;
+  const parsePoolMaxRef = useRef(opts.parsePoolMax ?? PARSE_POOL_MAX);
+  parsePoolMaxRef.current = opts.parsePoolMax ?? PARSE_POOL_MAX;
+  const seriesMaxFilesRef = useRef(opts.seriesMaxFiles ?? SERIES_MAX_FILES);
+  seriesMaxFilesRef.current = opts.seriesMaxFiles ?? SERIES_MAX_FILES;
 
   const [demo, setDemo] = useState<LoadedDemo | null>(null);
   const [series, setSeries] = useState<DemoSeries | null>(null);
@@ -188,8 +194,8 @@ export function useDemoSession(opts: {
         parseDemo(files[0]);
         return;
       }
-      if (files.length > SERIES_MAX_FILES) {
-        statusRef.current.setError(`Series supports at most ${SERIES_MAX_FILES} demos.`);
+      if (files.length > seriesMaxFilesRef.current) {
+        statusRef.current.setError(`Series supports at most ${seriesMaxFilesRef.current} demos.`);
         return;
       }
 
@@ -220,7 +226,7 @@ export function useDemoSession(opts: {
       };
 
       const wall0 = performance.now();
-      const poolWorkers = parsePoolSize(files.length);
+      const poolWorkers = parsePoolSize(files.length, parsePoolMaxRef.current);
       let pool: ParseWorkerPool;
       try {
         const poolOrPromise = getPool();
@@ -232,7 +238,7 @@ export function useDemoSession(opts: {
         return;
       }
       if (gen !== parseGenRef.current) return;
-      const results = await runParsePool(pool, files, onPoolProgress);
+      const results = await runParsePool(pool, files, onPoolProgress, parsePoolMaxRef.current);
       if (gen !== parseGenRef.current) return;
 
       const wallMs = performance.now() - wall0;

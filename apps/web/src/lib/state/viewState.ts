@@ -8,13 +8,15 @@ import { DEFAULT_LAYERS, type DrawTool, type MapLayers } from "@/lib/notes/types
  * different demo is loaded (including a series file hop). Habits filters stay
  * on the series identity — see `useSeriesHabits`.
  */
-export function useViewState(demoId: string | null) {
+export function useViewState(demoId: string | null, defaultLayers: MapLayers = DEFAULT_LAYERS) {
+  const layersDefaultRef = useRef(defaultLayers);
+  layersDefaultRef.current = defaultLayers;
   const [selected, setSelectedState] = useState<number | null>(null);
   const [follow, setFollow] = useState(false);
   const [trails, setTrails] = useState(false);
   const [moment, setMoment] = useState(false);
   const [tool, setTool] = useState<DrawTool>("pan");
-  const [layers, setLayers] = useState<MapLayers>(DEFAULT_LAYERS);
+  const [layers, setLayers] = useState<MapLayers>(() => ({ ...defaultLayers }));
   const [viewEpoch, setViewEpoch] = useState(0);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
@@ -22,7 +24,7 @@ export function useViewState(demoId: string | null) {
   useResetOnDemoChange(demoId, () => {
     setSelectedState(null);
     setFollow(false);
-    setLayers(DEFAULT_LAYERS);
+    setLayers({ ...layersDefaultRef.current });
     setTrails(false);
     setMoment(false);
     setTool("pan");

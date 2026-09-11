@@ -5,16 +5,15 @@ import {
   BOMB_LABEL,
   BOMB_WEAPON,
   clampLeadInSec,
+  DEFAULT_LEAD_IN_SEC,
   eventPlayer,
   eventsForRound,
   jumpBefore,
-  loadLeadInSec,
   MAX_LEAD_IN_SEC,
   MIN_LEAD_IN_SEC,
   NADE_LABEL,
   NADE_WEAPON,
   roundClock,
-  saveLeadInSec,
   type RoundEvent,
 } from "@/lib/match/roundEvents";
 import { attackerLabel } from "@/lib/replay/playerLabel";
@@ -30,13 +29,23 @@ interface Props {
   onJump: (tick: number) => void;
   onSelect: (index: number | null) => void;
   activeRound?: Round | null;
+  leadInSec?: number;
+  onLeadInSecChange?: (next: number) => void;
 }
 
-export function RoundList({ replay, tick, onJump, onSelect, activeRound }: Props) {
+export function RoundList({
+  replay,
+  tick,
+  onJump,
+  onSelect,
+  activeRound,
+  leadInSec = DEFAULT_LEAD_IN_SEC,
+  onLeadInSecChange,
+}: Props) {
   const live = activeRound ?? currentRound(replay, tick);
   const liveStart = live?.start_tick;
   const [override, setOverride] = useState<Map<number, boolean>>(() => new Map());
-  const [leadIn, setLeadIn] = useState(loadLeadInSec);
+  const leadIn = leadInSec;
 
   const isOpen = (startTick: number) => override.get(startTick) ?? startTick === liveStart;
 
@@ -62,9 +71,7 @@ export function RoundList({ replay, tick, onJump, onSelect, activeRound }: Props
   }, [replay]);
 
   const setLead = (raw: number) => {
-    const next = clampLeadInSec(raw);
-    setLeadIn(next);
-    saveLeadInSec(next);
+    onLeadInSecChange?.(clampLeadInSec(raw));
   };
 
   const jumpEvent = (round: Round, event: RoundEvent) => {

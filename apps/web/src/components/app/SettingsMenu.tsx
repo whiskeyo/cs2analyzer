@@ -15,6 +15,7 @@ import type { PlaybookBundle } from "@/lib/playbook/transfer";
 import type { ImportChoices, ImportConflict } from "@/lib/playbook/merge";
 import { ImportMergeDialog } from "@/components/playbook/ImportMergeDialog";
 import { RemoveConfirmDialog, type RemoveKind } from "./RemoveConfirmDialog";
+import { UserSettingsModal } from "./UserSettingsModal";
 
 function GearIcon() {
   return (
@@ -38,6 +39,7 @@ export function SettingsMenu() {
   const pathname = usePathname();
   const onLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
   const [removeKind, setRemoveKind] = useState<RemoveKind | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState("");
   const [playbookCount, setPlaybookCount] = useState(0);
@@ -110,6 +112,19 @@ export function SettingsMenu() {
         </button>
         {settingsOpen ? (
           <div className="settings-menu" id="app-settings-menu">
+            <div className="settings-menu-section">
+              <p className="settings-menu-label">App</p>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setPrefsOpen(true);
+                }}
+              >
+                Preferences
+              </button>
+            </div>
             <div className="settings-menu-section">
               <p className="settings-menu-label">Notes</p>
               <button
@@ -230,6 +245,7 @@ export function SettingsMenu() {
           </div>
         ) : null}
       </div>
+      {prefsOpen ? <UserSettingsModal onClose={() => setPrefsOpen(false)} /> : null}
       {removeKind ? (
         <RemoveConfirmDialog
           kind={removeKind}

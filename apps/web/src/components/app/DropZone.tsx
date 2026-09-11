@@ -29,6 +29,7 @@ interface Props {
   notice: string | null;
   saved: ReviewProject[];
   showSavedNotes?: boolean;
+  pageSize?: number;
   /** Optional sibling of the drop card. */
   beside?: ReactNode;
   /** Optional content under the drop row. */
@@ -91,6 +92,7 @@ export function DropZone({
   notice,
   saved,
   showSavedNotes = false,
+  pageSize = SAVED_NOTES_PAGE_SIZE,
   beside,
   below,
   children,
@@ -102,12 +104,12 @@ export function DropZone({
       ? Math.min(100, Math.round((100 * progress.current) / progress.total))
       : 0;
 
-  const pageCount = Math.max(1, Math.ceil(saved.length / SAVED_NOTES_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(saved.length / pageSize));
   const safePage = Math.min(page, pageCount - 1);
   const pageItems = useMemo(() => {
-    const start = safePage * SAVED_NOTES_PAGE_SIZE;
-    return saved.slice(start, start + SAVED_NOTES_PAGE_SIZE);
-  }, [saved, safePage]);
+    const start = safePage * pageSize;
+    return saved.slice(start, start + pageSize);
+  }, [saved, safePage, pageSize]);
 
   useEffect(() => {
     if (!wantedDemo) return;

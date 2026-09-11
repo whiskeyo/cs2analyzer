@@ -12,8 +12,9 @@ export function useNoteMoments(opts: {
   tick: number;
   notes: RoundNote[];
   onNotes: (next: RoundNote[]) => void;
+  momentSec?: number;
 }) {
-  const { replay, tick, notes, onNotes } = opts;
+  const { replay, tick, notes, onNotes, momentSec } = opts;
   const tps = tickRate(replay);
 
   const setEdge = useCallback(
@@ -28,11 +29,12 @@ export function useNoteMoments(opts: {
             rnd?.start_tick ?? 0,
             roundWindowEnd(rnd, replay),
             tps,
+            momentSec,
           ),
         ),
       );
     },
-    [notes, onNotes, replay, tick, tps],
+    [notes, onNotes, replay, tick, tps, momentSec],
   );
 
   const setClock = useCallback(
@@ -55,11 +57,12 @@ export function useNoteMoments(opts: {
             rnd?.start_tick ?? 0,
             roundWindowEnd(rnd, replay),
             tps,
+            momentSec,
           ),
         ),
       );
     },
-    [notes, onNotes, replay, tps],
+    [notes, onNotes, replay, tps, momentSec],
   );
 
   const clearWindow = useCallback(

@@ -1,7 +1,6 @@
 /**
- * Browser storage keys for preferences that `todos/USER-SETTINGS.md` will
- * fold into IndexedDB. Keep string values stable so a later migrator can
- * read today's localStorage / sessionStorage.
+ * Browser storage keys. `sidebarWidth` and `eventLeadInSec` are read once
+ * into IndexedDB `settings` then removed. Other keys are still live UI prefs.
  *
  * Dead key (no UI write): `cs2analyzer.seriesTrailWindowSec` — do not reuse.
  */
