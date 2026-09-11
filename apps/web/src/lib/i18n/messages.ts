@@ -4,8 +4,7 @@ export type MessageVars = Record<string, string | number>;
 
 /**
  * Nested chrome catalogs. Both `en` and `pl` `satisfies Messages`, so a missing
- * Polish key is a type error. Phase 3+ surfaces (HUD, playbook, FAQ bodies) are
- * not in this shape yet.
+ * Polish key is a type error. FAQ article bodies stay English (Phase 4).
  *
  * Sentences that mix copy with links or `<code>` stay **one string per locale**
  * with `{slot}` placeholders so Polish can reorder freely. Do not split a
@@ -98,8 +97,6 @@ export interface Messages {
     title: string;
     lead: string;
     language: string;
-    languageEnglish: string;
-    languagePolish: string;
     performance: string;
     parseWorkers: string;
     parseWorkersHint: string;

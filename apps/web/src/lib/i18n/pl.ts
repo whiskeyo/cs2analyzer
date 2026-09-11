@@ -91,8 +91,6 @@ export const pl = {
     title: "Preferencje",
     lead: "Zapisane w tej przeglądarce. Reset wraca do ustawień fabrycznych i nie usuwa notatek ani playbooków.",
     language: "Język",
-    languageEnglish: "English",
-    languagePolish: "Polski",
     performance: "Wydajność",
     parseWorkers: "Workery parsowania",
     parseWorkersHint:

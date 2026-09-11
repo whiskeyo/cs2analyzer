@@ -12,6 +12,7 @@ import {
   loadUserSettings,
   saveUserSettings,
 } from "@/lib/settings/userSettingsStore";
+import { LOCALES, LOCALE_ENDONYMS } from "@/lib/i18n/locales";
 import { en } from "@/lib/i18n/en";
 import { pl } from "@/lib/i18n/pl";
 import { UserSettingsModal } from "./UserSettingsModal";
@@ -183,6 +184,10 @@ describe("UserSettingsModal", () => {
       expect(document.documentElement.lang).toBe("pl");
     });
     expect(screen.getByLabelText(pl.preferences.language)).toHaveValue("pl");
+    const language = screen.getByLabelText(pl.preferences.language);
+    expect(
+      [...language.querySelectorAll("option")].map((opt) => [opt.value, opt.textContent]),
+    ).toEqual(LOCALES.map((code) => [code, LOCALE_ENDONYMS[code]]));
     expect(screen.getByRole("button", { name: pl.preferences.resetAll })).toBeInTheDocument();
     const stored = await loadUserSettings();
     expect(stored.locale).toBe("pl");

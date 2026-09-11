@@ -91,8 +91,6 @@ export const en = {
     title: "Preferences",
     lead: "Stored in this browser. Reset restores shipped defaults and does not delete notes or playbooks.",
     language: "Language",
-    languageEnglish: "English",
-    languagePolish: "Polski",
     performance: "Performance",
     parseWorkers: "Parse workers",
     parseWorkersHint:

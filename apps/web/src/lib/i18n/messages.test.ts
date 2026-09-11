@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { catalogs } from "./catalogs";
-import { DEFAULT_LOCALE, LOCALES, isLocale, localeTag, parseLocale } from "./locales";
+import {
+  DEFAULT_LOCALE,
+  LOCALES,
+  LOCALE_ENDONYMS,
+  isLocale,
+  localeEndonym,
+  localeTag,
+  parseLocale,
+} from "./locales";
+import { catalogFor } from "./catalogs";
 import { interpolateParts, t } from "./messages";
 import { en } from "./en";
 import { pl } from "./pl";
@@ -32,6 +41,13 @@ describe("locales", () => {
     expect(parseLocale(undefined)).toBe("en");
     expect(localeTag("en")).toBe("en-US");
     expect(localeTag("pl")).toBe("pl-PL");
+    expect(localeTag("de" as (typeof LOCALES)[number])).toBe("en-US");
+    expect(localeEndonym("en")).toBe("English");
+    expect(localeEndonym("pl")).toBe("Polski");
+    expect(LOCALES.map((code) => LOCALE_ENDONYMS[code])).toEqual(["English", "Polski"]);
+    expect(catalogFor("pl")).toBe(pl);
+    expect(catalogFor("en")).toBe(en);
+    expect(catalogFor("de" as (typeof LOCALES)[number])).toBe(en);
   });
 });
 

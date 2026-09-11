@@ -6,7 +6,7 @@ import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import type { FloorMode, MapLayers } from "@/lib/notes/types";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
-import { parseLocale } from "@/lib/i18n/locales";
+import { LOCALES, localeEndonym, parseLocale } from "@/lib/i18n/locales";
 import { useMessages } from "@/lib/i18n/useMessages";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import {
@@ -90,8 +90,11 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               value={settings.locale}
               onChange={(e) => void update({ locale: parseLocale(e.target.value) })}
             >
-              <option value="en">{p.languageEnglish}</option>
-              <option value="pl">{p.languagePolish}</option>
+              {LOCALES.map((code) => (
+                <option key={code} value={code}>
+                  {localeEndonym(code)}
+                </option>
+              ))}
             </select>
           </label>
         </section>

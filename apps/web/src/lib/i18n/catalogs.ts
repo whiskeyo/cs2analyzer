@@ -9,5 +9,11 @@ export const catalogs: Record<Locale, Messages> = {
 };
 
 export function catalogFor(locale: Locale): Messages {
-  return catalogs[locale] ?? catalogs[DEFAULT_LOCALE];
+  switch (locale) {
+    case "pl":
+      return catalogs.pl;
+    case "en":
+    default:
+      return catalogs[DEFAULT_LOCALE];
+  }
 }
