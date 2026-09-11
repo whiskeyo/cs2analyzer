@@ -97,4 +97,41 @@ describe("TokenPalette", () => {
     expect(screen.getByRole("button", { name: "Reset view" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Neon" })).toBeInTheDocument();
   });
+
+  it("switches floor mode when the map has a lower radar", () => {
+    const onFloorMode = vi.fn();
+    const { rerender } = render(
+      <TokenPalette
+        tool="pan"
+        onTool={() => undefined}
+        {...extra}
+        floorMode="auto"
+        hasFloors
+        onFloorMode={onFloorMode}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Auto" })).toHaveClass("on");
+    fireEvent.click(screen.getByRole("button", { name: "Lower" }));
+    expect(onFloorMode).toHaveBeenCalledWith("lower");
+    rerender(
+      <TokenPalette
+        tool="pan"
+        onTool={() => undefined}
+        {...extra}
+        floorMode="lower"
+        hasFloors
+        onFloorMode={onFloorMode}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Lower" })).toHaveClass("on");
+    fireEvent.click(screen.getByRole("button", { name: "Upper" }));
+    expect(onFloorMode).toHaveBeenCalledWith("upper");
+  });
+
+  it("hides floor picks on single-level maps", () => {
+    render(<TokenPalette tool="pan" onTool={() => undefined} {...extra} />);
+    expect(screen.queryByRole("button", { name: "Upper" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lower" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Auto" })).not.toBeInTheDocument();
+  });
 });
