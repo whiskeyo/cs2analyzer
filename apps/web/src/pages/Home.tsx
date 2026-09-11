@@ -33,7 +33,7 @@ function HomePlaybookCta() {
         <PlaybookMark />
         <div className="drop-title">Create a playbook</div>
         <p className="drop-blurb">Draw named strats on a radar. No demo required.</p>
-        <p className="muted">Open playbook. Nothing is uploaded.</p>
+        <p className="muted">Open playbook.</p>
       </button>
       {open ? <CreatePlaybookDialog onClose={() => setOpen(false)} /> : null}
     </>
