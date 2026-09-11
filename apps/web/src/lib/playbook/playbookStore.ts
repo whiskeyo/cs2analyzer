@@ -1,3 +1,4 @@
+import { loadUserSettings } from "@/lib/settings/userSettingsStore";
 import { PLAYBOOK_STORE, idbAvailable, openCs2Db, requestOf } from "@/lib/storage/idb";
 import { emitPlaybooksChanged } from "./events";
 import { parsePlaybook } from "./parse";
@@ -54,7 +55,13 @@ export async function listPlaybooksForMap(mapName: string): Promise<Playbook[]> 
 
 export async function createPlaybook(mapName: string, title: string): Promise<Playbook> {
   const all = await loadAllPlaybooks();
-  return savePlaybook(newPlaybook(mapName, title, nextPlaybookSort(all, mapName)));
+  const settings = await loadUserSettings();
+  return savePlaybook(
+    newPlaybook(mapName, title, nextPlaybookSort(all, mapName), {
+      paletteId: settings.defaultPaletteId,
+      color: settings.defaultColor,
+    }),
+  );
 }
 
 export async function deletePlaybook(key: string): Promise<void> {

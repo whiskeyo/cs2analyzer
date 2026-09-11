@@ -52,6 +52,13 @@ describe("momentBounds", () => {
     });
   });
 
+  it("uses a custom Moment length when provided", () => {
+    expect(momentBounds(100, 50_000, 64, 2)).toEqual({
+      start_tick: 100,
+      end_tick: 100 + 64 * 2,
+    });
+  });
+
   it("clamps to round end", () => {
     expect(momentBounds(600, 640, 64)).toEqual({ start_tick: 600, end_tick: 640 });
   });

@@ -152,7 +152,7 @@ One-time on first `loadUserSettings()` after upgrade:
 | `cs2analyzer.eventLeadInSec` | `eventLeadInSec` |
 | `cs2analyzer.seriesTrailWindowSec` | `habitsTrailWindowSec` |
 
-Then remove those localStorage keys (or leave read-only fallback for one release). New writes go only to IndexedDB.
+Then remove those localStorage keys after a successful IndexedDB write. New writes go only to IndexedDB.
 
 ### React integration
 
@@ -197,15 +197,17 @@ Per-demo saves still persist overlay fields on `ReviewProject`; loading a saved 
 
 One behavior per commit. Tests for `userSettingsStore` + `defaultUserSettings` + migration; no `.dem` files.
 
-1. **`defaultUserSettings()` + types** — `apps/web/src/lib/settings/userSettings.ts` (pure, no IDB).
-2. **`userSettingsStore.ts`** — IDB v4, load/save/reset; unit tests with fake IDB or inject store.
-3. **`useUserSettings` hook** — app boot load; `appState` provider.
-4. **Migrate localStorage** — read old keys into first save; tests for migration.
-5. **Wire parse pool + series max** — visible wins, low UI risk.
-6. **Wire sidebar width + saved notes page size** — remove localStorage sidebar path.
-7. **Wire drawing/radar defaults** — new demos only; test that existing projects unchanged.
-8. **Wire playback + lead-in + habits window + moment** — replace remaining localStorage.
-9. **Settings modal UI** — splash + viewer entry, reset button.
+1. [x] **`defaultUserSettings()` + types** — `apps/web/src/lib/settings/userSettings.ts` (pure, no IDB).
+2. [x] **`userSettingsStore.ts`** — IDB v5, load/save/reset; unit tests with fake IDB or inject store.
+3. [x] **`useUserSettings` hook** — app boot load; `UserSettingsProvider` in `appState`.
+4. [x] **Migrate localStorage** — read old keys into first save; remove keys after a successful IDB write.
+5. [x] **Wire parse pool + series max** — visible wins, low UI risk.
+6. [x] **Wire sidebar width + saved notes page size** — IndexedDB is the source of truth.
+7. [x] **Wire drawing/radar defaults** — new demos only; existing projects unchanged.
+8. [x] **Wire playback + lead-in + moment** — replace remaining localStorage for those fields.
+9. [x] **Settings modal UI** — splash + viewer gear → Preferences, reset button.
+
+Deferred: `habitsTrailWindowSec` (not in the v1 foundation schema), theme / locale / heatmap-on / skip-knife.
 
 ## Risks
 

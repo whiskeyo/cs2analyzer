@@ -1,5 +1,6 @@
 import { matchEndTick, matchScorecard, savedPlayerSnapshots } from "@/lib/stats/stats";
 import type { LoadedDemo } from "@/lib/parse/session";
+import type { GrenadeKind } from "@/lib/replay/replayTypes";
 import {
   clearSeriesReviewCache,
   seriesReviewEntries,
@@ -32,6 +33,58 @@ export interface ReviewOverlay {
 
 export interface PersistReviewOpts {
   withStats?: boolean;
+}
+
+function summaryFiltersEqual(a: SummaryFilter, b: SummaryFilter): boolean {
+  if (a.t !== b.t || a.ct !== b.ct) {
+    return false;
+  }
+  const kinds = new Set([...Object.keys(a.kinds), ...Object.keys(b.kinds)]);
+  for (const kind of kinds) {
+    if (a.kinds[kind as GrenadeKind] !== b.kinds[kind as GrenadeKind]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Scorecard-only rows (no drawings) still store shipped overlay defaults.
+ * Those are not per-demo toolbar state — a later drop should pick up Preferences.
+ */
+export function overlayIsUnset(
+  project: Pick<ReviewProject, "notes" | "summaryFilter" | "floorMode" | "paletteId" | "color">,
+): boolean {
+  if (project.notes.length > 0) {
+    return false;
+  }
+  return (
+    summaryFiltersEqual(project.summaryFilter, DEFAULT_SUMMARY_FILTER) &&
+    project.floorMode === "auto" &&
+    project.paletteId === defaultPaletteId() &&
+    project.color === defaultColor()
+  );
+}
+
+/** Overlay to persist on a stats seed: keep real per-demo edits, else Preferences. */
+export function overlayForSeed(
+  existing: ReviewProject | null | undefined,
+  overlayDefaults?: ReviewOverlay,
+): ReviewOverlay {
+  if (existing && !overlayIsUnset(existing)) {
+    return {
+      summaryFilter: existing.summaryFilter,
+      floorMode: existing.floorMode,
+      paletteId: existing.paletteId,
+      color: existing.color,
+    };
+  }
+  return {
+    summaryFilter: overlayDefaults?.summaryFilter ?? DEFAULT_SUMMARY_FILTER,
+    floorMode: overlayDefaults?.floorMode ?? "auto",
+    paletteId: overlayDefaults?.paletteId ?? defaultPaletteId(),
+    color: overlayDefaults?.color ?? defaultColor(),
+  };
 }
 
 function withLinkedFileLabel(
@@ -89,9 +142,13 @@ export function projectFromDemo(
 }
 
 /** Scorecard + player table for saved-notes list; keeps any existing drawings. */
-export async function seedDemoStats(target: LoadedDemo): Promise<ReviewProject> {
+export async function seedDemoStats(
+  target: LoadedDemo,
+  overlayDefaults?: ReviewOverlay,
+): Promise<ReviewProject> {
   const key = matchKey(target.replay, target.fileName);
   const existing = await loadProject(key);
+  const overlay = overlayForSeed(existing, overlayDefaults);
   const endTick = matchEndTick(target.replay);
   return applyPendingDemoLink(
     withLinkedFileLabel(
@@ -103,10 +160,10 @@ export async function seedDemoStats(target: LoadedDemo): Promise<ReviewProject> 
         mapName: target.replay.header.map_name,
         tick: existing?.tick ?? 0,
         notes: existing?.notes ?? [],
-        summaryFilter: existing?.summaryFilter ?? DEFAULT_SUMMARY_FILTER,
-        floorMode: existing?.floorMode ?? "auto",
-        paletteId: existing?.paletteId ?? defaultPaletteId(),
-        color: existing?.color ?? defaultColor(),
+        summaryFilter: overlay.summaryFilter,
+        floorMode: overlay.floorMode,
+        paletteId: overlay.paletteId,
+        color: overlay.color,
         scorecard: matchScorecard(target.replay, endTick),
         playerStats: savedPlayerSnapshots(target.replay, endTick),
         fileSizeBytes: target.file.size > 0 ? target.file.size : undefined,

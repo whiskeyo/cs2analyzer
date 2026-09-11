@@ -34,7 +34,13 @@ vi.mock("./ensureParser", () => ({
   discardParserWarmup: parserMocks.discardParserWarmup,
 }));
 
-const TIMINGS: ParseTimings = { initMs: 1, parseMs: 2, jsonMs: 3, buffersMs: 4, totalMs: 10 };
+const TIMINGS: ParseTimings = {
+  initMs: 1,
+  parseMs: 2,
+  jsonMs: 3,
+  buffersMs: 4,
+  totalMs: 10,
+};
 
 /**
  * Stands in for the parse worker so the hook can be driven without WASM.
@@ -78,7 +84,7 @@ function makeStatus(): Status {
   };
 }
 
-function renderSession(opts?: { onBeforeSelectDemo?: () => void }) {
+function renderSession(opts?: { onBeforeSelectDemo?: () => void; seriesMaxFiles?: number }) {
   const workers: FakeWorker[] = [];
   const status = makeStatus();
   const createWorker = () => {
@@ -87,7 +93,12 @@ function renderSession(opts?: { onBeforeSelectDemo?: () => void }) {
     return worker as unknown as Worker;
   };
   const view = renderHook(() =>
-    useDemoSession({ status, createWorker, onBeforeSelectDemo: opts?.onBeforeSelectDemo }),
+    useDemoSession({
+      status,
+      createWorker,
+      onBeforeSelectDemo: opts?.onBeforeSelectDemo,
+      seriesMaxFiles: opts?.seriesMaxFiles,
+    }),
   );
   return { ...view, workers, status };
 }
@@ -96,7 +107,9 @@ async function parseSingle(
   result: ReturnType<typeof renderSession>["result"],
   workers: FakeWorker[],
   file = new File(["fake"], "match.dem"),
-  replay: Replay = makeReplay({ header: { team_ct: "Astralis", team_t: "Vitality" } }),
+  replay: Replay = makeReplay({
+    header: { team_ct: "Astralis", team_t: "Vitality" },
+  }),
 ) {
   act(() => {
     result.current.parseDemo(file);
@@ -154,7 +167,10 @@ describe("useDemoSession", () => {
     });
     await workers[0].posted;
     await act(async () => {
-      workers[0].emit({ type: "error", message: "Supports only Source 2 replays" });
+      workers[0].emit({
+        type: "error",
+        message: "Supports only Source 2 replays",
+      });
     });
 
     expect(status.setError).toHaveBeenCalledWith("Supports only Source 2 replays");
@@ -285,6 +301,20 @@ describe("useDemoSession", () => {
     expect(status.setNotice).toHaveBeenCalledWith("Series: 2 de_ancient demos · Spirit");
   });
 
+  it("rejects a multi-drop above the settings series cap", async () => {
+    const { result, status } = renderSession({ seriesMaxFiles: 2 });
+    const files = [new File(["a"], "a.dem"), new File(["b"], "b.dem"), new File(["c"], "c.dem")];
+
+    await act(async () => {
+      await result.current.parseDemos(files);
+    });
+
+    expect(status.setError).toHaveBeenCalledWith("Series supports at most 2 demos.");
+    expect(runParsePool).not.toHaveBeenCalled();
+    expect(result.current.parsing).toBe(false);
+    expect(result.current.demo).toBeNull();
+  });
+
   it("selects another demo in the active series", async () => {
     const { result } = renderSession();
     const replayA = makeReplay({
@@ -319,9 +349,15 @@ describe("useDemoSession", () => {
   it("selects another map group in a multi-map series", async () => {
     const onBeforeSelectDemo = vi.fn();
     const { result } = renderSession({ onBeforeSelectDemo });
-    const ancientA = makeReplay({ header: { map_name: "de_ancient", team_ct: "CT", team_t: "T" } });
-    const ancientB = makeReplay({ header: { map_name: "de_ancient", team_ct: "CT", team_t: "T" } });
-    const mirage = makeReplay({ header: { map_name: "de_mirage", team_ct: "CT", team_t: "T" } });
+    const ancientA = makeReplay({
+      header: { map_name: "de_ancient", team_ct: "CT", team_t: "T" },
+    });
+    const ancientB = makeReplay({
+      header: { map_name: "de_ancient", team_ct: "CT", team_t: "T" },
+    });
+    const mirage = makeReplay({
+      header: { map_name: "de_mirage", team_ct: "CT", team_t: "T" },
+    });
     const fileAncientA = new File(["a"], "ancient-a.dem");
     const fileAncientB = new File(["b"], "ancient-b.dem");
     const fileMirage = new File(["c"], "mirage.dem");

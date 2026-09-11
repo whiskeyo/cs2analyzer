@@ -292,7 +292,7 @@ button.home-card {
 .home-modal {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -504,6 +504,10 @@ code {
   background: #10151b;
   border-bottom: 1px solid #1e2732;
   flex-shrink: 0;
+}
+/* Above `.stage` (same `.app > *` stacking slot) so the gear menu is clickable. */
+.app > .top {
+  z-index: 2;
 }
 .brand-row {
   display: flex;
@@ -1137,6 +1141,109 @@ code {
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
+}
+.settings-modal {
+  z-index: var(--z-modal);
+  align-items: flex-start;
+  overflow: auto;
+}
+.settings-modal-card {
+  width: min(640px, 100%);
+  max-height: min(90vh, 52rem);
+  overflow: auto;
+}
+.settings-modal-lead {
+  margin-bottom: 1.15rem !important;
+}
+.settings-section {
+  margin: 0 0 1.1rem;
+  padding-bottom: 0.95rem;
+  border-bottom: 1px solid var(--border);
+}
+.settings-section:last-of-type {
+  border-bottom: 0;
+  margin-bottom: 0.4rem;
+}
+.settings-section h3 {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.settings-field {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.86rem;
+}
+.settings-field > span:first-child,
+.settings-field-label {
+  min-width: 9.5rem;
+  color: var(--text);
+}
+.settings-field input[type="range"] {
+  flex: 1;
+  min-width: 8rem;
+}
+.settings-field input[type="number"],
+.settings-field select {
+  width: 5.2rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: inherit;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.82rem;
+}
+.settings-field output {
+  min-width: 2.6rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-align: right;
+}
+.settings-hint {
+  margin: 0 0 0.55rem !important;
+  font-size: 0.75rem !important;
+  color: var(--text-muted) !important;
+}
+.settings-warn {
+  margin: 0 0 0.55rem !important;
+  font-size: 0.75rem !important;
+  color: #e0a060 !important;
+}
+.settings-drawing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.7rem;
+}
+.settings-layers {
+  margin: 0.35rem 0 0.7rem;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.85rem;
+}
+.settings-layers legend {
+  padding: 0;
+  margin-bottom: 0.35rem;
+  font-size: 0.86rem;
+}
+.settings-layers label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+}
+.settings-summary {
+  margin-top: 0.35rem;
+}
+.settings-reset-confirm {
+  z-index: calc(var(--z-modal) + 1);
 }
 .snapshot-books {
   margin: 0 0 0.85rem;
@@ -1923,6 +2030,17 @@ code {
   height: 9px;
   border-radius: 99px;
   display: inline-block;
+}
+.nade-legend.nade-legend-embedded {
+  position: static;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  z-index: auto;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
 .sidebar {

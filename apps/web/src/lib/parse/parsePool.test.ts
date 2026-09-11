@@ -13,6 +13,7 @@ import {
   mapNameFromReplay,
   parsePoolBar,
   parsePoolOverallPct,
+  parsePoolHardwareCap,
   parsePoolSize,
   runParsePool,
   type ParseFileResult,
@@ -21,9 +22,29 @@ import { loadedDemo } from "./session";
 import { tagRounds } from "./roundTags";
 
 describe("parsePoolSize", () => {
-  it("caps at three workers in practice", () => {
+  it("caps at the shipped default in practice", () => {
     expect(parsePoolSize(10)).toBeLessThanOrEqual(3);
     expect(parsePoolSize(1)).toBe(1);
+  });
+
+  it("respects the user cap and still mins with file count and hardware", () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 16 });
+    expect(parsePoolSize(10, 2)).toBe(2);
+    expect(parsePoolSize(1, 8)).toBe(1);
+    expect(parsePoolSize(10, 8)).toBe(8);
+    vi.stubGlobal("navigator", { hardwareConcurrency: 4 });
+    expect(parsePoolSize(10, 8)).toBe(4);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("parsePoolHardwareCap", () => {
+  it("clamps hardware concurrency to the named parse-pool range", () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 16 });
+    expect(parsePoolHardwareCap()).toBe(8);
+    vi.stubGlobal("navigator", { hardwareConcurrency: 2 });
+    expect(parsePoolHardwareCap()).toBe(2);
+    vi.unstubAllGlobals();
   });
 });
 

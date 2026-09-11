@@ -39,6 +39,15 @@ describe("newPlaybook", () => {
     expect(book.sort).toBe(0);
   });
 
+  it("uses provided palette and color", () => {
+    const book = newPlaybook("de_mirage", "A execs", 0, {
+      paletteId: "heat",
+      color: "#ff7a00",
+    });
+    expect(book.paletteId).toBe("heat");
+    expect(book.color).toBe("#ff7a00");
+  });
+
   it("keeps a provided title", () => {
     expect(newPlaybook("de_inferno", " A execs ").title).toBe("A execs");
   });

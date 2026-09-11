@@ -30,6 +30,31 @@ describe("useViewState", () => {
     expect(result.current.viewEpoch).toBe(epoch + 1);
   });
 
+  it("applies settings default layers on a new demo, not the previous session toggles", () => {
+    const custom = { ...DEFAULT_LAYERS, names: false, heatmap: true };
+    const { result, rerender } = renderHook(({ id, layers }) => useViewState(id, layers), {
+      initialProps: { id: "a" as string | null, layers: custom },
+    });
+    expect(result.current.layers).toEqual(custom);
+    act(() => {
+      result.current.setLayers({ ...DEFAULT_LAYERS, cone: false });
+    });
+    rerender({ id: "b", layers: custom });
+    expect(result.current.layers).toEqual(custom);
+  });
+
+  it("keeps per-demo layer toggles when settings defaults change", () => {
+    const custom = { ...DEFAULT_LAYERS, names: false, heatmap: true };
+    const { result, rerender } = renderHook(({ layers }) => useViewState("a", layers), {
+      initialProps: { layers: DEFAULT_LAYERS },
+    });
+    act(() => {
+      result.current.setLayers({ ...DEFAULT_LAYERS, cone: false });
+    });
+    rerender({ layers: custom });
+    expect(result.current.layers).toEqual({ ...DEFAULT_LAYERS, cone: false });
+  });
+
   it("clears follow through setSelected so Esc matches a radar deselect", () => {
     const { result } = renderHook(() => useViewState("a"));
     act(() => {

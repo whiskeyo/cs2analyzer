@@ -25,6 +25,7 @@ import {
 import { useRadarImages } from "@/lib/radar/useRadarImages";
 import { TextNoteEditor, useTextNotes, type TextMove } from "@/components/radar/TextNoteEditor";
 import { useRadarPointer, type RadarPanView } from "@/lib/radar/useRadarPointer";
+import { NOTE_MOMENT_SECONDS } from "@/lib/shared/constants";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
 import {
@@ -54,6 +55,7 @@ interface Props {
   onPan: () => void;
   onPause: () => void;
   moment: boolean;
+  momentSec?: number;
   layers: MapLayers;
   summaryFilter: SummaryFilter;
   viewEpoch: number;
@@ -71,7 +73,20 @@ interface Props {
 }
 
 export function RadarCanvas(props: Props) {
-  const { replay, tick, cal, tool, color, note, onNote, onPan, onPause, moment, viewEpoch } = props;
+  const {
+    replay,
+    tick,
+    cal,
+    tool,
+    color,
+    note,
+    onNote,
+    onPan,
+    onPause,
+    moment,
+    momentSec = NOTE_MOMENT_SECONDS,
+    viewEpoch,
+  } = props;
   const propsRef = useRef(props);
   propsRef.current = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -97,6 +112,8 @@ export function RadarCanvas(props: Props) {
   onPauseRef.current = onPause;
   const momentRef = useRef(moment);
   momentRef.current = moment;
+  const momentSecRef = useRef(momentSec);
+  momentSecRef.current = momentSec;
   const calRef = useRef(cal);
   calRef.current = cal;
   const { images, c4Icon, nadeIcons } = useRadarImages(cal);
@@ -271,6 +288,7 @@ export function RadarCanvas(props: Props) {
     tickRef,
     colorRef,
     momentRef,
+    momentSecRef,
     noteRef,
     onNoteRef,
     onPauseRef,

@@ -80,6 +80,9 @@ export const PARSE_POOL_MIN = 1;
 /** Hard ceiling for the user-settings parse worker cap (hw clamp is at use). */
 export const PARSE_POOL_HARD_MAX = 8;
 
+/** Soft UI warning when the parse pool is set above this (RAM). */
+export const PARSE_POOL_SOFT_WARN = 4;
+
 /** Allowed demo playback rates in the viewer. */
 export const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2, 4, 8] as const;
 

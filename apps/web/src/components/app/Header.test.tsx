@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import "fake-indexeddb/auto";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
@@ -107,6 +107,7 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
 
     await openSettings();
+    expect(screen.getByRole("button", { name: "Preferences" })).toBeInTheDocument();
     expect(screen.getByText("Notes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export playbooks" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export notes" })).toBeDisabled();
@@ -115,6 +116,29 @@ describe("Header", () => {
     expect(screen.getByRole("button", { name: "Export playbooks" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Import playbooks" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove all playbooks" })).toBeDisabled();
+  });
+
+  async function openPreferences() {
+    await openSettings();
+    await userEvent.click(screen.getByRole("button", { name: "Preferences" }));
+    const dialog = await screen.findByRole("dialog", { name: "Preferences" });
+    const backdrop = dialog.closest(".settings-modal");
+    expect(backdrop?.parentElement).toBe(document.body);
+    expect(screen.getByRole("button", { name: "Reset all settings" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
+    fireEvent.click(backdrop!);
+    expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
+  }
+
+  it("opens the preferences modal from the gear on splash and viewer", async () => {
+    vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
+    const first = renderHeader();
+    await openPreferences();
+    first.unmount();
+
+    vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
+    renderHeader();
+    await openPreferences();
   });
 
   it("enables Export notes in settings when saved notes exist", async () => {

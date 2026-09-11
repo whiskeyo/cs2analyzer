@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { NadeLegend } from "@/components/radar/NadeLegend";
 import { loadedDemo, type DemoSeries } from "@/lib/parse/session";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
@@ -158,11 +159,12 @@ describe("useReviewProject", () => {
   it("restores a saved project when a demo loads", async () => {
     const pb = playback();
     const st = status();
+    const d = demo();
     mocks.loadProject.mockResolvedValue(project());
 
     const { result } = renderHook(() =>
       useReviewProject({
-        demo: demo(),
+        demo: d,
         series: null,
         parsedDemos: [],
         status: st,
@@ -175,6 +177,146 @@ describe("useReviewProject", () => {
     expect(pb.jump).toHaveBeenCalledWith(300, true);
     expect(pb.setPlaying).toHaveBeenCalledWith(false);
     expect(st.notice).toContain("Restored drawings");
+    expect(result.current.color).toBe("#ff1744");
+    expect(result.current.paletteId).toBe("default");
+  });
+
+  it("uses overlay defaults for a demo with no saved project", async () => {
+    const overlayDefaults = {
+      paletteId: "neon",
+      color: "#00ff88",
+      floorMode: "lower" as const,
+      summaryFilter: { ...DEFAULT_SUMMARY_FILTER, t: false },
+    };
+    const d = demo();
+    const { result } = renderHook(() =>
+      useReviewProject({
+        demo: d,
+        series: null,
+        parsedDemos: [],
+        status: status(),
+        playback: playback(),
+        overlayDefaults,
+      }),
+    );
+
+    await waitFor(() => expect(mocks.loadProject).toHaveBeenCalled());
+    expect(result.current.color).toBe("#00ff88");
+    expect(result.current.paletteId).toBe("neon");
+    expect(result.current.floorMode).toBe("lower");
+    expect(result.current.summaryFilter.t).toBe(false);
+  });
+
+  it("seeds HE and Decoy off from overlay defaults, even if a stats-only row is all-on", async () => {
+    const overlayDefaults = {
+      paletteId: "neon",
+      color: "#ff2d6a",
+      floorMode: "auto" as const,
+      summaryFilter: {
+        ...DEFAULT_SUMMARY_FILTER,
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, he: false, decoy: false },
+      },
+    };
+    const d = demo();
+    mocks.loadProject.mockResolvedValue(
+      project({
+        notes: [],
+        tick: 0,
+        summaryFilter: DEFAULT_SUMMARY_FILTER,
+        paletteId: "neon",
+        color: "#ff2d6a",
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useReviewProject({
+        demo: d,
+        series: null,
+        parsedDemos: [d],
+        status: status(),
+        playback: playback(),
+        overlayDefaults,
+      }),
+    );
+
+    await waitFor(() => expect(mocks.loadProject).toHaveBeenCalled());
+    expect(result.current.summaryFilter.kinds.he).toBe(false);
+    expect(result.current.summaryFilter.kinds.decoy).toBe(false);
+    expect(result.current.summaryFilter.kinds.smoke).toBe(true);
+
+    const view = render(<NadeLegend filter={result.current.summaryFilter} onFilter={() => {}} />);
+    expect(view.getByRole("button", { name: "HE" })).not.toHaveClass("on");
+    expect(view.getByRole("button", { name: "Decoy" })).not.toHaveClass("on");
+    expect(view.getByRole("button", { name: "Smoke" })).toHaveClass("on");
+    view.unmount();
+  });
+
+  it("seeds palette, color, and floor from Preferences on a stats-only shipped row", async () => {
+    const overlayDefaults = {
+      paletteId: "heat",
+      color: "#ff7a00",
+      floorMode: "lower" as const,
+      summaryFilter: DEFAULT_SUMMARY_FILTER,
+    };
+    const d = demo();
+    mocks.loadProject.mockResolvedValue(
+      project({
+        notes: [],
+        tick: 0,
+        summaryFilter: DEFAULT_SUMMARY_FILTER,
+        floorMode: "auto",
+        paletteId: "neon",
+        color: "#ff2d6a",
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useReviewProject({
+        demo: d,
+        series: null,
+        parsedDemos: [d],
+        status: status(),
+        playback: playback(),
+        overlayDefaults,
+      }),
+    );
+
+    await waitFor(() => expect(mocks.loadProject).toHaveBeenCalled());
+    expect(result.current.paletteId).toBe("heat");
+    expect(result.current.color).toBe("#ff7a00");
+    expect(result.current.floorMode).toBe("lower");
+  });
+
+  it("keeps a saved demo's nade-summary toggles instead of rewriting Preferences", async () => {
+    const overlayDefaults = {
+      paletteId: "neon",
+      color: "#00ff88",
+      floorMode: "lower" as const,
+      summaryFilter: {
+        ...DEFAULT_SUMMARY_FILTER,
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, he: false, decoy: false },
+      },
+    };
+    mocks.loadProject.mockResolvedValue(
+      project({
+        summaryFilter: DEFAULT_SUMMARY_FILTER,
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useReviewProject({
+        demo: demo(),
+        series: null,
+        parsedDemos: [],
+        status: status(),
+        playback: playback(),
+        overlayDefaults,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.notes[0]?.note.drawings).toHaveLength(1));
+    expect(result.current.summaryFilter.kinds.he).toBe(true);
+    expect(result.current.summaryFilter.kinds.decoy).toBe(true);
   });
 
   it("delegates export and bulk delete to reviewImportExport", async () => {
@@ -200,9 +342,10 @@ describe("useReviewProject", () => {
 
   it("applies an imported project through applyProject", async () => {
     const pb = playback();
+    const d = demo();
     const { result } = renderHook(() =>
       useReviewProject({
-        demo: demo(),
+        demo: d,
         series: null,
         parsedDemos: [],
         status: status(),
@@ -243,7 +386,11 @@ describe("useReviewProject", () => {
 
     await waitFor(() => expect(pb.setPlaying).toHaveBeenCalledWith(true));
 
-    const drawing = { type: "pen" as const, color: "#fff", points: [{ x: 1, y: 2 }] };
+    const drawing = {
+      type: "pen" as const,
+      color: "#fff",
+      points: [{ x: 1, y: 2 }],
+    };
     act(() => {
       result.current.commitNotes([{ round: 1, note: { ...emptyNote(), drawings: [drawing] } }]);
     });

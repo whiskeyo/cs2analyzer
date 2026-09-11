@@ -12,6 +12,7 @@ import { snapshotFromAnalyzer } from "@/lib/playbook/snapshot";
 import { currentRound } from "@/lib/replay/sample";
 import { tickRate } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
+import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { Hud } from "./Hud";
 import { KillFeed } from "./KillFeed";
 import { MapToolbar } from "./MapToolbar";
@@ -25,6 +26,7 @@ import { SpectatorEconomy } from "./SpectatorEconomy";
  */
 export function RadarStage() {
   const { session, playback, review, view, cal, habits } = useApp();
+  const { settings } = useUserSettings();
   const [snapshot, setSnapshot] = useState<ReturnType<typeof snapshotFromAnalyzer> | null>(null);
   const replay = session.replay;
   if (!replay) return null;
@@ -80,7 +82,14 @@ export function RadarStage() {
               updateRoundNote(review.notes, round.number, (note) =>
                 addBookmark(
                   note,
-                  makeBookmark(review.color, tick, view.moment, round.end_tick, tickRate(replay)),
+                  makeBookmark(
+                    review.color,
+                    tick,
+                    view.moment,
+                    round.end_tick,
+                    tickRate(replay),
+                    settings.noteMomentSec,
+                  ),
                 ),
               ),
             );
@@ -141,6 +150,7 @@ export function RadarStage() {
           onPan={() => view.setFollow(false)}
           onPause={() => playback.setPlaying(false)}
           moment={view.moment}
+          momentSec={settings.noteMomentSec}
           layers={view.layers}
           summaryFilter={review.summaryFilter}
           viewEpoch={view.viewEpoch}

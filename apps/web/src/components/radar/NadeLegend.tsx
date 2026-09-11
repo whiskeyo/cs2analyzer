@@ -25,12 +25,18 @@ function toggleKind(filter: SummaryFilter, kind: GrenadeKind): SummaryFilter {
 interface Props {
   filter: SummaryFilter;
   onFilter: (next: SummaryFilter | ((prev: SummaryFilter) => SummaryFilter)) => void;
+  /** In-form chips; skip the radar HUD `position: absolute` pin. */
+  embedded?: boolean;
 }
 
 /** Side and kind toggles for the round-summary nade overlay. */
-export function NadeLegend({ filter, onFilter }: Props) {
+export function NadeLegend({ filter, onFilter, embedded = false }: Props) {
   return (
-    <div className="nade-legend">
+    <div
+      className={embedded ? "nade-legend nade-legend-embedded" : "nade-legend"}
+      role={embedded ? "toolbar" : undefined}
+      aria-label={embedded ? "Default nade summary" : undefined}
+    >
       <button
         type="button"
         className={filter.t ? "on" : ""}

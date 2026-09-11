@@ -11,7 +11,13 @@ import {
 } from "./projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
 import { emptyNote } from "./note";
-import { applyPendingDemoLink, projectFromDemo, reviewSnapshot } from "./reviewPersistence";
+import {
+  applyPendingDemoLink,
+  overlayForSeed,
+  overlayIsUnset,
+  projectFromDemo,
+  reviewSnapshot,
+} from "./reviewPersistence";
 
 function demo(fileName = "match.dem") {
   const replay = makeReplay({
@@ -29,6 +35,86 @@ const overlay = {
   color: COLOR_PRESETS[0].colors[0],
 };
 
+describe("overlayForSeed", () => {
+  const prefs: typeof overlay = {
+    ...overlay,
+    summaryFilter: {
+      ...DEFAULT_SUMMARY_FILTER,
+      kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, he: false, decoy: false },
+    },
+  };
+
+  it("uses Preferences when there is no saved project", () => {
+    expect(overlayForSeed(undefined, prefs).summaryFilter.kinds.he).toBe(false);
+    expect(overlayForSeed(undefined, prefs).summaryFilter.kinds.decoy).toBe(false);
+  });
+
+  it("uses Preferences for a scorecard-only row that still has shipped overlay defaults", () => {
+    const existing: ReviewProject = {
+      schema: PROJECT_SCHEMA,
+      key: "de_mirage|1|50,100|match.dem",
+      savedAt: 1,
+      fileName: "match.dem",
+      mapName: "de_mirage",
+      tick: 0,
+      notes: [],
+      summaryFilter: DEFAULT_SUMMARY_FILTER,
+      floorMode: "auto",
+      paletteId: overlay.paletteId,
+      color: overlay.color,
+    };
+    expect(overlayIsUnset(existing)).toBe(true);
+    expect(overlayForSeed(existing, prefs).summaryFilter.kinds.he).toBe(false);
+    expect(overlayForSeed(existing, prefs).summaryFilter.kinds.decoy).toBe(false);
+  });
+
+  it("uses Preferences palette, color, and floor for a scorecard-only shipped row", () => {
+    const drawing = {
+      ...overlay,
+      paletteId: "heat",
+      color: "#ff7a00",
+      floorMode: "lower" as const,
+    };
+    const existing: ReviewProject = {
+      schema: PROJECT_SCHEMA,
+      key: "de_mirage|1|50,100|match.dem",
+      savedAt: 1,
+      fileName: "match.dem",
+      mapName: "de_mirage",
+      tick: 0,
+      notes: [],
+      summaryFilter: DEFAULT_SUMMARY_FILTER,
+      floorMode: "auto",
+      paletteId: overlay.paletteId,
+      color: overlay.color,
+    };
+    expect(overlayIsUnset(existing)).toBe(true);
+    expect(overlayForSeed(existing, drawing)).toEqual(drawing);
+  });
+
+  it("keeps per-demo toolbar state after the user toggled chips", () => {
+    const existing: ReviewProject = {
+      schema: PROJECT_SCHEMA,
+      key: "de_mirage|1|50,100|match.dem",
+      savedAt: 1,
+      fileName: "match.dem",
+      mapName: "de_mirage",
+      tick: 0,
+      notes: [],
+      summaryFilter: {
+        ...DEFAULT_SUMMARY_FILTER,
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, smoke: false },
+      },
+      floorMode: "auto",
+      paletteId: overlay.paletteId,
+      color: overlay.color,
+    };
+    expect(overlayIsUnset(existing)).toBe(false);
+    expect(overlayForSeed(existing, prefs).summaryFilter.kinds.smoke).toBe(false);
+    expect(overlayForSeed(existing, prefs).summaryFilter.kinds.he).toBe(true);
+  });
+});
+
 describe("projectFromDemo", () => {
   it("builds a project keyed by match identity", () => {
     const target = demo();
@@ -38,7 +124,12 @@ describe("projectFromDemo", () => {
         note: {
           ...emptyNote(),
           drawings: [
-            { type: "arrow" as const, color: "#fff", from: { x: 0, y: 0 }, to: { x: 1, y: 1 } },
+            {
+              type: "arrow" as const,
+              color: "#fff",
+              from: { x: 0, y: 0 },
+              to: { x: 1, y: 1 },
+            },
           ],
         },
       },
@@ -87,7 +178,9 @@ describe("projectFromDemo", () => {
         },
       ],
     };
-    const row = projectFromDemo(target, 200, [], overlay, existing, { withStats: false });
+    const row = projectFromDemo(target, 200, [], overlay, existing, {
+      withStats: false,
+    });
     expect(row.scorecard).toEqual(existing.scorecard);
     expect(row.playerStats).toEqual(existing.playerStats);
     expect(row.tick).toBe(200);
@@ -109,7 +202,9 @@ describe("projectFromDemo", () => {
       color: overlay.color,
       linkedFileLabel: "match.dem",
     };
-    const row = projectFromDemo(target, 200, [], overlay, existing, { withStats: false });
+    const row = projectFromDemo(target, 200, [], overlay, existing, {
+      withStats: false,
+    });
     expect(row.linkedFileLabel).toBe("match.dem");
   });
 });
@@ -126,7 +221,10 @@ describe("applyPendingDemoLink", () => {
   });
 
   it("labels the project when a matching handle is pending", async () => {
-    const handle = { name: "match.dem", getFile: async () => new File([], "match.dem") };
+    const handle = {
+      name: "match.dem",
+      getFile: async () => new File([], "match.dem"),
+    };
     rememberDemoFileHandles([handle as FileSystemFileHandle]);
     const target = demo();
     const row = projectFromDemo(target, 0, [], overlay, undefined);

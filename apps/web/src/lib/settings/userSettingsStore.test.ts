@@ -49,6 +49,18 @@ describe("userSettingsStore without indexedDB", () => {
     expect(loaded.parsePoolMax).toBe(PARSE_POOL_MAX);
   });
 
+  it("keeps overlapping patches instead of last-write-wins on a stale load", async () => {
+    await Promise.all([
+      saveUserSettings({ seriesMaxFiles: 3 }),
+      saveUserSettings({ eventLeadInSec: 3 }),
+      saveUserSettings({ noteMomentSec: 8 }),
+    ]);
+    const loaded = await loadUserSettings();
+    expect(loaded.seriesMaxFiles).toBe(3);
+    expect(loaded.eventLeadInSec).toBe(3);
+    expect(loaded.noteMomentSec).toBe(8);
+  });
+
   it("reset restores shipped defaults without wiping the patch source", async () => {
     await saveUserSettings({ sidebarWidth: 560, savedNotesPageSize: 10 });
     const reset = await resetUserSettings();

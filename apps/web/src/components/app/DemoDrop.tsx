@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { deleteProject } from "@/lib/notes/projectStore";
 import { ROUTES } from "@/lib/app/routes";
 import { useApp } from "@/lib/state/appState";
+import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { DropZone } from "./DropZone";
 
 interface Props {
@@ -22,6 +23,7 @@ export function DemoDrop({
   children,
 }: Props) {
   const { session, status, review, onFiles } = useApp();
+  const { settings } = useUserSettings();
   const navigate = useNavigate();
   return (
     <DropZone
@@ -38,6 +40,7 @@ export function DemoDrop({
       notice={status.notice}
       saved={review.saved}
       showSavedNotes={showSavedNotes}
+      pageSize={settings.savedNotesPageSize}
       beside={beside}
       below={below}
       onDeleteNotes={(key) => {

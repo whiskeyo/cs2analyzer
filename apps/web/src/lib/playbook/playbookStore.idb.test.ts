@@ -3,6 +3,8 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { COLOR_PRESETS } from "@/lib/notes/palettes";
+import { clearUserSettingsForTests, saveUserSettings } from "@/lib/settings/userSettingsStore";
 import { openCs2Db, PLAYBOOK_STORE, requestOf } from "@/lib/storage/idb";
 import {
   countPlaybooks,
@@ -20,10 +22,12 @@ import { PLAYBOOK_SCHEMA } from "./types";
 describe("playbookStore indexedDB", () => {
   beforeEach(async () => {
     await deleteAllPlaybooks();
+    await clearUserSettingsForTests();
   });
 
   afterEach(async () => {
     await deleteAllPlaybooks();
+    await clearUserSettingsForTests();
   });
 
   it("saves, loads, and lists books in creation order", async () => {
@@ -57,7 +61,11 @@ describe("playbookStore indexedDB", () => {
 
   it("skips malformed rows and orders by sort, then title", async () => {
     const zulu = { ...newPlaybook("de_mirage", "Zulu"), savedAt: 50, sort: 0 };
-    const alpha = { ...newPlaybook("de_mirage", "Alpha"), savedAt: 50, sort: 1 };
+    const alpha = {
+      ...newPlaybook("de_mirage", "Alpha"),
+      savedAt: 50,
+      sort: 1,
+    };
     const db = await openCs2Db();
     try {
       const tx = db.transaction(PLAYBOOK_STORE, "readwrite");
@@ -100,5 +108,16 @@ describe("playbookStore indexedDB", () => {
     expect(loaded?.schema).toBe(PLAYBOOK_SCHEMA);
     expect(loaded?.pages[0]?.videos).toEqual([]);
     expect(loaded?.title).toBe("Legacy");
+  });
+
+  it("seeds a new book from Preferences drawing colors", async () => {
+    const night = COLOR_PRESETS.find((row) => row.id === "night");
+    await saveUserSettings({
+      defaultPaletteId: "night",
+      defaultColor: night?.colors[0],
+    });
+    const book = await createPlaybook("de_mirage", "Night book");
+    expect(book.paletteId).toBe("night");
+    expect(book.color).toBe(night?.colors[0]);
   });
 });

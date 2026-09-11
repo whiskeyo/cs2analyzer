@@ -95,6 +95,29 @@ describe("usePlayback", () => {
     expect(result.current.playing).toBe(false);
   });
 
+  it("applies the settings playback speed when a demo loads", () => {
+    const demo = makeDemo();
+    const { result, rerender } = renderHook(
+      ({ id, speed }) => usePlayback(demo, id, undefined, speed),
+      { initialProps: { id: "a", speed: 2 } },
+    );
+    expect(result.current.speed).toBe(2);
+    act(() => result.current.setSpeed(8));
+    rerender({ id: "b", speed: 2 });
+    expect(result.current.speed).toBe(2);
+  });
+
+  it("keeps the current speed when only the settings default changes", () => {
+    const demo = makeDemo();
+    const { result, rerender } = renderHook(
+      ({ speed }) => usePlayback(demo, "a", undefined, speed),
+      { initialProps: { speed: 1 } },
+    );
+    act(() => result.current.setSpeed(4));
+    rerender({ speed: 2 });
+    expect(result.current.speed).toBe(4);
+  });
+
   it("publishes whole ticks while keeping the sub-tick playhead in the ref", () => {
     const { result } = renderPlayback();
 
@@ -185,8 +208,18 @@ describe("usePlayback", () => {
     const replay = makeReplay({
       header: { playback_ticks: 20_000 },
       rounds: [
-        makeRound({ number: 18, start_tick: 6000, freeze_end_tick: 7064, end_tick: 8900 }),
-        makeRound({ number: 19, start_tick: 7000, freeze_end_tick: 9064, end_tick: 9900 }),
+        makeRound({
+          number: 18,
+          start_tick: 6000,
+          freeze_end_tick: 7064,
+          end_tick: 8900,
+        }),
+        makeRound({
+          number: 19,
+          start_tick: 7000,
+          freeze_end_tick: 9064,
+          end_tick: 9900,
+        }),
       ],
       ticks,
     });

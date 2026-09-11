@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { eventElement } from "@/lib/notes/drag";
 import { notesByRound } from "@/lib/notes";
+import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { useNoteDrag } from "@/lib/notes/useNoteDrag";
 import { useNoteSelection } from "@/lib/notes/useNoteSelection";
 import { NoteActions } from "./notes/NoteActions";
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
+  const { settings } = useUserSettings();
   const rounds = useMemo(() => notesByRound(notes), [notes]);
   const { selected, canGroup, canUngroup, toggle, toggleAll, clearSelection } =
     useNoteSelection(notes);
@@ -37,6 +39,7 @@ export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
     tick,
     notes,
     onNotes,
+    momentSec: settings.noteMomentSec,
   });
 
   if (rounds.length === 0) {
