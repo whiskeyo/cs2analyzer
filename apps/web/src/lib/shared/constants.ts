@@ -65,11 +65,25 @@ export const FIRST_OVERTIME_ROUND = 25;
 /** CS2 OT freeze money per player (no pistol round in OT). */
 export const OVERTIME_START_MONEY = 10000;
 
+/** Floor for the user-settings series drop cap. */
+export const SERIES_MIN_FILES = 2;
+
 /** Max GOTV files in one habits series. */
 export const SERIES_MAX_FILES = 12;
 
 /** Concurrent WASM parse workers (queue the rest). */
 export const PARSE_POOL_MAX = 3;
+
+/** Floor for the user-settings parse worker cap. */
+export const PARSE_POOL_MIN = 1;
+
+/** Hard ceiling for the user-settings parse worker cap (hw clamp is at use). */
+export const PARSE_POOL_HARD_MAX = 8;
+
+/** Allowed demo playback rates in the viewer. */
+export const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2, 4, 8] as const;
+
+export const DEFAULT_PLAYBACK_SPEED = 1;
 
 /** Habits overlay: default seconds after freeze end when round length is unknown. */
 export const SERIES_HABITS_WINDOW_SECONDS = 20;
@@ -202,6 +216,9 @@ export const KILL_FEED_MAX_ROWS = 6;
 /** Saved-note cards per page on the home screen. */
 export const SAVED_NOTES_PAGE_SIZE = 5;
 
+export const SAVED_NOTES_PAGE_SIZE_MIN = 3;
+export const SAVED_NOTES_PAGE_SIZE_MAX = 20;
+
 /** Skip a kill line when attacker and victim are closer than this (world units). */
 export const KILL_LINE_MIN_LENGTH = 24;
 
@@ -222,6 +239,9 @@ export const NOTE_MOMENT_SECONDS = 5;
 
 /** Shortest Moment window the Notes tab will store. */
 export const NOTE_MOMENT_MIN_SECONDS = 0.5;
+
+/** Longest default Moment length stored in user settings. */
+export const NOTE_MOMENT_MAX_SECONDS = 60;
 
 /** Start/end stepper increment in the Notes tab. */
 export const NOTE_MOMENT_STEP_SECONDS = 1;

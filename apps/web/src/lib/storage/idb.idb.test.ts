@@ -8,6 +8,7 @@ import {
   HANDLE_STORE,
   PLAYBOOK_STORE,
   PROJECT_STORE,
+  SETTINGS_STORE,
   hasStore,
   idbAvailable,
   openCs2Db,
@@ -47,6 +48,23 @@ describe("openCs2Db", () => {
       expect(hasStore(db, PROJECT_STORE)).toBe(true);
       expect(hasStore(db, HANDLE_STORE)).toBe(true);
       expect(hasStore(db, PLAYBOOK_STORE)).toBe(true);
+      expect(hasStore(db, SETTINGS_STORE)).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("adds settings when upgrading a v4 database", async () => {
+    await deleteCs2Db();
+    await openAtVersion(4, (db) => {
+      db.createObjectStore(PROJECT_STORE, { keyPath: "key" });
+      db.createObjectStore(HANDLE_STORE, { keyPath: "key" });
+      db.createObjectStore(PLAYBOOK_STORE, { keyPath: "key" });
+    });
+    const db = await openCs2Db();
+    try {
+      expect(hasStore(db, PLAYBOOK_STORE)).toBe(true);
+      expect(hasStore(db, SETTINGS_STORE)).toBe(true);
     } finally {
       db.close();
     }
@@ -59,6 +77,7 @@ describe("openCs2Db", () => {
       expect(hasStore(db, PROJECT_STORE)).toBe(true);
       expect(hasStore(db, HANDLE_STORE)).toBe(true);
       expect(hasStore(db, PLAYBOOK_STORE)).toBe(true);
+      expect(hasStore(db, SETTINGS_STORE)).toBe(true);
       expect(hasStore(db, "nope")).toBe(false);
     } finally {
       db.close();

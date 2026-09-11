@@ -1,0 +1,69 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  PARSE_POOL_MAX,
+  SAVED_NOTES_PAGE_SIZE,
+  SIDEBAR_DEFAULT_WIDTH,
+} from "@/lib/shared/constants";
+import { STORAGE_KEYS } from "@/lib/shared/storageKeys";
+import {
+  clearUserSettingsForTests,
+  loadUserSettings,
+  resetUserSettings,
+  saveUserSettings,
+} from "./userSettingsStore";
+import { defaultUserSettings } from "./userSettings";
+
+function stubLocalStorage(entries: Record<string, string>): Map<string, string> {
+  const store = new Map(Object.entries(entries));
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+  });
+  return store;
+}
+
+describe("userSettingsStore without indexedDB", () => {
+  afterEach(async () => {
+    vi.unstubAllGlobals();
+    await clearUserSettingsForTests();
+  });
+
+  it("returns shipped defaults when nothing is stored", async () => {
+    const loaded = await loadUserSettings();
+    const defaults = defaultUserSettings(loaded.updatedAt);
+    expect(loaded).toEqual(defaults);
+  });
+
+  it("round-trips a patch in memory", async () => {
+    const saved = await saveUserSettings({ sidebarWidth: 520, eventLeadInSec: 3 });
+    expect(saved.sidebarWidth).toBe(520);
+    expect(saved.eventLeadInSec).toBe(3);
+    const loaded = await loadUserSettings();
+    expect(loaded.sidebarWidth).toBe(520);
+    expect(loaded.eventLeadInSec).toBe(3);
+    expect(loaded.parsePoolMax).toBe(PARSE_POOL_MAX);
+  });
+
+  it("reset restores shipped defaults without wiping the patch source", async () => {
+    await saveUserSettings({ sidebarWidth: 560, savedNotesPageSize: 10 });
+    const reset = await resetUserSettings();
+    expect(reset.sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
+    expect(reset.savedNotesPageSize).toBe(SAVED_NOTES_PAGE_SIZE);
+    expect((await loadUserSettings()).sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
+  });
+
+  it("applies live localStorage keys when memory is empty", async () => {
+    stubLocalStorage({
+      [STORAGE_KEYS.sidebarWidth]: "520",
+      [STORAGE_KEYS.eventLeadInSec]: "2.5",
+    });
+    const loaded = await loadUserSettings();
+    expect(loaded.sidebarWidth).toBe(520);
+    expect(loaded.eventLeadInSec).toBe(2.5);
+  });
+});
