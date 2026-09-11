@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import {
   formatMoney,
   gearIconHeldClass,
@@ -14,7 +15,7 @@ import { playerLabel } from "@/lib/replay/playerLabel";
 import { samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
 import { freezeBuysForPlayer } from "@/lib/match/buys";
 import { computeStats, liveScoreboardPlayers, liveTeams } from "@/lib/stats/stats";
-import { formatLastHit, lastHitTaken } from "@/lib/stats/lastHit";
+import { formatLastHitLocalized, lastHitTaken } from "@/lib/stats/lastHit";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { GearIcon, WeaponIcon } from "@/components/weapons/WeaponIcon";
 
@@ -33,6 +34,9 @@ function PlayerCard({
   buys,
   selected,
   onSelect,
+  cashTitle,
+  freezeBuyTitle,
+  knifeTitle,
 }: {
   p: SampledPlayer;
   name: string;
@@ -41,6 +45,9 @@ function PlayerCard({
   buys: ReturnType<typeof freezeBuysForPlayer>;
   selected: boolean;
   onSelect: () => void;
+  cashTitle: string;
+  freezeBuyTitle: string;
+  knifeTitle: string;
 }) {
   const hp = p.alive ? p.health : 0;
   const gun = mainWeaponId(p);
@@ -48,7 +55,7 @@ function PlayerCard({
   const active = heldWeaponId(p);
   const items = gearItems(p);
   if (active === WID_KNIFE && !items.some((ic) => ic.name === "knife")) {
-    items.unshift({ name: "knife", title: "Knife" });
+    items.unshift({ name: "knife", title: knifeTitle });
   }
   const iconClass = (base: string, id: number) => {
     const held = heldIconClass(id, active);
@@ -70,7 +77,7 @@ function PlayerCard({
         <div className="spec-top">
           <span className="spec-name">{name}</span>
           <span className="spec-kd">{kd}</span>
-          <span className="spec-money" title="Cash · inventory">
+          <span className="spec-money" title={cashTitle}>
             {formatMoney(p.money)}
             <span className="spec-eq">{formatMoney(p.equip)}</span>
           </span>
@@ -100,7 +107,7 @@ function PlayerCard({
           ))}
         </div>
         {buys.length > 0 && (
-          <div className="spec-buys" title="Bought this freeze">
+          <div className="spec-buys" title={freezeBuyTitle}>
             {buys.map((e, i) => (
               <WeaponIcon key={`${e.tick}-${e.weapon}-${i}`} weapon={e.weapon} />
             ))}
@@ -118,6 +125,7 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
   selected,
   onSelect,
 }: Props) {
+  const { messages } = useMessages();
   const samples = samplePlayers(replay, tick);
   const stats = computeStats(replay, tick);
   const teams = liveTeams(replay, tick);
@@ -145,7 +153,7 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
           <span>
             {title} · {alive}
           </span>
-          <strong title="Cash · inventory">
+          <strong title={messages.spectator.cashInventory}>
             {formatMoney(total)}
             <span className="spec-eq">{formatMoney(eq)}</span>
           </strong>
@@ -157,11 +165,20 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
             name={name}
             kd={kd}
             lastHit={
-              selected === p.index ? formatLastHit(lastHitTaken(replay, tick, p.index)) : null
+              selected === p.index
+                ? formatLastHitLocalized(
+                    lastHitTaken(replay, tick, p.index),
+                    messages.spectator.lastHit,
+                    messages.spectator.lastHitArmor,
+                  )
+                : null
             }
             buys={freezeBuysForPlayer(replay, p.index, tick)}
             selected={selected === p.index}
             onSelect={() => onSelect(selected === p.index ? null : p.index)}
+            cashTitle={messages.spectator.cashInventory}
+            freezeBuyTitle={messages.spectator.boughtThisFreeze}
+            knifeTitle={messages.spectator.knife}
           />
         ))}
       </div>

@@ -136,6 +136,118 @@ export interface Messages {
     cancel: string;
     resetConfirm: string;
   };
+  hud: {
+    knife: string;
+    roundNumber: string;
+    freeze: string;
+    roundWin: string;
+    plant: string;
+    c4: string;
+    defuse: string;
+    defuseWithKit: string;
+    clutch: string;
+  };
+  winReason: {
+    bomb: string;
+    defuse: string;
+    ctElim: string;
+    tElim: string;
+    draw: string;
+    time: string;
+    tSurrender: string;
+    ctSurrender: string;
+    unknown: string;
+    none: string;
+  };
+  nade: {
+    smoke: string;
+    molly: string;
+    flash: string;
+    he: string;
+    decoy: string;
+  };
+  palette: {
+    neon: string;
+    heat: string;
+    night: string;
+    mark: string;
+    cycleTitle: string;
+    swatchTitle: string;
+  };
+  toolbar: {
+    pan: string;
+    draw: string;
+    arrow: string;
+    textNote: string;
+    bookmarkTick: string;
+    erase: string;
+    undoDrawing: string;
+    redoDrawing: string;
+    clearRoundDrawings: string;
+    resetView: string;
+    snapshotPlaybook: string;
+    trackPlayer: string;
+    trail: string;
+    momentHint: string;
+  };
+  textNote: {
+    dragToMove: string;
+    placeholder: string;
+  };
+  killfeed: {
+    flashAssist: string;
+    noScope: string;
+    throughSmoke: string;
+    wallbang: string;
+    airborne: string;
+    blind: string;
+    headshot: string;
+  };
+  spectator: {
+    cashInventory: string;
+    boughtThisFreeze: string;
+    lastHit: string;
+    lastHitArmor: string;
+    knife: string;
+  };
+  playback: {
+    play: string;
+    pause: string;
+    prevRound: string;
+    nextRound: string;
+    prevKill: string;
+    nextKill: string;
+    stepBack: string;
+    stepForward: string;
+    skipFreeze: string;
+    skipFreezeTitle: string;
+    speed: string;
+    roundTimeline: string;
+    knife: string;
+    freezeClock: string;
+    autoplayOn: string;
+    autoplayOff: string;
+    roundStrip: string;
+    roundHasExecute: string;
+    roundHasNotes: string;
+    bucketStepBack: string;
+    bucketStepForward: string;
+    bucketTimeline: string;
+    seriesRoundsGroup: string;
+    seriesBucketOverlay: string;
+    seriesRoundChip: string;
+  };
+  timeline: {
+    bombPlanted: string;
+    bombDefused: string;
+    bombExploded: string;
+  };
+  roundKind: {
+    pistol: string;
+    eco: string;
+    force: string;
+    full: string;
+  };
 }
 
 const PLACEHOLDER = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;

@@ -1,5 +1,8 @@
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { ToolbarIconBtn } from "@/components/map/ToolbarIcon";
+import { floorLabel } from "@/lib/i18n/labels";
+import { useMessages } from "@/lib/i18n/useMessages";
+import type { FloorMode } from "@/lib/notes/types";
 import type { MapToolbarProps } from "./mapToolbarTypes";
 
 export function MapToolbar({
@@ -15,25 +18,37 @@ export function MapToolbar({
     reviewActions;
   const { onFollow, onTrails, onMoment, onLayers, onResetView } = viewActions;
 
+  const { messages } = useMessages();
   const toggle = (key: keyof typeof layers) => onLayers({ ...layers, [key]: !layers[key] });
+  const floors: FloorMode[] = ["auto", "upper", "lower"];
   return (
     <div className="map-toolbar">
-      <ToolbarIconBtn title="Pan" on={tool === "pan"} onClick={() => onTool("pan")} path="pan" />
-      <ToolbarIconBtn title="Draw" on={tool === "pen"} onClick={() => onTool("pen")} path="pen" />
       <ToolbarIconBtn
-        title="Arrow"
+        title={messages.toolbar.pan}
+        on={tool === "pan"}
+        onClick={() => onTool("pan")}
+        path="pan"
+      />
+      <ToolbarIconBtn
+        title={messages.toolbar.draw}
+        on={tool === "pen"}
+        onClick={() => onTool("pen")}
+        path="pen"
+      />
+      <ToolbarIconBtn
+        title={messages.toolbar.arrow}
         on={tool === "arrow"}
         onClick={() => onTool("arrow")}
         path="arrow"
       />
       <ToolbarIconBtn
-        title="Text note"
+        title={messages.toolbar.textNote}
         on={tool === "text"}
         onClick={() => onTool("text")}
         path="text"
       />
       <ToolbarIconBtn
-        title="Bookmark this tick (Moment: a few seconds). Nothing is drawn on the radar."
+        title={messages.toolbar.bookmarkTick}
         on={tool === "bookmark"}
         onClick={() => {
           onTool("bookmark");
@@ -42,59 +57,62 @@ export function MapToolbar({
         path="bookmark"
       />
       <ToolbarIconBtn
-        title="Erase"
+        title={messages.toolbar.erase}
         on={tool === "eraser"}
         onClick={() => onTool("eraser")}
         path="erase"
       />
       <ToolbarIconBtn
-        title="Undo drawing (Ctrl+Z)"
+        title={messages.toolbar.undoDrawing}
         disabled={!canUndo}
         onClick={onUndo}
         path="undo"
       />
       <ToolbarIconBtn
-        title="Redo drawing (Ctrl+Y)"
+        title={messages.toolbar.redoDrawing}
         disabled={!canRedo}
         onClick={onRedo}
         path="redo"
       />
-      <ToolbarIconBtn title="Clear drawings on this round" onClick={onClear} path="clear" />
-      <ToolbarIconBtn title="Reset view" onClick={onResetView} path="reset" />
+      <ToolbarIconBtn title={messages.toolbar.clearRoundDrawings} onClick={onClear} path="clear" />
+      <ToolbarIconBtn title={messages.toolbar.resetView} onClick={onResetView} path="reset" />
       {onSnapshot ? (
-        <ToolbarIconBtn title="Snapshot to playbook" onClick={onSnapshot} path="snapshot" />
+        <ToolbarIconBtn
+          title={messages.toolbar.snapshotPlaybook}
+          onClick={onSnapshot}
+          path="snapshot"
+        />
       ) : null}
       <ColorPalette paletteId={paletteId} color={color} onPalette={onPalette} onColor={onColor} />
       <ToolbarIconBtn
-        title="Track player"
+        title={messages.toolbar.trackPlayer}
         on={follow}
         disabled={!canFollow}
         onClick={() => onFollow(!follow)}
         path="track"
       />
-      <ToolbarIconBtn title="Trail" on={trails} onClick={() => onTrails(!trails)} path="trail" />
       <ToolbarIconBtn
-        title="Moment: new drawings and bookmarks last a few seconds from this tick"
+        title={messages.toolbar.trail}
+        on={trails}
+        onClick={() => onTrails(!trails)}
+        path="trail"
+      />
+      <ToolbarIconBtn
+        title={messages.toolbar.momentHint}
         on={moment}
         onClick={() => onMoment(!moment)}
         path="moment"
       />
       {hasFloors && (
         <span className="floor-picks">
-          {(
-            [
-              ["auto", "Auto"],
-              ["upper", "Upper"],
-              ["lower", "Lower"],
-            ] as const
-          ).map(([id, label]) => (
+          {floors.map((id) => (
             <button
               key={id}
               type="button"
               className={floorMode === id ? "on" : ""}
               onClick={() => onFloorMode(id)}
             >
-              {label}
+              {floorLabel(messages, id)}
             </button>
           ))}
         </span>
@@ -105,40 +123,40 @@ export function MapToolbar({
         className={layers.grenades ? "on" : ""}
         onClick={() => toggle("grenades")}
       >
-        Nades
+        {messages.preferences.layerGrenades}
       </button>
       <button type="button" className={layers.shots ? "on" : ""} onClick={() => toggle("shots")}>
-        Shots
+        {messages.preferences.layerShots}
       </button>
       <button type="button" className={layers.deaths ? "on" : ""} onClick={() => toggle("deaths")}>
-        Deaths
+        {messages.preferences.layerDeaths}
       </button>
       <button
         type="button"
         className={layers.openings ? "on" : ""}
         onClick={() => toggle("openings")}
       >
-        FK
+        {messages.preferences.layerOpenings}
       </button>
       <button type="button" className={layers.names ? "on" : ""} onClick={() => toggle("names")}>
-        Names
+        {messages.preferences.layerNames}
       </button>
       <button type="button" className={layers.cone ? "on" : ""} onClick={() => toggle("cone")}>
-        Cone
+        {messages.preferences.layerCone}
       </button>
       <button
         type="button"
         className={layers.heatmap ? "on" : ""}
         onClick={() => toggle("heatmap")}
       >
-        Heat
+        {messages.preferences.layerHeatmap}
       </button>
       <button
         type="button"
         className={layers.summary ? "on" : ""}
         onClick={() => toggle("summary")}
       >
-        Summary
+        {messages.preferences.layerSummary}
       </button>
     </div>
   );

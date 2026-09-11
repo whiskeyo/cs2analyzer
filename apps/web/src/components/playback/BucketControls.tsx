@@ -1,4 +1,5 @@
 import { memo, useMemo } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { bucketTimelineMarks, markLabelShift } from "@/lib/playback/roundTimeline";
 import { formatClock } from "@/lib/weapons/weapons";
 import { TransportButton } from "./TransportButton";
@@ -28,6 +29,7 @@ export const BucketControls = memo(function BucketControls({
   onTogglePlay,
   onSpeed,
 }: Props) {
+  const { messages } = useMessages();
   const span = Math.max(maxSec, 0.001);
   const progress = Math.min(1, Math.max(0, playSec / span));
   const marks = useMemo(() => bucketTimelineMarks(maxSec), [maxSec]);
@@ -40,14 +42,14 @@ export const BucketControls = memo(function BucketControls({
   return (
     <div className="controls">
       <TransportButton playing={playing} onToggle={onTogglePlay} />
-      <UnfocusableButton title="Step back 1s" onClick={() => step(-1)}>
+      <UnfocusableButton title={messages.playback.bucketStepBack} onClick={() => step(-1)}>
         −
       </UnfocusableButton>
-      <UnfocusableButton title="Step forward 1s" onClick={() => step(1)}>
+      <UnfocusableButton title={messages.playback.bucketStepForward} onClick={() => step(1)}>
         +
       </UnfocusableButton>
       <label className="speed">
-        Speed
+        {messages.playback.speed}
         <select value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>
           {SPEEDS.map((s) => (
             <option key={s} value={s}>
@@ -75,7 +77,7 @@ export const BucketControls = memo(function BucketControls({
             min={0}
             max={maxSec}
             step={0.1}
-            aria-label="Bucket overlay timeline"
+            aria-label={messages.playback.bucketTimeline}
             value={playSec}
             onChange={(e) => onPlaySec(Number(e.target.value))}
           />

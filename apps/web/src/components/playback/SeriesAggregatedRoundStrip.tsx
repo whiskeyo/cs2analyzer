@@ -1,5 +1,7 @@
 import { memo, type CSSProperties } from "react";
 import { GearIcon } from "@/components/weapons/WeaponIcon";
+import { roundKindLabel } from "@/lib/i18n/labels";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { currentRound } from "@/lib/replay/sample";
 import type { SeriesRoundChip, SeriesRoundsByKind } from "@/lib/parse/seriesAnalysis";
 import type { BucketOverlaySelection } from "@/lib/state/useSeriesHabits";
@@ -41,6 +43,7 @@ function SideBlock({
   onBucketOverlay: Props["onBucketOverlay"];
   onRoundJump: Props["onRoundJump"];
 }) {
+  const { messages, t } = useMessages();
   if (rounds.length === 0) return null;
   const icon = side === "CT" ? "defuser" : "c4";
   const bucketOn = bucketOverlay?.kind === kind && bucketOverlay.side === side;
@@ -52,7 +55,7 @@ function SideBlock({
       <button
         type="button"
         className={`rs series-round-chip bucket ${side === "CT" ? "ct" : "t"}${bucketOn ? " on" : ""}`}
-        title={`${groupLabel} · ${side} · all rounds overlay`}
+        title={t(messages.playback.seriesBucketOverlay, { label: groupLabel, side })}
         onClick={() => onBucketOverlay(kind, side)}
       >
         A
@@ -70,7 +73,11 @@ function SideBlock({
             type="button"
             className={`rs series-round-chip ${chip.side === "CT" ? "ct" : "t"}${on ? " on" : ""}`}
             style={demoColor ? ({ "--demo-color": demoColor } as CSSProperties) : undefined}
-            title={`${groupLabel} · ${chip.side} #${chip.indexInKind}`}
+            title={t(messages.playback.seriesRoundChip, {
+              label: groupLabel,
+              side: chip.side,
+              index: chip.indexInKind,
+            })}
             onClick={() => onRoundJump({ demoId: chip.demoId, jumpTick: chip.jumpTick })}
           >
             {chip.indexInKind}
@@ -92,23 +99,29 @@ export const SeriesAggregatedRoundStrip = memo(function SeriesAggregatedRoundStr
   onBucketOverlay,
   onRoundJump,
 }: Props) {
+  const { messages, t } = useMessages();
   const live = currentRound(replay, tick);
   const liveRoundNumber = live != null && !live.is_knife ? live.number : null;
 
   return (
     <div className="series-round-strip" role="list">
       {groups.map((group) => {
+        const label = roundKindLabel(messages, group.kind);
         const ctRounds = group.rounds.filter((chip) => chip.side === "CT");
         const tRounds = group.rounds.filter((chip) => chip.side === "T");
         return (
           <div key={group.kind} className="series-round-row" role="listitem">
-            <span className="series-round-label">{group.label}</span>
-            <div className="series-round-chips" role="group" aria-label={`${group.label} rounds`}>
+            <span className="series-round-label">{label}</span>
+            <div
+              className="series-round-chips"
+              role="group"
+              aria-label={t(messages.playback.seriesRoundsGroup, { label })}
+            >
               <SideBlock
                 kind={group.kind}
                 side="CT"
                 rounds={ctRounds}
-                groupLabel={group.label}
+                groupLabel={label}
                 demoColors={demoColors}
                 activeDemoId={activeDemoId}
                 liveRoundNumber={liveRoundNumber}
@@ -123,7 +136,7 @@ export const SeriesAggregatedRoundStrip = memo(function SeriesAggregatedRoundStr
                 kind={group.kind}
                 side="T"
                 rounds={tRounds}
-                groupLabel={group.label}
+                groupLabel={label}
                 demoColors={demoColors}
                 activeDemoId={activeDemoId}
                 liveRoundNumber={liveRoundNumber}

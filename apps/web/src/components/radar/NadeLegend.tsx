@@ -1,14 +1,10 @@
+import { nadeLabel } from "@/lib/i18n/labels";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { NADE_COLORS } from "@/lib/radar/radarFx";
 import type { SummaryFilter } from "@/lib/notes/types";
 import { type GrenadeKind } from "@/lib/replay/replayTypes";
 
-const KINDS: [GrenadeKind, string][] = [
-  ["smoke", "Smoke"],
-  ["molotov", "Molly"],
-  ["flash", "Flash"],
-  ["he", "HE"],
-  ["decoy", "Decoy"],
-];
+const KINDS: GrenadeKind[] = ["smoke", "molotov", "flash", "he", "decoy"];
 
 function kindOn(filter: SummaryFilter, kind: GrenadeKind): boolean {
   return filter.kinds[kind];
@@ -33,11 +29,12 @@ interface Props {
 
 /** Side and kind toggles for the round-summary nade overlay. */
 export function NadeLegend({ filter, onFilter, embedded = false, ariaLabel }: Props) {
+  const { messages } = useMessages();
   return (
     <div
       className={embedded ? "nade-legend nade-legend-embedded" : "nade-legend"}
       role={embedded ? "toolbar" : undefined}
-      aria-label={embedded ? (ariaLabel ?? "Default nade summary") : undefined}
+      aria-label={embedded ? (ariaLabel ?? messages.preferences.defaultNadeSummary) : undefined}
     >
       <button
         type="button"
@@ -53,7 +50,7 @@ export function NadeLegend({ filter, onFilter, embedded = false, ariaLabel }: Pr
       >
         CT
       </button>
-      {KINDS.map(([kind, label]) => (
+      {KINDS.map((kind) => (
         <button
           key={kind}
           type="button"
@@ -61,7 +58,7 @@ export function NadeLegend({ filter, onFilter, embedded = false, ariaLabel }: Pr
           onClick={() => onFilter((f) => toggleKind(f, kind))}
         >
           <i style={{ background: NADE_COLORS[kind] }} />
-          {label}
+          {nadeLabel(messages, kind)}
         </button>
       ))}
     </div>

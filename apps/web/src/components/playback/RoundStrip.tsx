@@ -1,4 +1,5 @@
 import { memo, useEffect, useState } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { blockTransportFocus } from "@/lib/playback/transportFocus";
 import { tickRate } from "@/lib/shared/constants";
 import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execute";
@@ -24,6 +25,7 @@ export const RoundStrip = memo(function RoundStrip({
   places,
   activeRound,
 }: Props) {
+  const { messages, t } = useMessages();
   const send = useSendPlaybackCommand();
   const current = activeRound ?? currentRound(replay, tick);
   const [beats, setBeats] = useState<ExecuteBeat[]>([]);
@@ -67,8 +69,12 @@ export const RoundStrip = memo(function RoundStrip({
             }`}
             title={
               r.is_knife
-                ? "Knife"
-                : [`Round ${r.number}`, hasAction ? "execute" : "", hasNotes ? "notes" : ""]
+                ? messages.playback.knife
+                : [
+                    t(messages.playback.roundStrip, { number: r.number }),
+                    hasAction ? messages.playback.roundHasExecute : "",
+                    hasNotes ? messages.playback.roundHasNotes : "",
+                  ]
                     .filter(Boolean)
                     .join(" · ")
             }

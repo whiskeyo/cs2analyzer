@@ -116,11 +116,24 @@ export interface RoundScrubEventMark {
   color?: string;
 }
 
+export interface BombEventLabels {
+  planted: string;
+  defused: string;
+  exploded: string;
+}
+
+const DEFAULT_BOMB_EVENT_LABELS: BombEventLabels = {
+  planted: "Bomb planted",
+  defused: "Bomb defused",
+  exploded: "Bomb exploded",
+};
+
 /** Kill and bomb icons for the round scrubber (live play only). */
 export function roundScrubEventMarks(
   replay: Replay,
   round: Round,
   range: { min: number; max: number },
+  labels: BombEventLabels = DEFAULT_BOMB_EVENT_LABELS,
 ): RoundScrubEventMark[] {
   const { min, max } = range;
   const span = max - min;
@@ -143,11 +156,11 @@ export function roundScrubEventMarks(
     push(k.tick, "kill", k.weapon, { victimSide, color });
   }
   for (const e of replay.bombEvents) {
-    if (e.kind === "planted") push(e.tick, "bomb_plant", "Bomb planted", { color: "#e8a030" });
+    if (e.kind === "planted") push(e.tick, "bomb_plant", labels.planted, { color: "#e8a030" });
     else if (e.kind === "defused")
-      push(e.tick, "bomb_defuse", "Bomb defused", { color: "#5b9fd6" });
+      push(e.tick, "bomb_defuse", labels.defused, { color: "#5b9fd6" });
     else if (e.kind === "exploded")
-      push(e.tick, "bomb_explode", "Bomb exploded", { color: "#e05c5c" });
+      push(e.tick, "bomb_explode", labels.exploded, { color: "#e05c5c" });
   }
   out.sort((a, b) => a.tick - b.tick || a.kind.localeCompare(b.kind));
   return out;
