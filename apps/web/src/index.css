@@ -239,15 +239,6 @@ button.home-card {
 .faq-item .md pre code {
   font-size: 0.85rem;
 }
-.faq-item .katex {
-  color: var(--text);
-  font-size: 1.05em;
-}
-.faq-item .katex-display {
-  margin: 0.75rem 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
 .credits {
   margin-top: auto;
   color: #6b7785;

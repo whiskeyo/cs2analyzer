@@ -18,20 +18,10 @@ describe("Markdown", () => {
     expect(screen.getByText("bold item")).toBeInTheDocument();
   });
 
-  it("renders inline and display TeX with KaTeX", () => {
-    const { container } = render(
-      <Markdown>
-        {`Inline $E = mc^2$.
-
-$$
-a + b
-$$`}
-      </Markdown>,
-    );
-    expect(container.querySelectorAll(".katex").length).toBeGreaterThan(0);
-    expect(
-      container.querySelector(".katex-display, .math-display, .math.math-display"),
-    ).toBeInTheDocument();
+  it("treats dollar signs as ordinary text", () => {
+    const { container } = render(<Markdown>{`Eco at $2000, not $E = mc^2$.`}</Markdown>);
+    expect(container.textContent).toContain("Eco at $2000, not $E = mc^2$.");
+    expect(container.querySelector(".katex, math")).toBeNull();
   });
 
   it("does not execute HTML from the markdown source", () => {
