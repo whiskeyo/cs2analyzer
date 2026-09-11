@@ -10,6 +10,7 @@ import type { LegendEntry } from "@/lib/playbook/legend";
 import type { PlaybookYouTube } from "@/lib/playbook/types";
 import { nadeIconLoadCount } from "@/lib/radar/draw";
 import { useRadarImages } from "@/lib/radar/useRadarImages";
+import { useMessages } from "@/lib/i18n/useMessages";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
 interface Props {
@@ -50,6 +51,7 @@ export function PlaybookCanvas(props: Props) {
     onOpenVideo,
     onPlaceYouTube,
   } = props;
+  const { messages } = useMessages();
   const propsRef = useRef(props);
   propsRef.current = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -172,7 +174,7 @@ export function PlaybookCanvas(props: Props) {
     >
       <canvas ref={canvasRef} />
       {legend.length > 0 ? (
-        <ul className="playbook-legend" aria-label="Player colours">
+        <ul className="playbook-legend" aria-label={messages.playbook.legendAria}>
           {legend.map((entry) => (
             <li key={entry.label}>
               <span className="playbook-legend-swatch" style={{ background: entry.color }} />

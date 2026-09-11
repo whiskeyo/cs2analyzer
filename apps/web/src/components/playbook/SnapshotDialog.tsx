@@ -1,11 +1,12 @@
 import { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router";
 import { playbookHref } from "@/lib/app/playbookSearch";
+import { useMessages } from "@/lib/i18n/useMessages";
 import type { DrawingGroup, FloorMode, NoteRadarFx, Piece } from "@/lib/notes/types";
 import { rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { listPlaybooksForMap } from "@/lib/playbook/playbookStore";
 import { writeSnapshot } from "@/lib/playbook/snapshot";
-import { UNTITLED_PLAYBOOK, type Playbook } from "@/lib/playbook/types";
+import type { Playbook } from "@/lib/playbook/types";
 import { errorMessage } from "@/lib/validate/json.ts";
 
 const NEW_BOOK = "new";
@@ -29,6 +30,7 @@ export function SnapshotDialog({
   floor,
   onClose,
 }: Props) {
+  const { messages, tNodes } = useMessages();
   const titleId = useId();
   const navigate = useNavigate();
   const [books, setBooks] = useState<Playbook[] | null>(null);
@@ -73,7 +75,7 @@ export function SnapshotDialog({
       rememberPlaybookFocus({ mapName, bookKey: book.key });
       setSaved({ title: book.title, key: book.key });
     } catch (err: unknown) {
-      setError(errorMessage(err) || "Snapshot failed");
+      setError(errorMessage(err) || messages.playbook.snapshotError);
     } finally {
       setSaving(false);
     }
@@ -88,15 +90,17 @@ export function SnapshotDialog({
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id={titleId}>Snapshot to playbook</h2>
+        <h2 id={titleId}>{messages.playbook.snapshotTitle}</h2>
         {saved ? (
           <>
             <p>
-              Saved to <strong>{saved.title}</strong>.
+              {tNodes(messages.playbook.snapshotSaved, {
+                title: <strong>{saved.title}</strong>,
+              })}
             </p>
             <div className="home-modal-actions">
               <button type="button" className="ghost" onClick={onClose}>
-                Close
+                {messages.preferences.close}
               </button>
               <button
                 type="button"
@@ -112,15 +116,15 @@ export function SnapshotDialog({
                   onClose();
                 }}
               >
-                Open strat
+                {messages.playbook.snapshotOpen}
               </button>
             </div>
           </>
         ) : (
           <>
-            <p>Pick a playbook for this map, then a new named strat. Drawings stay on Analyzer.</p>
+            <p>{messages.playbook.snapshotLead}</p>
             <fieldset className="snapshot-books">
-              <legend>Playbook</legend>
+              <legend>{messages.playbook.snapshotBook}</legend>
               {(books ?? []).map((book) => (
                 <label key={book.key}>
                   <input
@@ -139,24 +143,24 @@ export function SnapshotDialog({
                   checked={target === NEW_BOOK}
                   onChange={() => setTarget(NEW_BOOK)}
                 />
-                New playbook
+                {messages.playbook.snapshotNewBook}
               </label>
             </fieldset>
             {target === NEW_BOOK ? (
               <label className="playbook-field">
-                New playbook title
+                {messages.playbook.snapshotNewTitle}
                 <input
-                  aria-label="New playbook title"
+                  aria-label={messages.playbook.snapshotNewTitle}
                   value={newTitle}
-                  placeholder={UNTITLED_PLAYBOOK}
+                  placeholder={messages.playbook.untitledBook}
                   onChange={(e) => setNewTitle(e.target.value)}
                 />
               </label>
             ) : null}
             <label className="playbook-field">
-              Strat name
+              {messages.playbook.fieldStratName}
               <input
-                aria-label="Strat name"
+                aria-label={messages.playbook.fieldStratName}
                 value={stratTitle}
                 onChange={(e) => setStratTitle(e.target.value)}
               />
@@ -164,10 +168,10 @@ export function SnapshotDialog({
             {error ? <p className="error">{error}</p> : null}
             <div className="home-modal-actions">
               <button type="button" className="ghost" onClick={onClose}>
-                Cancel
+                {messages.preferences.cancel}
               </button>
               <button type="button" disabled={saving || books == null} onClick={() => void save()}>
-                Snapshot
+                {messages.playbook.snapshotSubmit}
               </button>
             </div>
           </>

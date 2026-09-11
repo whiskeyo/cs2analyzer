@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import type { PlaybookYouTube } from "@/lib/playbook/types";
 import { nextVideoPin, removeVideo } from "@/lib/playbook/videos";
 import {
@@ -29,6 +30,7 @@ export function PlaybookVideos({
   pendingPin,
   onCancelPin,
 }: Props) {
+  const { messages, t } = useMessages();
   const pasteTitleId = useId();
   const playerTitleId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,11 +69,11 @@ export function PlaybookVideos({
   const add = async () => {
     const parsed = parseYouTubeUrl(input);
     if (!parsed) {
-      setError("Paste a YouTube link (youtube.com or youtu.be).");
+      setError(messages.playbook.videoInvalid);
       return;
     }
     if (videos.some((clip) => sameYouTubeVideo(clip, parsed))) {
-      setError("That video is already on this strat.");
+      setError(messages.playbook.videoDuplicate);
       return;
     }
     setPending(true);
@@ -107,12 +109,12 @@ export function PlaybookVideos({
       }}
     >
       <label className="playbook-field">
-        YouTube
+        {messages.playbook.videoLabel}
         <input
           ref={inputRef}
-          aria-label="YouTube link"
+          aria-label={messages.playbook.videoLinkAria}
           value={input}
-          placeholder="https://youtu.be/…"
+          placeholder={messages.playbook.videoPlaceholder}
           onChange={(event) => {
             setInput(event.target.value);
             if (error) setError(null);
@@ -120,7 +122,7 @@ export function PlaybookVideos({
         />
       </label>
       <button type="submit" disabled={pending || input.trim() === ""}>
-        {pending ? "Adding…" : "Add"}
+        {pending ? messages.playbook.videoAdding : messages.playbook.videoAdd}
       </button>
     </form>
   );
@@ -130,9 +132,7 @@ export function PlaybookVideos({
       {pendingPin ? null : addForm}
       {pendingPin ? null : error ? <p className="error">{error}</p> : null}
       {videos.length === 0 ? (
-        <p className="playbook-lead">
-          Place a YouTube token or paste a link. Clips stay on this machine.
-        </p>
+        <p className="playbook-lead">{messages.playbook.videoEmpty}</p>
       ) : (
         <ul className="playbook-video-list">
           {videos.map((clip) => {
@@ -157,7 +157,7 @@ export function PlaybookVideos({
                 <button
                   type="button"
                   className="playbook-video-remove"
-                  aria-label={`Remove ${clip.title}`}
+                  aria-label={t(messages.playbook.removeClip, { title: clip.title })}
                   onClick={() => remove(clip.id)}
                 >
                   ×
@@ -176,13 +176,13 @@ export function PlaybookVideos({
             aria-labelledby={pasteTitleId}
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 id={pasteTitleId}>Add YouTube clip</h2>
-            <p>Paste a youtube.com or youtu.be link for this pin.</p>
+            <h2 id={pasteTitleId}>{messages.playbook.videoPinTitle}</h2>
+            <p>{messages.playbook.videoPinLead}</p>
             {addForm}
             {error ? <p className="error">{error}</p> : null}
             <div className="home-modal-actions">
               <button type="button" className="ghost" onClick={cancelPin}>
-                Cancel
+                {messages.preferences.cancel}
               </button>
             </div>
           </div>
@@ -209,13 +209,13 @@ export function PlaybookVideos({
             </div>
             <div className="home-modal-actions">
               <a href={open.url} target="_blank" rel="noreferrer">
-                Open on YouTube
+                {messages.playbook.videoOpen}
               </a>
               <button type="button" className="ghost" onClick={() => remove(open.id)}>
-                Delete
+                {messages.drop.deleteNotes}
               </button>
               <button type="button" className="ghost" onClick={() => onOpen(null)}>
-                Close
+                {messages.preferences.close}
               </button>
             </div>
           </div>

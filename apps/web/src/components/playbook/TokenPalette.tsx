@@ -3,6 +3,9 @@ import { TOOLBAR_PATHS } from "@/components/map/toolbarPaths";
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import type { ReactNode } from "react";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
+import { floorLabel } from "@/lib/i18n/labels";
+import type { Messages } from "@/lib/i18n/messages";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { NADE_WEAPON } from "@/lib/match/roundEvents";
 import type { FloorMode, NadeStyle } from "@/lib/notes/types";
 import {
@@ -44,6 +47,25 @@ const TOOL_PATHS: Record<"pan" | PlaybookDrawTool, string> = {
   arrow: TOOLBAR_PATHS.arrow,
   eraser: TOOLBAR_PATHS.erase,
 };
+
+const DRAW_TOOL_HOTKEY: Record<PlaybookDrawTool, string> = {
+  pen: "D",
+  arrow: "A",
+  eraser: "E",
+};
+
+const FLOORS: FloorMode[] = ["auto", "upper", "lower"];
+
+function drawToolLabel(messages: Messages, tool: PlaybookDrawTool): string {
+  switch (tool) {
+    case "pen":
+      return messages.playbook.toolPen;
+    case "arrow":
+      return messages.playbook.toolArrow;
+    case "eraser":
+      return messages.playbook.toolEraser;
+  }
+}
 
 function PawnGlyph({ color }: { color: string }) {
   return (
@@ -138,59 +160,60 @@ export function TokenPalette({
   hasFloors = false,
   onFloorMode,
 }: Props) {
+  const { messages } = useMessages();
   return (
-    <div className="playbook-toolbar map-toolbar" role="toolbar" aria-label="Playbook tools">
-      <ToolBtn label="Pan" title="Pan (V)" on={tool === "pan"} onClick={() => onTool("pan")}>
+    <div
+      className="playbook-toolbar map-toolbar"
+      role="toolbar"
+      aria-label={messages.playbook.toolsAria}
+    >
+      <ToolBtn
+        label={messages.playbook.toolPan}
+        title={`${messages.playbook.toolPan} (V)`}
+        on={tool === "pan"}
+        onClick={() => onTool("pan")}
+      >
         <ToolbarIcon d={TOOL_PATHS.pan} />
       </ToolBtn>
-      {DRAW_TOOLS.map((row) => (
-        <ToolBtn
-          key={row.tool}
-          label={row.label}
-          title={`${row.label} (${row.tool === "pen" ? "D" : row.tool === "arrow" ? "A" : "E"})`}
-          on={tool === row.tool}
-          onClick={() => onTool(row.tool)}
-        >
-          <ToolbarIcon d={TOOL_PATHS[row.tool]} />
-        </ToolBtn>
-      ))}
+      {DRAW_TOOLS.map((row) => {
+        const label = drawToolLabel(messages, row.tool);
+        return (
+          <ToolBtn
+            key={row.tool}
+            label={label}
+            title={`${label} (${DRAW_TOOL_HOTKEY[row.tool]})`}
+            on={tool === row.tool}
+            onClick={() => onTool(row.tool)}
+          >
+            <ToolbarIcon d={TOOL_PATHS[row.tool]} />
+          </ToolBtn>
+        );
+      })}
       <span className="toolbar-sep" />
-      <ToolBtn
-        label="Undo drawing (Ctrl+Z)"
-        title="Undo (Ctrl+Z)"
-        disabled={!canUndo}
-        onClick={onUndo}
-      >
+      <ToolBtn label={messages.playbook.toolUndo} disabled={!canUndo} onClick={onUndo}>
         <ToolbarIcon d={TOOLBAR_PATHS.undo} />
       </ToolBtn>
-      <ToolBtn
-        label="Redo drawing (Ctrl+Y)"
-        title="Redo (Ctrl+Y)"
-        disabled={!canRedo}
-        onClick={onRedo}
-      >
+      <ToolBtn label={messages.playbook.toolRedo} disabled={!canRedo} onClick={onRedo}>
         <ToolbarIcon d={TOOLBAR_PATHS.redo} />
       </ToolBtn>
-      <ToolBtn label="Reset view" title="Reset view (R)" onClick={onResetView}>
+      <ToolBtn
+        label={messages.playbook.toolResetView}
+        title={`${messages.playbook.toolResetView} (R)`}
+        onClick={onResetView}
+      >
         <ToolbarIcon d={TOOLBAR_PATHS.reset} />
       </ToolBtn>
       <ColorPalette paletteId={paletteId} color={color} onPalette={onPalette} onColor={onColor} />
       {hasFloors && onFloorMode ? (
         <span className="floor-picks">
-          {(
-            [
-              ["auto", "Auto"],
-              ["upper", "Upper"],
-              ["lower", "Lower"],
-            ] as const
-          ).map(([id, label]) => (
+          {FLOORS.map((id) => (
             <button
               key={id}
               type="button"
               className={floorMode === id ? "on" : ""}
               onClick={() => onFloorMode(id)}
             >
-              {label}
+              {floorLabel(messages, id)}
             </button>
           ))}
         </span>
@@ -209,24 +232,24 @@ export function TokenPalette({
       ))}
       <span className="toolbar-sep" />
       <ToolBtn
-        label="Nade trail"
-        title="Nade trail (N)"
+        label={messages.playbook.nadeTrail}
+        title={`${messages.playbook.nadeTrail} (N)`}
         on={nadeTrail}
         onClick={() => onNadeTrail(!nadeTrail)}
       >
         <ToolbarIcon d={TOOLBAR_PATHS.nadeTrail} />
       </ToolBtn>
       <ToolBtn
-        label="Nade icon"
-        title="Nade icon (G)"
+        label={messages.playbook.nadeIcon}
+        title={`${messages.playbook.nadeIcon} (G)`}
         on={nadeStyle === "icon"}
         onClick={() => onNadeStyle("icon")}
       >
         <ToolbarIcon d={TOOLBAR_PATHS.nadeIcon} />
       </ToolBtn>
       <ToolBtn
-        label="Nade effect"
-        title="Nade effect (G)"
+        label={messages.playbook.nadeEffect}
+        title={`${messages.playbook.nadeEffect} (G)`}
         on={nadeStyle === "effect"}
         onClick={() => onNadeStyle("effect")}
       >

@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n/useMessages";
 import type { Note } from "@/lib/notes/types";
 import { overlayRowGroupId, overlayRows, type OverlayRow } from "@/lib/playbook/overlay";
 
@@ -31,6 +32,7 @@ function OverlayItem({
   onRename: (id: string, label: string) => void;
   onRemove: (id: string) => void;
 }) {
+  const { messages, t } = useMessages();
   const piece = row.piece;
   if (piece) {
     const name = row.detail ?? row.label;
@@ -38,7 +40,7 @@ function OverlayItem({
       <li className="playbook-piece">
         <input
           type="checkbox"
-          aria-label={`Select ${name}`}
+          aria-label={t(messages.sidebar.selectNamed, { name })}
           checked={picked.has(row.id)}
           onChange={() => onTogglePick(row.id)}
         />
@@ -50,7 +52,7 @@ function OverlayItem({
           {row.label}
         </button>
         <input
-          aria-label={`Label ${name}`}
+          aria-label={t(messages.playbook.labelNamed, { name })}
           placeholder={name}
           value={piece.label ?? ""}
           onChange={(e) => onRename(piece.id, e.target.value)}
@@ -58,10 +60,10 @@ function OverlayItem({
         <button
           type="button"
           className="ghost"
-          aria-label={`Remove ${name}`}
+          aria-label={t(messages.playbook.removeNamed, { name })}
           onClick={() => onRemove(row.id)}
         >
-          Delete
+          {messages.drop.deleteNotes}
         </button>
       </li>
     );
@@ -71,7 +73,7 @@ function OverlayItem({
     <li className="playbook-piece playbook-piece-mark">
       <input
         type="checkbox"
-        aria-label={`Select ${name}`}
+        aria-label={t(messages.sidebar.selectNamed, { name })}
         checked={picked.has(row.id)}
         onChange={() => onTogglePick(row.id)}
       />
@@ -79,10 +81,10 @@ function OverlayItem({
       <button
         type="button"
         className="ghost"
-        aria-label={`Remove ${name}`}
+        aria-label={t(messages.playbook.removeNamed, { name })}
         onClick={() => onRemove(row.id)}
       >
-        Delete
+        {messages.drop.deleteNotes}
       </button>
     </li>
   );
@@ -100,9 +102,10 @@ export function PieceList({
   onToggleGroup,
   onUngroup,
 }: Props) {
+  const { messages, t } = useMessages();
   const rows = overlayRows(note);
   if (rows.length === 0 && note.groups.length === 0) {
-    return <p className="muted">Nothing on the radar yet. Pick a token or snapshot a round.</p>;
+    return <p className="muted">{messages.playbook.overlayEmpty}</p>;
   }
   const itemProps = { selectedId, picked, onTogglePick, onSelect, onRename, onRemove };
   const ungrouped = rows.filter((row) => overlayRowGroupId(row) == null);
@@ -114,9 +117,9 @@ export function PieceList({
           <div key={group.id} className="playbook-group">
             <div className="playbook-group-head">
               <label className="playbook-group-name">
-                <span className="visually-hidden">Group name</span>
+                <span className="visually-hidden">{messages.playbook.groupName}</span>
                 <input
-                  aria-label={`Group ${group.name}`}
+                  aria-label={t(messages.playbook.groupNamed, { name: group.name })}
                   value={group.name}
                   onChange={(e) => onRenameGroup(group.id, e.target.value)}
                 />
@@ -125,18 +128,22 @@ export function PieceList({
                 type="button"
                 className="ghost"
                 aria-pressed={group.hidden !== true}
-                aria-label={group.hidden ? `Show ${group.name}` : `Hide ${group.name}`}
+                aria-label={
+                  group.hidden
+                    ? t(messages.playbook.showNamed, { name: group.name })
+                    : t(messages.playbook.hideNamed, { name: group.name })
+                }
                 onClick={() => onToggleGroup(group.id, group.hidden !== true)}
               >
-                {group.hidden ? "Hidden" : "Shown"}
+                {group.hidden ? messages.playbook.hidden : messages.playbook.shown}
               </button>
               <button
                 type="button"
                 className="ghost"
-                aria-label={`Ungroup ${group.name}`}
+                aria-label={t(messages.playbook.ungroupNamed, { name: group.name })}
                 onClick={() => onUngroup(group.id)}
               >
-                Ungroup
+                {messages.sidebar.ungroup}
               </button>
             </div>
             {members.length > 0 ? (

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import type {
   ImportConflict,
   ImportChoices,
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function ImportMergeDialog({ conflicts, onCancel, onConfirm }: Props) {
+  const { messages, t } = useMessages();
   const defaults = useMemo(() => {
     const next: ImportChoices = {};
     for (const row of conflicts) {
@@ -36,11 +38,8 @@ export function ImportMergeDialog({ conflicts, onCancel, onConfirm }: Props) {
   return (
     <div className="playbook-merge-mask" role="dialog" aria-labelledby="playbook-merge-title">
       <div className="playbook-merge">
-        <h2 id="playbook-merge-title">Import playbooks</h2>
-        <p className="playbook-lead">
-          Some imported books match names you already have. Replace yours, keep both with a new
-          name, or merge strats.
-        </p>
+        <h2 id="playbook-merge-title">{messages.playbook.importTitle}</h2>
+        <p className="playbook-lead">{messages.playbook.importLead}</p>
         {conflicts.map((row) => {
           const choice = choices[row.incoming.key] ?? { action: "rename" as const };
           const used = new Set(
@@ -60,7 +59,7 @@ export function ImportMergeDialog({ conflicts, onCancel, onConfirm }: Props) {
                   checked={choice.action === "replace"}
                   onChange={() => setAction(row.incoming.key, "replace")}
                 />
-                Replace mine
+                {messages.playbook.importReplaceMine}
               </label>
               <label>
                 <input
@@ -69,11 +68,11 @@ export function ImportMergeDialog({ conflicts, onCancel, onConfirm }: Props) {
                   checked={choice.action === "rename"}
                   onChange={() => setAction(row.incoming.key, "rename")}
                 />
-                Keep both
+                {messages.playbook.importKeepBoth}
                 {choice.action === "rename" ? (
                   <input
                     type="text"
-                    aria-label={`New title for ${row.incoming.title}`}
+                    aria-label={t(messages.playbook.newTitleFor, { title: row.incoming.title })}
                     value={choice.title ?? uniqueBookTitle(copiedTitle(row.incoming.title), used)}
                     onChange={(e) =>
                       setChoices((prev) => ({
@@ -91,7 +90,7 @@ export function ImportMergeDialog({ conflicts, onCancel, onConfirm }: Props) {
                   checked={choice.action === "merge"}
                   onChange={() => setAction(row.incoming.key, "merge")}
                 />
-                Merge strats into mine
+                {messages.playbook.importMerge}
               </label>
               {choice.action === "merge" && row.stratConflicts.length > 0 ? (
                 <ul className="playbook-merge-strats">
@@ -102,7 +101,7 @@ export function ImportMergeDialog({ conflicts, onCancel, onConfirm }: Props) {
                       <li key={strat.pageId}>
                         <span>{label}</span>
                         <select
-                          aria-label={`Strat ${label}`}
+                          aria-label={t(messages.playbook.stratNamed, { label })}
                           value={action}
                           onChange={(e) =>
                             setChoices((prev) => ({
@@ -117,9 +116,9 @@ export function ImportMergeDialog({ conflicts, onCancel, onConfirm }: Props) {
                             }))
                           }
                         >
-                          <option value="replace">Replace</option>
-                          <option value="rename">Rename imported</option>
-                          <option value="skip">Skip</option>
+                          <option value="replace">{messages.playbook.importReplace}</option>
+                          <option value="rename">{messages.playbook.importRename}</option>
+                          <option value="skip">{messages.playbook.importSkip}</option>
                         </select>
                       </li>
                     );
@@ -131,10 +130,10 @@ export function ImportMergeDialog({ conflicts, onCancel, onConfirm }: Props) {
         })}
         <div className="playbook-merge-actions">
           <button type="button" className="ghost" onClick={onCancel}>
-            Cancel
+            {messages.preferences.cancel}
           </button>
           <button type="button" onClick={() => onConfirm(choices)}>
-            Import
+            {messages.playbook.importSubmit}
           </button>
         </div>
       </div>

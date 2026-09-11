@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { DragEvent, KeyboardEvent, MouseEvent } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import type { Playbook } from "@/lib/playbook/types";
 import { groupPlaybooksByMap, mapsForTree } from "@/lib/playbook/tree";
 import { readPlaybookTreeDrag, writePlaybookTreeDrag } from "@/lib/playbook/treeDrag";
@@ -60,6 +61,7 @@ export function PlaybookTree({
   onDeleteBook,
   onDeleteStrat,
 }: Props) {
+  const { messages } = useMessages();
   const grouped = groupPlaybooksByMap(books);
   const maps = mapsForTree(mapNames, books);
   const [rename, setRename] = useState<RenameTarget | null>(null);
@@ -141,7 +143,7 @@ export function PlaybookTree({
 
   return (
     <>
-      <ul className="playbook-tree" aria-label="Playbooks">
+      <ul className="playbook-tree" aria-label={messages.playbook.treeAria}>
         {maps.map((map) => {
           const open = !collapsedMaps.has(map);
           const mapBooks = grouped.get(map) ?? [];
@@ -158,7 +160,7 @@ export function PlaybookTree({
                     map === mapName ? "playbook-tree-label is-active" : "playbook-tree-label"
                   }
                   aria-expanded={open}
-                  title="Double-click to expand or collapse"
+                  title={messages.playbook.mapExpandTip}
                   onClick={() => onSelectMap(map)}
                   onDoubleClick={() => onToggleMap(map)}
                 >
@@ -168,7 +170,7 @@ export function PlaybookTree({
               {open ? (
                 <ul className="playbook-tree-books">
                   {mapBooks.length === 0 ? (
-                    <li className="playbook-tree-empty muted">No playbooks</li>
+                    <li className="playbook-tree-empty muted">{messages.playbook.emptyMap}</li>
                   ) : (
                     mapBooks.map((book, bookIndex) => {
                       const bookLast = bookIndex === mapBooks.length - 1;
@@ -200,7 +202,7 @@ export function PlaybookTree({
                             <TreeIcon kind="book" />
                             {editingBook(book.key) && rename?.kind === "book" ? (
                               <input
-                                aria-label="Book title"
+                                aria-label={messages.playbook.fieldBookRename}
                                 className="playbook-tree-rename"
                                 value={rename.value}
                                 autoFocus
@@ -220,7 +222,7 @@ export function PlaybookTree({
                                     : "playbook-tree-label"
                                 }
                                 aria-expanded={bookOpen}
-                                title="Drag to reorder. Double-click to expand. F2 to rename."
+                                title={messages.playbook.bookTip}
                                 onClick={() => onOpenBook(book)}
                                 onDoubleClick={() => onToggleBook(book.key)}
                                 onKeyDown={(e) => {
@@ -270,7 +272,7 @@ export function PlaybookTree({
                                       <TreeIcon kind="strat" />
                                       {editingPage(book.key, page.id) && rename?.kind === "page" ? (
                                         <input
-                                          aria-label="Strat name"
+                                          aria-label={messages.playbook.fieldStratName}
                                           className="playbook-tree-rename"
                                           value={rename.value}
                                           autoFocus
@@ -294,7 +296,7 @@ export function PlaybookTree({
                                               ? "playbook-tree-strat is-active"
                                               : "playbook-tree-strat"
                                           }
-                                          title="Drag to reorder. Double-click or F2 to rename."
+                                          title={messages.playbook.stratTip}
                                           onClick={() => onSelectStrat(book, page.id)}
                                           onDoubleClick={(e) => {
                                             e.preventDefault();
