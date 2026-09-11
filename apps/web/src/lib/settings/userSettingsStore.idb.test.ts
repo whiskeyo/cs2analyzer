@@ -81,6 +81,19 @@ describe("userSettingsStore indexedDB", () => {
     expect(loaded.defaultPaletteId).toBe("neon");
   });
 
+  it("keeps overlapping patches instead of last-write-wins on a stale load", async () => {
+    await Promise.all([
+      saveUserSettings({ defaultPaletteId: "heat", defaultColor: "#ff7a00" }),
+      saveUserSettings({ defaultFloorMode: "lower" }),
+      saveUserSettings({ seriesMaxFiles: 3 }),
+    ]);
+    const loaded = await loadUserSettings();
+    expect(loaded.defaultPaletteId).toBe("heat");
+    expect(loaded.defaultColor).toBe("#ff7a00");
+    expect(loaded.defaultFloorMode).toBe("lower");
+    expect(loaded.seriesMaxFiles).toBe(3);
+  });
+
   it("reset restores shipped defaults and leaves notes and playbooks", async () => {
     await saveProject(project());
     await createPlaybook("de_mirage", "Defaults");

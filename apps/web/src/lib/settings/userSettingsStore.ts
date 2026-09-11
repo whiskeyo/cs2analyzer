@@ -16,6 +16,18 @@ import {
 /** In-memory copy when IndexedDB is missing or a write fails. */
 let memoryFallback: UserSettings | null = null;
 
+/** Keep load/merge/write atomic so rapid Preferences edits do not drop patches. */
+let writeQueue: Promise<void> = Promise.resolve();
+
+function enqueueWrite<T>(work: () => Promise<T>): Promise<T> {
+  const run = writeQueue.then(work, work);
+  writeQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 function readLocalStoragePatch(): Partial<UserSettings> {
   const patch: Partial<UserSettings> = {};
   try {
@@ -125,42 +137,48 @@ export async function loadUserSettings(): Promise<UserSettings> {
 }
 
 export async function saveUserSettings(patch: Partial<UserSettings>): Promise<UserSettings> {
-  const current = await loadUserSettings();
-  const next = parseUserSettings({
-    ...current,
-    ...patch,
-    schema: USER_SETTINGS_SCHEMA,
-    updatedAt: Date.now(),
+  return enqueueWrite(async () => {
+    const current = await loadUserSettings();
+    const next = parseUserSettings({
+      ...current,
+      ...patch,
+      schema: USER_SETTINGS_SCHEMA,
+      updatedAt: Date.now(),
+    });
+    if (await persist(next)) {
+      clearMigratedLocalStorage();
+    }
+    return cloneUserSettings(next);
   });
-  if (await persist(next)) {
-    clearMigratedLocalStorage();
-  }
-  return cloneUserSettings(next);
 }
 
 /** Restores shipped defaults. Does not delete notes, handles, or playbooks. */
 export async function resetUserSettings(): Promise<UserSettings> {
-  const next = defaultUserSettings();
-  if (await persist(next)) {
-    clearMigratedLocalStorage();
-  }
-  return cloneUserSettings(next);
+  return enqueueWrite(async () => {
+    const next = defaultUserSettings();
+    if (await persist(next)) {
+      clearMigratedLocalStorage();
+    }
+    return cloneUserSettings(next);
+  });
 }
 
 /** Test helper: drop the in-memory fallback and the IndexedDB row. */
 export async function clearUserSettingsForTests(): Promise<void> {
-  memoryFallback = null;
-  if (!idbAvailable()) {
-    return;
-  }
-  const db = await openCs2Db();
-  try {
-    if (!hasStore(db, SETTINGS_STORE)) {
+  return enqueueWrite(async () => {
+    memoryFallback = null;
+    if (!idbAvailable()) {
       return;
     }
-    const tx = db.transaction(SETTINGS_STORE, "readwrite");
-    await requestOf(tx.objectStore(SETTINGS_STORE).delete(USER_SETTINGS_ID));
-  } finally {
-    db.close();
-  }
+    const db = await openCs2Db();
+    try {
+      if (!hasStore(db, SETTINGS_STORE)) {
+        return;
+      }
+      const tx = db.transaction(SETTINGS_STORE, "readwrite");
+      await requestOf(tx.objectStore(SETTINGS_STORE).delete(USER_SETTINGS_ID));
+    } finally {
+      db.close();
+    }
+  });
 }

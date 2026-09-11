@@ -69,11 +69,11 @@ describe("overlayForSeed", () => {
   });
 
   it("uses Preferences palette, color, and floor for a scorecard-only shipped row", () => {
-    const drawing: typeof overlay = {
+    const drawing = {
       ...overlay,
       paletteId: "heat",
       color: "#ff7a00",
-      floorMode: "lower",
+      floorMode: "lower" as const,
     };
     const existing: ReviewProject = {
       schema: PROJECT_SCHEMA,
