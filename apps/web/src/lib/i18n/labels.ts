@@ -9,6 +9,8 @@ import {
   WIN_REASON_T_SURRENDER,
 } from "@/lib/shared/constants";
 import type { FloorMode } from "@/lib/notes/types";
+import type { BombEventKind } from "@/lib/match/roundEvents";
+import { windowKind } from "@/lib/notes/list";
 import type { RoundKind } from "@/lib/parse/roundTags";
 import type { GrenadeKind } from "@/lib/replay/replayTypes";
 import { t, type Messages } from "./messages";
@@ -41,8 +43,9 @@ export function nadeLabel(messages: Messages, kind: GrenadeKind): string {
     case "smoke":
       return messages.nade.smoke;
     case "molotov":
-    case "incendiary":
       return messages.nade.molly;
+    case "incendiary":
+      return messages.nade.incendiary;
     case "flash":
       return messages.nade.flash;
     case "he":
@@ -51,6 +54,38 @@ export function nadeLabel(messages: Messages, kind: GrenadeKind): string {
       return messages.nade.decoy;
     default:
       return messages.nade.he;
+  }
+}
+
+export function bombEventLabel(messages: Messages, kind: BombEventKind): string {
+  switch (kind) {
+    case "planted":
+      return messages.bombEvent.planted;
+    case "defused":
+      return messages.bombEvent.defused;
+    case "exploded":
+      return messages.bombEvent.exploded;
+    case "begin_defuse":
+      return messages.bombEvent.defusing;
+    case "begin_plant":
+      return messages.bombEvent.planting;
+    default:
+      return messages.bombEvent.planted;
+  }
+}
+
+export function windowKindText(
+  messages: Messages,
+  win: { start: number; end: number } | null,
+): string {
+  switch (windowKind(win)) {
+    case "Pin":
+      return messages.sidebar.notePin;
+    case "Moment":
+      return messages.sidebar.noteMoment;
+    case "Whole round":
+    default:
+      return messages.sidebar.noteWholeRound;
   }
 }
 
