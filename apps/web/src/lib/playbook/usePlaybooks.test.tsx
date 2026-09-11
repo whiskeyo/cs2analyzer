@@ -138,6 +138,19 @@ describe("usePlaybooks", () => {
     });
   });
 
+  it("writes the active strat floor", async () => {
+    const { result } = renderHook(() => usePlaybooks("de_nuke"));
+    await act(async () => {
+      await result.current.create("Defaults");
+    });
+    const pageId = result.current.book?.pages[0]?.id ?? "";
+    expect(result.current.book?.pages[0]?.floor).toBe("auto");
+    await act(async () => {
+      result.current.setFloor(pageId, "lower");
+    });
+    expect(result.current.book?.pages[0]?.floor).toBe("lower");
+  });
+
   it("writes tokens onto the active strat note", async () => {
     const { result } = renderHook(() => usePlaybooks("de_mirage"));
     await act(async () => {

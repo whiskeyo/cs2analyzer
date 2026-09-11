@@ -30,7 +30,9 @@ vi.mock("@/lib/radar/maps", async (importOriginal) => {
 });
 
 vi.mock("@/components/playbook/PlaybookCanvas", () => ({
-  PlaybookCanvas: () => <div data-testid="playbook-canvas" />,
+  PlaybookCanvas: ({ floorMode }: { floorMode: string }) => (
+    <div data-testid="playbook-canvas" data-floor={floorMode} />
+  ),
 }));
 
 import { loadCalibrations } from "@/lib/radar/maps";
@@ -205,6 +207,41 @@ describe("Playbook", () => {
     expect(screen.getByRole("button", { name: "Reset view" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Neon" })).toBeInTheDocument();
     expect(document.querySelector(".keys")).toHaveTextContent("V pan");
+  });
+
+  it("switches upper/lower radar on multi-level maps and hides floors on Mirage", async () => {
+    const withLower = { ...UNIT_CALIBRATION, lower_radar: "lower.png" };
+    vi.mocked(loadCalibrations).mockResolvedValue({
+      de_mirage: UNIT_CALIBRATION,
+      de_nuke: withLower,
+      de_vertigo: withLower,
+      de_train: withLower,
+    });
+    renderBoard();
+    await userEvent.click(await screen.findByRole("button", { name: "Nuke" }));
+    await createBookFromMap("Nuke");
+    expect(screen.getByRole("button", { name: "Auto" })).toHaveClass("on");
+    expect(screen.getByTestId("playbook-canvas")).toHaveAttribute("data-floor", "auto");
+    await userEvent.click(screen.getByRole("button", { name: "Lower" }));
+    expect(screen.getByRole("button", { name: "Lower" })).toHaveClass("on");
+    expect(screen.getByTestId("playbook-canvas")).toHaveAttribute("data-floor", "lower");
+    await userEvent.click(screen.getByRole("button", { name: "Upper" }));
+    expect(screen.getByRole("button", { name: "Upper" })).toHaveClass("on");
+    expect(screen.getByTestId("playbook-canvas")).toHaveAttribute("data-floor", "upper");
+
+    await userEvent.click(screen.getByRole("button", { name: "Vertigo" }));
+    await createBookFromMap("Vertigo");
+    expect(screen.getByRole("button", { name: "Lower" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Train" }));
+    await createBookFromMap("Train");
+    expect(screen.getByRole("button", { name: "Lower" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Mirage" }));
+    await createBookFromMap("Mirage");
+    expect(screen.queryByRole("button", { name: "Lower" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Upper" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Auto" })).not.toBeInTheDocument();
   });
 
   it("opens a book and strat from the share URL", async () => {

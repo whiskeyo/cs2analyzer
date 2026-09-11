@@ -4,7 +4,7 @@ import { ColorPalette } from "@/components/notes/ColorPalette";
 import type { ReactNode } from "react";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
 import { NADE_WEAPON } from "@/lib/match/roundEvents";
-import type { NadeStyle } from "@/lib/notes/types";
+import type { FloorMode, NadeStyle } from "@/lib/notes/types";
 import {
   DRAW_TOOLS,
   GRENADE_PIECE_KINDS,
@@ -33,6 +33,9 @@ interface Props {
   onUndo: () => void;
   onRedo: () => void;
   onResetView: () => void;
+  floorMode?: FloorMode;
+  hasFloors?: boolean;
+  onFloorMode?: (mode: FloorMode) => void;
 }
 
 const TOOL_PATHS: Record<"pan" | PlaybookDrawTool, string> = {
@@ -131,6 +134,9 @@ export function TokenPalette({
   onUndo,
   onRedo,
   onResetView,
+  floorMode = "auto",
+  hasFloors = false,
+  onFloorMode,
 }: Props) {
   return (
     <div className="playbook-toolbar map-toolbar" role="toolbar" aria-label="Playbook tools">
@@ -169,6 +175,26 @@ export function TokenPalette({
         <ToolbarIcon d={TOOLBAR_PATHS.reset} />
       </ToolBtn>
       <ColorPalette paletteId={paletteId} color={color} onPalette={onPalette} onColor={onColor} />
+      {hasFloors && onFloorMode ? (
+        <span className="floor-picks">
+          {(
+            [
+              ["auto", "Auto"],
+              ["upper", "Upper"],
+              ["lower", "Lower"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={floorMode === id ? "on" : ""}
+              onClick={() => onFloorMode(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
+      ) : null}
       <span className="toolbar-sep" />
       {PALETTE_TOKENS.map((row) => (
         <ToolBtn

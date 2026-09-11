@@ -68,6 +68,7 @@ export function Playbook() {
     commitStratTitle,
     setBody,
     setVideos,
+    setFloor,
     removeStrat,
     duplicateStrat,
     selectStrat,
@@ -261,6 +262,9 @@ export function Playbook() {
                 onUndo={board.undo}
                 onRedo={board.redo}
                 onResetView={board.resetView}
+                floorMode={page.floor}
+                hasFloors={Boolean(cal?.lower_radar)}
+                onFloorMode={(floor) => setFloor(page.id, floor)}
               />
               <div className="playbook-board">
                 <PlaybookCanvas

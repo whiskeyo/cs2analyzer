@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Note } from "@/lib/notes/types";
+import type { FloorMode, Note } from "@/lib/notes/types";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { PLAYBOOKS_CHANGED_EVENT } from "./events";
 import {
@@ -14,6 +14,7 @@ import {
   reorderPages,
   setActivePage,
   setPageBody,
+  setPageFloor,
   setPageNote,
   setPageVideos,
   setPlaybookPalette,
@@ -173,6 +174,13 @@ export function usePlaybooks(mapName: string | null) {
   const setVideos = useCallback(
     (pageId: string, videos: PlaybookYouTube[]) => {
       patch((current) => setPageVideos(current, pageId, videos));
+    },
+    [patch],
+  );
+
+  const setFloor = useCallback(
+    (pageId: string, floor: FloorMode) => {
+      patch((current) => setPageFloor(current, pageId, floor));
     },
     [patch],
   );
@@ -365,6 +373,7 @@ export function usePlaybooks(mapName: string | null) {
     commitStratTitle,
     setBody,
     setVideos,
+    setFloor,
     removeStrat,
     duplicateStrat,
     selectStrat,
