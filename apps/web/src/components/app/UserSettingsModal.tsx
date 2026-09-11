@@ -117,6 +117,7 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => void update({ seriesMaxFiles: Number(e.target.value) })}
             />
           </label>
+          <p className="settings-hint">Applies on the next multi-file drop.</p>
         </section>
 
         <section className="settings-section">
@@ -150,7 +151,7 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <h3>Drawing</h3>
           <p className="settings-hint">
-            Defaults for new demos. Open notes keep their own palette.
+            Defaults for new demos and new playbooks. Open notes keep their own palette.
           </p>
           <div className="settings-drawing">
             <ColorPalette
@@ -223,6 +224,9 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
 
         <section className="settings-section">
           <h3>Playback</h3>
+          <p className="settings-hint">
+            Default speed applies when a demo loads. Lead-in and moment length apply immediately.
+          </p>
           <label className="settings-field">
             <span>Default speed</span>
             <select

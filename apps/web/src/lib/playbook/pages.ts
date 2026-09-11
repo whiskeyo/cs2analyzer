@@ -44,7 +44,12 @@ export function newPage(title = UNTITLED_STRAT, floor: FloorMode = "auto"): Play
   };
 }
 
-export function newPlaybook(mapName: string, title: string, sort = 0): Playbook {
+export function newPlaybook(
+  mapName: string,
+  title: string,
+  sort = 0,
+  drawing?: { paletteId?: string; color?: string },
+): Playbook {
   const page = newPage();
   return {
     schema: PLAYBOOK_SCHEMA,
@@ -55,8 +60,8 @@ export function newPlaybook(mapName: string, title: string, sort = 0): Playbook 
     sort,
     pages: [page],
     activePageId: page.id,
-    paletteId: defaultPlaybookPaletteId(),
-    color: defaultPlaybookColor(),
+    paletteId: drawing?.paletteId ?? defaultPlaybookPaletteId(),
+    color: drawing?.color ?? defaultPlaybookColor(),
   };
 }
 
@@ -202,7 +207,12 @@ export function duplicatePlaybook(book: Playbook): Playbook {
   const pages = book.pages.map((page) => {
     const id = newId();
     idMap.set(page.id, id);
-    return { ...page, id, note: cloneNote(page.note), videos: cloneVideos(page.videos) };
+    return {
+      ...page,
+      id,
+      note: cloneNote(page.note),
+      videos: cloneVideos(page.videos),
+    };
   });
   const activePageId = idMap.get(book.activePageId) ?? pages[0]?.id ?? newId();
   return {
