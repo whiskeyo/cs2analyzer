@@ -118,13 +118,24 @@ describe("Header", () => {
     expect(screen.getByRole("button", { name: "Remove all playbooks" })).toBeDisabled();
   });
 
-  it("opens the preferences modal from the gear on splash and viewer", async () => {
-    vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
-    renderHeader();
+  async function openPreferences() {
     await openSettings();
     await userEvent.click(screen.getByRole("button", { name: "Preferences" }));
-    expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Preferences" });
+    expect(dialog.closest(".settings-modal")?.parentElement).toBe(document.body);
     expect(screen.getByRole("button", { name: "Reset all settings" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
+  }
+
+  it("opens the preferences modal from the gear on splash and viewer", async () => {
+    vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
+    const first = renderHeader();
+    await openPreferences();
+    first.unmount();
+
+    vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
+    renderHeader();
+    await openPreferences();
   });
 
   it("enables Export notes in settings when saved notes exist", async () => {

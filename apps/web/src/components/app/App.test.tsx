@@ -130,6 +130,20 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
   });
 
+  async function expectPreferencesOnBody() {
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Preferences" }));
+    const dialog = await screen.findByRole("dialog", { name: "Preferences" });
+    expect(dialog.closest(".settings-modal")?.parentElement).toBe(document.body);
+    expect(screen.getByRole("button", { name: "Reset all settings" })).toBeInTheDocument();
+  }
+
+  it("opens Preferences from the home gear onto document.body", async () => {
+    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    await expectPreferencesOnBody();
+    expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
+  });
+
   it("opens a create-playbook dialog from the home playbook card", async () => {
     render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
     await userEvent.click(screen.getByRole("button", { name: /Create a playbook/ }));
@@ -149,6 +163,19 @@ describe("App", () => {
     expect(screen.queryByText("Loading FAQ…")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
+  });
+
+  it("opens Preferences above the loaded analyzer chrome", async () => {
+    await loadDemo();
+    await expectPreferencesOnBody();
+    expect(screen.getByText(/match\.dem/)).toBeInTheDocument();
+  });
+
+  it("opens Preferences from Playbook onto document.body", async () => {
+    render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
+    await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
+    expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
+    await expectPreferencesOnBody();
   });
 
   it("shows the parsed match on the radar, HUD, and scoreboard", async () => {

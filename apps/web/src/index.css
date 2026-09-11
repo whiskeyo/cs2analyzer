@@ -291,7 +291,7 @@ button.home-card {
 .home-modal {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1138,7 +1138,7 @@ code {
   justify-content: flex-end;
 }
 .settings-modal {
-  z-index: 50;
+  z-index: var(--z-modal);
   align-items: flex-start;
   overflow: auto;
 }
@@ -1238,7 +1238,7 @@ code {
   margin-top: 0.35rem;
 }
 .settings-reset-confirm {
-  z-index: 51;
+  z-index: calc(var(--z-modal) + 1);
 }
 .snapshot-books {
   margin: 0 0 0.85rem;

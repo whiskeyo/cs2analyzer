@@ -117,10 +117,13 @@ export function SettingsMenu() {
               <button
                 type="button"
                 className="ghost"
+                onPointerDown={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setSettingsOpen(false);
-                  setPrefsOpen(true);
+                  // Menu unmount retargets this click; open after it settles.
+                  queueMicrotask(() => setPrefsOpen(true));
                 }}
               >
                 Preferences

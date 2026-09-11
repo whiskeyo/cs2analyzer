@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { NadeLegend } from "@/components/radar/NadeLegend";
@@ -44,6 +44,14 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
   const titleId = useId();
   const confirmTitleId = useId();
   const poolMax = parsePoolHardwareCap();
+  const allowBackdropClose = useRef(false);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      allowBackdropClose.current = true;
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -64,6 +72,9 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
     <div
       className="home-modal settings-modal"
       onClick={(e) => {
+        if (!allowBackdropClose.current) {
+          return;
+        }
         if (e.target === e.currentTarget) onClose();
       }}
     >

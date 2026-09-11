@@ -36,6 +36,9 @@ describe("UserSettingsModal", () => {
     await waitFor(() =>
       expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument(),
     );
+    expect(
+      screen.getByRole("dialog", { name: "Preferences" }).closest(".settings-modal")?.parentElement,
+    ).toBe(document.body);
     await waitFor(() => expect(screen.getByLabelText("Saved notes page size")).toHaveValue(5));
 
     const pageSize = screen.getByLabelText("Saved notes page size");

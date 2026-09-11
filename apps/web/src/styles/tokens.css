@@ -18,6 +18,8 @@
   --page-lead-size: 0.95rem;
   --page-body-size: 0.92rem;
   --page-section-size: 1rem;
+  /* Above `.app { isolation }` chrome (header, sidebar, playbook tree). */
+  --z-modal: 100;
 }
 
 button:hover:not(:disabled) {
