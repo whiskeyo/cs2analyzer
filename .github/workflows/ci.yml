@@ -1,16 +1,69 @@
+# Path → jobs (dorny/paths-filter). Workflow-level paths-ignore skips this
+# file entirely when every changed path is planning/docs (see `on:` below).
+#
+# | Paths                                              | Changes | Rust | Web | Deploy (push master/main) |
+# |----------------------------------------------------|---------|------|-----|---------------------------|
+# | todos/**, docs/**, root *.md, ISSUE_TEMPLATE       | —       | —    | —   | —                         |
+# | crates/**, Cargo.*, clippy.toml, .cargo/**         | yes     | yes  | —   | —                         |
+# | apps/web/** (includes FAQ markdown the Vite build) | yes     | —    | yes | yes                       |
+# | scripts/**, this workflow                          | yes     | yes  | yes | yes (via Web)             |
+#
+# Root *.md is README.md / AGENTS.md only (`*` does not cross `/`).
+# FAQ articles live under apps/web/src/content/faq/ and still run Web.
+
 name: CI
 
 on:
   push:
     branches: [master, main]
+    paths-ignore:
+      - "todos/**"
+      - "docs/**"
+      - "*.md"
+      - ".github/ISSUE_TEMPLATE/**"
   pull_request:
+    paths-ignore:
+      - "todos/**"
+      - "docs/**"
+      - "*.md"
+      - ".github/ISSUE_TEMPLATE/**"
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'crates/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'clippy.toml'
+              - '.cargo/**'
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'apps/web/**'
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+
   rust:
     name: Rust
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -34,6 +87,8 @@ jobs:
 
   web:
     name: Web
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -72,7 +127,14 @@ jobs:
     name: Deploy to OVH
     runs-on: ubuntu-latest
     needs: [rust, web]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    # Web-only master pushes skip Rust; still publish. Rust-only skips deploy
+    # (no new web-dist). A failed Rust job on a mixed change still blocks.
+    if: >
+      !cancelled() &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') &&
+      needs.web.result == 'success' &&
+      (needs.rust.result == 'success' || needs.rust.result == 'skipped')
     steps:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v8
