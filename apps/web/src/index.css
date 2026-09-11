@@ -239,6 +239,22 @@ button.home-card {
 .faq-item .md pre code {
   font-size: 0.85rem;
 }
+.faq-item .md table {
+  width: 100%;
+  margin: 0 0 0.5rem;
+  border-collapse: collapse;
+  color: #c5d0da;
+  font-size: var(--page-body-size);
+}
+.faq-item .md th,
+.faq-item .md td {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid #1e2732;
+  text-align: left;
+}
+.faq-item .md th {
+  font-weight: 650;
+}
 .credits {
   margin-top: auto;
   color: #6b7785;
