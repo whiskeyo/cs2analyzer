@@ -9,6 +9,10 @@ import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore
 import { newPlaybook } from "@/lib/playbook/pages";
 import { serializePlaybookBundle } from "@/lib/playbook/transfer";
 import { TestRouter } from "@/lib/testing/router";
+import { en } from "@/lib/i18n/en";
+import { pl } from "@/lib/i18n/pl";
+import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
+import { clearUserSettingsForTests, loadUserSettings } from "@/lib/settings/userSettingsStore";
 import { Header } from "./Header";
 
 function renderHeader(path = "/") {
@@ -79,7 +83,7 @@ function splashState(savedCount = 0) {
 }
 
 async function openSettings() {
-  await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+  await userEvent.click(screen.getByRole("button", { name: en.settings.aria }));
 }
 
 describe("Header", () => {
@@ -96,38 +100,44 @@ describe("Header", () => {
   it("shows brand and settings on the splash", async () => {
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
     renderHeader();
-    expect(screen.getByRole("button", { name: "Home" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
-    expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("href", "/playbook");
-    expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("href", "/faq");
-    expect(screen.getByText("[pre-release testing]")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.header.homeAria })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: en.nav.analyzer })).toHaveAttribute(
+      "href",
+      "/analyzer",
+    );
+    expect(screen.getByRole("link", { name: en.nav.playbook })).toHaveAttribute(
+      "href",
+      "/playbook",
+    );
+    expect(screen.getByRole("link", { name: en.nav.faq })).toHaveAttribute("href", "/faq");
+    expect(screen.getByText(en.header.preRelease)).toBeInTheDocument();
     expect(screen.getByRole("tooltip")).toHaveTextContent(/backward compatible/);
-    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.header.newDemo })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.header.exportCsv })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.settings.exportNotes })).not.toBeInTheDocument();
 
     await openSettings();
-    expect(screen.getByRole("button", { name: "Preferences" })).toBeInTheDocument();
-    expect(screen.getByText("Notes")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Export playbooks" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Export notes" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Import notes" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove notes" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Export playbooks" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Import playbooks" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove all playbooks" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: en.settings.preferences })).toBeInTheDocument();
+    expect(screen.getByText(en.settings.notes)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.settings.exportPlaybooks })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.settings.exportNotes })).toBeDisabled();
+    expect(screen.getByRole("button", { name: en.settings.importNotes })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.settings.removeNotes })).toBeDisabled();
+    expect(screen.getByRole("button", { name: en.settings.exportPlaybooks })).toBeDisabled();
+    expect(screen.getByRole("button", { name: en.settings.importPlaybooks })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.settings.removePlaybooks })).toBeDisabled();
   });
 
   async function openPreferences() {
     await openSettings();
-    await userEvent.click(screen.getByRole("button", { name: "Preferences" }));
-    const dialog = await screen.findByRole("dialog", { name: "Preferences" });
+    await userEvent.click(screen.getByRole("button", { name: en.settings.preferences }));
+    const dialog = await screen.findByRole("dialog", { name: en.settings.preferences });
     const backdrop = dialog.closest(".settings-modal");
     expect(backdrop?.parentElement).toBe(document.body);
     expect(screen.getByRole("button", { name: "Reset all settings" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.settings.exportNotes })).not.toBeInTheDocument();
     fireEvent.click(backdrop!);
-    expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: en.settings.preferences })).toBeInTheDocument();
   }
 
   it("opens the preferences modal from the gear on splash and viewer", async () => {
@@ -145,8 +155,8 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(splashState(1) as unknown as ReturnType<typeof useApp>);
     renderHeader();
     await openSettings();
-    expect(screen.getByRole("button", { name: "Export notes" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Remove notes" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: en.settings.exportNotes })).toBeEnabled();
+    expect(screen.getByRole("button", { name: en.settings.removeNotes })).toBeEnabled();
   });
 
   it("shows map, file meta, and viewer actions with a loaded replay", async () => {
@@ -154,20 +164,20 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderHeader();
     expect(screen.getByText(/Mirage · match\.dem · 1 kills/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Export CSV" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.header.newDemo })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.header.exportCsv })).toBeInTheDocument();
     await openSettings();
-    expect(screen.getByRole("button", { name: "Export notes" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Import notes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.settings.exportNotes })).toBeEnabled();
+    expect(screen.getByRole("button", { name: en.settings.importNotes })).toBeInTheDocument();
   });
 
   it("returns home from the brand and New demo", async () => {
     const state = viewerState();
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderHeader();
-    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    await userEvent.click(screen.getByRole("button", { name: en.header.homeAria }));
     expect(state.close).toHaveBeenCalledTimes(1);
-    await userEvent.click(screen.getByRole("button", { name: "New demo" }));
+    await userEvent.click(screen.getByRole("button", { name: en.header.newDemo }));
     expect(state.close).toHaveBeenCalledTimes(2);
   });
 
@@ -175,14 +185,14 @@ describe("Header", () => {
     const state = viewerState(true);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderHeader();
-    expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: en.header.exportCsv })).toBeDisabled();
   });
 
   it("downloads per-demo stats as CSV", async () => {
     const state = viewerState(false);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderHeader();
-    await userEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+    await userEvent.click(screen.getByRole("button", { name: en.header.exportCsv }));
     expect(downloadBlob).toHaveBeenCalledWith(
       "match-stats.csv",
       "text/csv",
@@ -195,9 +205,9 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderHeader();
     await openSettings();
-    await userEvent.click(screen.getByRole("button", { name: "Export notes" }));
+    await userEvent.click(screen.getByRole("button", { name: en.settings.exportNotes }));
     expect(state.exportNotes).toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.settings.exportNotes })).not.toBeInTheDocument();
   });
 
   it("opens the remove-notes modal from settings and requires confirmation", async () => {
@@ -205,7 +215,7 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderHeader();
     await openSettings();
-    await userEvent.click(screen.getByRole("button", { name: "Remove notes" }));
+    await userEvent.click(screen.getByRole("button", { name: en.settings.removeNotes }));
 
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("Remove all saved notes?");
@@ -222,8 +232,8 @@ describe("Header", () => {
   it("hides viewer actions on Playbook even with a loaded replay", () => {
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
     renderHeader("/playbook");
-    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.header.newDemo })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.header.exportCsv })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("aria-current", "page");
   });
@@ -231,8 +241,8 @@ describe("Header", () => {
   it("hides viewer actions on the FAQ page even with a loaded replay", () => {
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
     renderHeader("/faq");
-    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.header.newDemo })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.header.exportCsv })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
   });
@@ -241,9 +251,9 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
     renderHeader();
     await openSettings();
-    expect(screen.getByRole("button", { name: "Export notes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.settings.exportNotes })).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
-    expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.settings.exportNotes })).not.toBeInTheDocument();
   });
 
   it("offers the layouts editor in development settings", async () => {
@@ -251,9 +261,11 @@ describe("Header", () => {
     renderHeader();
     await openSettings();
     if (import.meta.env.DEV) {
-      expect(screen.getByRole("button", { name: "Layouts editor" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: en.settings.layoutsEditor })).toBeInTheDocument();
     } else {
-      expect(screen.queryByRole("button", { name: "Layouts editor" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: en.settings.layoutsEditor }),
+      ).not.toBeInTheDocument();
     }
   });
 
@@ -262,13 +274,36 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
     renderHeader("/layouts");
     expect(screen.getByText("Callout Layout Editor")).toBeInTheDocument();
-    expect(screen.getByText("[pre-release testing]")).toBeInTheDocument();
+    expect(screen.getByText(en.header.preRelease)).toBeInTheDocument();
     expect(screen.getByText("[dev]")).toBeInTheDocument();
     await openSettings();
-    expect(screen.queryByRole("button", { name: "Layouts editor" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: en.settings.layoutsEditor }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Back to analyzer" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("link", { name: "FAQ" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: en.nav.analyzer })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: en.nav.faq })).not.toHaveAttribute("aria-current");
+  });
+
+  it("applies Polish chrome from Preferences without a reload", async () => {
+    await clearUserSettingsForTests();
+    vi.mocked(useApp).mockReturnValue(splashState(0) as unknown as ReturnType<typeof useApp>);
+    render(
+      <UserSettingsProvider>
+        <TestRouter>
+          <Header />
+        </TestRouter>
+      </UserSettingsProvider>,
+    );
+    await openSettings();
+    await userEvent.click(screen.getByRole("button", { name: en.settings.preferences }));
+    await userEvent.selectOptions(screen.getByLabelText(en.preferences.language), "pl");
+    await waitFor(() => {
+      expect(screen.getByRole("dialog", { name: pl.preferences.title })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: pl.nav.faq })).toBeInTheDocument();
+      expect(document.documentElement.lang).toBe("pl");
+    });
+    expect(await loadUserSettings()).toMatchObject({ locale: "pl" });
   });
 
   it("exports, imports, and removes playbooks from settings", async () => {
@@ -277,15 +312,15 @@ describe("Header", () => {
     renderHeader();
     await openSettings();
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Export playbooks" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: en.settings.exportPlaybooks })).toBeEnabled(),
     );
-    await userEvent.click(screen.getByRole("button", { name: "Export playbooks" }));
+    await userEvent.click(screen.getByRole("button", { name: en.settings.exportPlaybooks }));
     expect(await screen.findByText("Exported 1 playbook.")).toBeInTheDocument();
     expect(downloadBlob).toHaveBeenCalled();
 
     const incoming = newPlaybook("de_inferno", "Imported");
     const input = document.querySelector(
-      'input[aria-label="Import playbooks file"]',
+      `input[aria-label="${en.settings.importPlaybooksFile}"]`,
     ) as HTMLInputElement;
     const file = new File([serializePlaybookBundle([incoming])], "books.json", {
       type: "application/json",
@@ -293,7 +328,7 @@ describe("Header", () => {
     await userEvent.upload(input, file);
     expect(await screen.findByText("Imported 1 playbook.")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Remove all playbooks" }));
+    await userEvent.click(screen.getByRole("button", { name: en.settings.removePlaybooks }));
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("Remove all playbooks?");
     const removeBtn = screen.getByRole("button", {
@@ -305,6 +340,6 @@ describe("Header", () => {
     await userEvent.click(removeBtn);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await openSettings();
-    expect(await screen.findByRole("button", { name: "Export playbooks" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: en.settings.exportPlaybooks })).toBeDisabled();
   });
 });
