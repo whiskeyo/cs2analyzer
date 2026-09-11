@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { navigate } from "@/lib/app/devNavigate";
 import { TestRouter } from "@/lib/testing/router";
-import { en } from "@/lib/i18n/en";
+import { en } from "@/lib/i18n/translations/en";
 import { SiteNav } from "./SiteNav";
 
 function renderNav(path = "/") {

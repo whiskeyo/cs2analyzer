@@ -1,7 +1,9 @@
-import { en } from "./en";
 import { DEFAULT_LOCALE, type Locale } from "./locales";
 import type { Messages } from "./messages";
-import { pl } from "./pl";
+import { en } from "./translations/en";
+import { pl } from "./translations/pl";
+
+/** Live catalogs. Adding a locale is `translations/xx/` + one `LOCALES` entry. */
 
 export const catalogs: Record<Locale, Messages> = {
   en,

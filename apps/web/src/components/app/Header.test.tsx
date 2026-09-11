@@ -9,8 +9,8 @@ import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore
 import { newPlaybook } from "@/lib/playbook/pages";
 import { serializePlaybookBundle } from "@/lib/playbook/transfer";
 import { TestRouter } from "@/lib/testing/router";
-import { en } from "@/lib/i18n/en";
-import { pl } from "@/lib/i18n/pl";
+import { en } from "@/lib/i18n/translations/en";
+import { pl } from "@/lib/i18n/translations/pl";
 import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
 import { clearUserSettingsForTests, loadUserSettings } from "@/lib/settings/userSettingsStore";
 import { Header } from "./Header";

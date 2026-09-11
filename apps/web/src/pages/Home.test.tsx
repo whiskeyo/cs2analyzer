@@ -6,7 +6,7 @@ import type { ReviewProject } from "@/lib/notes/projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { TestRouter } from "@/lib/testing/router";
-import { en } from "@/lib/i18n/en";
+import { en } from "@/lib/i18n/translations/en";
 import { Home } from "./Home";
 
 vi.mock("@/lib/state/appState", () => ({

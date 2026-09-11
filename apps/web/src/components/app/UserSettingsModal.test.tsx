@@ -13,8 +13,8 @@ import {
   saveUserSettings,
 } from "@/lib/settings/userSettingsStore";
 import { LOCALES, LOCALE_ENDONYMS } from "@/lib/i18n/locales";
-import { en } from "@/lib/i18n/en";
-import { pl } from "@/lib/i18n/pl";
+import { en } from "@/lib/i18n/translations/en";
+import { pl } from "@/lib/i18n/translations/pl";
 import { UserSettingsModal } from "./UserSettingsModal";
 
 function renderModal(onClose = () => undefined) {

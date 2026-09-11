@@ -4,7 +4,7 @@ export type Locale = (typeof LOCALES)[number];
 
 export const DEFAULT_LOCALE: Locale = "en";
 
-/** Endonyms for the Preferences picker. Adding a locale is one row here. */
+/** Endonyms for the Preferences picker. Adding a locale is one row here plus `translations/xx/`. */
 export const LOCALE_ENDONYMS: Record<Locale, string> = {
   en: "English",
   pl: "Polski",

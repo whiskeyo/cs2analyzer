@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WIN_REASON_BOMB, WIN_REASON_TIME } from "@/lib/shared/constants";
-import { en } from "./en";
-import { pl } from "./pl";
+import { en } from "./translations/en";
+import { pl } from "./translations/pl";
 import {
   bombEventLabel,
   floorLabel,

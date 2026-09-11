@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { FAQ_ITEMS } from "@/lib/app/faq";
 import { ISSUES_URL } from "@/lib/app/links";
-import { en } from "@/lib/i18n/en";
+import { en } from "@/lib/i18n/translations/en";
 import { Faq } from "./Faq";
 
 describe("Faq", () => {

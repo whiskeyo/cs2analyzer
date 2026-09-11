@@ -7,8 +7,8 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
 import { clearUserSettingsForTests, saveUserSettings } from "@/lib/settings/userSettingsStore";
-import { en } from "./en";
-import { pl } from "./pl";
+import { en } from "./translations/en";
+import { pl } from "./translations/pl";
 import { useMessages } from "./useMessages";
 
 function wrapper({ children }: { children: ReactNode }) {

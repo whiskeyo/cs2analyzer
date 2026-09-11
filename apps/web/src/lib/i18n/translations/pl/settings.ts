@@ -1,0 +1,66 @@
+import type { Messages } from "../../messages";
+
+export const settings = {
+  settings: {
+    aria: "Ustawienia",
+    app: "Aplikacja",
+    preferences: "Preferencje",
+    notes: "Notatki",
+    exportNotes: "Eksportuj notatki",
+    importNotes: "Importuj notatki",
+    removeNotes: "Usuń notatki",
+    playbook: "Playbook",
+    exportPlaybooks: "Eksportuj playbooki",
+    importPlaybooks: "Importuj playbooki",
+    importPlaybooksFile: "Plik importu playbooków",
+    removePlaybooks: "Usuń wszystkie playbooki",
+    development: "Development",
+    layoutsEditor: "Edytor layoutów",
+  },
+  dialog: {
+    removeNotesTitle: "Usunąć wszystkie zapisane notatki?",
+    removePlaybooksTitle: "Usunąć wszystkie playbooki?",
+    removeNotesBody:
+      "To kasuje każdy projekt rysunków w tej przeglądarce. Najpierw wyeksportuj kopię JSON, jeśli możesz ich później potrzebować.",
+    removePlaybooksBody:
+      "To kasuje każdy playbook w tej przeglądarce. Najpierw wyeksportuj kopię JSON, jeśli możesz ich później potrzebować.",
+    typeToConfirm: "Wpisz {phrase}, żeby potwierdzić.",
+    removeNotesPhrase: "tak, usuń notatki",
+    removePlaybooksPhrase: "tak, usuń playbooki",
+    confirmPhrase: "Fraza potwierdzenia",
+    removeNotesConfirm: "Usuń wszystkie notatki",
+    removePlaybooksConfirm: "Usuń wszystkie playbooki",
+  },
+  notice: {
+    noSavedNotesYet: "W tej przeglądarce nie ma jeszcze zapisanych notatek.",
+    exportedNotesOne: "Wyeksportowano 1 zapisany mecz.",
+    exportedNotesOther: "Wyeksportowano {count} zapisanych meczów.",
+    exportNotesFailed: "Nie udało się wyeksportować notatek.",
+    noSavedNotes: "W tej przeglądarce nie ma zapisanych notatek.",
+    removedNotesOne: "Usunięto 1 zapisany mecz z tej przeglądarki.",
+    removedNotesOther: "Usunięto {count} zapisanych meczów z tej przeglądarki.",
+    removeNotesFailed: "Nie udało się usunąć zapisanych notatek.",
+    notesNotJson: "Plik notatek nie jest poprawnym JSON-em.",
+    notesEmptyFile: "Plik notatek nie ma poprawnych review.",
+    importedNotesOne: "Zaimportowano 1 zapisany mecz. Dropnij demo, żeby przywrócić rysunki.",
+    importedNotesOther:
+      "Zaimportowano {count} zapisanych meczów. Dropnij demo, żeby przywrócić rysunki.",
+    linkedFileMismatch:
+      "Podpięty plik to {found}, oczekiwano {expected}. Podepnij demo jeszcze raz.",
+    linkDemoHint: "Link demo działa w Chrome/Edge. Inaczej dropnij .dem ręcznie.",
+    pickFileMismatch: "Wybierz {wanted} — wskazano {got}. Notatki kluczą się po nazwie pliku.",
+    linkedDemo: "Podpięto {name} do zapisanych notatek.",
+    linkCancelled: "Anulowano podpinanie dema.",
+    noPlaybooksYet: "W tej przeglądarce nie ma jeszcze playbooków.",
+    exportedPlaybooksOne: "Wyeksportowano 1 playbook.",
+    exportedPlaybooksOther: "Wyeksportowano {count} playbooków.",
+    exportPlaybooksFailed: "Nie udało się wyeksportować playbooków.",
+    importedPlaybooksOne: "Zaimportowano 1 playbook.",
+    importedPlaybooksOther: "Zaimportowano {count} playbooków.",
+    importPlaybooksFailed: "Nie udało się zaimportować playbooków.",
+    playbooksNotJson: "Plik playbooków nie jest poprawnym JSON-em.",
+    playbooksEmptyFile: "Plik playbooków nie ma poprawnych książek.",
+    playbookImportConflicts:
+      "Import ma playbooki, które już istnieją. Wybierz zastąpienie albo nową nazwę.",
+  },
+} satisfies Pick<Messages, "settings" | "dialog" | "notice">;

@@ -11,8 +11,8 @@ import {
 } from "./locales";
 import { catalogFor } from "./catalogs";
 import { interpolateParts, t } from "./messages";
-import { en } from "./en";
-import { pl } from "./pl";
+import { en } from "./translations/en";
+import { pl } from "./translations/pl";
 
 function leafEntries(value: unknown, prefix = ""): [string, string][] {
   if (typeof value === "string") {

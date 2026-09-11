@@ -3,8 +3,8 @@
  */
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { en } from "./en";
-import { pl } from "./pl";
+import { en } from "./translations/en";
+import { pl } from "./translations/pl";
 import { t, tNodes } from "./messages";
 
 describe("tNodes", () => {
