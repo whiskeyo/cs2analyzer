@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { createPortal } from "react-dom";
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { NadeLegend } from "@/components/radar/NadeLegend";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
@@ -59,8 +60,13 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [confirmReset, onClose]);
 
-  return (
-    <div className="home-modal settings-modal" onClick={onClose}>
+  return createPortal(
+    <div
+      className="home-modal settings-modal"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
         className="home-modal-card settings-modal-card"
         role="dialog"
@@ -308,6 +314,7 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }

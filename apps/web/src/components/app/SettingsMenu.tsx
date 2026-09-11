@@ -117,6 +117,7 @@ export function SettingsMenu() {
               <button
                 type="button"
                 className="ghost"
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   setSettingsOpen(false);
                   setPrefsOpen(true);
