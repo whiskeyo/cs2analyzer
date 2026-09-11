@@ -110,6 +110,54 @@ describe("UserSettingsModal", () => {
     });
   });
 
+  it("round-trips drawing, radar, playback, and series defaults after remount", async () => {
+    const { unmount } = renderModal();
+    await waitFor(() => expect(screen.getByLabelText("Saved notes page size")).toHaveValue(5));
+
+    await userEvent.click(screen.getByRole("button", { name: "Heat" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Heat" })).toHaveClass("on"));
+    await userEvent.click(screen.getByRole("button", { name: "#ff7a00" }));
+    await userEvent.click(screen.getByRole("button", { name: "Lower" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Names" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Heat" }));
+    await userEvent.selectOptions(screen.getByLabelText("Default speed"), "2");
+    fireEvent.change(screen.getByLabelText("Max demos per drop"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText("Event lead-in"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText("Moment length"), {
+      target: { value: "8" },
+    });
+
+    await waitFor(async () => {
+      const stored = await loadUserSettings();
+      expect(stored.defaultPaletteId).toBe("heat");
+      expect(stored.defaultColor).toBe("#ff7a00");
+      expect(stored.defaultFloorMode).toBe("lower");
+      expect(stored.defaultLayers.names).toBe(false);
+      expect(stored.defaultLayers.heatmap).toBe(true);
+      expect(stored.defaultPlaybackSpeed).toBe(2);
+      expect(stored.seriesMaxFiles).toBe(3);
+      expect(stored.eventLeadInSec).toBe(3);
+      expect(stored.noteMomentSec).toBe(8);
+    });
+
+    unmount();
+    renderModal();
+    await waitFor(() => expect(screen.getByLabelText("Default speed")).toHaveValue("2"));
+    expect(screen.getByRole("button", { name: "Heat" })).toHaveClass("on");
+    expect(screen.getByRole("button", { name: "#ff7a00" })).toHaveClass("on");
+    expect(screen.getByRole("button", { name: "Lower" })).toHaveClass("on");
+    expect(screen.getByRole("checkbox", { name: "Names" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Heat" })).toBeChecked();
+    expect(screen.getByLabelText("Max demos per drop")).toHaveValue(3);
+    expect(screen.getByLabelText("Event lead-in")).toHaveValue(3);
+    expect(screen.getByLabelText("Moment length")).toHaveValue(8);
+    expect(screen.getByLabelText("Saved notes page size")).toHaveValue(5);
+  });
+
   it("ignores a leftover click on the backdrop and closes on a new pointerdown", async () => {
     const onClose = vi.fn();
     renderModal(onClose);

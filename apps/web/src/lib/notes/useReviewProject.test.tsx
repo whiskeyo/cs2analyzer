@@ -251,6 +251,42 @@ describe("useReviewProject", () => {
     view.unmount();
   });
 
+  it("seeds palette, color, and floor from Preferences on a stats-only shipped row", async () => {
+    const overlayDefaults = {
+      paletteId: "heat",
+      color: "#ff7a00",
+      floorMode: "lower" as const,
+      summaryFilter: DEFAULT_SUMMARY_FILTER,
+    };
+    const d = demo();
+    mocks.loadProject.mockResolvedValue(
+      project({
+        notes: [],
+        tick: 0,
+        summaryFilter: DEFAULT_SUMMARY_FILTER,
+        floorMode: "auto",
+        paletteId: "neon",
+        color: "#ff2d6a",
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useReviewProject({
+        demo: d,
+        series: null,
+        parsedDemos: [d],
+        status: status(),
+        playback: playback(),
+        overlayDefaults,
+      }),
+    );
+
+    await waitFor(() => expect(mocks.loadProject).toHaveBeenCalled());
+    expect(result.current.paletteId).toBe("heat");
+    expect(result.current.color).toBe("#ff7a00");
+    expect(result.current.floorMode).toBe("lower");
+  });
+
   it("keeps a saved demo's nade-summary toggles instead of rewriting Preferences", async () => {
     const overlayDefaults = {
       paletteId: "neon",

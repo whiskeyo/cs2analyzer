@@ -43,6 +43,18 @@ describe("useViewState", () => {
     expect(result.current.layers).toEqual(custom);
   });
 
+  it("keeps per-demo layer toggles when settings defaults change", () => {
+    const custom = { ...DEFAULT_LAYERS, names: false, heatmap: true };
+    const { result, rerender } = renderHook(({ layers }) => useViewState("a", layers), {
+      initialProps: { layers: DEFAULT_LAYERS },
+    });
+    act(() => {
+      result.current.setLayers({ ...DEFAULT_LAYERS, cone: false });
+    });
+    rerender({ layers: custom });
+    expect(result.current.layers).toEqual({ ...DEFAULT_LAYERS, cone: false });
+  });
+
   it("clears follow through setSelected so Esc matches a radar deselect", () => {
     const { result } = renderHook(() => useViewState("a"));
     act(() => {
