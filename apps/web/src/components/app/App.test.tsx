@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
 import {
@@ -134,8 +134,12 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     await userEvent.click(screen.getByRole("button", { name: "Preferences" }));
     const dialog = await screen.findByRole("dialog", { name: "Preferences" });
-    expect(dialog.closest(".settings-modal")?.parentElement).toBe(document.body);
+    const backdrop = dialog.closest(".settings-modal");
+    expect(backdrop?.parentElement).toBe(document.body);
     expect(screen.getByRole("button", { name: "Reset all settings" })).toBeInTheDocument();
+    // Chrome retargets the opening click onto the new backdrop; that must not close.
+    fireEvent.click(backdrop!);
+    expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
   }
 
   it("opens Preferences from the home gear onto document.body", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import "fake-indexeddb/auto";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
@@ -122,9 +122,12 @@ describe("Header", () => {
     await openSettings();
     await userEvent.click(screen.getByRole("button", { name: "Preferences" }));
     const dialog = await screen.findByRole("dialog", { name: "Preferences" });
-    expect(dialog.closest(".settings-modal")?.parentElement).toBe(document.body);
+    const backdrop = dialog.closest(".settings-modal");
+    expect(backdrop?.parentElement).toBe(document.body);
     expect(screen.getByRole("button", { name: "Reset all settings" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
+    fireEvent.click(backdrop!);
+    expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
   }
 
   it("opens the preferences modal from the gear on splash and viewer", async () => {

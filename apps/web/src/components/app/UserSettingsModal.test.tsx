@@ -87,4 +87,16 @@ describe("UserSettingsModal", () => {
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it("ignores a leftover click on the backdrop and closes on a new pointerdown", async () => {
+    const onClose = vi.fn();
+    renderModal(onClose);
+    const dialog = await screen.findByRole("dialog", { name: "Preferences" });
+    const backdrop = dialog.closest(".settings-modal");
+    expect(backdrop).toBeTruthy();
+    fireEvent.click(backdrop!);
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.pointerDown(backdrop!);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 });

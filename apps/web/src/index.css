@@ -504,6 +504,10 @@ code {
   border-bottom: 1px solid #1e2732;
   flex-shrink: 0;
 }
+/* Above `.stage` (same `.app > *` stacking slot) so the gear menu is clickable. */
+.app > .top {
+  z-index: 2;
+}
 .brand-row {
   display: flex;
   align-items: center;

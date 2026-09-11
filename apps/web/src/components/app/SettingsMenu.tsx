@@ -122,8 +122,7 @@ export function SettingsMenu() {
                 onClick={(e) => {
                   e.stopPropagation();
                   setSettingsOpen(false);
-                  // Menu unmount retargets this click; open after it settles.
-                  queueMicrotask(() => setPrefsOpen(true));
+                  setPrefsOpen(true);
                 }}
               >
                 Preferences
