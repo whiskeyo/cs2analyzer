@@ -27,15 +27,17 @@ interface Props {
   onFilter: (next: SummaryFilter | ((prev: SummaryFilter) => SummaryFilter)) => void;
   /** In-form chips; skip the radar HUD `position: absolute` pin. */
   embedded?: boolean;
+  /** Toolbar name when `embedded`. Defaults to the English Preferences label. */
+  ariaLabel?: string;
 }
 
 /** Side and kind toggles for the round-summary nade overlay. */
-export function NadeLegend({ filter, onFilter, embedded = false }: Props) {
+export function NadeLegend({ filter, onFilter, embedded = false, ariaLabel }: Props) {
   return (
     <div
       className={embedded ? "nade-legend nade-legend-embedded" : "nade-legend"}
       role={embedded ? "toolbar" : undefined}
-      aria-label={embedded ? "Default nade summary" : undefined}
+      aria-label={embedded ? (ariaLabel ?? "Default nade summary") : undefined}
     >
       <button
         type="button"

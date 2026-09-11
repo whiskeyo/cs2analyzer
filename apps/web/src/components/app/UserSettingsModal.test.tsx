@@ -12,6 +12,8 @@ import {
   loadUserSettings,
   saveUserSettings,
 } from "@/lib/settings/userSettingsStore";
+import { en } from "@/lib/i18n/en";
+import { pl } from "@/lib/i18n/pl";
 import { UserSettingsModal } from "./UserSettingsModal";
 
 function renderModal(onClose = () => undefined) {
@@ -168,5 +170,21 @@ describe("UserSettingsModal", () => {
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.pointerDown(backdrop!);
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("applies Polish immediately without a reload", async () => {
+    renderModal();
+    await waitFor(() =>
+      expect(screen.getByRole("dialog", { name: en.preferences.title })).toBeInTheDocument(),
+    );
+    await userEvent.selectOptions(screen.getByLabelText(en.preferences.language), "pl");
+    await waitFor(() => {
+      expect(screen.getByRole("dialog", { name: pl.preferences.title })).toBeInTheDocument();
+      expect(document.documentElement.lang).toBe("pl");
+    });
+    expect(screen.getByLabelText(pl.preferences.language)).toHaveValue("pl");
+    expect(screen.getByRole("button", { name: pl.preferences.resetAll })).toBeInTheDocument();
+    const stored = await loadUserSettings();
+    expect(stored.locale).toBe("pl");
   });
 });
