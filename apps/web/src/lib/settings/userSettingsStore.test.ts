@@ -62,10 +62,11 @@ describe("userSettingsStore without indexedDB", () => {
   });
 
   it("reset restores shipped defaults without wiping the patch source", async () => {
-    await saveUserSettings({ sidebarWidth: 560, savedNotesPageSize: 10 });
+    await saveUserSettings({ sidebarWidth: 560, savedNotesPageSize: 10, locale: "pl" });
     const reset = await resetUserSettings();
     expect(reset.sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
     expect(reset.savedNotesPageSize).toBe(SAVED_NOTES_PAGE_SIZE);
+    expect(reset.locale).toBe("en");
     expect((await loadUserSettings()).sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
   });
 

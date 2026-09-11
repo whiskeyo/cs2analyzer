@@ -8,4 +8,7 @@ import { afterEach } from "vitest";
 HTMLCanvasElement.prototype.getContext = (() =>
   null) as typeof HTMLCanvasElement.prototype.getContext;
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  document.documentElement.lang = "en";
+});

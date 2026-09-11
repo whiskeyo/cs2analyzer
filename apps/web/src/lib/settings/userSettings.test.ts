@@ -18,6 +18,7 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
+import { DEFAULT_LOCALE } from "@/lib/i18n/locales";
 import {
   USER_SETTINGS_SCHEMA,
   cloneUserSettings,
@@ -31,6 +32,7 @@ describe("defaultUserSettings", () => {
     expect(settings).toEqual({
       schema: USER_SETTINGS_SCHEMA,
       updatedAt: 1_700_000_000_000,
+      locale: DEFAULT_LOCALE,
       parsePoolMax: PARSE_POOL_MAX,
       sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
       savedNotesPageSize: SAVED_NOTES_PAGE_SIZE,
@@ -69,6 +71,7 @@ describe("parseUserSettings", () => {
     });
     expect(parsed.sidebarWidth).toBe(520);
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MAX);
+    expect(parsed.locale).toBe(DEFAULT_LOCALE);
     expect(parsed.eventLeadInSec).toBe(DEFAULT_LEAD_IN_SEC);
     expect(parsed.schema).toBe(USER_SETTINGS_SCHEMA);
     expect("habitsTrailWindowSec" in parsed).toBe(false);
@@ -130,6 +133,13 @@ describe("parseUserSettings", () => {
   it("returns defaults for a non-object blob", () => {
     expect(parseUserSettings(null).sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
     expect(parseUserSettings("nope").parsePoolMax).toBe(PARSE_POOL_MAX);
+  });
+
+  it("accepts pl and falls unknown or missing locale back to English", () => {
+    expect(parseUserSettings({ locale: "pl" }).locale).toBe("pl");
+    expect(parseUserSettings({ locale: "de" }).locale).toBe("en");
+    expect(parseUserSettings({ locale: "" }).locale).toBe("en");
+    expect(parseUserSettings({}).locale).toBe("en");
   });
 
   it("cloneUserSettings copies nested objects", () => {
