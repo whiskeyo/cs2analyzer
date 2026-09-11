@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n/useMessages";
 import { groupItems, squashItems, ungroupRefs } from "@/lib/notes";
 import { updateRoundNote } from "@/lib/notes/roundNotes";
 import type { NotePick } from "@/lib/notes/drag";
@@ -18,6 +19,7 @@ export function NoteActions({
   onNotes: (next: RoundNote[]) => void;
   onClearSelection: () => void;
 }) {
+  const { messages } = useMessages();
   const applyRound = (
     fn: (note: RoundNote["note"], refs: NotePick["ref"][]) => RoundNote["note"],
   ) => {
@@ -35,21 +37,21 @@ export function NoteActions({
         disabled={!canGroup}
         onClick={() => applyRound((note, refs) => squashItems(note, refs))}
       >
-        Squash
+        {messages.sidebar.squash}
       </button>
       <button
         type="button"
         disabled={!canGroup}
         onClick={() => applyRound((note, refs) => groupItems(note, refs))}
       >
-        Group
+        {messages.sidebar.group}
       </button>
       <button
         type="button"
         disabled={!canUngroup}
         onClick={() => applyRound((note, refs) => ungroupRefs(note, refs))}
       >
-        Ungroup
+        {messages.sidebar.ungroup}
       </button>
     </div>
   );

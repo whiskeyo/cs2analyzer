@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { NOTE_GROUP_NAME_MAX } from "@/lib/shared/constants";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { renameItemText } from "@/lib/notes";
 import type { NoteItemRef } from "@/lib/notes/noteGroups";
 import type { Note } from "@/lib/notes/types";
@@ -15,6 +16,7 @@ export function BookmarkTitleField({
   note: Note;
   onNote: (next: Note) => void;
 }) {
+  const { messages } = useMessages();
   const [draft, setDraft] = useState(title);
   const [editing, setEditing] = useState(false);
   const skipBlur = useRef(false);
@@ -38,7 +40,7 @@ export function BookmarkTitleField({
     return (
       <span
         className="review-title"
-        title="Double-click to rename"
+        title={messages.sidebar.renameHint}
         onDoubleClick={(e) => {
           e.stopPropagation();
           e.preventDefault();
@@ -56,7 +58,7 @@ export function BookmarkTitleField({
       className="note-group-name"
       value={draft}
       maxLength={NOTE_GROUP_NAME_MAX}
-      aria-label="Bookmark name"
+      aria-label={messages.sidebar.bookmarkName}
       draggable={false}
       autoFocus
       onClick={(e) => e.stopPropagation()}

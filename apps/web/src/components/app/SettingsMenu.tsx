@@ -169,7 +169,7 @@ export function SettingsMenu() {
                 className="ghost"
                 disabled={playbookCount === 0}
                 onClick={() => {
-                  void exportPlaybooks().then((result) => {
+                  void exportPlaybooks(messages).then((result) => {
                     if (result.ok) {
                       setPlaybookFlashError(null);
                       setPlaybookFlash(result.message);
@@ -200,7 +200,7 @@ export function SettingsMenu() {
                   e.target.value = "";
                   if (!file) return;
                   void file.text().then(async (text) => {
-                    const result = await importPlaybooksFromText(text);
+                    const result = await importPlaybooksFromText(text, messages);
                     if (result.ok) {
                       setPlaybookFlashError(null);
                       setPlaybookFlash(result.message);
@@ -281,7 +281,7 @@ export function SettingsMenu() {
           onConfirm={(choices: ImportChoices) => {
             const bundle = importMerge.bundle;
             setImportMerge(null);
-            void commitPlaybookImport(bundle, choices).then(async (result) => {
+            void commitPlaybookImport(bundle, choices, messages).then(async (result) => {
               if (result.ok) {
                 setPlaybookFlashError(null);
                 setPlaybookFlash(result.message);

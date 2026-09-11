@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import type { LoadedDemo, DemoSeries } from "@/lib/parse/session";
 import type { Playback } from "@/lib/playback/usePlayback";
@@ -59,6 +60,7 @@ export function useReviewProject(opts: {
   overlayDefaults?: ReviewOverlay;
 }) {
   const { demo, series, parsedDemos, status, playback } = opts;
+  const { messages } = useMessages();
   const overlayDefaultsRef = useRef<ReviewOverlay>({
     paletteId: defaultPaletteId(),
     color: defaultColor(),
@@ -138,23 +140,27 @@ export function useReviewProject(opts: {
   }, [notesRef]);
 
   const exportNotes = useCallback(async () => {
-    await exportSavedNotes(loadAllProjects, statusRef.current);
-  }, []);
+    await exportSavedNotes(loadAllProjects, statusRef.current, messages);
+  }, [messages]);
 
   const removeAllNotes = useCallback(async () => {
-    await removeAllSavedNotes(refreshSaved, statusRef.current);
-  }, [refreshSaved]);
+    await removeAllSavedNotes(refreshSaved, statusRef.current, messages);
+  }, [messages, refreshSaved]);
 
   const importNotesText = useCallback(
     async (text: string) => {
-      await importNotesFromText(text, {
-        demo: demoRef.current,
-        applyProject,
-        refreshSaved,
-        status: statusRef.current,
-      });
+      await importNotesFromText(
+        text,
+        {
+          demo: demoRef.current,
+          applyProject,
+          refreshSaved,
+          status: statusRef.current,
+        },
+        messages,
+      );
     },
-    [applyProject, refreshSaved],
+    [applyProject, messages, refreshSaved],
   );
 
   const persist = useCallback(
@@ -346,15 +352,15 @@ export function useReviewProject(opts: {
   }, [persistNow]);
 
   const tryOpenSaved = useCallback(
-    async (project: ReviewProject) => tryOpenLinkedDemo(project, statusRef.current),
-    [],
+    async (project: ReviewProject) => tryOpenLinkedDemo(project, statusRef.current, messages),
+    [messages],
   );
 
   const linkDemoFileForProject = useCallback(
     async (project: ReviewProject) => {
-      await linkDemoFile(project, refreshSaved, statusRef.current);
+      await linkDemoFile(project, refreshSaved, statusRef.current, messages);
     },
-    [refreshSaved],
+    [messages, refreshSaved],
   );
 
   return {

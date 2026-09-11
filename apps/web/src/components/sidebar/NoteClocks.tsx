@@ -1,4 +1,5 @@
 import { NOTE_MOMENT_STEP_SECONDS } from "@/lib/shared/constants";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { roundClock } from "@/lib/match/roundEvents";
 import { roundScrubRange } from "@/lib/playback/roundTimeline";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
@@ -27,6 +28,7 @@ function MomentEdgeField({
   onChange: (seconds: number) => void;
   onPlayhead: () => void;
 }) {
+  const { messages, t } = useMessages();
   const sec = Math.round(seconds);
   const cap = maxSeconds > 0 ? maxSeconds : Number.POSITIVE_INFINITY;
   const nudge = (dir: number) => {
@@ -39,7 +41,7 @@ function MomentEdgeField({
         <button
           type="button"
           className="note-clock-read"
-          title={`${clock} — double-click sets the playhead`}
+          title={t(messages.sidebar.clockPlayhead, { clock })}
           onDoubleClick={(e) => {
             e.preventDefault();
             onPlayhead();
@@ -50,16 +52,16 @@ function MomentEdgeField({
         <span className="note-clock-spin">
           <button
             type="button"
-            aria-label={`${label} later`}
-            title="Later"
+            aria-label={t(messages.sidebar.clockLater, { label })}
+            title={t(messages.sidebar.clockLater, { label })}
             onClick={() => nudge(1)}
           >
             ▲
           </button>
           <button
             type="button"
-            aria-label={`${label} earlier`}
-            title="Earlier"
+            aria-label={t(messages.sidebar.clockEarlier, { label })}
+            title={t(messages.sidebar.clockEarlier, { label })}
             onClick={() => nudge(-1)}
           >
             ▼
@@ -93,27 +95,28 @@ export function MomentInOut({
   const maxSeconds = tps > 0 && roundEndTick > origin ? (roundEndTick - origin) / tps : 0;
   const startSec = tps > 0 ? Math.max(0, (start - origin) / tps) : 0;
   const endSec = tps > 0 ? Math.max(0, (end - origin) / tps) : 0;
+  const { messages } = useMessages();
   return (
     <span className="note-io">
       <MomentEdgeField
-        label="Start"
+        label={messages.sidebar.clockStart}
         seconds={startSec}
         maxSeconds={maxSeconds}
-        clock={round ? roundClock(round, start, tps) : "In"}
+        clock={round ? roundClock(round, start, tps) : messages.sidebar.clockIn}
         onChange={(seconds) => onClockEdge("start", seconds)}
         onPlayhead={() => onSetEdge("start")}
       />
       <MomentEdgeField
-        label="End"
+        label={messages.sidebar.clockEnd}
         seconds={endSec}
         maxSeconds={maxSeconds}
-        clock={round ? roundClock(round, end, tps) : "Out"}
+        clock={round ? roundClock(round, end, tps) : messages.sidebar.clockOut}
         onChange={(seconds) => onClockEdge("end", seconds)}
         onPlayhead={() => onSetEdge("end")}
       />
       {win && (
-        <button type="button" title="Show for the whole round" onClick={onClear}>
-          Round
+        <button type="button" title={messages.sidebar.clockWholeRound} onClick={onClear}>
+          {messages.sidebar.clockRoundBtn}
         </button>
       )}
     </span>
