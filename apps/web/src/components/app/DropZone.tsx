@@ -15,6 +15,9 @@ import {
 } from "@/lib/notes/projectStore";
 import { formatAdr, formatKast, type SavedPlayerSnapshot } from "@/lib/stats/stats";
 import { prettyMap } from "@/lib/weapons/weapons";
+import { useMessages } from "@/lib/i18n/useMessages";
+import { localeTag } from "@/lib/i18n/locales";
+import { t, type Messages } from "@/lib/i18n/messages";
 import { ScorecardLabel } from "./ScorecardLabel";
 
 interface Props {
@@ -37,9 +40,14 @@ interface Props {
   children?: ReactNode;
 }
 
-function savedWhen(savedAt: number): string {
-  if (!savedAt) return "unknown time";
-  return new Date(savedAt).toLocaleString();
+function savedWhen(savedAt: number, locale: string, unknownTime: string): string {
+  if (!savedAt) return unknownTime;
+  return new Date(savedAt).toLocaleString(locale);
+}
+
+function drawingCountLabel(notes: ReviewProject["notes"], messages: Messages): string {
+  const count = noteDrawingCount(notes);
+  return t(count === 1 ? messages.drop.drawingOne : messages.drop.drawingOther, { count });
 }
 
 function formatDemoSize(bytes: number): string {
@@ -47,11 +55,6 @@ function formatDemoSize(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   if (mb < 1024) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
   return `${(mb / 1024).toFixed(1)} GB`;
-}
-
-function drawingCountLabel(notes: ReviewProject["notes"]): string {
-  const count = noteDrawingCount(notes);
-  return `${count} drawing${count === 1 ? "" : "s"}`;
 }
 
 function noteTitle(p: ReviewProject): ReactNode {
@@ -97,6 +100,7 @@ export function DropZone({
   below,
   children,
 }: Props) {
+  const { locale, messages, t } = useMessages();
   const [page, setPage] = useState(0);
   const [wantedDemo, setWantedDemo] = useState<string | null>(null);
   const overallPct =
@@ -148,12 +152,13 @@ export function DropZone({
         }}
       />
       <img className="brand-mark" src={publicUrl("favicon.svg")} width={56} height={56} alt="" />
-      <div className="drop-title">Drop a demo</div>
+      <div className="drop-title">{messages.drop.title}</div>
       <p className="drop-blurb">
-        One Counter-Strike 2 <code>.dem</code> to watch the match, or several for habits (same map,
-        or mixed maps with a map picker).
+        {messages.drop.blurbBefore}
+        <code>.dem</code>
+        {messages.drop.blurbAfter}
       </p>
-      <p className="muted">Parsed entirely in your browser.</p>
+      <p className="muted">{messages.drop.parsedLocal}</p>
       {parsing && (
         <div className="drop-parse">
           <ParseProgressPanel overallPct={overallPct} files={parseFiles} />
@@ -181,13 +186,13 @@ export function DropZone({
       {showSavedNotes ? (
         <div className="home-notes">
           <p className="muted">
-            Notes auto-save in this browser. The demo is not stored — drop the same{" "}
-            <code>.dem</code> to restore drawings. Export a JSON backup from Settings so a cache
-            wipe does not eat them.
+            {messages.drop.savedLeadBefore}
+            <code>.dem</code>
+            {messages.drop.savedLeadAfter}
           </p>
           {saved.length > 0 && (
             <div className="saved-demos">
-              <h2>Saved notes</h2>
+              <h2>{messages.drop.savedTitle}</h2>
               <ul>
                 {pageItems.map((p) => (
                   <li key={p.key}>
@@ -197,24 +202,28 @@ export function DropZone({
                       onClick={() => {
                         void onTryOpenSaved(p).then((file) => {
                           if (file) onFiles([file]);
-                          else setWantedDemo(p.fileName || "unnamed.dem");
+                          else setWantedDemo(p.fileName || messages.drop.unnamedDemo);
                         });
                       }}
                     >
                       <span className="saved-demo-map">{noteTitle(p)}</span>
-                      <span className="saved-demo-file">{p.fileName || "unnamed.dem"}</span>
+                      <span className="saved-demo-file">
+                        {p.fileName || messages.drop.unnamedDemo}
+                      </span>
                       <span className="saved-demo-meta">
-                        {drawingCountLabel(p.notes)}
+                        {drawingCountLabel(p.notes, messages)}
                         {p.fileSizeBytes ? ` · ${formatDemoSize(p.fileSizeBytes)}` : ""}
-                        {p.linkedFileLabel ? ` · linked: ${p.linkedFileLabel}` : ""} ·{" "}
-                        {savedWhen(p.savedAt)}
+                        {p.linkedFileLabel
+                          ? ` · ${t(messages.drop.linked, { label: p.linkedFileLabel })}`
+                          : ""}{" "}
+                        · {savedWhen(p.savedAt, localeTag(locale), messages.drop.unknownTime)}
                       </span>
                       {p.playerStats && p.playerStats.length > 0 && (
                         <div className="saved-demo-stats">
                           <table>
                             <thead>
                               <tr>
-                                <th>Player</th>
+                                <th>{messages.drop.player}</th>
                                 <th>K</th>
                                 <th>D</th>
                                 <th>ADR</th>
@@ -243,19 +252,19 @@ export function DropZone({
                         <button
                           type="button"
                           className="ghost saved-demo-link"
-                          title="Link this demo file so Open can load it without re-dropping"
+                          title={messages.drop.linkDemoTitle}
                           onClick={() => onLinkDemoFile(p)}
                         >
-                          Link demo
+                          {messages.drop.linkDemo}
                         </button>
                       )}
                       <button
                         type="button"
                         className="ghost saved-demo-del"
-                        title="Remove notes for this match"
+                        title={messages.drop.deleteNotesTitle}
                         onClick={() => onDeleteNotes(p.key)}
                       >
-                        Delete
+                        {messages.drop.deleteNotes}
                       </button>
                     </div>
                   </li>
@@ -269,7 +278,7 @@ export function DropZone({
                     disabled={safePage === 0}
                     onClick={() => setPage(safePage - 1)}
                   >
-                    Previous
+                    {messages.drop.previous}
                   </button>
                   <span>
                     {safePage + 1} / {pageCount}
@@ -280,7 +289,7 @@ export function DropZone({
                     disabled={safePage >= pageCount - 1}
                     onClick={() => setPage(safePage + 1)}
                   >
-                    Next
+                    {messages.drop.next}
                   </button>
                 </div>
               )}
@@ -307,13 +316,13 @@ export function DropZone({
               });
             }}
           >
-            <h2 id="want-demo-title">Restore notes</h2>
+            <h2 id="want-demo-title">{messages.drop.restoreTitle}</h2>
             <p>
-              Drop <code>{wantedDemo}</code> here to restore those drawings. The demo itself is not
-              stored.
+              {messages.drop.restoreBefore} <code>{wantedDemo}</code>
+              {messages.drop.restoreAfter}
             </p>
             <button type="button" className="ghost" onClick={() => setWantedDemo(null)}>
-              Close
+              {messages.drop.close}
             </button>
           </div>
         </div>

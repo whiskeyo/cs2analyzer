@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
+import { en } from "@/lib/i18n/en";
+import { t } from "@/lib/i18n/messages";
 import { ParseProgressPanel } from "./ParseProgressPanel";
 
 function file(
@@ -16,7 +18,7 @@ function file(
 describe("ParseProgressPanel", () => {
   it("shows a single overall bar for one file", () => {
     render(<ParseProgressPanel overallPct={42} files={null} />);
-    expect(screen.getByText("42%")).toBeInTheDocument();
+    expect(screen.getByText(t(en.parse.percent, { pct: 42 }))).toBeInTheDocument();
     expect(screen.queryByText(/Overall/)).not.toBeInTheDocument();
   });
 
@@ -29,11 +31,11 @@ describe("ParseProgressPanel", () => {
     ];
     render(<ParseProgressPanel overallPct={61} files={files} />);
 
-    expect(screen.getByText("Overall 61%")).toBeInTheDocument();
+    expect(screen.getByText(t(en.parse.overall, { pct: 61 }))).toBeInTheDocument();
     expect(screen.getByText("a.dem")).toBeInTheDocument();
-    expect(screen.getByText("done")).toBeInTheDocument();
-    expect(screen.getByText("err")).toBeInTheDocument();
-    expect(screen.getByText("…")).toBeInTheDocument();
-    expect(screen.getByText("55%")).toBeInTheDocument();
+    expect(screen.getByText(en.parse.done)).toBeInTheDocument();
+    expect(screen.getByText(en.parse.error)).toBeInTheDocument();
+    expect(screen.getByText(en.parse.queued)).toBeInTheDocument();
+    expect(screen.getByText(t(en.parse.percent, { pct: 55 }))).toBeInTheDocument();
   });
 });

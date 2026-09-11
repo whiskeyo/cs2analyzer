@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { PROJECT_SCHEMA, type ReviewProject } from "@/lib/notes/projectStore";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
+import { en } from "@/lib/i18n/en";
 import { DropZone } from "./DropZone";
 
 const prefetchParser = vi.hoisted(() => vi.fn());
@@ -103,7 +104,7 @@ describe("DropZone", () => {
 
   it("hides saved notes when the homepage drop zone is used", () => {
     render(<DropZone {...props({ showSavedNotes: false, saved: [savedProject()] })} />);
-    expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
+    expect(screen.queryByText(en.drop.savedTitle)).not.toBeInTheDocument();
     expect(screen.queryByText("a.dem")).not.toBeInTheDocument();
   });
 
@@ -148,7 +149,7 @@ describe("DropZone", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("Drop a.dem here to restore those drawings");
 
-    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    await userEvent.click(screen.getByRole("button", { name: en.drop.close }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -207,7 +208,7 @@ describe("DropZone", () => {
     const onDeleteNotes = vi.fn();
     render(<DropZone {...props({ saved: [savedProject()], onDeleteNotes })} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await userEvent.click(screen.getByRole("button", { name: en.drop.deleteNotes }));
     expect(onDeleteNotes).toHaveBeenCalledWith("de_mirage|1|50,100|a.dem");
   });
 
@@ -224,7 +225,7 @@ describe("DropZone", () => {
     expect(screen.queryByText("5.dem")).not.toBeInTheDocument();
     expect(screen.getByText("1 / 3")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: en.drop.next }));
     expect(screen.getByText("5.dem")).toBeInTheDocument();
     expect(screen.queryByText("0.dem")).not.toBeInTheDocument();
     expect(screen.getByText("2 / 3")).toBeInTheDocument();
@@ -243,17 +244,26 @@ describe("DropZone", () => {
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
   });
 
+  it("formats saved-note dates with the English locale tag", () => {
+    const savedAt = Date.UTC(2024, 0, 15, 12, 0, 0);
+    render(<DropZone {...props({ saved: [savedProject({ savedAt })] })} />);
+    const formatted = new Date(savedAt).toLocaleString("en-US");
+    expect(
+      screen.getByText((_, el) => el?.classList.contains("saved-demo-meta") === true).textContent,
+    ).toContain(formatted);
+  });
+
   it("links GitHub, Issues, and Donate in the footer", () => {
     render(<DropZone {...props()} />);
-    expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: en.credits.github })).toHaveAttribute(
       "href",
       "https://github.com/whiskeyo/cs2analyzer",
     );
-    expect(screen.getByRole("link", { name: "Issues" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: en.credits.issues })).toHaveAttribute(
       "href",
       "https://github.com/whiskeyo/cs2analyzer/issues",
     );
-    expect(screen.getByRole("link", { name: "Donate" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: en.credits.donate })).toHaveAttribute(
       "href",
       "https://steamcommunity.com/tradeoffer/new/?partner=69520211&token=YCinud5X",
     );
@@ -306,7 +316,7 @@ describe("DropZone", () => {
     const onLinkDemoFile = vi.fn();
     render(<DropZone {...props({ saved: [savedProject()], onLinkDemoFile })} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Link demo" }));
+    await userEvent.click(screen.getByRole("button", { name: en.drop.linkDemo }));
     expect(onLinkDemoFile).toHaveBeenCalledWith(expect.objectContaining({ fileName: "a.dem" }));
   });
 
@@ -351,8 +361,8 @@ describe("DropZone", () => {
     expect(screen.getAllByText(/2(\.0)? MB/)[0]).toBeInTheDocument();
     expect(screen.getAllByText(/linked: linked\.dem/)[0]).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Next" }));
-    await userEvent.click(screen.getByRole("button", { name: "Previous" }));
+    await userEvent.click(screen.getByRole("button", { name: en.drop.next }));
+    await userEvent.click(screen.getByRole("button", { name: en.drop.previous }));
     expect(screen.getByText("unnamed.dem")).toBeInTheDocument();
   });
 
