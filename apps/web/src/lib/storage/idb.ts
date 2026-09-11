@@ -1,9 +1,10 @@
 export const DB_NAME = "cs2analyzer";
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 export const PROJECT_STORE = "projects";
 export const HANDLE_STORE = "demoHandles";
 export const PLAYBOOK_STORE = "playbooks";
+export const SETTINGS_STORE = "settings";
 
 export function idbAvailable(): boolean {
   return typeof indexedDB !== "undefined";
@@ -25,6 +26,9 @@ function ensureStores(db: IDBDatabase): void {
   }
   if (!db.objectStoreNames.contains(PLAYBOOK_STORE)) {
     db.createObjectStore(PLAYBOOK_STORE, { keyPath: "key" });
+  }
+  if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
+    db.createObjectStore(SETTINGS_STORE, { keyPath: "id" });
   }
 }
 

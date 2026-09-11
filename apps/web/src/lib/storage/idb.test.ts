@@ -4,16 +4,18 @@ import {
   HANDLE_STORE,
   PLAYBOOK_STORE,
   PROJECT_STORE,
+  SETTINGS_STORE,
   idbAvailable,
   openCs2Db,
 } from "./idb";
 
 describe("idb constants", () => {
-  it("bumps the database to v4 with a playbooks store", () => {
+  it("bumps the database to v5 with a settings store", () => {
     expect(PROJECT_STORE).toBe("projects");
     expect(HANDLE_STORE).toBe("demoHandles");
     expect(PLAYBOOK_STORE).toBe("playbooks");
-    expect(DB_VERSION).toBe(4);
+    expect(SETTINGS_STORE).toBe("settings");
+    expect(DB_VERSION).toBe(5);
   });
 });
 
