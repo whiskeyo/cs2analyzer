@@ -139,7 +139,8 @@ describe("App", () => {
     render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
     await userEvent.click(screen.getByRole("link", { name: "see the FAQ" }));
     expect(window.location.pathname).toBe("/faq");
-    expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.queryByText("Loading FAQ…")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
   });
 
@@ -203,7 +204,8 @@ describe("App", () => {
       <App createWorker={() => new FakeWorker() as unknown as Worker} />,
     );
     await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.queryByText("Loading FAQ…")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
     expect(document.title).toBe("FAQ · CS2 Analyzer");
@@ -216,12 +218,13 @@ describe("App", () => {
     expect(document.title).toBe("Analyzer · CS2 Analyzer");
   });
 
-  it("shows FAQ when opened at /faq", async () => {
+  it("shows FAQ when opened at /faq", () => {
     window.history.replaceState({}, "", "/faq");
     const { container } = render(
       <App createWorker={() => new FakeWorker() as unknown as Worker} />,
     );
-    expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.queryByText("Loading FAQ…")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
   });
@@ -229,7 +232,8 @@ describe("App", () => {
   it("keeps a loaded demo while visiting FAQ", async () => {
     await loadDemo();
     await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.queryByText("Loading FAQ…")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));

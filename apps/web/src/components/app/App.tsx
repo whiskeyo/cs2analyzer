@@ -6,10 +6,9 @@ import { isAnalyzerPath, isFaqPath, isLayoutsPath, isPlaybookPath, ROUTES } from
 import { AppBackdrop } from "@/components/app/AppBackdrop";
 import { Header } from "@/components/app/Header";
 import { Analyzer } from "@/pages/Analyzer";
+import { Faq } from "@/pages/Faq";
 import { Home } from "@/pages/Home";
 import { Playbook } from "@/pages/Playbook";
-
-const Faq = lazy(() => import("@/pages/Faq").then((m) => ({ default: m.Faq })));
 
 const LayoutsApp = import.meta.env.DEV
   ? lazy(() => import("@/components/layouts/LayoutsApp").then((m) => ({ default: m.LayoutsApp })))
@@ -55,14 +54,7 @@ function AppRoutes() {
         <Route index element={<Home />} />
         <Route path={ROUTES.analyzer.slice(1)} element={<Analyzer />} />
         <Route path={ROUTES.playbook.slice(1)} element={<Playbook />} />
-        <Route
-          path={ROUTES.faq.slice(1)}
-          element={
-            <Suspense fallback={<div className="boot-error muted">Loading FAQ…</div>}>
-              <Faq />
-            </Suspense>
-          }
-        />
+        <Route path={ROUTES.faq.slice(1)} element={<Faq />} />
         {import.meta.env.DEV && LayoutsApp != null ? (
           <Route
             path={ROUTES.layouts.slice(1)}
