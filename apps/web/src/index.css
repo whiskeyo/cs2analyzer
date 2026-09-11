@@ -2034,6 +2034,17 @@ code {
   border-radius: 99px;
   display: inline-block;
 }
+.nade-legend.nade-legend-embedded {
+  position: static;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  z-index: auto;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
 
 .sidebar {
   position: relative;

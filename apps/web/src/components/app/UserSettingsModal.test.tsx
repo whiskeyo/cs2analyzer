@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import "fake-indexeddb/auto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
@@ -86,6 +86,23 @@ describe("UserSettingsModal", () => {
     );
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("keeps default nade summary chips in the form, not as a HUD overlay", async () => {
+    renderModal();
+    const dialog = await screen.findByRole("dialog", { name: "Preferences" });
+    const chips = screen.getByRole("toolbar", { name: "Default nade summary" });
+    expect(chips).toHaveClass("nade-legend-embedded");
+    expect(dialog).toContainElement(chips);
+    expect(chips.parentElement).toHaveClass("settings-summary");
+    expect(within(dialog).getByText("Default nade summary")).toBeInTheDocument();
+    expect(within(chips).getByRole("button", { name: "Smoke" })).toBeInTheDocument();
+
+    await userEvent.click(within(chips).getByRole("button", { name: "T" }));
+    await waitFor(async () => {
+      const stored = await loadUserSettings();
+      expect(stored.defaultSummaryFilter.t).toBe(false);
+    });
   });
 
   it("ignores a leftover click on the backdrop and closes on a new pointerdown", async () => {

@@ -210,6 +210,7 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           <div className="settings-summary">
             <p className="settings-field-label">Default nade summary</p>
             <NadeLegend
+              embedded
               filter={settings.defaultSummaryFilter}
               onFilter={(next) => {
                 const value =
