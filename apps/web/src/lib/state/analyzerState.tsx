@@ -68,7 +68,10 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
       paletteId: settings.defaultPaletteId,
       color: settings.defaultColor,
       floorMode: settings.defaultFloorMode,
-      summaryFilter: settings.defaultSummaryFilter,
+      summaryFilter: {
+        ...settings.defaultSummaryFilter,
+        kinds: { ...settings.defaultSummaryFilter.kinds },
+      },
     },
   });
   const view = useViewState(session.demo?.id ?? null, settings.defaultLayers);
@@ -210,8 +213,9 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
 /** Mounts playback/review/hotkeys only while a demo is parsing or loaded. */
 export function AnalyzerHost({ children }: { children: ReactNode }) {
   const { session } = useSession();
+  const { ready } = useUserSettings();
   const active = session.demo != null || session.parsing || session.replay != null;
-  if (!active) return children;
+  if (!ready || !active) return children;
   return <AnalyzerRuntime>{children}</AnalyzerRuntime>;
 }
 

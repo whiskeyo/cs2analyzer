@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { NadeLegend } from "@/components/radar/NadeLegend";
 import { loadedDemo, type DemoSeries } from "@/lib/parse/session";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
@@ -204,6 +205,82 @@ describe("useReviewProject", () => {
     expect(result.current.paletteId).toBe("neon");
     expect(result.current.floorMode).toBe("lower");
     expect(result.current.summaryFilter.t).toBe(false);
+  });
+
+  it("seeds HE and Decoy off from overlay defaults, even if a stats-only row is all-on", async () => {
+    const overlayDefaults = {
+      paletteId: "neon",
+      color: "#ff2d6a",
+      floorMode: "auto" as const,
+      summaryFilter: {
+        ...DEFAULT_SUMMARY_FILTER,
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, he: false, decoy: false },
+      },
+    };
+    const d = demo();
+    mocks.loadProject.mockResolvedValue(
+      project({
+        notes: [],
+        tick: 0,
+        summaryFilter: DEFAULT_SUMMARY_FILTER,
+        paletteId: "neon",
+        color: "#ff2d6a",
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useReviewProject({
+        demo: d,
+        series: null,
+        parsedDemos: [d],
+        status: status(),
+        playback: playback(),
+        overlayDefaults,
+      }),
+    );
+
+    await waitFor(() => expect(mocks.loadProject).toHaveBeenCalled());
+    expect(result.current.summaryFilter.kinds.he).toBe(false);
+    expect(result.current.summaryFilter.kinds.decoy).toBe(false);
+    expect(result.current.summaryFilter.kinds.smoke).toBe(true);
+
+    const view = render(<NadeLegend filter={result.current.summaryFilter} onFilter={() => {}} />);
+    expect(view.getByRole("button", { name: "HE" })).not.toHaveClass("on");
+    expect(view.getByRole("button", { name: "Decoy" })).not.toHaveClass("on");
+    expect(view.getByRole("button", { name: "Smoke" })).toHaveClass("on");
+    view.unmount();
+  });
+
+  it("keeps a saved demo's nade-summary toggles instead of rewriting Preferences", async () => {
+    const overlayDefaults = {
+      paletteId: "neon",
+      color: "#00ff88",
+      floorMode: "lower" as const,
+      summaryFilter: {
+        ...DEFAULT_SUMMARY_FILTER,
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, he: false, decoy: false },
+      },
+    };
+    mocks.loadProject.mockResolvedValue(
+      project({
+        summaryFilter: DEFAULT_SUMMARY_FILTER,
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useReviewProject({
+        demo: demo(),
+        series: null,
+        parsedDemos: [],
+        status: status(),
+        playback: playback(),
+        overlayDefaults,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.notes[0]?.note.drawings).toHaveLength(1));
+    expect(result.current.summaryFilter.kinds.he).toBe(true);
+    expect(result.current.summaryFilter.kinds.decoy).toBe(true);
   });
 
   it("delegates export and bulk delete to reviewImportExport", async () => {

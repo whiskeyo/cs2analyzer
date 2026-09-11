@@ -33,6 +33,7 @@ import {
 import {
   applyPendingDemoLink,
   flushSeriesReviewCache,
+  overlayIsUnset,
   projectFromDemo,
   reviewSnapshot,
   seedDemoStats,
@@ -292,7 +293,7 @@ export function useReviewProject(opts: {
         return;
       }
       restoredRef.current = true;
-      if (!project) {
+      if (!project || overlayIsUnset(project)) {
         if (plan.autoplayIfEmpty) {
           playbackRef.current.setPlaying(true);
         }

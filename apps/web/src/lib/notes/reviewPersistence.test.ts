@@ -11,7 +11,13 @@ import {
 } from "./projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
 import { emptyNote } from "./note";
-import { applyPendingDemoLink, projectFromDemo, reviewSnapshot } from "./reviewPersistence";
+import {
+  applyPendingDemoLink,
+  overlayForSeed,
+  overlayIsUnset,
+  projectFromDemo,
+  reviewSnapshot,
+} from "./reviewPersistence";
 
 function demo(fileName = "match.dem") {
   const replay = makeReplay({
@@ -28,6 +34,62 @@ const overlay = {
   paletteId: COLOR_PRESETS[0].id,
   color: COLOR_PRESETS[0].colors[0],
 };
+
+describe("overlayForSeed", () => {
+  const prefs: typeof overlay = {
+    ...overlay,
+    summaryFilter: {
+      ...DEFAULT_SUMMARY_FILTER,
+      kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, he: false, decoy: false },
+    },
+  };
+
+  it("uses Preferences when there is no saved project", () => {
+    expect(overlayForSeed(undefined, prefs).summaryFilter.kinds.he).toBe(false);
+    expect(overlayForSeed(undefined, prefs).summaryFilter.kinds.decoy).toBe(false);
+  });
+
+  it("uses Preferences for a scorecard-only row that still has shipped overlay defaults", () => {
+    const existing: ReviewProject = {
+      schema: PROJECT_SCHEMA,
+      key: "de_mirage|1|50,100|match.dem",
+      savedAt: 1,
+      fileName: "match.dem",
+      mapName: "de_mirage",
+      tick: 0,
+      notes: [],
+      summaryFilter: DEFAULT_SUMMARY_FILTER,
+      floorMode: "auto",
+      paletteId: overlay.paletteId,
+      color: overlay.color,
+    };
+    expect(overlayIsUnset(existing)).toBe(true);
+    expect(overlayForSeed(existing, prefs).summaryFilter.kinds.he).toBe(false);
+    expect(overlayForSeed(existing, prefs).summaryFilter.kinds.decoy).toBe(false);
+  });
+
+  it("keeps per-demo toolbar state after the user toggled chips", () => {
+    const existing: ReviewProject = {
+      schema: PROJECT_SCHEMA,
+      key: "de_mirage|1|50,100|match.dem",
+      savedAt: 1,
+      fileName: "match.dem",
+      mapName: "de_mirage",
+      tick: 0,
+      notes: [],
+      summaryFilter: {
+        ...DEFAULT_SUMMARY_FILTER,
+        kinds: { ...DEFAULT_SUMMARY_FILTER.kinds, smoke: false },
+      },
+      floorMode: "auto",
+      paletteId: overlay.paletteId,
+      color: overlay.color,
+    };
+    expect(overlayIsUnset(existing)).toBe(false);
+    expect(overlayForSeed(existing, prefs).summaryFilter.kinds.smoke).toBe(false);
+    expect(overlayForSeed(existing, prefs).summaryFilter.kinds.he).toBe(true);
+  });
+});
 
 describe("projectFromDemo", () => {
   it("builds a project keyed by match identity", () => {

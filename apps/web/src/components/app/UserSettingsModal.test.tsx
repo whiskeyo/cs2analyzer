@@ -99,9 +99,14 @@ describe("UserSettingsModal", () => {
     expect(within(chips).getByRole("button", { name: "Smoke" })).toBeInTheDocument();
 
     await userEvent.click(within(chips).getByRole("button", { name: "T" }));
+    await userEvent.click(within(chips).getByRole("button", { name: "HE" }));
+    await userEvent.click(within(chips).getByRole("button", { name: "Decoy" }));
     await waitFor(async () => {
       const stored = await loadUserSettings();
       expect(stored.defaultSummaryFilter.t).toBe(false);
+      expect(stored.defaultSummaryFilter.kinds.he).toBe(false);
+      expect(stored.defaultSummaryFilter.kinds.decoy).toBe(false);
+      expect(stored.defaultSummaryFilter.kinds.smoke).toBe(true);
     });
   });
 
