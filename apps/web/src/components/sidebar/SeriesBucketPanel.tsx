@@ -1,10 +1,13 @@
-import { NADE_LABEL, NADE_WEAPON } from "@/lib/match/roundEvents";
+import { useMessages } from "@/lib/i18n/useMessages";
+import { nadeLabel } from "@/lib/i18n/labels";
+import { NADE_WEAPON } from "@/lib/match/roundEvents";
 import { useApp } from "@/lib/state/appState";
 import { isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
 
 /** Series util / action / util-set counts for the active habits bucket. */
 export function SeriesBucketPanel() {
+  const { messages, t } = useMessages();
   const { session, habits } = useApp();
   if (!isMultiDemoSeries(session.series)) return null;
 
@@ -15,12 +18,16 @@ export function SeriesBucketPanel() {
     <section className="series-bucket">
       <h3 className="series-bucket-head">
         {session.series.focalTeam} · {bucket}
-        {util && <span className="muted"> · {util.roundCount} rounds</span>}
+        {util && (
+          <span className="muted">
+            {t(messages.sidebar.seriesRoundCount, { count: util.roundCount })}
+          </span>
+        )}
       </h3>
 
       {utilSets && utilSets.entries.length > 0 && (
         <>
-          <p className="tab-hint">First-wave util sets (freeze +8s)</p>
+          <p className="tab-hint">{messages.sidebar.firstWaveSets}</p>
           <ul className="series-set-list">
             {utilSets.entries.slice(0, 8).map((entry) => (
               <li key={entry.key}>
@@ -36,7 +43,7 @@ export function SeriesBucketPanel() {
 
       {util && util.entries.length > 0 && (
         <>
-          <p className="tab-hint">Util frequency</p>
+          <p className="tab-hint">{messages.sidebar.utilFrequency}</p>
           <ul className="series-freq-list">
             {util.entries.slice(0, 10).map((entry) => (
               <li key={`${entry.kind}|${entry.callout}`}>
@@ -45,7 +52,7 @@ export function SeriesBucketPanel() {
                 </span>
                 <span className="series-set-label">
                   <WeaponIcon weapon={NADE_WEAPON[entry.kind]} />
-                  {NADE_LABEL[entry.kind]} {entry.callout}
+                  {nadeLabel(messages, entry.kind)} {entry.callout}
                 </span>
               </li>
             ))}
@@ -55,7 +62,7 @@ export function SeriesBucketPanel() {
 
       {action && action.entries.length > 0 && (
         <>
-          <p className="tab-hint">Action beats</p>
+          <p className="tab-hint">{messages.sidebar.actionBeats}</p>
           <ul className="series-freq-list">
             {action.entries.slice(0, 8).map((entry) => (
               <li key={entry.title}>
@@ -70,7 +77,7 @@ export function SeriesBucketPanel() {
       )}
 
       {(!util || util.roundCount === 0) && (
-        <p className="muted tab-hint">No rounds in this bucket across the series.</p>
+        <p className="muted tab-hint">{messages.sidebar.emptyBucket}</p>
       )}
     </section>
   );

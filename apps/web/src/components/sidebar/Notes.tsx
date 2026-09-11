@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { eventElement } from "@/lib/notes/drag";
 import { notesByRound } from "@/lib/notes";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
+  const { messages } = useMessages();
   const { settings } = useUserSettings();
   const rounds = useMemo(() => notesByRound(notes), [notes]);
   const { selected, canGroup, canUngroup, toggle, toggleAll, clearSelection } =
@@ -43,12 +45,7 @@ export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
   });
 
   if (rounds.length === 0) {
-    return (
-      <p className="muted tab-hint">
-        Draw or add a text box on the radar. Use Moment to time it. Squash drawings into a layer so
-        the list stays short.
-      </p>
-    );
+    return <p className="muted tab-hint">{messages.sidebar.notesEmpty}</p>;
   }
 
   return (
@@ -58,12 +55,7 @@ export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
         downOnRef.current = eventElement(e.target) ?? e.target;
       }}
     >
-      <p className="tab-hint">
-        Drag a layer or a note. Drop on the top slot to ungroup, on the bottom slot to make a new
-        group, or onto a layer box to add it there. Double-click a layer or bookmark name to rename.
-        Start/End clocks use the arrows (0:59 then 1:00). Double-click a clock to pin it to the
-        playhead. The eye hides a map note or a timeline bookmark.
-      </p>
+      <p className="tab-hint">{messages.sidebar.notesUsage}</p>
       <NoteActions
         notes={notes}
         selected={selected}

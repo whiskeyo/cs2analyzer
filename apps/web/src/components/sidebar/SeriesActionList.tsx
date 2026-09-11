@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n/useMessages";
 import type { SeriesActionBeatRow } from "@/lib/parse/seriesAnalysis";
 import type { HabitsTrail } from "@/lib/parse/seriesOverlay";
 
@@ -8,13 +9,16 @@ interface Props {
 
 /** Cross-demo execute beats for the habits bucket. */
 export function SeriesActionList({ beats, onJump }: Props) {
+  const { messages, t } = useMessages();
   return (
     <div className="review">
       <p className="tab-hint">
-        Execute beats across {new Set(beats.map((b) => b.demoId)).size} demos in this bucket.
+        {t(messages.sidebar.seriesActionHeader, {
+          count: new Set(beats.map((b) => b.demoId)).size,
+        })}
       </p>
       {beats.length === 0 ? (
-        <p className="muted tab-hint">No action beats in this bucket.</p>
+        <p className="muted tab-hint">{messages.sidebar.seriesActionEmpty}</p>
       ) : (
         <ul className="review-notes">
           {beats.map((row) => (

@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import {
   computeStats,
   currentSide,
@@ -24,6 +25,7 @@ function rowClass(stats: PlayerStats, side: string, selected: number | null): st
 }
 
 export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onSelect }: Props) {
+  const { messages, t: tr } = useMessages();
   const stats = computeStats(replay, tick);
   const teams = liveTeams(replay, tick);
   const sampled = samplePlayers(replay, tick);
@@ -36,7 +38,7 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
       side: currentSide(replay, s.player, tick),
     }));
   const ct = withSide.filter((x) => x.side === "CT").sort((a, b) => b.s.rating - a.s.rating);
-  const t = withSide.filter((x) => x.side === "T").sort((a, b) => b.s.rating - a.s.rating);
+  const terror = withSide.filter((x) => x.side === "T").sort((a, b) => b.s.rating - a.s.rating);
 
   const table = (title: string, rows: typeof ct, teamScore: number) => (
     <div className="sb-team">
@@ -47,15 +49,15 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
       <table>
         <thead>
           <tr>
-            <th>Player</th>
+            <th>{messages.sidebar.scorePlayer}</th>
             <th>$</th>
-            <th>K</th>
-            <th>D</th>
-            <th>A</th>
+            <th>{messages.sidebar.scoreKills}</th>
+            <th>{messages.sidebar.scoreDeaths}</th>
+            <th>{messages.sidebar.scoreAssists}</th>
             <th>ADR</th>
             <th>KAST</th>
-            <th>Rating</th>
-            <th>Entry</th>
+            <th>{messages.sidebar.scoreRating}</th>
+            <th>{messages.sidebar.scoreEntry}</th>
             <th>CT</th>
             <th>T</th>
           </tr>
@@ -103,66 +105,76 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
   return (
     <div>
       {table(teams.ctName, ct, teams.ct)}
-      {table(teams.tName, t, teams.t)}
+      {table(teams.tName, terror, teams.t)}
       {sel && selPlayer && (
         <div className="detail">
           <h3>{playerLabel(selPlayer)}</h3>
           <p className="steam">
-            {selPlayer.is_bot ? "Bot" : selPlayer.steam_id ? String(selPlayer.steam_id) : ""}
+            {selPlayer.is_bot
+              ? messages.sidebar.bot
+              : selPlayer.steam_id
+                ? String(selPlayer.steam_id)
+                : ""}
           </p>
           <dl>
-            <dt>K / D / A</dt>
+            <dt>{messages.sidebar.detailKda}</dt>
             <dd>
               {sel.kills} / {sel.deaths} / {sel.assists} ({sel.kd.toFixed(2)})
             </dd>
-            <dt>Rating / Impact</dt>
+            <dt>{messages.sidebar.detailRatingImpact}</dt>
             <dd>
               {sel.rating.toFixed(2)} / {sel.impact.toFixed(2)}
             </dd>
-            <dt>Kills / round · Deaths / round</dt>
+            <dt>{messages.sidebar.detailPerRound}</dt>
             <dd>
               {sel.kills_per_round.toFixed(2)} / {sel.deaths_per_round.toFixed(2)}
             </dd>
-            <dt>CT / T</dt>
+            <dt>{messages.sidebar.detailSideSplit}</dt>
             <dd>
               {sel.kills_ct}/{sel.deaths_ct} · ADR {formatAdr(sel.adr_ct)}
               {" · "}
               {sel.kills_t}/{sel.deaths_t} · ADR {formatAdr(sel.adr_t)}
             </dd>
-            <dt>Damage (taken)</dt>
+            <dt>{messages.sidebar.detailDamage}</dt>
             <dd>
               {sel.damage} ({sel.damage_taken})
             </dd>
-            <dt>Headshot % / utility damage</dt>
+            <dt>{messages.sidebar.detailHsUtil}</dt>
             <dd>
               {sel.headshot_percent.toFixed(0)}% / {sel.utility_damage}
             </dd>
-            <dt>Opening (first kills / first deaths)</dt>
+            <dt>{messages.sidebar.detailOpening}</dt>
             <dd>
               {sel.first_kills} / {sel.first_deaths}
-              {sel.entry_attempts > 0 ? ` · ${sel.entry_success.toFixed(0)}% entry` : ""}
+              {sel.entry_attempts > 0
+                ? tr(messages.sidebar.entrySuccess, { pct: sel.entry_success.toFixed(0) })
+                : ""}
               {share && share.teamAttempts > 0
-                ? ` · ${share.pct.toFixed(0)}% of team (${share.attempts}/${share.teamAttempts})`
+                ? tr(messages.sidebar.teamEntryShare, {
+                    pct: share.pct.toFixed(0),
+                    attempts: share.attempts,
+                    teamAttempts: share.teamAttempts,
+                  })
                 : ""}
             </dd>
-            <dt>Trades (got / was)</dt>
+            <dt>{messages.sidebar.detailTrades}</dt>
             <dd>
               {sel.trade_kills} / {sel.trade_deaths}
             </dd>
-            <dt>Flashes (time)</dt>
+            <dt>{messages.sidebar.detailFlashes}</dt>
             <dd>
               {sel.enemies_flashed} ({sel.flash_time.toFixed(1)}s)
             </dd>
-            <dt>Flash assists / utility damage per round</dt>
+            <dt>{messages.sidebar.detailFlashAssists}</dt>
             <dd>
               {sel.flash_assists} /{" "}
               {sel.rounds > 0 ? (sel.utility_damage / sel.rounds).toFixed(1) : "0.0"}
             </dd>
-            <dt>Nades / survived</dt>
+            <dt>{messages.sidebar.detailNadesSurvived}</dt>
             <dd>
               {sel.nades} / {sel.survived}
             </dd>
-            <dt>1v1 / 1v2 / 1v3 / 1v4 / 1v5 (W/A)</dt>
+            <dt>{messages.sidebar.detailClutches}</dt>
             <dd>
               {[
                 `${sel.clutch_1v1}/${sel.clutch_1v1_attempts}`,
@@ -172,11 +184,11 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
                 `${sel.clutch_1v5}/${sel.clutch_1v5_attempts}`,
               ].join(" / ")}
             </dd>
-            <dt>2K / 3K / 4K / Ace</dt>
+            <dt>{messages.sidebar.detailMultis}</dt>
             <dd>
               {sel.multi_kills_2} / {sel.multi_kills_3} / {sel.multi_kills_4} / {sel.aces}
             </dd>
-            <dt>Plants / defuses</dt>
+            <dt>{messages.sidebar.detailPlants}</dt>
             <dd>
               {sel.plants} / {sel.defuses}
             </dd>

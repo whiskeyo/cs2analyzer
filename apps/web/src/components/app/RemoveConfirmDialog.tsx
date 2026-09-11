@@ -1,10 +1,15 @@
-const REMOVE_NOTES_CONFIRM = "yes, remove notes";
-const REMOVE_PLAYBOOKS_CONFIRM = "yes, remove playbooks";
+import { useMessages } from "@/lib/i18n/useMessages";
+import { tNodes } from "@/lib/i18n/messages";
 
 export type RemoveKind = "notes" | "playbooks";
 
-export function removeConfirmPhrase(kind: RemoveKind): string {
-  return kind === "playbooks" ? REMOVE_PLAYBOOKS_CONFIRM : REMOVE_NOTES_CONFIRM;
+export function removeConfirmPhrase(
+  kind: RemoveKind,
+  phrases?: { notes: string; playbooks: string },
+): string {
+  const notes = phrases?.notes ?? "yes, remove notes";
+  const playbooks = phrases?.playbooks ?? "yes, remove playbooks";
+  return kind === "playbooks" ? playbooks : notes;
 }
 
 export function RemoveConfirmDialog({
@@ -22,7 +27,11 @@ export function RemoveConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const phrase = removeConfirmPhrase(kind);
+  const { messages } = useMessages();
+  const phrase = removeConfirmPhrase(kind, {
+    notes: messages.dialog.removeNotesPhrase,
+    playbooks: messages.dialog.removePlaybooksPhrase,
+  });
   return (
     <div className="home-modal" onClick={onCancel}>
       <div
@@ -33,15 +42,19 @@ export function RemoveConfirmDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id={titleId}>
-          {kind === "playbooks" ? "Remove all playbooks?" : "Remove all saved notes?"}
+          {kind === "playbooks"
+            ? messages.dialog.removePlaybooksTitle
+            : messages.dialog.removeNotesTitle}
         </h2>
         <p>
           {kind === "playbooks"
-            ? "This deletes every playbook stored in this browser. Export a JSON backup first if you might need them later."
-            : "This deletes every drawing project stored in this browser. Export a JSON backup first if you might need them later."}
+            ? messages.dialog.removePlaybooksBody
+            : messages.dialog.removeNotesBody}
         </p>
         <p>
-          Type <code>{phrase}</code> to confirm.
+          {tNodes(messages.dialog.typeToConfirm, {
+            phrase: <code>{phrase}</code>,
+          })}
         </p>
         <input
           className="remove-notes-input"
@@ -49,12 +62,12 @@ export function RemoveConfirmDialog({
           value={confirm}
           autoComplete="off"
           spellCheck={false}
-          aria-label="Confirmation phrase"
+          aria-label={messages.dialog.confirmPhrase}
           onChange={(e) => onConfirmChange(e.target.value)}
         />
         <div className="home-modal-actions">
           <button type="button" className="ghost" onClick={onCancel}>
-            Cancel
+            {messages.preferences.cancel}
           </button>
           <button
             type="button"
@@ -62,7 +75,9 @@ export function RemoveConfirmDialog({
             disabled={confirm !== phrase}
             onClick={onConfirm}
           >
-            {kind === "playbooks" ? "Remove all playbooks" : "Remove all notes"}
+            {kind === "playbooks"
+              ? messages.dialog.removePlaybooksConfirm
+              : messages.dialog.removeNotesConfirm}
           </button>
         </div>
       </div>

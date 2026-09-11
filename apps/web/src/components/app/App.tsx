@@ -9,32 +9,35 @@ import { Analyzer } from "@/pages/Analyzer";
 import { Faq } from "@/pages/Faq";
 import { Home } from "@/pages/Home";
 import { Playbook } from "@/pages/Playbook";
+import { useMessages } from "@/lib/i18n/useMessages";
+import type { Messages } from "@/lib/i18n/messages";
 
 const LayoutsApp = import.meta.env.DEV
   ? lazy(() => import("@/components/layouts/LayoutsApp").then((m) => ({ default: m.LayoutsApp })))
   : null;
 
-function pageTitle(pathname: string): string {
-  if (isFaqPath(pathname)) return "FAQ · CS2 Analyzer";
-  if (isAnalyzerPath(pathname)) return "Analyzer · CS2 Analyzer";
-  if (isPlaybookPath(pathname)) return "Playbook · CS2 Analyzer";
+function pageTitle(pathname: string, messages: Messages): string {
+  if (isFaqPath(pathname)) return messages.pageTitle.faq;
+  if (isAnalyzerPath(pathname)) return messages.pageTitle.analyzer;
+  if (isPlaybookPath(pathname)) return messages.pageTitle.playbook;
   if (import.meta.env.DEV && isLayoutsPath(pathname)) return "Layouts · CS2 Analyzer";
-  return "CS2 Analyzer";
+  return messages.pageTitle.home;
 }
 
 function AppLayout() {
   const { session } = useApp();
   const { pathname } = useLocation();
+  const { messages } = useMessages();
   const onAnalyzer = isAnalyzerPath(pathname);
   const onPlaybook = isPlaybookPath(pathname);
   const showLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
   const fillBoard = onPlaybook || (onAnalyzer && session.replay != null);
 
   useEffect(() => {
-    document.title = pageTitle(pathname);
+    document.title = pageTitle(pathname, messages);
     const root = document.querySelector(".app");
     if (root) root.scrollTop = 0;
-  }, [pathname]);
+  }, [pathname, messages]);
 
   const shellClass = showLayouts ? "app layouts-app" : fillBoard ? "app" : "app splash";
 

@@ -1,10 +1,12 @@
 import type { CSSProperties } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { useApp } from "@/lib/state/appState";
 import { showSeriesBar } from "@/lib/parse/seriesMode";
 import { prettyMap } from "@/lib/weapons/weapons";
 
 /** File list + focal team when several demos are loaded for habits. */
 export function SeriesBar() {
+  const { messages, t } = useMessages();
   const { session, habits } = useApp();
   if (!showSeriesBar(session)) return null;
 
@@ -16,11 +18,11 @@ export function SeriesBar() {
 
   return (
     <div className="series-bar">
-      <span className="series-bar-label">Series</span>
+      <span className="series-bar-label">{messages.analyzer.series}</span>
       {multiMap ? (
         <select
           className="series-map-select"
-          aria-label="Map for series habits"
+          aria-label={messages.analyzer.mapSelect}
           value={session.selectedMapName ?? series.mapName}
           onChange={(e) => session.selectMap(e.target.value)}
         >
@@ -34,13 +36,17 @@ export function SeriesBar() {
         <span className="series-bar-map">{prettyMap(series.mapName)}</span>
       )}
       <span className="series-bar-label">{series.focalTeam}</span>
-      <div className="filters series-bar-mode" role="toolbar" aria-label="Series view">
+      <div
+        className="filters series-bar-mode"
+        role="toolbar"
+        aria-label={messages.analyzer.seriesView}
+      >
         <button
           type="button"
           className={`filter${aggregated ? " on" : ""}`}
           onClick={() => habits.setSeriesView(aggregated ? "demos" : "aggregated")}
         >
-          Aggregated
+          {messages.analyzer.aggregated}
         </button>
       </div>
       <ul className="series-bar-files">
@@ -53,7 +59,7 @@ export function SeriesBar() {
                 type="button"
                 className={demo.id === activeId ? "series-file active" : "series-file"}
                 style={demoColor ? ({ "--demo-color": demoColor } as CSSProperties) : undefined}
-                title={`${roundCount} tagged rounds · already parsed`}
+                title={t(messages.analyzer.taggedRounds, { count: roundCount })}
                 onClick={() => {
                   if (aggregated) habits.setSeriesView("demos");
                   session.selectDemo(demo.id);

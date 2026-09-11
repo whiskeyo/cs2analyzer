@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n/useMessages";
 import type { HabitsTrail } from "@/lib/parse/seriesOverlay";
 import type { SeriesPlayerReviewResult } from "@/lib/parse/seriesPlayerReview";
 import { ReviewNoteFlow } from "./ReviewNoteFlow";
@@ -9,16 +10,19 @@ interface Props {
 
 /** Cross-demo player review with per-game grouping and jump targets. */
 export function SeriesPlayerReview({ review, onJump }: Props) {
+  const { messages, t, tNodes } = useMessages();
   const noteCount = review.notesByDemo.reduce((n, g) => n + g.notes.length, 0);
 
   return (
     <div className="review">
       <p className="tab-hint">
-        <strong>{review.playerName}</strong> — mistakes and highlights across {review.demoCount}{" "}
-        demos.
+        {tNodes(messages.sidebar.seriesReviewHeader, {
+          name: <strong>{review.playerName}</strong>,
+          count: review.demoCount,
+        })}
       </p>
       {review.headlines.length === 0 && noteCount === 0 ? (
-        <p className="muted tab-hint">No player notes across the series.</p>
+        <p className="muted tab-hint">{messages.sidebar.seriesReviewEmpty}</p>
       ) : (
         <>
           {review.headlines.length > 0 && (
@@ -44,7 +48,9 @@ export function SeriesPlayerReview({ review, onJump }: Props) {
             <section key={group.demoId} className="series-review-demo">
               <h3 className="series-review-demo-head">
                 {group.fileName}
-                <span className="muted"> · {group.notes.length} notes</span>
+                <span className="muted">
+                  {t(messages.sidebar.seriesDemoNotes, { count: group.notes.length })}
+                </span>
               </h3>
               <ReviewNoteFlow
                 notes={group.notes}

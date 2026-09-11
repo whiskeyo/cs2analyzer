@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { NADE_LABEL, NADE_WEAPON } from "@/lib/match/roundEvents";
+import { useMessages } from "@/lib/i18n/useMessages";
+import { nadeLabel } from "@/lib/i18n/labels";
+import { NADE_WEAPON } from "@/lib/match/roundEvents";
 import {
   usedUtilKinds,
   usedUtilPlaces,
@@ -43,8 +45,12 @@ export function Utility({
   onClearFollow,
   places,
 }: Props) {
+  const { messages, t, tNodes } = useMessages();
   const u = utilityThrough(replay, matchEndTick(replay), selected, places);
-  const who = selected != null ? playerLabel(replay.players[selected], "Player") : "Match";
+  const who =
+    selected != null
+      ? playerLabel(replay.players[selected], messages.drop.player)
+      : messages.sidebar.utilMatch;
   const hasPlaces = placesReady(places);
   const kinds = usedUtilKinds(u.throws);
   const placeChips = usedUtilPlaces(u.throws, places?.layout);
@@ -63,9 +69,9 @@ export function Utility({
   });
   const kindCounts = utilKindSummary(u.byKind);
   const summary = [
-    `${u.throws.length} thrown`,
+    t(messages.sidebar.thrownCount, { count: u.throws.length }),
     kindCounts,
-    hasPlaces ? `${u.inSite} in site · A ${u.nadesA} · B ${u.nadesB}` : "",
+    hasPlaces ? t(messages.sidebar.siteSummary, { count: u.inSite, a: u.nadesA, b: u.nadesB }) : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -73,18 +79,18 @@ export function Utility({
   return (
     <div className="review">
       <p className="tab-hint">
-        <strong>{who}</strong> — nades in throw order.
+        {tNodes(messages.sidebar.utilHeader, { who: <strong>{who}</strong> })}
       </p>
       <h3 className="util-head">
-        Nades <span className="muted">{summary}</span>
+        {messages.sidebar.nadesHeading} <span className="muted">{summary}</span>
       </h3>
       {kinds.length > 0 && (
-        <div className="filters" role="toolbar" aria-label="Nade type filters">
+        <div className="filters" role="toolbar" aria-label={messages.sidebar.nadeTypeFilters}>
           <button
             type="button"
             className="filter clear"
-            title="Show all nade types"
-            aria-label="Show all nade types"
+            title={messages.sidebar.showAllTypes}
+            aria-label={messages.sidebar.showAllTypes}
             disabled={kindsOn.length === 0}
             onClick={() => setKindSel([])}
           >
@@ -97,18 +103,18 @@ export function Utility({
               className={`filter${kindsOn.includes(id) ? " on" : ""}`}
               onClick={() => setKindSel((prev) => toggleIn(kept(prev, kinds), id))}
             >
-              {NADE_LABEL[id]}
+              {nadeLabel(messages, id)}
             </button>
           ))}
         </div>
       )}
       {placeChips.length > 0 && (
-        <div className="filters" role="toolbar" aria-label="Nade callout filters">
+        <div className="filters" role="toolbar" aria-label={messages.sidebar.calloutFilters}>
           <button
             type="button"
             className="filter clear"
-            title="Show all positions"
-            aria-label="Show all positions"
+            title={messages.sidebar.showAllPositions}
+            aria-label={messages.sidebar.showAllPositions}
             disabled={placesOn.length === 0}
             onClick={() => setPlaceSel([])}
           >
@@ -130,8 +136,8 @@ export function Utility({
       {rows.length === 0 ? (
         <p className="muted tab-hint">
           {u.throws.length === 0
-            ? "No nades thrown in this match."
-            : "No nades match these filters."}
+            ? messages.sidebar.utilEmptyMatch
+            : messages.sidebar.utilEmptyFilters}
         </p>
       ) : (
         <ul className="review-notes">

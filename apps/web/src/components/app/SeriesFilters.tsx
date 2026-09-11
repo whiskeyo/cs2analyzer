@@ -1,3 +1,5 @@
+import { roundKindLabel } from "@/lib/i18n/labels";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { useApp } from "@/lib/state/appState";
 import { seriesTeamCandidates } from "@/lib/parse/session";
 import { isBucketOverlayActive, isMultiDemoSeries } from "@/lib/parse/seriesMode";
@@ -5,15 +7,10 @@ import type { RoundKind } from "@/lib/parse/roundTags";
 import { filterHabitsNades } from "@/lib/parse/seriesOverlay";
 import { HabitsNadeLegend } from "./HabitsNadeLegend";
 
-const KINDS: { id: RoundKind; label: string }[] = [
-  { id: "pistol", label: "Pistol" },
-  { id: "eco", label: "Eco" },
-  { id: "force", label: "Force" },
-  { id: "full", label: "Full" },
-];
-
 /** Team, side, buy, and optional player filters for the habits overlay. */
 export function SeriesFilters() {
+  const { messages, t } = useMessages();
+  const kinds: RoundKind[] = ["pistol", "eco", "force", "full"];
   const { session, habits } = useApp();
   const series = session.series;
   if (!isMultiDemoSeries(series)) return null;
@@ -26,10 +23,10 @@ export function SeriesFilters() {
 
   return (
     <div className="series-filters">
-      <span className="series-filters-label">Team</span>
+      <span className="series-filters-label">{messages.analyzer.team}</span>
       <select
         className="series-team-select"
-        aria-label="Focal team for habits"
+        aria-label={messages.analyzer.focalTeam}
         value={series.focalTeam}
         onChange={(e) => session.setFocalTeam(e.target.value)}
       >
@@ -39,8 +36,8 @@ export function SeriesFilters() {
           </option>
         ))}
       </select>
-      <span className="series-filters-label">Side</span>
-      <div className="filters" role="toolbar" aria-label="Habits side">
+      <span className="series-filters-label">{messages.analyzer.side}</span>
+      <div className="filters" role="toolbar" aria-label={messages.analyzer.habitsSide}>
         {(["CT", "T"] as const).map((side) => (
           <button
             key={side}
@@ -52,32 +49,32 @@ export function SeriesFilters() {
           </button>
         ))}
       </div>
-      <span className="series-filters-label">Buy</span>
-      <div className="filters" role="toolbar" aria-label="Habits buy type">
-        {KINDS.map((k) => (
+      <span className="series-filters-label">{messages.analyzer.buy}</span>
+      <div className="filters" role="toolbar" aria-label={messages.analyzer.habitsBuy}>
+        {kinds.map((id) => (
           <button
-            key={k.id}
+            key={id}
             type="button"
-            className={`filter${filter.kind === k.id ? " on" : ""}`}
-            onClick={() => habits.setKind(k.id)}
+            className={`filter${filter.kind === id ? " on" : ""}`}
+            onClick={() => habits.setKind(id)}
           >
-            {k.label}
+            {roundKindLabel(messages, id)}
           </button>
         ))}
       </div>
       {focalPlayers.length > 0 && (
         <>
-          <span className="series-filters-label">Player</span>
+          <span className="series-filters-label">{messages.analyzer.player}</span>
           <select
             className="series-player-select"
-            aria-label="Filter habits by player"
+            aria-label={messages.analyzer.filterPlayer}
             value={playerKey ?? ""}
             onChange={(e) => {
               const v = e.target.value;
               habits.setPlayerKey(v || null);
             }}
           >
-            <option value="">All players</option>
+            <option value="">{messages.analyzer.allPlayers}</option>
             {focalPlayers.map((p) => (
               <option key={p.key} value={p.key}>
                 {p.name}
@@ -94,7 +91,7 @@ export function SeriesFilters() {
               checked={overlayOn}
               onChange={(e) => habits.setOverlayOn(e.target.checked)}
             />
-            Overlay
+            {messages.analyzer.overlay}
           </label>
           {overlayActive && (
             <>
@@ -104,7 +101,7 @@ export function SeriesFilters() {
                   checked={habits.overlayArrows}
                   onChange={(e) => habits.setOverlayArrows(e.target.checked)}
                 />
-                Arrows
+                {messages.analyzer.arrows}
               </label>
               <label className="series-overlay-toggle">
                 <input
@@ -112,13 +109,13 @@ export function SeriesFilters() {
                   checked={habits.overlayTrails}
                   onChange={(e) => habits.setOverlayTrails(e.target.checked)}
                 />
-                Trails
+                {messages.analyzer.trails}
               </label>
-              <div className="filters" role="toolbar" aria-label="Habits path display">
+              <div className="filters" role="toolbar" aria-label={messages.analyzer.pathDisplay}>
                 {(
                   [
-                    { id: "trails", label: "Paths" },
-                    { id: "heatmap", label: "Heatmap" },
+                    { id: "trails", label: messages.analyzer.paths },
+                    { id: "heatmap", label: messages.analyzer.heatmap },
                   ] as const
                 ).map((mode) => (
                   <button
@@ -147,15 +144,21 @@ export function SeriesFilters() {
       )}
       {habits.overlay && (
         <span className="series-bucket-meta">
-          {habits.overlay.roundCount} rounds · freeze +{habits.bucketPlaySec.toFixed(1)}s /{" "}
-          {habits.overlay.windowSec.toFixed(0)}s ·{" "}
-          {habits.overlayDisplay === "heatmap"
-            ? "heatmap"
-            : habits.overlayTrails
-              ? `${habits.overlay.trails.length} paths`
-              : "paths off"}{" "}
-          · {habits.overlayArrows ? `${habits.overlay.trails.length} arrows` : "arrows off"} · ·{" "}
-          {visibleNades} nades
+          {t(messages.analyzer.bucketMeta, {
+            count: habits.overlay.roundCount,
+            sec: habits.bucketPlaySec.toFixed(1),
+            win: habits.overlay.windowSec.toFixed(0),
+            paths:
+              habits.overlayDisplay === "heatmap"
+                ? messages.analyzer.bucketMetaHeat
+                : habits.overlayTrails
+                  ? t(messages.analyzer.bucketMetaPaths, { count: habits.overlay.trails.length })
+                  : messages.analyzer.bucketMetaPathsOff,
+            arrows: habits.overlayArrows
+              ? t(messages.analyzer.bucketMetaArrows, { count: habits.overlay.trails.length })
+              : messages.analyzer.bucketMetaArrowsOff,
+            nades: visibleNades,
+          })}
         </span>
       )}
     </div>

@@ -30,7 +30,7 @@ export function Header() {
   const onFaq = isFaqPath(pathname);
   const onPlaybook = isPlaybookPath(pathname);
   const showMatchChrome = replay != null && !onFaq && !onLayouts && !onPlaybook;
-  const { messages } = useMessages();
+  const { messages, t } = useMessages();
 
   return (
     <header className="top">
@@ -72,8 +72,11 @@ export function Header() {
         ) : replay && showMatchChrome ? (
           <span className="file-meta">
             {prettyMap(replay.header.map_name)}
-            {session.fileName ? ` · ${session.fileName}` : ""} · {replay.kills.length} kills ·{" "}
-            {replay.grenades.length} nades
+            {session.fileName ? ` · ${session.fileName}` : ""} ·{" "}
+            {t(messages.headerMeta.match, {
+              kills: replay.kills.length,
+              nades: replay.grenades.length,
+            })}
           </span>
         ) : null}
       </div>

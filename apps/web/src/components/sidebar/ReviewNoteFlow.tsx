@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { sortReviewNotes, type ReviewNote, type ReviewNoteSort } from "@/lib/match/review";
 
 function noteClass(severity: string, pending: boolean): string {
@@ -13,6 +14,7 @@ interface Props<T extends ReviewNote> {
 
 /** Flat note list like Utility/Action: round order, or worst-first severity. */
 export function ReviewNoteFlow<T extends ReviewNote>({ notes, pendingAtTick, onJump }: Props<T>) {
+  const { messages } = useMessages();
   const [sort, setSort] = useState<ReviewNoteSort>("round");
   const rows = useMemo(() => sortReviewNotes(notes, sort), [notes, sort]);
 
@@ -20,20 +22,20 @@ export function ReviewNoteFlow<T extends ReviewNote>({ notes, pendingAtTick, onJ
 
   return (
     <>
-      <div className="filters" role="toolbar" aria-label="Review sort">
+      <div className="filters" role="toolbar" aria-label={messages.sidebar.reviewSort}>
         <button
           type="button"
           className={`filter${sort === "round" ? " on" : ""}`}
           onClick={() => setSort("round")}
         >
-          Round
+          {messages.sidebar.sortRound}
         </button>
         <button
           type="button"
           className={`filter${sort === "severity" ? " on" : ""}`}
           onClick={() => setSort("severity")}
         >
-          Severity
+          {messages.sidebar.sortSeverity}
         </button>
       </div>
       <ul className="review-notes">

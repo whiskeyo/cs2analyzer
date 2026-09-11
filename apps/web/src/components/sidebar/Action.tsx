@@ -1,5 +1,6 @@
 import { ACTION_HIGHLIGHT_SECONDS, tickRate } from "@/lib/shared/constants";
 import { useMemo, useState } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { type ExecuteKind, filterExecutes, findExecutes } from "@/lib/match/execute";
 import type { MapPlaces } from "@/lib/match/sites";
 import { layoutGroupFilters } from "@/lib/radar/layouts";
@@ -14,14 +15,14 @@ interface Props {
   places: MapPlaces | null;
 }
 
-const KINDS: { id: ExecuteKind; label: string }[] = [
-  { id: "execute", label: "Execute" },
-  { id: "plant", label: "Plant" },
-  { id: "retake", label: "Retake" },
-  { id: "fight", label: "Fight" },
-];
-
 export function Action({ replay, tick, onJump, places }: Props) {
+  const { messages, tNodes } = useMessages();
+  const kindChips: { id: ExecuteKind; label: string }[] = [
+    { id: "execute", label: messages.sidebar.kindExecute },
+    { id: "plant", label: messages.sidebar.kindPlant },
+    { id: "retake", label: messages.sidebar.kindRetake },
+    { id: "fight", label: messages.sidebar.kindFight },
+  ];
   const [thisRound, setThisRound] = useState(false);
   const [side, setSide] = useState<Side | "all">("all");
   const [group, setGroup] = useState<string | "all">("all");
@@ -53,22 +54,25 @@ export function Action({ replay, tick, onJump, places }: Props) {
   return (
     <div className="review">
       <p className="tab-hint">
-        Round story, then the hits. <kbd>e</kbd> / <kbd>E</kbd> next/prev execute.
+        {tNodes(messages.sidebar.actionHint, {
+          nextKey: <kbd>e</kbd>,
+          prevKey: <kbd>E</kbd>,
+        })}
       </p>
-      <div className="filters" role="toolbar" aria-label="Action filters">
+      <div className="filters" role="toolbar" aria-label={messages.sidebar.actionFilters}>
         <button
           type="button"
           className={`filter${thisRound ? "" : " on"}`}
           onClick={() => setThisRound(false)}
         >
-          All rounds
+          {messages.sidebar.allRounds}
         </button>
         <button
           type="button"
           className={`filter${thisRound ? " on" : ""}`}
           onClick={() => setThisRound(true)}
         >
-          This round
+          {messages.sidebar.thisRound}
         </button>
         <span className="filter-gap" />
         <button
@@ -76,7 +80,7 @@ export function Action({ replay, tick, onJump, places }: Props) {
           className={`filter${side === "all" ? " on" : ""}`}
           onClick={() => setSide("all")}
         >
-          Both
+          {messages.sidebar.sideBoth}
         </button>
         <button
           type="button"
@@ -100,7 +104,7 @@ export function Action({ replay, tick, onJump, places }: Props) {
               className={`filter${groupFilter === "all" ? " on" : ""}`}
               onClick={() => setGroup("all")}
             >
-              All
+              {messages.sidebar.allGroups}
             </button>
             {groups.map((g) => (
               <button
@@ -115,7 +119,7 @@ export function Action({ replay, tick, onJump, places }: Props) {
           </>
         )}
         <span className="filter-gap" />
-        {KINDS.map((k) => (
+        {kindChips.map((k) => (
           <button
             key={k.id}
             type="button"
@@ -127,7 +131,7 @@ export function Action({ replay, tick, onJump, places }: Props) {
         ))}
       </div>
       {visibleStories.length === 0 ? (
-        <p className="muted tab-hint">No competitive rounds to show.</p>
+        <p className="muted tab-hint">{messages.sidebar.noRounds}</p>
       ) : (
         visibleStories.map((story) => {
           const rows = filtered.filter((b) => b.round === story.round);

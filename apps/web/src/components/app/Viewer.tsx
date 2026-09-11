@@ -4,12 +4,14 @@ import { SeriesAggregatedRoundStrip } from "@/components/playback/SeriesAggregat
 import { BucketControls } from "@/components/playback/BucketControls";
 import { RadarStage } from "@/components/radar/RadarStage";
 import { Sidebar } from "@/components/sidebar/Sidebar";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { useApp } from "@/lib/state/appState";
 import { isAggregatedView, isBucketOverlayActive } from "@/lib/parse/seriesMode";
 import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
 
 export function Viewer() {
+  const { messages } = useMessages();
   const { session, playback, review, places, habits } = useApp();
   const replay = session.replay;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
@@ -26,7 +28,7 @@ export function Viewer() {
       <div className="viewer-body">
         {switching ? (
           <div className="series-switch-pane" aria-live="polite">
-            <p className="series-switch-wait">Switching demo…</p>
+            <p className="series-switch-wait">{messages.analyzer.switching}</p>
           </div>
         ) : (
           <>
@@ -85,10 +87,7 @@ export function Viewer() {
           </>
         )}
       </div>
-      <p className="keys">
-        Space play · ←/→ scrub · [ ] rounds · e E executes · , . kills · F track · T trail · Ctrl+Z
-        undo · Esc deselect
-      </p>
+      <p className="keys">{messages.analyzer.hotkeys}</p>
     </>
   );
 }

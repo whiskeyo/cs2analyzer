@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
 import { formatScorecard, type MatchHalfScore, type MatchScorecard } from "@/lib/stats/stats";
 
@@ -29,6 +30,7 @@ interface Props {
 
 /** Saved-note title with CT/T half colors and green/red match result. */
 export function ScorecardLabel({ mapLabel, scorecard }: Props) {
+  const { messages, t } = useMessages();
   const aWon = scorecard.scoreA > scorecard.scoreB;
   const bWon = scorecard.scoreB > scorecard.scoreA;
   const scoreAColor = aWon ? WIN_COLOR : bWon ? LOSS_COLOR : undefined;
@@ -44,7 +46,7 @@ export function ScorecardLabel({ mapLabel, scorecard }: Props) {
   if (scorecard.overtime) {
     halves.push(
       <span key="ot">
-        OT {scorecard.overtime.a}:{scorecard.overtime.b}
+        {t(messages.headerMeta.overtime, { a: scorecard.overtime.a, b: scorecard.overtime.b })}
       </span>,
     );
   }
