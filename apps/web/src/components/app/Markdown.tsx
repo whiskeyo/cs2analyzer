@@ -1,10 +1,7 @@
 import { createElement, type ReactNode, useMemo } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
-import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import "katex/dist/katex.min.css";
 
 const HEADING_RANKS = [1, 2, 3, 4, 5, 6] as const;
 type HeadingRank = (typeof HEADING_RANKS)[number];
@@ -45,16 +42,12 @@ interface Props {
   headingOffset?: number;
 }
 
-/** GFM markdown with `$inline$` / `$$display$$` TeX via KaTeX. HTML in the source is not executed. */
+/** GFM markdown. HTML in the source is not executed. `$…$` is ordinary text until rating docs need math. */
 export function Markdown({ children, headingOffset = 0 }: Props) {
   const components = useMemo(() => markdownComponents(headingOffset), [headingOffset]);
   return (
     <div className="md">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-        components={components}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {children}
       </ReactMarkdown>
     </div>
