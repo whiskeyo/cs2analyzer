@@ -2,13 +2,20 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
 import { makeReplay } from "@/lib/testing/fixtures";
 import { runParsePool } from "./parsePool";
 import { loadedDemo } from "./session";
 import type { Status } from "@/lib/state/status";
 import { useDemoSession } from "./useDemoSession";
+
+const parserMocks = vi.hoisted(() => ({
+  ensureParser: vi.fn(),
+  parserFactory: vi.fn((): (() => Worker) | null => null),
+  prefetchParser: vi.fn(),
+  discardParserWarmup: vi.fn(),
+}));
 
 vi.mock("./parsePool", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./parsePool")>();
@@ -19,6 +26,13 @@ vi.mock("./parsePool", async (importOriginal) => {
     parsePoolBar: vi.fn(),
   };
 });
+
+vi.mock("./ensureParser", () => ({
+  ensureParser: parserMocks.ensureParser,
+  parserFactory: parserMocks.parserFactory,
+  prefetchParser: parserMocks.prefetchParser,
+  discardParserWarmup: parserMocks.discardParserWarmup,
+}));
 
 const TIMINGS: ParseTimings = { initMs: 1, parseMs: 2, jsonMs: 3, buffersMs: 4, totalMs: 10 };
 
@@ -97,6 +111,10 @@ async function parseSingle(
 describe("useDemoSession", () => {
   beforeEach(() => {
     vi.mocked(runParsePool).mockReset();
+    parserMocks.ensureParser.mockReset();
+    parserMocks.parserFactory.mockReset();
+    parserMocks.parserFactory.mockReturnValue(null);
+    parserMocks.discardParserWarmup.mockReset();
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
       cb(0);
@@ -172,6 +190,7 @@ describe("useDemoSession", () => {
     });
 
     expect(workers[0].terminate).toHaveBeenCalledOnce();
+    expect(parserMocks.discardParserWarmup).toHaveBeenCalled();
     expect(result.current.demo).toBeNull();
     expect(result.current.series).toBeNull();
     expect(result.current.mapGroups).toEqual([]);
@@ -359,5 +378,33 @@ describe("useDemoSession", () => {
 
     expect(result.current.series?.focalTeam).toBe("FaZe");
     expect(result.current.series?.focalTeamNames).toContain("FaZe");
+  });
+
+  it("uses a prefetched parser factory when no worker is injected", async () => {
+    const workers: FakeWorker[] = [];
+    parserMocks.parserFactory.mockReturnValue(() => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker as unknown as Worker;
+    });
+    const status = makeStatus();
+    const { result } = renderHook(() => useDemoSession({ status }));
+    await parseSingle(result, workers);
+
+    expect(parserMocks.ensureParser).not.toHaveBeenCalled();
+    expect(result.current.fileName).toBe("match.dem");
+    expect(result.current.parsing).toBe(false);
+  });
+
+  it("reports a bootstrap error when the lazy parser fails to load", async () => {
+    parserMocks.ensureParser.mockRejectedValue(new Error("failed to fetch Wasm"));
+    const status = makeStatus();
+    const { result } = renderHook(() => useDemoSession({ status }));
+
+    act(() => {
+      result.current.parseDemo(new File(["fake"], "match.dem"));
+    });
+    await waitFor(() => expect(status.setError).toHaveBeenCalledWith("failed to fetch Wasm"));
+    expect(result.current.parsing).toBe(false);
   });
 });

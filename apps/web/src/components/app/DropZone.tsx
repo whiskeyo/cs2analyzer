@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import { ParseProgressPanel } from "@/components/app/ParseProgressPanel";
 import { Credits } from "@/components/app/Credits";
+import { prefetchParser } from "@/lib/parse/ensureParser";
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
 import { SAVED_NOTES_PAGE_SIZE } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
@@ -120,6 +121,9 @@ export function DropZone({
   const drop = (
     <label
       className="drop"
+      onPointerEnter={() => prefetchParser()}
+      onPointerDown={() => prefetchParser()}
+      onDragEnter={() => prefetchParser()}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => void takeDroppedFiles(e, onFiles)}
       onClick={(e) => {
@@ -291,6 +295,8 @@ export function DropZone({
             aria-modal="true"
             aria-labelledby="want-demo-title"
             onClick={(e) => e.stopPropagation()}
+            onPointerEnter={() => prefetchParser()}
+            onDragEnter={() => prefetchParser()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               void takeDroppedFiles(e, (files) => {

@@ -72,16 +72,18 @@ vi.mock("@/parser/cs2analyzer_wasm.js", () => ({
   parseDemo: wasmMocks.parseDemo,
 }));
 
+type ParseWorkerIn = { bytes: ArrayBuffer } | { type: "warmup" };
+
 type WorkerSelf = {
   postMessage: ReturnType<typeof vi.fn>;
-  onmessage: ((ev: MessageEvent<{ bytes: ArrayBuffer }>) => Promise<void>) | null;
+  onmessage: ((ev: MessageEvent<ParseWorkerIn>) => Promise<void>) | null;
 };
 
 let workerSelf: WorkerSelf;
 
 async function runWorker(bytes = new ArrayBuffer(8)) {
   await import("./parseWorker");
-  await workerSelf.onmessage?.({ data: { bytes } } as MessageEvent<{ bytes: ArrayBuffer }>);
+  await workerSelf.onmessage?.({ data: { bytes } } as MessageEvent<ParseWorkerIn>);
 }
 
 beforeEach(() => {
@@ -127,6 +129,16 @@ describe("parseWorker", () => {
     expect(wasmMocks.init).toHaveBeenCalledOnce();
     expect(wasmMocks.parseDemo).toHaveBeenCalledTimes(2);
     expect(wasmMocks.free).toHaveBeenCalledTimes(2);
+  });
+
+  it("warms wasm without parsing when the main thread posts warmup", async () => {
+    await import("./parseWorker");
+    await workerSelf.onmessage?.({
+      data: { type: "warmup" },
+    } as MessageEvent<ParseWorkerIn>);
+    expect(wasmMocks.init).toHaveBeenCalledOnce();
+    expect(wasmMocks.parseDemo).not.toHaveBeenCalled();
+    expect(workerSelf.postMessage).not.toHaveBeenCalled();
   });
 
   it("posts an error when wasm fetch fails", async () => {

@@ -24,6 +24,13 @@ vi.mock("@/components/playbook/PlaybookCanvas", () => ({
   PlaybookCanvas: () => <div data-testid="playbook-canvas" />,
 }));
 
+vi.mock("@/lib/parse/ensureParser", () => ({
+  ensureParser: vi.fn(async () => () => ({ terminate() {} })),
+  parserFactory: vi.fn(() => null),
+  prefetchParser: vi.fn(),
+  discardParserWarmup: vi.fn(),
+}));
+
 const TIMINGS: ParseTimings = { initMs: 1, parseMs: 2, jsonMs: 3, buffersMs: 4, totalMs: 10 };
 
 /**
