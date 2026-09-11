@@ -29,19 +29,12 @@ function HomePlaybookCta() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <div className="home-card home-playbook">
+      <button type="button" className="home-card home-playbook" onClick={() => setOpen(true)}>
         <PlaybookMark />
         <div className="drop-title">Create a playbook</div>
-        <p>Draw named strats on a radar. No demo required.</p>
-        <button
-          type="button"
-          className="home-playbook-add"
-          aria-label="New playbook"
-          onClick={() => setOpen(true)}
-        >
-          +
-        </button>
-      </div>
+        <p className="drop-blurb">Draw named strats on a radar. No demo required.</p>
+        <p className="muted">Open playbook.</p>
+      </button>
       {open ? <CreatePlaybookDialog onClose={() => setOpen(false)} /> : null}
     </>
   );

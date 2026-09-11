@@ -104,7 +104,7 @@ body,
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.4rem;
   width: 100%;
   padding: 2.25rem 1.75rem;
@@ -116,8 +116,13 @@ body,
   text-decoration: none;
   color: inherit;
 }
+button.home-card {
+  appearance: none;
+  font: inherit;
+}
 .drop:hover,
-.home-card:hover {
+.home-card:hover,
+.home-card:focus-visible {
   border-color: var(--accent);
 }
 .drop-parse {
@@ -135,31 +140,8 @@ body,
   font-size: var(--page-body-size);
   line-height: 1.5;
 }
-.home-playbook {
-  cursor: default;
-  gap: 0.45rem;
-}
-.home-playbook-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  margin-top: 0.35rem;
-  border: 1px solid #2f6b4a;
-  border-radius: 999px;
-  background: #1f4d32;
-  color: #8ee0b0;
-  font: inherit;
-  font-size: 1.45rem;
-  font-weight: 650;
-  line-height: 1;
-  cursor: pointer;
-}
-.home-playbook-add:hover {
-  background: #27633f;
-  border-color: #3d8a5c;
-  filter: none;
+.drop-blurb {
+  flex: 1 1 auto;
 }
 .home-faq-hint {
   margin: 0;

@@ -143,11 +143,11 @@ export function DropZone({
       />
       <img className="brand-mark" src={publicUrl("favicon.svg")} width={56} height={56} alt="" />
       <div className="drop-title">Drop a demo</div>
-      <p>
+      <p className="drop-blurb">
         One Counter-Strike 2 <code>.dem</code> to watch the match, or several for habits (same map,
         or mixed maps with a map picker).
       </p>
-      <p className="muted">Parsed entirely in your browser. Nothing is uploaded.</p>
+      <p className="muted">Parsed entirely in your browser.</p>
       {parsing && (
         <div className="drop-parse">
           <ParseProgressPanel overallPct={overallPct} files={parseFiles} />
