@@ -1,13 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { compileMarkdown } from "@/lib/markdown/compile";
 import { Markdown } from "./Markdown";
 
 describe("Markdown", () => {
   it("renders GFM links, lists, and emphasis", () => {
     render(
-      <Markdown>
-        {`Read the [docs](https://example.com/a) and the [Analyzer](/analyzer).\n\n- **bold item**`}
-      </Markdown>,
+      <Markdown
+        html={compileMarkdown(
+          `Read the [docs](https://example.com/a) and the [Analyzer](/analyzer).\n\n- **bold item**`,
+        )}
+      />,
     );
     const docs = screen.getByRole("link", { name: "docs" });
     expect(docs).toHaveAttribute("href", "https://example.com/a");
@@ -19,18 +22,20 @@ describe("Markdown", () => {
   });
 
   it("treats dollar signs as ordinary text", () => {
-    const { container } = render(<Markdown>{`Eco at $2000, not $E = mc^2$.`}</Markdown>);
+    const { container } = render(
+      <Markdown html={compileMarkdown(`Eco at $2000, not $E = mc^2$.`)} />,
+    );
     expect(container.textContent).toContain("Eco at $2000, not $E = mc^2$.");
     expect(container.querySelector(".katex, math")).toBeNull();
   });
 
   it("does not execute HTML from the markdown source", () => {
     const { container } = render(
-      <Markdown>
-        {`<script>window.__xss=1</script>
+      <Markdown
+        html={compileMarkdown(`<script>window.__xss=1</script>
 
-**safe**`}
-      </Markdown>,
+**safe**`)}
+      />,
     );
     expect(container.querySelector("script")).toBeNull();
     expect(screen.getByText("safe")).toBeInTheDocument();
@@ -38,13 +43,16 @@ describe("Markdown", () => {
 
   it("shifts heading ranks so # nests under a page title", () => {
     render(
-      <Markdown headingOffset={2}>
-        {`# Question
+      <Markdown
+        html={compileMarkdown(
+          `# Question
 
 ## Subsection
 
-### Detail`}
-      </Markdown>,
+### Detail`,
+          2,
+        )}
+      />,
     );
     expect(screen.getByRole("heading", { level: 3, name: "Question" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 4, name: "Subsection" })).toBeInTheDocument();

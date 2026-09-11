@@ -7,6 +7,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
+import { FAQ_HEADING_OFFSET, parseFaqMarkdown } from "./src/lib/app/faqParse.ts";
+import { compileMarkdown } from "./src/lib/markdown/compile.ts";
 import { errorMessage, parseJson } from "./src/lib/validate/json.ts";
 import { formatLayout } from "./src/lib/layout/format.ts";
 import { parseMapLayout } from "./src/lib/layout/schema.ts";
@@ -40,6 +42,33 @@ function send(res: ServerResponse, status: number, body: string) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
   res.end(body);
+}
+
+/** Compile `content/faq/*.md` to `{ question, html }` so the client does not ship remark. */
+function faqMarkdownPlugin(): Plugin {
+  return {
+    name: "faq-markdown",
+    enforce: "pre",
+    transform(code, id) {
+      const file = (id.split("?")[0] ?? id).replaceAll("\\", "/");
+      if (!file.endsWith(".md") || !file.includes("/content/faq/")) {
+        return;
+      }
+      if (id.includes("?raw")) {
+        return;
+      }
+      const { question, markdown } = parseFaqMarkdown(code, file);
+      const html = compileMarkdown(markdown, FAQ_HEADING_OFFSET);
+      const article = { question, html };
+      return {
+        code: `const article = ${JSON.stringify(article)};
+export const question = article.question;
+export const html = article.html;
+export default article;`,
+        map: null,
+      };
+    },
+  };
 }
 
 /** Dev-only: write layout JSON into public/layouts/. Not deployed. */
@@ -126,7 +155,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(gitShortHash()),
   },
-  plugins: [react(), copyHtaccess(), spaFallbackPages(), writeLayoutPlugin()],
+  plugins: [react(), faqMarkdownPlugin(), copyHtaccess(), spaFallbackPages(), writeLayoutPlugin()],
   resolve: {
     alias: {
       "@": src,

@@ -16,7 +16,7 @@ describe("parseFaqMarkdown", () => {
 });
 
 describe("FAQ_ITEMS", () => {
-  it("loads numbered articles from content/faq", () => {
+  it("loads numbered articles from content/faq as precompiled HTML", () => {
     expect(FAQ_ITEMS.map((item) => item.question)).toEqual([
       "What is CS2 Analyzer?",
       "Do my demos leave this computer?",
@@ -30,7 +30,8 @@ describe("FAQ_ITEMS", () => {
       "How do I report a bug or request a feature?",
     ]);
     for (const item of FAQ_ITEMS) {
-      expect(item.markdown.startsWith(`# ${item.question}`)).toBe(true);
+      expect(item.html).toContain(`<h3>${item.question}</h3>`);
+      expect(item.html).not.toContain("react-markdown");
     }
   });
 });

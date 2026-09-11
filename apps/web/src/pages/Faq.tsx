@@ -1,6 +1,6 @@
 import { Credits } from "@/components/app/Credits";
 import { Markdown } from "@/components/app/Markdown";
-import { FAQ_HEADING_OFFSET, FAQ_ITEMS } from "@/lib/app/faq";
+import { FAQ_ITEMS } from "@/lib/app/faq";
 
 export function Faq() {
   return (
@@ -13,7 +13,7 @@ export function Faq() {
         </p>
         {FAQ_ITEMS.map((item) => (
           <section key={item.question} className="faq-item">
-            <Markdown headingOffset={FAQ_HEADING_OFFSET}>{item.markdown}</Markdown>
+            <Markdown html={item.html} />
           </section>
         ))}
       </article>
