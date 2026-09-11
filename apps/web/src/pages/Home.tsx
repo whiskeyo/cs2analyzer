@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { Link } from "react-router";
 import { DemoDrop } from "@/components/app/DemoDrop";
-import { CreatePlaybookDialog } from "@/components/playbook/CreatePlaybookDialog";
-import { PlaybookMark } from "@/components/playbook/PlaybookMark";
+import { CreatePlaybookCard } from "@/components/playbook/CreatePlaybookCard";
 import { ROUTES } from "@/lib/app/routes";
 
 function HomeIntro() {
@@ -25,21 +23,6 @@ function HomeIntro() {
   );
 }
 
-function HomePlaybookCta() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button type="button" className="home-card home-playbook" onClick={() => setOpen(true)}>
-        <PlaybookMark />
-        <div className="drop-title">Create a playbook</div>
-        <p className="drop-blurb">Draw named strats on a radar. No demo required.</p>
-        <p className="muted">Open playbook.</p>
-      </button>
-      {open ? <CreatePlaybookDialog onClose={() => setOpen(false)} /> : null}
-    </>
-  );
-}
-
 function HomeFaqHint() {
   return (
     <p className="home-faq-hint muted">
@@ -53,7 +36,7 @@ export function Home() {
     <DemoDrop
       openAnalyzerOnDrop
       showSavedNotes={false}
-      beside={<HomePlaybookCta />}
+      beside={<CreatePlaybookCard />}
       below={<HomeFaqHint />}
     >
       <HomeIntro />

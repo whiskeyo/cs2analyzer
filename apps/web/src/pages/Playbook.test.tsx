@@ -239,10 +239,24 @@ describe("Playbook", () => {
     expect(screen.getByRole("button", { name: "Untitled strat" })).toHaveClass("is-active");
   });
 
-  it("shows empty-board art when no book is open", async () => {
+  it("shows the create-playbook card when no book is open", async () => {
     renderBoard();
-    expect(await screen.findByText("Open a playbook to draw on the radar.")).toBeInTheDocument();
-    expect(document.querySelector(".playbook-empty-art")).toBeTruthy();
+    const card = await screen.findByRole("button", { name: /Create a playbook/ });
+    expect(card).toHaveClass("home-card", "home-playbook");
+    expect(screen.getByText("Draw named strats on a radar. No demo required.")).toBeInTheDocument();
+    expect(screen.getByText("Open playbook.")).toBeInTheDocument();
+    expect(document.querySelector(".playbook-empty-art")).toBeNull();
+  });
+
+  it("opens the create dialog from the empty-board card", async () => {
+    renderBoard();
+    await userEvent.click(await screen.findByRole("button", { name: /Create a playbook/ }));
+    expect(await screen.findByRole("heading", { name: "New playbook" })).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Map" })).toHaveValue("de_mirage");
+    expect(screen.getByRole("textbox", { name: "Playbook title" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("heading", { name: "New playbook" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Create a playbook/ })).toBeInTheDocument();
   });
 
   it("deletes the open playbook", async () => {
@@ -251,7 +265,7 @@ describe("Playbook", () => {
     fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Delete playbook" }));
     await waitFor(() => expect(screen.queryByTestId("playbook-canvas")).not.toBeInTheDocument());
-    expect(screen.getByText("Open a playbook to draw on the radar.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Create a playbook/ })).toBeInTheDocument();
   });
 
   it("shows a load error when calibrations fail", async () => {
