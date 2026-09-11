@@ -1,9 +1,15 @@
+import { createElement, Fragment, type ReactNode } from "react";
+
 export type MessageVars = Record<string, string | number>;
 
 /**
  * Nested chrome catalogs. Both `en` and `pl` `satisfies Messages`, so a missing
  * Polish key is a type error. Phase 3+ surfaces (HUD, playbook, FAQ bodies) are
  * not in this shape yet.
+ *
+ * Sentences that mix copy with links or `<code>` stay **one string per locale**
+ * with `{slot}` placeholders so Polish can reorder freely. Do not split a
+ * sentence across adjacent catalog keys.
  */
 export interface Messages {
   nav: {
@@ -26,9 +32,6 @@ export interface Messages {
     issues: string;
     donate: string;
     attribution: string;
-    weaponsFrom: string;
-    mitAnd: string;
-    end: string;
   };
   home: {
     kicker: string;
@@ -39,9 +42,8 @@ export interface Messages {
     featureHabits: string;
     featureKillfeed: string;
     featureMore: string;
-    faqHintBefore: string;
-    faqHintLink: string;
-    faqHintAfter: string;
+    faqHint: string;
+    faqLink: string;
   };
   faq: {
     title: string;
@@ -49,11 +51,9 @@ export interface Messages {
   };
   drop: {
     title: string;
-    blurbBefore: string;
-    blurbAfter: string;
+    blurb: string;
     parsedLocal: string;
-    savedLeadBefore: string;
-    savedLeadAfter: string;
+    savedLead: string;
     savedTitle: string;
     unnamedDemo: string;
     drawingOne: string;
@@ -68,8 +68,7 @@ export interface Messages {
     next: string;
     unknownTime: string;
     restoreTitle: string;
-    restoreBefore: string;
-    restoreAfter: string;
+    restoreBody: string;
     close: string;
   };
   parse: {
@@ -142,15 +141,52 @@ export interface Messages {
   };
 }
 
-/** `{name}` replacement only. Unknown names stay as `{name}`; extra vars are ignored. */
-export function t(template: string, vars?: MessageVars): string {
+const PLACEHOLDER = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+
+/**
+ * Split `{name}` placeholders into mixed parts. Unknown names stay as `{name}`;
+ * extra vars are ignored. Used by `t` (strings) and `tNodes` (React slots).
+ */
+export function interpolateParts<T>(template: string, vars?: Record<string, T>): (string | T)[] {
   if (!vars) {
-    return template;
+    return [template];
   }
-  return template.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (whole, name: string) => {
-    if (Object.hasOwn(vars, name)) {
-      return String(vars[name]);
+  const parts: (string | T)[] = [];
+  let last = 0;
+  const re = new RegExp(PLACEHOLDER.source, "g");
+  let match = re.exec(template);
+  while (match) {
+    if (match.index > last) {
+      parts.push(template.slice(last, match.index));
     }
-    return whole;
-  });
+    const name = match[1];
+    if (Object.hasOwn(vars, name)) {
+      parts.push(vars[name]);
+    } else {
+      parts.push(match[0]);
+    }
+    last = match.index + match[0].length;
+    match = re.exec(template);
+  }
+  if (last < template.length) {
+    parts.push(template.slice(last));
+  }
+  return parts.length > 0 ? parts : [template];
+}
+
+/** `{name}` replacement for string/number vars. */
+export function t(template: string, vars?: MessageVars): string {
+  return interpolateParts(template, vars)
+    .map((part) => String(part))
+    .join("");
+}
+
+/**
+ * Same placeholders as `t`, but a slot may be a React node (links, `<code>`).
+ * Locales own word order; the caller only supplies named slots.
+ */
+export function tNodes(template: string, slots?: Record<string, ReactNode>): ReactNode {
+  return interpolateParts(template, slots).map((part, index) =>
+    createElement(Fragment, { key: index }, part),
+  );
 }

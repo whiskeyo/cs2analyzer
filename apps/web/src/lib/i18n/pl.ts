@@ -22,10 +22,7 @@ export const pl = {
     issues: "Issues",
     donate: "Wesprzyj",
     attribution:
-      "Autor: whiskeyo. Wersja: {version}. Projekt fanowski — niepowiązany z Valve ani FACEIT. Radary map pochodzą od Valve, z",
-    weaponsFrom: ". Ikony broni z",
-    mitAnd: "(MIT) i",
-    end: ".",
+      "Autor: whiskeyo (wersja {version}). Projekt fanowski — niepowiązany z Valve ani FACEIT. Radary map pochodzą od Valve z {radarSource}. Ikony broni z {weaponMit} (MIT) i {weaponOther}.",
   },
   home: {
     kicker: "Lokalny podgląd GOTV",
@@ -36,9 +33,8 @@ export const pl = {
     featureHabits: "Tryb Habits: kilka dem, ta sama mapa albo mieszane mapy.",
     featureKillfeed: "Killfeed, opening duels, podsumowanie nades i eksport CSV.",
     featureMore: "I dużo więcej!",
-    faqHintBefore: "Jeśli masz pytania, ",
-    faqHintLink: "zobacz FAQ",
-    faqHintAfter: ".",
+    faqHint: "Jeśli masz pytania, {faqLink}.",
+    faqLink: "zobacz FAQ",
   },
   faq: {
     title: "FAQ",
@@ -46,14 +42,11 @@ export const pl = {
   },
   drop: {
     title: "Upuść demo",
-    blurbBefore: "Jedno demo Counter-Strike 2 ",
-    blurbAfter:
-      ", żeby obejrzeć mecz, albo kilka do Habits (ta sama mapa albo mieszane mapy z wyborem mapy).",
+    blurb:
+      "Jedno demo Counter-Strike 2 ({dem}), żeby obejrzeć mecz, albo kilka do Habits (ta sama mapa albo mieszane mapy z wyborem mapy).",
     parsedLocal: "Parsowane w całości w Twojej przeglądarce.",
-    savedLeadBefore:
-      "Notatki zapisują się same w tej przeglądarce. Demo nie jest przechowywane — upuść ten sam ",
-    savedLeadAfter:
-      ", żeby przywrócić rysunki. Zrób kopię JSON w Ustawieniach, żeby czyszczenie cache ich nie zjadło.",
+    savedLead:
+      "Notatki zapisują się same w tej przeglądarce. Demo nie jest przechowywane — upuść ten sam {dem}, żeby przywrócić rysunki. Zrób kopię JSON w Ustawieniach, żeby czyszczenie cache ich nie zjadło.",
     savedTitle: "Zapisane notatki",
     unnamedDemo: "unnamed.dem",
     drawingOne: "{count} rysunek",
@@ -68,8 +61,7 @@ export const pl = {
     next: "Następne",
     unknownTime: "nieznany czas",
     restoreTitle: "Przywróć notatki",
-    restoreBefore: "Upuść",
-    restoreAfter: ", żeby przywrócić te rysunki. Samego dema nie przechowujemy.",
+    restoreBody: "Upuść {file}, żeby przywrócić te rysunki. Samego dema nie przechowujemy.",
     close: "Zamknij",
   },
   parse: {

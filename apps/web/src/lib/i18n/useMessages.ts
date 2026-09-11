@@ -1,12 +1,13 @@
 import { catalogFor } from "./catalogs";
 import { DEFAULT_LOCALE, type Locale } from "./locales";
-import { t, type Messages } from "./messages";
+import { t, tNodes, type Messages } from "./messages";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 
 export interface MessagesApi {
   locale: Locale;
   messages: Messages;
   t: typeof t;
+  tNodes: typeof tNodes;
 }
 
 /**
@@ -16,5 +17,5 @@ export interface MessagesApi {
 export function useMessages(): MessagesApi {
   const { settings } = useUserSettings();
   const locale = settings.locale ?? DEFAULT_LOCALE;
-  return { locale, messages: catalogFor(locale), t };
+  return { locale, messages: catalogFor(locale), t, tNodes };
 }

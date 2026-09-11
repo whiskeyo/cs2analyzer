@@ -100,7 +100,7 @@ export function DropZone({
   below,
   children,
 }: Props) {
-  const { locale, messages, t } = useMessages();
+  const { locale, messages, tNodes } = useMessages();
   const [page, setPage] = useState(0);
   const [wantedDemo, setWantedDemo] = useState<string | null>(null);
   const overallPct =
@@ -153,11 +153,7 @@ export function DropZone({
       />
       <img className="brand-mark" src={publicUrl("favicon.svg")} width={56} height={56} alt="" />
       <div className="drop-title">{messages.drop.title}</div>
-      <p className="drop-blurb">
-        {messages.drop.blurbBefore}
-        <code>.dem</code>
-        {messages.drop.blurbAfter}
-      </p>
+      <p className="drop-blurb">{tNodes(messages.drop.blurb, { dem: <code>.dem</code> })}</p>
       <p className="muted">{messages.drop.parsedLocal}</p>
       {parsing && (
         <div className="drop-parse">
@@ -185,11 +181,7 @@ export function DropZone({
       </div>
       {showSavedNotes ? (
         <div className="home-notes">
-          <p className="muted">
-            {messages.drop.savedLeadBefore}
-            <code>.dem</code>
-            {messages.drop.savedLeadAfter}
-          </p>
+          <p className="muted">{tNodes(messages.drop.savedLead, { dem: <code>.dem</code> })}</p>
           {saved.length > 0 && (
             <div className="saved-demos">
               <h2>{messages.drop.savedTitle}</h2>
@@ -318,8 +310,9 @@ export function DropZone({
           >
             <h2 id="want-demo-title">{messages.drop.restoreTitle}</h2>
             <p>
-              {messages.drop.restoreBefore} <code>{wantedDemo}</code>
-              {messages.drop.restoreAfter}
+              {tNodes(messages.drop.restoreBody, {
+                file: <code>{wantedDemo}</code>,
+              })}
             </p>
             <button type="button" className="ghost" onClick={() => setWantedDemo(null)}>
               {messages.drop.close}

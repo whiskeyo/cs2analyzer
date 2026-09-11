@@ -23,12 +23,12 @@ function HomeIntro() {
 }
 
 function HomeFaqHint() {
-  const { messages } = useMessages();
+  const { messages, tNodes } = useMessages();
   return (
     <p className="home-faq-hint muted">
-      {messages.home.faqHintBefore}
-      <Link to={ROUTES.faq}>{messages.home.faqHintLink}</Link>
-      {messages.home.faqHintAfter}
+      {tNodes(messages.home.faqHint, {
+        faqLink: <Link to={ROUTES.faq}>{messages.home.faqLink}</Link>,
+      })}
     </p>
   );
 }

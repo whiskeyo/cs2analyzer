@@ -22,10 +22,7 @@ export const en = {
     issues: "Issues",
     donate: "Donate",
     attribution:
-      "Made by whiskeyo. Version: {version}. Fan project — not affiliated with Valve or FACEIT. Radar overviews are Valve's, vendored from",
-    weaponsFrom: ". Weapon icons from",
-    mitAnd: "(MIT) and",
-    end: ".",
+      "Made by whiskeyo. Version: {version}. Fan project — not affiliated with Valve or FACEIT. Radar overviews are Valve's, vendored from {radarSource}. Weapon icons from {weaponMit} (MIT) and {weaponOther}.",
   },
   home: {
     kicker: "Local-first GOTV viewer",
@@ -36,9 +33,8 @@ export const en = {
     featureHabits: "Habits mode: several demos, same map or mixed maps.",
     featureKillfeed: "Kill feed, opening duels, nade summary, and CSV export.",
     featureMore: "And way more!",
-    faqHintBefore: "If you have questions, ",
-    faqHintLink: "see the FAQ",
-    faqHintAfter: ".",
+    faqHint: "If you have questions, {faqLink}.",
+    faqLink: "see the FAQ",
   },
   faq: {
     title: "FAQ",
@@ -46,13 +42,11 @@ export const en = {
   },
   drop: {
     title: "Drop a demo",
-    blurbBefore: "One Counter-Strike 2 ",
-    blurbAfter:
-      " to watch the match, or several for habits (same map, or mixed maps with a map picker).",
+    blurb:
+      "One Counter-Strike 2 {dem} to watch the match, or several for habits (same map, or mixed maps with a map picker).",
     parsedLocal: "Parsed entirely in your browser.",
-    savedLeadBefore: "Notes auto-save in this browser. The demo is not stored — drop the same ",
-    savedLeadAfter:
-      " to restore drawings. Export a JSON backup from Settings so a cache wipe does not eat them.",
+    savedLead:
+      "Notes auto-save in this browser. The demo is not stored — drop the same {dem} to restore drawings. Export a JSON backup from Settings so a cache wipe does not eat them.",
     savedTitle: "Saved notes",
     unnamedDemo: "unnamed.dem",
     drawingOne: "{count} drawing",
@@ -67,8 +61,7 @@ export const en = {
     next: "Next",
     unknownTime: "unknown time",
     restoreTitle: "Restore notes",
-    restoreBefore: "Drop",
-    restoreAfter: " here to restore those drawings. The demo itself is not stored.",
+    restoreBody: "Drop {file} here to restore those drawings. The demo itself is not stored.",
     close: "Close",
   },
   parse: {

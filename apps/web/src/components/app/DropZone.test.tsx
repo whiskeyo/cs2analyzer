@@ -5,6 +5,7 @@ import { PROJECT_SCHEMA, type ReviewProject } from "@/lib/notes/projectStore";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import { en } from "@/lib/i18n/en";
+import { t } from "@/lib/i18n/messages";
 import { DropZone } from "./DropZone";
 
 const prefetchParser = vi.hoisted(() => vi.fn());
@@ -271,7 +272,12 @@ describe("DropZone", () => {
       screen.getByText(
         (_, el) =>
           el?.textContent ===
-          `Made by whiskeyo. Version: ${__APP_VERSION__}. Fan project — not affiliated with Valve or FACEIT. Radar overviews are Valve's, vendored from cs2-map-icons. Weapon icons from cs2-killfeed-generator (MIT) and counter-strike-icons.`,
+          t(en.credits.attribution, {
+            version: __APP_VERSION__,
+            radarSource: "cs2-map-icons",
+            weaponMit: "cs2-killfeed-generator",
+            weaponOther: "counter-strike-icons",
+          }),
       ),
     ).toBeInTheDocument();
   });

@@ -2,7 +2,7 @@ import { ISSUES_URL, REPO_URL, STEAM_TRADE_URL } from "@/lib/app/links";
 import { useMessages } from "@/lib/i18n/useMessages";
 
 export function Credits() {
-  const { messages, t } = useMessages();
+  const { messages, tNodes } = useMessages();
   return (
     <footer className="credits">
       <p className="credits-links">
@@ -19,23 +19,32 @@ export function Credits() {
         </a>
       </p>
       <p>
-        {t(messages.credits.attribution, { version: __APP_VERSION__ })}{" "}
-        <a href="https://github.com/MurkyYT/cs2-map-icons" target="_blank" rel="noreferrer">
-          cs2-map-icons
-        </a>
-        {messages.credits.weaponsFrom}{" "}
-        <a
-          href="https://github.com/ChetdeJong/cs2-killfeed-generator"
-          target="_blank"
-          rel="noreferrer"
-        >
-          cs2-killfeed-generator
-        </a>{" "}
-        {messages.credits.mitAnd}{" "}
-        <a href="https://github.com/Juknum/counter-strike-icons" target="_blank" rel="noreferrer">
-          counter-strike-icons
-        </a>
-        {messages.credits.end}
+        {tNodes(messages.credits.attribution, {
+          version: __APP_VERSION__,
+          radarSource: (
+            <a href="https://github.com/MurkyYT/cs2-map-icons" target="_blank" rel="noreferrer">
+              cs2-map-icons
+            </a>
+          ),
+          weaponMit: (
+            <a
+              href="https://github.com/ChetdeJong/cs2-killfeed-generator"
+              target="_blank"
+              rel="noreferrer"
+            >
+              cs2-killfeed-generator
+            </a>
+          ),
+          weaponOther: (
+            <a
+              href="https://github.com/Juknum/counter-strike-icons"
+              target="_blank"
+              rel="noreferrer"
+            >
+              counter-strike-icons
+            </a>
+          ),
+        })}
       </p>
     </footer>
   );

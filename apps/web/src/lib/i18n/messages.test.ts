@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { catalogs } from "./catalogs";
 import { DEFAULT_LOCALE, LOCALES, isLocale, localeTag, parseLocale } from "./locales";
-import { t } from "./messages";
+import { interpolateParts, t } from "./messages";
 import { en } from "./en";
 import { pl } from "./pl";
 
@@ -40,6 +40,7 @@ describe("t", () => {
     expect(t("Hello {name}", { name: "Tomasz" })).toBe("Hello Tomasz");
     expect(t("Overall {pct}%", { pct: 61 })).toBe("Overall 61%");
     expect(t(en.credits.attribution, { version: "1.2.3" })).toContain("Version: 1.2.3");
+    expect(t(pl.credits.attribution, { version: "1.2.3" })).toContain("wersja 1.2.3");
   });
 
   it("leaves unknown placeholders and ignores extra vars", () => {
@@ -50,6 +51,26 @@ describe("t", () => {
 
   it("does not treat dollar signs in values as replace patterns", () => {
     expect(t("Cost {price}", { price: "$1,234" })).toBe("Cost $1,234");
+  });
+});
+
+describe("interpolateParts", () => {
+  it("keeps slot objects so locales can reorder around them", () => {
+    const radar = { href: "radar" };
+    const weapon = { href: "weapon" };
+    expect(
+      interpolateParts("from {radarSource}, then {weaponMit}", {
+        radarSource: radar,
+        weaponMit: weapon,
+      }),
+    ).toEqual(["from ", radar, ", then ", weapon]);
+    expect(
+      interpolateParts("{weaponMit} oraz {radarSource} ({version})", {
+        radarSource: radar,
+        weaponMit: weapon,
+        version: "9",
+      }),
+    ).toEqual([weapon, " oraz ", radar, " (", "9", ")"]);
   });
 });
 
@@ -66,5 +87,22 @@ describe("catalogs", () => {
       expect(polish, path).toEqual(expect.any(String));
       expect(polish.length, path).toBeGreaterThan(0);
     }
+  });
+
+  it("keeps linked sentences as one string with named slots", () => {
+    for (const slot of ["{version}", "{radarSource}", "{weaponMit}", "{weaponOther}"] as const) {
+      expect(en.credits.attribution).toContain(slot);
+      expect(pl.credits.attribution).toContain(slot);
+    }
+    expect(en.home.faqHint).toContain("{faqLink}");
+    expect(pl.home.faqHint).toContain("{faqLink}");
+    expect(en.drop.blurb).toContain("{dem}");
+    expect(pl.drop.blurb).toContain("{dem}");
+    expect(en.drop.savedLead).toContain("{dem}");
+    expect(pl.drop.restoreBody).toContain("{file}");
+    expect(en.credits).not.toHaveProperty("weaponsFrom");
+    expect(en.home).not.toHaveProperty("faqHintBefore");
+    expect(en.drop).not.toHaveProperty("blurbBefore");
+    expect(en.drop).not.toHaveProperty("restoreBefore");
   });
 });

@@ -109,7 +109,7 @@ describe("Home", () => {
     expect(container.querySelector(".home-playbook-mark")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: en.home.faqHintLink })).toHaveAttribute("href", "/faq");
+    expect(screen.getByRole("link", { name: en.home.faqLink })).toHaveAttribute("href", "/faq");
   });
 
   it("opens the create dialog from the playbook card", async () => {
