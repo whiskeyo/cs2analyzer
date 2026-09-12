@@ -1326,6 +1326,11 @@ code {
   font-size: 0.82rem;
   line-height: 1.45;
 }
+.playbook-export-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
 .playbook-field,
 .playbook-create {
   display: flex;

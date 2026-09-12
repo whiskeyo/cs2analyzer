@@ -30,6 +30,7 @@ interface Props {
   onRenameBook: (bookKey: string) => void;
   onRenameStrat: (bookKey: string, pageId: string) => void;
   onDuplicateBook: (bookKey: string) => void;
+  onExportPdf: (bookKey: string) => void;
   onDuplicateStrat: (bookKey: string, pageId: string) => void;
   onDeleteBook: (bookKey: string) => void;
   onDeleteStrat: (bookKey: string, pageId: string) => void;
@@ -47,6 +48,7 @@ export function PlaybookTreeMenu({
   onRenameBook,
   onRenameStrat,
   onDuplicateBook,
+  onExportPdf,
   onDuplicateStrat,
   onDeleteBook,
   onDeleteStrat,
@@ -77,6 +79,7 @@ export function PlaybookTreeMenu({
             { label: "New strat", onSelect: () => onNewStrat(target.bookKey) },
             { label: "Rename", onSelect: () => onRenameBook(target.bookKey) },
             { label: "Duplicate playbook", onSelect: () => onDuplicateBook(target.bookKey) },
+            { label: "Export PDF", onSelect: () => onExportPdf(target.bookKey) },
             {
               label: "Move up",
               disabled: target.index === 0,

@@ -35,6 +35,12 @@ vi.mock("@/components/playbook/PlaybookCanvas", () => ({
   ),
 }));
 
+const downloadPlaybookPdf = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/export/exportPlaybook", () => ({
+  downloadPlaybookPdf,
+}));
+
 import { loadCalibrations } from "@/lib/radar/maps";
 
 async function createBookFromMap(mapLabel = "Mirage") {
@@ -57,6 +63,8 @@ describe("Playbook", () => {
       de_inferno: UNIT_CALIBRATION,
       de_mirage: UNIT_CALIBRATION,
     });
+    downloadPlaybookPdf.mockReset();
+    downloadPlaybookPdf.mockResolvedValue(undefined);
   });
 
   afterEach(async () => {
@@ -87,6 +95,31 @@ describe("Playbook", () => {
     });
     fireEvent.blur(screen.getByRole("textbox", { name: "Book title" }));
     expect(screen.getByRole("button", { name: "Anti strats" })).toHaveClass("is-active");
+  });
+
+  it("exports a local PDF from the open book and from a list row", async () => {
+    renderBoard();
+    await createBookFromMap();
+    await userEvent.click(screen.getByRole("button", { name: "Export PDF" }));
+    await waitFor(() => expect(downloadPlaybookPdf).toHaveBeenCalledTimes(1));
+    expect(downloadPlaybookPdf.mock.calls[0]?.[0]).toMatchObject({
+      title: "Untitled playbook",
+      mapName: "de_mirage",
+    });
+    expect(downloadPlaybookPdf.mock.calls[0]?.[1]).toBe(UNIT_CALIBRATION);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Export PDF" })).toBeEnabled());
+
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
+    await waitFor(() => expect(downloadPlaybookPdf).toHaveBeenCalledTimes(2));
+  });
+
+  it("shows an error when playbook PDF export fails", async () => {
+    downloadPlaybookPdf.mockRejectedValue(new Error("encode failed"));
+    renderBoard();
+    await createBookFromMap();
+    await userEvent.click(screen.getByRole("button", { name: "Export PDF" }));
+    expect(await screen.findByText("Could not export PDF.")).toBeInTheDocument();
   });
 
   it("adds, switches, duplicates, and deletes strats including the last one", async () => {

@@ -14,6 +14,7 @@ import { PlaybookEmpty } from "@/components/playbook/PlaybookEmpty";
 import { PlaybookStratPanel } from "@/components/playbook/PlaybookStratPanel";
 import { PlaybookTree } from "@/components/playbook/PlaybookTree";
 import { TokenPalette } from "@/components/playbook/TokenPalette";
+import { downloadPlaybookPdf } from "@/lib/export/exportPlaybook";
 import { consumePlaybookFocus } from "@/lib/playbook/focus";
 import { useNoteHistory } from "@/lib/playbook/history";
 import { PLAYBOOK_KEYS_HINT } from "@/lib/playbook/hotkeys";
@@ -54,6 +55,8 @@ export function Playbook() {
   const [pendingPinState, setPendingPinState] = useState<{ x: number; y: number } | null>(null);
   const [collapsedMaps, setCollapsedMaps] = useState<Set<string>>(() => new Set());
   const [expandedBooks, setExpandedBooks] = useState<Set<string>>(() => new Set());
+  const [exportingKey, setExportingKey] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const pendingFocus = useRef(consumePlaybookFocus());
   const pendingPage = useRef<string | null>(null);
   const names = maps ? sortedMapNames(maps) : [];
@@ -233,6 +236,20 @@ export function Playbook() {
     select(row.key, row.mapName);
   };
 
+  const exportBook = (row: PlaybookDoc) => {
+    if (exportingKey) return;
+    const live = row.key === activeKey && book ? book : row;
+    setExportError(null);
+    setExportingKey(live.key);
+    void downloadPlaybookPdf(live, maps?.[live.mapName])
+      .catch(() => {
+        setExportError("Could not export PDF.");
+      })
+      .finally(() => {
+        setExportingKey(null);
+      });
+  };
+
   const createBookOnMap = (map: string) => {
     setMapName(map);
     void create(UNTITLED_PLAYBOOK, map).then((next) => {
@@ -316,6 +333,8 @@ export function Playbook() {
               onSelect={board.setSelectedId}
               onNote={board.commitNote}
               note={page.note}
+              onExportPdf={() => exportBook(book)}
+              exportBusy={exportingKey === book.key}
             />
           </aside>
         ) : null}
@@ -324,6 +343,7 @@ export function Playbook() {
           <h2>Playbooks</h2>
           <p className="playbook-lead">Maps, then named books. Drawings stay on this machine.</p>
           {loadError ? <p className="error">{loadError}</p> : null}
+          {exportError ? <p className="error">{exportError}</p> : null}
           <PlaybookTree
             mapNames={names}
             books={treeBooks}
@@ -363,6 +383,7 @@ export function Playbook() {
               if (row.key === activeKey) addStrat();
               else void addStratTo(row.key);
             }}
+            onExportPdf={exportBook}
             onDuplicateBook={(row) => {
               void duplicateBook(row.key).then((copy) => {
                 if (copy) {

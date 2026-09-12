@@ -29,6 +29,7 @@ function treeProps(overrides: Partial<Parameters<typeof PlaybookTree>[0]> = {}) 
     onNewPlaybook: vi.fn(),
     onNewStrat: vi.fn(),
     onDuplicateBook: vi.fn(),
+    onExportPdf: vi.fn(),
     onDuplicateStrat: vi.fn(),
     onDeleteBook: vi.fn(),
     onDeleteStrat: vi.fn(),
@@ -145,5 +146,14 @@ describe("PlaybookTree", () => {
     fireEvent.contextMenu(screen.getByRole("button", { name: "Mid control" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate strat" }));
     expect(props.onDuplicateStrat).toHaveBeenCalledWith(mirage, mirage.activePageId);
+  });
+
+  it("exports a playbook PDF from the book row menu", () => {
+    const props = treeProps();
+    const mirage = props.books[0]!;
+    render(<PlaybookTree {...props} />);
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Defaults" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
+    expect(props.onExportPdf).toHaveBeenCalledWith(mirage);
   });
 });
