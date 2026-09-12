@@ -113,6 +113,8 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: wasm
       - name: wasm-bindgen-cli 0.2.127
         run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
       - name: build wasm
