@@ -16,7 +16,8 @@ import {
   PLAYBACK_SPEEDS,
   SAVED_NOTES_PAGE_SIZE_MAX,
   SAVED_NOTES_PAGE_SIZE_MIN,
-  SERIES_MAX_FILES,
+  SERIES_MAX_FILES_HARD,
+  SERIES_MAX_FILES_SOFT_WARN,
   SERIES_MIN_FILES,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -130,15 +131,23 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           <label className="settings-field">
             <span>Max demos per drop</span>
             <input
-              type="number"
+              type="range"
               min={SERIES_MIN_FILES}
-              max={SERIES_MAX_FILES}
+              max={SERIES_MAX_FILES_HARD}
+              step={1}
               aria-label="Max demos per drop"
+              aria-valuetext={`${settings.seriesMaxFiles}`}
               value={settings.seriesMaxFiles}
               onChange={(e) => void update({ seriesMaxFiles: Number(e.target.value) })}
             />
+            <output>{settings.seriesMaxFiles}</output>
           </label>
           <p className="settings-hint">Applies on the next multi-file drop.</p>
+          {settings.seriesMaxFiles > SERIES_MAX_FILES_SOFT_WARN ? (
+            <p className="settings-warn">
+              More than {SERIES_MAX_FILES_SOFT_WARN} demos at once can use a lot of RAM.
+            </p>
+          ) : null}
         </section>
 
         <section className="settings-section">

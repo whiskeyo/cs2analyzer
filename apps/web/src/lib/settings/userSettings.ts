@@ -24,6 +24,7 @@ import {
   RADAR_GRAY_MAX,
   RADAR_GRAY_MIN,
   SERIES_MAX_FILES,
+  SERIES_MAX_FILES_HARD,
   SERIES_MIN_FILES,
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MAX_WIDTH,
@@ -245,7 +246,7 @@ export function parseUserSettings(raw: unknown): UserSettings {
     seriesMaxFiles: parseClampedInt(
       raw.seriesMaxFiles,
       SERIES_MIN_FILES,
-      SERIES_MAX_FILES,
+      SERIES_MAX_FILES_HARD,
       defaults.seriesMaxFiles,
     ),
     pdfTheme: parsePdfTheme(raw.pdfTheme),

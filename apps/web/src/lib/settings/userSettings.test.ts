@@ -16,6 +16,7 @@ import {
   SAVED_NOTES_PAGE_SIZE,
   SAVED_NOTES_PAGE_SIZE_MAX,
   SERIES_MAX_FILES,
+  SERIES_MAX_FILES_HARD,
   SERIES_MIN_FILES,
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MAX_WIDTH,
@@ -132,6 +133,18 @@ describe("parseUserSettings", () => {
     expect(parseUserSettings({ radarGray: "gray" }).radarGray).toBe(DEFAULT_RADAR_GRAY);
     expect(parseUserSettings({ radarGray: Number.NaN }).radarGray).toBe(DEFAULT_RADAR_GRAY);
     expect(parseUserSettings({ radarGray: -2 }).radarGray).toBe(RADAR_GRAY_MIN);
+  });
+
+  it("keeps a stored series cap of 12 and clamps above the hard ceiling", () => {
+    expect(parseUserSettings({ seriesMaxFiles: SERIES_MAX_FILES }).seriesMaxFiles).toBe(
+      SERIES_MAX_FILES,
+    );
+    expect(parseUserSettings({ seriesMaxFiles: SERIES_MAX_FILES_HARD }).seriesMaxFiles).toBe(
+      SERIES_MAX_FILES_HARD,
+    );
+    expect(parseUserSettings({ seriesMaxFiles: SERIES_MAX_FILES_HARD + 1 }).seriesMaxFiles).toBe(
+      SERIES_MAX_FILES_HARD,
+    );
   });
 
   it("clamps the low end of parse pool and moment length", () => {
