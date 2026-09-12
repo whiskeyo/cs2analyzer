@@ -13,7 +13,16 @@ import {
 } from "./playbookSearch";
 
 function page(id: string, title: string): PlaybookPage {
-  return { id, title, body: "", floor: "auto", note: emptyNote(), videos: [] };
+  return {
+    id,
+    title,
+    body: "",
+    floor: "auto",
+    note: emptyNote(),
+    videos: [],
+    lowerNote: emptyNote(),
+    lowerVideos: [],
+  };
 }
 
 function book(partial: Partial<Playbook> & Pick<Playbook, "key" | "title">): Playbook {

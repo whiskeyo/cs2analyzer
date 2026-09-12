@@ -18,6 +18,8 @@ describe("parsePlaybookPage", () => {
     expect(parsePlaybookPage({ id: "p2" })?.body).toBe("");
     expect(parsePlaybookPage({ id: "p5", body: "hold mid" })?.body).toBe("hold mid");
     expect(parsePlaybookPage({ id: "p2" })?.videos).toEqual([]);
+    expect(parsePlaybookPage({ id: "p2" })?.lowerVideos).toEqual([]);
+    expect(parsePlaybookPage({ id: "p2" })?.lowerNote.drawings).toEqual([]);
     expect(
       parsePlaybookPage({
         id: "p6",
@@ -48,6 +50,7 @@ describe("parsePlaybookPage", () => {
     expect(parsePlaybookPage({ id: "  " })).toBeNull();
     expect(parsePlaybookPage(null)).toBeNull();
     expect(parsePlaybookPage({ id: "p4", note: 3 })).toBeNull();
+    expect(parsePlaybookPage({ id: "p8", lowerNote: 3 })).toBeNull();
   });
 });
 
@@ -135,7 +138,31 @@ describe("parsePlaybook", () => {
       pages: [{ id: "p", title: "A exec" }],
     });
     expect(parsed?.schema).toBe(PLAYBOOK_SCHEMA);
-    expect(parsed?.pages[0]).toMatchObject({ title: "A exec", videos: [] });
+    expect(parsed?.pages[0]).toMatchObject({ title: "A exec", videos: [], lowerVideos: [] });
+  });
+
+  it("keeps schema 2 drawings on the upper floor", () => {
+    const parsed = parsePlaybook({
+      schema: 2,
+      key: "old2",
+      mapName: "de_nuke",
+      pages: [
+        {
+          id: "p",
+          title: "A rush",
+          note: {
+            groups: [],
+            drawings: [{ type: "text", color: "#fff", x: 1, y: 2, text: "heaven" }],
+            pieces: [],
+            bookmarks: [],
+          },
+        },
+      ],
+    });
+    expect(parsed?.schema).toBe(PLAYBOOK_SCHEMA);
+    expect(parsed?.pages[0]?.note.drawings).toHaveLength(1);
+    expect(parsed?.pages[0]?.lowerNote.drawings).toEqual([]);
+    expect(parsed?.pages[0]?.lowerVideos).toEqual([]);
   });
 
   it("rejects a bad schema, missing key, or empty pages", () => {
@@ -143,7 +170,7 @@ describe("parsePlaybook", () => {
     expect(parsePlaybook({ schema: 0, key: "k", mapName: "de_mirage", pages: [] })).toBeNull();
     expect(
       parsePlaybook({
-        schema: 3,
+        schema: 4,
         key: "k",
         mapName: "de_mirage",
         pages: [{ id: "p" }],

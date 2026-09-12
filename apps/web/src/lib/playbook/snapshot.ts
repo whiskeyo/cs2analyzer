@@ -60,8 +60,10 @@ function isBlankStrat(page: PlaybookPage): boolean {
   return (
     page.title === UNTITLED_STRAT &&
     noteIsEmpty(page.note) &&
+    noteIsEmpty(page.lowerNote) &&
     page.body.trim() === "" &&
-    page.videos.length === 0
+    page.videos.length === 0 &&
+    page.lowerVideos.length === 0
   );
 }
 

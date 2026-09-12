@@ -33,6 +33,33 @@ export function commitTitle(value: string, fallback: string): string {
   return titled(value, fallback);
 }
 
+export type PlaybookFloorLayer = "upper" | "lower";
+
+export function playbookFloorLayer(usesLower: boolean): PlaybookFloorLayer {
+  return usesLower ? "lower" : "upper";
+}
+
+export function playbookFloorNote(page: PlaybookPage, layer: PlaybookFloorLayer): Note {
+  return layer === "lower" ? page.lowerNote : page.note;
+}
+
+export function playbookFloorVideos(
+  page: PlaybookPage,
+  layer: PlaybookFloorLayer,
+): PlaybookYouTube[] {
+  return layer === "lower" ? page.lowerVideos : page.videos;
+}
+
+/** Present one floor's drawings as the page the board / PDF still paints. */
+export function playbookPageOnFloor(page: PlaybookPage, layer: PlaybookFloorLayer): PlaybookPage {
+  return {
+    ...page,
+    floor: layer,
+    note: playbookFloorNote(page, layer),
+    videos: playbookFloorVideos(page, layer),
+  };
+}
+
 export function newPage(title = UNTITLED_STRAT, floor: FloorMode = "auto"): PlaybookPage {
   return {
     id: newId(),
@@ -41,6 +68,8 @@ export function newPage(title = UNTITLED_STRAT, floor: FloorMode = "auto"): Play
     floor,
     note: emptyNote(),
     videos: [],
+    lowerNote: emptyNote(),
+    lowerVideos: [],
   };
 }
 
@@ -127,7 +156,31 @@ export function setPageBody(book: Playbook, pageId: string, body: string): Playb
 }
 
 export function setPageVideos(book: Playbook, pageId: string, videos: PlaybookYouTube[]): Playbook {
-  return updatePage(book, pageId, (page) => ({ ...page, videos }));
+  return setPageLayerVideos(book, pageId, "upper", videos);
+}
+
+export function setPageLayerNote(
+  book: Playbook,
+  pageId: string,
+  layer: PlaybookFloorLayer,
+  note: Note,
+): Playbook {
+  return updatePage(book, pageId, (page) =>
+    layer === "lower"
+      ? { ...page, lowerNote: cloneNote(note) }
+      : { ...page, note: cloneNote(note) },
+  );
+}
+
+export function setPageLayerVideos(
+  book: Playbook,
+  pageId: string,
+  layer: PlaybookFloorLayer,
+  videos: PlaybookYouTube[],
+): Playbook {
+  return updatePage(book, pageId, (page) =>
+    layer === "lower" ? { ...page, lowerVideos: videos } : { ...page, videos },
+  );
 }
 
 export function setPageFloor(book: Playbook, pageId: string, floor: FloorMode): Playbook {
@@ -135,10 +188,7 @@ export function setPageFloor(book: Playbook, pageId: string, floor: FloorMode): 
 }
 
 export function setPageNote(book: Playbook, pageId: string, note: Note): Playbook {
-  return updatePage(book, pageId, (page) => ({
-    ...page,
-    note: cloneNote(note),
-  }));
+  return setPageLayerNote(book, pageId, "upper", note);
 }
 
 export function setActivePage(book: Playbook, pageId: string): Playbook {
@@ -170,6 +220,8 @@ export function duplicatePage(book: Playbook, pageId: string): Playbook {
     body: source.body,
     note: cloneNote(source.note),
     videos: cloneVideos(source.videos),
+    lowerNote: cloneNote(source.lowerNote),
+    lowerVideos: cloneVideos(source.lowerVideos),
   };
   const pages = book.pages.slice();
   pages.splice(index + 1, 0, copy);
@@ -212,6 +264,8 @@ export function duplicatePlaybook(book: Playbook): Playbook {
       id,
       note: cloneNote(page.note),
       videos: cloneVideos(page.videos),
+      lowerNote: cloneNote(page.lowerNote),
+      lowerVideos: cloneVideos(page.lowerVideos),
     };
   });
   const activePageId = idMap.get(book.activePageId) ?? pages[0]?.id ?? newId();

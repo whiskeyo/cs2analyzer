@@ -1,6 +1,6 @@
 import type { FloorMode, Note } from "@/lib/notes/types";
 
-export const PLAYBOOK_SCHEMA = 2;
+export const PLAYBOOK_SCHEMA = 3;
 /** Oldest playbook JSON we still migrate (no `videos` on the page). */
 export const PLAYBOOK_SCHEMA_MIN = 1;
 export const UNTITLED_STRAT = "Untitled strat";
@@ -27,8 +27,12 @@ export interface PlaybookPage {
   /** Free-form notes for this strat. */
   body: string;
   floor: FloorMode;
+  /** Drawings and tokens on the upper (or only) radar. */
   note: Note;
   videos: PlaybookYouTube[];
+  /** Drawings and tokens on the lower radar. Empty on single-level maps. */
+  lowerNote: Note;
+  lowerVideos: PlaybookYouTube[];
 }
 
 export interface Playbook {

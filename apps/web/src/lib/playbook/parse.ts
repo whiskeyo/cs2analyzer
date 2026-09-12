@@ -39,6 +39,8 @@ export function parsePlaybookPage(value: unknown): PlaybookPage | null {
   if (!id) return null;
   const note = value.note == null ? emptyNote() : parseNote(value.note);
   if (!note) return null;
+  const lowerNote = value.lowerNote == null ? emptyNote() : parseNote(value.lowerNote);
+  if (!lowerNote) return null;
   return {
     id,
     title: optionalNonEmpty(value.title) ?? UNTITLED_STRAT,
@@ -46,6 +48,8 @@ export function parsePlaybookPage(value: unknown): PlaybookPage | null {
     floor: parseFloor(value.floor),
     note,
     videos: parseVideos(value.videos),
+    lowerNote,
+    lowerVideos: parseVideos(value.lowerVideos),
   };
 }
 
