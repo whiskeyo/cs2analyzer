@@ -286,9 +286,3 @@ export function insertNoteMarkup(root: HTMLElement, text: string): void {
     sel.addRange(next);
   }
 }
-
-export function renderedNoteMarkupEquals(root: HTMLElement, text: string): boolean {
-  return (
-    serializeNoteMarkupFromElement(root) === serializeNoteMarkupLines(parseNoteMarkupLines(text))
-  );
-}
