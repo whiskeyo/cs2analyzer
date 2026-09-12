@@ -148,6 +148,7 @@ export function matchClosedNoteMarkup(before: string): {
     const innerEnd = before.length - marker.length;
     const open = before.lastIndexOf(marker, innerEnd - 1);
     if (open === -1 || open + marker.length > innerEnd) continue;
+    if (marker.length === 1 && open > 0 && before[open - 1] === marker) continue;
     const inner = before.slice(open + marker.length, innerEnd);
     if (inner === "" || inner.includes("\n") || inner.includes(marker)) continue;
     return { start: open, marker, inner, mark };
@@ -194,6 +195,38 @@ export function convertTypedNoteMarkup(root: HTMLElement): boolean {
   range.collapse(true);
   sel.removeAllRanges();
   sel.addRange(range);
+  return true;
+}
+
+const CLOSED_MARKUP =
+  /\*\*[^*\n]+\*\*|__[^_\n]+__|(?:^|[^*])\*[^*\n]+\*(?:[^*]|$)|(?:^|[^_])_[^_\n]+_(?:[^_]|$)/;
+
+export function textNodesHaveClosedMarkup(root: HTMLElement): boolean {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    const text = node.textContent ?? "";
+    if (matchClosedNoteMarkup(text) || CLOSED_MARKUP.test(text)) return true;
+    node = walker.nextNode();
+  }
+  return false;
+}
+
+function placeCaretAtEnd(root: HTMLElement) {
+  const sel = window.getSelection();
+  if (!sel) return;
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+/** If the DOM still contains raw `**…**` / `*…*` / `__…__`, paint them as styled spans. */
+export function restyleRawNoteMarkup(root: HTMLElement): boolean {
+  if (!textNodesHaveClosedMarkup(root)) return false;
+  renderNoteMarkup(root, serializeNoteMarkupFromElement(root));
+  placeCaretAtEnd(root);
   return true;
 }
 

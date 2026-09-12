@@ -4,7 +4,9 @@ import {
   insertNoteMarkup,
   noteMarkupEditorEmpty,
   renderNoteMarkup,
+  restyleRawNoteMarkup,
   serializeNoteMarkupFromElement,
+  textNodesHaveClosedMarkup,
   toggleNoteMark,
   type NoteMark,
 } from "@/lib/playbook/noteMarkupDom";
@@ -21,7 +23,7 @@ export function NoteMarkupEditor({ value, onChange }: Props) {
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    if (serializeNoteMarkupFromElement(el) === value) {
+    if (serializeNoteMarkupFromElement(el) === value && !textNodesHaveClosedMarkup(el)) {
       lastValue.current = value;
       syncEmpty(el);
       return;
@@ -61,6 +63,7 @@ export function NoteMarkupEditor({ value, onChange }: Props) {
           const el = rootRef.current;
           if (!el) return;
           convertTypedNoteMarkup(el);
+          restyleRawNoteMarkup(el);
           emit();
         }}
         onPaste={(event) => {

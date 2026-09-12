@@ -7,7 +7,9 @@ import {
   insertNoteMarkup,
   matchClosedNoteMarkup,
   renderNoteMarkup,
+  restyleRawNoteMarkup,
   serializeNoteMarkupFromElement,
+  textNodesHaveClosedMarkup,
   toggleNoteMark,
 } from "./noteMarkupDom";
 
@@ -76,6 +78,17 @@ describe("noteMarkup DOM", () => {
     expect(serializeNoteMarkupFromElement(el)).toBe("**stairs** and *flash*");
     el.remove();
   });
+
+  it("restyles a raw **bold** text node left in the DOM", () => {
+    const el = mount();
+    el.replaceChildren(document.createTextNode("go **mid** now"));
+    expect(textNodesHaveClosedMarkup(el)).toBe(true);
+    expect(restyleRawNoteMarkup(el)).toBe(true);
+    expect(el.querySelector("strong")?.textContent).toBe("mid");
+    expect(el.textContent).not.toContain("**");
+    expect(serializeNoteMarkupFromElement(el)).toBe("go **mid** now");
+    el.remove();
+  });
 });
 
 describe("matchClosedNoteMarkup", () => {
@@ -89,5 +102,6 @@ describe("matchClosedNoteMarkup", () => {
     expect(matchClosedNoteMarkup("see _late_")).toMatchObject({ marker: "_", inner: "late" });
     expect(matchClosedNoteMarkup("see **later")).toBeNull();
     expect(matchClosedNoteMarkup("cost * 2")).toBeNull();
+    expect(matchClosedNoteMarkup("**heaven*")).toBeNull();
   });
 });
