@@ -57,6 +57,7 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     session.demo?.id ?? null,
     bucketTransportRef,
     settings.defaultPlaybackSpeed,
+    settings.skipKnifeOnOpen,
   );
   const review = useReviewProject({
     demo: session.demo,

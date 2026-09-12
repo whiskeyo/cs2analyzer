@@ -34,12 +34,15 @@ export function usePlayback(
   demoId: string | null,
   freezeTransportRef?: MutableRefObject<boolean>,
   defaultSpeed: number = DEFAULT_PLAYBACK_SPEED,
+  skipKnifeOnOpen = true,
 ) {
   const [tick, setTick] = useState(0);
   const [playing, setPlayingState] = useState(false);
   const [speed, setSpeed] = useState(defaultSpeed);
   const defaultSpeedRef = useRef(defaultSpeed);
   defaultSpeedRef.current = defaultSpeed;
+  const skipKnifeOnOpenRef = useRef(skipKnifeOnOpen);
+  skipKnifeOnOpenRef.current = skipKnifeOnOpen;
   const [roundAutoplay, setRoundAutoplayState] = useState(loadRoundAutoplay);
   const [activeRound, setActiveRound] = useState<Round | null>(null);
   const tickRef = useRef(0);
@@ -189,7 +192,9 @@ export function usePlayback(
       playingRef.current = false;
       setPlayingState(false);
       const cached = getSeriesReviewTick(demoId);
-      const first = replay.rounds.find((r) => !r.is_knife) ?? replay.rounds[0];
+      const first = skipKnifeOnOpenRef.current
+        ? (replay.rounds.find((r) => !r.is_knife) ?? replay.rounds[0])
+        : replay.rounds[0];
       const land = cached ?? first?.freeze_end_tick ?? replay.ticks.ticks[0] ?? 0;
       tickRef.current = land;
       activeRoundRef.current = first ?? null;

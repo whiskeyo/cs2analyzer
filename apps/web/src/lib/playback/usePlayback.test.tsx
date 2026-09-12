@@ -95,6 +95,15 @@ describe("usePlayback", () => {
     expect(result.current.playing).toBe(false);
   });
 
+  it("opens on the knife freeze when skipKnifeOnOpen is off", () => {
+    const demo = makeDemo();
+    const { result } = renderHook(() =>
+      usePlayback(demo, "de_test|knife.dem", undefined, 1, false),
+    );
+    expect(result.current.tick).toBe(64);
+    expect(result.current.activeRound?.is_knife).toBe(true);
+  });
+
   it("applies the settings playback speed when a demo loads", () => {
     const demo = makeDemo();
     const { result, rerender } = renderHook(
@@ -105,6 +114,17 @@ describe("usePlayback", () => {
     act(() => result.current.setSpeed(8));
     rerender({ id: "b", speed: 2 });
     expect(result.current.speed).toBe(2);
+  });
+
+  it("keeps the current tick when only skipKnifeOnOpen changes", () => {
+    const demo = makeDemo();
+    const { result, rerender } = renderHook(
+      ({ skip }) => usePlayback(demo, "de_test|demo.dem", undefined, 1, skip),
+      { initialProps: { skip: true } },
+    );
+    expect(result.current.tick).toBe(264);
+    rerender({ skip: false });
+    expect(result.current.tick).toBe(264);
   });
 
   it("keeps the current speed when only the settings default changes", () => {

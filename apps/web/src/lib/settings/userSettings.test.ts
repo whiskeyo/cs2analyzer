@@ -50,6 +50,7 @@ describe("defaultUserSettings", () => {
       eventLeadInSec: DEFAULT_LEAD_IN_SEC,
       noteMomentSec: NOTE_MOMENT_SECONDS,
       habitsTrailWindowSec: SERIES_HABITS_WINDOW_SECONDS,
+      skipKnifeOnOpen: true,
       seriesMaxFiles: SERIES_MAX_FILES,
       pdfTheme: "dark",
       pdfPhotos: "with",
@@ -80,6 +81,7 @@ describe("parseUserSettings", () => {
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MAX);
     expect(parsed.eventLeadInSec).toBe(DEFAULT_LEAD_IN_SEC);
     expect(parsed.habitsTrailWindowSec).toBe(SERIES_HABITS_WINDOW_SECONDS);
+    expect(parsed.skipKnifeOnOpen).toBe(true);
     expect(parsed.pdfTheme).toBe("dark");
     expect(parsed.pdfPhotos).toBe("with");
     expect(parsed.radarGray).toBe(DEFAULT_RADAR_GRAY);
@@ -97,6 +99,7 @@ describe("parseUserSettings", () => {
       defaultColor: "",
       defaultFloorMode: "roof",
       defaultPlaybackSpeed: 3,
+      skipKnifeOnOpen: "yes",
       eventLeadInSec: 9,
       noteMomentSec: 400,
       habitsTrailWindowSec: 90,
@@ -112,6 +115,7 @@ describe("parseUserSettings", () => {
     expect(parsed.defaultColor).toBe("#ff2d6a");
     expect(parsed.defaultFloorMode).toBe("auto");
     expect(parsed.defaultPlaybackSpeed).toBe(DEFAULT_PLAYBACK_SPEED);
+    expect(parsed.skipKnifeOnOpen).toBe(true);
     expect(parsed.eventLeadInSec).toBe(5);
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MAX_SECONDS);
     expect(parsed.habitsTrailWindowSec).toBe(SERIES_HABITS_WINDOW_MAX_SECONDS);
@@ -202,5 +206,9 @@ describe("parseUserSettings", () => {
 
   it("widens sidebar to the named max", () => {
     expect(parseUserSettings({ sidebarWidth: 900 }).sidebarWidth).toBe(SIDEBAR_MAX_WIDTH);
+  });
+
+  it("keeps skipKnifeOnOpen false when stored", () => {
+    expect(parseUserSettings({ skipKnifeOnOpen: false }).skipKnifeOnOpen).toBe(false);
   });
 });

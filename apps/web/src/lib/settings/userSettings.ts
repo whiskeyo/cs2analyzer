@@ -66,6 +66,7 @@ export interface UserSettings {
   eventLeadInSec: number;
   noteMomentSec: number;
   habitsTrailWindowSec: number;
+  skipKnifeOnOpen: boolean;
   seriesMaxFiles: number;
   pdfTheme: PdfTheme;
   /** Embed full lineup photos in the Playbook PDF. Pins stay on the still either way. */
@@ -117,6 +118,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     eventLeadInSec: DEFAULT_LEAD_IN_SEC,
     noteMomentSec: NOTE_MOMENT_SECONDS,
     habitsTrailWindowSec: SERIES_HABITS_WINDOW_SECONDS,
+    skipKnifeOnOpen: true,
     seriesMaxFiles: SERIES_MAX_FILES,
     pdfTheme: DEFAULT_PDF_THEME,
     pdfPhotos: DEFAULT_PDF_PHOTOS,
@@ -163,6 +165,10 @@ function parsePdfTheme(value: unknown): PdfTheme {
 
 function parsePdfPhotos(value: unknown): PdfPhotos {
   return value === "with" || value === "without" ? value : DEFAULT_PDF_PHOTOS;
+}
+
+function parseBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function parsePlaybackSpeed(value: unknown): number {
@@ -254,6 +260,7 @@ export function parseUserSettings(raw: unknown): UserSettings {
       SERIES_HABITS_WINDOW_MAX_SECONDS,
       defaults.habitsTrailWindowSec,
     ),
+    skipKnifeOnOpen: parseBoolean(raw.skipKnifeOnOpen, defaults.skipKnifeOnOpen),
     seriesMaxFiles: parseClampedInt(
       raw.seriesMaxFiles,
       SERIES_MIN_FILES,

@@ -340,6 +340,15 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           <p className="settings-hint">
             Seconds after freeze on the aggregated habits overlay. Applies immediately.
           </p>
+          <label className="settings-check">
+            <input
+              type="checkbox"
+              checked={settings.skipKnifeOnOpen}
+              aria-label="Skip knife round when a demo loads"
+              onChange={() => void update({ skipKnifeOnOpen: !settings.skipKnifeOnOpen })}
+            />
+            Skip knife round when a demo loads
+          </label>
         </section>
 
         <section className="settings-section">
