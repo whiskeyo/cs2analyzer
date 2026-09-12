@@ -2,7 +2,6 @@
  * @vitest-environment jsdom
  */
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import { PlaybookStratPanel } from "./PlaybookStratPanel";
@@ -27,19 +26,11 @@ function panelProps(overrides: Partial<Parameters<typeof PlaybookStratPanel>[0]>
 }
 
 describe("PlaybookStratPanel", () => {
-  it("hides Export PDF until a handler is passed", () => {
+  it("shows strat notes and does not offer Export PDF", () => {
     render(<PlaybookStratPanel {...panelProps()} />);
+    expect(screen.getByRole("heading", { name: "Strat" })).toBeInTheDocument();
+    expect(screen.getByText("A exec")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Strat notes" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
-  });
-
-  it("downloads from the open book and shows a busy label", async () => {
-    const onExportPdf = vi.fn();
-    const first = render(<PlaybookStratPanel {...panelProps({ onExportPdf })} />);
-    await userEvent.click(screen.getByRole("button", { name: "Export PDF" }));
-    expect(onExportPdf).toHaveBeenCalledTimes(1);
-    first.unmount();
-
-    render(<PlaybookStratPanel {...panelProps({ onExportPdf, exportBusy: true })} />);
-    expect(screen.getByRole("button", { name: "Exporting…" })).toBeDisabled();
   });
 });

@@ -26,8 +26,6 @@ interface Props {
   onSelect: (id: string | null) => void;
   onNote: (note: Note) => void;
   note: Note;
-  onExportPdf?: () => void;
-  exportBusy?: boolean;
 }
 
 export function PlaybookStratPanel({
@@ -44,8 +42,6 @@ export function PlaybookStratPanel({
   onSelect,
   onNote,
   note,
-  onExportPdf,
-  exportBusy = false,
 }: Props) {
   const [radarOpen, setRadarOpen] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
@@ -65,19 +61,6 @@ export function PlaybookStratPanel({
     <>
       <h2>Strat</h2>
       <p className="playbook-lead">{stratTitle}</p>
-      {onExportPdf ? (
-        <div className="playbook-export-bar">
-          <button
-            type="button"
-            className="ghost"
-            disabled={exportBusy}
-            title="Download a local PDF of this playbook"
-            onClick={onExportPdf}
-          >
-            {exportBusy ? "Exporting…" : "Export PDF"}
-          </button>
-        </div>
-      ) : null}
       <PlaybookVideos
         videos={videos}
         onVideos={onVideos}
