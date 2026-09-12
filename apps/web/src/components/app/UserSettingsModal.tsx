@@ -16,6 +16,8 @@ import {
   PLAYBACK_SPEEDS,
   SAVED_NOTES_PAGE_SIZE_MAX,
   SAVED_NOTES_PAGE_SIZE_MIN,
+  SERIES_HABITS_WINDOW_MAX_SECONDS,
+  SERIES_HABITS_WINDOW_MIN_SECONDS,
   SERIES_MAX_FILES_HARD,
   SERIES_MAX_FILES_SOFT_WARN,
   SERIES_MIN_FILES,
@@ -274,7 +276,8 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <h3>Playback</h3>
           <p className="settings-hint">
-            Default speed applies when a demo loads. Lead-in and moment length apply immediately.
+            Default speed applies when a demo loads. Lead-in, moment length, and habits trail apply
+            immediately.
           </p>
           <label className="settings-field">
             <span>Default speed</span>
@@ -320,6 +323,23 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             />
             <span>s</span>
           </label>
+          <label className="settings-field">
+            <span>Habits trail</span>
+            <input
+              type="range"
+              min={SERIES_HABITS_WINDOW_MIN_SECONDS}
+              max={SERIES_HABITS_WINDOW_MAX_SECONDS}
+              step={1}
+              aria-label="Habits trail"
+              aria-valuetext={`${settings.habitsTrailWindowSec} seconds`}
+              value={settings.habitsTrailWindowSec}
+              onChange={(e) => void update({ habitsTrailWindowSec: Number(e.target.value) })}
+            />
+            <output>{settings.habitsTrailWindowSec}s</output>
+          </label>
+          <p className="settings-hint">
+            Seconds after freeze on the aggregated habits overlay. Applies immediately.
+          </p>
         </section>
 
         <section className="settings-section">

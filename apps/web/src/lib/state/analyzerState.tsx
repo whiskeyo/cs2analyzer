@@ -124,6 +124,7 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     activeDemoId: session.demo?.id ?? null,
     selectDemo: session.selectDemo,
     jump: playback.jump,
+    trailWindowSec: settings.habitsTrailWindowSec,
   });
 
   const bucketActive = isBucketOverlayActive(session.series, habits);

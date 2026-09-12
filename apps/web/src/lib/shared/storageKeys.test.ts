@@ -6,6 +6,7 @@ describe("STORAGE_KEYS", () => {
     expect(STORAGE_KEYS).toEqual({
       sidebarWidth: "cs2analyzer.sidebarWidth",
       eventLeadInSec: "cs2analyzer.eventLeadInSec",
+      seriesTrailWindowSec: "cs2analyzer.seriesTrailWindowSec",
       roundAutoplay: "cs2analyzer.roundAutoplay",
       playbookTreeWidth: "cs2analyzer.playbookTreeWidth",
       playbookDetailWidth: "cs2analyzer.playbookDetailWidth",

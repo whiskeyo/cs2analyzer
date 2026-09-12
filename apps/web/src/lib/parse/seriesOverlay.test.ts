@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import { makeGrenade, makeKill, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
 import { buildSeries, loadedDemo } from "./session";
@@ -7,6 +7,7 @@ import {
   buildSeriesOverlay,
   clampSeriesTrailWindowSec,
   filterHabitsNades,
+  loadHabitsTrailWindowSec,
   habitsArrowAtScreen,
   habitsArrowJumpTick,
   habitsNadeViewTick,
@@ -390,6 +391,22 @@ describe("clampSeriesTrailWindowSec", () => {
     expect(clampSeriesTrailWindowSec(3)).toBe(5);
     expect(clampSeriesTrailWindowSec(90)).toBe(60);
     expect(clampSeriesTrailWindowSec(Number.NaN)).toBe(20);
+  });
+});
+
+describe("loadHabitsTrailWindowSec", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads the legacy localStorage key and clamps it", () => {
+    const store = new Map<string, string>([["cs2analyzer.seriesTrailWindowSec", "30"]]);
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store.get(key) ?? null,
+    });
+    expect(loadHabitsTrailWindowSec()).toBe(30);
+    store.set("cs2analyzer.seriesTrailWindowSec", "2");
+    expect(loadHabitsTrailWindowSec()).toBe(5);
   });
 });
 

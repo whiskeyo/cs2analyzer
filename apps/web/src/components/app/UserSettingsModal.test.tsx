@@ -140,6 +140,9 @@ describe("UserSettingsModal", () => {
     fireEvent.change(screen.getByLabelText("Moment length"), {
       target: { value: "8" },
     });
+    fireEvent.change(screen.getByLabelText("Habits trail"), {
+      target: { value: "30" },
+    });
 
     await waitFor(async () => {
       const stored = await loadUserSettings();
@@ -152,6 +155,7 @@ describe("UserSettingsModal", () => {
       expect(stored.seriesMaxFiles).toBe(3);
       expect(stored.eventLeadInSec).toBe(3);
       expect(stored.noteMomentSec).toBe(8);
+      expect(stored.habitsTrailWindowSec).toBe(30);
     });
 
     unmount();
@@ -165,6 +169,7 @@ describe("UserSettingsModal", () => {
     expect(screen.getByLabelText("Max demos per drop")).toHaveValue("3");
     expect(screen.getByLabelText("Event lead-in")).toHaveValue(3);
     expect(screen.getByLabelText("Moment length")).toHaveValue(8);
+    expect(screen.getByLabelText("Habits trail")).toHaveValue("30");
     expect(screen.getByLabelText("Saved notes page size")).toHaveValue(5);
     expect(screen.getByRole("button", { name: "Dark PDF" })).toHaveAttribute(
       "aria-pressed",

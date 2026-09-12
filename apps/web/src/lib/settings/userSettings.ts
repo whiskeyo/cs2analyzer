@@ -23,6 +23,9 @@ import {
   DEFAULT_RADAR_GRAY,
   RADAR_GRAY_MAX,
   RADAR_GRAY_MIN,
+  SERIES_HABITS_WINDOW_MAX_SECONDS,
+  SERIES_HABITS_WINDOW_MIN_SECONDS,
+  SERIES_HABITS_WINDOW_SECONDS,
   SERIES_MAX_FILES,
   SERIES_MAX_FILES_HARD,
   SERIES_MIN_FILES,
@@ -62,6 +65,7 @@ export interface UserSettings {
   defaultPlaybackSpeed: number;
   eventLeadInSec: number;
   noteMomentSec: number;
+  habitsTrailWindowSec: number;
   seriesMaxFiles: number;
   pdfTheme: PdfTheme;
   /** Embed full lineup photos in the Playbook PDF. Pins stay on the still either way. */
@@ -112,6 +116,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     defaultPlaybackSpeed: DEFAULT_PLAYBACK_SPEED,
     eventLeadInSec: DEFAULT_LEAD_IN_SEC,
     noteMomentSec: NOTE_MOMENT_SECONDS,
+    habitsTrailWindowSec: SERIES_HABITS_WINDOW_SECONDS,
     seriesMaxFiles: SERIES_MAX_FILES,
     pdfTheme: DEFAULT_PDF_THEME,
     pdfPhotos: DEFAULT_PDF_PHOTOS,
@@ -242,6 +247,12 @@ export function parseUserSettings(raw: unknown): UserSettings {
       NOTE_MOMENT_MIN_SECONDS,
       NOTE_MOMENT_MAX_SECONDS,
       defaults.noteMomentSec,
+    ),
+    habitsTrailWindowSec: parseClampedInt(
+      raw.habitsTrailWindowSec,
+      SERIES_HABITS_WINDOW_MIN_SECONDS,
+      SERIES_HABITS_WINDOW_MAX_SECONDS,
+      defaults.habitsTrailWindowSec,
     ),
     seriesMaxFiles: parseClampedInt(
       raw.seriesMaxFiles,

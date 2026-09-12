@@ -28,7 +28,7 @@ function makeSeriesDemo(fileName: string) {
   return loadedDemo(replay, fileName, new File([], fileName));
 }
 
-function renderHabits(activeDemoId?: string) {
+function renderHabits(activeDemoId?: string, trailWindowSec?: number) {
   const demoA = makeSeriesDemo("a.dem");
   const demoB = makeSeriesDemo("b.dem");
   const series = buildSeries("de_mirage", [demoA, demoB], FOCAL);
@@ -43,6 +43,7 @@ function renderHabits(activeDemoId?: string) {
         activeDemoId: demoId,
         selectDemo,
         jump,
+        trailWindowSec,
       }),
     { initialProps: activeDemoId ?? demoA.id },
   );
@@ -149,5 +150,15 @@ describe("useSeriesHabits", () => {
     act(() => result.current.setPlayerKey("steam:999"));
     expect(result.current.filter.playerKey).toBe("steam:999");
     expect(result.current.playerKey).toBeNull();
+  });
+
+  it("applies the habits trail window to the overlay", () => {
+    const { result } = renderHabits(undefined, 8);
+
+    act(() => {
+      result.current.setSeriesView("aggregated");
+      result.current.selectBucketOverlay("full", "CT");
+    });
+    expect(result.current.overlay?.windowSec).toBe(8);
   });
 });
