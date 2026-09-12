@@ -6,6 +6,7 @@ import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import type { FloorMode, MapLayers } from "@/lib/notes/types";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
+import { DEFAULT_DRAW_TOOLS, type DefaultDrawTool } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import type { PdfPhotos, PdfTheme } from "@/lib/settings/userSettings";
 import {
@@ -61,6 +62,11 @@ function radarGrayValueText(amount: number): string {
   }
   return `${Math.round(amount * 100)}% gray`;
 }
+
+const DRAW_TOOL_LABELS: Record<DefaultDrawTool, string> = {
+  pan: "Pan",
+  pen: "Pen",
+};
 
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
   const { settings, update, reset } = useUserSettings();
@@ -183,8 +189,23 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <h3>Drawing</h3>
           <p className="settings-hint">
-            Defaults for new demos and new playbooks. Open notes keep their own palette.
+            Defaults for new demos and new playbooks. Open notes keep their own palette and tool.
           </p>
+          <div className="settings-field">
+            <span>Default tool</span>
+            <span className="floor-picks">
+              {DEFAULT_DRAW_TOOLS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={settings.defaultDrawTool === id ? "on" : ""}
+                  onClick={() => void update({ defaultDrawTool: id })}
+                >
+                  {DRAW_TOOL_LABELS[id]}
+                </button>
+              ))}
+            </span>
+          </div>
           <div className="settings-drawing">
             <ColorPalette
               paletteId={settings.defaultPaletteId}

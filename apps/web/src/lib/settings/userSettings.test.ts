@@ -43,6 +43,7 @@ describe("defaultUserSettings", () => {
       savedNotesPageSize: SAVED_NOTES_PAGE_SIZE,
       defaultPaletteId: "neon",
       defaultColor: "#ff2d6a",
+      defaultDrawTool: "pan",
       defaultFloorMode: "auto",
       defaultSummaryFilter: DEFAULT_SUMMARY_FILTER,
       defaultLayers: DEFAULT_LAYERS,
@@ -98,6 +99,7 @@ describe("parseUserSettings", () => {
       defaultPaletteId: "nope",
       defaultColor: "",
       defaultFloorMode: "roof",
+      defaultDrawTool: "eraser",
       defaultPlaybackSpeed: 3,
       skipKnifeOnOpen: "yes",
       eventLeadInSec: 9,
@@ -114,6 +116,7 @@ describe("parseUserSettings", () => {
     expect(parsed.defaultPaletteId).toBe("neon");
     expect(parsed.defaultColor).toBe("#ff2d6a");
     expect(parsed.defaultFloorMode).toBe("auto");
+    expect(parsed.defaultDrawTool).toBe("pan");
     expect(parsed.defaultPlaybackSpeed).toBe(DEFAULT_PLAYBACK_SPEED);
     expect(parsed.skipKnifeOnOpen).toBe(true);
     expect(parsed.eventLeadInSec).toBe(5);
@@ -162,12 +165,14 @@ describe("parseUserSettings", () => {
       habitsTrailWindowSec: 1,
       defaultPlaybackSpeed: 4,
       defaultFloorMode: "lower",
+      defaultDrawTool: "pen",
     });
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MIN);
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MIN_SECONDS);
     expect(parsed.habitsTrailWindowSec).toBe(SERIES_HABITS_WINDOW_MIN_SECONDS);
     expect(parsed.defaultPlaybackSpeed).toBe(4);
     expect(parsed.defaultFloorMode).toBe("lower");
+    expect(parsed.defaultDrawTool).toBe("pen");
   });
 
   it("merges partial layer and summary-filter objects", () => {

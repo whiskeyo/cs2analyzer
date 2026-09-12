@@ -48,6 +48,9 @@ export type PdfPhotos = (typeof PDF_PHOTO_MODES)[number];
 /** Embedded lineup stills under the radar; pins stay either way. */
 export const DEFAULT_PDF_PHOTOS: PdfPhotos = "with";
 
+export const DEFAULT_DRAW_TOOLS = ["pan", "pen"] as const;
+export type DefaultDrawTool = (typeof DEFAULT_DRAW_TOOLS)[number];
+
 const GRENADE_KINDS = Object.keys(DEFAULT_SUMMARY_FILTER.kinds) as GrenadeKind[];
 const LAYER_KEYS = Object.keys(DEFAULT_LAYERS) as (keyof MapLayers)[];
 
@@ -59,6 +62,7 @@ export interface UserSettings {
   savedNotesPageSize: number;
   defaultPaletteId: string;
   defaultColor: string;
+  defaultDrawTool: DefaultDrawTool;
   defaultFloorMode: FloorMode;
   defaultSummaryFilter: SummaryFilter;
   defaultLayers: MapLayers;
@@ -111,6 +115,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     savedNotesPageSize: SAVED_NOTES_PAGE_SIZE,
     defaultPaletteId: defaultPaletteId(),
     defaultColor: defaultColor(),
+    defaultDrawTool: "pan",
     defaultFloorMode: "auto",
     defaultSummaryFilter: cloneSummaryFilter(DEFAULT_SUMMARY_FILTER),
     defaultLayers: cloneLayers(DEFAULT_LAYERS),
@@ -165,6 +170,10 @@ function parsePdfTheme(value: unknown): PdfTheme {
 
 function parsePdfPhotos(value: unknown): PdfPhotos {
   return value === "with" || value === "without" ? value : DEFAULT_PDF_PHOTOS;
+}
+
+function parseDefaultDrawTool(value: unknown): DefaultDrawTool {
+  return value === "pan" || value === "pen" ? value : "pan";
 }
 
 function parseBoolean(value: unknown, fallback: boolean): boolean {
@@ -241,6 +250,7 @@ export function parseUserSettings(raw: unknown): UserSettings {
     ),
     defaultPaletteId: paletteId,
     defaultColor: parseColor(raw.defaultColor, preset.colors[0]),
+    defaultDrawTool: parseDefaultDrawTool(raw.defaultDrawTool),
     defaultFloorMode: parseFloorMode(raw.defaultFloorMode),
     defaultSummaryFilter: parseSummaryFilter(raw.defaultSummaryFilter),
     defaultLayers: parseLayers(raw.defaultLayers),

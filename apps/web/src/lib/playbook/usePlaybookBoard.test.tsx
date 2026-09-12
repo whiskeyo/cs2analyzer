@@ -9,7 +9,16 @@ import { newPlaybook, type PlaybookFloorLayer } from "./pages";
 import type { PlaybookPage } from "./types";
 import { usePlaybookBoard } from "./usePlaybookBoard";
 
-function setup(opts?: { floorLayer?: PlaybookFloorLayer; page?: PlaybookPage }) {
+function setup(
+  defaultToolOrOpts?:
+    | "pan"
+    | "pen"
+    | { floorLayer?: PlaybookFloorLayer; page?: PlaybookPage; defaultTool?: "pan" | "pen" },
+) {
+  const opts =
+    typeof defaultToolOrOpts === "string" || defaultToolOrOpts == null
+      ? { defaultTool: defaultToolOrOpts }
+      : defaultToolOrOpts;
   const setNote = vi.fn();
   const setPalette = vi.fn();
   const history = {
@@ -20,18 +29,28 @@ function setup(opts?: { floorLayer?: PlaybookFloorLayer; page?: PlaybookPage }) 
     redo: vi.fn(() => emptyNote()),
   };
   const book = newPlaybook("de_mirage", "A execs");
-  const page = opts?.page ?? book.pages[0]!;
-  const { result } = renderHook(() =>
-    usePlaybookBoard({
-      book,
-      page,
-      floorLayer: opts?.floorLayer,
-      history,
-      setNote,
-      setPalette,
-    }),
+  const page = opts.page ?? book.pages[0]!;
+  const { result, rerender } = renderHook(
+    ({ book: nextBook, tool, floorLayer, page: nextPage }) =>
+      usePlaybookBoard({
+        book: nextBook,
+        page: nextPage,
+        floorLayer,
+        history,
+        setNote,
+        setPalette,
+        defaultTool: tool,
+      }),
+    {
+      initialProps: {
+        book,
+        tool: opts.defaultTool,
+        floorLayer: opts.floorLayer,
+        page,
+      },
+    },
   );
-  return { result, setNote, setPalette, history, book };
+  return { result, rerender, setNote, setPalette, history, book };
 }
 
 describe("usePlaybookBoard", () => {
@@ -68,6 +87,22 @@ describe("usePlaybookBoard", () => {
     fireEvent.keyDown(window, { key: "d" });
     expect(result.current.tool).toBe("pan");
     input.remove();
+  });
+
+  it("starts a new playbook on the settings default draw tool", () => {
+    const { result } = setup("pen");
+    expect(result.current.tool).toBe("pen");
+  });
+
+  it("applies the default tool when a new playbook opens, not when the setting changes", () => {
+    const { result, rerender, book } = setup("pan");
+    fireEvent.keyDown(window, { key: "a" });
+    expect(result.current.tool).toBe("arrow");
+    rerender({ book, tool: "pen" });
+    expect(result.current.tool).toBe("arrow");
+    const next = newPlaybook("de_mirage", "B execs");
+    rerender({ book: next, tool: "pen" });
+    expect(result.current.tool).toBe("pen");
   });
 
   it("cycles palette and swatches from the open book", () => {

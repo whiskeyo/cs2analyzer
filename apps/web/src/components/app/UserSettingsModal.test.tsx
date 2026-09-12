@@ -127,6 +127,7 @@ describe("UserSettingsModal", () => {
     await userEvent.click(screen.getByRole("button", { name: "Heat" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Heat" })).toHaveClass("on"));
     await userEvent.click(screen.getByRole("button", { name: "#ff7a00" }));
+    await userEvent.click(screen.getByRole("button", { name: "Pen" }));
     await userEvent.click(screen.getByRole("button", { name: "Lower" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Names" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Heat" }));
@@ -149,6 +150,7 @@ describe("UserSettingsModal", () => {
       const stored = await loadUserSettings();
       expect(stored.defaultPaletteId).toBe("heat");
       expect(stored.defaultColor).toBe("#ff7a00");
+      expect(stored.defaultDrawTool).toBe("pen");
       expect(stored.defaultFloorMode).toBe("lower");
       expect(stored.defaultLayers.names).toBe(false);
       expect(stored.defaultLayers.heatmap).toBe(true);
@@ -165,6 +167,7 @@ describe("UserSettingsModal", () => {
     await waitFor(() => expect(screen.getByLabelText("Default speed")).toHaveValue("2"));
     expect(screen.getByRole("button", { name: "Heat" })).toHaveClass("on");
     expect(screen.getByRole("button", { name: "#ff7a00" })).toHaveClass("on");
+    expect(screen.getByRole("button", { name: "Pen" })).toHaveClass("on");
     expect(screen.getByRole("button", { name: "Lower" })).toHaveClass("on");
     expect(screen.getByRole("checkbox", { name: "Names" })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Heat" })).toBeChecked();

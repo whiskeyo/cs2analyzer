@@ -75,7 +75,11 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
       },
     },
   });
-  const view = useViewState(session.demo?.id ?? null, settings.defaultLayers);
+  const view = useViewState(
+    session.demo?.id ?? null,
+    settings.defaultLayers,
+    settings.defaultDrawTool,
+  );
 
   const [maps, setMaps] = useState<Record<string, MapCalibration>>({});
   const [layout, setLayout] = useState<MapLayout | null>(null);
