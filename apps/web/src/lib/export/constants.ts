@@ -57,9 +57,7 @@ export const PLAYBOOK_PDF_SMALL_SIZE = 10;
 export const PLAYBOOK_PDF_FOOTER_SIZE = 8;
 export const PLAYBOOK_PDF_LINE_GAP = 4;
 export const PLAYBOOK_PDF_SECTION_GAP = 16;
-/** Leave room for title + caption under the radar still. */
-export const PLAYBOOK_PDF_RADAR_MAX_PT = 420;
-/** Gap between Upper / Lower stills on a multi-level strat page. */
+/** Vertical gap between stacked Upper / Lower stills. */
 export const PLAYBOOK_PDF_FLOOR_GAP = 12;
 export const PLAYBOOK_PDF_FLOOR_LABEL_UPPER = "Upper";
 export const PLAYBOOK_PDF_FLOOR_LABEL_LOWER = "Lower";

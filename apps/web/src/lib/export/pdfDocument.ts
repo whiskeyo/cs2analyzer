@@ -17,7 +17,6 @@ import {
   PLAYBOOK_PDF_MARGIN,
   PLAYBOOK_PDF_MUTED,
   PLAYBOOK_PDF_PAGE_BG,
-  PLAYBOOK_PDF_RADAR_MAX_PT,
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
   PLAYBOOK_PDF_TITLE_SIZE,
@@ -309,16 +308,32 @@ function drawCover(writer: Writer, report: PlaybookReport): TocHit[] {
   return hits;
 }
 
-function drawOneRadar(
-  writer: Writer,
-  image: PDFImage,
-  x: number,
-  maxW: number,
-  maxH: number,
-): number {
+/** Fit-to-width slot so one or two stills fill the leftover page under the header. */
+export function playbookRadarMaxSize(
+  contentWidth: number,
+  pageBudget: number,
+  floorCount: number,
+  labeled: boolean,
+): { maxW: number; maxH: number } {
+  if (floorCount <= 0) return { maxW: contentWidth, maxH: 0 };
+  const labels = labeled ? floorCount * lineHeight(PLAYBOOK_PDF_SMALL_SIZE) : 0;
+  const gaps = Math.max(0, floorCount - 1) * PLAYBOOK_PDF_FLOOR_GAP;
+  const imgBudget = Math.max(0, pageBudget - labels - gaps - PLAYBOOK_PDF_SECTION_GAP);
+  return { maxW: contentWidth, maxH: imgBudget / floorCount };
+}
+
+export function centerOnContent(left: number, contentWidth: number, width: number): number {
+  return left + (contentWidth - width) / 2;
+}
+
+function radarPageBudget(writer: Writer): number {
+  return writer.y - writer.layout.bottom;
+}
+
+function drawCenteredRadar(writer: Writer, image: PDFImage, maxW: number, maxH: number): number {
   const dims = image.scaleToFit(maxW, maxH);
   writer.page.drawImage(image, {
-    x,
+    x: centerOnContent(writer.layout.left, writer.layout.contentWidth, dims.width),
     y: writer.y - dims.height,
     width: dims.width,
     height: dims.height,
@@ -328,53 +343,56 @@ function drawOneRadar(
 
 function drawRadars(writer: Writer, stills: EmbeddedStills | undefined): void {
   if (!stills?.upper && !stills?.lower) return;
-  if (!stills.lower) {
-    if (!stills.upper) return;
-    const dims = stills.upper.scaleToFit(writer.layout.contentWidth, PLAYBOOK_PDF_RADAR_MAX_PT);
-    ensureSpace(writer, dims.height + PLAYBOOK_PDF_SECTION_GAP);
-    drawOneRadar(
-      writer,
-      stills.upper,
-      writer.layout.left,
-      writer.layout.contentWidth,
-      PLAYBOOK_PDF_RADAR_MAX_PT,
-    );
-    writer.y -= dims.height + PLAYBOOK_PDF_SECTION_GAP;
-    return;
+  const floors: { image: PDFImage; label: string | null }[] = [];
+  if (stills.upper && stills.lower) {
+    floors.push({ image: stills.upper, label: PLAYBOOK_PDF_FLOOR_LABEL_UPPER });
+    floors.push({ image: stills.lower, label: PLAYBOOK_PDF_FLOOR_LABEL_LOWER });
+  } else if (stills.upper) {
+    floors.push({ image: stills.upper, label: null });
+  } else if (stills.lower) {
+    floors.push({ image: stills.lower, label: null });
   }
+  const labeled = floors.some((floor) => floor.label !== null);
   const labelSize = PLAYBOOK_PDF_SMALL_SIZE;
   const labelH = lineHeight(labelSize);
-  const colW = (writer.layout.contentWidth - PLAYBOOK_PDF_FLOOR_GAP) / 2;
-  const upperDims = stills.upper?.scaleToFit(colW, PLAYBOOK_PDF_RADAR_MAX_PT);
-  const lowerDims = stills.lower.scaleToFit(colW, PLAYBOOK_PDF_RADAR_MAX_PT);
-  const imgH = Math.max(upperDims?.height ?? 0, lowerDims.height);
-  ensureSpace(writer, labelH + imgH + PLAYBOOK_PDF_SECTION_GAP);
-  writer.page.drawText(PLAYBOOK_PDF_FLOOR_LABEL_UPPER, {
-    x: writer.layout.left,
-    y: writer.y - labelSize,
-    size: labelSize,
-    font: writer.fonts.regular,
-    color: writer.colors.muted,
-  });
-  writer.page.drawText(PLAYBOOK_PDF_FLOOR_LABEL_LOWER, {
-    x: writer.layout.left + colW + PLAYBOOK_PDF_FLOOR_GAP,
-    y: writer.y - labelSize,
-    size: labelSize,
-    font: writer.fonts.regular,
-    color: writer.colors.muted,
-  });
-  writer.y -= labelH;
-  if (stills.upper) {
-    drawOneRadar(writer, stills.upper, writer.layout.left, colW, PLAYBOOK_PDF_RADAR_MAX_PT);
+
+  const stackHeight = (budget: number): number => {
+    const slot = playbookRadarMaxSize(writer.layout.contentWidth, budget, floors.length, labeled);
+    let height = PLAYBOOK_PDF_SECTION_GAP;
+    floors.forEach((floor, index) => {
+      if (floor.label) height += labelH;
+      height += floor.image.scaleToFit(slot.maxW, slot.maxH).height;
+      if (index < floors.length - 1) height += PLAYBOOK_PDF_FLOOR_GAP;
+    });
+    return height;
+  };
+
+  if (writer.y - stackHeight(radarPageBudget(writer)) < writer.layout.bottom) {
+    writer.page = writer.addPage();
+    writer.y = writer.layout.top;
   }
-  drawOneRadar(
-    writer,
-    stills.lower,
-    writer.layout.left + colW + PLAYBOOK_PDF_FLOOR_GAP,
-    colW,
-    PLAYBOOK_PDF_RADAR_MAX_PT,
+  const slot = playbookRadarMaxSize(
+    writer.layout.contentWidth,
+    radarPageBudget(writer),
+    floors.length,
+    labeled,
   );
-  writer.y -= imgH + PLAYBOOK_PDF_SECTION_GAP;
+  floors.forEach((floor, index) => {
+    if (floor.label) {
+      const dims = floor.image.scaleToFit(slot.maxW, slot.maxH);
+      writer.page.drawText(floor.label, {
+        x: centerOnContent(writer.layout.left, writer.layout.contentWidth, dims.width),
+        y: writer.y - labelSize,
+        size: labelSize,
+        font: writer.fonts.regular,
+        color: writer.colors.muted,
+      });
+      writer.y -= labelH;
+    }
+    writer.y -= drawCenteredRadar(writer, floor.image, slot.maxW, slot.maxH);
+    if (index < floors.length - 1) writer.y -= PLAYBOOK_PDF_FLOOR_GAP;
+  });
+  writer.y -= PLAYBOOK_PDF_SECTION_GAP;
 }
 
 function drawStrat(

@@ -4,12 +4,22 @@ import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import { addPage, newPlaybook, setPageBody, setPageVideos } from "@/lib/playbook/pages";
 import {
+  PLAYBOOK_PDF_FLOOR_GAP,
   PLAYBOOK_PDF_FOOTER,
   PLAYBOOK_PDF_FOOTER_URL,
   PLAYBOOK_PDF_LIGHT_PAGE_BG,
+  PLAYBOOK_PDF_LINE_GAP,
   PLAYBOOK_PDF_PAGE_BG,
+  PLAYBOOK_PDF_SECTION_GAP,
+  PLAYBOOK_PDF_SMALL_SIZE,
 } from "./constants";
-import { buildPlaybookPdf, pdfSafeText, wrapPdfText } from "./pdfDocument";
+import {
+  buildPlaybookPdf,
+  centerOnContent,
+  pdfSafeText,
+  playbookRadarMaxSize,
+  wrapPdfText,
+} from "./pdfDocument";
 import { formatPlaybookExportDate, playbookReport } from "./playbookReport";
 
 const EXPORTED_AT = Date.UTC(2026, 8, 12, 15, 0, 0);
@@ -247,6 +257,19 @@ describe("buildPlaybookPdf", () => {
     const text = pdfDrawnText(bytes);
     expect(text).toContain("Upper");
     expect(text).toContain("Lower");
+  });
+
+  it("sizes stacked floors from leftover page height, not half-width columns", () => {
+    const contentWidth = 499;
+    const budget = 600;
+    const labeled = true;
+    const slot = playbookRadarMaxSize(contentWidth, budget, 2, labeled);
+    const labelH = PLAYBOOK_PDF_SMALL_SIZE + PLAYBOOK_PDF_LINE_GAP;
+    const imgBudget = budget - 2 * labelH - PLAYBOOK_PDF_FLOOR_GAP - PLAYBOOK_PDF_SECTION_GAP;
+    expect(slot.maxW).toBe(contentWidth);
+    expect(slot.maxH).toBe(imgBudget / 2);
+    expect(slot.maxH).toBeGreaterThan(contentWidth / 2);
+    expect(centerOnContent(48, contentWidth, 300)).toBe(48 + (contentWidth - 300) / 2);
   });
 
   it("still builds when a snapshot is not a PNG", async () => {
