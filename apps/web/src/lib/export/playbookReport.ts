@@ -22,10 +22,16 @@ export interface PlaybookReport {
   title: string;
   mapName: string;
   mapLabel: string;
+  /** Human map + playbook, e.g. `Nuke: default executes`. */
+  heading: string;
   exportedAt: number;
   exportedOn: string;
   fileStem: string;
   pages: PlaybookReportPage[];
+}
+
+export function playbookPdfHeading(mapLabel: string, playbookName: string): string {
+  return `${mapLabel}: ${playbookName}`;
 }
 
 /** UTC calendar day so PDF fixtures do not depend on the runner timezone. */
@@ -57,7 +63,10 @@ function clipFromVideo(clip: PlaybookYouTube): PlaybookReportClip | null {
   const stored = clip.url.trim();
   if (stored !== "") return { title: clip.title.trim(), url: stored };
   if (clip.videoId.trim() === "") return null;
-  return { title: clip.title.trim(), url: youtubeWatchUrl(clip.videoId, clip.startSeconds) };
+  return {
+    title: clip.title.trim(),
+    url: youtubeWatchUrl(clip.videoId, clip.startSeconds),
+  };
 }
 
 export function playbookReportPage(page: PlaybookPage): PlaybookReportPage {
@@ -83,6 +92,7 @@ export function playbookReport(book: Playbook, exportedAt = Date.now()): Playboo
     title: book.title,
     mapName: book.mapName,
     mapLabel,
+    heading: playbookPdfHeading(mapLabel, book.title),
     exportedAt,
     exportedOn: formatPlaybookExportDate(exportedAt),
     fileStem: playbookPdfStem(book.title, mapLabel),

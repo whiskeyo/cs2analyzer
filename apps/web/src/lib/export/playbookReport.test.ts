@@ -5,6 +5,7 @@ import { YOUTUBE_UNTITLED } from "@/lib/playbook/youtube";
 import {
   formatPlaybookExportDate,
   playbookPdfFilename,
+  playbookPdfHeading,
   playbookPdfStem,
   playbookReport,
 } from "./playbookReport";
@@ -32,6 +33,12 @@ function video(partial: {
 describe("formatPlaybookExportDate", () => {
   it("prints a UTC calendar day", () => {
     expect(formatPlaybookExportDate(EXPORTED_AT)).toBe("12 Sept 2026");
+  });
+});
+
+describe("playbookPdfHeading", () => {
+  it("joins the human map name and playbook title", () => {
+    expect(playbookPdfHeading("Nuke", "default executes")).toBe("Nuke: default executes");
   });
 });
 
@@ -77,6 +84,7 @@ describe("playbookReport", () => {
     expect(report.title).toBe("A execs");
     expect(report.mapName).toBe("de_mirage");
     expect(report.mapLabel).toBe("Mirage");
+    expect(report.heading).toBe("Mirage: A execs");
     expect(report.exportedOn).toBe("12 Sept 2026");
     expect(report.fileStem).toBe("mirage-a-execs");
     expect(playbookPdfFilename(report)).toBe("mirage-a-execs.pdf");
@@ -105,10 +113,18 @@ describe("playbookReport", () => {
     let book = newPlaybook("de_inferno", "Defaults");
     const page = book.pages[0]!;
     book = setPageVideos(book, page.id, [
-      video({ title: "Window", url: "", videoId: "dQw4w9wgxcQ", startSeconds: 30 }),
+      video({
+        title: "Window",
+        url: "",
+        videoId: "dQw4w9wgxcQ",
+        startSeconds: 30,
+      }),
     ]);
     expect(playbookReport(book, EXPORTED_AT).pages[0]?.clips).toEqual([
-      { title: "Window", url: "https://www.youtube.com/watch?v=dQw4w9wgxcQ&t=30" },
+      {
+        title: "Window",
+        url: "https://www.youtube.com/watch?v=dQw4w9wgxcQ&t=30",
+      },
     ]);
   });
 });
