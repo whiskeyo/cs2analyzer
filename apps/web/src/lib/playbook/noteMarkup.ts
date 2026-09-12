@@ -10,13 +10,43 @@ const UNDERLINE = "__";
 const ITALIC_STAR = "*";
 const ITALIC_UNDERSCORE = "_";
 
-function hasCloser(input: string, from: number, marker: string): boolean {
-  return input.indexOf(marker, from + marker.length) !== -1;
+type Marker = typeof BOLD | typeof UNDERLINE | typeof ITALIC_STAR | typeof ITALIC_UNDERSCORE;
+type MarkStyle = "bold" | "italic" | "underline";
+
+/** Longest match first so `*` / `_` never steal the first byte of `**` / `__`. */
+function markerAt(input: string, i: number): Marker | null {
+  if (input.startsWith(BOLD, i)) return BOLD;
+  if (input.startsWith(UNDERLINE, i)) return UNDERLINE;
+  if (input[i] === "*" && input[i + 1] !== "*") return ITALIC_STAR;
+  if (input[i] === "_" && input[i + 1] !== "_") return ITALIC_UNDERSCORE;
+  return null;
+}
+
+function markerStyle(marker: Marker): MarkStyle {
+  if (marker === BOLD) return "bold";
+  if (marker === UNDERLINE) return "underline";
+  return "italic";
+}
+
+function findMarker(input: string, from: number, marker: Marker): number {
+  let i = from;
+  while (i < input.length) {
+    const found = markerAt(input, i);
+    if (found === marker) return i;
+    i += found ? found.length : 1;
+  }
+  return -1;
+}
+
+function hasCloser(input: string, from: number, marker: Marker): boolean {
+  return findMarker(input, from + marker.length, marker) !== -1;
 }
 
 /**
  * Markdown-compatible subset for strat notes: `**bold**`, `*italic*` / `_italic_`,
  * and `__underline__` (not CommonMark). Markers do not nest across lines.
+ * Nested or overlapping marks become one span with combined flags — no leftover
+ * `*` / `**` / `__` in the text when the pair is closed.
  */
 export function parseNoteMarkup(input: string): NoteMarkupSpan[] {
   const spans: NoteMarkupSpan[] = [];
@@ -32,42 +62,30 @@ export function parseNoteMarkup(input: string): NoteMarkupSpan[] {
     buf = "";
   };
 
+  const isOn = (style: MarkStyle): boolean => {
+    if (style === "bold") return bold;
+    if (style === "underline") return underline;
+    return italic;
+  };
+
+  const toggle = (style: MarkStyle) => {
+    if (style === "bold") bold = !bold;
+    else if (style === "underline") underline = !underline;
+    else italic = !italic;
+  };
+
   while (i < input.length) {
-    if (input.startsWith(BOLD, i)) {
-      if (bold || hasCloser(input, i, BOLD)) {
+    const marker = markerAt(input, i);
+    if (marker) {
+      const style = markerStyle(marker);
+      if (isOn(style) || hasCloser(input, i, marker)) {
         flush();
-        bold = !bold;
-        i += BOLD.length;
+        toggle(style);
+        i += marker.length;
         continue;
       }
-      buf += BOLD;
-      i += BOLD.length;
-      continue;
-    }
-    if (input.startsWith(UNDERLINE, i)) {
-      if (underline || hasCloser(input, i, UNDERLINE)) {
-        flush();
-        underline = !underline;
-        i += UNDERLINE.length;
-        continue;
-      }
-      buf += UNDERLINE;
-      i += UNDERLINE.length;
-      continue;
-    }
-    if (input.startsWith(ITALIC_STAR, i) && (italic || hasCloser(input, i, ITALIC_STAR))) {
-      flush();
-      italic = !italic;
-      i += ITALIC_STAR.length;
-      continue;
-    }
-    if (
-      input.startsWith(ITALIC_UNDERSCORE, i) &&
-      (italic || hasCloser(input, i, ITALIC_UNDERSCORE))
-    ) {
-      flush();
-      italic = !italic;
-      i += ITALIC_UNDERSCORE.length;
+      buf += marker;
+      i += marker.length;
       continue;
     }
     buf += input[i] ?? "";
@@ -90,17 +108,31 @@ export function serializeNoteMarkup(spans: readonly NoteMarkupSpan[]): string {
   let out = "";
 
   const toggle = (next: { bold: boolean; italic: boolean; underline: boolean }) => {
-    if (next.bold !== bold) {
-      out += BOLD;
-      bold = !bold;
-    }
-    if (next.underline !== underline) {
-      out += UNDERLINE;
-      underline = !underline;
-    }
-    if (next.italic !== italic) {
+    // Close inner marks first so combined spans nest (`**__*both*__**`),
+    // not overlap (`**__*both**__*`) — the PDF parser used to leak those closers.
+    if (italic && !next.italic) {
       out += ITALIC_STAR;
-      italic = !italic;
+      italic = false;
+    }
+    if (underline && !next.underline) {
+      out += UNDERLINE;
+      underline = false;
+    }
+    if (bold && !next.bold) {
+      out += BOLD;
+      bold = false;
+    }
+    if (next.bold && !bold) {
+      out += BOLD;
+      bold = true;
+    }
+    if (next.underline && !underline) {
+      out += UNDERLINE;
+      underline = true;
+    }
+    if (next.italic && !italic) {
+      out += ITALIC_STAR;
+      italic = true;
     }
   };
 
