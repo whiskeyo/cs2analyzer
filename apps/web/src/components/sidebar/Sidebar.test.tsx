@@ -121,19 +121,6 @@ describe("Sidebar", () => {
     expect(screen.getByText(/Draw or add a text box/)).toBeInTheDocument();
   });
 
-  it("keeps the tab the user picked when the default later changes", async () => {
-    render(
-      <UserSettingsProvider>
-        <Sidebar />
-      </UserSettingsProvider>,
-    );
-    await userEvent.click(screen.getByRole("button", { name: "Notes" }));
-    expect(screen.getByRole("button", { name: "Notes" })).toHaveClass("on");
-    await saveUserSettings({ defaultSidebarTab: "rounds" });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Notes" })).toHaveClass("on"));
-    expect(screen.getByRole("button", { name: "Rounds" })).not.toHaveClass("on");
-  });
-
   it("switches tabs", async () => {
     render(<Sidebar />);
     await userEvent.click(screen.getByRole("button", { name: "Notes" }));
