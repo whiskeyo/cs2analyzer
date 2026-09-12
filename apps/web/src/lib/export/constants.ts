@@ -3,7 +3,15 @@ export const PLAYBOOK_PDF_RADAR_SIZE = 720;
 
 export const PLAYBOOK_PDF_MIME = "application/pdf";
 
-export const PLAYBOOK_PDF_FOOTER = "Exported from cs2analyzer. Drawings stay on this machine.";
+export const PLAYBOOK_PDF_FOOTER = "Exported from cs2analyzer.whiskeyo.pl";
+export const PLAYBOOK_PDF_FOOTER_URL = "https://cs2analyzer.whiskeyo.pl";
+
+/** App-like muted page fill (#10161c) — radar-adjacent, not stark white. */
+export const PLAYBOOK_PDF_PAGE_BG = { r: 16 / 255, g: 22 / 255, b: 28 / 255 } as const;
+/** App `--text` (#e8eef4). */
+export const PLAYBOOK_PDF_INK = { r: 232 / 255, g: 238 / 255, b: 244 / 255 } as const;
+/** App `--text-muted` (#8b98a5). */
+export const PLAYBOOK_PDF_MUTED = { r: 139 / 255, g: 152 / 255, b: 165 / 255 } as const;
 
 /** Fallback download stem when title and map slug to nothing. */
 export const PLAYBOOK_PDF_FILE_FALLBACK = "playbook";
@@ -19,3 +27,7 @@ export const PLAYBOOK_PDF_LINE_GAP = 4;
 export const PLAYBOOK_PDF_SECTION_GAP = 16;
 /** Leave room for title + caption under the radar still. */
 export const PLAYBOOK_PDF_RADAR_MAX_PT = 420;
+/** Gap between Upper / Lower stills on a multi-level strat page. */
+export const PLAYBOOK_PDF_FLOOR_GAP = 12;
+export const PLAYBOOK_PDF_FLOOR_LABEL_UPPER = "Upper";
+export const PLAYBOOK_PDF_FLOOR_LABEL_LOWER = "Lower";

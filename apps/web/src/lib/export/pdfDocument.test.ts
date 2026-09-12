@@ -1,9 +1,9 @@
 import { inflateSync } from "node:zlib";
-import { PDFDocument } from "pdf-lib";
+import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import { addPage, newPlaybook, setPageBody, setPageVideos } from "@/lib/playbook/pages";
-import { PLAYBOOK_PDF_FOOTER } from "./constants";
+import { PLAYBOOK_PDF_FOOTER, PLAYBOOK_PDF_FOOTER_URL, PLAYBOOK_PDF_PAGE_BG } from "./constants";
 import { buildPlaybookPdf, pdfSafeText, wrapPdfText } from "./pdfDocument";
 import { formatPlaybookExportDate, playbookReport } from "./playbookReport";
 
@@ -46,6 +46,56 @@ function pdfDrawnText(bytes: Uint8Array): string {
     }
   }
   return texts.join("\n");
+}
+
+function pdfContentHasRgb(bytes: Uint8Array, color: { r: number; g: number; b: number }): boolean {
+  const raw = Buffer.from(bytes);
+  const latin1 = raw.toString("latin1");
+  const headerRe = /\/Length\s+(\d+)[\s\S]*?stream\r?\n/g;
+  const fills = /([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+rg/g;
+  for (const match of latin1.matchAll(headerRe)) {
+    const length = Number(match[1]);
+    const start = (match.index ?? 0) + match[0].length;
+    if (!Number.isFinite(length) || start + length > raw.length) continue;
+    try {
+      const inflated = inflateSync(raw.subarray(start, start + length)).toString("latin1");
+      for (const fill of inflated.matchAll(fills)) {
+        const red = Number(fill[1]);
+        const green = Number(fill[2]);
+        const blue = Number(fill[3]);
+        if (
+          Math.abs(red - color.r) < 0.002 &&
+          Math.abs(green - color.g) < 0.002 &&
+          Math.abs(blue - color.b) < 0.002
+        ) {
+          return true;
+        }
+      }
+    } catch {
+      // image / already-raw stream
+    }
+  }
+  return false;
+}
+
+async function pdfLinkUris(bytes: Uint8Array): Promise<string[]> {
+  const loaded = await PDFDocument.load(bytes);
+  const uris: string[] = [];
+  for (const page of loaded.getPages()) {
+    const annots = page.node.Annots();
+    if (!annots) continue;
+    for (const item of annots.asArray()) {
+      const annot = page.doc.context.lookup(item);
+      if (!(annot instanceof PDFDict)) continue;
+      const actionRef = annot.get(PDFName.of("A"));
+      const action = actionRef instanceof PDFDict ? actionRef : page.doc.context.lookup(actionRef);
+      if (!(action instanceof PDFDict)) continue;
+      const uriObj = action.get(PDFName.of("URI"));
+      if (!uriObj || !("decodeText" in uriObj)) continue;
+      uris.push((uriObj as { decodeText: () => string }).decodeText());
+    }
+  }
+  return uris;
 }
 
 describe("pdfSafeText", () => {
@@ -97,7 +147,7 @@ describe("buildPlaybookPdf", () => {
       ),
     };
     const report = playbookReport(book, EXPORTED_AT);
-    const bytes = await buildPlaybookPdf(report, { [first.id]: TINY_PNG });
+    const bytes = await buildPlaybookPdf(report, { [first.id]: { upper: TINY_PNG } });
     expect(String.fromCharCode(bytes[0] ?? 0, bytes[1] ?? 0, bytes[2] ?? 0, bytes[3] ?? 0)).toBe(
       "%PDF",
     );
@@ -112,13 +162,30 @@ describe("buildPlaybookPdf", () => {
     expect(text).toContain("Smoke stairs.");
     expect(text).toContain("Window lineup");
     expect(text).toContain(PLAYBOOK_PDF_FOOTER);
+    expect(text).not.toContain("Drawings stay on this machine");
+    expect(await pdfLinkUris(bytes)).toEqual(loaded.getPages().map(() => PLAYBOOK_PDF_FOOTER_URL));
+    expect(pdfContentHasRgb(bytes, PLAYBOOK_PDF_PAGE_BG)).toBe(true);
+  });
+
+  it("paints Upper and Lower labels when both floor stills are present", async () => {
+    const book = newPlaybook("de_nuke", "Nuke execs");
+    const report = playbookReport(book, EXPORTED_AT);
+    const pageId = report.pages[0]?.id ?? "";
+    const bytes = await buildPlaybookPdf(report, {
+      [pageId]: { upper: TINY_PNG, lower: TINY_PNG },
+    });
+    const text = pdfDrawnText(bytes);
+    expect(text).toContain("Upper");
+    expect(text).toContain("Lower");
   });
 
   it("still builds when a snapshot is not a PNG", async () => {
     const book = newPlaybook("de_inferno", "Defaults");
     const report = playbookReport(book, EXPORTED_AT);
     const pageId = report.pages[0]?.id ?? "";
-    const bytes = await buildPlaybookPdf(report, { [pageId]: new Uint8Array([1, 2, 3]) });
+    const bytes = await buildPlaybookPdf(report, {
+      [pageId]: { upper: new Uint8Array([1, 2, 3]) },
+    });
     const loaded = await PDFDocument.load(bytes);
     expect(loaded.getPageCount()).toBe(2);
   });

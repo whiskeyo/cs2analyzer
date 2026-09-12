@@ -1,11 +1,18 @@
 import type { PDFFont, PDFImage, PDFPage, RGB } from "pdf-lib";
 import {
   PLAYBOOK_PDF_BODY_SIZE,
+  PLAYBOOK_PDF_FLOOR_GAP,
+  PLAYBOOK_PDF_FLOOR_LABEL_LOWER,
+  PLAYBOOK_PDF_FLOOR_LABEL_UPPER,
   PLAYBOOK_PDF_FOOTER,
   PLAYBOOK_PDF_FOOTER_SIZE,
+  PLAYBOOK_PDF_FOOTER_URL,
   PLAYBOOK_PDF_HEADING_SIZE,
+  PLAYBOOK_PDF_INK,
   PLAYBOOK_PDF_LINE_GAP,
   PLAYBOOK_PDF_MARGIN,
+  PLAYBOOK_PDF_MUTED,
+  PLAYBOOK_PDF_PAGE_BG,
   PLAYBOOK_PDF_RADAR_MAX_PT,
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
@@ -13,10 +20,16 @@ import {
 } from "./constants";
 import type { PlaybookReport, PlaybookReportPage } from "./playbookReport";
 
-export type PlaybookPdfSnapshots = Readonly<Record<string, Uint8Array>>;
+export interface PlaybookPageStills {
+  readonly upper?: Uint8Array;
+  readonly lower?: Uint8Array;
+}
+
+export type PlaybookPdfSnapshots = Readonly<Record<string, PlaybookPageStills>>;
 
 interface PdfLib {
   PDFDocument: (typeof import("pdf-lib"))["PDFDocument"];
+  PDFString: (typeof import("pdf-lib"))["PDFString"];
   StandardFonts: (typeof import("pdf-lib"))["StandardFonts"];
   PageSizes: (typeof import("pdf-lib"))["PageSizes"];
   rgb: (typeof import("pdf-lib"))["rgb"];
@@ -28,6 +41,7 @@ interface DocFonts {
 }
 
 interface Palette {
+  bg: RGB;
   ink: RGB;
   muted: RGB;
 }
@@ -42,6 +56,11 @@ interface Layout {
   contentWidth: number;
 }
 
+interface EmbeddedStills {
+  upper?: PDFImage;
+  lower?: PDFImage;
+}
+
 interface Writer {
   page: PDFPage;
   y: number;
@@ -49,6 +68,8 @@ interface Writer {
   colors: Palette;
   layout: Layout;
   footer: string;
+  footerUri: string;
+  PDFString: PdfLib["PDFString"];
   addPage: () => PDFPage;
 }
 
@@ -123,20 +144,66 @@ function makeLayout(width: number, height: number): Layout {
   };
 }
 
-function paintFooter(page: PDFPage, layout: Layout, font: PDFFont, color: RGB, text: string): void {
-  page.drawText(pdfSafeText(text), {
-    x: layout.left,
-    y: layout.bottom - PLAYBOOK_PDF_FOOTER_SIZE,
-    size: PLAYBOOK_PDF_FOOTER_SIZE,
-    font,
-    color,
+function addUriLink(
+  page: PDFPage,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  uri: string,
+  PDFString: PdfLib["PDFString"],
+): void {
+  const annot = page.doc.context.obj({
+    Type: "Annot",
+    Subtype: "Link",
+    Rect: [x, y, x + width, y + height],
+    Border: [0, 0, 0],
+    A: {
+      Type: "Action",
+      S: "URI",
+      URI: PDFString.of(uri),
+    },
   });
+  page.node.addAnnot(page.doc.context.register(annot));
+}
+
+function paintFooter(writer: Writer, page: PDFPage): void {
+  const text = pdfSafeText(writer.footer);
+  const size = PLAYBOOK_PDF_FOOTER_SIZE;
+  const x = writer.layout.left;
+  const y = writer.layout.bottom - size;
+  page.drawText(text, {
+    x,
+    y,
+    size,
+    font: writer.fonts.regular,
+    color: writer.colors.muted,
+  });
+  addUriLink(
+    page,
+    x,
+    y,
+    writer.fonts.regular.widthOfTextAtSize(text, size),
+    size + PLAYBOOK_PDF_LINE_GAP,
+    writer.footerUri,
+    writer.PDFString,
+  );
+}
+
+function paintPageChrome(writer: Writer, page: PDFPage): void {
+  page.drawRectangle({
+    x: 0,
+    y: 0,
+    width: writer.layout.width,
+    height: writer.layout.height,
+    color: writer.colors.bg,
+  });
+  paintFooter(writer, page);
 }
 
 function ensureSpace(writer: Writer, needed: number): void {
   if (writer.y - needed >= writer.layout.bottom) return;
   writer.page = writer.addPage();
-  paintFooter(writer.page, writer.layout, writer.fonts.regular, writer.colors.muted, writer.footer);
   writer.y = writer.layout.top;
 }
 
@@ -161,18 +228,29 @@ function drawGap(writer: Writer, gap = PLAYBOOK_PDF_SECTION_GAP): void {
   writer.y -= gap;
 }
 
+async function embedPng(
+  pdf: import("pdf-lib").PDFDocument,
+  bytes: Uint8Array | undefined,
+): Promise<PDFImage | undefined> {
+  if (!bytes || bytes.byteLength === 0) return undefined;
+  try {
+    return await pdf.embedPng(bytes);
+  } catch {
+    return undefined;
+  }
+}
+
 async function embedSnapshots(
   pdf: import("pdf-lib").PDFDocument,
   snapshots: PlaybookPdfSnapshots,
-): Promise<Map<string, PDFImage>> {
-  const images = new Map<string, PDFImage>();
-  for (const [id, bytes] of Object.entries(snapshots)) {
-    if (bytes.byteLength === 0) continue;
-    try {
-      images.set(id, await pdf.embedPng(bytes));
-    } catch {
-      // Skip a still that is not a PNG; the strat page still has title and notes.
-    }
+): Promise<Map<string, EmbeddedStills>> {
+  const images = new Map<string, EmbeddedStills>();
+  for (const [id, stills] of Object.entries(snapshots)) {
+    const embedded: EmbeddedStills = {
+      upper: await embedPng(pdf, stills.upper),
+      lower: await embedPng(pdf, stills.lower),
+    };
+    if (embedded.upper || embedded.lower) images.set(id, embedded);
   }
   return images;
 }
@@ -230,29 +308,81 @@ function drawCover(writer: Writer, report: PlaybookReport): void {
   );
 }
 
-function drawRadar(writer: Writer, image: PDFImage | undefined): void {
-  if (!image) return;
-  const maxW = writer.layout.contentWidth;
-  const maxH = PLAYBOOK_PDF_RADAR_MAX_PT;
+function drawOneRadar(
+  writer: Writer,
+  image: PDFImage,
+  x: number,
+  maxW: number,
+  maxH: number,
+): number {
   const dims = image.scaleToFit(maxW, maxH);
-  ensureSpace(writer, dims.height + PLAYBOOK_PDF_SECTION_GAP);
   writer.page.drawImage(image, {
-    x: writer.layout.left,
+    x,
     y: writer.y - dims.height,
     width: dims.width,
     height: dims.height,
   });
-  writer.y -= dims.height + PLAYBOOK_PDF_SECTION_GAP;
+  return dims.height;
+}
+
+function drawRadars(writer: Writer, stills: EmbeddedStills | undefined): void {
+  if (!stills?.upper && !stills?.lower) return;
+  if (!stills.lower) {
+    if (!stills.upper) return;
+    const dims = stills.upper.scaleToFit(writer.layout.contentWidth, PLAYBOOK_PDF_RADAR_MAX_PT);
+    ensureSpace(writer, dims.height + PLAYBOOK_PDF_SECTION_GAP);
+    drawOneRadar(
+      writer,
+      stills.upper,
+      writer.layout.left,
+      writer.layout.contentWidth,
+      PLAYBOOK_PDF_RADAR_MAX_PT,
+    );
+    writer.y -= dims.height + PLAYBOOK_PDF_SECTION_GAP;
+    return;
+  }
+  const labelSize = PLAYBOOK_PDF_SMALL_SIZE;
+  const labelH = lineHeight(labelSize);
+  const colW = (writer.layout.contentWidth - PLAYBOOK_PDF_FLOOR_GAP) / 2;
+  const upperDims = stills.upper?.scaleToFit(colW, PLAYBOOK_PDF_RADAR_MAX_PT);
+  const lowerDims = stills.lower.scaleToFit(colW, PLAYBOOK_PDF_RADAR_MAX_PT);
+  const imgH = Math.max(upperDims?.height ?? 0, lowerDims.height);
+  ensureSpace(writer, labelH + imgH + PLAYBOOK_PDF_SECTION_GAP);
+  writer.page.drawText(PLAYBOOK_PDF_FLOOR_LABEL_UPPER, {
+    x: writer.layout.left,
+    y: writer.y - labelSize,
+    size: labelSize,
+    font: writer.fonts.regular,
+    color: writer.colors.muted,
+  });
+  writer.page.drawText(PLAYBOOK_PDF_FLOOR_LABEL_LOWER, {
+    x: writer.layout.left + colW + PLAYBOOK_PDF_FLOOR_GAP,
+    y: writer.y - labelSize,
+    size: labelSize,
+    font: writer.fonts.regular,
+    color: writer.colors.muted,
+  });
+  writer.y -= labelH;
+  if (stills.upper) {
+    drawOneRadar(writer, stills.upper, writer.layout.left, colW, PLAYBOOK_PDF_RADAR_MAX_PT);
+  }
+  drawOneRadar(
+    writer,
+    stills.lower,
+    writer.layout.left + colW + PLAYBOOK_PDF_FLOOR_GAP,
+    colW,
+    PLAYBOOK_PDF_RADAR_MAX_PT,
+  );
+  writer.y -= imgH + PLAYBOOK_PDF_SECTION_GAP;
 }
 
 function drawStrat(
   writer: Writer,
   report: PlaybookReport,
   page: PlaybookReportPage,
-  image: PDFImage | undefined,
+  stills: EmbeddedStills | undefined,
 ): void {
   writer.page = writer.addPage();
-  paintFooter(writer.page, writer.layout, writer.fonts.regular, writer.colors.muted, writer.footer);
   writer.y = writer.layout.top;
   drawLines(
     writer,
@@ -280,7 +410,7 @@ function drawStrat(
     writer.colors.ink,
   );
   drawGap(writer, 8);
-  drawRadar(writer, image);
+  drawRadars(writer, stills);
   if (page.body !== "") {
     drawLines(
       writer,
@@ -317,33 +447,37 @@ export async function buildPlaybookPdf(
   report: PlaybookReport,
   snapshots: PlaybookPdfSnapshots = {},
 ): Promise<Uint8Array> {
-  const { PDFDocument, StandardFonts, PageSizes, rgb } = (await import("pdf-lib")) as PdfLib;
+  const { PDFDocument, PDFString, StandardFonts, PageSizes, rgb } =
+    (await import("pdf-lib")) as PdfLib;
   const pdf = await PDFDocument.create();
   const fonts: DocFonts = {
     regular: await pdf.embedFont(StandardFonts.Helvetica),
     bold: await pdf.embedFont(StandardFonts.HelveticaBold),
   };
   const colors: Palette = {
-    ink: rgb(0.09, 0.11, 0.14),
-    muted: rgb(0.38, 0.42, 0.46),
+    bg: rgb(PLAYBOOK_PDF_PAGE_BG.r, PLAYBOOK_PDF_PAGE_BG.g, PLAYBOOK_PDF_PAGE_BG.b),
+    ink: rgb(PLAYBOOK_PDF_INK.r, PLAYBOOK_PDF_INK.g, PLAYBOOK_PDF_INK.b),
+    muted: rgb(PLAYBOOK_PDF_MUTED.r, PLAYBOOK_PDF_MUTED.g, PLAYBOOK_PDF_MUTED.b),
   };
   const [pageWidth, pageHeight] = PageSizes.A4;
   const layout = makeLayout(pageWidth, pageHeight);
-  const footer = `${PLAYBOOK_PDF_FOOTER} · ${report.exportedOn}`;
   const images = await embedSnapshots(pdf, snapshots);
 
-  const addPage = () => pdf.addPage(PageSizes.A4);
-  const first = addPage();
-  paintFooter(first, layout, fonts.regular, colors.muted, footer);
-  const writer: Writer = {
-    page: first,
-    y: layout.top,
+  const writer = {
     fonts,
     colors,
     layout,
-    footer,
-    addPage,
+    footer: PLAYBOOK_PDF_FOOTER,
+    footerUri: PLAYBOOK_PDF_FOOTER_URL,
+    PDFString,
+  } as Writer;
+  writer.addPage = () => {
+    const page = pdf.addPage(PageSizes.A4);
+    paintPageChrome(writer, page);
+    return page;
   };
+  writer.page = writer.addPage();
+  writer.y = layout.top;
   drawCover(writer, report);
   for (const page of report.pages) {
     drawStrat(writer, report, page, images.get(page.id));
