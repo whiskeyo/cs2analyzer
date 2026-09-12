@@ -3,17 +3,23 @@ import { createPortal } from "react-dom";
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { NadeLegend } from "@/components/radar/NadeLegend";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
-import type { FloorMode, MapLayers } from "@/lib/notes/types";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
 import {
   DEFAULT_DRAW_TOOLS,
   DEFAULT_SIDEBAR_TABS,
-  type DefaultDrawTool,
   type DefaultSidebarTab,
 } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
-import type { PdfPhotos, PdfTheme } from "@/lib/settings/userSettings";
+import {
+  DRAW_TOOL_LABELS,
+  FLOOR_MODES,
+  LAYER_LABELS,
+  PDF_PHOTO_MODES,
+  PDF_THEME_MODES,
+  SIDEBAR_TAB_LABELS,
+  radarGrayValueText,
+} from "./userSettingsOptions";
 import {
   NOTE_MOMENT_MAX_SECONDS,
   NOTE_MOMENT_MIN_SECONDS,
@@ -30,58 +36,6 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
-
-const LAYER_LABELS: { key: keyof MapLayers; label: string }[] = [
-  { key: "grenades", label: "Nades" },
-  { key: "shots", label: "Shots" },
-  { key: "deaths", label: "Deaths" },
-  { key: "openings", label: "FK" },
-  { key: "names", label: "Names" },
-  { key: "cone", label: "Cone" },
-  { key: "heatmap", label: "Heat" },
-  { key: "summary", label: "Summary" },
-];
-
-const FLOOR_MODES: { id: FloorMode; label: string }[] = [
-  { id: "auto", label: "Auto" },
-  { id: "upper", label: "Upper" },
-  { id: "lower", label: "Lower" },
-];
-
-const PDF_THEME_MODES: { id: PdfTheme; label: string }[] = [
-  { id: "dark", label: "Dark" },
-  { id: "light", label: "Light" },
-];
-
-const PDF_PHOTO_MODES: { id: PdfPhotos; label: string }[] = [
-  { id: "with", label: "With photos" },
-  { id: "without", label: "Without photos" },
-];
-
-function radarGrayValueText(amount: number): string {
-  if (amount <= 0) {
-    return "Color";
-  }
-  if (amount >= 1) {
-    return "Gray";
-  }
-  return `${Math.round(amount * 100)}% gray`;
-}
-
-const DRAW_TOOL_LABELS: Record<DefaultDrawTool, string> = {
-  pan: "Pan",
-  pen: "Pen",
-};
-
-const SIDEBAR_TAB_LABELS: Record<DefaultSidebarTab, string> = {
-  score: "Score",
-  player: "Review",
-  notes: "Notes",
-  action: "Action",
-  util: "Utility",
-  rounds: "Rounds",
-  weapons: "Weapons",
-};
 
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
   const { settings, update, reset } = useUserSettings();

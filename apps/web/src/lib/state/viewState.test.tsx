@@ -4,6 +4,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_LAYERS } from "@/lib/notes/types";
+import type { DefaultDrawTool } from "@/lib/settings/userSettings";
 import { useViewState } from "./viewState";
 
 describe("useViewState", () => {
@@ -60,7 +61,7 @@ describe("useViewState", () => {
 
   it("keeps the current draw tool when only the settings default changes", () => {
     const { result, rerender } = renderHook(({ tool }) => useViewState("a", DEFAULT_LAYERS, tool), {
-      initialProps: { tool: "pan" as const },
+      initialProps: { tool: "pan" as DefaultDrawTool },
     });
     act(() => {
       result.current.setTool("eraser");
