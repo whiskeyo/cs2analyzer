@@ -19,7 +19,13 @@ import { consumePlaybookFocus } from "@/lib/playbook/focus";
 import { useNoteHistory } from "@/lib/playbook/history";
 import { PLAYBOOK_KEYS_HINT } from "@/lib/playbook/hotkeys";
 import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";
-import { activePage } from "@/lib/playbook/pages";
+import { playbookUsesLower } from "@/lib/playbook/paint";
+import {
+  activePage,
+  playbookFloorLayer,
+  playbookFloorNote,
+  playbookFloorVideos,
+} from "@/lib/playbook/pages";
 import { booksWithDraft } from "@/lib/playbook/tree";
 import type { Playbook as PlaybookDoc } from "@/lib/playbook/types";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
@@ -55,6 +61,7 @@ export function Playbook() {
   const [pendingPinState, setPendingPinState] = useState<{ x: number; y: number } | null>(null);
   const [collapsedMaps, setCollapsedMaps] = useState<Set<string>>(() => new Set());
   const [expandedBooks, setExpandedBooks] = useState<Set<string>>(() => new Set());
+  const openedBooksRef = useRef<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const pendingFocus = useRef(consumePlaybookFocus());
@@ -88,7 +95,12 @@ export function Playbook() {
 
   const treeWidthRef = useRef(PLAYBOOK_TREE_DEFAULT_WIDTH);
   const detailWidthRef = useRef(PLAYBOOK_DETAIL_DEFAULT_WIDTH);
+  const cal = mapName && maps ? maps[mapName] : undefined;
   const page = book ? activePage(book) : null;
+  const floorLayer = playbookFloorLayer(playbookUsesLower(cal, page?.floor ?? "auto"));
+  const floorNote = page ? playbookFloorNote(page, floorLayer) : null;
+  const floorVideos = page ? playbookFloorVideos(page, floorLayer) : [];
+  const floorPage = page ? { ...page, note: floorNote ?? page.note, videos: floorVideos } : null;
   const openVideoId = videoPageId === page?.id ? openVideoIdState : null;
   const pendingPin = videoPageId === page?.id ? pendingPinState : null;
   const setOpenVideoId = (id: string | null) => {
@@ -99,12 +111,12 @@ export function Playbook() {
     setVideoPageId(page?.id ?? null);
     setPendingPinState(at);
   };
-  const history = useNoteHistory(page?.id ?? null, page?.note ?? null);
+  const history = useNoteHistory(page ? `${page.id}:${floorLayer}` : null, floorNote);
   const board = usePlaybookBoard({
     book,
-    page,
+    page: floorPage,
     history,
-    setNote,
+    setNote: (note) => setNote(note, floorLayer),
     setPalette,
   });
   const treeResize = usePanelResize({
@@ -213,14 +225,12 @@ export function Playbook() {
   }, [allBooks, book, incomingSearch, mapName, page, query.playbook, setSearchParams]);
 
   const treeBooks = booksWithDraft(allBooks, book);
-  const treeExpandedBooks = useMemo(() => {
-    const next = new Set(expandedBooks);
-    if (activeKey) next.add(activeKey);
-    return next;
-  }, [activeKey, expandedBooks]);
-  const cal = mapName && maps ? maps[mapName] : undefined;
+  if (activeKey) openedBooksRef.current.add(activeKey);
+  const treeExpandedBooks = new Set(openedBooksRef.current);
+  for (const key of expandedBooks) treeExpandedBooks.add(key);
 
   const openBook = (row: PlaybookDoc) => {
+    setExpandedBooks((prev) => new Set(prev).add(row.key));
     setMapName(row.mapName);
     select(row.key, row.mapName);
   };
@@ -287,7 +297,7 @@ export function Playbook() {
                 <PlaybookCanvas
                   cal={cal}
                   floorMode={page.floor}
-                  note={page.note}
+                  note={floorNote ?? page.note}
                   tool={board.tool}
                   color={book.color}
                   selectedId={board.visibleSelectedId}
@@ -295,12 +305,12 @@ export function Playbook() {
                   nadeStyle={board.nadeStyle}
                   viewEpoch={board.viewEpoch}
                   legend={board.legend}
-                  videos={page.videos}
+                  videos={floorVideos}
                   selectedVideoId={openVideoId}
                   pendingPin={pendingPin}
                   onNote={board.commitNote}
                   onSelect={board.setSelectedId}
-                  onVideos={(videos) => setVideos(page.id, videos)}
+                  onVideos={(videos) => setVideos(page.id, videos, floorLayer)}
                   onOpenVideo={setOpenVideoId}
                   onPlaceYouTube={(at) => {
                     setPendingPin(at);
@@ -319,22 +329,20 @@ export function Playbook() {
             <PlaybookStratPanel
               stratTitle={page.title}
               body={page.body}
-              videos={page.videos}
+              videos={floorVideos}
               openVideoId={openVideoId}
               pendingPin={pendingPin}
               onCancelPin={() => setPendingPin(null)}
               selectedId={board.visibleSelectedId}
               onBody={(body) => setBody(page.id, body)}
               onVideos={(videos) => {
-                setVideos(page.id, videos);
+                setVideos(page.id, videos, floorLayer);
                 setPendingPin(null);
               }}
               onOpenVideo={setOpenVideoId}
               onSelect={board.setSelectedId}
               onNote={board.commitNote}
-              note={page.note}
-              onExportPdf={() => exportBook(book)}
-              exportBusy={exportingKey === book.key}
+              note={floorNote ?? page.note}
             />
           </aside>
         ) : null}
@@ -363,12 +371,17 @@ export function Playbook() {
             }}
             onOpenBook={openBook}
             onToggleBook={(key) => {
-              setExpandedBooks((prev) => {
-                const next = new Set(prev);
-                if (next.has(key)) next.delete(key);
-                else next.add(key);
-                return next;
-              });
+              const isOpen = openedBooksRef.current.has(key) || expandedBooks.has(key);
+              if (isOpen) {
+                openedBooksRef.current.delete(key);
+                setExpandedBooks((prev) => {
+                  const next = new Set(prev);
+                  next.delete(key);
+                  return next;
+                });
+                return;
+              }
+              setExpandedBooks((prev) => new Set(prev).add(key));
             }}
             onSelectStrat={openStrat}
             onCommitBookTitle={(row, title) => void commitBookTitle(row.key, title)}

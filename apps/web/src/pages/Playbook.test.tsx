@@ -7,9 +7,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { playbookHref } from "@/lib/app/playbookSearch";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
+import { emptyNote } from "@/lib/notes/note";
 import { COPY_SUFFIX, UNTITLED_STRAT } from "@/lib/playbook/types";
 import { PLAYBOOK_FOCUS_KEY, rememberPlaybookFocus } from "@/lib/playbook/focus";
-import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
+import { makePiece } from "@/lib/playbook/pieces";
+import { createPlaybook, deleteAllPlaybooks, savePlaybook } from "@/lib/playbook/playbookStore";
 import { TestRouter } from "@/lib/testing/router";
 import { Playbook } from "./Playbook";
 
@@ -30,8 +32,19 @@ vi.mock("@/lib/radar/maps", async (importOriginal) => {
 });
 
 vi.mock("@/components/playbook/PlaybookCanvas", () => ({
-  PlaybookCanvas: ({ floorMode }: { floorMode: string }) => (
-    <div data-testid="playbook-canvas" data-floor={floorMode} />
+  PlaybookCanvas: ({
+    floorMode,
+    note,
+  }: {
+    floorMode: string;
+    note: { pieces: unknown[]; drawings: unknown[] };
+  }) => (
+    <div
+      data-testid="playbook-canvas"
+      data-floor={floorMode}
+      data-pieces={String(note.pieces.length)}
+      data-drawings={String(note.drawings.length)}
+    />
   ),
 }));
 
@@ -97,28 +110,26 @@ describe("Playbook", () => {
     expect(screen.getByRole("button", { name: "Anti strats" })).toHaveClass("is-active");
   });
 
-  it("exports a local PDF from the open book and from a list row", async () => {
+  it("exports a local PDF from the playbook context menu", async () => {
     renderBoard();
     await createBookFromMap();
-    await userEvent.click(screen.getByRole("button", { name: "Export PDF" }));
+    expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
     await waitFor(() => expect(downloadPlaybookPdf).toHaveBeenCalledTimes(1));
     expect(downloadPlaybookPdf.mock.calls[0]?.[0]).toMatchObject({
       title: "Untitled playbook",
       mapName: "de_mirage",
     });
     expect(downloadPlaybookPdf.mock.calls[0]?.[1]).toBe(UNIT_CALIBRATION);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Export PDF" })).toBeEnabled());
-
-    fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
-    await waitFor(() => expect(downloadPlaybookPdf).toHaveBeenCalledTimes(2));
   });
 
   it("shows an error when playbook PDF export fails", async () => {
     downloadPlaybookPdf.mockRejectedValue(new Error("encode failed"));
     renderBoard();
     await createBookFromMap();
-    await userEvent.click(screen.getByRole("button", { name: "Export PDF" }));
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
     expect(await screen.findByText("Could not export PDF.")).toBeInTheDocument();
   });
 
@@ -182,6 +193,27 @@ describe("Playbook", () => {
     });
     fireEvent.blur(screen.getByRole("textbox", { name: "Book title" }));
     expect(screen.getByRole("button", { name: "Untitled playbook" })).toBeInTheDocument();
+  });
+
+  it("keeps the previous playbook's strats visible when another book is selected", async () => {
+    const first = await createPlaybook("de_mirage", "A execs");
+    const second = await createPlaybook("de_mirage", "B defaults");
+    await savePlaybook({
+      ...first,
+      pages: [{ ...first.pages[0]!, title: "A smoke" }],
+    });
+    await savePlaybook({
+      ...second,
+      pages: [{ ...second.pages[0]!, title: "B hold" }],
+    });
+    renderBoard();
+    await userEvent.click(await screen.findByRole("button", { name: "A execs" }));
+    expect(await screen.findByRole("button", { name: "A smoke" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "B defaults" }));
+    expect(screen.getByRole("button", { name: "B defaults" })).toHaveClass("is-active");
+    expect(screen.getByRole("button", { name: "A smoke" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "B hold" })).toBeInTheDocument();
   });
 
   it("keeps playbook order when switching the active book", async () => {
@@ -275,6 +307,33 @@ describe("Playbook", () => {
     expect(screen.queryByRole("button", { name: "Lower" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Upper" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Auto" })).not.toBeInTheDocument();
+  });
+
+  it("shows only the current floor's drawings on multi-level maps", async () => {
+    const withLower = { ...UNIT_CALIBRATION, lower_radar: "lower.png" };
+    vi.mocked(loadCalibrations).mockResolvedValue({
+      de_mirage: UNIT_CALIBRATION,
+      de_nuke: withLower,
+    });
+    const created = await createPlaybook("de_nuke", "Nuke execs");
+    const page = created.pages[0]!;
+    const upper = emptyNote();
+    upper.pieces.push(makePiece("smoke", 1, 2));
+    const lower = emptyNote();
+    lower.pieces.push(makePiece("flash", 3, 4));
+    lower.pieces.push(makePiece("he", 5, 6));
+    await savePlaybook({
+      ...created,
+      pages: [{ ...page, note: upper, lowerNote: lower }],
+    });
+    renderBoard("/playbook?map=de_nuke&playbook=Nuke+execs");
+    expect(await screen.findByTestId("playbook-canvas")).toHaveAttribute("data-pieces", "1");
+    await userEvent.click(screen.getByRole("button", { name: "Lower" }));
+    expect(screen.getByTestId("playbook-canvas")).toHaveAttribute("data-floor", "lower");
+    expect(screen.getByTestId("playbook-canvas")).toHaveAttribute("data-pieces", "2");
+    await userEvent.click(screen.getByRole("button", { name: "Upper" }));
+    expect(screen.getByTestId("playbook-canvas")).toHaveAttribute("data-floor", "upper");
+    expect(screen.getByTestId("playbook-canvas")).toHaveAttribute("data-pieces", "1");
   });
 
   it("opens a book and strat from the share URL", async () => {
