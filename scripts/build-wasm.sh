@@ -18,7 +18,9 @@ fi
 echo "Building wasm32 $PROFILE..."
 cargo build -p cs2analyzer-wasm --profile "$PROFILE" --target wasm32-unknown-unknown --manifest-path "$ROOT/Cargo.toml"
 
-if command -v wasm-opt >/dev/null 2>&1; then
+if [[ "${SKIP_WASM_OPT:-}" == "1" ]]; then
+  echo "SKIP_WASM_OPT=1; skipping post-link shrink (match CI / laptop without binaryen)"
+elif command -v wasm-opt >/dev/null 2>&1; then
   echo "Running wasm-opt..."
   wasm-opt -O3 --enable-bulk-memory --strip-debug "$TARGET" -o "$TARGET"
 else
