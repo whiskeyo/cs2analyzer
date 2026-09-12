@@ -266,17 +266,14 @@ describe("Playbook", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "On radar (0)" }));
     expect(screen.getByText(/Nothing on the radar yet/)).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("textbox", { name: "Strat notes" }), {
-      target: { value: "smoke CT, flash palace" },
-    });
-    expect(screen.getByRole("textbox", { name: "Strat notes" })).toHaveValue(
-      "smoke CT, flash palace",
-    );
+    const notes = screen.getByRole("textbox", { name: "Strat notes" });
+    await userEvent.click(notes);
+    await userEvent.paste("smoke CT, flash palace");
+    expect(notes).toHaveTextContent("smoke CT, flash palace");
     expect(screen.getByRole("textbox", { name: "YouTube link" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "YouTube" })).toBeInTheDocument();
     expect(screen.getByText(/Place a YouTube token/)).toBeInTheDocument();
     const youtube = screen.getByRole("textbox", { name: "YouTube link" });
-    const notes = screen.getByRole("textbox", { name: "Strat notes" });
     expect(youtube.compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Flash" }));
     expect(screen.getByRole("button", { name: "Flash" })).toHaveAttribute("aria-pressed", "true");

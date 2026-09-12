@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { parseNoteMarkup, wrapNoteMarkup } from "./noteMarkup";
+import {
+  normalizeNoteMarkup,
+  parseNoteMarkup,
+  parseNoteMarkupLines,
+  serializeNoteMarkup,
+  serializeNoteMarkupLines,
+  wrapNoteMarkup,
+} from "./noteMarkup";
 
 describe("parseNoteMarkup", () => {
   it("keeps plain text", () => {
@@ -39,6 +46,24 @@ describe("parseNoteMarkup", () => {
     expect(parseNoteMarkup("see **later")).toEqual([
       { text: "see **later", bold: false, italic: false, underline: false },
     ]);
+  });
+});
+
+describe("serializeNoteMarkup", () => {
+  it("round-trips styled spans and keeps unmatched markers", () => {
+    const input = "**bold** *star* _under_ __line__";
+    const spans = parseNoteMarkup(input);
+    expect(serializeNoteMarkup(spans)).toBe("**bold** *star* *under* __line__");
+    expect(parseNoteMarkup(serializeNoteMarkup(spans))).toEqual(spans);
+    expect(normalizeNoteMarkup("see **later")).toBe("see **later");
+    expect(normalizeNoteMarkup("cost * 2")).toBe("cost * 2");
+  });
+
+  it("parses and serializes each line on its own", () => {
+    const input = "hold mid\n**stairs**\n\n__late__";
+    expect(parseNoteMarkupLines(input)).toHaveLength(4);
+    expect(serializeNoteMarkupLines(parseNoteMarkupLines(input))).toBe(input);
+    expect(normalizeNoteMarkup("a\n_b_\n")).toBe("a\n*b*\n");
   });
 });
 

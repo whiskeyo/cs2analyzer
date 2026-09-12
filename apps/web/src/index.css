@@ -1355,8 +1355,16 @@ code {
   flex: 1;
   min-height: 0;
 }
-.playbook-notes-field textarea {
+.playbook-notes-field textarea,
+.playbook-notes-editor {
   min-height: 16rem;
+  flex: 1;
+}
+.playbook-notes-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 0;
   flex: 1;
 }
 .playbook-notes-toolbar {
@@ -1364,26 +1372,34 @@ code {
   flex-wrap: wrap;
   gap: 0.35rem;
 }
-.playbook-notes-hint {
-  margin: 0;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-}
-.playbook-notes-preview {
-  margin: 0;
-  padding: 0.45rem 0.5rem;
+.playbook-notes-editor {
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid #2a3848;
   border-radius: 6px;
-  background: #10161c;
+  background: var(--bg);
   color: var(--text);
+  padding: 0.4rem 0.5rem;
+  font: inherit;
   font-size: 0.82rem;
   line-height: 1.45;
+  white-space: pre-wrap;
+  overflow: auto;
+  outline: none;
 }
-.playbook-notes-preview p {
-  margin: 0 0 0.35rem;
+.playbook-notes-editor[data-empty="true"]:before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
 }
-.playbook-notes-preview p:last-child {
-  margin-bottom: 0;
+.playbook-notes-editor strong {
+  font-weight: 700;
+}
+.playbook-notes-editor em {
+  font-style: italic;
+}
+.playbook-notes-editor u {
+  text-decoration: underline;
 }
 .playbook-videos {
   display: flex;

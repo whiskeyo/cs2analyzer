@@ -77,6 +77,51 @@ export function parseNoteMarkup(input: string): NoteMarkupSpan[] {
   return spans;
 }
 
+/** Parse each line on its own so markers do not leak across `\n` (PDF does the same). */
+export function parseNoteMarkupLines(input: string): NoteMarkupSpan[][] {
+  return input.split(/\r?\n/).map((line) => parseNoteMarkup(line));
+}
+
+/** Emit `**` / `*` / `__` toggles. `_italic_` becomes `*italic*` — same parse result. */
+export function serializeNoteMarkup(spans: readonly NoteMarkupSpan[]): string {
+  let bold = false;
+  let italic = false;
+  let underline = false;
+  let out = "";
+
+  const toggle = (next: { bold: boolean; italic: boolean; underline: boolean }) => {
+    if (next.bold !== bold) {
+      out += BOLD;
+      bold = !bold;
+    }
+    if (next.underline !== underline) {
+      out += UNDERLINE;
+      underline = !underline;
+    }
+    if (next.italic !== italic) {
+      out += ITALIC_STAR;
+      italic = !italic;
+    }
+  };
+
+  for (const span of spans) {
+    if (span.text === "") continue;
+    toggle(span);
+    out += span.text;
+  }
+  toggle({ bold: false, italic: false, underline: false });
+  return out;
+}
+
+export function serializeNoteMarkupLines(lines: readonly NoteMarkupSpan[][]): string {
+  return lines.map((line) => serializeNoteMarkup(line)).join("\n");
+}
+
+/** Normalize stored notes: closed markers stay, `_italic_` becomes `*italic*`. */
+export function normalizeNoteMarkup(input: string): string {
+  return serializeNoteMarkupLines(parseNoteMarkupLines(input));
+}
+
 export function wrapNoteMarkup(
   text: string,
   start: number,
