@@ -6,6 +6,7 @@ import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import type { FloorMode, MapLayers } from "@/lib/notes/types";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
+import { LOCALES, localeEndonym, parseLocale, useMessages } from "@/lib/i18n";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import {
   NOTE_MOMENT_MAX_SECONDS,
@@ -21,26 +22,26 @@ import {
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
 
-const LAYER_LABELS: { key: keyof MapLayers; label: string }[] = [
-  { key: "grenades", label: "Nades" },
-  { key: "shots", label: "Shots" },
-  { key: "deaths", label: "Deaths" },
-  { key: "openings", label: "FK" },
-  { key: "names", label: "Names" },
-  { key: "cone", label: "Cone" },
-  { key: "heatmap", label: "Heat" },
-  { key: "summary", label: "Summary" },
-];
-
-const FLOOR_MODES: { id: FloorMode; label: string }[] = [
-  { id: "auto", label: "Auto" },
-  { id: "upper", label: "Upper" },
-  { id: "lower", label: "Lower" },
-];
-
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
   const { settings, update, reset } = useUserSettings();
+  const { messages, t } = useMessages();
+  const p = messages.preferences;
   const [confirmReset, setConfirmReset] = useState(false);
+  const layerLabels: { key: keyof MapLayers; label: string }[] = [
+    { key: "grenades", label: p.layerGrenades },
+    { key: "shots", label: p.layerShots },
+    { key: "deaths", label: p.layerDeaths },
+    { key: "openings", label: p.layerOpenings },
+    { key: "names", label: p.layerNames },
+    { key: "cone", label: p.layerCone },
+    { key: "heatmap", label: p.layerHeatmap },
+    { key: "summary", label: p.layerSummary },
+  ];
+  const floorModes: { id: FloorMode; label: string }[] = [
+    { id: "auto", label: p.floorAuto },
+    { id: "upper", label: p.floorUpper },
+    { id: "lower", label: p.floorLower },
+  ];
   const titleId = useId();
   const confirmTitleId = useId();
   const poolMax = parsePoolHardwareCap();
@@ -75,73 +76,86 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id={titleId}>Preferences</h2>
-        <p className="settings-modal-lead">
-          Stored in this browser. Reset restores shipped defaults and does not delete notes or
-          playbooks.
-        </p>
+        <h2 id={titleId}>{p.title}</h2>
+        <p className="settings-modal-lead">{p.lead}</p>
 
         <section className="settings-section">
-          <h3>Performance</h3>
+          <h3>{p.language}</h3>
           <label className="settings-field">
-            <span>Parse workers</span>
+            <span>{p.language}</span>
+            <select
+              className="settings-locale-select"
+              aria-label={p.language}
+              value={settings.locale}
+              onChange={(e) => void update({ locale: parseLocale(e.target.value) })}
+            >
+              {LOCALES.map((code) => (
+                <option key={code} value={code}>
+                  {localeEndonym(code)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+
+        <section className="settings-section">
+          <h3>{p.performance}</h3>
+          <label className="settings-field">
+            <span>{p.parseWorkers}</span>
             <input
               type="range"
               min={PARSE_POOL_MIN}
               max={poolMax}
               step={1}
               value={Math.min(settings.parsePoolMax, poolMax)}
-              aria-label="Parse workers"
+              aria-label={p.parseWorkers}
               aria-valuetext={`${Math.min(settings.parsePoolMax, poolMax)}`}
               onChange={(e) => void update({ parsePoolMax: Number(e.target.value) })}
             />
             <output>{Math.min(settings.parsePoolMax, poolMax)}</output>
           </label>
-          <p className="settings-hint">
-            Each worker loads a full demo parser in memory. Higher = faster multi-drop, lower =
-            safer on laptops. Applies on the next multi-file drop.
-          </p>
+          <p className="settings-hint">{p.parseWorkersHint}</p>
           {settings.parsePoolMax > PARSE_POOL_SOFT_WARN ? (
             <p className="settings-warn">
-              More than {PARSE_POOL_SOFT_WARN} workers can use a lot of RAM on laptops.
+              {t(p.parseWorkersWarn, { count: PARSE_POOL_SOFT_WARN })}
             </p>
           ) : null}
           <label className="settings-field">
-            <span>Max demos per drop</span>
+            <span>{p.maxDemos}</span>
             <input
               type="number"
               min={SERIES_MIN_FILES}
               max={SERIES_MAX_FILES}
-              aria-label="Max demos per drop"
+              aria-label={p.maxDemos}
               value={settings.seriesMaxFiles}
               onChange={(e) => void update({ seriesMaxFiles: Number(e.target.value) })}
             />
           </label>
-          <p className="settings-hint">Applies on the next multi-file drop.</p>
+          <p className="settings-hint">{p.maxDemosHint}</p>
         </section>
 
         <section className="settings-section">
-          <h3>Layout</h3>
+          <h3>{p.layout}</h3>
           <label className="settings-field">
-            <span>Sidebar width</span>
+            <span>{p.sidebarWidth}</span>
             <input
               type="range"
               min={SIDEBAR_MIN_WIDTH}
               max={SIDEBAR_MAX_WIDTH}
               step={8}
-              aria-label="Sidebar width"
+              aria-label={p.sidebarWidth}
               value={settings.sidebarWidth}
               onChange={(e) => void update({ sidebarWidth: Number(e.target.value) })}
             />
             <output>{settings.sidebarWidth}px</output>
           </label>
           <label className="settings-field">
-            <span>Saved notes page size</span>
+            <span>{p.savedNotesPageSize}</span>
             <input
               type="number"
               min={SAVED_NOTES_PAGE_SIZE_MIN}
               max={SAVED_NOTES_PAGE_SIZE_MAX}
-              aria-label="Saved notes page size"
+              aria-label={p.savedNotesPageSize}
               value={settings.savedNotesPageSize}
               onChange={(e) => void update({ savedNotesPageSize: Number(e.target.value) })}
             />
@@ -149,10 +163,8 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         </section>
 
         <section className="settings-section">
-          <h3>Drawing</h3>
-          <p className="settings-hint">
-            Defaults for new demos and new playbooks. Open notes keep their own palette.
-          </p>
+          <h3>{p.drawing}</h3>
+          <p className="settings-hint">{p.drawingHint}</p>
           <div className="settings-drawing">
             <ColorPalette
               paletteId={settings.defaultPaletteId}
@@ -171,12 +183,12 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         </section>
 
         <section className="settings-section">
-          <h3>Radar</h3>
-          <p className="settings-hint">Applied when a demo loads. Toolbar toggles stay per-demo.</p>
+          <h3>{p.radar}</h3>
+          <p className="settings-hint">{p.radarHint}</p>
           <div className="settings-field">
-            <span>Default floor</span>
+            <span>{p.defaultFloor}</span>
             <span className="floor-picks">
-              {FLOOR_MODES.map((mode) => (
+              {floorModes.map((mode) => (
                 <button
                   key={mode.id}
                   type="button"
@@ -189,8 +201,8 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             </span>
           </div>
           <fieldset className="settings-layers">
-            <legend>Default layers</legend>
-            {LAYER_LABELS.map((row) => (
+            <legend>{p.defaultLayers}</legend>
+            {layerLabels.map((row) => (
               <label key={row.key}>
                 <input
                   type="checkbox"
@@ -209,9 +221,10 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             ))}
           </fieldset>
           <div className="settings-summary">
-            <p className="settings-field-label">Default nade summary</p>
+            <p className="settings-field-label">{p.defaultNadeSummary}</p>
             <NadeLegend
               embedded
+              ariaLabel={p.defaultNadeSummary}
               filter={settings.defaultSummaryFilter}
               onFilter={(next) => {
                 const value =
@@ -223,14 +236,12 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         </section>
 
         <section className="settings-section">
-          <h3>Playback</h3>
-          <p className="settings-hint">
-            Default speed applies when a demo loads. Lead-in and moment length apply immediately.
-          </p>
+          <h3>{p.playback}</h3>
+          <p className="settings-hint">{p.playbackHint}</p>
           <label className="settings-field">
-            <span>Default speed</span>
+            <span>{p.defaultSpeed}</span>
             <select
-              aria-label="Default speed"
+              aria-label={p.defaultSpeed}
               value={settings.defaultPlaybackSpeed}
               onChange={(e) => void update({ defaultPlaybackSpeed: Number(e.target.value) })}
             >
@@ -242,13 +253,13 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <label className="settings-field">
-            <span>Event lead-in</span>
+            <span>{p.eventLeadIn}</span>
             <input
               type="number"
               min={MIN_LEAD_IN_SEC}
               max={MAX_LEAD_IN_SEC}
               step={0.5}
-              aria-label="Event lead-in"
+              aria-label={p.eventLeadIn}
               value={settings.eventLeadInSec}
               onChange={(e) =>
                 void update({
@@ -259,13 +270,13 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             <span>s</span>
           </label>
           <label className="settings-field">
-            <span>Moment length</span>
+            <span>{p.momentLength}</span>
             <input
               type="number"
               min={NOTE_MOMENT_MIN_SECONDS}
               max={NOTE_MOMENT_MAX_SECONDS}
               step={0.5}
-              aria-label="Moment length"
+              aria-label={p.momentLength}
               value={settings.noteMomentSec}
               onChange={(e) => void update({ noteMomentSec: Number(e.target.value) })}
             />
@@ -275,10 +286,10 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
 
         <div className="home-modal-actions">
           <button type="button" className="ghost" onClick={onClose}>
-            Close
+            {p.close}
           </button>
           <button type="button" className="danger" onClick={() => setConfirmReset(true)}>
-            Reset all settings
+            {p.resetAll}
           </button>
         </div>
       </div>
@@ -298,14 +309,11 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             aria-labelledby={confirmTitleId}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id={confirmTitleId}>Reset all settings?</h2>
-            <p>
-              This restores shipped defaults. Saved notes, linked demos, and playbooks are not
-              deleted.
-            </p>
+            <h2 id={confirmTitleId}>{p.resetTitle}</h2>
+            <p>{p.resetBody}</p>
             <div className="home-modal-actions">
               <button type="button" className="ghost" onClick={() => setConfirmReset(false)}>
-                Cancel
+                {p.cancel}
               </button>
               <button
                 type="button"
@@ -314,7 +322,7 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
                   void reset().then(() => setConfirmReset(false));
                 }}
               >
-                Reset all
+                {p.resetConfirm}
               </button>
             </div>
           </div>

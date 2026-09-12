@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { UnfocusableButton } from "./UnfocusableButton";
 
 interface Props {
@@ -34,7 +35,8 @@ function TransportIcon({ playing }: { playing: boolean }) {
 
 /** Play / pause — triangle and twin bars, same vocabulary as the round-autoplay icon. */
 export function TransportButton({ playing, onToggle }: Props) {
-  const label = playing ? "Pause" : "Play";
+  const { messages } = useMessages();
+  const label = playing ? messages.playback.pause : messages.playback.play;
   return (
     <UnfocusableButton
       className="icon-btn transport-btn"

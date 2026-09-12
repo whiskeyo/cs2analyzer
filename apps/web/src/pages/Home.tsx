@@ -2,31 +2,32 @@ import { Link } from "react-router";
 import { DemoDrop } from "@/components/app/DemoDrop";
 import { CreatePlaybookCard } from "@/components/playbook/CreatePlaybookCard";
 import { ROUTES } from "@/lib/app/routes";
-
+import { useMessages } from "@/lib/i18n";
 function HomeIntro() {
+  const { messages } = useMessages();
   return (
     <div className="home-intro">
-      <p className="home-kicker">Local-first GOTV viewer</p>
-      <h2>Watch Counter-Strike 2 demos on a 2D radar</h2>
-      <p className="home-intro-lead">
-        Drop a replay and start reviewing on this machine. Parse, playback, stats, and drawings all
-        run in the browser.
-      </p>
+      <p className="home-kicker">{messages.home.kicker}</p>
+      <h2>{messages.home.title}</h2>
+      <p className="home-intro-lead">{messages.home.lead}</p>
       <ul className="feature-list">
-        <li>Live radar, nades, tracking, and drawing.</li>
-        <li>FACEIT-style scoreboard, clutches, utility, and round history.</li>
-        <li>Habits mode: several demos, same map or mixed maps.</li>
-        <li>Kill feed, opening duels, nade summary, and CSV export.</li>
-        <li>And way more!</li>
+        <li>{messages.home.featureRadar}</li>
+        <li>{messages.home.featureScoreboard}</li>
+        <li>{messages.home.featureHabits}</li>
+        <li>{messages.home.featureKillfeed}</li>
+        <li>{messages.home.featureMore}</li>
       </ul>
     </div>
   );
 }
 
 function HomeFaqHint() {
+  const { messages, tNodes } = useMessages();
   return (
     <p className="home-faq-hint muted">
-      If you have questions, <Link to={ROUTES.faq}>see the FAQ</Link>.
+      {tNodes(messages.home.faqHint, {
+        faqLink: <Link to={ROUTES.faq}>{messages.home.faqLink}</Link>,
+      })}
     </p>
   );
 }

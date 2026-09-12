@@ -40,6 +40,10 @@ function useUserSettingsState(): UserSettingsApi {
     };
   }, []);
 
+  useEffect(() => {
+    document.documentElement.lang = settings.locale;
+  }, [settings.locale]);
+
   const update = useCallback(async (patch: Partial<UserSettings>) => {
     dirtyRef.current = true;
     const next = await saveUserSettings(patch);

@@ -1,4 +1,5 @@
 import { LAST_HIT_SECONDS, hitgroupLabel, tickRate } from "@/lib/shared/constants";
+import { t } from "@/lib/i18n";
 import type { Hurt, Replay } from "@/lib/replay/replayTypes";
 import { isEnemy } from "./combat";
 
@@ -36,13 +37,21 @@ export function lastHitTaken(replay: Replay, tick: number, victim: number): Hurt
   return best;
 }
 
-export function formatLastHit(h: Hurt | null): string | null {
+export function formatLastHitLocalized(
+  h: Hurt | null,
+  lastHit: string,
+  lastHitArmor: string,
+): string | null {
   if (!h) {
     return null;
   }
-  const line = `${hitgroupLabel(h.hitgroup)} ${MINUS}${h.damage}`;
+  const detail = `${hitgroupLabel(h.hitgroup)} ${MINUS}${h.damage}`;
   if (h.damage_armor > 0) {
-    return `Last hit: ${line} (armor ${MINUS}${h.damage_armor})`;
+    return t(lastHitArmor, { detail, armor: `${MINUS}${h.damage_armor}` });
   }
-  return `Last hit: ${line}`;
+  return t(lastHit, { detail });
+}
+
+export function formatLastHit(h: Hurt | null): string | null {
+  return formatLastHitLocalized(h, "Last hit: {detail}", "Last hit: {detail} (armor {armor})");
 }

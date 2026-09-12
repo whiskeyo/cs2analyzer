@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { NADE_WEAPON } from "@/lib/match/roundEvents";
 import { utilRowTone } from "@/lib/match/utility";
 import type { SeriesUtilThrow } from "@/lib/parse/seriesAnalysis";
@@ -14,16 +15,20 @@ interface Props {
 
 /** Cross-demo util throws for the habits bucket (optional single player). */
 export function SeriesUtilList({ rows, playerName, onJump, onClearFollow }: Props) {
-  const who = playerName ?? "Focal team";
-  const summary = `${rows.length} thrown across ${new Set(rows.map((r) => r.demoId)).size} demos`;
+  const { messages, t, tNodes } = useMessages();
+  const name = playerName ?? messages.sidebar.seriesFocalTeam;
+  const summary = t(messages.sidebar.seriesUtilThrown, {
+    count: rows.length,
+    demos: new Set(rows.map((r) => r.demoId)).size,
+  });
 
   return (
     <div className="review">
       <p className="tab-hint">
-        <strong>{who}</strong> — {summary}
+        {tNodes(messages.sidebar.seriesUtilHeader, { who: <strong>{name}</strong>, summary })}
       </p>
       {rows.length === 0 ? (
-        <p className="muted tab-hint">No nades in this bucket for the current filters.</p>
+        <p className="muted tab-hint">{messages.sidebar.seriesUtilEmpty}</p>
       ) : (
         <ul className="review-notes">
           {rows.map((row, i) => {

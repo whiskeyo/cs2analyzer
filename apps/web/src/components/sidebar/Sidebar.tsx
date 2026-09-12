@@ -1,4 +1,5 @@
 import { memo, useMemo, useState } from "react";
+import { useMessages } from "@/lib/i18n";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
@@ -24,17 +25,17 @@ type Tab = "score" | "player" | "notes" | "action" | "util" | "rounds" | "weapon
 
 const DEMO_ONLY_TABS: Tab[] = ["score", "notes", "rounds", "weapons"];
 
-const TAB_LABEL: Record<Tab, string> = {
-  score: "Score",
-  player: "Review",
-  notes: "Notes",
-  action: "Action",
-  util: "Utility",
-  rounds: "Rounds",
-  weapons: "Weapons",
-};
-
 export const Sidebar = memo(function Sidebar() {
+  const { messages } = useMessages();
+  const tabLabel: Record<Tab, string> = {
+    score: messages.sidebar.tabScore,
+    player: messages.sidebar.tabReview,
+    notes: messages.sidebar.tabNotes,
+    action: messages.sidebar.tabAction,
+    util: messages.sidebar.tabUtility,
+    rounds: messages.sidebar.tabRounds,
+    weapons: messages.sidebar.tabWeapons,
+  };
   const { session, playback, review, view, places, habits } = useApp();
   const { settings, update } = useUserSettings();
   const replay = session.replay;
@@ -71,7 +72,7 @@ export const Sidebar = memo(function Sidebar() {
       void update({ sidebarWidth: next });
     },
     stageSelector: ".stage",
-    label: "Resize side panel",
+    label: messages.sidebar.resize,
   });
 
   if (!replay) return null;
@@ -87,10 +88,10 @@ export const Sidebar = memo(function Sidebar() {
               type="button"
               className={activeTab === id ? "on" : ""}
               disabled={tabDisabled(id)}
-              title={tabDisabled(id) ? "Not available in aggregated view" : undefined}
+              title={tabDisabled(id) ? messages.sidebar.tabDisabledAggregated : undefined}
               onClick={() => setTab(id)}
             >
-              {TAB_LABEL[id]}
+              {tabLabel[id]}
             </button>
           ),
         )}
@@ -164,9 +165,7 @@ export const Sidebar = memo(function Sidebar() {
           <WeaponTable replay={replay} tick={tick} selected={selected} onSelect={onSelect} />
         )}
         {selected == null && activeTab === "score" && (
-          <p className="muted tab-hint">
-            Click a player for full stats. Click again on the map to deselect.
-          </p>
+          <p className="muted tab-hint">{messages.sidebar.hintSelectPlayer}</p>
         )}
         {activeTab === "score" && selected != null && (
           <RatingHint replay={replay} tick={tick} selected={selected} />
@@ -188,45 +187,46 @@ function WeaponTable({
   selected: number | null;
   onSelect: (index: number | null) => void;
 }) {
+  const { messages } = useMessages();
   const [allGame, setAllGame] = useState(true);
   const until = allGame ? matchEndTick(replay) : tick;
   const weapons = weaponBreakdown(replay, until, selected);
   return (
     <div>
       <p className="muted tab-hint">
-        {selected != null ? replay.players[selected]?.name : "Select a player or view match totals"}
+        {selected != null ? replay.players[selected]?.name : messages.sidebar.weaponsHint}
         {selected != null && (
           <>
             {" "}
             <button type="button" className="link" onClick={() => onSelect(null)}>
-              (all)
+              {messages.sidebar.weaponsAll}
             </button>
           </>
         )}
       </p>
-      <div className="filters" role="toolbar" aria-label="Weapons range">
+      <div className="filters" role="toolbar" aria-label={messages.sidebar.weaponsRange}>
         <button
           type="button"
           className={`filter${allGame ? "" : " on"}`}
           onClick={() => setAllGame(false)}
         >
-          Until now
+          {messages.sidebar.untilNow}
         </button>
         <button
           type="button"
           className={`filter${allGame ? " on" : ""}`}
           onClick={() => setAllGame(true)}
         >
-          All game
+          {messages.sidebar.allGame}
         </button>
       </div>
       <table>
         <thead>
           <tr>
-            <th>Weapon</th>
-            <th>K</th>
-            <th>HS</th>
-            <th>DMG</th>
+            <th>{messages.sidebar.colWeapon}</th>
+            <th>{messages.sidebar.colKills}</th>
+            <th>{messages.sidebar.colHeadshots}</th>
+            <th>{messages.sidebar.colDamage}</th>
           </tr>
         </thead>
         <tbody>
@@ -256,10 +256,13 @@ function RatingHint({
   tick: number;
   selected: number;
 }) {
+  const { messages, t } = useMessages();
   const stats = computeStats(replay, tick);
   return (
     <p className="muted tab-hint">
-      {stats.find((s) => s.player === selected)?.rating.toFixed(2)} rating through this tick
+      {t(messages.sidebar.ratingThroughTick, {
+        rating: stats.find((s) => s.player === selected)?.rating.toFixed(2) ?? "",
+      })}
     </p>
   );
 }

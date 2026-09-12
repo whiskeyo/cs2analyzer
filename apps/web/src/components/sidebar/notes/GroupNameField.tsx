@@ -1,5 +1,6 @@
 import { NOTE_GROUP_NAME_MAX } from "@/lib/shared/constants";
 import { useEditableName } from "@/lib/shared/useEditableName";
+import { useMessages } from "@/lib/i18n";
 import { groupLabel, renameGroup } from "@/lib/notes";
 import type { Note } from "@/lib/notes/types";
 
@@ -14,6 +15,7 @@ export function GroupNameField({
   note: Note;
   onNote: (next: Note) => void;
 }) {
+  const { messages } = useMessages();
   const shown = groupLabel(groupName);
   const { draft, editing, beginEdit, setDraft, commit, onKeyDown } = useEditableName(
     shown,
@@ -25,7 +27,7 @@ export function GroupNameField({
     return (
       <span
         className="note-group-name"
-        title="Double-click to rename"
+        title={messages.sidebar.renameHint}
         onDoubleClick={(e) => {
           e.stopPropagation();
           e.preventDefault();
@@ -42,7 +44,7 @@ export function GroupNameField({
       className="note-group-name"
       value={draft}
       maxLength={NOTE_GROUP_NAME_MAX}
-      aria-label="Layer name"
+      aria-label={messages.sidebar.layerName}
       draggable={false}
       autoFocus
       onChange={(e) => setDraft(e.target.value)}

@@ -8,6 +8,7 @@ import type { Replay } from "@/lib/replay/replayTypes";
 import { useNavigate } from "react-router";
 import { ROUTES, usePathname } from "@/lib/app/devNavigate";
 import { isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
+import { useMessages } from "@/lib/i18n";
 import { SettingsMenu } from "./SettingsMenu";
 import { SiteNav } from "./SiteNav";
 
@@ -29,6 +30,7 @@ export function Header() {
   const onFaq = isFaqPath(pathname);
   const onPlaybook = isPlaybookPath(pathname);
   const showMatchChrome = replay != null && !onFaq && !onLayouts && !onPlaybook;
+  const { messages, t } = useMessages();
 
   return (
     <header className="top">
@@ -40,7 +42,7 @@ export function Header() {
             session.close();
             navigate(ROUTES.home);
           }}
-          aria-label="Home"
+          aria-label={messages.header.homeAria}
         >
           <img
             className="brand-mark"
@@ -49,14 +51,13 @@ export function Header() {
             height={28}
             alt=""
           />
-          <h1>CS2 Analyzer</h1>
+          <h1>{messages.header.brand}</h1>
         </button>
         <SiteNav />
         <span className="pre-release" tabIndex={0}>
-          [pre-release testing]
+          {messages.header.preRelease}
           <span className="pre-release-tip" role="tooltip">
-            Changes may not be backward compatible. Notes saved in this browser might stop working
-            after newer versions.
+            {messages.header.preReleaseTip}
           </span>
         </span>
         {onLayouts ? (
@@ -71,15 +72,18 @@ export function Header() {
         ) : replay && showMatchChrome ? (
           <span className="file-meta">
             {prettyMap(replay.header.map_name)}
-            {session.fileName ? ` · ${session.fileName}` : ""} · {replay.kills.length} kills ·{" "}
-            {replay.grenades.length} nades
+            {session.fileName ? ` · ${session.fileName}` : ""} ·{" "}
+            {t(messages.headerMeta.match, {
+              kills: replay.kills.length,
+              nades: replay.grenades.length,
+            })}
           </span>
         ) : null}
       </div>
       <div className="top-actions">
         {replay && showMatchChrome ? (
           <button type="button" className="ghost" onClick={session.close}>
-            New demo
+            {messages.header.newDemo}
           </button>
         ) : null}
         {replay && showMatchChrome ? (
@@ -87,10 +91,10 @@ export function Header() {
             type="button"
             className="ghost"
             disabled={aggregated}
-            title={aggregated ? "Export CSV is per-demo; switch off Aggregated" : undefined}
+            title={aggregated ? messages.header.exportCsvAggregatedTitle : undefined}
             onClick={() => downloadCsv(replay, session.fileName)}
           >
-            Export CSV
+            {messages.header.exportCsv}
           </button>
         ) : null}
         <SettingsMenu />

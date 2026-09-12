@@ -1,4 +1,5 @@
 import { memo, useCallback, useRef, useState } from "react";
+import { useMessages } from "@/lib/i18n";
 import { tickRate } from "@/lib/shared/constants";
 import { noteForRound, roundBookmarkMarks } from "@/lib/notes";
 import {
@@ -116,6 +117,7 @@ export const Controls = memo(function Controls({
   onRoundAutoplay,
   activeRound,
 }: Props) {
+  const { messages, t } = useMessages();
   const send = useSendPlaybackCommand();
   const round = activeRound ?? currentRound(replay, tick);
   const fallback = {
@@ -160,13 +162,19 @@ export const Controls = memo(function Controls({
   const freezeLeft =
     round && tick < round.freeze_end_tick ? (round.freeze_end_tick - tick) / tps : 0;
   const clock = inFreeze
-    ? `Freeze ${freezeLeft.toFixed(1)}s`
+    ? t(messages.playback.freezeClock, { seconds: freezeLeft.toFixed(1) })
     : formatClock(Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps));
   const marks = round ? roundTimelineMarks(round, tps, activeRange) : [];
   const bookmarks = round
     ? roundBookmarkMarks(noteForRound(notes, round.number), round, activeRange)
     : [];
-  const eventMarks = round ? roundScrubEventMarks(replay, round, activeRange) : [];
+  const eventMarks = round
+    ? roundScrubEventMarks(replay, round, activeRange, {
+        planted: messages.timeline.bombPlanted,
+        defused: messages.timeline.bombDefused,
+        exploded: messages.timeline.bombExploded,
+      })
+    : [];
   const freezeAt = round ? freezeWidth(round, activeRange) : 0;
   const span = activeRange.max - activeRange.min;
   const progress =
@@ -182,44 +190,47 @@ export const Controls = memo(function Controls({
     <div className="controls">
       <TransportButton playing={playing} onToggle={onTogglePlay} />
       <UnfocusableButton
-        title="Previous round ([)"
+        title={messages.playback.prevRound}
         onClick={() => send({ type: "jump-round", dir: -1 })}
       >
         ◀ R
       </UnfocusableButton>
       <UnfocusableButton
-        title="Next round (])"
+        title={messages.playback.nextRound}
         onClick={() => send({ type: "jump-round", dir: 1 })}
       >
         R ▶
       </UnfocusableButton>
       <UnfocusableButton
-        title="Previous kill (,)"
+        title={messages.playback.prevKill}
         onClick={() => send({ type: "jump-kill", dir: -1 })}
       >
         ◀ K
       </UnfocusableButton>
-      <UnfocusableButton title="Next kill (.)" onClick={() => send({ type: "jump-kill", dir: 1 })}>
+      <UnfocusableButton
+        title={messages.playback.nextKill}
+        onClick={() => send({ type: "jump-kill", dir: 1 })}
+      >
         K ▶
       </UnfocusableButton>
-      <UnfocusableButton title="Step back" onClick={() => step(-1)}>
+      <UnfocusableButton title={messages.playback.stepBack} onClick={() => step(-1)}>
         −
       </UnfocusableButton>
-      <UnfocusableButton title="Step forward" onClick={() => step(1)}>
+      <UnfocusableButton title={messages.playback.stepForward} onClick={() => step(1)}>
         +
       </UnfocusableButton>
       {inFreeze && round && (
         <UnfocusableButton
-          title="Skip freeze (Home)"
+          title={messages.playback.skipFreezeTitle}
           onClick={() => {
             onJump(round.freeze_end_tick);
           }}
         >
-          Skip freeze
+          {messages.playback.skipFreeze}
         </UnfocusableButton>
       )}
       <label className="speed">
-        Speed
+        {messages.playback.speed}
         <select
           value={speed}
           onChange={(e) => {
@@ -256,7 +267,7 @@ export const Controls = memo(function Controls({
             type="range"
             min={activeRange.min}
             max={activeRange.max}
-            aria-label="Round timeline"
+            aria-label={messages.playback.roundTimeline}
             value={Math.min(activeRange.max, Math.max(activeRange.min, tick))}
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture(e.pointerId);
@@ -338,21 +349,18 @@ export const Controls = memo(function Controls({
       </div>
       <div className="clock-wrap">
         <span className="clock">
-          {round ? (round.is_knife ? "Knife" : `R${round.number}`) : "—"} {clock}
+          {round
+            ? round.is_knife
+              ? messages.playback.knife
+              : t(messages.hud.roundNumber, { number: round.number })
+            : "—"}{" "}
+          {clock}
         </span>
         <button
           type="button"
           className={`icon-btn round-autoplay${roundAutoplay ? " on" : ""}`}
-          title={
-            roundAutoplay
-              ? "Round autoplay on — continue to the next round"
-              : "Round autoplay off — stop at the end of each round"
-          }
-          aria-label={
-            roundAutoplay
-              ? "Round autoplay on — continue to the next round"
-              : "Round autoplay off — stop at the end of each round"
-          }
+          title={roundAutoplay ? messages.playback.autoplayOn : messages.playback.autoplayOff}
+          aria-label={roundAutoplay ? messages.playback.autoplayOn : messages.playback.autoplayOff}
           aria-pressed={roundAutoplay}
           onClick={() => onRoundAutoplay(!roundAutoplay)}
         >

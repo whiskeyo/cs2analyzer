@@ -97,11 +97,12 @@ describe("userSettingsStore indexedDB", () => {
   it("reset restores shipped defaults and leaves notes and playbooks", async () => {
     await saveProject(project());
     await createPlaybook("de_mirage", "Defaults");
-    await saveUserSettings({ sidebarWidth: 560, eventLeadInSec: 4 });
+    await saveUserSettings({ sidebarWidth: 560, eventLeadInSec: 4, locale: "pl" });
 
     const reset = await resetUserSettings();
     expect(reset.sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
     expect(reset.eventLeadInSec).toBe(defaultUserSettings().eventLeadInSec);
+    expect(reset.locale).toBe("en");
     expect((await loadUserSettings()).sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
     expect(await countProjects()).toBe(1);
     expect(await countPlaybooks()).toBe(1);

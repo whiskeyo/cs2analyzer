@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MutableRefObject, RefObject } from "react";
+import { useMessages } from "@/lib/i18n";
 import { NOTE_TEXT_MIN_HEIGHT, NOTE_TEXT_MIN_WIDTH } from "@/lib/shared/constants";
 import { addDrawing } from "@/lib/playbook/drawings";
 import { removeItems, type NoteItemRef } from "@/lib/notes/noteGroups";
@@ -224,6 +225,7 @@ export function TextNoteEditor({
   onTextKeyDown,
   setEditing,
 }: EditorProps) {
+  const { messages } = useMessages();
   return (
     <div
       ref={editWrapRef}
@@ -233,7 +235,7 @@ export function TextNoteEditor({
     >
       <div
         className="radar-text-edit-grip"
-        title="Drag to move"
+        title={messages.textNote.dragToMove}
         onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -254,7 +256,7 @@ export function TextNoteEditor({
         ref={editAreaRef}
         className="radar-text-edit"
         value={editing.text}
-        placeholder="Note"
+        placeholder={messages.textNote.placeholder}
         rows={2}
         autoFocus
         style={{

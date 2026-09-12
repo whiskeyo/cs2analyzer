@@ -1,8 +1,8 @@
+import { bombEventLabel, nadeLabel, useMessages, winReasonText } from "@/lib/i18n";
 import { tickRate } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { useMemo, useState } from "react";
 import {
-  BOMB_LABEL,
   BOMB_WEAPON,
   clampLeadInSec,
   DEFAULT_LEAD_IN_SEC,
@@ -11,7 +11,6 @@ import {
   jumpBefore,
   MAX_LEAD_IN_SEC,
   MIN_LEAD_IN_SEC,
-  NADE_LABEL,
   NADE_WEAPON,
   roundClock,
   type RoundEvent,
@@ -21,7 +20,6 @@ import { currentRound } from "@/lib/replay/sample";
 import { currentSide } from "@/lib/stats/stats";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
-import { winReasonLabel } from "@/lib/weapons/weapons";
 
 interface Props {
   replay: Replay;
@@ -42,6 +40,7 @@ export function RoundList({
   leadInSec = DEFAULT_LEAD_IN_SEC,
   onLeadInSecChange,
 }: Props) {
+  const { messages, t } = useMessages();
   const live = activeRound ?? currentRound(replay, tick);
   const liveStart = live?.start_tick;
   const [override, setOverride] = useState<Map<number, boolean>>(() => new Map());
@@ -85,7 +84,7 @@ export function RoundList({
   return (
     <div className="round-panel">
       <label className="lead-in">
-        Lead-in
+        {messages.sidebar.leadIn}
         <input
           type="number"
           min={MIN_LEAD_IN_SEC}
@@ -111,7 +110,9 @@ export function RoundList({
                   type="button"
                   className="round-toggle"
                   aria-expanded={expanded}
-                  aria-label={expanded ? "Collapse round" : "Expand round"}
+                  aria-label={
+                    expanded ? messages.sidebar.collapseRound : messages.sidebar.expandRound
+                  }
                   onClick={() => toggle(r.start_tick)}
                 >
                   {expanded ? "▾" : "▸"}
@@ -127,10 +128,12 @@ export function RoundList({
                   <span
                     className={`pill ${r.winner === "CT" ? "ct" : r.winner === "T" ? "t" : ""}`}
                   >
-                    {r.is_knife ? "Knife" : `R${r.number}`}
+                    {r.is_knife
+                      ? messages.hud.knife
+                      : t(messages.hud.roundNumber, { number: r.number })}
                   </span>
                   <span className="round-meta">
-                    {r.winner ?? "—"} · {winReasonLabel(r.win_reason)}
+                    {r.winner ?? "—"} · {winReasonText(messages, r.win_reason)}
                     <span className="round-counts">
                       {kills}k · {nades}n{bombs > 0 ? ` · ${bombs}b` : ""}
                     </span>
@@ -143,7 +146,7 @@ export function RoundList({
               {expanded && (
                 <ul className="round-events">
                   {events.length === 0 ? (
-                    <li className="round-empty">No kills, nades, or bomb events</li>
+                    <li className="round-empty">{messages.sidebar.noRoundEvents}</li>
                   ) : (
                     events.map((e, i) => {
                       const next = events[i + 1];
@@ -198,6 +201,7 @@ function KillLine({
   event: Extract<RoundEvent, { kind: "kill" }>;
   tick: number;
 }) {
+  const { messages } = useMessages();
   return (
     <span className="round-event-body">
       <span className={`name ${sideClass(replay, event.attacker, tick)}`}>
@@ -210,7 +214,7 @@ function KillLine({
             className="headshot-icon"
             src={publicUrl("weapons/headshot.svg")}
             alt=""
-            title="Headshot"
+            title={messages.killfeed.headshot}
           />
         )}
       </span>
@@ -230,15 +234,17 @@ function NadeLine({
   event: Extract<RoundEvent, { kind: "nade" }>;
   tick: number;
 }) {
+  const { messages } = useMessages();
+  const label = nadeLabel(messages, event.nade);
   return (
     <span className="round-event-body">
       <span className={`name ${sideClass(replay, event.thrower, tick)}`}>
         {playerName(replay, event.thrower)}
       </span>
       <span className="gun">
-        <WeaponIcon weapon={NADE_WEAPON[event.nade]} title={NADE_LABEL[event.nade]} />
+        <WeaponIcon weapon={NADE_WEAPON[event.nade]} title={label} />
       </span>
-      <span className={`nade-kind ${event.nade}`}>{NADE_LABEL[event.nade]}</span>
+      <span className={`nade-kind ${event.nade}`}>{label}</span>
     </span>
   );
 }
@@ -252,8 +258,11 @@ function BombLine({
   event: Extract<RoundEvent, { kind: "bomb" }>;
   tick: number;
 }) {
+  const { messages } = useMessages();
   const label =
-    event.bomb === "begin_defuse" && event.haskit ? "Defusing (kit)" : BOMB_LABEL[event.bomb];
+    event.bomb === "begin_defuse" && event.haskit
+      ? messages.sidebar.defusingKit
+      : bombEventLabel(messages, event.bomb);
   return (
     <span className="round-event-body">
       <span className={`name ${sideClass(replay, event.player, tick)}`}>

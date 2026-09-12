@@ -1,12 +1,12 @@
 import { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router";
 import { playbookHref } from "@/lib/app/playbookSearch";
+import { useMessages } from "@/lib/i18n";
 import { emitPlaybooksChanged } from "@/lib/playbook/events";
 import { rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";
 import { activePage } from "@/lib/playbook/pages";
 import { createPlaybook } from "@/lib/playbook/playbookStore";
-import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
 import { loadCalibrations } from "@/lib/radar/maps";
 import { errorMessage } from "@/lib/validate/json.ts";
 import { prettyMap } from "@/lib/weapons/weapons";
@@ -16,6 +16,7 @@ interface Props {
 }
 
 export function CreatePlaybookDialog({ onClose }: Props) {
+  const { messages } = useMessages();
   const titleId = useId();
   const navigate = useNavigate();
   const [maps, setMaps] = useState<string[] | null>(null);
@@ -67,7 +68,7 @@ export function CreatePlaybookDialog({ onClose }: Props) {
       );
       onClose();
     } catch (err: unknown) {
-      setError(errorMessage(err) || "Could not create playbook");
+      setError(errorMessage(err) || messages.playbook.createError);
     } finally {
       setSaving(false);
     }
@@ -82,13 +83,13 @@ export function CreatePlaybookDialog({ onClose }: Props) {
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id={titleId}>New playbook</h2>
-        <p>Pick a map and name the book. Opens an empty strat on that radar.</p>
+        <h2 id={titleId}>{messages.playbook.dialogTitle}</h2>
+        <p>{messages.playbook.dialogLead}</p>
         <div className="home-create-fields">
           <label className="playbook-field">
-            Map
+            {messages.playbook.fieldMap}
             <select
-              aria-label="Map"
+              aria-label={messages.playbook.fieldMap}
               value={mapName}
               disabled={maps == null}
               onChange={(e) => setMapName(e.target.value)}
@@ -101,11 +102,11 @@ export function CreatePlaybookDialog({ onClose }: Props) {
             </select>
           </label>
           <label className="playbook-field">
-            Playbook title
+            {messages.playbook.fieldBookTitle}
             <input
-              aria-label="Playbook title"
+              aria-label={messages.playbook.fieldBookTitle}
               value={title}
-              placeholder={UNTITLED_PLAYBOOK}
+              placeholder={messages.playbook.untitledBook}
               onChange={(e) => setTitle(e.target.value)}
             />
           </label>
@@ -113,10 +114,10 @@ export function CreatePlaybookDialog({ onClose }: Props) {
         {error ? <p className="error">{error}</p> : null}
         <div className="home-modal-actions">
           <button type="button" className="ghost" onClick={onClose}>
-            Cancel
+            {messages.preferences.cancel}
           </button>
           <button type="button" disabled={saving || !mapName} onClick={() => void create()}>
-            Create
+            {messages.playbook.createSubmit}
           </button>
         </div>
       </div>

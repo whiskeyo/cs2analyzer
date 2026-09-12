@@ -1,5 +1,6 @@
 import { parseJson } from "@/lib/validate/json.ts";
 import { isFiniteNumber, isRecord } from "@/lib/validate/guards.ts";
+import { en, t, type Messages } from "@/lib/i18n";
 import { downloadBlob } from "@/lib/shared/download";
 import { isPlaybookSchema, parsePlaybook } from "./parse";
 import { loadAllPlaybooks, savePlaybook } from "./playbookStore";
@@ -60,26 +61,34 @@ export function parsePlaybookBundle(value: unknown): PlaybookBundle | null {
   return { schema: PLAYBOOK_BUNDLE_SCHEMA, exportedAt: 0, playbooks: [single] };
 }
 
-export async function exportPlaybooks(): Promise<TransferResult> {
+function counted(one: string, other: string, count: number): string {
+  return count === 1 ? one : t(other, { count });
+}
+
+export async function exportPlaybooks(messages: Messages = en): Promise<TransferResult> {
   try {
     const playbooks = await loadAllPlaybooks();
     if (playbooks.length === 0) {
-      return { ok: false, message: "No playbooks in this browser yet." };
+      return { ok: false, message: messages.notice.noPlaybooksYet };
     }
     downloadBlob(PLAYBOOK_EXPORT_FILE, "application/json", serializePlaybookBundle(playbooks));
-    const n = playbooks.length;
     return {
       ok: true,
-      message: `Exported ${n} playbook${n === 1 ? "" : "s"}.`,
+      message: counted(
+        messages.notice.exportedPlaybooksOne,
+        messages.notice.exportedPlaybooksOther,
+        playbooks.length,
+      ),
     };
   } catch {
-    return { ok: false, message: "Could not export playbooks." };
+    return { ok: false, message: messages.notice.exportPlaybooksFailed };
   }
 }
 
 export async function commitPlaybookImport(
   bundle: PlaybookBundle,
   choices: ImportChoices = {},
+  messages: Messages = en,
 ): Promise<TransferResult> {
   try {
     const existing = await loadAllPlaybooks();
@@ -88,26 +97,32 @@ export async function commitPlaybookImport(
       await savePlaybook(book);
     }
     emitPlaybooksChanged();
-    const n = books.length;
     return {
       ok: true,
-      message: `Imported ${n} playbook${n === 1 ? "" : "s"}.`,
+      message: counted(
+        messages.notice.importedPlaybooksOne,
+        messages.notice.importedPlaybooksOther,
+        books.length,
+      ),
     };
   } catch {
-    return { ok: false, message: "Could not import playbooks." };
+    return { ok: false, message: messages.notice.importPlaybooksFailed };
   }
 }
 
-export async function importPlaybooksFromText(text: string): Promise<TransferResult> {
+export async function importPlaybooksFromText(
+  text: string,
+  messages: Messages = en,
+): Promise<TransferResult> {
   let raw: unknown;
   try {
     raw = parseJson(text);
   } catch {
-    return { ok: false, message: "Playbook file is not valid JSON." };
+    return { ok: false, message: messages.notice.playbooksNotJson };
   }
   const bundle = parsePlaybookBundle(raw);
   if (!bundle) {
-    return { ok: false, message: "Playbook file has no valid books." };
+    return { ok: false, message: messages.notice.playbooksEmptyFile };
   }
   try {
     const existing = await loadAllPlaybooks();
@@ -115,13 +130,13 @@ export async function importPlaybooksFromText(text: string): Promise<TransferRes
     if (conflicts.length > 0) {
       return {
         ok: false,
-        message: "Import has playbooks that already exist. Choose replace or rename.",
+        message: messages.notice.playbookImportConflicts,
         conflicts,
         bundle,
       };
     }
-    return commitPlaybookImport(bundle);
+    return commitPlaybookImport(bundle, {}, messages);
   } catch {
-    return { ok: false, message: "Could not import playbooks." };
+    return { ok: false, message: messages.notice.importPlaybooksFailed };
   }
 }

@@ -40,8 +40,21 @@ describe("useUserSettings", () => {
     expect(result.current.settings.sidebarWidth).toBe(560);
 
     await act(async () => {
+      await result.current.update({ locale: "pl" });
+    });
+    expect(result.current.settings.locale).toBe("pl");
+
+    await act(async () => {
       await result.current.reset();
     });
     expect(result.current.settings.sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
+    expect(result.current.settings.locale).toBe("en");
+  });
+
+  it("sets document lang from settings.locale", async () => {
+    await saveUserSettings({ locale: "pl" });
+    const { result } = renderHook(() => useUserSettings(), { wrapper });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(document.documentElement.lang).toBe("pl");
   });
 });

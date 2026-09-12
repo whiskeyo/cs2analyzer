@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PieceList } from "@/components/playbook/PieceList";
 import { PlaybookVideos } from "@/components/playbook/PlaybookVideos";
+import { useMessages } from "@/lib/i18n";
 import type { Note } from "@/lib/notes/types";
 import type { PlaybookYouTube } from "@/lib/playbook/types";
 import {
@@ -43,6 +44,7 @@ export function PlaybookStratPanel({
   onNote,
   note,
 }: Props) {
+  const { messages, t } = useMessages();
   const [radarOpen, setRadarOpen] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const rows = overlayRows(note);
@@ -59,7 +61,7 @@ export function PlaybookStratPanel({
 
   return (
     <>
-      <h2>Strat</h2>
+      <h2>{messages.playbook.stratHeading}</h2>
       <p className="playbook-lead">{stratTitle}</p>
       <PlaybookVideos
         videos={videos}
@@ -70,12 +72,12 @@ export function PlaybookStratPanel({
         onCancelPin={onCancelPin}
       />
       <label className="playbook-field playbook-notes-field">
-        Strat notes
+        {messages.playbook.stratNotes}
         <textarea
-          aria-label="Strat notes"
+          aria-label={messages.playbook.stratNotes}
           rows={12}
           value={body}
-          placeholder="Callouts, timings, utility…"
+          placeholder={messages.playbook.stratNotesPlaceholder}
           onChange={(e) => onBody(e.target.value)}
         />
       </label>
@@ -86,7 +88,7 @@ export function PlaybookStratPanel({
           aria-expanded={radarOpen}
           onClick={() => setRadarOpen((open) => !open)}
         >
-          On radar ({count})
+          {t(messages.playbook.onRadar, { count })}
         </button>
         {radarOpen ? (
           <div className="playbook-radar-panel">
@@ -100,7 +102,7 @@ export function PlaybookStratPanel({
                   setPicked(new Set());
                 }}
               >
-                Group selected
+                {messages.playbook.groupSelected}
               </button>
             </div>
             <PieceList

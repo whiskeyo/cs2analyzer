@@ -16,7 +16,7 @@ import type { ImportChoices, ImportConflict } from "@/lib/playbook/merge";
 import { ImportMergeDialog } from "@/components/playbook/ImportMergeDialog";
 import { RemoveConfirmDialog, type RemoveKind } from "./RemoveConfirmDialog";
 import { UserSettingsModal } from "./UserSettingsModal";
-
+import { useMessages } from "@/lib/i18n";
 function GearIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -31,6 +31,7 @@ function GearIcon() {
 /** Gear menu: notes and playbook import/export, plus the confirm/merge dialogs. */
 export function SettingsMenu() {
   const { session, review, onFiles } = useApp();
+  const { messages } = useMessages();
   const replay = session.replay;
   const canExportNotes = replay != null || review.saved.length > 0;
   const canRemoveNotes = review.saved.length > 0;
@@ -103,7 +104,7 @@ export function SettingsMenu() {
         <button
           type="button"
           className="ghost settings-toggle"
-          aria-label="Settings"
+          aria-label={messages.settings.aria}
           aria-expanded={settingsOpen}
           aria-controls={settingsOpen ? "app-settings-menu" : undefined}
           onClick={() => setSettingsOpen((open) => !open)}
@@ -113,7 +114,7 @@ export function SettingsMenu() {
         {settingsOpen ? (
           <div className="settings-menu" id="app-settings-menu">
             <div className="settings-menu-section">
-              <p className="settings-menu-label">App</p>
+              <p className="settings-menu-label">{messages.settings.app}</p>
               <button
                 type="button"
                 className="ghost"
@@ -125,11 +126,11 @@ export function SettingsMenu() {
                   setPrefsOpen(true);
                 }}
               >
-                Preferences
+                {messages.settings.preferences}
               </button>
             </div>
             <div className="settings-menu-section">
-              <p className="settings-menu-label">Notes</p>
+              <p className="settings-menu-label">{messages.settings.notes}</p>
               <button
                 type="button"
                 className="ghost"
@@ -139,7 +140,7 @@ export function SettingsMenu() {
                   void review.exportNotes();
                 }}
               >
-                Export notes
+                {messages.settings.exportNotes}
               </button>
               <ImportNotesButton
                 onFile={(file) => {
@@ -157,17 +158,17 @@ export function SettingsMenu() {
                   setRemoveConfirm("");
                 }}
               >
-                Remove notes
+                {messages.settings.removeNotes}
               </button>
             </div>
             <div className="settings-menu-section">
-              <p className="settings-menu-label">Playbook</p>
+              <p className="settings-menu-label">{messages.settings.playbook}</p>
               <button
                 type="button"
                 className="ghost"
                 disabled={playbookCount === 0}
                 onClick={() => {
-                  void exportPlaybooks().then((result) => {
+                  void exportPlaybooks(messages).then((result) => {
                     if (result.ok) {
                       setPlaybookFlashError(null);
                       setPlaybookFlash(result.message);
@@ -178,27 +179,27 @@ export function SettingsMenu() {
                   });
                 }}
               >
-                Export playbooks
+                {messages.settings.exportPlaybooks}
               </button>
               <button
                 type="button"
                 className="ghost"
                 onClick={() => playbookImportRef.current?.click()}
               >
-                Import playbooks
+                {messages.settings.importPlaybooks}
               </button>
               <input
                 ref={playbookImportRef}
                 type="file"
                 accept=".json,application/json"
                 hidden
-                aria-label="Import playbooks file"
+                aria-label={messages.settings.importPlaybooksFile}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   e.target.value = "";
                   if (!file) return;
                   void file.text().then(async (text) => {
-                    const result = await importPlaybooksFromText(text);
+                    const result = await importPlaybooksFromText(text, messages);
                     if (result.ok) {
                       setPlaybookFlashError(null);
                       setPlaybookFlash(result.message);
@@ -223,7 +224,7 @@ export function SettingsMenu() {
                   setRemoveConfirm("");
                 }}
               >
-                Remove all playbooks
+                {messages.settings.removePlaybooks}
               </button>
               {playbookFlash ? <p className="settings-menu-flash">{playbookFlash}</p> : null}
               {playbookFlashError ? (
@@ -232,7 +233,7 @@ export function SettingsMenu() {
             </div>
             {import.meta.env.DEV && !onLayouts ? (
               <div className="settings-menu-section">
-                <p className="settings-menu-label">Development</p>
+                <p className="settings-menu-label">{messages.settings.development}</p>
                 <button
                   type="button"
                   className="ghost"
@@ -241,7 +242,7 @@ export function SettingsMenu() {
                     navigate(ROUTES.layouts);
                   }}
                 >
-                  Layouts editor
+                  {messages.settings.layoutsEditor}
                 </button>
               </div>
             ) : null}
@@ -279,7 +280,7 @@ export function SettingsMenu() {
           onConfirm={(choices: ImportChoices) => {
             const bundle = importMerge.bundle;
             setImportMerge(null);
-            void commitPlaybookImport(bundle, choices).then(async (result) => {
+            void commitPlaybookImport(bundle, choices, messages).then(async (result) => {
               if (result.ok) {
                 setPlaybookFlashError(null);
                 setPlaybookFlash(result.message);

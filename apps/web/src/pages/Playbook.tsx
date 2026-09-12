@@ -14,9 +14,9 @@ import { PlaybookEmpty } from "@/components/playbook/PlaybookEmpty";
 import { PlaybookStratPanel } from "@/components/playbook/PlaybookStratPanel";
 import { PlaybookTree } from "@/components/playbook/PlaybookTree";
 import { TokenPalette } from "@/components/playbook/TokenPalette";
+import { useMessages } from "@/lib/i18n";
 import { consumePlaybookFocus } from "@/lib/playbook/focus";
 import { useNoteHistory } from "@/lib/playbook/history";
-import { PLAYBOOK_KEYS_HINT } from "@/lib/playbook/hotkeys";
 import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";
 import { activePage } from "@/lib/playbook/pages";
 import { booksWithDraft } from "@/lib/playbook/tree";
@@ -40,6 +40,7 @@ import { errorMessage } from "@/lib/validate/json.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
 export function Playbook() {
+  const { messages } = useMessages();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchKey = searchParams.toString();
   const query = useMemo(() => parsePlaybookQuery(searchKey), [searchKey]);
@@ -111,7 +112,7 @@ export function Playbook() {
     defaultWidth: PLAYBOOK_TREE_DEFAULT_WIDTH,
     stageSelector: ".playbook",
     extraReserved: () => (page ? detailWidthRef.current : 0),
-    label: "Resize playbook tree",
+    label: messages.playbook.resizeTree,
   });
   const detailResize = usePanelResize({
     storageKey: PLAYBOOK_DETAIL_WIDTH_STORAGE_KEY,
@@ -120,7 +121,7 @@ export function Playbook() {
     defaultWidth: PLAYBOOK_DETAIL_DEFAULT_WIDTH,
     stageSelector: ".playbook",
     extraReserved: () => treeWidthRef.current,
-    label: "Resize strat panel",
+    label: messages.playbook.resizePanel,
   });
   treeWidthRef.current = treeResize.width;
   detailWidthRef.current = detailResize.width;
@@ -321,8 +322,8 @@ export function Playbook() {
         ) : null}
         <aside className="playbook-sidebar playbook-tree-pane" style={{ width: treeResize.width }}>
           <div {...treeResize.handleProps} />
-          <h2>Playbooks</h2>
-          <p className="playbook-lead">Maps, then named books. Drawings stay on this machine.</p>
+          <h2>{messages.playbook.treeHeading}</h2>
+          <p className="playbook-lead">{messages.playbook.treeLead}</p>
           {loadError ? <p className="error">{loadError}</p> : null}
           <PlaybookTree
             mapNames={names}
@@ -384,7 +385,7 @@ export function Playbook() {
           />
         </aside>
       </div>
-      <p className="keys">{PLAYBOOK_KEYS_HINT}</p>
+      <p className="keys">{messages.playbook.keysHint}</p>
     </div>
   );
 }

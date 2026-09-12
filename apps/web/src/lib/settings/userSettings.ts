@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, parseLocale, type Locale } from "@/lib/i18n";
 import { clampLeadInSec, DEFAULT_LEAD_IN_SEC } from "@/lib/match/roundEvents";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import {
@@ -37,6 +38,7 @@ const LAYER_KEYS = Object.keys(DEFAULT_LAYERS) as (keyof MapLayers)[];
 export interface UserSettings {
   schema: number;
   updatedAt: number;
+  locale: Locale;
   parsePoolMax: number;
   sidebarWidth: number;
   savedNotesPageSize: number;
@@ -82,6 +84,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
   return {
     schema: USER_SETTINGS_SCHEMA,
     updatedAt: now,
+    locale: DEFAULT_LOCALE,
     parsePoolMax: PARSE_POOL_MAX,
     sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
     savedNotesPageSize: SAVED_NOTES_PAGE_SIZE,
@@ -180,6 +183,7 @@ export function parseUserSettings(raw: unknown): UserSettings {
   return {
     schema: USER_SETTINGS_SCHEMA,
     updatedAt: isFiniteNumber(raw.updatedAt) ? raw.updatedAt : defaults.updatedAt,
+    locale: parseLocale(raw.locale),
     parsePoolMax: parseClampedInt(
       raw.parsePoolMax,
       PARSE_POOL_MIN,

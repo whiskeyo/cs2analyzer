@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-
+import { useMessages } from "@/lib/i18n";
 export type TreeMenuTarget =
   | { kind: "map"; mapName: string }
   | { kind: "book"; mapName: string; bookKey: string; title: string; index: number; last: boolean }
@@ -53,6 +53,7 @@ export function PlaybookTreeMenu({
   onMoveBook,
   onMoveStrat,
 }: Props) {
+  const { messages } = useMessages();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -71,50 +72,53 @@ export function PlaybookTreeMenu({
 
   const items: Item[] =
     target.kind === "map"
-      ? [{ label: "New playbook", onSelect: () => onNewPlaybook(target.mapName) }]
+      ? [{ label: messages.playbook.menuNewBook, onSelect: () => onNewPlaybook(target.mapName) }]
       : target.kind === "book"
         ? [
-            { label: "New strat", onSelect: () => onNewStrat(target.bookKey) },
-            { label: "Rename", onSelect: () => onRenameBook(target.bookKey) },
-            { label: "Duplicate playbook", onSelect: () => onDuplicateBook(target.bookKey) },
+            { label: messages.playbook.menuNewStrat, onSelect: () => onNewStrat(target.bookKey) },
+            { label: messages.playbook.menuRename, onSelect: () => onRenameBook(target.bookKey) },
             {
-              label: "Move up",
+              label: messages.playbook.menuDuplicateBook,
+              onSelect: () => onDuplicateBook(target.bookKey),
+            },
+            {
+              label: messages.playbook.menuMoveUp,
               disabled: target.index === 0,
               onSelect: () => onMoveBook(target.bookKey, target.index - 1),
             },
             {
-              label: "Move down",
+              label: messages.playbook.menuMoveDown,
               disabled: target.last,
               onSelect: () => onMoveBook(target.bookKey, target.index + 1),
             },
             {
-              label: "Delete playbook",
+              label: messages.playbook.menuDeleteBook,
               danger: true,
               onSelect: () => onDeleteBook(target.bookKey),
             },
           ]
         : [
-            { label: "New strat", onSelect: () => onNewStrat(target.bookKey) },
+            { label: messages.playbook.menuNewStrat, onSelect: () => onNewStrat(target.bookKey) },
             {
-              label: "Rename",
+              label: messages.playbook.menuRename,
               onSelect: () => onRenameStrat(target.bookKey, target.pageId),
             },
             {
-              label: "Duplicate strat",
+              label: messages.playbook.menuDuplicateStrat,
               onSelect: () => onDuplicateStrat(target.bookKey, target.pageId),
             },
             {
-              label: "Move up",
+              label: messages.playbook.menuMoveUp,
               disabled: target.index === 0,
               onSelect: () => onMoveStrat(target.bookKey, target.pageId, target.index - 1),
             },
             {
-              label: "Move down",
+              label: messages.playbook.menuMoveDown,
               disabled: target.last,
               onSelect: () => onMoveStrat(target.bookKey, target.pageId, target.index + 1),
             },
             {
-              label: "Delete strat",
+              label: messages.playbook.menuDeleteStrat,
               danger: true,
               onSelect: () => onDeleteStrat(target.bookKey, target.pageId),
             },

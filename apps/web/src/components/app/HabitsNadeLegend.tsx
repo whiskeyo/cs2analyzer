@@ -1,12 +1,8 @@
+import { nadeLabel, useMessages } from "@/lib/i18n";
 import { NADE_COLORS } from "@/lib/radar/radarFx";
 import type { HabitsNadeFilter, HabitsNadeKind } from "@/lib/parse/seriesOverlay";
 
-const KINDS: [HabitsNadeKind, string][] = [
-  ["smoke", "Smoke"],
-  ["molotov", "Molly"],
-  ["flash", "Flash"],
-  ["he", "HE"],
-];
+const KINDS: HabitsNadeKind[] = ["smoke", "molotov", "flash", "he"];
 
 interface Props {
   filter: HabitsNadeFilter;
@@ -26,19 +22,24 @@ export function HabitsNadeLegend({
   onNadesOn,
   onOpacity,
 }: Props) {
+  const { messages } = useMessages();
   return (
     <div className="habits-nade-controls">
-      <div className="nade-legend series-nade-legend" role="toolbar" aria-label="Habits util kinds">
+      <div
+        className="nade-legend series-nade-legend"
+        role="toolbar"
+        aria-label={messages.analyzer.utilKinds}
+      >
         <button
           type="button"
           className="habits-nade-all"
-          title={nadesOn ? "Hide all util" : "Show util"}
-          aria-label={nadesOn ? "Hide all util" : "Show util"}
+          title={nadesOn ? messages.analyzer.hideAllUtil : messages.analyzer.showUtil}
+          aria-label={nadesOn ? messages.analyzer.hideAllUtil : messages.analyzer.showUtil}
           onClick={() => onNadesOn(!nadesOn)}
         >
           ✕
         </button>
-        {KINDS.map(([kind, label]) => (
+        {KINDS.map((kind) => (
           <button
             key={kind}
             type="button"
@@ -47,19 +48,19 @@ export function HabitsNadeLegend({
             onClick={() => onKind(kind, !filter[kind])}
           >
             <i style={{ background: NADE_COLORS[kind] }} />
-            {label}
+            {nadeLabel(messages, kind)}
           </button>
         ))}
       </div>
       <label className="habits-nade-opacity">
-        <span>Util α</span>
+        <span>{messages.analyzer.utilOpacity}</span>
         <input
           type="range"
           min={0}
           max={100}
           value={Math.round(nadeOpacity * 100)}
           disabled={!nadesOn}
-          aria-label="Util opacity"
+          aria-label={messages.analyzer.utilOpacityAria}
           onChange={(e) => onOpacity(Number(e.target.value) / 100)}
         />
       </label>

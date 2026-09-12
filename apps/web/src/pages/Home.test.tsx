@@ -6,6 +6,7 @@ import type { ReviewProject } from "@/lib/notes/projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { TestRouter } from "@/lib/testing/router";
+import { en } from "@/lib/i18n";
 import { Home } from "./Home";
 
 vi.mock("@/lib/state/appState", () => ({
@@ -70,9 +71,7 @@ describe("Home", () => {
         <Home />
       </TestRouter>,
     );
-    expect(
-      screen.getByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: en.home.title })).toBeInTheDocument();
     expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
     const drop = container.querySelector(".drop");
     const intro = container.querySelector(".home-intro");
@@ -82,7 +81,7 @@ describe("Home", () => {
       expect(intro.compareDocumentPosition(drop) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     }
     expect(screen.queryByText(/Web Worker/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
+    expect(screen.queryByText(en.drop.savedTitle)).not.toBeInTheDocument();
     expect(screen.queryByText("match.dem")).not.toBeInTheDocument();
   });
 
@@ -110,7 +109,7 @@ describe("Home", () => {
     expect(container.querySelector(".home-playbook-mark")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
+    expect(screen.getByRole("link", { name: en.home.faqLink })).toHaveAttribute("href", "/faq");
   });
 
   it("opens the create dialog from the playbook card", async () => {

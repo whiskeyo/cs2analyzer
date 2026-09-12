@@ -1,5 +1,5 @@
 import { useRef } from "react";
-
+import { useMessages } from "@/lib/i18n";
 interface Props {
   onFile: (file: File) => void;
 }
@@ -7,10 +7,11 @@ interface Props {
 /** Same size as Export notes — a real button, not a padded file label. */
 export function ImportNotesButton({ onFile }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const { messages } = useMessages();
   return (
     <>
       <button type="button" className="ghost" onClick={() => inputRef.current?.click()}>
-        Import notes
+        {messages.settings.importNotes}
       </button>
       <input
         ref={inputRef}

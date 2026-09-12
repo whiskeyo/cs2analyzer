@@ -9,6 +9,7 @@ import { emptyNote } from "./note";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
 import { PROJECT_SCHEMA, type ReviewProject } from "./projectStore";
 import { clearSeriesReviewCache, getSeriesReview } from "./seriesReviewCache";
+import { en } from "@/lib/i18n";
 import { useReviewProject } from "./useReviewProject";
 
 const mocks = vi.hoisted(() => ({
@@ -336,8 +337,8 @@ describe("useReviewProject", () => {
       await result.current.removeAllNotes();
     });
 
-    expect(mocks.exportSavedNotes).toHaveBeenCalledWith(mocks.loadAllProjects, st);
-    expect(mocks.removeAllSavedNotes).toHaveBeenCalledWith(expect.any(Function), st);
+    expect(mocks.exportSavedNotes).toHaveBeenCalledWith(mocks.loadAllProjects, st, en);
+    expect(mocks.removeAllSavedNotes).toHaveBeenCalledWith(expect.any(Function), st, en);
   });
 
   it("applies an imported project through applyProject", async () => {

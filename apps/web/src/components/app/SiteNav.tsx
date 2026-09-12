@@ -1,16 +1,17 @@
 import { NavLink } from "react-router";
 import { ROUTES } from "@/lib/app/routes";
-
-const LINKS = [
-  { to: ROUTES.analyzer, label: "Analyzer" },
-  { to: ROUTES.playbook, label: "Playbook" },
-  { to: ROUTES.faq, label: "FAQ" },
-] as const;
-
+import { useMessages } from "@/lib/i18n";
 export function SiteNav() {
+  const { messages } = useMessages();
+  const links = [
+    { to: ROUTES.analyzer, label: messages.nav.analyzer },
+    { to: ROUTES.playbook, label: messages.nav.playbook },
+    { to: ROUTES.faq, label: messages.nav.faq },
+  ] as const;
+
   return (
-    <nav className="site-nav" aria-label="Site">
-      {LINKS.map((link) => (
+    <nav className="site-nav" aria-label={messages.nav.site}>
+      {links.map((link) => (
         <NavLink
           key={link.to}
           to={link.to}

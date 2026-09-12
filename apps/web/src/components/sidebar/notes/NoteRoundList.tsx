@@ -13,6 +13,7 @@ import { lockNoteDrag, picksEqual, unlockNoteDrag, type NotePick } from "@/lib/n
 import type { NoteDrag } from "@/lib/notes/drag";
 import type { NoteItemRef } from "@/lib/notes/noteGroups";
 import { updateRoundNote } from "@/lib/notes/roundNotes";
+import { useMessages } from "@/lib/i18n";
 import { MomentInOut, roundWindowEnd } from "@/components/sidebar/NoteClocks";
 import { GroupNameField } from "./GroupNameField";
 import { NoteListRow } from "./NoteListRow";
@@ -69,6 +70,7 @@ export function NoteRoundList({
   setClock,
   clearWindow,
 }: NoteRoundListProps) {
+  const { messages, t } = useMessages();
   const [open, setOpen] = useState<string[]>([]);
 
   const commitNote = (round: number, note: Note) => {
@@ -87,13 +89,17 @@ export function NoteRoundList({
         return (
           <div key={row.round} className="notes-round">
             <div className="notes-round-head">
-              <p className="notes-round-label">{rnd?.is_knife ? "Knife" : `Round ${row.round}`}</p>
+              <p className="notes-round-label">
+                {rnd?.is_knife
+                  ? messages.hud.knife
+                  : t(messages.sidebar.roundLabel, { n: row.round })}
+              </p>
               {looseDraw >= 2 && (
                 <button
                   type="button"
                   onClick={() => commitNote(row.round, squashLooseDrawings(row.note))}
                 >
-                  Squash drawings
+                  {messages.sidebar.squashDrawings}
                 </button>
               )}
             </div>
@@ -103,7 +109,7 @@ export function NoteRoundList({
                 onDragOver={(e) => allowDrop(e, `out-${row.round}`, true)}
                 onDrop={(e) => dropAt(e, { round: row.round, kind: "ungroup" })}
               >
-                Drop at top to ungroup
+                {messages.sidebar.dropUngroup}
               </div>
             )}
             {clusters.map((cluster) => {
@@ -185,8 +191,16 @@ export function NoteRoundList({
                         type="button"
                         className="note-cluster-fold"
                         aria-expanded={!foldedAway}
-                        aria-label={foldedAway ? "Show layer members" : "Hide layer members"}
-                        title={foldedAway ? "Show layer members" : "Hide layer members"}
+                        aria-label={
+                          foldedAway
+                            ? messages.sidebar.showLayerMembers
+                            : messages.sidebar.hideLayerMembers
+                        }
+                        title={
+                          foldedAway
+                            ? messages.sidebar.showLayerMembers
+                            : messages.sidebar.hideLayerMembers
+                        }
                         onClick={() => {
                           setOpen((cur) =>
                             cur.includes(foldKey)
@@ -204,7 +218,9 @@ export function NoteRoundList({
                             selected.some((rowPick) => picksEqual(rowPick, pick)),
                           )}
                           onChange={() => toggleAll(memberPicks)}
-                          aria-label={`Select ${groupLabel(cluster.groupName ?? cluster.groupId)}`}
+                          aria-label={t(messages.sidebar.selectNamed, {
+                            name: groupLabel(cluster.groupName ?? cluster.groupId),
+                          })}
                         />
                       </label>
                       <GroupNameField
@@ -217,19 +233,27 @@ export function NoteRoundList({
                       <button
                         type="button"
                         className="note-cluster-count"
-                        title="Jump to layer"
+                        title={messages.sidebar.jumpToLayer}
                         onClick={() => onJump(at)}
                       >
                         {cluster.items.length}
                       </button>
                       <label
                         className={`note-eye${groupHidden ? " off" : ""}`}
-                        title={groupHidden ? "Show layer on radar" : "Hide layer on radar"}
+                        title={
+                          groupHidden
+                            ? messages.sidebar.showLayerRadar
+                            : messages.sidebar.hideLayerRadar
+                        }
                       >
                         <input
                           type="checkbox"
                           checked={!groupHidden}
-                          aria-label={groupHidden ? "Show layer on radar" : "Hide layer on radar"}
+                          aria-label={
+                            groupHidden
+                              ? messages.sidebar.showLayerRadar
+                              : messages.sidebar.hideLayerRadar
+                          }
                           onChange={() =>
                             commitNote(
                               row.round,
@@ -298,7 +322,7 @@ export function NoteRoundList({
                 onDragOver={(e) => allowDrop(e, `new-${row.round}`, true)}
                 onDrop={(e) => dropAt(e, { round: row.round, kind: "new-group" })}
               >
-                Drop at bottom to make a new group
+                {messages.sidebar.dropNewGroup}
               </div>
             )}
           </div>

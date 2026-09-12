@@ -1,18 +1,33 @@
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
+import { t, useMessages, type Messages } from "@/lib/i18n";
 
 interface Props {
   overallPct: number;
   files: ParseFileProgress[] | null;
 }
 
+function fileStatusLabel(file: ParseFileProgress, messages: Messages): string {
+  if (file.state === "done") {
+    return messages.parse.done;
+  }
+  if (file.state === "error") {
+    return messages.parse.error;
+  }
+  if (file.state === "queued") {
+    return messages.parse.queued;
+  }
+  return t(messages.parse.percent, { pct: file.pct });
+}
+
 /** Overall plus per-demo bars while a series is parsing. */
 export function ParseProgressPanel({ overallPct, files }: Props) {
+  const { messages, t: translate } = useMessages();
   const multi = files != null && files.length > 1;
   if (!multi) {
     return (
       <div className="progress">
         <div className="bar" style={{ width: `${overallPct}%` }} />
-        <span>{overallPct}%</span>
+        <span>{translate(messages.parse.percent, { pct: overallPct })}</span>
       </div>
     );
   }
@@ -21,7 +36,7 @@ export function ParseProgressPanel({ overallPct, files }: Props) {
     <div className="parse-progress-panel">
       <div className="progress parse-progress-overall">
         <div className="bar" style={{ width: `${overallPct}%` }} />
-        <span>Overall {overallPct}%</span>
+        <span>{translate(messages.parse.overall, { pct: overallPct })}</span>
       </div>
       <ul className="parse-progress-files">
         {files.map((file) => (
@@ -32,15 +47,7 @@ export function ParseProgressPanel({ overallPct, files }: Props) {
             <div className="progress parse-file-bar">
               <div className="bar" style={{ width: `${file.pct}%` }} />
             </div>
-            <span className="parse-file-pct">
-              {file.state === "done"
-                ? "done"
-                : file.state === "error"
-                  ? "err"
-                  : file.state === "queued"
-                    ? "…"
-                    : `${file.pct}%`}
-            </span>
+            <span className="parse-file-pct">{fileStatusLabel(file, messages)}</span>
           </li>
         ))}
       </ul>

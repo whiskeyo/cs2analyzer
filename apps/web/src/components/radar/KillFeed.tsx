@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useMessages } from "@/lib/i18n";
 import { KILL_FEED_MAX_ROWS, KILL_FEED_SECONDS, tickRate } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { currentSide, recentKills } from "@/lib/stats/stats";
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export const KillFeed = memo(function KillFeed({ replay, tick, onJump }: Props) {
+  const { messages } = useMessages();
   const tps = tickRate(replay);
   const kills = recentKills(replay, tick, tps * KILL_FEED_SECONDS, KILL_FEED_MAX_ROWS);
   if (kills.length === 0) return null;
@@ -29,20 +31,28 @@ export const KillFeed = memo(function KillFeed({ replay, tick, onJump }: Props) 
             <span className={`att ${sideClass(replay, k.attacker, k.tick)}`.trim()}>
               {attackerLabel(replay, k.attacker)}
             </span>
-            {k.assisted_flash && <GearIcon name="flashbang_assist" title="Flash assist" />}
+            {k.assisted_flash && (
+              <GearIcon name="flashbang_assist" title={messages.killfeed.flashAssist} />
+            )}
             <span className="gun">
               <WeaponIcon weapon={k.weapon} />
-              {k.noscope && <GearIcon name="noscope" title="No-scope" />}
-              {k.through_smoke && <GearIcon name="through_smoke" title="Through smoke" />}
-              {k.wallbang && <GearIcon name="wallbang" title="Wallbang" />}
-              {k.attacker_airborne && <GearIcon name="attacker_airborne" title="Airborne" />}
-              {k.attacker_blind && <GearIcon name="attacker_blind" title="Blind" />}
+              {k.noscope && <GearIcon name="noscope" title={messages.killfeed.noScope} />}
+              {k.through_smoke && (
+                <GearIcon name="through_smoke" title={messages.killfeed.throughSmoke} />
+              )}
+              {k.wallbang && <GearIcon name="wallbang" title={messages.killfeed.wallbang} />}
+              {k.attacker_airborne && (
+                <GearIcon name="attacker_airborne" title={messages.killfeed.airborne} />
+              )}
+              {k.attacker_blind && (
+                <GearIcon name="attacker_blind" title={messages.killfeed.blind} />
+              )}
               {k.headshot && (
                 <img
                   className="headshot-icon"
                   src={publicUrl("weapons/headshot.svg")}
                   alt=""
-                  title="Headshot"
+                  title={messages.killfeed.headshot}
                 />
               )}
             </span>

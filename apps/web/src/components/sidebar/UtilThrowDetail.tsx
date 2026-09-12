@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import {
   formatBlind,
   formatUtilHit,
@@ -15,7 +16,7 @@ function ChipLine({
   tone,
   chips,
 }: {
-  kicker: "Enemy" | "Team";
+  kicker: string;
   tone: "enemy" | "team";
   chips: { key: string; label: string }[];
 }) {
@@ -36,6 +37,7 @@ function ChipLine({
 
 /** Enemy / team flash times and HE / molly hits as labeled chips, not one wrapping sentence. */
 export function UtilThrowDetail({ row }: Props) {
+  const { messages } = useMessages();
   const blinds = splitUtilBlinds(row.blinds);
   const hits = splitUtilHits(row.hits);
   if (
@@ -50,7 +52,7 @@ export function UtilThrowDetail({ row }: Props) {
   return (
     <span className="util-throw-detail">
       <ChipLine
-        kicker="Enemy"
+        kicker={messages.sidebar.kickerEnemy}
         tone="enemy"
         chips={blinds.enemy.map((blind, i) => ({
           key: `blind-enemy-${blind.victim}-${i}`,
@@ -58,7 +60,7 @@ export function UtilThrowDetail({ row }: Props) {
         }))}
       />
       <ChipLine
-        kicker="Team"
+        kicker={messages.sidebar.kickerTeam}
         tone="team"
         chips={blinds.team.map((blind, i) => ({
           key: `blind-team-${blind.victim}-${i}`,
@@ -66,7 +68,7 @@ export function UtilThrowDetail({ row }: Props) {
         }))}
       />
       <ChipLine
-        kicker="Enemy"
+        kicker={messages.sidebar.kickerEnemy}
         tone="enemy"
         chips={hits.enemy.map((hit, i) => ({
           key: `hit-enemy-${hit.victim}-${i}`,
@@ -74,7 +76,7 @@ export function UtilThrowDetail({ row }: Props) {
         }))}
       />
       <ChipLine
-        kicker="Team"
+        kicker={messages.sidebar.kickerTeam}
         tone="team"
         chips={hits.team.map((hit, i) => ({
           key: `hit-team-${hit.victim}-${i}`,

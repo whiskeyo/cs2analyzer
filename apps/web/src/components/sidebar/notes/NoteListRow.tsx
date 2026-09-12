@@ -1,6 +1,7 @@
 import type { DragEvent as ReactDragEvent, MutableRefObject } from "react";
 import { roundClock } from "@/lib/match/roundEvents";
-import { itemWindow, removeItems, setItemsHidden, windowKind } from "@/lib/notes";
+import { itemWindow, removeItems, setItemsHidden } from "@/lib/notes";
+import { useMessages, windowKindText } from "@/lib/i18n";
 import { picksEqual, refsForDrag, type NotePick } from "@/lib/notes/drag";
 import type { NoteItemRef } from "@/lib/notes/noteGroups";
 import type { NoteListItem } from "@/lib/notes";
@@ -58,6 +59,7 @@ export function NoteListRow({
   ) => void;
   clearWindow: (round: number, ref: NoteItemRef) => void;
 }) {
+  const { messages, t } = useMessages();
   const pick: NotePick = { round, ref: item.ref };
   const itemWin = itemWindow(note, item.ref);
   const itemAt = itemWin?.start ?? rnd?.freeze_end_tick ?? rnd?.start_tick ?? jump;
@@ -82,7 +84,7 @@ export function NoteListRow({
           type="checkbox"
           checked={selected.some((rowPick) => picksEqual(rowPick, pick))}
           onChange={() => toggle(pick)}
-          aria-label={`Select ${item.title}`}
+          aria-label={t(messages.sidebar.selectNamed, { name: item.title })}
         />
       </label>
       <div
@@ -112,8 +114,8 @@ export function NoteListRow({
           )}
           <span className="review-detail">
             {rnd ? `${roundClock(rnd, itemAt, tps)} · ` : ""}
-            {windowKind(itemWin)}
-            {dim ? " · Hidden" : ""}
+            {windowKindText(messages, itemWin)}
+            {dim ? messages.sidebar.noteHidden : ""}
           </span>
         </span>
       </div>
@@ -122,11 +124,11 @@ export function NoteListRow({
         title={
           item.type === "bookmark"
             ? item.hidden
-              ? "Show on timeline"
-              : "Hide on timeline"
+              ? messages.sidebar.showTimeline
+              : messages.sidebar.hideTimeline
             : item.hidden
-              ? "Show on radar"
-              : "Hide on radar"
+              ? messages.sidebar.showRadar
+              : messages.sidebar.hideRadar
         }
       >
         <input
@@ -135,11 +137,11 @@ export function NoteListRow({
           aria-label={
             item.type === "bookmark"
               ? item.hidden
-                ? "Show on timeline"
-                : "Hide on timeline"
+                ? messages.sidebar.showTimeline
+                : messages.sidebar.hideTimeline
               : item.hidden
-                ? "Show on radar"
-                : "Hide on radar"
+                ? messages.sidebar.showRadar
+                : messages.sidebar.hideRadar
           }
           onChange={() => onNote(setItemsHidden(note, [item.ref], !item.hidden))}
         />
@@ -149,8 +151,8 @@ export function NoteListRow({
         <button
           type="button"
           className="note-remove"
-          title="Remove bookmark"
-          aria-label="Remove bookmark"
+          title={messages.sidebar.removeBookmark}
+          aria-label={messages.sidebar.removeBookmark}
           onClick={() => onNote(removeItems(note, [item.ref]))}
         >
           ×
