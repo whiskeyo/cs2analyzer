@@ -4,6 +4,7 @@ import { vi, type Mock } from "vitest";
 export type MockCanvasContext = CanvasRenderingContext2D & {
   drawImage: Mock;
   fillRect: Mock;
+  clearRect: Mock;
   fillText: Mock;
   strokeText: Mock;
   beginPath: Mock;
@@ -42,6 +43,7 @@ export function createMockCanvas(opts: MockCanvasOptions = {}): MockCanvasContex
     setTransform: vi.fn(),
     drawImage: vi.fn(),
     fillRect: vi.fn(),
+    clearRect: vi.fn(),
     fillText: vi.fn(),
     strokeText: vi.fn(),
     beginPath: vi.fn(),
@@ -56,7 +58,9 @@ export function createMockCanvas(opts: MockCanvasOptions = {}): MockCanvasContex
     clip: vi.fn(),
     rect: vi.fn(),
     roundRect: vi.fn(),
-    measureText: vi.fn((text: string) => ({ width: text.length > 0 ? textWidth : 4 })),
+    measureText: vi.fn((text: string) => ({
+      width: text.length > 0 ? textWidth : 4,
+    })),
     arc: vi.fn(),
     translate: vi.fn(),
     rotate: vi.fn(),

@@ -31,6 +31,11 @@ import { isFiniteNumber, isRecord, isString } from "@/lib/validate/guards.ts";
 export const USER_SETTINGS_SCHEMA = 1;
 export const USER_SETTINGS_ID = "user";
 
+export const PDF_THEMES = ["dark", "light"] as const;
+export type PdfTheme = (typeof PDF_THEMES)[number];
+/** Dark matches the on-screen playbook; light is paper-friendly. */
+export const DEFAULT_PDF_THEME: PdfTheme = "dark";
+
 const GRENADE_KINDS = Object.keys(DEFAULT_SUMMARY_FILTER.kinds) as GrenadeKind[];
 const LAYER_KEYS = Object.keys(DEFAULT_LAYERS) as (keyof MapLayers)[];
 
@@ -49,6 +54,7 @@ export interface UserSettings {
   eventLeadInSec: number;
   noteMomentSec: number;
   seriesMaxFiles: number;
+  pdfTheme: PdfTheme;
 }
 
 export type UserSettingsRecord = UserSettings & { id: typeof USER_SETTINGS_ID };
@@ -94,6 +100,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     eventLeadInSec: DEFAULT_LEAD_IN_SEC,
     noteMomentSec: NOTE_MOMENT_SECONDS,
     seriesMaxFiles: SERIES_MAX_FILES,
+    pdfTheme: DEFAULT_PDF_THEME,
   };
 }
 
@@ -128,6 +135,10 @@ function parseColor(value: unknown, fallback: string): string {
 
 function parseFloorMode(value: unknown): FloorMode {
   return value === "upper" || value === "lower" || value === "auto" ? value : "auto";
+}
+
+function parsePdfTheme(value: unknown): PdfTheme {
+  return value === "light" || value === "dark" ? value : DEFAULT_PDF_THEME;
 }
 
 function parsePlaybackSpeed(value: unknown): number {
@@ -219,5 +230,6 @@ export function parseUserSettings(raw: unknown): UserSettings {
       SERIES_MAX_FILES,
       defaults.seriesMaxFiles,
     ),
+    pdfTheme: parsePdfTheme(raw.pdfTheme),
   };
 }

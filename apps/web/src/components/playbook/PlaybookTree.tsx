@@ -31,6 +31,7 @@ interface Props {
   onNewPlaybook: (mapName: string) => void;
   onNewStrat: (book: Playbook) => void;
   onDuplicateBook: (book: Playbook) => void;
+  onExportPdf: (book: Playbook) => void;
   onDuplicateStrat: (book: Playbook, pageId: string) => void;
   onDeleteBook: (book: Playbook) => void;
   onDeleteStrat: (book: Playbook, pageId: string) => void;
@@ -56,6 +57,7 @@ export function PlaybookTree({
   onNewPlaybook,
   onNewStrat,
   onDuplicateBook,
+  onExportPdf,
   onDuplicateStrat,
   onDeleteBook,
   onDeleteStrat,
@@ -349,6 +351,10 @@ export function PlaybookTree({
           onDuplicateBook={(bookKey) => {
             const book = bookByKey(bookKey);
             if (book) onDuplicateBook(book);
+          }}
+          onExportPdf={(bookKey) => {
+            const book = bookByKey(bookKey);
+            if (book) onExportPdf(book);
           }}
           onDuplicateStrat={(bookKey, pageId) => {
             const book = bookByKey(bookKey);

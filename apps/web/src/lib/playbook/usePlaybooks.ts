@@ -15,8 +15,9 @@ import {
   setActivePage,
   setPageBody,
   setPageFloor,
-  setPageNote,
-  setPageVideos,
+  setPageLayerNote,
+  setPageLayerVideos,
+  type PlaybookFloorLayer,
   setPlaybookPalette,
 } from "./pages";
 import {
@@ -172,8 +173,8 @@ export function usePlaybooks(mapName: string | null) {
   );
 
   const setVideos = useCallback(
-    (pageId: string, videos: PlaybookYouTube[]) => {
-      patch((current) => setPageVideos(current, pageId, videos));
+    (pageId: string, videos: PlaybookYouTube[], layer: PlaybookFloorLayer = "upper") => {
+      patch((current) => setPageLayerVideos(current, pageId, layer, videos));
     },
     [patch],
   );
@@ -207,8 +208,8 @@ export function usePlaybooks(mapName: string | null) {
   );
 
   const setNote = useCallback(
-    (note: Note) => {
-      patch((current) => setPageNote(current, current.activePageId, note));
+    (note: Note, layer: PlaybookFloorLayer = "upper") => {
+      patch((current) => setPageLayerNote(current, current.activePageId, layer, note));
     },
     [patch],
   );

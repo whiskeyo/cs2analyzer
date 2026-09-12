@@ -55,13 +55,29 @@
 .palette-picks,
 .floor-picks {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.2rem;
   margin: 0 0.15rem;
 }
 .palette-picks button,
 .floor-picks button {
+  appearance: none;
+  background: #1c242e;
+  color: #c5d0da;
+  border: 1px solid #2c3846;
+  border-radius: 6px;
+  font: inherit;
   font-size: 0.7rem;
-  padding: 0.2rem 0.4rem;
+  font-weight: 500;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+}
+.palette-picks button.on,
+.floor-picks button.on {
+  border-color: #6aa4d8;
+  background: #2c4a66;
+  color: #f3f7fb;
+  font-weight: 650;
 }
 .toolbar-sep {
   width: 1px;

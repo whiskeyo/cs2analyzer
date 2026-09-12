@@ -72,11 +72,9 @@ export function PlaybookStratPanel({
       <label className="playbook-field playbook-notes-field">
         Strat notes
         <textarea
-          aria-label="Strat notes"
-          rows={12}
           value={body}
+          onChange={(event) => onBody(event.target.value)}
           placeholder="Callouts, timings, utility…"
-          onChange={(e) => onBody(e.target.value)}
         />
       </label>
       <div className="playbook-tokens">

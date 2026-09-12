@@ -20,6 +20,11 @@ import {
   setActivePage,
   setPageBody,
   setPageFloor,
+  playbookFloorLayer,
+  playbookFloorNote,
+  playbookPageOnFloor,
+  setPageLayerNote,
+  setPageLayerVideos,
   setPageNote,
   setPageVideos,
 } from "./pages";
@@ -95,6 +100,7 @@ describe("pages", () => {
     book = setPageNote(book, id, note);
     expect(book.pages[0]?.floor).toBe("upper");
     expect(book.pages[0]?.note.drawings).toHaveLength(1);
+    expect(book.pages[0]?.lowerNote.drawings).toEqual([]);
     expect(note.drawings).toHaveLength(1);
     note.drawings.pop();
     expect(book.pages[0]?.note.drawings).toHaveLength(1);
@@ -186,11 +192,55 @@ describe("newPage", () => {
     expect(newPage().title).toBe(UNTITLED_STRAT);
     expect(newPage().body).toBe("");
     expect(newPage().videos).toEqual([]);
+    expect(newPage().lowerVideos).toEqual([]);
+    expect(newPage().lowerNote.drawings).toEqual([]);
     expect(newPage().floor).toBe("auto");
     expect(newPage("Split A", "upper")).toMatchObject({
       title: "Split A",
       floor: "upper",
     });
+  });
+});
+
+describe("floor layers", () => {
+  it("keeps upper and lower drawings on separate notes", () => {
+    let book = newPlaybook("de_nuke", "Nuke execs");
+    const id = book.pages[0]?.id ?? "";
+    const upper = emptyNote();
+    upper.drawings.push({ type: "text", color: "#fff", x: 1, y: 2, text: "heaven" });
+    const lower = emptyNote();
+    lower.drawings.push({ type: "text", color: "#fff", x: 3, y: 4, text: "tuck" });
+    book = setPageLayerNote(book, id, "upper", upper);
+    book = setPageLayerNote(book, id, "lower", lower);
+    const page = book.pages[0]!;
+    expect(playbookFloorLayer(false)).toBe("upper");
+    expect(playbookFloorLayer(true)).toBe("lower");
+    expect(playbookFloorNote(page, "upper").drawings[0]).toMatchObject({ text: "heaven" });
+    expect(playbookFloorNote(page, "lower").drawings[0]).toMatchObject({ text: "tuck" });
+    expect(playbookPageOnFloor(page, "lower").note.drawings[0]).toMatchObject({ text: "tuck" });
+    expect(playbookPageOnFloor(page, "lower").floor).toBe("lower");
+    expect(setPageFloor(book, id, "lower").pages[0]?.note.drawings[0]).toMatchObject({
+      text: "heaven",
+    });
+    const copied = duplicatePage(book, id);
+    expect(copied.pages[1]?.lowerNote.drawings[0]).toMatchObject({ text: "tuck" });
+    expect(copied.pages[1]?.lowerNote.drawings[0]).not.toBe(page.lowerNote.drawings[0]);
+  });
+
+  it("stores YouTube pins per floor", () => {
+    let book = newPlaybook("de_nuke", "Nuke execs");
+    const id = book.pages[0]?.id ?? "";
+    const clip = {
+      id: "v1",
+      videoId: "dQw4w9WgXcQ",
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      title: "Lower lineup",
+      x: 1,
+      y: 2,
+    };
+    book = setPageLayerVideos(book, id, "lower", [clip]);
+    expect(book.pages[0]?.videos).toEqual([]);
+    expect(book.pages[0]?.lowerVideos).toEqual([clip]);
   });
 });
 

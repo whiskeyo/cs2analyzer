@@ -40,13 +40,23 @@ describe("userSettingsStore without indexedDB", () => {
   });
 
   it("round-trips a patch in memory", async () => {
-    const saved = await saveUserSettings({ sidebarWidth: 520, eventLeadInSec: 3 });
+    const saved = await saveUserSettings({
+      sidebarWidth: 520,
+      eventLeadInSec: 3,
+    });
     expect(saved.sidebarWidth).toBe(520);
     expect(saved.eventLeadInSec).toBe(3);
     const loaded = await loadUserSettings();
     expect(loaded.sidebarWidth).toBe(520);
     expect(loaded.eventLeadInSec).toBe(3);
     expect(loaded.parsePoolMax).toBe(PARSE_POOL_MAX);
+  });
+
+  it("round-trips pdfTheme and reset restores dark", async () => {
+    expect((await loadUserSettings()).pdfTheme).toBe("dark");
+    await saveUserSettings({ pdfTheme: "light" });
+    expect((await loadUserSettings()).pdfTheme).toBe("light");
+    expect((await resetUserSettings()).pdfTheme).toBe("dark");
   });
 
   it("keeps overlapping patches instead of last-write-wins on a stale load", async () => {
@@ -66,6 +76,7 @@ describe("userSettingsStore without indexedDB", () => {
     const reset = await resetUserSettings();
     expect(reset.sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
     expect(reset.savedNotesPageSize).toBe(SAVED_NOTES_PAGE_SIZE);
+    expect(reset.pdfTheme).toBe("dark");
     expect((await loadUserSettings()).sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
   });
 

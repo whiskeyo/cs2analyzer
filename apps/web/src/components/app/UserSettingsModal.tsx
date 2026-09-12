@@ -7,6 +7,7 @@ import type { FloorMode, MapLayers } from "@/lib/notes/types";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
+import type { PdfTheme } from "@/lib/settings/userSettings";
 import {
   NOTE_MOMENT_MAX_SECONDS,
   NOTE_MOMENT_MIN_SECONDS,
@@ -36,6 +37,11 @@ const FLOOR_MODES: { id: FloorMode; label: string }[] = [
   { id: "auto", label: "Auto" },
   { id: "upper", label: "Upper" },
   { id: "lower", label: "Lower" },
+];
+
+const PDF_THEME_MODES: { id: PdfTheme; label: string }[] = [
+  { id: "dark", label: "Dark" },
+  { id: "light", label: "Light" },
 ];
 
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
@@ -271,6 +277,31 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             />
             <span>s</span>
           </label>
+        </section>
+
+        <section className="settings-section">
+          <h3>Playbook PDF</h3>
+          <p className="settings-hint">
+            Dark matches the app. Light is paper-friendly. Radar stills sit on the page color — no
+            extra panel behind the map.
+          </p>
+          <div className="settings-field">
+            <span>Page theme</span>
+            <span className="floor-picks">
+              {PDF_THEME_MODES.map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  className={settings.pdfTheme === mode.id ? "on" : ""}
+                  aria-pressed={settings.pdfTheme === mode.id}
+                  aria-label={`${mode.label} PDF`}
+                  onClick={() => void update({ pdfTheme: mode.id })}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </span>
+          </div>
         </section>
 
         <div className="home-modal-actions">

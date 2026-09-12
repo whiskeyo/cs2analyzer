@@ -43,6 +43,7 @@ describe("defaultUserSettings", () => {
       eventLeadInSec: DEFAULT_LEAD_IN_SEC,
       noteMomentSec: NOTE_MOMENT_SECONDS,
       seriesMaxFiles: SERIES_MAX_FILES,
+      pdfTheme: "dark",
     });
     expect(settings.defaultPaletteId).toBe(COLOR_PRESETS[0].id);
     expect(settings.defaultColor).toBe(COLOR_PRESETS[0].colors[0]);
@@ -70,6 +71,7 @@ describe("parseUserSettings", () => {
     expect(parsed.sidebarWidth).toBe(520);
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MAX);
     expect(parsed.eventLeadInSec).toBe(DEFAULT_LEAD_IN_SEC);
+    expect(parsed.pdfTheme).toBe("dark");
     expect(parsed.schema).toBe(USER_SETTINGS_SCHEMA);
     expect("habitsTrailWindowSec" in parsed).toBe(false);
     expect("roundAutoplay" in parsed).toBe(false);
@@ -88,6 +90,7 @@ describe("parseUserSettings", () => {
       eventLeadInSec: 9,
       noteMomentSec: 400,
       seriesMaxFiles: 1,
+      pdfTheme: "sepia",
     });
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_HARD_MAX);
     expect(parsed.sidebarWidth).toBe(SIDEBAR_MIN_WIDTH);
@@ -99,6 +102,11 @@ describe("parseUserSettings", () => {
     expect(parsed.eventLeadInSec).toBe(5);
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MAX_SECONDS);
     expect(parsed.seriesMaxFiles).toBe(SERIES_MIN_FILES);
+    expect(parsed.pdfTheme).toBe("dark");
+  });
+
+  it("keeps a stored light PDF theme", () => {
+    expect(parseUserSettings({ pdfTheme: "light" }).pdfTheme).toBe("light");
   });
 
   it("clamps the low end of parse pool and moment length", () => {
@@ -117,9 +125,16 @@ describe("parseUserSettings", () => {
   it("merges partial layer and summary-filter objects", () => {
     const parsed = parseUserSettings({
       defaultLayers: { heatmap: true, names: false },
-      defaultSummaryFilter: { t: false, kinds: { flash: false, molotov: false } },
+      defaultSummaryFilter: {
+        t: false,
+        kinds: { flash: false, molotov: false },
+      },
     });
-    expect(parsed.defaultLayers).toEqual({ ...DEFAULT_LAYERS, heatmap: true, names: false });
+    expect(parsed.defaultLayers).toEqual({
+      ...DEFAULT_LAYERS,
+      heatmap: true,
+      names: false,
+    });
     expect(parsed.defaultSummaryFilter.t).toBe(false);
     expect(parsed.defaultSummaryFilter.ct).toBe(true);
     expect(parsed.defaultSummaryFilter.kinds.flash).toBe(false);
