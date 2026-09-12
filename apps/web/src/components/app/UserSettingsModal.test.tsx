@@ -160,6 +160,7 @@ describe("UserSettingsModal", () => {
       "aria-pressed",
       "true",
     );
+    expect(screen.getByRole("button", { name: "Dark PDF" })).toHaveClass("on");
   });
 
   it("persists a light playbook PDF theme", async () => {
@@ -167,6 +168,9 @@ describe("UserSettingsModal", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Dark PDF" })).toBeInTheDocument(),
     );
+    expect(screen.getByRole("button", { name: "Dark PDF" })).toHaveClass("on");
+    expect(screen.getByRole("button", { name: "Auto" })).toHaveClass("on");
+    expect(screen.getByRole("button", { name: "Neon" })).toHaveClass("on");
     await userEvent.click(screen.getByRole("button", { name: "Light PDF" }));
     await waitFor(async () => {
       expect((await loadUserSettings()).pdfTheme).toBe("light");
@@ -175,6 +179,8 @@ describe("UserSettingsModal", () => {
       "aria-pressed",
       "true",
     );
+    expect(screen.getByRole("button", { name: "Light PDF" })).toHaveClass("on");
+    expect(screen.getByRole("button", { name: "Dark PDF" })).not.toHaveClass("on");
   });
 
   it("ignores a leftover click on the backdrop and closes on a new pointerdown", async () => {
