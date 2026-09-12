@@ -5,7 +5,7 @@ import { emptyNote } from "@/lib/notes/note";
 import { addPage, newPlaybook, setPageBody, setPageVideos } from "@/lib/playbook/pages";
 import { PLAYBOOK_PDF_FOOTER } from "./constants";
 import { buildPlaybookPdf, pdfSafeText, wrapPdfText } from "./pdfDocument";
-import { playbookReport } from "./playbookReport";
+import { formatPlaybookExportDate, playbookReport } from "./playbookReport";
 
 const EXPORTED_AT = Date.UTC(2026, 8, 12, 15, 0, 0);
 
@@ -26,20 +26,26 @@ function decodePdfHex(hex: string): string {
   return out;
 }
 
-function pdfText(bytes: Uint8Array): string {
-  const raw = new TextDecoder("latin1").decode(bytes);
-  const parts = [raw];
-  for (const match of raw.matchAll(/stream\r?\n([\s\S]*?)endstream/g)) {
-    const body = match[1] ?? "";
+/** Helvetica `Tj` strings live in Flate streams. Slice by `/Length`, not `endstream`. */
+function pdfDrawnText(bytes: Uint8Array): string {
+  const raw = Buffer.from(bytes);
+  const latin1 = raw.toString("latin1");
+  const texts: string[] = [];
+  const headerRe = /\/Length\s+(\d+)[\s\S]*?stream\r?\n/g;
+  for (const match of latin1.matchAll(headerRe)) {
+    const length = Number(match[1]);
+    const start = (match.index ?? 0) + match[0].length;
+    if (!Number.isFinite(length) || start + length > raw.length) continue;
     try {
-      parts.push(inflateSync(Buffer.from(body, "latin1")).toString("latin1"));
+      const inflated = inflateSync(raw.subarray(start, start + length)).toString("latin1");
+      for (const hex of inflated.matchAll(/<([0-9A-Fa-f]+)>/g)) {
+        texts.push(decodePdfHex(hex[1] ?? ""));
+      }
     } catch {
       // image / already-raw stream
     }
   }
-  const joined = parts.join("\n");
-  const decoded = [...joined.matchAll(/<([0-9A-Fa-f\s]+)>/g)].map((m) => decodePdfHex(m[1] ?? ""));
-  return `${joined}\n${decoded.join("\n")}`;
+  return texts.join("\n");
 }
 
 describe("pdfSafeText", () => {
@@ -92,15 +98,16 @@ describe("buildPlaybookPdf", () => {
     };
     const report = playbookReport(book, EXPORTED_AT);
     const bytes = await buildPlaybookPdf(report, { [first.id]: TINY_PNG });
-    expect(bytes[0]).toBe(0x25); // %
-    expect(pdfText(bytes).startsWith("%PDF")).toBe(true);
+    expect(String.fromCharCode(bytes[0] ?? 0, bytes[1] ?? 0, bytes[2] ?? 0, bytes[3] ?? 0)).toBe(
+      "%PDF",
+    );
 
     const loaded = await PDFDocument.load(bytes);
     expect(loaded.getPageCount()).toBe(3);
-    const text = pdfText(bytes);
+    const text = pdfDrawnText(bytes);
     expect(text).toContain("A execs");
     expect(text).toContain("Mirage");
-    expect(text).toContain("12 Sept 2026");
+    expect(text).toContain(formatPlaybookExportDate(EXPORTED_AT));
     expect(text).toContain("Mid control");
     expect(text).toContain("Smoke stairs.");
     expect(text).toContain("Window lineup");
