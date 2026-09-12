@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   downloadBlob: vi.fn(),
   buildPlaybookPdf: vi.fn(),
   loadPlaybookSnapshotImage: vi.fn(),
+  loadPlaybookSnapshotIcons: vi.fn(),
   snapshotPlaybookPagePng: vi.fn(),
 }));
 
@@ -23,6 +24,7 @@ vi.mock("./pdfDocument", () => ({
 
 vi.mock("./playbookSnapshot", () => ({
   loadPlaybookSnapshotImage: mocks.loadPlaybookSnapshotImage,
+  loadPlaybookSnapshotIcons: mocks.loadPlaybookSnapshotIcons,
   snapshotPlaybookPagePng: mocks.snapshotPlaybookPagePng,
 }));
 
@@ -33,6 +35,7 @@ const EXPORTED_AT = Date.UTC(2026, 8, 12);
 describe("snapshotPlaybookPages", () => {
   afterEach(() => {
     mocks.loadPlaybookSnapshotImage.mockReset();
+    mocks.loadPlaybookSnapshotIcons.mockReset();
     mocks.snapshotPlaybookPagePng.mockReset();
   });
 
@@ -42,10 +45,23 @@ describe("snapshotPlaybookPages", () => {
     mocks.loadPlaybookSnapshotImage.mockResolvedValue({
       src: "/maps/test.png",
     });
+    mocks.loadPlaybookSnapshotIcons.mockResolvedValue({
+      c4: { src: "/weapons/c4.svg" },
+      nades: { smoke: { src: "/weapons/smokegrenade.svg" } },
+    });
     mocks.snapshotPlaybookPagePng.mockResolvedValue(new Uint8Array([7, 7]));
     await expect(snapshotPlaybookPages(book, UNIT_CALIBRATION)).resolves.toEqual({
       [page.id]: { upper: new Uint8Array([7, 7]) },
     });
+    expect(mocks.snapshotPlaybookPagePng).toHaveBeenCalledWith(
+      expect.anything(),
+      UNIT_CALIBRATION,
+      { src: "/maps/test.png" },
+      {
+        c4: { src: "/weapons/c4.svg" },
+        nades: { smoke: { src: "/weapons/smokegrenade.svg" } },
+      },
+    );
 
     mocks.snapshotPlaybookPagePng.mockResolvedValue(null);
     await expect(snapshotPlaybookPages(book, UNIT_CALIBRATION)).resolves.toEqual({});
@@ -57,6 +73,7 @@ describe("downloadPlaybookPdf", () => {
     mocks.downloadBlob.mockReset();
     mocks.buildPlaybookPdf.mockReset();
     mocks.loadPlaybookSnapshotImage.mockReset();
+    mocks.loadPlaybookSnapshotIcons.mockReset();
     mocks.snapshotPlaybookPagePng.mockReset();
   });
 
@@ -66,6 +83,7 @@ describe("downloadPlaybookPdf", () => {
     book = setPageBody(book, page.id, "Flash mid");
     const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
     mocks.loadPlaybookSnapshotImage.mockResolvedValue(null);
+    mocks.loadPlaybookSnapshotIcons.mockResolvedValue({ c4: null, nades: {} });
     mocks.snapshotPlaybookPagePng.mockResolvedValue(new Uint8Array([1]));
     mocks.buildPlaybookPdf.mockResolvedValue(pdf);
 
@@ -93,6 +111,7 @@ describe("downloadPlaybookPdf", () => {
   it("forwards a light PDF theme", async () => {
     const book = newPlaybook("de_nuke", "default executes");
     mocks.loadPlaybookSnapshotImage.mockResolvedValue(null);
+    mocks.loadPlaybookSnapshotIcons.mockResolvedValue({ c4: null, nades: {} });
     mocks.snapshotPlaybookPagePng.mockResolvedValue(null);
     mocks.buildPlaybookPdf.mockResolvedValue(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
     await downloadPlaybookPdf(book, UNIT_CALIBRATION, EXPORTED_AT, "light");
@@ -107,6 +126,7 @@ describe("downloadPlaybookPdf", () => {
 describe("snapshotPlaybookPages floors", () => {
   afterEach(() => {
     mocks.loadPlaybookSnapshotImage.mockReset();
+    mocks.loadPlaybookSnapshotIcons.mockReset();
     mocks.snapshotPlaybookPagePng.mockReset();
   });
 
@@ -117,6 +137,7 @@ describe("snapshotPlaybookPages floors", () => {
     mocks.loadPlaybookSnapshotImage.mockResolvedValue({
       src: "/maps/test.png",
     });
+    mocks.loadPlaybookSnapshotIcons.mockResolvedValue({ c4: null, nades: {} });
     mocks.snapshotPlaybookPagePng
       .mockResolvedValueOnce(new Uint8Array([1]))
       .mockResolvedValueOnce(new Uint8Array([2]));

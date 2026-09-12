@@ -1,4 +1,5 @@
 import { playbookPageOnFloor, type PlaybookFloorLayer } from "@/lib/playbook/pages";
+import type { PlaybookPaintIcons } from "@/lib/playbook/paint";
 import type { Playbook } from "@/lib/playbook/types";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import { DEFAULT_PDF_THEME, type PdfTheme } from "@/lib/settings/userSettings";
@@ -10,16 +11,21 @@ import {
   type PlaybookPdfSnapshots,
 } from "./pdfDocument";
 import { playbookPdfFilename, playbookReport } from "./playbookReport";
-import { loadPlaybookSnapshotImage, snapshotPlaybookPagePng } from "./playbookSnapshot";
+import {
+  loadPlaybookSnapshotIcons,
+  loadPlaybookSnapshotImage,
+  snapshotPlaybookPagePng,
+} from "./playbookSnapshot";
 
 async function snapshotFloor(
   page: Playbook["pages"][number],
   cal: MapCalibration | undefined,
   layer: PlaybookFloorLayer,
+  icons: PlaybookPaintIcons,
 ): Promise<Uint8Array | null> {
   const view = playbookPageOnFloor(page, layer);
   const img = await loadPlaybookSnapshotImage(view, cal);
-  return snapshotPlaybookPagePng(view, cal, img);
+  return snapshotPlaybookPagePng(view, cal, img, icons);
 }
 
 export async function snapshotPlaybookPages(
@@ -28,10 +34,11 @@ export async function snapshotPlaybookPages(
 ): Promise<PlaybookPdfSnapshots> {
   const snapshots: Record<string, PlaybookPageStills> = {};
   const floors: PlaybookFloorLayer[] = cal?.lower_radar ? ["upper", "lower"] : ["upper"];
+  const icons = await loadPlaybookSnapshotIcons();
   for (const page of book.pages) {
     const stills: { upper?: Uint8Array; lower?: Uint8Array } = {};
     for (const layer of floors) {
-      const png = await snapshotFloor(page, cal, layer);
+      const png = await snapshotFloor(page, cal, layer, icons);
       if (!png) continue;
       if (layer === "lower") stills.lower = png;
       else stills.upper = png;

@@ -1,11 +1,15 @@
+import { NADE_WEAPON } from "@/lib/match/roundEvents";
 import {
   paintPlaybookBoard,
   playbookUsesLower,
   type PlaybookPaintIcons,
 } from "@/lib/playbook/paint";
 import type { PlaybookPage } from "@/lib/playbook/types";
+import type { NadeIcons } from "@/lib/radar/draw";
 import { radarUrl } from "@/lib/radar/maps";
-import type { MapCalibration } from "@/lib/replay/replayTypes";
+import type { GrenadeKind, MapCalibration } from "@/lib/replay/replayTypes";
+import { publicUrl } from "@/lib/shared/publicUrl";
+import { weaponIconSrc } from "@/lib/weapons/weapons";
 import { PLAYBOOK_PDF_RADAR_SIZE } from "./constants";
 
 const SNAPSHOT_VIEW = { scale: 1, ox: 0, oy: 0 };
@@ -75,6 +79,21 @@ export function loadHtmlImage(src: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error(`Could not load ${src}`));
     img.src = src;
   });
+}
+
+/** Load nade + C4 SVGs as rasterizable images — PDF stills cannot use live DOM SVGs. */
+export async function loadPlaybookSnapshotIcons(): Promise<PlaybookPaintIcons> {
+  const nades: NadeIcons = {};
+  await Promise.all(
+    (Object.keys(NADE_WEAPON) as GrenadeKind[]).map(async (kind) => {
+      const src = weaponIconSrc(NADE_WEAPON[kind]);
+      if (!src) return;
+      const icon = await loadHtmlImage(src).catch(() => null);
+      if (icon) nades[kind] = icon;
+    }),
+  );
+  const c4 = await loadHtmlImage(publicUrl("weapons/c4.svg")).catch(() => null);
+  return { c4, nades };
 }
 
 export async function loadPlaybookSnapshotImage(
