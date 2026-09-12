@@ -36,8 +36,7 @@ export function paintPlaybookSnapshot(
   img: HTMLImageElement | null | undefined,
   icons?: PlaybookPaintIcons,
 ): void {
-  ctx.fillStyle = "#0b0e12";
-  ctx.fillRect(0, 0, size, size);
+  ctx.clearRect(0, 0, size, size);
   paintPlaybookBoard(
     ctx,
     size,

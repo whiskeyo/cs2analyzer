@@ -44,7 +44,7 @@ describe("playbookSnapshotRadarFile", () => {
 });
 
 describe("paintPlaybookSnapshot", () => {
-  it("fills the canvas and paints the strat note and videos", () => {
+  it("paints the strat note and videos without a radar panel fill", () => {
     const ctx = createMockCanvas();
     const page = newPage("A exec", "upper");
     page.note = {
@@ -63,7 +63,8 @@ describe("paintPlaybookSnapshot", () => {
     ];
     const img = { complete: true, naturalWidth: 1024 } as HTMLImageElement;
     paintPlaybookSnapshot(ctx, 240, page, UNIT_CALIBRATION, img);
-    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 240, 240);
+    expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 240, 240);
+    expect(ctx.fillRect).not.toHaveBeenCalled();
     expect(paintPlaybookBoard).toHaveBeenCalledWith(
       ctx,
       240,
@@ -135,8 +136,11 @@ describe("encodeCanvasPng", () => {
 
 describe("loadHtmlImage", () => {
   it("resolves when the image loads and rejects on error", async () => {
-    const created: { onload: (() => void) | null; onerror: (() => void) | null; src: string }[] =
-      [];
+    const created: {
+      onload: (() => void) | null;
+      onerror: (() => void) | null;
+      src: string;
+    }[] = [];
     vi.stubGlobal(
       "Image",
       class {
