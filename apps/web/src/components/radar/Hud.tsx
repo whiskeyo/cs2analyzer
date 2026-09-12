@@ -1,6 +1,5 @@
 import { memo } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
-import { winReasonText } from "@/lib/i18n/labels";
+import { useMessages, winReasonText } from "@/lib/i18n";
 import { currentRound } from "@/lib/replay/sample";
 import { liveSituation, liveTeams } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";

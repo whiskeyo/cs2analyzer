@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
-
+import { useMessages } from "@/lib/i18n";
 export type TreeMenuTarget =
   | { kind: "map"; mapName: string }
   | { kind: "book"; mapName: string; bookKey: string; title: string; index: number; last: boolean }

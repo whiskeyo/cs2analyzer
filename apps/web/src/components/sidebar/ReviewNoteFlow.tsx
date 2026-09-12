@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { sortReviewNotes, type ReviewNote, type ReviewNoteSort } from "@/lib/match/review";
 
 function noteClass(severity: string, pending: boolean): string {

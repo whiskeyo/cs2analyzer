@@ -1,6 +1,6 @@
 import { ACTION_HIGHLIGHT_SECONDS, tickRate } from "@/lib/shared/constants";
 import { useMemo, useState } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { type ExecuteKind, filterExecutes, findExecutes } from "@/lib/match/execute";
 import type { MapPlaces } from "@/lib/match/sites";
 import { layoutGroupFilters } from "@/lib/radar/layouts";

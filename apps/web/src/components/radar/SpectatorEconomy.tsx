@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import {
   formatMoney,
   gearIconHeldClass,

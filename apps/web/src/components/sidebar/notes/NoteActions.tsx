@@ -1,4 +1,4 @@
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { groupItems, squashItems, ungroupRefs } from "@/lib/notes";
 import { updateRoundNote } from "@/lib/notes/roundNotes";
 import type { NotePick } from "@/lib/notes/drag";

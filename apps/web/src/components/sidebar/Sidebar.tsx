@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
 import { useUserSettings } from "@/lib/settings/useUserSettings";

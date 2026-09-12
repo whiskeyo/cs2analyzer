@@ -1,4 +1,4 @@
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { UnfocusableButton } from "./UnfocusableButton";
 
 interface Props {

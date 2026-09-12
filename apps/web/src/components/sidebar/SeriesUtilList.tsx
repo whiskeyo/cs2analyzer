@@ -1,4 +1,4 @@
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { NADE_WEAPON } from "@/lib/match/roundEvents";
 import { utilRowTone } from "@/lib/match/utility";
 import type { SeriesUtilThrow } from "@/lib/parse/seriesAnalysis";

@@ -6,8 +6,7 @@ import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import type { FloorMode, MapLayers } from "@/lib/notes/types";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
-import { LOCALES, localeEndonym, parseLocale } from "@/lib/i18n/locales";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { LOCALES, localeEndonym, parseLocale, useMessages } from "@/lib/i18n";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import {
   NOTE_MOMENT_MAX_SECONDS,

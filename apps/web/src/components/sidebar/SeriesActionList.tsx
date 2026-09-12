@@ -1,4 +1,4 @@
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import type { SeriesActionBeatRow } from "@/lib/parse/seriesAnalysis";
 import type { HabitsTrail } from "@/lib/parse/seriesOverlay";
 

@@ -4,8 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { PROJECT_SCHEMA, type ReviewProject } from "@/lib/notes/projectStore";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
-import { en } from "@/lib/i18n/translations/en";
-import { t } from "@/lib/i18n/messages";
+import { en, t } from "@/lib/i18n";
 import { DropZone } from "./DropZone";
 
 const prefetchParser = vi.hoisted(() => vi.fn());

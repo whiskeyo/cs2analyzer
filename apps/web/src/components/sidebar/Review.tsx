@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { liveClutch } from "@/lib/match/clutches";
 import { playerReview } from "@/lib/match/review";
 import { matchEndTick } from "@/lib/stats/stats";

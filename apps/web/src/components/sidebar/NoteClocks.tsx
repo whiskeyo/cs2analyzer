@@ -1,5 +1,5 @@
 import { NOTE_MOMENT_STEP_SECONDS } from "@/lib/shared/constants";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { roundClock } from "@/lib/match/roundEvents";
 import { roundScrubRange } from "@/lib/playback/roundTimeline";
 import type { Replay, Round } from "@/lib/replay/replayTypes";

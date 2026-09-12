@@ -1,13 +1,67 @@
 import { createElement, Fragment, type ReactNode } from "react";
+import type { BombEventKind } from "@/lib/match/roundEvents";
+import { windowKind } from "@/lib/notes/list";
+import type { FloorMode } from "@/lib/notes/types";
+import type { RoundKind } from "@/lib/parse/roundTags";
+import type { GrenadeKind } from "@/lib/replay/replayTypes";
+import { useUserSettings } from "@/lib/settings/useUserSettings";
+import {
+  WIN_REASON_BOMB,
+  WIN_REASON_CT_ELIM,
+  WIN_REASON_CT_SURRENDER,
+  WIN_REASON_DEFUSE,
+  WIN_REASON_DRAW,
+  WIN_REASON_TIME,
+  WIN_REASON_T_ELIM,
+  WIN_REASON_T_SURRENDER,
+} from "@/lib/shared/constants";
+import { en } from "./translations/en";
+import { pl } from "./translations/pl";
+
+export { en, pl };
+
+export const LOCALES = ["en", "pl"] as const;
+
+export type Locale = (typeof LOCALES)[number];
+
+export const DEFAULT_LOCALE: Locale = "en";
+
+/** Endonyms for the Preferences picker. Adding a locale is one row here plus `translations/xx.ts`. */
+export const LOCALE_ENDONYMS: Record<Locale, string> = {
+  en: "English",
+  pl: "Polski",
+};
+
+const LOCALE_TAGS: Record<Locale, string> = {
+  en: "en-US",
+  pl: "pl-PL",
+};
+
+export function isLocale(value: unknown): value is Locale {
+  return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
+}
+
+/** Unknown or missing values become English. */
+export function parseLocale(value: unknown): Locale {
+  return isLocale(value) ? value : DEFAULT_LOCALE;
+}
+
+/** BCP 47 tag for `Intl` / `toLocaleString`. Unknown codes fall back to en-US. */
+export function localeTag(locale: Locale): string {
+  return LOCALE_TAGS[locale] ?? LOCALE_TAGS[DEFAULT_LOCALE];
+}
+
+export function localeEndonym(locale: Locale): string {
+  return LOCALE_ENDONYMS[locale] ?? LOCALE_ENDONYMS[DEFAULT_LOCALE];
+}
 
 export type MessageVars = Record<string, string | number>;
 
 type FaqArticle = { question: string; body: string };
 
 /**
- * Nested chrome catalogs. Each locale under `translations/` `satisfies Messages`,
- * so a missing Polish key is a type error. FAQ copy lives in
- * `translations/{locale}/faq.ts`.
+ * Nested chrome catalogs. Each locale file `satisfies Messages`, so a missing
+ * Polish key is a type error. FAQ copy lives on `messages.faq`.
  *
  * Sentences that mix copy with links or `<code>` stay **one string per locale**
  * with `{slot}` placeholders so Polish can reorder freely. Do not split a
@@ -638,4 +692,152 @@ export function tNodes(template: string, slots?: Record<string, ReactNode>): Rea
   return interpolateParts(template, slots).map((part, index) =>
     createElement(Fragment, { key: index }, part),
   );
+}
+
+/** Live catalogs. Adding a locale is `translations/xx.ts` + one `LOCALES` entry. */
+export const catalogs: Record<Locale, Messages> = {
+  en,
+  pl,
+};
+
+export function catalogFor(locale: Locale): Messages {
+  switch (locale) {
+    case "pl":
+      return catalogs.pl;
+    case "en":
+    default:
+      return catalogs[DEFAULT_LOCALE];
+  }
+}
+
+export function winReasonText(messages: Messages, code: number): string {
+  switch (code) {
+    case WIN_REASON_BOMB:
+      return messages.winReason.bomb;
+    case WIN_REASON_DEFUSE:
+      return messages.winReason.defuse;
+    case WIN_REASON_CT_ELIM:
+      return messages.winReason.ctElim;
+    case WIN_REASON_T_ELIM:
+      return messages.winReason.tElim;
+    case WIN_REASON_DRAW:
+      return messages.winReason.draw;
+    case WIN_REASON_TIME:
+      return messages.winReason.time;
+    case WIN_REASON_T_SURRENDER:
+      return messages.winReason.tSurrender;
+    case WIN_REASON_CT_SURRENDER:
+      return messages.winReason.ctSurrender;
+    default:
+      return code ? t(messages.winReason.unknown, { code }) : messages.winReason.none;
+  }
+}
+
+export function nadeLabel(messages: Messages, kind: GrenadeKind): string {
+  switch (kind) {
+    case "smoke":
+      return messages.nade.smoke;
+    case "molotov":
+      return messages.nade.molly;
+    case "incendiary":
+      return messages.nade.incendiary;
+    case "flash":
+      return messages.nade.flash;
+    case "he":
+      return messages.nade.he;
+    case "decoy":
+      return messages.nade.decoy;
+    default:
+      return messages.nade.he;
+  }
+}
+
+export function bombEventLabel(messages: Messages, kind: BombEventKind): string {
+  switch (kind) {
+    case "planted":
+      return messages.bombEvent.planted;
+    case "defused":
+      return messages.bombEvent.defused;
+    case "exploded":
+      return messages.bombEvent.exploded;
+    case "begin_defuse":
+      return messages.bombEvent.defusing;
+    case "begin_plant":
+      return messages.bombEvent.planting;
+    default:
+      return messages.bombEvent.planted;
+  }
+}
+
+export function windowKindText(
+  messages: Messages,
+  win: { start: number; end: number } | null,
+): string {
+  switch (windowKind(win)) {
+    case "Pin":
+      return messages.sidebar.notePin;
+    case "Moment":
+      return messages.sidebar.noteMoment;
+    case "Whole round":
+    default:
+      return messages.sidebar.noteWholeRound;
+  }
+}
+
+export function paletteLabel(messages: Messages, id: string): string {
+  switch (id) {
+    case "neon":
+      return messages.palette.neon;
+    case "heat":
+      return messages.palette.heat;
+    case "night":
+      return messages.palette.night;
+    case "mark":
+      return messages.palette.mark;
+    default:
+      return messages.palette.neon;
+  }
+}
+
+export function floorLabel(messages: Messages, mode: FloorMode): string {
+  switch (mode) {
+    case "upper":
+      return messages.preferences.floorUpper;
+    case "lower":
+      return messages.preferences.floorLower;
+    case "auto":
+    default:
+      return messages.preferences.floorAuto;
+  }
+}
+
+export function roundKindLabel(messages: Messages, kind: RoundKind): string {
+  switch (kind) {
+    case "pistol":
+      return messages.roundKind.pistol;
+    case "eco":
+      return messages.roundKind.eco;
+    case "force":
+      return messages.roundKind.force;
+    case "full":
+    default:
+      return messages.roundKind.full;
+  }
+}
+
+export interface MessagesApi {
+  locale: Locale;
+  messages: Messages;
+  t: typeof t;
+  tNodes: typeof tNodes;
+}
+
+/**
+ * Live catalog for `settings.locale`. Unknown codes and a missing provider
+ * fall back to English so tests and first paint stay on the default locale.
+ */
+export function useMessages(): MessagesApi {
+  const { settings } = useUserSettings();
+  const locale = settings.locale ?? DEFAULT_LOCALE;
+  return { locale, messages: catalogFor(locale), t, tNodes };
 }

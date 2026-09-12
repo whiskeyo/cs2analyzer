@@ -1,7 +1,6 @@
 import { memo, type CSSProperties } from "react";
 import { GearIcon } from "@/components/weapons/WeaponIcon";
-import { roundKindLabel } from "@/lib/i18n/labels";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { roundKindLabel, useMessages } from "@/lib/i18n";
 import { currentRound } from "@/lib/replay/sample";
 import type { SeriesRoundChip, SeriesRoundsByKind } from "@/lib/parse/seriesAnalysis";
 import type { BucketOverlaySelection } from "@/lib/state/useSeriesHabits";

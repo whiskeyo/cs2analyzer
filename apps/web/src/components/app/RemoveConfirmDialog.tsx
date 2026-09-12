@@ -1,5 +1,4 @@
-import { useMessages } from "@/lib/i18n/useMessages";
-import { tNodes } from "@/lib/i18n/messages";
+import { tNodes, useMessages } from "@/lib/i18n";
 
 export type RemoveKind = "notes" | "playbooks";
 

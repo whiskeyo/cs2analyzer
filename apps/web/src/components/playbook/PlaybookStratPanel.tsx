@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PieceList } from "@/components/playbook/PieceList";
 import { PlaybookVideos } from "@/components/playbook/PlaybookVideos";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import type { Note } from "@/lib/notes/types";
 import type { PlaybookYouTube } from "@/lib/playbook/types";
 import {

@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router";
 import { playbookHref } from "@/lib/app/playbookSearch";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { emitPlaybooksChanged } from "@/lib/playbook/events";
 import { rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";

@@ -18,7 +18,7 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
-import { DEFAULT_LOCALE } from "@/lib/i18n/locales";
+import { DEFAULT_LOCALE } from "@/lib/i18n";
 import {
   USER_SETTINGS_SCHEMA,
   cloneUserSettings,

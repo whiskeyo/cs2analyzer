@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { useApp } from "@/lib/state/appState";
 import { showSeriesBar } from "@/lib/parse/seriesMode";
 import { prettyMap } from "@/lib/weapons/weapons";

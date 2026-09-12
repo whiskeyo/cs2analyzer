@@ -13,7 +13,7 @@ import { lockNoteDrag, picksEqual, unlockNoteDrag, type NotePick } from "@/lib/n
 import type { NoteDrag } from "@/lib/notes/drag";
 import type { NoteItemRef } from "@/lib/notes/noteGroups";
 import { updateRoundNote } from "@/lib/notes/roundNotes";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { MomentInOut, roundWindowEnd } from "@/components/sidebar/NoteClocks";
 import { GroupNameField } from "./GroupNameField";
 import { NoteListRow } from "./NoteListRow";

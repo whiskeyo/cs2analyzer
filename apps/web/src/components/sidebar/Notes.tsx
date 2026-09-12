@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { eventElement } from "@/lib/notes/drag";
 import { notesByRound } from "@/lib/notes";
 import { useUserSettings } from "@/lib/settings/useUserSettings";

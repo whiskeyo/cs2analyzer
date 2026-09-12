@@ -16,8 +16,7 @@ import type { ImportChoices, ImportConflict } from "@/lib/playbook/merge";
 import { ImportMergeDialog } from "@/components/playbook/ImportMergeDialog";
 import { RemoveConfirmDialog, type RemoveKind } from "./RemoveConfirmDialog";
 import { UserSettingsModal } from "./UserSettingsModal";
-import { useMessages } from "@/lib/i18n/useMessages";
-
+import { useMessages } from "@/lib/i18n";
 function GearIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">

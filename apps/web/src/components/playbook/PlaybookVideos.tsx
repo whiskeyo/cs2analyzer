@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import type { PlaybookYouTube } from "@/lib/playbook/types";
 import { nextVideoPin, removeVideo } from "@/lib/playbook/videos";
 import {

@@ -1,6 +1,5 @@
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
-import { t, type Messages } from "@/lib/i18n/messages";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { t, useMessages, type Messages } from "@/lib/i18n";
 
 interface Props {
   overallPct: number;

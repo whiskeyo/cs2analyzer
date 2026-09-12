@@ -1,4 +1,4 @@
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import type { Note } from "@/lib/notes/types";
 import { overlayRowGroupId, overlayRows, type OverlayRow } from "@/lib/playbook/overlay";
 

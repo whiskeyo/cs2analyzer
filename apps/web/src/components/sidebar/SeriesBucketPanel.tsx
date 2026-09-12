@@ -1,5 +1,4 @@
-import { useMessages } from "@/lib/i18n/useMessages";
-import { nadeLabel } from "@/lib/i18n/labels";
+import { nadeLabel, useMessages } from "@/lib/i18n";
 import { NADE_WEAPON } from "@/lib/match/roundEvents";
 import { useApp } from "@/lib/state/appState";
 import { isMultiDemoSeries } from "@/lib/parse/seriesMode";

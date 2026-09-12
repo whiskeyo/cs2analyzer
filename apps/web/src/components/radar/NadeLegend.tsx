@@ -1,5 +1,4 @@
-import { nadeLabel } from "@/lib/i18n/labels";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { nadeLabel, useMessages } from "@/lib/i18n";
 import { NADE_COLORS } from "@/lib/radar/radarFx";
 import type { SummaryFilter } from "@/lib/notes/types";
 import { type GrenadeKind } from "@/lib/replay/replayTypes";

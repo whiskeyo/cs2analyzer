@@ -1,6 +1,5 @@
 import { useRef } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
-
+import { useMessages } from "@/lib/i18n";
 interface Props {
   onFile: (file: File) => void;
 }

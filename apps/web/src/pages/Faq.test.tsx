@@ -2,11 +2,8 @@ import "fake-indexeddb/auto";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FAQ_SLUGS, faqQuestion } from "@/lib/app/faq";
 import { ISSUES_URL } from "@/lib/app/links";
-import { t } from "@/lib/i18n/messages";
-import { en } from "@/lib/i18n/translations/en";
-import { pl } from "@/lib/i18n/translations/pl";
+import { en, pl, t } from "@/lib/i18n";
 import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
 import { clearUserSettingsForTests, saveUserSettings } from "@/lib/settings/userSettingsStore";
 import { Faq } from "./Faq";
@@ -14,6 +11,32 @@ import { Faq } from "./Faq";
 function wrapper({ children }: { children: ReactNode }) {
   return <UserSettingsProvider>{children}</UserSettingsProvider>;
 }
+
+const EN_QUESTIONS = [
+  en.faq.whatIs.question,
+  en.faq.privacy.question,
+  en.faq.whatToDrop.question,
+  en.faq.savedNotes.question,
+  en.faq.stats.question,
+  en.faq.gotvOrPov.question,
+  en.faq.browsers.question,
+  en.faq.affiliation.question,
+  en.faq.preRelease.question,
+  en.faq.report.question,
+];
+
+const PL_QUESTIONS = [
+  pl.faq.whatIs.question,
+  pl.faq.privacy.question,
+  pl.faq.whatToDrop.question,
+  pl.faq.savedNotes.question,
+  pl.faq.stats.question,
+  pl.faq.gotvOrPov.question,
+  pl.faq.browsers.question,
+  pl.faq.affiliation.question,
+  pl.faq.preRelease.question,
+  pl.faq.report.question,
+];
 
 describe("Faq", () => {
   beforeEach(async () => {
@@ -28,11 +51,8 @@ describe("Faq", () => {
     const { container } = render(<Faq />);
     expect(screen.getByRole("heading", { level: 2, name: en.faq.title })).toBeInTheDocument();
     expect(screen.getByText(en.faq.lead)).toBeInTheDocument();
-    for (const slug of FAQ_SLUGS) {
-      expect(
-        screen.getByRole("heading", { level: 3, name: faqQuestion(en.faq, slug) }),
-      ).toBeInTheDocument();
-    }
+    const headings = screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent);
+    expect(headings).toEqual(EN_QUESTIONS);
     expect(
       screen.getByRole("heading", { level: 4, name: en.faq.stats.adrHeading }),
     ).toBeInTheDocument();
@@ -53,13 +73,10 @@ describe("Faq", () => {
     await waitFor(() => {
       expect(screen.getByText(pl.faq.lead)).toBeInTheDocument();
     });
-    for (const slug of FAQ_SLUGS) {
-      expect(
-        screen.getByRole("heading", { level: 3, name: faqQuestion(pl.faq, slug) }),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole("heading", { level: 3, name: faqQuestion(en.faq, slug) }),
-      ).not.toBeInTheDocument();
+    const headings = screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent);
+    expect(headings).toEqual(PL_QUESTIONS);
+    for (const question of EN_QUESTIONS) {
+      expect(screen.queryByRole("heading", { level: 3, name: question })).not.toBeInTheDocument();
     }
     expect(
       screen.getByRole("heading", { level: 4, name: pl.faq.stats.adrHeading }),

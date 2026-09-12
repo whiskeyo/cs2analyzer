@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MutableRefObject, RefObject } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { NOTE_TEXT_MIN_HEIGHT, NOTE_TEXT_MIN_WIDTH } from "@/lib/shared/constants";
 import { addDrawing } from "@/lib/playbook/drawings";
 import { removeItems, type NoteItemRef } from "@/lib/notes/noteGroups";

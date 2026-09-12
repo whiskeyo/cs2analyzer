@@ -1,5 +1,4 @@
-import { paletteLabel } from "@/lib/i18n/labels";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { paletteLabel, useMessages } from "@/lib/i18n";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 
 interface Props {

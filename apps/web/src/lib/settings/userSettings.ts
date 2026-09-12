@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, parseLocale, type Locale } from "@/lib/i18n/locales";
+import { DEFAULT_LOCALE, parseLocale, type Locale } from "@/lib/i18n";
 import { clampLeadInSec, DEFAULT_LEAD_IN_SEC } from "@/lib/match/roundEvents";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import {

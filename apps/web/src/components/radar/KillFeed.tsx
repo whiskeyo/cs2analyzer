@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { KILL_FEED_MAX_ROWS, KILL_FEED_SECONDS, tickRate } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { currentSide, recentKills } from "@/lib/stats/stats";

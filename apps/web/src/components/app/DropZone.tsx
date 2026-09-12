@@ -15,9 +15,7 @@ import {
 } from "@/lib/notes/projectStore";
 import { formatAdr, formatKast, type SavedPlayerSnapshot } from "@/lib/stats/stats";
 import { prettyMap } from "@/lib/weapons/weapons";
-import { useMessages } from "@/lib/i18n/useMessages";
-import { localeTag } from "@/lib/i18n/locales";
-import { t, type Messages } from "@/lib/i18n/messages";
+import { localeTag, t, useMessages, type Messages } from "@/lib/i18n";
 import { ScorecardLabel } from "./ScorecardLabel";
 
 interface Props {

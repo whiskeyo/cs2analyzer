@@ -1,6 +1,5 @@
 import { ISSUES_URL, REPO_URL, STEAM_TRADE_URL } from "@/lib/app/links";
-import { useMessages } from "@/lib/i18n/useMessages";
-
+import { useMessages } from "@/lib/i18n";
 export function Credits() {
   const { messages, tNodes } = useMessages();
   return (

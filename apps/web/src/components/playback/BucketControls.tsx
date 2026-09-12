@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { bucketTimelineMarks, markLabelShift } from "@/lib/playback/roundTimeline";
 import { formatClock } from "@/lib/weapons/weapons";
 import { TransportButton } from "./TransportButton";

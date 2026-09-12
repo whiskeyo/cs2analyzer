@@ -14,7 +14,7 @@ import { PlaybookEmpty } from "@/components/playbook/PlaybookEmpty";
 import { PlaybookStratPanel } from "@/components/playbook/PlaybookStratPanel";
 import { PlaybookTree } from "@/components/playbook/PlaybookTree";
 import { TokenPalette } from "@/components/playbook/TokenPalette";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { consumePlaybookFocus } from "@/lib/playbook/focus";
 import { useNoteHistory } from "@/lib/playbook/history";
 import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";

@@ -1,5 +1,4 @@
-import { bombEventLabel, nadeLabel, winReasonText } from "@/lib/i18n/labels";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { bombEventLabel, nadeLabel, useMessages, winReasonText } from "@/lib/i18n";
 import { tickRate } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { useMemo, useState } from "react";

@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { tickRate } from "@/lib/shared/constants";
 import { noteForRound, roundBookmarkMarks } from "@/lib/notes";
 import {

@@ -2,8 +2,7 @@ import { Link } from "react-router";
 import { DemoDrop } from "@/components/app/DemoDrop";
 import { CreatePlaybookCard } from "@/components/playbook/CreatePlaybookCard";
 import { ROUTES } from "@/lib/app/routes";
-import { useMessages } from "@/lib/i18n/useMessages";
-
+import { useMessages } from "@/lib/i18n";
 function HomeIntro() {
   const { messages } = useMessages();
   return (

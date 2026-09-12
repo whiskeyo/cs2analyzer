@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { NOTE_GROUP_NAME_MAX } from "@/lib/shared/constants";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { renameItemText } from "@/lib/notes";
 import type { NoteItemRef } from "@/lib/notes/noteGroups";
 import type { Note } from "@/lib/notes/types";

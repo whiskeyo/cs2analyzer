@@ -1,7 +1,6 @@
 import { NavLink } from "react-router";
 import { ROUTES } from "@/lib/app/routes";
-import { useMessages } from "@/lib/i18n/useMessages";
-
+import { useMessages } from "@/lib/i18n";
 export function SiteNav() {
   const { messages } = useMessages();
   const links = [

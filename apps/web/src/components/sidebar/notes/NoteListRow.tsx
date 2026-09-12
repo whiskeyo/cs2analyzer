@@ -1,8 +1,7 @@
 import type { DragEvent as ReactDragEvent, MutableRefObject } from "react";
 import { roundClock } from "@/lib/match/roundEvents";
 import { itemWindow, removeItems, setItemsHidden } from "@/lib/notes";
-import { windowKindText } from "@/lib/i18n/labels";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages, windowKindText } from "@/lib/i18n";
 import { picksEqual, refsForDrag, type NotePick } from "@/lib/notes/drag";
 import type { NoteItemRef } from "@/lib/notes/noteGroups";
 import type { NoteListItem } from "@/lib/notes";

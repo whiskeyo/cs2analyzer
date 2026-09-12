@@ -3,9 +3,7 @@ import { TOOLBAR_PATHS } from "@/components/map/toolbarPaths";
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import type { ReactNode } from "react";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
-import { floorLabel } from "@/lib/i18n/labels";
-import type { Messages } from "@/lib/i18n/messages";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { floorLabel, useMessages, type Messages } from "@/lib/i18n";
 import { NADE_WEAPON } from "@/lib/match/roundEvents";
 import type { FloorMode, NadeStyle } from "@/lib/notes/types";
 import {

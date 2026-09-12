@@ -1,7 +1,6 @@
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { ToolbarIconBtn } from "@/components/map/ToolbarIcon";
-import { floorLabel } from "@/lib/i18n/labels";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { floorLabel, useMessages } from "@/lib/i18n";
 import type { FloorMode } from "@/lib/notes/types";
 import type { MapToolbarProps } from "./mapToolbarTypes";
 

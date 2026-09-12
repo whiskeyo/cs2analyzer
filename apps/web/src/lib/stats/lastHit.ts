@@ -1,5 +1,5 @@
 import { LAST_HIT_SECONDS, hitgroupLabel, tickRate } from "@/lib/shared/constants";
-import { t } from "@/lib/i18n/messages";
+import { t } from "@/lib/i18n";
 import type { Hurt, Replay } from "@/lib/replay/replayTypes";
 import { isEnemy } from "./combat";
 

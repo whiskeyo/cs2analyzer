@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
-import { en } from "@/lib/i18n/translations/en";
-import { t } from "@/lib/i18n/messages";
+import { en, t } from "@/lib/i18n";
 import { ParseProgressPanel } from "./ParseProgressPanel";
 
 function file(

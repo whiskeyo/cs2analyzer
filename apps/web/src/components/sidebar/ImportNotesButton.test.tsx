@@ -2,8 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ImportNotesButton } from "./ImportNotesButton";
-import { en } from "@/lib/i18n/translations/en";
-
+import { en } from "@/lib/i18n";
 describe("ImportNotesButton", () => {
   it("opens the hidden file input when clicked", async () => {
     const onFile = vi.fn();

@@ -1,5 +1,4 @@
-import { roundKindLabel } from "@/lib/i18n/labels";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { roundKindLabel, useMessages } from "@/lib/i18n";
 import { useApp } from "@/lib/state/appState";
 import { seriesTeamCandidates } from "@/lib/parse/session";
 import { isBucketOverlayActive, isMultiDemoSeries } from "@/lib/parse/seriesMode";

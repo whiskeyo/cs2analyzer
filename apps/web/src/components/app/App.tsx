@@ -9,8 +9,7 @@ import { Analyzer } from "@/pages/Analyzer";
 import { Faq } from "@/pages/Faq";
 import { Home } from "@/pages/Home";
 import { Playbook } from "@/pages/Playbook";
-import { useMessages } from "@/lib/i18n/useMessages";
-import type { Messages } from "@/lib/i18n/messages";
+import { useMessages, type Messages } from "@/lib/i18n";
 
 const LayoutsApp = import.meta.env.DEV
   ? lazy(() => import("@/components/layouts/LayoutsApp").then((m) => ({ default: m.LayoutsApp })))

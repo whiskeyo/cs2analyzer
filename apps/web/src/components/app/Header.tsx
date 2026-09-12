@@ -8,7 +8,7 @@ import type { Replay } from "@/lib/replay/replayTypes";
 import { useNavigate } from "react-router";
 import { ROUTES, usePathname } from "@/lib/app/devNavigate";
 import { isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { SettingsMenu } from "./SettingsMenu";
 import { SiteNav } from "./SiteNav";
 

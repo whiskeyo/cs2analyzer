@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DragEvent, KeyboardEvent, MouseEvent } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import type { Playbook } from "@/lib/playbook/types";
 import { groupPlaybooksByMap, mapsForTree } from "@/lib/playbook/tree";
 import { readPlaybookTreeDrag, writePlaybookTreeDrag } from "@/lib/playbook/treeDrag";

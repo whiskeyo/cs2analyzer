@@ -1,6 +1,6 @@
 import { NOTE_GROUP_NAME_MAX } from "@/lib/shared/constants";
 import { useEditableName } from "@/lib/shared/useEditableName";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { groupLabel, renameGroup } from "@/lib/notes";
 import type { Note } from "@/lib/notes/types";
 

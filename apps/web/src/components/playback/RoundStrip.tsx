@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { blockTransportFocus } from "@/lib/playback/transportFocus";
 import { tickRate } from "@/lib/shared/constants";
 import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execute";

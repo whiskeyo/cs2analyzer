@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
 import { formatScorecard, type MatchHalfScore, type MatchScorecard } from "@/lib/stats/stats";
 

@@ -1,4 +1,4 @@
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import type { HabitsTrail } from "@/lib/parse/seriesOverlay";
 import type { SeriesPlayerReviewResult } from "@/lib/parse/seriesPlayerReview";
 import { ReviewNoteFlow } from "./ReviewNoteFlow";

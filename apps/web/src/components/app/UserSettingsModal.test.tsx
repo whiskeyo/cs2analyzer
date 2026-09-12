@@ -12,9 +12,7 @@ import {
   loadUserSettings,
   saveUserSettings,
 } from "@/lib/settings/userSettingsStore";
-import { LOCALES, LOCALE_ENDONYMS } from "@/lib/i18n/locales";
-import { en } from "@/lib/i18n/translations/en";
-import { pl } from "@/lib/i18n/translations/pl";
+import { LOCALES, LOCALE_ENDONYMS, en, pl } from "@/lib/i18n";
 import { UserSettingsModal } from "./UserSettingsModal";
 
 function renderModal(onClose = () => undefined) {

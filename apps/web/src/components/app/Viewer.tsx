@@ -4,7 +4,7 @@ import { SeriesAggregatedRoundStrip } from "@/components/playback/SeriesAggregat
 import { BucketControls } from "@/components/playback/BucketControls";
 import { RadarStage } from "@/components/radar/RadarStage";
 import { Sidebar } from "@/components/sidebar/Sidebar";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import { useApp } from "@/lib/state/appState";
 import { isAggregatedView, isBucketOverlayActive } from "@/lib/parse/seriesMode";
 import { SeriesBar } from "./SeriesBar";

@@ -1,6 +1,5 @@
 import { parseJson } from "@/lib/validate/json.ts";
-import { en } from "@/lib/i18n/translations/en";
-import { t, type Messages } from "@/lib/i18n/messages";
+import { en, t, type Messages } from "@/lib/i18n";
 import { downloadBlob } from "@/lib/shared/download";
 import type { LoadedDemo } from "@/lib/parse/session";
 import {

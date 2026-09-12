@@ -10,7 +10,7 @@ import type { LegendEntry } from "@/lib/playbook/legend";
 import type { PlaybookYouTube } from "@/lib/playbook/types";
 import { nadeIconLoadCount } from "@/lib/radar/draw";
 import { useRadarImages } from "@/lib/radar/useRadarImages";
-import { useMessages } from "@/lib/i18n/useMessages";
+import { useMessages } from "@/lib/i18n";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
 interface Props {
