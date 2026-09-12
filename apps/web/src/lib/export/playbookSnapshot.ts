@@ -1,4 +1,8 @@
-import { paintPlaybookBoard, playbookUsesLower, type PlaybookPaintIcons } from "@/lib/playbook/paint";
+import {
+  paintPlaybookBoard,
+  playbookUsesLower,
+  type PlaybookPaintIcons,
+} from "@/lib/playbook/paint";
 import type { PlaybookPage } from "@/lib/playbook/types";
 import { radarUrl } from "@/lib/radar/maps";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
