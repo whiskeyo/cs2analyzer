@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { NoteMarkupEditor } from "@/components/playbook/NoteMarkupEditor";
 import { PieceList } from "@/components/playbook/PieceList";
 import { PlaybookVideos } from "@/components/playbook/PlaybookVideos";
 import type { Note } from "@/lib/notes/types";
@@ -70,10 +69,14 @@ export function PlaybookStratPanel({
         pendingPin={pendingPin}
         onCancelPin={onCancelPin}
       />
-      <div className="playbook-field playbook-notes-field">
-        <span>Strat notes</span>
-        <NoteMarkupEditor value={body} onChange={onBody} />
-      </div>
+      <label className="playbook-field playbook-notes-field">
+        Strat notes
+        <textarea
+          value={body}
+          onChange={(event) => onBody(event.target.value)}
+          placeholder="Callouts, timings, utility…"
+        />
+      </label>
       <div className="playbook-tokens">
         <button
           type="button"

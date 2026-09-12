@@ -42,9 +42,6 @@ export const PLAYBOOK_PDF_LIGHT_MUTED = {
   b: 110 / 255,
 } as const;
 
-/** Drop below the text baseline for `__underline__`. */
-export const PLAYBOOK_PDF_UNDERLINE_GAP = 1.5;
-
 /** Fallback download stem when title and map slug to nothing. */
 export const PLAYBOOK_PDF_FILE_FALLBACK = "playbook";
 

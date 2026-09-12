@@ -254,7 +254,7 @@ describe("buildPlaybookPdf", () => {
   it("writes a cover plus one page per strat", async () => {
     let book = newPlaybook("de_mirage", "A execs");
     const first = book.pages[0]!;
-    book = setPageBody(book, first.id, "Smoke **stairs** and *flash* __mid__.");
+    book = setPageBody(book, first.id, "Smoke **stairs** and flash mid.");
     book = setPageVideos(book, first.id, [
       {
         id: "v1",
@@ -286,12 +286,7 @@ describe("buildPlaybookPdf", () => {
     expect(text).toContain("Mirage: A execs");
     expect(text).toContain(formatPlaybookExportDate(EXPORTED_AT));
     expect(text).toContain("Mid control");
-    expect(text).toContain("Smoke");
-    expect(text).toContain("stairs");
-    expect(text).toContain("flash");
-    expect(text).toContain("mid");
-    expect(text).not.toContain("**");
-    expect(text).not.toContain("__");
+    expect(text).toContain("Smoke **stairs** and flash mid.");
     expect(text).toContain("Window lineup");
     expect(text).toContain(PLAYBOOK_PDF_FOOTER);
     expect(text).not.toContain("Drawings stay on this machine");

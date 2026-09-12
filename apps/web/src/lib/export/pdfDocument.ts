@@ -20,11 +20,9 @@ import {
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
   PLAYBOOK_PDF_TITLE_SIZE,
-  PLAYBOOK_PDF_UNDERLINE_GAP,
 } from "./constants";
 import { addGoToLink, addOutline, addUriLink } from "./pdfLinks";
 import { loadPlaybookPdfFontBytes, registerPlaybookPdfFontkit } from "./pdfFonts";
-import { wrapMarkupParagraph, type PdfMarkupFonts } from "./pdfMarkup";
 import type { PlaybookReport, PlaybookReportPage } from "./playbookReport";
 import { pdfSafeText, wrapPdfText } from "./pdfText";
 
@@ -45,7 +43,10 @@ interface PdfLib {
   rgb: (typeof import("pdf-lib"))["rgb"];
 }
 
-type DocFonts = PdfMarkupFonts;
+interface DocFonts {
+  regular: PDFFont;
+  bold: PDFFont;
+}
 
 interface TocHit {
   pageId: string;
@@ -184,39 +185,6 @@ function drawLines(writer: Writer, lines: string[], size: number, font: PDFFont,
       });
     }
     writer.y -= height;
-  }
-}
-
-function drawMarkup(writer: Writer, text: string, size: number): void {
-  const height = lineHeight(size);
-  for (const paragraph of text.split(/\r?\n/)) {
-    const wrapped = wrapMarkupParagraph(writer.fonts, paragraph, size, writer.layout.contentWidth);
-    for (const runs of wrapped) {
-      ensureSpace(writer, height);
-      let x = writer.layout.left;
-      const baseline = writer.y - size;
-      for (const run of runs) {
-        writer.page.drawText(run.text, {
-          x,
-          y: baseline,
-          size,
-          font: run.font,
-          color: writer.colors.ink,
-        });
-        const width = run.font.widthOfTextAtSize(run.text, size);
-        if (run.underline) {
-          const y = baseline - PLAYBOOK_PDF_UNDERLINE_GAP;
-          writer.page.drawLine({
-            start: { x, y },
-            end: { x: x + width, y },
-            thickness: 0.7,
-            color: writer.colors.ink,
-          });
-        }
-        x += width;
-      }
-      writer.y -= height;
-    }
   }
 }
 
@@ -432,7 +400,18 @@ function drawStrat(
   drawGap(writer, 8);
   drawRadars(writer, stills);
   if (page.body !== "") {
-    drawMarkup(writer, page.body, PLAYBOOK_PDF_BODY_SIZE);
+    drawLines(
+      writer,
+      wrapPdfText(
+        writer.fonts.regular,
+        page.body,
+        PLAYBOOK_PDF_BODY_SIZE,
+        writer.layout.contentWidth,
+      ),
+      PLAYBOOK_PDF_BODY_SIZE,
+      writer.fonts.regular,
+      writer.colors.ink,
+    );
     drawGap(writer, 8);
   }
   for (const clip of page.clips) {
@@ -465,8 +444,6 @@ export async function buildPlaybookPdf(
   const fonts: DocFonts = {
     regular: await pdf.embedFont(fontBytes.regular, { subset: true }),
     bold: await pdf.embedFont(fontBytes.bold, { subset: true }),
-    italic: await pdf.embedFont(fontBytes.italic, { subset: true }),
-    boldItalic: await pdf.embedFont(fontBytes.boldItalic, { subset: true }),
   };
   const colors = themePalette(theme, rgb);
   const [pageWidth, pageHeight] = PageSizes.A4;

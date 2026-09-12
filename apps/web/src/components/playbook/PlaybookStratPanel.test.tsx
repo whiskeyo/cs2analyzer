@@ -27,40 +27,24 @@ function panelProps(overrides: Partial<Parameters<typeof PlaybookStratPanel>[0]>
 }
 
 describe("PlaybookStratPanel", () => {
-  it("shows a single notes editor and does not offer Export PDF", () => {
+  it("shows a plain notes field and does not offer Export PDF", () => {
     render(<PlaybookStratPanel {...panelProps()} />);
     expect(screen.getByRole("heading", { name: "Strat" })).toBeInTheDocument();
     expect(screen.getByText("A exec")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Strat notes" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("Strat notes preview")).not.toBeInTheDocument();
-    expect(screen.queryByText(/\*\*bold\*\*/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Bold" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Italic" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Underline" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("toolbar", { name: "Strat notes style" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
   });
 
-  it("renders stored markdown as live emphasis in the editor", () => {
-    render(<PlaybookStratPanel {...panelProps({ body: "**flash** *mid* __hold__" })} />);
-    const notes = screen.getByRole("textbox", { name: "Strat notes" });
-    expect(notes.querySelector("strong")).toHaveTextContent("flash");
-    expect(notes.querySelector("em")).toHaveTextContent("mid");
-    expect(notes.querySelector("u")).toHaveTextContent("hold");
-    expect(notes).not.toHaveTextContent("**");
-    expect(notes).not.toHaveTextContent("__");
-  });
-
-  it("wraps a selection from the toolbar and persists markdown", async () => {
+  it("keeps leftover markers as characters and edits the stored string", async () => {
     const onBody = vi.fn();
-    render(<PlaybookStratPanel {...panelProps({ body: "flash mid", onBody })} />);
+    render(<PlaybookStratPanel {...panelProps({ body: "Smoke **stairs**", onBody })} />);
     const notes = screen.getByRole("textbox", { name: "Strat notes" });
-    const text = notes.firstChild;
-    expect(text?.nodeType).toBe(Node.TEXT_NODE);
-    const range = document.createRange();
-    range.setStart(text as Text, 0);
-    range.setEnd(text as Text, 5);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-    await userEvent.click(screen.getByRole("button", { name: "Bold" }));
-    expect(onBody).toHaveBeenCalledWith("**flash** mid");
-    expect(notes.querySelector("strong")).toHaveTextContent("flash");
+    expect(notes).toHaveValue("Smoke **stairs**");
+    await userEvent.type(notes, "!");
+    expect(onBody).toHaveBeenLastCalledWith("Smoke **stairs**!");
   });
 });
