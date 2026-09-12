@@ -243,7 +243,9 @@ describe("tNodes", () => {
         weaponOther: "counter-strike-icons",
       }),
     );
-    expect(screen.getByRole("paragraph").textContent).toMatch(/^Autor: whiskeyo \(wersja 1\.0\.0\)/);
+    expect(screen.getByRole("paragraph").textContent).toMatch(
+      /^Autor: whiskeyo \(wersja 1\.0\.0\)/,
+    );
   });
 });
 
