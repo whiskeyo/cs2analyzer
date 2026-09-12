@@ -1,13 +1,16 @@
 import type { PDFFont } from "pdf-lib";
 
-/** Drop characters Helvetica cannot encode (keep ASCII + common punctuation). */
+/**
+ * Keep ASCII, Latin-1, and Latin Extended-A (Polish ąćęłńóśźż). Map a few
+ * Windows punctuation marks Helvetica-era notes still use.
+ */
 export function pdfSafeText(text: string): string {
   return text
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2013\u2014]/g, "-")
     .replace(/\u2026/g, "...")
-    .replace(/[^\n\r\t\x20-\x7E]/g, "");
+    .replace(/[^\n\r\t\x20-\x7E\u00A0-\u017F]/g, "");
 }
 
 export function wrapPdfText(font: PDFFont, text: string, size: number, maxWidth: number): string[] {

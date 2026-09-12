@@ -41,10 +41,58 @@ function decodePdfHex(hex: string): string {
   return out;
 }
 
-/** Helvetica `Tj` strings live in Flate streams. Slice by `/Length`, not `endstream`. */
+function decodeUtf16BeHex(hex: string): string {
+  const clean = hex.replace(/\s+/g, "");
+  const units: number[] = [];
+  for (let i = 0; i + 3 < clean.length; i += 4) {
+    units.push(Number.parseInt(clean.slice(i, i + 4), 16));
+  }
+  return String.fromCharCode(...units);
+}
+
+function parseToUnicode(cmap: string): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const pair of cmap.matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g)) {
+    map.set(Number.parseInt(pair[1] ?? "", 16), decodeUtf16BeHex(pair[2] ?? ""));
+  }
+  return map;
+}
+
+function decodeTj(hex: string, maps: Map<number, string>[]): string {
+  const clean = hex.replace(/\s+/g, "");
+  if (maps.length === 0 || clean.length % 4 !== 0) return decodePdfHex(clean);
+  const outs: string[] = [];
+  for (const map of maps) {
+    let out = "";
+    let mapped = 0;
+    const total = clean.length / 4;
+    for (let i = 0; i < clean.length; i += 4) {
+      const cid = Number.parseInt(clean.slice(i, i + 4), 16);
+      const ch = map.get(cid);
+      if (ch == null) continue;
+      out += ch;
+      mapped += 1;
+    }
+    if (mapped === total && out !== "") outs.push(out);
+  }
+  if (outs.length > 0) return outs.join("\n");
+  let out = "";
+  let mapped = 0;
+  for (let i = 0; i < clean.length; i += 4) {
+    const cid = Number.parseInt(clean.slice(i, i + 4), 16);
+    const ch = maps.map((entry) => entry.get(cid)).find((value) => value != null);
+    if (ch == null) continue;
+    out += ch;
+    mapped += 1;
+  }
+  return mapped > 0 ? out : decodePdfHex(clean);
+}
+
+/** Embedded-font `Tj` strings live in Flate streams. Slice by `/Length`, not `endstream`. */
 function pdfDrawnText(bytes: Uint8Array): string {
   const raw = Buffer.from(bytes);
   const latin1 = raw.toString("latin1");
+  const maps: Map<number, string>[] = [];
   const texts: string[] = [];
   const headerRe = /\/Length\s+(\d+)[\s\S]*?stream\r?\n/g;
   for (const match of latin1.matchAll(headerRe)) {
@@ -53,8 +101,23 @@ function pdfDrawnText(bytes: Uint8Array): string {
     if (!Number.isFinite(length) || start + length > raw.length) continue;
     try {
       const inflated = inflateSync(raw.subarray(start, start + length)).toString("latin1");
+      if (inflated.includes("beginbfchar") || inflated.includes("begincmap")) {
+        maps.push(parseToUnicode(inflated));
+      }
+    } catch {
+      // image / already-raw stream
+    }
+  }
+  for (const match of latin1.matchAll(headerRe)) {
+    const length = Number(match[1]);
+    const start = (match.index ?? 0) + match[0].length;
+    if (!Number.isFinite(length) || start + length > raw.length) continue;
+    try {
+      const inflated = inflateSync(raw.subarray(start, start + length)).toString("latin1");
+      if (inflated.includes("beginbfchar") || inflated.includes("begincmap")) continue;
+      if (!/(?:Tj|TJ)\b/.test(inflated)) continue;
       for (const hex of inflated.matchAll(/<([0-9A-Fa-f]+)>/g)) {
-        texts.push(decodePdfHex(hex[1] ?? ""));
+        texts.push(decodeTj(hex[1] ?? "", maps));
       }
     } catch {
       // image / already-raw stream
@@ -162,9 +225,9 @@ async function pdfOutlineTitles(bytes: Uint8Array): Promise<string[]> {
 }
 
 describe("pdfSafeText", () => {
-  it("maps common punctuation to WinAnsi", () => {
+  it("maps punctuation and keeps Polish letters", () => {
     expect(pdfSafeText("It’s “mid” — go…")).toBe('It\'s "mid" - go...');
-    expect(pdfSafeText("łódź")).toBe("d");
+    expect(pdfSafeText("Łódź / zawinięcie")).toBe("Łódź / zawinięcie");
   });
 });
 
@@ -270,6 +333,16 @@ describe("buildPlaybookPdf", () => {
     expect(slot.maxH).toBe(imgBudget / 2);
     expect(slot.maxH).toBeGreaterThan(contentWidth / 2);
     expect(centerOnContent(48, contentWidth, 300)).toBe(48 + (contentWidth - 300) / 2);
+  });
+
+  it("round-trips Polish letters through the embedded font", async () => {
+    let book = newPlaybook("de_mirage", "Łódź");
+    const page = book.pages[0]!;
+    book = setPageBody(book, page.id, "zawinięcie");
+    const bytes = await buildPlaybookPdf(playbookReport(book, EXPORTED_AT));
+    const text = pdfDrawnText(bytes);
+    expect(text).toContain("Mirage: Łódź");
+    expect(text).toContain("zawinięcie");
   });
 
   it("still builds when a snapshot is not a PNG", async () => {

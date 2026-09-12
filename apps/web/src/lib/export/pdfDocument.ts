@@ -23,6 +23,7 @@ import {
   PLAYBOOK_PDF_UNDERLINE_GAP,
 } from "./constants";
 import { addGoToLink, addOutline, addUriLink } from "./pdfLinks";
+import { loadPlaybookPdfFontBytes, registerPlaybookPdfFontkit } from "./pdfFonts";
 import { wrapMarkupParagraph, type PdfMarkupFonts } from "./pdfMarkup";
 import type { PlaybookReport, PlaybookReportPage } from "./playbookReport";
 import { pdfSafeText, wrapPdfText } from "./pdfText";
@@ -40,7 +41,6 @@ interface PdfLib {
   PDFDocument: (typeof import("pdf-lib"))["PDFDocument"];
   PDFName: (typeof import("pdf-lib"))["PDFName"];
   PDFString: (typeof import("pdf-lib"))["PDFString"];
-  StandardFonts: (typeof import("pdf-lib"))["StandardFonts"];
   PageSizes: (typeof import("pdf-lib"))["PageSizes"];
   rgb: (typeof import("pdf-lib"))["rgb"];
 }
@@ -458,14 +458,15 @@ export async function buildPlaybookPdf(
   snapshots: PlaybookPdfSnapshots = {},
   theme: PdfTheme = DEFAULT_PDF_THEME,
 ): Promise<Uint8Array> {
-  const { PDFDocument, PDFName, PDFString, StandardFonts, PageSizes, rgb } =
-    (await import("pdf-lib")) as PdfLib;
+  const { PDFDocument, PDFName, PDFString, PageSizes, rgb } = (await import("pdf-lib")) as PdfLib;
   const pdf = await PDFDocument.create();
+  await registerPlaybookPdfFontkit(pdf);
+  const fontBytes = await loadPlaybookPdfFontBytes();
   const fonts: DocFonts = {
-    regular: await pdf.embedFont(StandardFonts.Helvetica),
-    bold: await pdf.embedFont(StandardFonts.HelveticaBold),
-    italic: await pdf.embedFont(StandardFonts.HelveticaOblique),
-    boldItalic: await pdf.embedFont(StandardFonts.HelveticaBoldOblique),
+    regular: await pdf.embedFont(fontBytes.regular, { subset: true }),
+    bold: await pdf.embedFont(fontBytes.bold, { subset: true }),
+    italic: await pdf.embedFont(fontBytes.italic, { subset: true }),
+    boldItalic: await pdf.embedFont(fontBytes.boldItalic, { subset: true }),
   };
   const colors = themePalette(theme, rgb);
   const [pageWidth, pageHeight] = PageSizes.A4;
