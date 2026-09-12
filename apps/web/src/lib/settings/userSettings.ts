@@ -51,6 +51,17 @@ export const DEFAULT_PDF_PHOTOS: PdfPhotos = "with";
 export const DEFAULT_DRAW_TOOLS = ["pan", "pen"] as const;
 export type DefaultDrawTool = (typeof DEFAULT_DRAW_TOOLS)[number];
 
+export const DEFAULT_SIDEBAR_TABS = [
+  "score",
+  "player",
+  "notes",
+  "action",
+  "util",
+  "rounds",
+  "weapons",
+] as const;
+export type DefaultSidebarTab = (typeof DEFAULT_SIDEBAR_TABS)[number];
+
 const GRENADE_KINDS = Object.keys(DEFAULT_SUMMARY_FILTER.kinds) as GrenadeKind[];
 const LAYER_KEYS = Object.keys(DEFAULT_LAYERS) as (keyof MapLayers)[];
 
@@ -63,6 +74,7 @@ export interface UserSettings {
   defaultPaletteId: string;
   defaultColor: string;
   defaultDrawTool: DefaultDrawTool;
+  defaultSidebarTab: DefaultSidebarTab;
   defaultFloorMode: FloorMode;
   defaultSummaryFilter: SummaryFilter;
   defaultLayers: MapLayers;
@@ -116,6 +128,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     defaultPaletteId: defaultPaletteId(),
     defaultColor: defaultColor(),
     defaultDrawTool: "pan",
+    defaultSidebarTab: "score",
     defaultFloorMode: "auto",
     defaultSummaryFilter: cloneSummaryFilter(DEFAULT_SUMMARY_FILTER),
     defaultLayers: cloneLayers(DEFAULT_LAYERS),
@@ -174,6 +187,10 @@ function parsePdfPhotos(value: unknown): PdfPhotos {
 
 function parseDefaultDrawTool(value: unknown): DefaultDrawTool {
   return value === "pan" || value === "pen" ? value : "pan";
+}
+
+function parseDefaultSidebarTab(value: unknown): DefaultSidebarTab {
+  return DEFAULT_SIDEBAR_TABS.some((id) => id === value) ? (value as DefaultSidebarTab) : "score";
 }
 
 function parseBoolean(value: unknown, fallback: boolean): boolean {
@@ -251,6 +268,7 @@ export function parseUserSettings(raw: unknown): UserSettings {
     defaultPaletteId: paletteId,
     defaultColor: parseColor(raw.defaultColor, preset.colors[0]),
     defaultDrawTool: parseDefaultDrawTool(raw.defaultDrawTool),
+    defaultSidebarTab: parseDefaultSidebarTab(raw.defaultSidebarTab),
     defaultFloorMode: parseFloorMode(raw.defaultFloorMode),
     defaultSummaryFilter: parseSummaryFilter(raw.defaultSummaryFilter),
     defaultLayers: parseLayers(raw.defaultLayers),

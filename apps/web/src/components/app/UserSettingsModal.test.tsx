@@ -131,6 +131,7 @@ describe("UserSettingsModal", () => {
     await userEvent.click(screen.getByRole("button", { name: "Lower" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Names" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Heat" }));
+    await userEvent.selectOptions(screen.getByLabelText("Default sidebar tab"), "notes");
     await userEvent.selectOptions(screen.getByLabelText("Default speed"), "2");
     fireEvent.change(screen.getByLabelText("Max demos per drop"), {
       target: { value: "3" },
@@ -151,6 +152,7 @@ describe("UserSettingsModal", () => {
       expect(stored.defaultPaletteId).toBe("heat");
       expect(stored.defaultColor).toBe("#ff7a00");
       expect(stored.defaultDrawTool).toBe("pen");
+      expect(stored.defaultSidebarTab).toBe("notes");
       expect(stored.defaultFloorMode).toBe("lower");
       expect(stored.defaultLayers.names).toBe(false);
       expect(stored.defaultLayers.heatmap).toBe(true);
@@ -164,7 +166,8 @@ describe("UserSettingsModal", () => {
 
     unmount();
     renderModal();
-    await waitFor(() => expect(screen.getByLabelText("Default speed")).toHaveValue("2"));
+    await waitFor(() => expect(screen.getByLabelText("Default sidebar tab")).toHaveValue("notes"));
+    expect(screen.getByLabelText("Default speed")).toHaveValue("2");
     expect(screen.getByRole("button", { name: "Heat" })).toHaveClass("on");
     expect(screen.getByRole("button", { name: "#ff7a00" })).toHaveClass("on");
     expect(screen.getByRole("button", { name: "Pen" })).toHaveClass("on");

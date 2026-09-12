@@ -6,7 +6,12 @@ import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import type { FloorMode, MapLayers } from "@/lib/notes/types";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
-import { DEFAULT_DRAW_TOOLS, type DefaultDrawTool } from "@/lib/settings/userSettings";
+import {
+  DEFAULT_DRAW_TOOLS,
+  DEFAULT_SIDEBAR_TABS,
+  type DefaultDrawTool,
+  type DefaultSidebarTab,
+} from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import type { PdfPhotos, PdfTheme } from "@/lib/settings/userSettings";
 import {
@@ -66,6 +71,16 @@ function radarGrayValueText(amount: number): string {
 const DRAW_TOOL_LABELS: Record<DefaultDrawTool, string> = {
   pan: "Pan",
   pen: "Pen",
+};
+
+const SIDEBAR_TAB_LABELS: Record<DefaultSidebarTab, string> = {
+  score: "Score",
+  player: "Review",
+  notes: "Notes",
+  action: "Action",
+  util: "Utility",
+  rounds: "Rounds",
+  weapons: "Weapons",
 };
 
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
@@ -173,6 +188,23 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             />
             <output>{settings.sidebarWidth}px</output>
           </label>
+          <label className="settings-field">
+            <span>Default sidebar tab</span>
+            <select
+              aria-label="Default sidebar tab"
+              value={settings.defaultSidebarTab}
+              onChange={(e) =>
+                void update({ defaultSidebarTab: e.target.value as DefaultSidebarTab })
+              }
+            >
+              {DEFAULT_SIDEBAR_TABS.map((id) => (
+                <option key={id} value={id}>
+                  {SIDEBAR_TAB_LABELS[id]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="settings-hint">Opens this tab when a demo loads.</p>
           <label className="settings-field">
             <span>Saved notes page size</span>
             <input

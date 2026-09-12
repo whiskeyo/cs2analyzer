@@ -44,6 +44,7 @@ describe("defaultUserSettings", () => {
       defaultPaletteId: "neon",
       defaultColor: "#ff2d6a",
       defaultDrawTool: "pan",
+      defaultSidebarTab: "score",
       defaultFloorMode: "auto",
       defaultSummaryFilter: DEFAULT_SUMMARY_FILTER,
       defaultLayers: DEFAULT_LAYERS,
@@ -100,6 +101,7 @@ describe("parseUserSettings", () => {
       defaultColor: "",
       defaultFloorMode: "roof",
       defaultDrawTool: "eraser",
+      defaultSidebarTab: "clutch",
       defaultPlaybackSpeed: 3,
       skipKnifeOnOpen: "yes",
       eventLeadInSec: 9,
@@ -117,6 +119,7 @@ describe("parseUserSettings", () => {
     expect(parsed.defaultColor).toBe("#ff2d6a");
     expect(parsed.defaultFloorMode).toBe("auto");
     expect(parsed.defaultDrawTool).toBe("pan");
+    expect(parsed.defaultSidebarTab).toBe("score");
     expect(parsed.defaultPlaybackSpeed).toBe(DEFAULT_PLAYBACK_SPEED);
     expect(parsed.skipKnifeOnOpen).toBe(true);
     expect(parsed.eventLeadInSec).toBe(5);
@@ -166,6 +169,7 @@ describe("parseUserSettings", () => {
       defaultPlaybackSpeed: 4,
       defaultFloorMode: "lower",
       defaultDrawTool: "pen",
+      defaultSidebarTab: "notes",
     });
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MIN);
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MIN_SECONDS);
@@ -173,6 +177,7 @@ describe("parseUserSettings", () => {
     expect(parsed.defaultPlaybackSpeed).toBe(4);
     expect(parsed.defaultFloorMode).toBe("lower");
     expect(parsed.defaultDrawTool).toBe("pen");
+    expect(parsed.defaultSidebarTab).toBe("notes");
   });
 
   it("merges partial layer and summary-filter objects", () => {
