@@ -1,20 +1,41 @@
 import { downloadBlob } from "@/lib/shared/download";
+import { playbookPageOnFloor, type PlaybookFloorLayer } from "@/lib/playbook/pages";
 import type { Playbook } from "@/lib/playbook/types";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import { PLAYBOOK_PDF_MIME } from "./constants";
-import { buildPlaybookPdf } from "./pdfDocument";
+import {
+  buildPlaybookPdf,
+  type PlaybookPageStills,
+  type PlaybookPdfSnapshots,
+} from "./pdfDocument";
 import { playbookPdfFilename, playbookReport } from "./playbookReport";
 import { loadPlaybookSnapshotImage, snapshotPlaybookPagePng } from "./playbookSnapshot";
+
+async function snapshotFloor(
+  page: Playbook["pages"][number],
+  cal: MapCalibration | undefined,
+  layer: PlaybookFloorLayer,
+): Promise<Uint8Array | null> {
+  const view = playbookPageOnFloor(page, layer);
+  const img = await loadPlaybookSnapshotImage(view, cal);
+  return snapshotPlaybookPagePng(view, cal, img);
+}
 
 export async function snapshotPlaybookPages(
   book: Playbook,
   cal: MapCalibration | undefined,
-): Promise<Record<string, Uint8Array>> {
-  const snapshots: Record<string, Uint8Array> = {};
+): Promise<PlaybookPdfSnapshots> {
+  const snapshots: Record<string, PlaybookPageStills> = {};
+  const floors: PlaybookFloorLayer[] = cal?.lower_radar ? ["upper", "lower"] : ["upper"];
   for (const page of book.pages) {
-    const img = await loadPlaybookSnapshotImage(page, cal);
-    const png = await snapshotPlaybookPagePng(page, cal, img);
-    if (png) snapshots[page.id] = png;
+    const stills: { upper?: Uint8Array; lower?: Uint8Array } = {};
+    for (const layer of floors) {
+      const png = await snapshotFloor(page, cal, layer);
+      if (!png) continue;
+      if (layer === "lower") stills.lower = png;
+      else stills.upper = png;
+    }
+    if (stills.upper || stills.lower) snapshots[page.id] = stills;
   }
   return snapshots;
 }

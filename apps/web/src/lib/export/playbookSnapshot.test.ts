@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
-import { newPage } from "@/lib/playbook/pages";
+import { newPage, playbookPageOnFloor } from "@/lib/playbook/pages";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { createMockCanvas } from "@/lib/testing/mockCanvas";
 import { PLAYBOOK_PDF_RADAR_SIZE } from "./constants";
@@ -78,6 +78,38 @@ describe("paintPlaybookSnapshot", () => {
       null,
       null,
       page.videos,
+      null,
+      null,
+    );
+  });
+
+  it("paints the lower-floor note when that layer is selected", () => {
+    const ctx = createMockCanvas();
+    const page = newPage("A rush", "lower");
+    page.note = {
+      ...emptyNote(),
+      drawings: [{ type: "text", color: "#fff", x: 1, y: 2, text: "heaven" }],
+    };
+    page.lowerNote = {
+      ...emptyNote(),
+      drawings: [{ type: "text", color: "#fff", x: 3, y: 4, text: "tuck" }],
+    };
+    const view = playbookPageOnFloor(page, "lower");
+    paintPlaybookSnapshot(ctx, 240, view, UNIT_CALIBRATION, null);
+    expect(paintPlaybookBoard).toHaveBeenCalledWith(
+      ctx,
+      240,
+      240,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      page.lowerNote,
+      null,
+      undefined,
+      null,
+      null,
+      null,
+      page.lowerVideos,
       null,
       null,
     );

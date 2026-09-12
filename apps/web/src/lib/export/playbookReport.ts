@@ -62,7 +62,7 @@ function clipFromVideo(clip: PlaybookYouTube): PlaybookReportClip | null {
 
 export function playbookReportPage(page: PlaybookPage): PlaybookReportPage {
   const clips: PlaybookReportClip[] = [];
-  for (const clip of page.videos) {
+  for (const clip of [...page.videos, ...page.lowerVideos]) {
     const row = clipFromVideo(clip);
     if (row) clips.push(row);
   }

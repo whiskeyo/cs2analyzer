@@ -42,7 +42,7 @@ describe("snapshotPlaybookPages", () => {
     mocks.loadPlaybookSnapshotImage.mockResolvedValue({ src: "/maps/test.png" });
     mocks.snapshotPlaybookPagePng.mockResolvedValue(new Uint8Array([7, 7]));
     await expect(snapshotPlaybookPages(book, UNIT_CALIBRATION)).resolves.toEqual({
-      [page.id]: new Uint8Array([7, 7]),
+      [page.id]: { upper: new Uint8Array([7, 7]) },
     });
 
     mocks.snapshotPlaybookPagePng.mockResolvedValue(null);
@@ -75,7 +75,7 @@ describe("downloadPlaybookPdf", () => {
         mapLabel: "Mirage",
         fileStem: "mirage-a-execs",
       }),
-      { [page.id]: new Uint8Array([1]) },
+      { [page.id]: { upper: new Uint8Array([1]) } },
     );
     expect(mocks.downloadBlob).toHaveBeenCalledWith(
       "mirage-a-execs.pdf",
@@ -84,5 +84,28 @@ describe("downloadPlaybookPdf", () => {
     );
     const downloaded = mocks.downloadBlob.mock.calls[0]?.[2] as ArrayBuffer;
     expect(new Uint8Array(downloaded)).toEqual(pdf);
+  });
+});
+
+describe("snapshotPlaybookPages floors", () => {
+  afterEach(() => {
+    mocks.loadPlaybookSnapshotImage.mockReset();
+    mocks.snapshotPlaybookPagePng.mockReset();
+  });
+
+  it("paints upper and lower stills when the map has a lower radar", async () => {
+    const book = newPlaybook("de_nuke", "Nuke execs");
+    const page = book.pages[0]!;
+    const withLower = { ...UNIT_CALIBRATION, lower_radar: "lower.png" };
+    mocks.loadPlaybookSnapshotImage.mockResolvedValue({ src: "/maps/test.png" });
+    mocks.snapshotPlaybookPagePng
+      .mockResolvedValueOnce(new Uint8Array([1]))
+      .mockResolvedValueOnce(new Uint8Array([2]));
+    await expect(snapshotPlaybookPages(book, withLower)).resolves.toEqual({
+      [page.id]: { upper: new Uint8Array([1]), lower: new Uint8Array([2]) },
+    });
+    expect(mocks.snapshotPlaybookPagePng).toHaveBeenCalledTimes(2);
+    expect(mocks.snapshotPlaybookPagePng.mock.calls[0]?.[0]).toMatchObject({ floor: "upper" });
+    expect(mocks.snapshotPlaybookPagePng.mock.calls[1]?.[0]).toMatchObject({ floor: "lower" });
   });
 });
