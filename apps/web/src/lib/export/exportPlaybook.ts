@@ -28,5 +28,7 @@ export async function downloadPlaybookPdf(
   const report = playbookReport(book, exportedAt);
   const snapshots = await snapshotPlaybookPages(book, cal);
   const bytes = await buildPlaybookPdf(report, snapshots);
-  downloadBlob(playbookPdfFilename(report), PLAYBOOK_PDF_MIME, bytes);
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  downloadBlob(playbookPdfFilename(report), PLAYBOOK_PDF_MIME, copy);
 }

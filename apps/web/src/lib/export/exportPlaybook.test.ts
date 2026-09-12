@@ -77,6 +77,12 @@ describe("downloadPlaybookPdf", () => {
       }),
       { [page.id]: new Uint8Array([1]) },
     );
-    expect(mocks.downloadBlob).toHaveBeenCalledWith("mirage-a-execs.pdf", PLAYBOOK_PDF_MIME, pdf);
+    expect(mocks.downloadBlob).toHaveBeenCalledWith(
+      "mirage-a-execs.pdf",
+      PLAYBOOK_PDF_MIME,
+      expect.any(ArrayBuffer),
+    );
+    const downloaded = mocks.downloadBlob.mock.calls[0]?.[2] as ArrayBuffer;
+    expect(new Uint8Array(downloaded)).toEqual(pdf);
   });
 });
