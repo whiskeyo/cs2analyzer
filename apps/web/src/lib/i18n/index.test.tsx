@@ -1,9 +1,6 @@
-/**
- * @vitest-environment jsdom
- */
 import "fake-indexeddb/auto";
 import { render, renderHook, screen, waitFor } from "@testing-library/react";
-import { createElement, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WIN_REASON_BOMB, WIN_REASON_TIME } from "@/lib/shared/constants";
 import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
@@ -49,16 +46,7 @@ function leafEntries(value: unknown, prefix = ""): [string, string][] {
 }
 
 function wrapper({ children }: { children: ReactNode }) {
-  return createElement(UserSettingsProvider, null, children);
-}
-
-function creditSlots() {
-  return {
-    version: "1.0.0",
-    radarSource: createElement("a", { href: "https://radar.example" }, "cs2-map-icons"),
-    weaponMit: createElement("a", { href: "https://mit.example" }, "cs2-killfeed-generator"),
-    weaponOther: createElement("a", { href: "https://other.example" }, "counter-strike-icons"),
-  };
+  return <UserSettingsProvider>{children}</UserSettingsProvider>;
 }
 
 describe("locales", () => {
@@ -216,7 +204,16 @@ describe("catalogs", () => {
 
 describe("tNodes", () => {
   it("renders one English credits sentence with named link slots", () => {
-    render(createElement("p", null, tNodes(en.credits.attribution, creditSlots())));
+    render(
+      <p>
+        {tNodes(en.credits.attribution, {
+          version: "1.0.0",
+          radarSource: <a href="https://radar.example">cs2-map-icons</a>,
+          weaponMit: <a href="https://mit.example">cs2-killfeed-generator</a>,
+          weaponOther: <a href="https://other.example">counter-strike-icons</a>,
+        })}
+      </p>,
+    );
     expect(screen.getByRole("paragraph")).toHaveTextContent(
       t(en.credits.attribution, {
         version: "1.0.0",
@@ -234,7 +231,16 @@ describe("tNodes", () => {
   });
 
   it("lets Polish put slots in a different order than English", () => {
-    render(createElement("p", null, tNodes(pl.credits.attribution, creditSlots())));
+    render(
+      <p>
+        {tNodes(pl.credits.attribution, {
+          version: "1.0.0",
+          radarSource: <a href="https://radar.example">cs2-map-icons</a>,
+          weaponMit: <a href="https://mit.example">cs2-killfeed-generator</a>,
+          weaponOther: <a href="https://other.example">counter-strike-icons</a>,
+        })}
+      </p>,
+    );
     expect(screen.getByRole("paragraph")).toHaveTextContent(
       t(pl.credits.attribution, {
         version: "1.0.0",

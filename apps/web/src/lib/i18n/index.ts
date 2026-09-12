@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- one helper module: locale table, Messages, t, catalogs */
 import { createElement, Fragment, type ReactNode } from "react";
 import type { BombEventKind } from "@/lib/match/roundEvents";
 import { windowKind } from "@/lib/notes/list";

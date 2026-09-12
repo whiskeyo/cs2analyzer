@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- one English catalog; copy volume stays */
 import type { Messages } from "..";
 
 export const en = {
