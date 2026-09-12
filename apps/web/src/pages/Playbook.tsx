@@ -15,6 +15,7 @@ import { PlaybookStratPanel } from "@/components/playbook/PlaybookStratPanel";
 import { PlaybookTree } from "@/components/playbook/PlaybookTree";
 import { TokenPalette } from "@/components/playbook/TokenPalette";
 import { downloadPlaybookPdf } from "@/lib/export/exportPlaybook";
+import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { consumePlaybookFocus } from "@/lib/playbook/focus";
 import { useNoteHistory } from "@/lib/playbook/history";
 import { PLAYBOOK_KEYS_HINT } from "@/lib/playbook/hotkeys";
@@ -47,6 +48,7 @@ import { errorMessage } from "@/lib/validate/json.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
 export function Playbook() {
+  const { settings } = useUserSettings();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchKey = searchParams.toString();
   const query = useMemo(() => parsePlaybookQuery(searchKey), [searchKey]);
@@ -58,7 +60,10 @@ export function Playbook() {
   const [mapName, setMapName] = useState<string | null>(null);
   const [videoPageId, setVideoPageId] = useState<string | null>(null);
   const [openVideoIdState, setOpenVideoIdState] = useState<string | null>(null);
-  const [pendingPinState, setPendingPinState] = useState<{ x: number; y: number } | null>(null);
+  const [pendingPinState, setPendingPinState] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [collapsedMaps, setCollapsedMaps] = useState<Set<string>>(() => new Set());
   const [expandedBooks, setExpandedBooks] = useState<Set<string>>(() => new Set());
   const openedBooksRef = useRef<Set<string>>(new Set());
@@ -251,7 +256,7 @@ export function Playbook() {
     const live = row.key === activeKey && book ? book : row;
     setExportError(null);
     setExportingKey(live.key);
-    void downloadPlaybookPdf(live, maps?.[live.mapName])
+    void downloadPlaybookPdf(live, maps?.[live.mapName], Date.now(), settings.pdfTheme)
       .catch(() => {
         setExportError("Could not export PDF.");
       })

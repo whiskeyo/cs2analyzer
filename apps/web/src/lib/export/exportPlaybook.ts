@@ -1,7 +1,8 @@
-import { downloadBlob } from "@/lib/shared/download";
 import { playbookPageOnFloor, type PlaybookFloorLayer } from "@/lib/playbook/pages";
 import type { Playbook } from "@/lib/playbook/types";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
+import { DEFAULT_PDF_THEME, type PdfTheme } from "@/lib/settings/userSettings";
+import { downloadBlob } from "@/lib/shared/download";
 import { PLAYBOOK_PDF_MIME } from "./constants";
 import {
   buildPlaybookPdf,
@@ -45,10 +46,11 @@ export async function downloadPlaybookPdf(
   book: Playbook,
   cal?: MapCalibration,
   exportedAt = Date.now(),
+  theme: PdfTheme = DEFAULT_PDF_THEME,
 ): Promise<void> {
   const report = playbookReport(book, exportedAt);
   const snapshots = await snapshotPlaybookPages(book, cal);
-  const bytes = await buildPlaybookPdf(report, snapshots);
+  const bytes = await buildPlaybookPdf(report, snapshots, theme);
   const copy = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(copy).set(bytes);
   downloadBlob(playbookPdfFilename(report), PLAYBOOK_PDF_MIME, copy);

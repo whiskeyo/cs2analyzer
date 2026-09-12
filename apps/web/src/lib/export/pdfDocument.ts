@@ -1,4 +1,5 @@
 import type { PDFFont, PDFImage, PDFPage, RGB } from "pdf-lib";
+import { DEFAULT_PDF_THEME, type PdfTheme } from "@/lib/settings/userSettings";
 import {
   PLAYBOOK_PDF_BODY_SIZE,
   PLAYBOOK_PDF_FLOOR_GAP,
@@ -9,6 +10,9 @@ import {
   PLAYBOOK_PDF_FOOTER_URL,
   PLAYBOOK_PDF_HEADING_SIZE,
   PLAYBOOK_PDF_INK,
+  PLAYBOOK_PDF_LIGHT_INK,
+  PLAYBOOK_PDF_LIGHT_MUTED,
+  PLAYBOOK_PDF_LIGHT_PAGE_BG,
   PLAYBOOK_PDF_LINE_GAP,
   PLAYBOOK_PDF_MARGIN,
   PLAYBOOK_PDF_MUTED,
@@ -17,8 +21,14 @@ import {
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
   PLAYBOOK_PDF_TITLE_SIZE,
+  PLAYBOOK_PDF_UNDERLINE_GAP,
 } from "./constants";
+import { addGoToLink, addOutline, addUriLink } from "./pdfLinks";
+import { wrapMarkupParagraph, type PdfMarkupFonts } from "./pdfMarkup";
 import type { PlaybookReport, PlaybookReportPage } from "./playbookReport";
+import { pdfSafeText, wrapPdfText } from "./pdfText";
+
+export { pdfSafeText, wrapPdfText } from "./pdfText";
 
 export interface PlaybookPageStills {
   readonly upper?: Uint8Array;
@@ -29,15 +39,22 @@ export type PlaybookPdfSnapshots = Readonly<Record<string, PlaybookPageStills>>;
 
 interface PdfLib {
   PDFDocument: (typeof import("pdf-lib"))["PDFDocument"];
+  PDFName: (typeof import("pdf-lib"))["PDFName"];
   PDFString: (typeof import("pdf-lib"))["PDFString"];
   StandardFonts: (typeof import("pdf-lib"))["StandardFonts"];
   PageSizes: (typeof import("pdf-lib"))["PageSizes"];
   rgb: (typeof import("pdf-lib"))["rgb"];
 }
 
-interface DocFonts {
-  regular: PDFFont;
-  bold: PDFFont;
+type DocFonts = PdfMarkupFonts;
+
+interface TocHit {
+  pageId: string;
+  page: PDFPage;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 interface Palette {
@@ -73,59 +90,6 @@ interface Writer {
   addPage: () => PDFPage;
 }
 
-/** Drop characters Helvetica cannot encode (keep ASCII + common punctuation). */
-export function pdfSafeText(text: string): string {
-  return text
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2013\u2014]/g, "-")
-    .replace(/\u2026/g, "...")
-    .replace(/[^\n\r\t\x20-\x7E]/g, "");
-}
-
-export function wrapPdfText(font: PDFFont, text: string, size: number, maxWidth: number): string[] {
-  const lines: string[] = [];
-  for (const paragraph of pdfSafeText(text).split(/\r?\n/)) {
-    if (paragraph === "") {
-      lines.push("");
-      continue;
-    }
-    const words = paragraph.split(/\s+/).filter((word) => word !== "");
-    let line = "";
-    for (const word of words) {
-      const pieces = splitLongWord(font, word, size, maxWidth);
-      for (const piece of pieces) {
-        const next = line === "" ? piece : `${line} ${piece}`;
-        if (font.widthOfTextAtSize(next, size) <= maxWidth) {
-          line = next;
-        } else {
-          if (line !== "") lines.push(line);
-          line = piece;
-        }
-      }
-    }
-    if (line !== "") lines.push(line);
-  }
-  return lines;
-}
-
-function splitLongWord(font: PDFFont, word: string, size: number, maxWidth: number): string[] {
-  if (font.widthOfTextAtSize(word, size) <= maxWidth) return [word];
-  const parts: string[] = [];
-  let chunk = "";
-  for (const ch of word) {
-    const next = `${chunk}${ch}`;
-    if (chunk !== "" && font.widthOfTextAtSize(next, size) > maxWidth) {
-      parts.push(chunk);
-      chunk = ch;
-    } else {
-      chunk = next;
-    }
-  }
-  if (chunk !== "") parts.push(chunk);
-  return parts;
-}
-
 function lineHeight(size: number): number {
   return size + PLAYBOOK_PDF_LINE_GAP;
 }
@@ -144,27 +108,27 @@ function makeLayout(width: number, height: number): Layout {
   };
 }
 
-function addUriLink(
-  page: PDFPage,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  uri: string,
-  PDFString: PdfLib["PDFString"],
-): void {
-  const annot = page.doc.context.obj({
-    Type: "Annot",
-    Subtype: "Link",
-    Rect: [x, y, x + width, y + height],
-    Border: [0, 0, 0],
-    A: {
-      Type: "Action",
-      S: "URI",
-      URI: PDFString.of(uri),
-    },
-  });
-  page.node.addAnnot(page.doc.context.register(annot));
+function themePalette(theme: PdfTheme, rgb: PdfLib["rgb"]): Palette {
+  if (theme === "light") {
+    return {
+      bg: rgb(
+        PLAYBOOK_PDF_LIGHT_PAGE_BG.r,
+        PLAYBOOK_PDF_LIGHT_PAGE_BG.g,
+        PLAYBOOK_PDF_LIGHT_PAGE_BG.b,
+      ),
+      ink: rgb(PLAYBOOK_PDF_LIGHT_INK.r, PLAYBOOK_PDF_LIGHT_INK.g, PLAYBOOK_PDF_LIGHT_INK.b),
+      muted: rgb(
+        PLAYBOOK_PDF_LIGHT_MUTED.r,
+        PLAYBOOK_PDF_LIGHT_MUTED.g,
+        PLAYBOOK_PDF_LIGHT_MUTED.b,
+      ),
+    };
+  }
+  return {
+    bg: rgb(PLAYBOOK_PDF_PAGE_BG.r, PLAYBOOK_PDF_PAGE_BG.g, PLAYBOOK_PDF_PAGE_BG.b),
+    ink: rgb(PLAYBOOK_PDF_INK.r, PLAYBOOK_PDF_INK.g, PLAYBOOK_PDF_INK.b),
+    muted: rgb(PLAYBOOK_PDF_MUTED.r, PLAYBOOK_PDF_MUTED.g, PLAYBOOK_PDF_MUTED.b),
+  };
 }
 
 function paintFooter(writer: Writer, page: PDFPage): void {
@@ -224,6 +188,39 @@ function drawLines(writer: Writer, lines: string[], size: number, font: PDFFont,
   }
 }
 
+function drawMarkup(writer: Writer, text: string, size: number): void {
+  const height = lineHeight(size);
+  for (const paragraph of text.split(/\r?\n/)) {
+    const wrapped = wrapMarkupParagraph(writer.fonts, paragraph, size, writer.layout.contentWidth);
+    for (const runs of wrapped) {
+      ensureSpace(writer, height);
+      let x = writer.layout.left;
+      const baseline = writer.y - size;
+      for (const run of runs) {
+        writer.page.drawText(run.text, {
+          x,
+          y: baseline,
+          size,
+          font: run.font,
+          color: writer.colors.ink,
+        });
+        const width = run.font.widthOfTextAtSize(run.text, size);
+        if (run.underline) {
+          const y = baseline - PLAYBOOK_PDF_UNDERLINE_GAP;
+          writer.page.drawLine({
+            start: { x, y },
+            end: { x: x + width, y },
+            thickness: 0.7,
+            color: writer.colors.ink,
+          });
+        }
+        x += width;
+      }
+      writer.y -= height;
+    }
+  }
+}
+
 function drawGap(writer: Writer, gap = PLAYBOOK_PDF_SECTION_GAP): void {
   writer.y -= gap;
 }
@@ -255,7 +252,7 @@ async function embedSnapshots(
   return images;
 }
 
-function drawCover(writer: Writer, report: PlaybookReport): void {
+function drawCover(writer: Writer, report: PlaybookReport): TocHit[] {
   drawLines(
     writer,
     ["cs2analyzer playbook"],
@@ -268,7 +265,7 @@ function drawCover(writer: Writer, report: PlaybookReport): void {
     writer,
     wrapPdfText(
       writer.fonts.bold,
-      report.title,
+      report.heading,
       PLAYBOOK_PDF_TITLE_SIZE,
       writer.layout.contentWidth,
     ),
@@ -279,13 +276,6 @@ function drawCover(writer: Writer, report: PlaybookReport): void {
   drawGap(writer, 8);
   drawLines(
     writer,
-    [report.mapLabel],
-    PLAYBOOK_PDF_HEADING_SIZE,
-    writer.fonts.regular,
-    writer.colors.ink,
-  );
-  drawLines(
-    writer,
     [report.exportedOn],
     PLAYBOOK_PDF_BODY_SIZE,
     writer.fonts.regular,
@@ -293,19 +283,30 @@ function drawCover(writer: Writer, report: PlaybookReport): void {
   );
   drawGap(writer);
   drawLines(writer, ["Strats"], PLAYBOOK_PDF_BODY_SIZE, writer.fonts.bold, writer.colors.ink);
-  const items = report.pages.map((page, index) => `${index + 1}. ${page.title}`);
-  drawLines(
-    writer,
-    wrapPdfText(
+  const hits: TocHit[] = [];
+  const size = PLAYBOOK_PDF_BODY_SIZE;
+  report.pages.forEach((page, index) => {
+    const lines = wrapPdfText(
       writer.fonts.regular,
-      items.join("\n"),
-      PLAYBOOK_PDF_BODY_SIZE,
+      `${index + 1}. ${page.title}`,
+      size,
       writer.layout.contentWidth,
-    ),
-    PLAYBOOK_PDF_BODY_SIZE,
-    writer.fonts.regular,
-    writer.colors.ink,
-  );
+    );
+    const blockHeight = Math.max(lines.length, 1) * lineHeight(size);
+    ensureSpace(writer, blockHeight);
+    const hitPage = writer.page;
+    const top = writer.y;
+    drawLines(writer, lines, size, writer.fonts.regular, writer.colors.ink);
+    hits.push({
+      pageId: page.id,
+      page: hitPage,
+      x: writer.layout.left,
+      y: writer.y,
+      width: writer.layout.contentWidth,
+      height: top - writer.y,
+    });
+  });
+  return hits;
 }
 
 function drawOneRadar(
@@ -381,14 +382,15 @@ function drawStrat(
   report: PlaybookReport,
   page: PlaybookReportPage,
   stills: EmbeddedStills | undefined,
-): void {
+): PDFPage {
   writer.page = writer.addPage();
+  const dest = writer.page;
   writer.y = writer.layout.top;
   drawLines(
     writer,
     wrapPdfText(
       writer.fonts.regular,
-      `${report.title} · ${report.mapLabel}`,
+      report.heading,
       PLAYBOOK_PDF_SMALL_SIZE,
       writer.layout.contentWidth,
     ),
@@ -412,18 +414,7 @@ function drawStrat(
   drawGap(writer, 8);
   drawRadars(writer, stills);
   if (page.body !== "") {
-    drawLines(
-      writer,
-      wrapPdfText(
-        writer.fonts.regular,
-        page.body,
-        PLAYBOOK_PDF_BODY_SIZE,
-        writer.layout.contentWidth,
-      ),
-      PLAYBOOK_PDF_BODY_SIZE,
-      writer.fonts.regular,
-      writer.colors.ink,
-    );
+    drawMarkup(writer, page.body, PLAYBOOK_PDF_BODY_SIZE);
     drawGap(writer, 8);
   }
   for (const clip of page.clips) {
@@ -441,24 +432,24 @@ function drawStrat(
       writer.colors.muted,
     );
   }
+  return dest;
 }
 
 export async function buildPlaybookPdf(
   report: PlaybookReport,
   snapshots: PlaybookPdfSnapshots = {},
+  theme: PdfTheme = DEFAULT_PDF_THEME,
 ): Promise<Uint8Array> {
-  const { PDFDocument, PDFString, StandardFonts, PageSizes, rgb } =
+  const { PDFDocument, PDFName, PDFString, StandardFonts, PageSizes, rgb } =
     (await import("pdf-lib")) as PdfLib;
   const pdf = await PDFDocument.create();
   const fonts: DocFonts = {
     regular: await pdf.embedFont(StandardFonts.Helvetica),
     bold: await pdf.embedFont(StandardFonts.HelveticaBold),
+    italic: await pdf.embedFont(StandardFonts.HelveticaOblique),
+    boldItalic: await pdf.embedFont(StandardFonts.HelveticaBoldOblique),
   };
-  const colors: Palette = {
-    bg: rgb(PLAYBOOK_PDF_PAGE_BG.r, PLAYBOOK_PDF_PAGE_BG.g, PLAYBOOK_PDF_PAGE_BG.b),
-    ink: rgb(PLAYBOOK_PDF_INK.r, PLAYBOOK_PDF_INK.g, PLAYBOOK_PDF_INK.b),
-    muted: rgb(PLAYBOOK_PDF_MUTED.r, PLAYBOOK_PDF_MUTED.g, PLAYBOOK_PDF_MUTED.b),
-  };
+  const colors = themePalette(theme, rgb);
   const [pageWidth, pageHeight] = PageSizes.A4;
   const layout = makeLayout(pageWidth, pageHeight);
   const images = await embedSnapshots(pdf, snapshots);
@@ -478,9 +469,18 @@ export async function buildPlaybookPdf(
   };
   writer.page = writer.addPage();
   writer.y = layout.top;
-  drawCover(writer, report);
+  const tocHits = drawCover(writer, report);
+  const destById = new Map<string, PDFPage>();
+  const outlineItems: { title: string; page: PDFPage }[] = [];
   for (const page of report.pages) {
-    drawStrat(writer, report, page, images.get(page.id));
+    const dest = drawStrat(writer, report, page, images.get(page.id));
+    destById.set(page.id, dest);
+    outlineItems.push({ title: page.title, page: dest });
   }
+  for (const hit of tocHits) {
+    const dest = destById.get(hit.pageId);
+    if (dest) addGoToLink(hit.page, hit, dest);
+  }
+  addOutline(pdf, PDFName, PDFString, outlineItems);
   return pdf.save();
 }

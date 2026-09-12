@@ -101,7 +101,9 @@ describe("Playbook", () => {
     expect(root?.firstElementChild).toHaveClass("playbook-stage");
     expect(root?.querySelector(".playbook-detail")).toBeTruthy();
     expect(root?.lastElementChild).toHaveClass("playbook-tree-pane");
-    fireEvent.keyDown(screen.getByRole("button", { name: "A execs" }), { key: "F2" });
+    fireEvent.keyDown(screen.getByRole("button", { name: "A execs" }), {
+      key: "F2",
+    });
     expect(screen.getByRole("textbox", { name: "Book title" })).toHaveValue("A execs");
     fireEvent.change(screen.getByRole("textbox", { name: "Book title" }), {
       target: { value: "Anti strats" },
@@ -122,6 +124,7 @@ describe("Playbook", () => {
       mapName: "de_mirage",
     });
     expect(downloadPlaybookPdf.mock.calls[0]?.[1]).toBe(UNIT_CALIBRATION);
+    expect(downloadPlaybookPdf.mock.calls[0]?.[3]).toBe("dark");
   });
 
   it("shows an error when playbook PDF export fails", async () => {
@@ -154,7 +157,9 @@ describe("Playbook", () => {
     await userEvent.click(untitled!);
     fireEvent.doubleClick(screen.getByRole("button", { name: "Untitled strat" }));
     expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue("Untitled strat");
-    fireEvent.keyDown(screen.getByRole("textbox", { name: "Strat name" }), { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Strat name" }), {
+      key: "Escape",
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "A exec" }));
     await stratMenu("A exec", "Duplicate strat");
@@ -170,7 +175,9 @@ describe("Playbook", () => {
     await stratMenu("Untitled strat", "Delete strat");
     fireEvent.doubleClick(screen.getByRole("button", { name: "Untitled strat" }));
     expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue("Untitled strat");
-    fireEvent.keyDown(screen.getByRole("textbox", { name: "Strat name" }), { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Strat name" }), {
+      key: "Escape",
+    });
     expect(screen.getByTestId("playbook-canvas")).toBeInTheDocument();
   });
 
@@ -187,7 +194,9 @@ describe("Playbook", () => {
     expect(title).toHaveValue("Mid hold");
     fireEvent.blur(title);
     expect(screen.getByRole("button", { name: "Mid hold" })).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole("button", { name: "Mid hold" }), { key: "F2" });
+    fireEvent.keyDown(screen.getByRole("button", { name: "Mid hold" }), {
+      key: "F2",
+    });
     fireEvent.change(screen.getByRole("textbox", { name: "Book title" }), {
       target: { value: "   " },
     });
@@ -211,7 +220,9 @@ describe("Playbook", () => {
     expect(await screen.findByRole("button", { name: "A smoke" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "B defaults" }));
-    expect(screen.getByRole("button", { name: "B defaults" })).toHaveClass("is-active");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "B defaults" })).toHaveClass("is-active"),
+    );
     expect(screen.getByRole("button", { name: "A smoke" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "B hold" })).toBeInTheDocument();
   });
@@ -370,7 +381,9 @@ describe("Playbook", () => {
 
   it("shows the create-playbook card when no book is open", async () => {
     renderBoard();
-    const card = await screen.findByRole("button", { name: /Create a playbook/ });
+    const card = await screen.findByRole("button", {
+      name: /Create a playbook/,
+    });
     expect(card).toHaveClass("home-card", "home-playbook");
     expect(screen.getByText("Draw named strats on a radar. No demo required.")).toBeInTheDocument();
     expect(screen.getByText("Open playbook.")).toBeInTheDocument();

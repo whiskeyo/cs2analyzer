@@ -39,7 +39,9 @@ describe("snapshotPlaybookPages", () => {
   it("keeps PNG bytes keyed by strat id and skips failed stills", async () => {
     const book = newPlaybook("de_mirage", "A execs");
     const page = book.pages[0]!;
-    mocks.loadPlaybookSnapshotImage.mockResolvedValue({ src: "/maps/test.png" });
+    mocks.loadPlaybookSnapshotImage.mockResolvedValue({
+      src: "/maps/test.png",
+    });
     mocks.snapshotPlaybookPagePng.mockResolvedValue(new Uint8Array([7, 7]));
     await expect(snapshotPlaybookPages(book, UNIT_CALIBRATION)).resolves.toEqual({
       [page.id]: { upper: new Uint8Array([7, 7]) },
@@ -73,9 +75,11 @@ describe("downloadPlaybookPdf", () => {
       expect.objectContaining({
         title: "A execs",
         mapLabel: "Mirage",
+        heading: "Mirage: A execs",
         fileStem: "mirage-a-execs",
       }),
       { [page.id]: { upper: new Uint8Array([1]) } },
+      "dark",
     );
     expect(mocks.downloadBlob).toHaveBeenCalledWith(
       "mirage-a-execs.pdf",
@@ -84,6 +88,19 @@ describe("downloadPlaybookPdf", () => {
     );
     const downloaded = mocks.downloadBlob.mock.calls[0]?.[2] as ArrayBuffer;
     expect(new Uint8Array(downloaded)).toEqual(pdf);
+  });
+
+  it("forwards a light PDF theme", async () => {
+    const book = newPlaybook("de_nuke", "default executes");
+    mocks.loadPlaybookSnapshotImage.mockResolvedValue(null);
+    mocks.snapshotPlaybookPagePng.mockResolvedValue(null);
+    mocks.buildPlaybookPdf.mockResolvedValue(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+    await downloadPlaybookPdf(book, UNIT_CALIBRATION, EXPORTED_AT, "light");
+    expect(mocks.buildPlaybookPdf).toHaveBeenCalledWith(
+      expect.objectContaining({ heading: "Nuke: default executes" }),
+      {},
+      "light",
+    );
   });
 });
 
@@ -97,7 +114,9 @@ describe("snapshotPlaybookPages floors", () => {
     const book = newPlaybook("de_nuke", "Nuke execs");
     const page = book.pages[0]!;
     const withLower = { ...UNIT_CALIBRATION, lower_radar: "lower.png" };
-    mocks.loadPlaybookSnapshotImage.mockResolvedValue({ src: "/maps/test.png" });
+    mocks.loadPlaybookSnapshotImage.mockResolvedValue({
+      src: "/maps/test.png",
+    });
     mocks.snapshotPlaybookPagePng
       .mockResolvedValueOnce(new Uint8Array([1]))
       .mockResolvedValueOnce(new Uint8Array([2]));
@@ -105,7 +124,11 @@ describe("snapshotPlaybookPages floors", () => {
       [page.id]: { upper: new Uint8Array([1]), lower: new Uint8Array([2]) },
     });
     expect(mocks.snapshotPlaybookPagePng).toHaveBeenCalledTimes(2);
-    expect(mocks.snapshotPlaybookPagePng.mock.calls[0]?.[0]).toMatchObject({ floor: "upper" });
-    expect(mocks.snapshotPlaybookPagePng.mock.calls[1]?.[0]).toMatchObject({ floor: "lower" });
+    expect(mocks.snapshotPlaybookPagePng.mock.calls[0]?.[0]).toMatchObject({
+      floor: "upper",
+    });
+    expect(mocks.snapshotPlaybookPagePng.mock.calls[1]?.[0]).toMatchObject({
+      floor: "lower",
+    });
   });
 });

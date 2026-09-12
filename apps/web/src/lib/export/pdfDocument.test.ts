@@ -1,9 +1,14 @@
 import { inflateSync } from "node:zlib";
-import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRef } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import { addPage, newPlaybook, setPageBody, setPageVideos } from "@/lib/playbook/pages";
-import { PLAYBOOK_PDF_FOOTER, PLAYBOOK_PDF_FOOTER_URL, PLAYBOOK_PDF_PAGE_BG } from "./constants";
+import {
+  PLAYBOOK_PDF_FOOTER,
+  PLAYBOOK_PDF_FOOTER_URL,
+  PLAYBOOK_PDF_LIGHT_PAGE_BG,
+  PLAYBOOK_PDF_PAGE_BG,
+} from "./constants";
 import { buildPlaybookPdf, pdfSafeText, wrapPdfText } from "./pdfDocument";
 import { formatPlaybookExportDate, playbookReport } from "./playbookReport";
 
@@ -98,6 +103,54 @@ async function pdfLinkUris(bytes: Uint8Array): Promise<string[]> {
   return uris;
 }
 
+function destPageIndex(loaded: PDFDocument, destObj: unknown): number {
+  const dest = destObj instanceof PDFRef ? loaded.context.lookup(destObj) : destObj;
+  if (!(dest instanceof PDFArray)) return -1;
+  const ref = dest.get(0);
+  if (!(ref instanceof PDFRef)) return -1;
+  return loaded.getPages().findIndex((page) => page.ref === ref);
+}
+
+async function pdfGoToPageIndexes(bytes: Uint8Array): Promise<number[]> {
+  const loaded = await PDFDocument.load(bytes);
+  const indexes: number[] = [];
+  for (const page of loaded.getPages()) {
+    const annots = page.node.Annots();
+    if (!annots) continue;
+    for (const item of annots.asArray()) {
+      const annot = loaded.context.lookup(item);
+      if (!(annot instanceof PDFDict)) continue;
+      const actionRef = annot.get(PDFName.of("A"));
+      const action = actionRef instanceof PDFDict ? actionRef : loaded.context.lookup(actionRef);
+      if (!(action instanceof PDFDict)) continue;
+      if (String(action.get(PDFName.of("S"))) !== "/GoTo") continue;
+      const index = destPageIndex(loaded, action.get(PDFName.of("D")));
+      if (index >= 0) indexes.push(index);
+    }
+  }
+  return indexes;
+}
+
+async function pdfOutlineTitles(bytes: Uint8Array): Promise<string[]> {
+  const loaded = await PDFDocument.load(bytes);
+  const outlinesRef = loaded.catalog.get(PDFName.of("Outlines"));
+  if (!outlinesRef) return [];
+  const outlines = loaded.context.lookup(outlinesRef);
+  if (!(outlines instanceof PDFDict)) return [];
+  const titles: string[] = [];
+  let cursor = outlines.get(PDFName.of("First"));
+  while (cursor) {
+    const node = loaded.context.lookup(cursor);
+    if (!(node instanceof PDFDict)) break;
+    const titleObj = node.get(PDFName.of("Title"));
+    if (titleObj && "decodeText" in titleObj) {
+      titles.push((titleObj as { decodeText: () => string }).decodeText());
+    }
+    cursor = node.get(PDFName.of("Next"));
+  }
+  return titles;
+}
+
 describe("pdfSafeText", () => {
   it("maps common punctuation to WinAnsi", () => {
     expect(pdfSafeText("It’s “mid” — go…")).toBe('It\'s "mid" - go...');
@@ -128,7 +181,7 @@ describe("buildPlaybookPdf", () => {
   it("writes a cover plus one page per strat", async () => {
     let book = newPlaybook("de_mirage", "A execs");
     const first = book.pages[0]!;
-    book = setPageBody(book, first.id, "Smoke stairs.");
+    book = setPageBody(book, first.id, "Smoke **stairs** and *flash* __mid__.");
     book = setPageVideos(book, first.id, [
       {
         id: "v1",
@@ -147,7 +200,9 @@ describe("buildPlaybookPdf", () => {
       ),
     };
     const report = playbookReport(book, EXPORTED_AT);
-    const bytes = await buildPlaybookPdf(report, { [first.id]: { upper: TINY_PNG } });
+    const bytes = await buildPlaybookPdf(report, {
+      [first.id]: { upper: TINY_PNG },
+    });
     expect(String.fromCharCode(bytes[0] ?? 0, bytes[1] ?? 0, bytes[2] ?? 0, bytes[3] ?? 0)).toBe(
       "%PDF",
     );
@@ -155,16 +210,31 @@ describe("buildPlaybookPdf", () => {
     const loaded = await PDFDocument.load(bytes);
     expect(loaded.getPageCount()).toBe(3);
     const text = pdfDrawnText(bytes);
-    expect(text).toContain("A execs");
-    expect(text).toContain("Mirage");
+    expect(text).toContain("Mirage: A execs");
     expect(text).toContain(formatPlaybookExportDate(EXPORTED_AT));
     expect(text).toContain("Mid control");
-    expect(text).toContain("Smoke stairs.");
+    expect(text).toContain("Smoke");
+    expect(text).toContain("stairs");
+    expect(text).toContain("flash");
+    expect(text).toContain("mid");
+    expect(text).not.toContain("**");
+    expect(text).not.toContain("__");
     expect(text).toContain("Window lineup");
     expect(text).toContain(PLAYBOOK_PDF_FOOTER);
     expect(text).not.toContain("Drawings stay on this machine");
     expect(await pdfLinkUris(bytes)).toEqual(loaded.getPages().map(() => PLAYBOOK_PDF_FOOTER_URL));
+    expect(await pdfGoToPageIndexes(bytes)).toEqual([1, 2]);
+    expect(await pdfOutlineTitles(bytes)).toEqual(["Untitled strat", "Mid control"]);
     expect(pdfContentHasRgb(bytes, PLAYBOOK_PDF_PAGE_BG)).toBe(true);
+  });
+
+  it("uses the light page fill when the theme is light", async () => {
+    const book = newPlaybook("de_nuke", "default executes");
+    const report = playbookReport(book, EXPORTED_AT);
+    expect(report.heading).toBe("Nuke: default executes");
+    const bytes = await buildPlaybookPdf(report, {}, "light");
+    expect(pdfContentHasRgb(bytes, PLAYBOOK_PDF_LIGHT_PAGE_BG)).toBe(true);
+    expect(pdfContentHasRgb(bytes, PLAYBOOK_PDF_PAGE_BG)).toBe(false);
   });
 
   it("paints Upper and Lower labels when both floor stills are present", async () => {
