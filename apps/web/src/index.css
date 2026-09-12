@@ -1359,6 +1359,32 @@ code {
   min-height: 16rem;
   flex: 1;
 }
+.playbook-notes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.playbook-notes-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.playbook-notes-preview {
+  margin: 0;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid #2a3848;
+  border-radius: 6px;
+  background: #10161c;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.playbook-notes-preview p {
+  margin: 0 0 0.35rem;
+}
+.playbook-notes-preview p:last-child {
+  margin-bottom: 0;
+}
 .playbook-videos {
   display: flex;
   flex-direction: column;
