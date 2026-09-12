@@ -116,6 +116,10 @@ describe("catalogs", () => {
     expect(pl.drop.blurb).toContain("{dem}");
     expect(en.drop.savedLead).toContain("{dem}");
     expect(pl.drop.restoreBody).toContain("{file}");
+    expect(en.faq.whatToDrop.body).toContain("{dem}");
+    expect(pl.faq.savedNotes.body).toContain("{dem}");
+    expect(en.faq.report.body).toContain("{issues}");
+    expect(pl.faq.report.body).toContain("{issues}");
     expect(en.credits).not.toHaveProperty("weaponsFrom");
     expect(en.home).not.toHaveProperty("faqHintBefore");
     expect(en.drop).not.toHaveProperty("blurbBefore");

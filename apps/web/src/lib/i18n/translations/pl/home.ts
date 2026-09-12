@@ -13,8 +13,4 @@ export const home = {
     faqHint: "Jeśli masz pytania, {faqLink}.",
     faqLink: "zobacz FAQ",
   },
-  faq: {
-    title: "FAQ",
-    lead: "Krótkie odpowiedzi o lokalnym podglądzie GOTV. Upuść demo na stronie głównej albo otwórz Analyzer, żeby wrócić do zapisanych notatek.",
-  },
-} satisfies Pick<Messages, "home" | "faq">;
+} satisfies Pick<Messages, "home">;

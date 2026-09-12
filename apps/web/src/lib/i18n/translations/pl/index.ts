@@ -1,6 +1,7 @@
 import type { Messages } from "../../messages";
 import { nav } from "./nav";
 import { home } from "./home";
+import { faq } from "./faq";
 import { drop } from "./drop";
 import { settings } from "./settings";
 import { preferences } from "./preferences";
@@ -12,6 +13,7 @@ import { playbook } from "./playbook";
 export const pl = {
   ...nav,
   ...home,
+  ...faq,
   ...drop,
   ...settings,
   ...preferences,

@@ -1,35 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { FAQ_CATALOGS, FAQ_ITEMS, faqItemsFor, mergeFaqBySlug, parseFaqMarkdown } from "./faq";
+import { en } from "@/lib/i18n/translations/en";
+import { pl } from "@/lib/i18n/translations/pl";
+import { FAQ_SLUGS, faqQuestion } from "./faq";
 
-describe("parseFaqMarkdown", () => {
-  it("keeps the whole file and reads the first heading as the question", () => {
-    const src = `# How is rating calculated?\n\nInline $KAST$ and a block:\n\n$$\nR = 1\n$$\n\n## Notes\n\nMore detail.`;
-    const item = parseFaqMarkdown(src);
-    expect(item.question).toBe("How is rating calculated?");
-    expect(item.markdown).toBe(src);
-    expect(item.markdown).toContain("## Notes");
-  });
+function faqLeaves(value: unknown): string[] {
+  if (typeof value === "string") {
+    return [value];
+  }
+  if (value == null || typeof value !== "object") {
+    return [];
+  }
+  return Object.values(value).flatMap(faqLeaves);
+}
 
-  it("rejects a file with no heading", () => {
-    expect(() => parseFaqMarkdown("just a paragraph")).toThrow(/must start with a "# Question"/);
-  });
-});
-
-describe("FAQ_ITEMS", () => {
-  it("loads numbered English articles from translations/faq as precompiled HTML", () => {
-    expect(FAQ_ITEMS.map((item) => item.slug)).toEqual([
-      "01-what-is",
-      "02-privacy",
-      "03-what-to-drop",
-      "04-saved-notes",
-      "05-stats",
-      "06-gotv-or-pov",
-      "07-browsers",
-      "08-affiliation",
-      "09-pre-release",
-      "10-report",
+describe("FAQ_SLUGS", () => {
+  it("keeps the ten articles in a fixed order", () => {
+    expect(FAQ_SLUGS).toEqual([
+      "what-is",
+      "privacy",
+      "what-to-drop",
+      "saved-notes",
+      "stats",
+      "gotv-or-pov",
+      "browsers",
+      "affiliation",
+      "pre-release",
+      "report",
     ]);
-    expect(FAQ_ITEMS.map((item) => item.question)).toEqual([
+  });
+
+  it("reads English questions from the catalog, not markdown", () => {
+    expect(FAQ_SLUGS.map((slug) => faqQuestion(en.faq, slug))).toEqual([
       "What is CS2 Analyzer?",
       "Do my demos leave this computer?",
       "What can I drop?",
@@ -41,24 +42,37 @@ describe("FAQ_ITEMS", () => {
       "The site says pre-release — should I worry?",
       "How do I report a bug or request a feature?",
     ]);
-    for (const item of FAQ_ITEMS) {
-      expect(item.html).toContain(`<h3>${item.question}</h3>`);
-      expect(item.html).not.toContain("react-markdown");
-      expect(item.html).not.toMatch(/katex|<math/i);
-    }
   });
 
-  it("picks Polish bodies and falls a missing slug back to English", () => {
-    const polish = faqItemsFor("pl");
-    expect(polish).toHaveLength(FAQ_ITEMS.length);
-    expect(polish[0]?.question).toBe("Czym jest CS2 Analyzer?");
-    expect(polish[4]?.html).toContain("ADR i trade");
-    expect(FAQ_CATALOGS.pl.map((item) => item.slug)).toEqual(FAQ_ITEMS.map((item) => item.slug));
+  it("reads Polish questions from the same keys, without a slug fallback merge", () => {
+    expect(FAQ_SLUGS.map((slug) => faqQuestion(pl.faq, slug))).toEqual([
+      "Czym jest CS2 Analyzer?",
+      "Czy moje dema opuszczają ten komputer?",
+      "Co mogę wrzucić?",
+      "Jak działają zapisane notatki?",
+      "Jakie to statystyki?",
+      "GOTV czy POV?",
+      "Które przeglądarki działają?",
+      "Czy to jest powiązane z Valve albo FACEIT?",
+      "Strona pisze pre-release — mam się martwić?",
+      "Jak zgłosić buga albo poprosić o funkcję?",
+    ]);
+  });
 
-    const onlyPrivacy = FAQ_CATALOGS.pl.filter((item) => item.slug === "02-privacy");
-    const mixed = mergeFaqBySlug(onlyPrivacy, FAQ_ITEMS);
-    expect(mixed[0]).toEqual(FAQ_ITEMS[0]);
-    expect(mixed[1]?.question).toBe("Czy moje dema opuszczają ten komputer?");
-    expect(faqItemsFor("de" as "en")).toEqual(FAQ_ITEMS);
+  it("keeps inline code and the issues link as named slots", () => {
+    expect(en.faq.whatToDrop.body).toContain("{dem}");
+    expect(pl.faq.whatToDrop.body).toContain("{dem}");
+    expect(en.faq.savedNotes.body).toContain("{dem}");
+    expect(pl.faq.savedNotes.body).toContain("{dem}");
+    expect(en.faq.report.body).toContain("{issues}");
+    expect(pl.faq.report.body).toContain("{issues}");
+    expect(en.faq.whatToDrop).not.toHaveProperty("bodyBefore");
+    expect(en.faq.report).not.toHaveProperty("bodyBefore");
+  });
+
+  it("does not put math markup or a markdown pipeline in the catalog", () => {
+    for (const text of [...faqLeaves(en.faq), ...faqLeaves(pl.faq)]) {
+      expect(text).not.toMatch(/katex|react-markdown|\$\$|<math/i);
+    }
   });
 });

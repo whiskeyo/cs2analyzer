@@ -2,10 +2,12 @@ import { createElement, Fragment, type ReactNode } from "react";
 
 export type MessageVars = Record<string, string | number>;
 
+type FaqArticle = { question: string; body: string };
+
 /**
  * Nested chrome catalogs. Each locale under `translations/` `satisfies Messages`,
- * so a missing Polish key is a type error. FAQ article bodies stay English
- * (Phase 4).
+ * so a missing Polish key is a type error. FAQ copy lives in
+ * `translations/{locale}/faq.ts`.
  *
  * Sentences that mix copy with links or `<code>` stay **one string per locale**
  * with `{slot}` placeholders so Polish can reorder freely. Do not split a
@@ -48,6 +50,23 @@ export interface Messages {
   faq: {
     title: string;
     lead: string;
+    whatIs: FaqArticle;
+    privacy: FaqArticle;
+    whatToDrop: FaqArticle;
+    savedNotes: FaqArticle;
+    stats: {
+      question: string;
+      intro: string;
+      adrHeading: string;
+      adrBody: string;
+      sidesHeading: string;
+      sidesBody: string;
+    };
+    gotvOrPov: FaqArticle;
+    browsers: FaqArticle;
+    affiliation: FaqArticle;
+    preRelease: FaqArticle;
+    report: FaqArticle & { issuesLink: string };
   };
   drop: {
     title: string;

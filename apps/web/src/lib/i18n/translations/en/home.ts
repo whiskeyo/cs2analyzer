@@ -13,8 +13,4 @@ export const home = {
     faqHint: "If you have questions, {faqLink}.",
     faqLink: "see the FAQ",
   },
-  faq: {
-    title: "FAQ",
-    lead: "Short answers for a local-first GOTV viewer. Drop a demo on the home page, or open Analyzer for saved notes.",
-  },
-} satisfies Pick<Messages, "home" | "faq">;
+} satisfies Pick<Messages, "home">;
