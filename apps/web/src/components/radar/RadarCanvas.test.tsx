@@ -347,7 +347,7 @@ describe("RadarCanvas", () => {
       rafCb?.(5);
     });
     expect(paintRadarFrame.paintRadarFrame).toHaveBeenCalledTimes(6);
-    expect(staticMapPaint.paintMapImage.mock.calls.at(-1)?.[6]).toBe(0);
+    expect(vi.mocked(staticMapPaint.paintMapImage).mock.calls.at(-1)?.[6]).toBe(0);
   });
 
   it("rebuilds after pan or zoom", () => {
