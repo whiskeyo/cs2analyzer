@@ -222,6 +222,7 @@ export function Playbook() {
 
   useEffect(() => {
     if (!mapName) return;
+    if (activeKey && !book) return;
     if (query.playbook && appliedSearchRef.current !== incomingSearch) return;
     const next = playbookSearch({
       map: mapName,
@@ -233,22 +234,7 @@ export function Playbook() {
     setSearchParams(next === "" ? {} : Object.fromEntries(new URLSearchParams(next.slice(1))), {
       replace: true,
     });
-  }, [allBooks, book, incomingSearch, mapName, page, query.playbook, setSearchParams]);
-
-  useEffect(() => {
-    if (!mapName) return;
-    if (query.playbook && appliedSearchRef.current !== incomingSearch) return;
-    const next = playbookSearch({
-      map: mapName,
-      playbook: book ? playbookQueryLabel(allBooks, book) : null,
-      strat: book && page ? stratQueryLabel(book.pages, page) : null,
-    });
-    if (next === incomingSearch) return;
-    appliedSearchRef.current = next;
-    setSearchParams(next === "" ? {} : Object.fromEntries(new URLSearchParams(next.slice(1))), {
-      replace: true,
-    });
-  }, [allBooks, book, incomingSearch, mapName, page, query.playbook, setSearchParams]);
+  }, [activeKey, allBooks, book, incomingSearch, mapName, page, query.playbook, setSearchParams]);
 
   const treeBooks = booksWithDraft(allBooks, book);
   if (activeKey) openedBooksRef.current.add(activeKey);

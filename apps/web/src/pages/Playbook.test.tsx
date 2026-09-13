@@ -222,11 +222,11 @@ describe("Playbook", () => {
     expect(await screen.findByRole("button", { name: "A smoke" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "B defaults" }));
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "B defaults" })).toHaveClass("is-active"),
-    );
+    expect(await screen.findByRole("button", { name: "B hold" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "B defaults" })).toHaveClass("is-active");
+    });
     expect(screen.getByRole("button", { name: "A smoke" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "B hold" })).toBeInTheDocument();
   });
 
   it("keeps playbook order when switching the active book", async () => {
