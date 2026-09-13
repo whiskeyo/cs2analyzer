@@ -62,7 +62,15 @@ describe("paintPlaybookBoard", () => {
       filters.push(ctx.filter);
     });
     const img = { complete: true, naturalWidth: 1024 } as HTMLImageElement;
-    paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, img, UNIT_CALIBRATION, emptyNote());
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      img,
+      UNIT_CALIBRATION,
+      emptyNote(),
+    );
     expect(filters).toEqual(["saturate(0)"]);
     expect(ctx.filter).toBe("none");
     paintPlaybookBoard(

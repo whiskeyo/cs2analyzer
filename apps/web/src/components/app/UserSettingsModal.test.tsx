@@ -5,7 +5,11 @@ import "fake-indexeddb/auto";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_RADAR_GRAY, SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
+import {
+  DEFAULT_RADAR_GRAY,
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+} from "@/lib/shared/constants";
 import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
 import {
   clearUserSettingsForTests,
