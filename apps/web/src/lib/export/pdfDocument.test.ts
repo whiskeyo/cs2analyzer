@@ -1,5 +1,5 @@
 import { inflateSync } from "node:zlib";
-import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRef } from "pdf-lib";
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRef } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import {
@@ -9,6 +9,7 @@ import {
   setPageImages,
   setPageVideos,
 } from "@/lib/playbook/pages";
+import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import {
   PLAYBOOK_PDF_FLOOR_GAP,
   PLAYBOOK_PDF_FOOTER,
@@ -16,6 +17,8 @@ import {
   PLAYBOOK_PDF_LIGHT_PAGE_BG,
   PLAYBOOK_PDF_LINE_GAP,
   PLAYBOOK_PDF_PAGE_BG,
+  PLAYBOOK_PDF_PHOTO_BACK,
+  PLAYBOOK_PDF_PIN_HIT_MIN,
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
 } from "./constants";
@@ -190,6 +193,13 @@ function destPageIndex(loaded: PDFDocument, destObj: unknown): number {
   return loaded.getPages().findIndex((page) => page.ref === ref);
 }
 
+function destTop(loaded: PDFDocument, destObj: unknown): number | null {
+  const dest = destObj instanceof PDFRef ? loaded.context.lookup(destObj) : destObj;
+  if (!(dest instanceof PDFArray)) return null;
+  const y = dest.get(3);
+  return y instanceof PDFNumber ? y.asNumber() : null;
+}
+
 async function pdfGoToPageIndexes(bytes: Uint8Array): Promise<number[]> {
   const loaded = await PDFDocument.load(bytes);
   const indexes: number[] = [];
@@ -208,6 +218,48 @@ async function pdfGoToPageIndexes(bytes: Uint8Array): Promise<number[]> {
     }
   }
   return indexes;
+}
+
+async function pdfGoToAnnots(
+  bytes: Uint8Array,
+): Promise<{ destPage: number; destY: number; width: number; height: number }[]> {
+  const loaded = await PDFDocument.load(bytes);
+  const out: { destPage: number; destY: number; width: number; height: number }[] = [];
+  for (const page of loaded.getPages()) {
+    const annots = page.node.Annots();
+    if (!annots) continue;
+    for (const item of annots.asArray()) {
+      const annot = loaded.context.lookup(item);
+      if (!(annot instanceof PDFDict)) continue;
+      const actionRef = annot.get(PDFName.of("A"));
+      const action = actionRef instanceof PDFDict ? actionRef : loaded.context.lookup(actionRef);
+      if (!(action instanceof PDFDict)) continue;
+      if (String(action.get(PDFName.of("S"))) !== "/GoTo") continue;
+      const destPage = destPageIndex(loaded, action.get(PDFName.of("D")));
+      const destY = destTop(loaded, action.get(PDFName.of("D")));
+      const rect = annot.get(PDFName.of("Rect"));
+      if (destPage < 0 || destY == null || !(rect instanceof PDFArray)) continue;
+      const x0 = rect.get(0);
+      const y0 = rect.get(1);
+      const x1 = rect.get(2);
+      const y1 = rect.get(3);
+      if (
+        !(x0 instanceof PDFNumber) ||
+        !(y0 instanceof PDFNumber) ||
+        !(x1 instanceof PDFNumber) ||
+        !(y1 instanceof PDFNumber)
+      ) {
+        continue;
+      }
+      out.push({
+        destPage,
+        destY,
+        width: Math.abs(x1.asNumber() - x0.asNumber()),
+        height: Math.abs(y1.asNumber() - y0.asNumber()),
+      });
+    }
+  }
+  return out;
 }
 
 async function pdfOutlineTitles(bytes: Uint8Array): Promise<string[]> {
@@ -374,6 +426,43 @@ describe("buildPlaybookPdf", () => {
     expect(pdfDrawnText(withPhoto)).toContain("window-lineup.png");
     expect(pdfImageCount(withPhoto)).toBeGreaterThan(pdfImageCount(stillOnly));
     expect(pdfImageCount(stillOnly)).toBeGreaterThan(0);
+  });
+
+  it("links each still pin to its photo and back to the strat", async () => {
+    let book = newPlaybook("de_mirage", "A execs");
+    const page = book.pages[0]!;
+    book = setPageImages(book, page.id, [
+      {
+        id: "img-1",
+        name: "window-lineup.png",
+        mime: "image/png",
+        x: 0,
+        y: 0,
+      },
+    ]);
+    const report = playbookReport(book, EXPORTED_AT);
+    const bytes = await buildPlaybookPdf(
+      report,
+      { [page.id]: { upper: TINY_PNG } },
+      "dark",
+      { "img-1": TINY_PNG },
+      UNIT_CALIBRATION,
+    );
+    expect(pdfDrawnText(bytes)).toContain(PLAYBOOK_PDF_PHOTO_BACK);
+    const gotos = await pdfGoToAnnots(bytes);
+    const stratPage = 1;
+    const loaded = await PDFDocument.load(bytes);
+    const stratTop = loaded.getPage(stratPage).getHeight();
+    const pin = gotos.find((hit) => hit.width <= PLAYBOOK_PDF_PIN_HIT_MIN + 4);
+    const back = gotos.find(
+      (hit) =>
+        hit.destPage === stratPage && hit.destY === stratTop && hit.width > 40 && hit.width < 200,
+    );
+    expect(pin).toBeDefined();
+    expect(pin?.destY).toBeLessThan(loaded.getPage(pin?.destPage ?? 0).getHeight());
+    expect(pin?.destPage !== stratPage || (pin?.destY ?? stratTop) < stratTop).toBe(true);
+    expect(back).toBeDefined();
+    expect(await pdfGoToPageIndexes(bytes)).toContain(stratPage);
   });
 
   it("still builds when a snapshot is not a PNG", async () => {

@@ -129,6 +129,7 @@ describe("downloadPlaybookPdf", () => {
       { [page.id]: { upper: new Uint8Array([1]) } },
       "dark",
       {},
+      UNIT_CALIBRATION,
     );
     expect(mocks.downloadBlob).toHaveBeenCalledWith(
       "mirage-a-execs.pdf",
@@ -151,6 +152,7 @@ describe("downloadPlaybookPdf", () => {
       {},
       "light",
       {},
+      UNIT_CALIBRATION,
     );
   });
 

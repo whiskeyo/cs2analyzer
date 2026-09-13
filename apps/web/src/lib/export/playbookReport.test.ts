@@ -143,8 +143,8 @@ describe("playbookReport", () => {
     book = setPageFloor(book, page.id, "lower");
     expect(playbookPagePhotos(book.pages[0]!).map((photo) => photo.id)).toEqual(["lo", "up"]);
     expect(playbookReport(book, EXPORTED_AT).pages[0]?.photos).toEqual([
-      { id: "lo", name: "lower.png", mime: "image/png" },
-      { id: "up", name: "upper.png", mime: "image/png" },
+      { id: "lo", name: "lower.png", mime: "image/png", x: 1, y: 1, floor: "lower" },
+      { id: "up", name: "upper.png", mime: "image/png", x: 0, y: 0, floor: "upper" },
     ]);
   });
 

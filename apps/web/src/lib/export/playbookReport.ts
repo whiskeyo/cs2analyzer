@@ -1,4 +1,5 @@
 import type { FloorMode, Note } from "@/lib/notes/types";
+import type { PlaybookFloorLayer } from "@/lib/playbook/pages";
 import type {
   Playbook,
   PlaybookImage,
@@ -19,6 +20,9 @@ export interface PlaybookReportPhoto {
   id: string;
   name: string;
   mime: PlaybookImageMime;
+  x: number;
+  y: number;
+  floor: PlaybookFloorLayer;
 }
 
 export interface PlaybookReportPage {
@@ -82,17 +86,22 @@ function clipFromVideo(clip: PlaybookYouTube): PlaybookReportClip | null {
   };
 }
 
-function photoFromImage(image: PlaybookImage): PlaybookReportPhoto {
-  return { id: image.id, name: image.name, mime: image.mime };
+function photoFromImage(image: PlaybookImage, floor: PlaybookFloorLayer): PlaybookReportPhoto {
+  return {
+    id: image.id,
+    name: image.name,
+    mime: image.mime,
+    x: image.x,
+    y: image.y,
+    floor,
+  };
 }
 
 /** Current floor first, then the other floor — same order a coach sees on the board. */
 export function playbookPagePhotos(page: PlaybookPage): PlaybookReportPhoto[] {
-  const currentFirst =
-    page.floor === "lower"
-      ? [...page.lowerImages, ...page.images]
-      : [...page.images, ...page.lowerImages];
-  return currentFirst.map(photoFromImage);
+  const upper = page.images.map((image) => photoFromImage(image, "upper"));
+  const lower = page.lowerImages.map((image) => photoFromImage(image, "lower"));
+  return page.floor === "lower" ? [...lower, ...upper] : [...upper, ...lower];
 }
 
 export function playbookReportPage(page: PlaybookPage): PlaybookReportPage {
