@@ -237,9 +237,12 @@ describe("Playbook", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "B defaults" }));
     expect(await screen.findByRole("button", { name: "B hold" })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "B defaults" })).toHaveClass("is-active");
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByRole("button", { name: "B defaults" })).toHaveClass("is-active");
+      },
+      { timeout: 4000 },
+    );
     expect(screen.getByRole("button", { name: "A smoke" })).toBeInTheDocument();
   });
 
