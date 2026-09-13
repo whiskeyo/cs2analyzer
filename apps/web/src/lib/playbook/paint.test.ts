@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
+import type { Note } from "@/lib/notes/types";
+import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { createMockCanvas } from "@/lib/testing/mockCanvas";
 import {
@@ -343,17 +345,59 @@ describe("paintPlaybookBoard", () => {
   });
 });
 
+function labeledPawnsNote(): Note {
+  const note = emptyNote();
+  note.pieces.push(
+    makePiece("pawn", 0, 0, { id: "a", label: "donk", color: "#ff2d6a" }),
+    makePiece("pawn", 4, 0, { id: "b", label: "donk", color: "#ff2d6a" }),
+    makePiece("pawn", 8, 0, { id: "c", label: "m0NESY", color: "#00f0ff" }),
+    makePiece("pawn", 12, 0, { id: "d", side: "CT" }),
+  );
+  return note;
+}
+
 describe("paintPawnLegend", () => {
-  it("paints unique tinted names after an aggregated snapshot", () => {
+  it("leaves the canvas legend off so the live HTML overlay is the only list", () => {
     const ctx = createMockCanvas();
-    const note = emptyNote();
-    note.pieces.push(
-      makePiece("pawn", 0, 0, { id: "a", label: "donk", color: "#ff2d6a" }),
-      makePiece("pawn", 4, 0, { id: "b", label: "donk", color: "#ff2d6a" }),
-      makePiece("pawn", 8, 0, { id: "c", label: "m0NESY", color: "#00f0ff" }),
-      makePiece("pawn", 12, 0, { id: "d", side: "CT" }),
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      labeledPawnsNote(),
     );
-    paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, null, UNIT_CALIBRATION, note);
+    const names = ctx.fillText.mock.calls.map((call) => call[0]);
+    expect(names).not.toContain("donk");
+    expect(names).not.toContain("m0NESY");
+    expect(ctx.roundRect).not.toHaveBeenCalled();
+  });
+
+  it("paints unique tinted names on the snapshot / PDF path", () => {
+    const ctx = createMockCanvas();
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      labeledPawnsNote(),
+      null,
+      undefined,
+      null,
+      null,
+      null,
+      [],
+      null,
+      null,
+      DEFAULT_RADAR_GRAY,
+      [],
+      null,
+      null,
+      true,
+    );
     const names = ctx.fillText.mock.calls.map((call) => call[0]);
     expect(names).toContain("donk");
     expect(names).toContain("m0NESY");
@@ -367,7 +411,28 @@ describe("paintPawnLegend", () => {
     expect(ctx.fillText).not.toHaveBeenCalled();
     const note = emptyNote();
     note.pieces.push(makePiece("pawn", 0, 0, { id: "p", label: "donk", color: "#ff2d6a" }));
-    paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, null, UNIT_CALIBRATION, note);
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      note,
+      null,
+      undefined,
+      null,
+      null,
+      null,
+      [],
+      null,
+      null,
+      DEFAULT_RADAR_GRAY,
+      [],
+      null,
+      null,
+      true,
+    );
     expect(ctx.fillText).toHaveBeenCalledWith("donk", expect.any(Number), expect.any(Number));
     expect(ctx.roundRect).not.toHaveBeenCalled();
   });

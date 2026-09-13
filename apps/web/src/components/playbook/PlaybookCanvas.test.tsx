@@ -202,6 +202,26 @@ describe("PlaybookCanvas", () => {
     expect(list).toHaveTextContent("m0NESY");
   });
 
+  it("does not ask the board paint for a canvas legend when the HTML list is shown", () => {
+    const { container, getByLabelText } = render(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        legend={[
+          { label: "donk", color: "#ff2d6a" },
+          { label: "m0NESY", color: "#00f0ff" },
+        ]}
+      />,
+    );
+    sizedWrap(container);
+    act(() => {
+      rafCb?.(0);
+    });
+    expect(getByLabelText("Player colours")).toBeInTheDocument();
+    expect(vi.mocked(paintPlaybookBoard).mock.calls.at(-1)?.[19]).not.toBe(true);
+  });
+
   it("skips the loop when the canvas has no 2d context", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     render(<PlaybookCanvas cal={UNIT_CALIBRATION} floorMode="auto" note={emptyNote()} />);

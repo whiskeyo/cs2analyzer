@@ -62,6 +62,8 @@ export function paintPlaybookSnapshot(
     radarGray,
     page.images,
     null,
+    null,
+    true,
   );
 }
 

@@ -64,7 +64,7 @@ const PLAYBOOK_LEGEND_BG = "#10161ce6";
 const PLAYBOOK_LEGEND_BORDER = "#2a3540";
 const PLAYBOOK_LEGEND_TEXT = "#e8eef4";
 
-/** Colour → name rows in a corner; used by the board and PDF stills. */
+/** Colour → name rows in a corner; PDF / offscreen stills only (live board uses HTML). */
 export function paintPawnLegend(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -499,6 +499,7 @@ export function paintPlaybookBoard(
   images: readonly PlaybookImage[] = [],
   selectedImageId?: string | null,
   pendingImagePin?: { x: number; y: number } | null,
+  paintLegend = false,
 ): void {
   paintMapImage(ctx, w, h, view, img, cal, radarGray);
   const toScreen = (wx: number, wy: number) => worldToScreen(cal, w, h, view, wx, wy);
@@ -541,5 +542,7 @@ export function paintPlaybookBoard(
     );
   }
   paintYouTubePins(ctx, videos, toScreen, selectedVideoId, pendingPin);
-  paintPawnLegend(ctx, w, h, notePawnLegend(note));
+  if (paintLegend) {
+    paintPawnLegend(ctx, w, h, notePawnLegend(note));
+  }
 }
