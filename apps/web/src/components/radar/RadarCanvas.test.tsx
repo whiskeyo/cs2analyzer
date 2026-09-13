@@ -280,8 +280,14 @@ describe("RadarCanvas", () => {
     expect(staticMapPaint.paintMapImage).toHaveBeenCalledTimes(1);
   });
 
-  it("rebuilds when tick, layers, note strokes, or habits playSec change", () => {
+  it("rebuilds when tick, layers, note strokes, habits playSec, or radarGray change", () => {
     const playSecRef = { current: 0 };
+    const strokedNote = {
+      groups: [],
+      drawings: [{ type: "pen" as const, color: "#fff", points: [{ x: 1, y: 1 }] }],
+      pieces: [],
+      bookmarks: [],
+    };
     const base = canvasProps({
       habitsOverlay: { demos: [], focalTeam: "A" } as never,
       habitsPlaySecRef: playSecRef,
@@ -313,12 +319,7 @@ describe("RadarCanvas", () => {
         {...base}
         tick={140}
         layers={{ ...DEFAULT_LAYERS, names: false }}
-        note={{
-          groups: [],
-          drawings: [{ type: "pen", color: "#fff", points: [{ x: 1, y: 1 }] }],
-          pieces: [],
-          bookmarks: [],
-        }}
+        note={strokedNote}
       />,
     );
     act(() => {
@@ -332,6 +333,21 @@ describe("RadarCanvas", () => {
     });
     expect(paintRadarFrame.paintRadarFrame).toHaveBeenCalledTimes(5);
     expect(paintRadarFrame.paintHabitsOverlay).toHaveBeenCalled();
+
+    rerender(
+      <RadarCanvas
+        {...base}
+        tick={140}
+        layers={{ ...DEFAULT_LAYERS, names: false }}
+        note={strokedNote}
+        radarGray={0}
+      />,
+    );
+    act(() => {
+      rafCb?.(5);
+    });
+    expect(paintRadarFrame.paintRadarFrame).toHaveBeenCalledTimes(6);
+    expect(staticMapPaint.paintMapImage.mock.calls.at(-1)?.[6]).toBe(0);
   });
 
   it("rebuilds after pan or zoom", () => {

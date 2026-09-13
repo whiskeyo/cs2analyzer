@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { createMockCanvas } from "@/lib/testing/mockCanvas";
@@ -53,6 +53,37 @@ describe("paintPlaybookBoard", () => {
     });
     expect(ctx.drawImage).toHaveBeenCalled();
     expect(ctx.stroke).toHaveBeenCalled();
+  });
+
+  it("desaturates the map PNG and restores the filter before ink", () => {
+    const ctx = createMockCanvas();
+    const filters: string[] = [];
+    ctx.drawImage = vi.fn(() => {
+      filters.push(ctx.filter);
+    });
+    const img = { complete: true, naturalWidth: 1024 } as HTMLImageElement;
+    paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, img, UNIT_CALIBRATION, emptyNote());
+    expect(filters).toEqual(["saturate(0)"]);
+    expect(ctx.filter).toBe("none");
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      img,
+      UNIT_CALIBRATION,
+      emptyNote(),
+      null,
+      undefined,
+      null,
+      null,
+      null,
+      [],
+      null,
+      null,
+      0,
+    );
+    expect(filters).toEqual(["saturate(0)", "none"]);
   });
 
   it("paints pawns, nades, and the bomb on the board", () => {

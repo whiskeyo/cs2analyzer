@@ -3,6 +3,7 @@ import type { PlaybookPaintIcons } from "@/lib/playbook/paint";
 import type { Playbook } from "@/lib/playbook/types";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import { DEFAULT_PDF_THEME, type PdfTheme } from "@/lib/settings/userSettings";
+import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
 import { downloadBlob } from "@/lib/shared/download";
 import { PLAYBOOK_PDF_MIME } from "./constants";
 import {
@@ -22,15 +23,17 @@ async function snapshotFloor(
   cal: MapCalibration | undefined,
   layer: PlaybookFloorLayer,
   icons: PlaybookPaintIcons,
+  radarGray: number,
 ): Promise<Uint8Array | null> {
   const view = playbookPageOnFloor(page, layer);
   const img = await loadPlaybookSnapshotImage(view, cal);
-  return snapshotPlaybookPagePng(view, cal, img, icons);
+  return snapshotPlaybookPagePng(view, cal, img, icons, undefined, radarGray);
 }
 
 export async function snapshotPlaybookPages(
   book: Playbook,
   cal: MapCalibration | undefined,
+  radarGray: number = DEFAULT_RADAR_GRAY,
 ): Promise<PlaybookPdfSnapshots> {
   const snapshots: Record<string, PlaybookPageStills> = {};
   const floors: PlaybookFloorLayer[] = cal?.lower_radar ? ["upper", "lower"] : ["upper"];
@@ -38,7 +41,7 @@ export async function snapshotPlaybookPages(
   for (const page of book.pages) {
     const stills: { upper?: Uint8Array; lower?: Uint8Array } = {};
     for (const layer of floors) {
-      const png = await snapshotFloor(page, cal, layer, icons);
+      const png = await snapshotFloor(page, cal, layer, icons, radarGray);
       if (!png) continue;
       if (layer === "lower") stills.lower = png;
       else stills.upper = png;
@@ -54,9 +57,10 @@ export async function downloadPlaybookPdf(
   cal?: MapCalibration,
   exportedAt = Date.now(),
   theme: PdfTheme = DEFAULT_PDF_THEME,
+  radarGray: number = DEFAULT_RADAR_GRAY,
 ): Promise<void> {
   const report = playbookReport(book, exportedAt);
-  const snapshots = await snapshotPlaybookPages(book, cal);
+  const snapshots = await snapshotPlaybookPages(book, cal, radarGray);
   const bytes = await buildPlaybookPdf(report, snapshots, theme);
   const copy = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(copy).set(bytes);

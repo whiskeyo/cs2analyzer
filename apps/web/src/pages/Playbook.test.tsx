@@ -10,6 +10,7 @@ import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { emptyNote } from "@/lib/notes/note";
 import { COPY_SUFFIX, UNTITLED_STRAT } from "@/lib/playbook/types";
 import { PLAYBOOK_FOCUS_KEY, rememberPlaybookFocus } from "@/lib/playbook/focus";
+import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
 import { makePiece } from "@/lib/playbook/pieces";
 import { createPlaybook, deleteAllPlaybooks, savePlaybook } from "@/lib/playbook/playbookStore";
 import { TestRouter } from "@/lib/testing/router";
@@ -125,6 +126,7 @@ describe("Playbook", () => {
     });
     expect(downloadPlaybookPdf.mock.calls[0]?.[1]).toBe(UNIT_CALIBRATION);
     expect(downloadPlaybookPdf.mock.calls[0]?.[3]).toBe("dark");
+    expect(downloadPlaybookPdf.mock.calls[0]?.[4]).toBe(DEFAULT_RADAR_GRAY);
   });
 
   it("shows an error when playbook PDF export fails", async () => {

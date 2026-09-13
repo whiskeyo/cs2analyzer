@@ -19,6 +19,7 @@ import {
   type WorldToScreen,
 } from "@/lib/radar/staticMapPaint";
 import type { GrenadeKind, MapCalibration } from "@/lib/replay/replayTypes";
+import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
 import type { NadeTrailDraft } from "./nadeTrail";
 import {
   isGrenadePieceKind,
@@ -335,8 +336,9 @@ export function paintPlaybookBoard(
   videos: readonly PlaybookYouTube[] = [],
   selectedVideoId?: string | null,
   pendingPin?: { x: number; y: number } | null,
+  radarGray: number = DEFAULT_RADAR_GRAY,
 ): void {
-  paintMapImage(ctx, w, h, view, img, cal);
+  paintMapImage(ctx, w, h, view, img, cal, radarGray);
   const toScreen = (wx: number, wy: number) => worldToScreen(cal, w, h, view, wx, wy);
   paintDrawings(ctx, visibleDrawings(note, null), toScreen);
   if (draft) {

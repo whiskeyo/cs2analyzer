@@ -256,7 +256,13 @@ export function Playbook() {
     const live = row.key === activeKey && book ? book : row;
     setExportError(null);
     setExportingKey(live.key);
-    void downloadPlaybookPdf(live, maps?.[live.mapName], Date.now(), settings.pdfTheme)
+    void downloadPlaybookPdf(
+      live,
+      maps?.[live.mapName],
+      Date.now(),
+      settings.pdfTheme,
+      settings.radarGray,
+    )
       .catch(() => {
         setExportError("Could not export PDF.");
       })
@@ -302,6 +308,7 @@ export function Playbook() {
                 <PlaybookCanvas
                   cal={cal}
                   floorMode={page.floor}
+                  radarGray={settings.radarGray}
                   note={floorNote ?? page.note}
                   tool={board.tool}
                   color={book.color}

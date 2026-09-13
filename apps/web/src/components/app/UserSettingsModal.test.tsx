@@ -5,7 +5,7 @@ import "fake-indexeddb/auto";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
+import { DEFAULT_RADAR_GRAY, SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
 import {
   clearUserSettingsForTests,
@@ -61,6 +61,7 @@ describe("UserSettingsModal", () => {
     await saveUserSettings({
       sidebarWidth: SIDEBAR_MIN_WIDTH,
       eventLeadInSec: 4,
+      radarGray: 0,
     });
     renderModal();
     await waitFor(() => expect(screen.getByLabelText("Event lead-in")).toHaveValue(4));
@@ -72,10 +73,12 @@ describe("UserSettingsModal", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("Event lead-in")).toHaveValue(1.5);
       expect(screen.getByLabelText("Sidebar width")).toHaveValue(String(SIDEBAR_DEFAULT_WIDTH));
+      expect(screen.getByLabelText("Radar map color")).toHaveValue("100");
     });
     const stored = await loadUserSettings();
     expect(stored.sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
     expect(stored.eventLeadInSec).toBe(1.5);
+    expect(stored.radarGray).toBe(DEFAULT_RADAR_GRAY);
   });
 
   it("closes on Escape", async () => {
@@ -161,6 +164,20 @@ describe("UserSettingsModal", () => {
       "true",
     );
     expect(screen.getByRole("button", { name: "Dark PDF" })).toHaveClass("on");
+    expect(screen.getByLabelText("Radar map color")).toHaveValue("100");
+  });
+
+  it("moves the map color slider and persists radarGray", async () => {
+    renderModal();
+    const slider = await screen.findByLabelText("Radar map color");
+    expect(slider).toHaveValue("100");
+    expect(slider).toHaveAttribute("aria-valuetext", "Gray");
+    fireEvent.change(slider, { target: { value: "0" } });
+    await waitFor(async () => {
+      expect((await loadUserSettings()).radarGray).toBe(0);
+    });
+    expect(slider).toHaveValue("0");
+    expect(slider).toHaveAttribute("aria-valuetext", "Color");
   });
 
   it("persists a light playbook PDF theme", async () => {
