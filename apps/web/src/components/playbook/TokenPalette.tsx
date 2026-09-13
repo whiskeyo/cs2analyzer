@@ -14,6 +14,13 @@ import {
   type PlaybookDrawTool,
   type PlaybookTool,
 } from "@/lib/playbook/pieces";
+import {
+  PLAYBOOK_IMAGE_PIN_FRAME,
+  PLAYBOOK_IMAGE_PIN_LAND,
+  PLAYBOOK_IMAGE_PIN_SKY,
+  PLAYBOOK_IMAGE_PIN_STROKE,
+  PLAYBOOK_IMAGE_PIN_SUN,
+} from "@/lib/playbook/images";
 import { YOUTUBE_PLAY, YOUTUBE_RED } from "@/lib/playbook/videos";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
 
@@ -74,6 +81,25 @@ function tokenGlyph(token: PaletteToken) {
       <svg className="playbook-youtube-icon" viewBox="0 0 16 16" aria-hidden="true">
         <rect x="1" y="3.5" width="14" height="9" rx="2.2" fill={YOUTUBE_RED} />
         <path d="M7 6.2 11 8 7 9.8Z" fill={YOUTUBE_PLAY} />
+      </svg>
+    );
+  }
+  if (token.tool === "image") {
+    return (
+      <svg className="playbook-image-icon" viewBox="0 0 16 16" aria-hidden="true">
+        <rect
+          x="1"
+          y="2.5"
+          width="14"
+          height="11"
+          rx="1.4"
+          fill={PLAYBOOK_IMAGE_PIN_FRAME}
+          stroke={PLAYBOOK_IMAGE_PIN_STROKE}
+          strokeWidth="1.2"
+        />
+        <rect x="2.4" y="3.8" width="11.2" height="8.4" fill={PLAYBOOK_IMAGE_PIN_SKY} />
+        <circle cx="11.2" cy="6" r="1.35" fill={PLAYBOOK_IMAGE_PIN_SUN} />
+        <path d="M2.4 12.2 6.2 7.4 8.4 9.6 13.6 6.2 13.6 12.2Z" fill={PLAYBOOK_IMAGE_PIN_LAND} />
       </svg>
     );
   }
@@ -258,6 +284,8 @@ function tokenKey(tool: PaletteToken["tool"]): string {
       return "B";
     case "youtube":
       return "U";
+    case "image":
+      return "P";
     default:
       return "";
   }

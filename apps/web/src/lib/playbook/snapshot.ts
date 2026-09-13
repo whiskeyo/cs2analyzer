@@ -63,7 +63,9 @@ function isBlankStrat(page: PlaybookPage): boolean {
     noteIsEmpty(page.lowerNote) &&
     page.body.trim() === "" &&
     page.videos.length === 0 &&
-    page.lowerVideos.length === 0
+    page.lowerVideos.length === 0 &&
+    page.images.length === 0 &&
+    page.lowerImages.length === 0
   );
 }
 

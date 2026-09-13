@@ -23,6 +23,9 @@ import {
   playbookFloorLayer,
   playbookFloorNote,
   playbookPageOnFloor,
+  clonedPageImageIdMap,
+  pageImageIds,
+  setPageLayerImages,
   setPageLayerNote,
   setPageLayerVideos,
   setPageNote,
@@ -193,6 +196,8 @@ describe("newPage", () => {
     expect(newPage().body).toBe("");
     expect(newPage().videos).toEqual([]);
     expect(newPage().lowerVideos).toEqual([]);
+    expect(newPage().images).toEqual([]);
+    expect(newPage().lowerImages).toEqual([]);
     expect(newPage().lowerNote.drawings).toEqual([]);
     expect(newPage().floor).toBe("auto");
     expect(newPage("Split A", "upper")).toMatchObject({
@@ -241,6 +246,30 @@ describe("floor layers", () => {
     book = setPageLayerVideos(book, id, "lower", [clip]);
     expect(book.pages[0]?.videos).toEqual([]);
     expect(book.pages[0]?.lowerVideos).toEqual([clip]);
+  });
+
+  it("stores local images per floor and remints ids on copy", () => {
+    let book = newPlaybook("de_nuke", "Nuke execs");
+    const id = book.pages[0]?.id ?? "";
+    const image = {
+      id: "i1",
+      name: "lineup.png",
+      mime: "image/png" as const,
+      x: 4,
+      y: 5,
+    };
+    book = setPageLayerImages(book, id, "lower", [image]);
+    expect(book.pages[0]?.images).toEqual([]);
+    expect(book.pages[0]?.lowerImages).toEqual([image]);
+    expect(playbookPageOnFloor(book.pages[0]!, "lower").images).toEqual([image]);
+    expect(pageImageIds(book.pages[0]!)).toEqual(["i1"]);
+    const copied = duplicatePage(book, id);
+    expect(copied.pages[1]?.lowerImages[0]?.name).toBe("lineup.png");
+    expect(copied.pages[1]?.lowerImages[0]?.id).not.toBe("i1");
+    expect(copied.pages[0]?.lowerImages[0]?.id).toBe("i1");
+    const idMap = clonedPageImageIdMap(book.pages[0]!, copied.pages[1]!);
+    expect(idMap.get("i1")).toBe(copied.pages[1]?.lowerImages[0]?.id);
+    expect(setPageLayerImages(book, "missing", "lower", [image])).toBe(book);
   });
 });
 

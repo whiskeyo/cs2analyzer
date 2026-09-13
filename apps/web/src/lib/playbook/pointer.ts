@@ -36,7 +36,8 @@ import {
   startNadeTrail,
   type NadeTrailDraft,
 } from "./nadeTrail";
-import type { PlaybookYouTube } from "./types";
+import { PLAYBOOK_IMAGE_CLICK_PX, hitTestImage, moveImage, removeImage } from "./images";
+import type { PlaybookImage, PlaybookYouTube } from "./types";
 import { hitTestVideo, moveVideo, removeVideo, YOUTUBE_CLICK_PX } from "./videos";
 
 export type PlaybookPanView = RadarView & {
@@ -140,11 +141,16 @@ export function usePlaybookPointer(opts: {
   nadeStyleRef: MutableRefObject<NadeStyle>;
   nadeTrailRef: MutableRefObject<NadeTrailDraft | null>;
   videosRef: MutableRefObject<readonly PlaybookYouTube[]>;
+  imagesRef: MutableRefObject<readonly PlaybookImage[]>;
+  openImageIdRef: MutableRefObject<string | null>;
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
   onVideos?: (videos: PlaybookYouTube[]) => void;
+  onImages?: (images: PlaybookImage[]) => void;
+  onOpenImage?: (id: string) => void;
   onOpenVideo?: (id: string) => void;
   onPlaceYouTube?: (at: { x: number; y: number }) => void;
+  onPlaceImage?: (at: { x: number; y: number }) => void;
 }): void {
   const {
     wrapRef,
@@ -160,11 +166,16 @@ export function usePlaybookPointer(opts: {
     nadeStyleRef,
     nadeTrailRef,
     videosRef,
+    imagesRef,
+    openImageIdRef,
     onNote,
     onSelect,
     onVideos,
+    onImages,
+    onOpenImage,
     onOpenVideo,
     onPlaceYouTube,
+    onPlaceImage,
   } = opts;
   const onNoteRef = useRef(onNote);
   onNoteRef.current = onNote;
@@ -176,6 +187,12 @@ export function usePlaybookPointer(opts: {
   onOpenVideoRef.current = onOpenVideo;
   const onPlaceYouTubeRef = useRef(onPlaceYouTube);
   onPlaceYouTubeRef.current = onPlaceYouTube;
+  const onPlaceImageRef = useRef(onPlaceImage);
+  onPlaceImageRef.current = onPlaceImage;
+  const onImagesRef = useRef(onImages);
+  onImagesRef.current = onImages;
+  const onOpenImageRef = useRef(onOpenImage);
+  onOpenImageRef.current = onOpenImage;
 
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -183,6 +200,7 @@ export function usePlaybookPointer(opts: {
     let pieceDrag: PieceDrag | null = null;
     let drawingDrag: DrawingDrag | null = null;
     let videoDrag: (PieceDrag & { sx: number; sy: number; moved: boolean }) | null = null;
+    let imageDrag: (PieceDrag & { sx: number; sy: number; moved: boolean }) | null = null;
 
     const pos = (e: MouseEvent | WheelEvent) => wrapLocalPoint(wrap, e);
 
@@ -223,11 +241,17 @@ export function usePlaybookPointer(opts: {
         }
       }
       const videoHit = hitTestVideo(videosRef.current, { x, y }, toScreen);
+      const imageHit = hitTestImage(imagesRef.current, { x, y }, toScreen);
       const hit = hitTestPiece(visiblePieces(noteRef.current), { x, y }, toScreen);
       const action = resolvePlaybookDown(toolRef.current, hit, e.shiftKey, nadeTrailOnRef.current);
       if (action === "erase") {
         if (videoHit && onVideosRef.current) {
           onVideosRef.current(removeVideo(videosRef.current, videoHit.id));
+          gizmoRef.current = null;
+          return;
+        }
+        if (imageHit && onImagesRef.current) {
+          onImagesRef.current(removeImage(imagesRef.current, imageHit.id));
           gizmoRef.current = null;
           return;
         }
@@ -271,6 +295,11 @@ export function usePlaybookPointer(opts: {
           gizmoRef.current = null;
           return;
         }
+        if (toolRef.current === "image") {
+          onPlaceImageRef.current?.(world);
+          gizmoRef.current = null;
+          return;
+        }
         if (!onNoteRef.current) return;
         const piece = pieceFromTool(toolRef.current, world.x, world.y, {
           nadeStyle: nadeStyleRef.current,
@@ -288,6 +317,20 @@ export function usePlaybookPointer(opts: {
           rotate: false,
           grabDx: videoHit.x - world.x,
           grabDy: videoHit.y - world.y,
+          sx: x,
+          sy: y,
+          moved: false,
+        };
+        gizmoRef.current = null;
+        return;
+      }
+      if (toolRef.current === "pan" && imageHit && cal) {
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        imageDrag = {
+          id: imageHit.id,
+          rotate: false,
+          grabDx: imageHit.x - world.x,
+          grabDy: imageHit.y - world.y,
           sx: x,
           sy: y,
           moved: false,
@@ -342,6 +385,26 @@ export function usePlaybookPointer(opts: {
         draftRef.current = extendDraft(draftRef.current, world);
         return;
       }
+      if (imageDrag && cal && onImagesRef.current) {
+        if (
+          !imageDrag.moved &&
+          Math.hypot(x - imageDrag.sx, y - imageDrag.sy) > PLAYBOOK_IMAGE_CLICK_PX
+        ) {
+          imageDrag.moved = true;
+        }
+        if (imageDrag.moved) {
+          const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+          onImagesRef.current(
+            moveImage(
+              imagesRef.current,
+              imageDrag.id,
+              world.x + imageDrag.grabDx,
+              world.y + imageDrag.grabDy,
+            ),
+          );
+        }
+        return;
+      }
       if (videoDrag && cal && onVideosRef.current) {
         if (!videoDrag.moved && Math.hypot(x - videoDrag.sx, y - videoDrag.sy) > YOUTUBE_CLICK_PX) {
           videoDrag.moved = true;
@@ -393,15 +456,27 @@ export function usePlaybookPointer(opts: {
       if (videoDrag && !videoDrag.moved) {
         onOpenVideoRef.current?.(videoDrag.id);
       }
+      if (imageDrag && !imageDrag.moved) {
+        onOpenImageRef.current?.(imageDrag.id);
+      }
       pieceDrag = null;
       drawingDrag = null;
       videoDrag = null;
+      imageDrag = null;
       endPlaybookPan(view.current);
     };
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      nadeTrailRef.current = null;
+      if (e.key === "Escape") {
+        nadeTrailRef.current = null;
+        return;
+      }
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const selected = openImageIdRef.current;
+      if (!selected || !onImagesRef.current) return;
+      if (typingTarget(e.target)) return;
+      e.preventDefault();
+      onImagesRef.current(removeImage(imagesRef.current, selected));
     };
 
     wrap.addEventListener("wheel", onWheel, { passive: false });
@@ -434,5 +509,12 @@ export function usePlaybookPointer(opts: {
     nadeStyleRef,
     nadeTrailRef,
     videosRef,
+    imagesRef,
+    openImageIdRef,
   ]);
+}
+
+function typingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.closest("input, textarea, select, [contenteditable]") != null;
 }

@@ -16,6 +16,7 @@ import { PlaybookTree } from "@/components/playbook/PlaybookTree";
 import { TokenPalette } from "@/components/playbook/TokenPalette";
 import { downloadPlaybookPdf } from "@/lib/export/exportPlaybook";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
+import { ingestPlaybookImages } from "@/lib/playbook/addPlaybookImages";
 import { consumePlaybookFocus } from "@/lib/playbook/focus";
 import { useNoteHistory } from "@/lib/playbook/history";
 import { PLAYBOOK_KEYS_HINT } from "@/lib/playbook/hotkeys";
@@ -23,6 +24,7 @@ import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";
 import { playbookUsesLower } from "@/lib/playbook/paint";
 import {
   activePage,
+  playbookFloorImages,
   playbookFloorLayer,
   playbookFloorNote,
   playbookFloorVideos,
@@ -60,7 +62,13 @@ export function Playbook() {
   const [mapName, setMapName] = useState<string | null>(null);
   const [videoPageId, setVideoPageId] = useState<string | null>(null);
   const [openVideoIdState, setOpenVideoIdState] = useState<string | null>(null);
+  const [imagePageId, setImagePageId] = useState<string | null>(null);
+  const [openImageIdState, setOpenImageIdState] = useState<string | null>(null);
   const [pendingPinState, setPendingPinState] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [pendingImagePinState, setPendingImagePinState] = useState<{
     x: number;
     y: number;
   } | null>(null);
@@ -69,6 +77,7 @@ export function Playbook() {
   const openedBooksRef = useRef<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const pendingFocus = useRef(consumePlaybookFocus());
   const pendingPage = useRef<string | null>(null);
   const names = maps ? sortedMapNames(maps) : [];
@@ -83,6 +92,7 @@ export function Playbook() {
     commitStratTitle,
     setBody,
     setVideos,
+    setImages,
     setFloor,
     removeStrat,
     duplicateStrat,
@@ -105,15 +115,26 @@ export function Playbook() {
   const floorLayer = playbookFloorLayer(playbookUsesLower(cal, page?.floor ?? "auto"));
   const floorNote = page ? playbookFloorNote(page, floorLayer) : null;
   const floorVideos = page ? playbookFloorVideos(page, floorLayer) : [];
+  const floorImages = page ? playbookFloorImages(page, floorLayer) : [];
   const openVideoId = videoPageId === page?.id ? openVideoIdState : null;
+  const openImageId = imagePageId === page?.id ? openImageIdState : null;
   const pendingPin = videoPageId === page?.id ? pendingPinState : null;
+  const pendingImagePin = imagePageId === page?.id ? pendingImagePinState : null;
   const setOpenVideoId = (id: string | null) => {
     setVideoPageId(page?.id ?? null);
     setOpenVideoIdState(id);
   };
+  const setOpenImageId = (id: string | null) => {
+    setImagePageId(page?.id ?? null);
+    setOpenImageIdState(id);
+  };
   const setPendingPin = (at: { x: number; y: number } | null) => {
     setVideoPageId(page?.id ?? null);
     setPendingPinState(at);
+  };
+  const setPendingImagePin = (at: { x: number; y: number } | null) => {
+    if (at) setImagePageId(page?.id ?? null);
+    setPendingImagePinState(at);
   };
   const history = useNoteHistory(page ? `${page.id}:${floorLayer}` : null, floorNote);
   const board = usePlaybookBoard({
@@ -201,6 +222,7 @@ export function Playbook() {
 
   useEffect(() => {
     if (!mapName) return;
+    if (activeKey && !book) return;
     if (query.playbook && appliedSearchRef.current !== incomingSearch) return;
     const next = playbookSearch({
       map: mapName,
@@ -212,22 +234,7 @@ export function Playbook() {
     setSearchParams(next === "" ? {} : Object.fromEntries(new URLSearchParams(next.slice(1))), {
       replace: true,
     });
-  }, [allBooks, book, incomingSearch, mapName, page, query.playbook, setSearchParams]);
-
-  useEffect(() => {
-    if (!mapName) return;
-    if (query.playbook && appliedSearchRef.current !== incomingSearch) return;
-    const next = playbookSearch({
-      map: mapName,
-      playbook: book ? playbookQueryLabel(allBooks, book) : null,
-      strat: book && page ? stratQueryLabel(book.pages, page) : null,
-    });
-    if (next === incomingSearch) return;
-    appliedSearchRef.current = next;
-    setSearchParams(next === "" ? {} : Object.fromEntries(new URLSearchParams(next.slice(1))), {
-      replace: true,
-    });
-  }, [allBooks, book, incomingSearch, mapName, page, query.playbook, setSearchParams]);
+  }, [activeKey, allBooks, book, incomingSearch, mapName, page, query.playbook, setSearchParams]);
 
   const treeBooks = booksWithDraft(allBooks, book);
   if (activeKey) openedBooksRef.current.add(activeKey);
@@ -320,13 +327,32 @@ export function Playbook() {
                   videos={floorVideos}
                   selectedVideoId={openVideoId}
                   pendingPin={pendingPin}
+                  pendingImagePin={pendingImagePin}
+                  pageImages={floorImages}
+                  selectedImageId={openImageId}
                   onNote={board.commitNote}
                   onSelect={board.setSelectedId}
                   onVideos={(videos) => setVideos(page.id, videos, floorLayer)}
+                  onImages={(images) => setImages(page.id, images, floorLayer)}
+                  onDropImages={(files, at) => {
+                    void ingestPlaybookImages(files, floorImages, at).then((result) => {
+                      setImages(page.id, result.images, floorLayer);
+                      setImageError(result.error);
+                      const added = result.images[result.images.length - 1];
+                      if (added) setOpenImageId(added.id);
+                    });
+                  }}
+                  onOpenImage={setOpenImageId}
                   onOpenVideo={setOpenVideoId}
                   onPlaceYouTube={(at) => {
                     setPendingPin(at);
+                    setPendingImagePin(null);
                     setOpenVideoId(null);
+                  }}
+                  onPlaceImage={(at) => {
+                    setPendingImagePin(at);
+                    setPendingPin(null);
+                    setOpenImageId(null);
                   }}
                 />
               </div>
@@ -342,15 +368,26 @@ export function Playbook() {
               stratTitle={page.title}
               body={page.body}
               videos={floorVideos}
+              images={floorImages}
               openVideoId={openVideoId}
               pendingPin={pendingPin}
               onCancelPin={() => setPendingPin(null)}
+              pendingImagePin={pendingImagePin}
+              onCancelImagePin={() => setPendingImagePin(null)}
               selectedId={board.visibleSelectedId}
+              openImageId={openImageId}
               onBody={(body) => setBody(page.id, body)}
               onVideos={(videos) => {
                 setVideos(page.id, videos, floorLayer);
                 setPendingPin(null);
               }}
+              onImages={(images) => {
+                setImages(page.id, images, floorLayer);
+                setPendingImagePin(null);
+              }}
+              onOpenImage={setOpenImageId}
+              imageError={imageError}
+              onImageError={setImageError}
               onOpenVideo={setOpenVideoId}
               onSelect={board.setSelectedId}
               onNote={board.commitNote}

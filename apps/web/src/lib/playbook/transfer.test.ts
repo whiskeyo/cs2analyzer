@@ -12,6 +12,8 @@ import {
   loadPlaybook,
 } from "./playbookStore";
 import * as playbookStore from "./playbookStore";
+import { setPageImages } from "./pages";
+import { getPlaybookImageBlob, putPlaybookImageBlob } from "./playbookImageStore";
 import { PLAYBOOK_SCHEMA } from "./types";
 
 const downloadBlob = vi.hoisted(() => vi.fn());
@@ -143,5 +145,45 @@ describe("exportPlaybooks / importPlaybooksFromText", () => {
     expect(saved).toEqual({ ok: true, message: "Imported 1 playbook." });
     const titles = (await loadAllPlaybooks()).map((book) => book.title).sort();
     expect(titles).toEqual(["X", "X (imported)"]);
+  });
+
+  it("round-trips local image bytes in the JSON bundle", async () => {
+    const blob = new Blob([new Uint8Array([9, 8, 7])], { type: "image/png" });
+    let book = newPlaybook("de_mirage", "Stills");
+    const pageId = book.pages[0]!.id;
+    book = setPageImages(book, pageId, [
+      {
+        id: "img-1",
+        name: "lineup.png",
+        mime: "image/png",
+        x: 10,
+        y: 20,
+      },
+    ]);
+    await playbookStore.savePlaybook(book);
+    await putPlaybookImageBlob("img-1", blob);
+
+    const exported = await exportPlaybooks();
+    expect(exported.ok).toBe(true);
+    const json = downloadBlob.mock.calls.at(-1)?.[2] as string;
+    const parsed = JSON.parse(json) as { images?: Record<string, string> };
+    expect(parsed.images?.["img-1"]).toMatch(/^data:image\/png;base64,/);
+
+    await deleteAllPlaybooks();
+    expect(await getPlaybookImageBlob("img-1")).toBeNull();
+
+    const result = await importPlaybooksFromText(json);
+    expect(result).toEqual({ ok: true, message: "Imported 1 playbook." });
+    const loaded = await loadPlaybook(book.key);
+    expect(loaded?.pages[0]?.images[0]).toMatchObject({
+      id: "img-1",
+      name: "lineup.png",
+      mime: "image/png",
+      x: 10,
+      y: 20,
+    });
+    const restored = await getPlaybookImageBlob("img-1");
+    expect(restored).toBeTruthy();
+    expect(new Uint8Array(await restored!.arrayBuffer())).toEqual(new Uint8Array([9, 8, 7]));
   });
 });

@@ -15,11 +15,18 @@ import {
   setActivePage,
   setPageBody,
   setPageFloor,
+  clonedPageImageIdMap,
+  pageImageIds,
+  playbookFloorImages,
+  setPageLayerImages,
   setPageLayerNote,
   setPageLayerVideos,
   type PlaybookFloorLayer,
   setPlaybookPalette,
 } from "./pages";
+import { copyPlaybookImageBlobs, deletePlaybookImageBlobs } from "./playbookImageStore";
+import { forgetPlaybookImages } from "./playbookImageBitmaps";
+import type { Playbook, PlaybookImage, PlaybookYouTube } from "./types";
 import {
   createPlaybook,
   deletePlaybook,
@@ -28,7 +35,6 @@ import {
   savePlaybook,
 } from "./playbookStore";
 import { booksWithDraft, movePlaybookTo, nextPlaybookSort } from "./tree";
-import type { Playbook, PlaybookYouTube } from "./types";
 
 export function usePlaybooks(mapName: string | null) {
   const [allBooks, setAllBooks] = useState<Playbook[]>([]);
@@ -179,6 +185,25 @@ export function usePlaybooks(mapName: string | null) {
     [patch],
   );
 
+  const setImages = useCallback(
+    (pageId: string, images: PlaybookImage[], layer: PlaybookFloorLayer = "upper") => {
+      patch((current) => {
+        const page = current.pages.find((row) => row.id === pageId);
+        if (page) {
+          const prev = playbookFloorImages(page, layer);
+          const kept = new Set(images.map((image) => image.id));
+          const removed = prev.filter((image) => !kept.has(image.id)).map((image) => image.id);
+          if (removed.length > 0) {
+            forgetPlaybookImages(removed);
+            void deletePlaybookImageBlobs(removed);
+          }
+        }
+        return setPageLayerImages(current, pageId, layer, images);
+      });
+    },
+    [patch],
+  );
+
   const setFloor = useCallback(
     (pageId: string, floor: FloorMode) => {
       patch((current) => setPageFloor(current, pageId, floor));
@@ -188,14 +213,28 @@ export function usePlaybooks(mapName: string | null) {
 
   const removeStrat = useCallback(
     (pageId: string) => {
-      patch((current) => deletePage(current, pageId));
+      patch((current) => {
+        const page = current.pages.find((row) => row.id === pageId);
+        if (page) {
+          const ids = pageImageIds(page);
+          forgetPlaybookImages(ids);
+          void deletePlaybookImageBlobs(ids);
+        }
+        return deletePage(current, pageId);
+      });
     },
     [patch],
   );
 
   const duplicateStrat = useCallback(
     (pageId: string) => {
-      patch((current) => duplicatePage(current, pageId));
+      patch((current) => {
+        const source = current.pages.find((row) => row.id === pageId);
+        const next = duplicatePage(current, pageId);
+        const copy = next.pages.find((row) => row.id === next.activePageId);
+        if (source && copy) void copyPlaybookImageBlobs(clonedPageImageIdMap(source, copy));
+        return next;
+      });
     },
     [patch],
   );
@@ -240,8 +279,17 @@ export function usePlaybooks(mapName: string | null) {
     async (key: string) => {
       const loaded = draft?.key === key ? draft : await loadPlaybook(key);
       if (!loaded) return null;
+      const duplicated = duplicatePlaybook(loaded);
+      const idMap = new Map<string, string>();
+      loaded.pages.forEach((page, index) => {
+        const copy = duplicated.pages[index];
+        if (copy) {
+          for (const [from, to] of clonedPageImageIdMap(page, copy)) idMap.set(from, to);
+        }
+      });
+      if (idMap.size > 0) await copyPlaybookImageBlobs(idMap);
       const copy = await savePlaybook({
-        ...duplicatePlaybook(loaded),
+        ...duplicated,
         sort: nextPlaybookSort(allBooks, loaded.mapName),
       });
       skipSaveRef.current = true;
@@ -270,7 +318,15 @@ export function usePlaybooks(mapName: string | null) {
 
   const removeStratFrom = useCallback(
     async (key: string, pageId: string) => {
-      const apply = (current: Playbook) => deletePage(current, pageId);
+      const apply = (current: Playbook) => {
+        const page = current.pages.find((row) => row.id === pageId);
+        if (page) {
+          const ids = pageImageIds(page);
+          forgetPlaybookImages(ids);
+          void deletePlaybookImageBlobs(ids);
+        }
+        return deletePage(current, pageId);
+      };
       if (draft?.key === key) {
         patch(apply);
         return;
@@ -285,7 +341,13 @@ export function usePlaybooks(mapName: string | null) {
 
   const duplicateStratOn = useCallback(
     async (key: string, pageId: string) => {
-      const apply = (current: Playbook) => duplicatePage(current, pageId);
+      const apply = (current: Playbook) => {
+        const source = current.pages.find((row) => row.id === pageId);
+        const next = duplicatePage(current, pageId);
+        const copy = next.pages.find((row) => row.id === next.activePageId);
+        if (source && copy) void copyPlaybookImageBlobs(clonedPageImageIdMap(source, copy));
+        return next;
+      };
       if (draft?.key === key) {
         patch(apply);
         return;
@@ -374,6 +436,7 @@ export function usePlaybooks(mapName: string | null) {
     commitStratTitle,
     setBody,
     setVideos,
+    setImages,
     setFloor,
     removeStrat,
     duplicateStrat,

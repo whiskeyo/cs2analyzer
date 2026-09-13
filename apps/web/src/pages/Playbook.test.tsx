@@ -222,11 +222,11 @@ describe("Playbook", () => {
     expect(await screen.findByRole("button", { name: "A smoke" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "B defaults" }));
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "B defaults" })).toHaveClass("is-active"),
-    );
+    expect(await screen.findByRole("button", { name: "B hold" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "B defaults" })).toHaveClass("is-active");
+    });
     expect(screen.getByRole("button", { name: "A smoke" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "B hold" })).toBeInTheDocument();
   });
 
   it("keeps playbook order when switching the active book", async () => {
@@ -274,7 +274,13 @@ describe("Playbook", () => {
     expect(notes).toHaveTextContent("smoke CT, flash palace");
     expect(screen.getByRole("textbox", { name: "YouTube link" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "YouTube" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Image" })).toBeInTheDocument();
     expect(screen.getByText(/Place a YouTube token/)).toBeInTheDocument();
+    const youtubeBtn = screen.getByRole("button", { name: "YouTube" });
+    const imageBtn = screen.getByRole("button", { name: "Image" });
+    expect(
+      youtubeBtn.compareDocumentPosition(imageBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     const youtube = screen.getByRole("textbox", { name: "YouTube link" });
     expect(youtube.compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Flash" }));

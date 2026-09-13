@@ -7,6 +7,7 @@ import {
   UNTITLED_PLAYBOOK,
   UNTITLED_STRAT,
   type Playbook,
+  type PlaybookImage,
   type PlaybookPage,
   type PlaybookYouTube,
 } from "./types";
@@ -50,6 +51,13 @@ export function playbookFloorVideos(
   return layer === "lower" ? page.lowerVideos : page.videos;
 }
 
+export function playbookFloorImages(
+  page: PlaybookPage,
+  layer: PlaybookFloorLayer,
+): PlaybookImage[] {
+  return layer === "lower" ? page.lowerImages : page.images;
+}
+
 /** Present one floor's drawings as the page the board / PDF still paints. */
 export function playbookPageOnFloor(page: PlaybookPage, layer: PlaybookFloorLayer): PlaybookPage {
   return {
@@ -57,6 +65,7 @@ export function playbookPageOnFloor(page: PlaybookPage, layer: PlaybookFloorLaye
     floor: layer,
     note: playbookFloorNote(page, layer),
     videos: playbookFloorVideos(page, layer),
+    images: playbookFloorImages(page, layer),
   };
 }
 
@@ -68,8 +77,10 @@ export function newPage(title = UNTITLED_STRAT, floor: FloorMode = "auto"): Play
     floor,
     note: emptyNote(),
     videos: [],
+    images: [],
     lowerNote: emptyNote(),
     lowerVideos: [],
+    lowerImages: [],
   };
 }
 
@@ -183,6 +194,21 @@ export function setPageLayerVideos(
   );
 }
 
+export function setPageImages(book: Playbook, pageId: string, images: PlaybookImage[]): Playbook {
+  return setPageLayerImages(book, pageId, "upper", images);
+}
+
+export function setPageLayerImages(
+  book: Playbook,
+  pageId: string,
+  layer: PlaybookFloorLayer,
+  images: PlaybookImage[],
+): Playbook {
+  return updatePage(book, pageId, (page) =>
+    layer === "lower" ? { ...page, lowerImages: images } : { ...page, images },
+  );
+}
+
 export function setPageFloor(book: Playbook, pageId: string, floor: FloorMode): Playbook {
   return updatePage(book, pageId, (page) => ({ ...page, floor }));
 }
@@ -220,8 +246,10 @@ export function duplicatePage(book: Playbook, pageId: string): Playbook {
     body: source.body,
     note: cloneNote(source.note),
     videos: cloneVideos(source.videos),
+    images: cloneImages(source.images),
     lowerNote: cloneNote(source.lowerNote),
     lowerVideos: cloneVideos(source.lowerVideos),
+    lowerImages: cloneImages(source.lowerImages),
   };
   const pages = book.pages.slice();
   pages.splice(index + 1, 0, copy);
@@ -264,8 +292,10 @@ export function duplicatePlaybook(book: Playbook): Playbook {
       id,
       note: cloneNote(page.note),
       videos: cloneVideos(page.videos),
+      images: cloneImages(page.images),
       lowerNote: cloneNote(page.lowerNote),
       lowerVideos: cloneVideos(page.lowerVideos),
+      lowerImages: cloneImages(page.lowerImages),
     };
   });
   const activePageId = idMap.get(book.activePageId) ?? pages[0]?.id ?? newId();
@@ -282,4 +312,41 @@ export function duplicatePlaybook(book: Playbook): Playbook {
 
 function cloneVideos(videos: PlaybookYouTube[]): PlaybookYouTube[] {
   return videos.map((clip) => ({ ...clip, id: newId() }));
+}
+
+function cloneImages(images: PlaybookImage[]): PlaybookImage[] {
+  return images.map((image) => ({ ...image, id: newId() }));
+}
+
+export function pageImageIds(page: PlaybookPage): string[] {
+  return [...page.images, ...page.lowerImages].map((image) => image.id);
+}
+
+export function playbookImageIds(book: Playbook): string[] {
+  return book.pages.flatMap(pageImageIds);
+}
+
+/** Pair source → reminted ids after `duplicatePage` / `duplicatePlaybook`. */
+export function clonedImageIdMap(
+  source: readonly PlaybookImage[],
+  copy: readonly PlaybookImage[],
+): Map<string, string> {
+  const idMap = new Map<string, string>();
+  const n = Math.min(source.length, copy.length);
+  for (let i = 0; i < n; i++) {
+    const from = source[i];
+    const to = copy[i];
+    if (from && to) idMap.set(from.id, to.id);
+  }
+  return idMap;
+}
+
+export function clonedPageImageIdMap(
+  source: PlaybookPage,
+  copy: PlaybookPage,
+): Map<string, string> {
+  return new Map([
+    ...clonedImageIdMap(source.images, copy.images),
+    ...clonedImageIdMap(source.lowerImages, copy.lowerImages),
+  ]);
 }

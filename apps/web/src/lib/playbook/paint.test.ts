@@ -7,6 +7,8 @@ import {
   paintNadeTrailLine,
   paintPawnLegend,
   paintPlaybookBoard,
+  paintPlaybookImagePin,
+  paintPlaybookImages,
   paintPlaybookPiece,
   paintPlaybookPieces,
   paintRotateGizmo,
@@ -368,6 +370,49 @@ describe("paintPawnLegend", () => {
     paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, null, UNIT_CALIBRATION, note);
     expect(ctx.fillText).toHaveBeenCalledWith("donk", expect.any(Number), expect.any(Number));
     expect(ctx.roundRect).not.toHaveBeenCalled();
+  });
+});
+
+describe("paintPlaybookImages", () => {
+  it("paints a selected photo pin at world XY", () => {
+    const ctx = createMockCanvas();
+    paintPlaybookImagePin(ctx, { x: 20, y: 10 }, true);
+    expect(ctx.roundRect).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalled();
+    expect(ctx.stroke).toHaveBeenCalled();
+    paintPlaybookImages(
+      ctx,
+      [
+        {
+          id: "i1",
+          name: "lineup.png",
+          mime: "image/png",
+          x: 10,
+          y: 20,
+        },
+      ],
+      (wx, wy) => ({ x: wx, y: wy }),
+      "i1",
+      { x: 30, y: 40 },
+    );
+    expect(ctx.roundRect).toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+    expect(ctx.globalAlpha).toBe(0.55);
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+
+  it("paints 1 and 2 when two photos share a floor", () => {
+    const ctx = createMockCanvas();
+    paintPlaybookImages(
+      ctx,
+      [
+        { id: "a", name: "a.png", mime: "image/png", x: 0, y: 0 },
+        { id: "b", name: "b.png", mime: "image/png", x: 8, y: 0 },
+      ],
+      (wx, wy) => ({ x: wx, y: wy }),
+    );
+    expect(ctx.fillText).toHaveBeenCalledWith("1", expect.any(Number), expect.any(Number));
+    expect(ctx.fillText).toHaveBeenCalledWith("2", expect.any(Number), expect.any(Number));
   });
 });
 

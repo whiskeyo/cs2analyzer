@@ -7,9 +7,12 @@ import { defaultPlaybookColor, defaultPlaybookPaletteId } from "./pages";
 import {
   PLAYBOOK_SCHEMA,
   PLAYBOOK_SCHEMA_MIN,
+  PLAYBOOK_IMAGE_MIMES,
   UNTITLED_PLAYBOOK,
   UNTITLED_STRAT,
   type Playbook,
+  type PlaybookImage,
+  type PlaybookImageMime,
   type PlaybookPage,
   type PlaybookYouTube,
 } from "./types";
@@ -48,8 +51,10 @@ export function parsePlaybookPage(value: unknown): PlaybookPage | null {
     floor: parseFloor(value.floor),
     note,
     videos: parseVideos(value.videos),
+    images: parseImages(value.images),
     lowerNote,
     lowerVideos: parseVideos(value.lowerVideos),
+    lowerImages: parseImages(value.lowerImages),
   };
 }
 
@@ -128,4 +133,37 @@ function parsePlaybookYouTube(value: unknown): PlaybookYouTube | null {
 function parseStartSeconds(value: unknown): number | undefined {
   if (!isFiniteNumber(value) || !Number.isInteger(value) || value <= 0) return undefined;
   return value;
+}
+
+function parseImages(value: unknown): PlaybookImage[] {
+  if (!Array.isArray(value)) return [];
+  const images: PlaybookImage[] = [];
+  for (const row of value) {
+    const image = parsePlaybookImage(row);
+    if (image) images.push(image);
+  }
+  return images;
+}
+
+function parseImageMime(value: unknown): PlaybookImageMime | null {
+  if (!isString(value)) return null;
+  const mime = value === "image/jpg" ? "image/jpeg" : value;
+  return (PLAYBOOK_IMAGE_MIMES as readonly string[]).includes(mime)
+    ? (mime as PlaybookImageMime)
+    : null;
+}
+
+function parsePlaybookImage(value: unknown): PlaybookImage | null {
+  if (!isRecord(value)) return null;
+  const id = optionalNonEmpty(value.id);
+  const mime = parseImageMime(value.mime);
+  if (!id || !mime) return null;
+  const name = optionalNonEmpty(value.name) ?? "image";
+  return {
+    id,
+    name,
+    mime,
+    x: isFiniteNumber(value.x) ? value.x : 0,
+    y: isFiniteNumber(value.y) ? value.y : 0,
+  };
 }

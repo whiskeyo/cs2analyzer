@@ -86,6 +86,8 @@ describe("paintPlaybookSnapshot", () => {
       null,
       null,
       DEFAULT_RADAR_GRAY,
+      page.images,
+      null,
     );
   });
 
@@ -119,6 +121,8 @@ describe("paintPlaybookSnapshot", () => {
       null,
       null,
       DEFAULT_RADAR_GRAY,
+      page.images,
+      null,
     );
   });
 
@@ -147,6 +151,8 @@ describe("paintPlaybookSnapshot", () => {
       null,
       null,
       DEFAULT_RADAR_GRAY,
+      page.images,
+      null,
     );
   });
 
@@ -171,6 +177,43 @@ describe("paintPlaybookSnapshot", () => {
       null,
       null,
       RADAR_GRAY_MIN,
+      page.images,
+      null,
+    );
+  });
+
+  it("forwards floor image pins into the board paint", () => {
+    const ctx = createMockCanvas();
+    const page = newPage("A exec", "upper");
+    page.images = [
+      {
+        id: "i1",
+        name: "lineup.png",
+        mime: "image/png",
+        x: 8,
+        y: 9,
+      },
+    ];
+    paintPlaybookSnapshot(ctx, 240, page, UNIT_CALIBRATION, null);
+    expect(paintPlaybookBoard).toHaveBeenCalledWith(
+      ctx,
+      240,
+      240,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      page.note,
+      null,
+      undefined,
+      null,
+      null,
+      null,
+      page.videos,
+      null,
+      null,
+      DEFAULT_RADAR_GRAY,
+      page.images,
+      null,
     );
   });
 });

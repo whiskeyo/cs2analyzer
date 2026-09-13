@@ -30,7 +30,7 @@ export const GRENADE_PIECE_KINDS = [
 
 export type PlaybookDrawTool = "pen" | "arrow" | "eraser";
 export type PlaybookTool =
-  "pan" | PlaybookDrawTool | "pawn-ct" | "pawn-t" | GrenadeKind | "bomb" | "youtube";
+  "pan" | PlaybookDrawTool | "pawn-ct" | "pawn-t" | GrenadeKind | "bomb" | "youtube" | "image";
 
 export const DRAW_TOOLS: readonly { tool: PlaybookDrawTool; label: string }[] = [
   { tool: "pen", label: "Pen" },
@@ -64,6 +64,7 @@ export const PALETTE_TOKENS: readonly PaletteToken[] = [
   { tool: "decoy", label: "Decoy" },
   { tool: "bomb", label: "Bomb" },
   { tool: "youtube", label: "YouTube" },
+  { tool: "image", label: "Image" },
 ];
 
 export function isGrenadePieceKind(kind: PieceKind): kind is GrenadeKind {
@@ -128,7 +129,7 @@ export function pieceFromTool(
   if (tool === "pawn-ct") return makePiece("pawn", x, y, { ...extra, side: "CT" });
   if (tool === "pawn-t") return makePiece("pawn", x, y, { ...extra, side: "T" });
   if (tool === "bomb") return makePiece("bomb", x, y, extra);
-  if (tool === "youtube") return null;
+  if (tool === "youtube" || tool === "image") return null;
   return makePiece(tool, x, y, extra);
 }
 

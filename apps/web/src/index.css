@@ -1343,6 +1343,10 @@ code {
   color: var(--text-muted);
 }
 .playbook-field select,
+.playbook-field input[type="file"] {
+  padding: 0.3rem;
+  font-size: 0.8rem;
+}
 .playbook-field input,
 .playbook-field textarea,
 .playbook-create input {
@@ -1384,7 +1388,8 @@ code {
 .playbook-video-add button {
   flex: 0 0 auto;
 }
-.playbook-youtube-icon {
+.playbook-youtube-icon,
+.playbook-image-icon {
   width: 1rem;
   height: 1rem;
   display: block;
@@ -1489,6 +1494,22 @@ code {
   margin-right: auto;
   color: var(--accent);
   font-size: 0.85rem;
+}
+.playbook-image-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-height: min(70vh, 36rem);
+  margin: 0 0 1rem;
+  background: #000;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.playbook-image-frame img {
+  display: block;
+  max-width: 100%;
+  max-height: min(70vh, 36rem);
 }
 .playbook-books {
   list-style: none;

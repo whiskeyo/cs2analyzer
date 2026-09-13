@@ -138,6 +138,34 @@ describe("usePlaybooks", () => {
     });
   });
 
+  it("writes local images onto the active strat", async () => {
+    const { result } = renderHook(() => usePlaybooks("de_mirage"));
+    await act(async () => {
+      await result.current.create("Defaults");
+    });
+    const pageId = result.current.book?.pages[0]?.id ?? "";
+    const images = [
+      {
+        id: "i1",
+        name: "lineup.png",
+        mime: "image/png" as const,
+        x: 1,
+        y: 2,
+      },
+    ];
+    await act(async () => {
+      result.current.setImages(pageId, images);
+    });
+    expect(result.current.book?.pages[0]?.images).toEqual(images);
+    act(() => {
+      vi.advanceTimersByTime(PROJECT_SAVE_DEBOUNCE_MS);
+    });
+    await waitFor(async () => {
+      const saved = await loadPlaybook(result.current.book?.key ?? "");
+      expect(saved?.pages[0]?.images).toEqual(images);
+    });
+  });
+
   it("writes the active strat floor", async () => {
     const { result } = renderHook(() => usePlaybooks("de_nuke"));
     await act(async () => {

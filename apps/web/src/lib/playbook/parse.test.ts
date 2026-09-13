@@ -19,6 +19,8 @@ describe("parsePlaybookPage", () => {
     expect(parsePlaybookPage({ id: "p5", body: "hold mid" })?.body).toBe("hold mid");
     expect(parsePlaybookPage({ id: "p2" })?.videos).toEqual([]);
     expect(parsePlaybookPage({ id: "p2" })?.lowerVideos).toEqual([]);
+    expect(parsePlaybookPage({ id: "p2" })?.images).toEqual([]);
+    expect(parsePlaybookPage({ id: "p2" })?.lowerImages).toEqual([]);
     expect(parsePlaybookPage({ id: "p2" })?.lowerNote.drawings).toEqual([]);
     expect(
       parsePlaybookPage({
@@ -46,6 +48,37 @@ describe("parsePlaybookPage", () => {
         videos: [{ id: "v2", videoId: "dQw4w9WgXcQ", title: "B", x: 12, y: 34 }],
       })?.videos[0],
     ).toMatchObject({ x: 12, y: 34 });
+    expect(
+      parsePlaybookPage({
+        id: "p9",
+        images: [
+          {
+            id: "i1",
+            name: "  A smoke.png  ",
+            mime: "image/jpg",
+            x: 8,
+            y: 9,
+            width: 200,
+            height: 100,
+          },
+          { id: "bad", mime: "image/gif" },
+          { id: "no-size", mime: "image/png" },
+        ],
+        lowerImages: [{ id: "i2", name: "lower.webp", mime: "image/webp" }],
+      }),
+    ).toMatchObject({
+      images: [
+        {
+          id: "i1",
+          name: "A smoke.png",
+          mime: "image/jpeg",
+          x: 8,
+          y: 9,
+        },
+        { id: "no-size", mime: "image/png", name: "image", x: 0, y: 0 },
+      ],
+      lowerImages: [{ id: "i2", name: "lower.webp", mime: "image/webp", x: 0, y: 0 }],
+    });
     expect(parsePlaybookPage({ id: "p3", floor: "nope" })?.floor).toBe("auto");
     expect(parsePlaybookPage({ id: "  " })).toBeNull();
     expect(parsePlaybookPage(null)).toBeNull();
@@ -138,7 +171,32 @@ describe("parsePlaybook", () => {
       pages: [{ id: "p", title: "A exec" }],
     });
     expect(parsed?.schema).toBe(PLAYBOOK_SCHEMA);
-    expect(parsed?.pages[0]).toMatchObject({ title: "A exec", videos: [], lowerVideos: [] });
+    expect(parsed?.pages[0]).toMatchObject({
+      title: "A exec",
+      videos: [],
+      lowerVideos: [],
+      images: [],
+      lowerImages: [],
+    });
+  });
+
+  it("migrates a schema 3 book and fills empty image lists", () => {
+    const parsed = parsePlaybook({
+      schema: 3,
+      key: "old3",
+      mapName: "de_mirage",
+      pages: [
+        {
+          id: "p",
+          title: "A exec",
+          videos: [{ id: "v1", videoId: "dQw4w9WgXcQ", title: "Clip" }],
+        },
+      ],
+    });
+    expect(parsed?.schema).toBe(PLAYBOOK_SCHEMA);
+    expect(parsed?.pages[0]?.videos[0]?.videoId).toBe("dQw4w9WgXcQ");
+    expect(parsed?.pages[0]?.images).toEqual([]);
+    expect(parsed?.pages[0]?.lowerImages).toEqual([]);
   });
 
   it("keeps schema 2 drawings on the upper floor", () => {
@@ -170,7 +228,7 @@ describe("parsePlaybook", () => {
     expect(parsePlaybook({ schema: 0, key: "k", mapName: "de_mirage", pages: [] })).toBeNull();
     expect(
       parsePlaybook({
-        schema: 4,
+        schema: 5,
         key: "k",
         mapName: "de_mirage",
         pages: [{ id: "p" }],

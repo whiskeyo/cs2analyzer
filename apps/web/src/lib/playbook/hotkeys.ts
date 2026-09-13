@@ -16,12 +16,13 @@ export const PLAYBOOK_TOOL_KEYS: Record<string, PlaybookTool> = {
   y: "decoy",
   b: "bomb",
   u: "youtube",
+  p: "image",
 };
 
 export const PLAYBOOK_COLOR_KEYS = ["6", "7", "8", "9", "0"] as const;
 
 export const PLAYBOOK_KEYS_HINT =
-  "V pan · D pen · A arrow · E eraser · Q/W pawns · S F H M I Y nades · B bomb · U YouTube · N trail · G effect · R reset · [ ] palette · 6–0 colors · Ctrl+Z undo · Ctrl+Y redo · Esc cancel";
+  "V pan · D pen · A arrow · E eraser · Q/W pawns · S F H M I Y nades · B bomb · U YouTube · P Image · N trail · G effect · R reset · [ ] palette · 6–0 colors · Ctrl+Z undo · Ctrl+Y redo · Esc cancel";
 
 export const LAYOUT_KEYS_HINT =
   "1 pan · 2 polygon · 3 rect · 4 circle · 5 select · R reset view · G group · U ungroup · Ctrl+S save · Esc cancel · Del delete";

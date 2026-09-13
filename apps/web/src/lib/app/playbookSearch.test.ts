@@ -20,8 +20,10 @@ function page(id: string, title: string): PlaybookPage {
     floor: "auto",
     note: emptyNote(),
     videos: [],
+    images: [],
     lowerNote: emptyNote(),
     lowerVideos: [],
+    lowerImages: [],
   };
 }
 

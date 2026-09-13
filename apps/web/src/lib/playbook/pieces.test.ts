@@ -79,6 +79,7 @@ describe("makePiece / pieceFromTool", () => {
     expect(pieceFromTool("pan", 1, 1)).toBeNull();
     expect(pieceFromTool("pen", 1, 1)).toBeNull();
     expect(pieceFromTool("youtube", 1, 1)).toBeNull();
+    expect(pieceFromTool("image", 1, 1)).toBeNull();
     expect(pieceFromTool("pawn-ct", 1, 2)).toMatchObject({
       kind: "pawn",
       side: "CT",
@@ -157,6 +158,7 @@ describe("piece labels and colors", () => {
       "decoy",
       "bomb",
       "youtube",
+      "image",
     ]);
     expect(playbookToolCursor("pan")).toBe("grab");
     expect(playbookToolCursor("smoke")).toBe("copy");
@@ -174,6 +176,7 @@ describe("piece labels and colors", () => {
       "Decoy",
       "Bomb",
       "YouTube",
+      "Image",
     ]);
   });
 });
@@ -227,6 +230,7 @@ describe("yawTowardScreen / resolvePlaybookDown", () => {
     const pawn = pawnAt("p", 0, 0);
     const smoke = makePiece("smoke", 0, 0, { id: "s" });
     expect(resolvePlaybookDown("youtube", null, false)).toBe("place");
+    expect(resolvePlaybookDown("image", null, false)).toBe("place");
     expect(resolvePlaybookDown("smoke", null, false)).toBe("place");
     expect(resolvePlaybookDown("smoke", null, false, true)).toBe("nade-trail");
     expect(resolvePlaybookDown("pen", null, false)).toBe("draw");

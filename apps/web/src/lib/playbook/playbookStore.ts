@@ -2,7 +2,8 @@ import { loadUserSettings } from "@/lib/settings/userSettingsStore";
 import { PLAYBOOK_STORE, idbAvailable, openCs2Db, requestOf } from "@/lib/storage/idb";
 import { emitPlaybooksChanged } from "./events";
 import { parsePlaybook } from "./parse";
-import { newPlaybook } from "./pages";
+import { newPlaybook, playbookImageIds } from "./pages";
+import { clearPlaybookImageBlobs, deletePlaybookImageBlobs } from "./playbookImageStore";
 import { comparePlaybooks, nextPlaybookSort } from "./tree";
 import type { Playbook } from "./types";
 
@@ -65,7 +66,11 @@ export async function createPlaybook(mapName: string, title: string): Promise<Pl
 }
 
 export async function deletePlaybook(key: string): Promise<void> {
-  if (!idbAvailable()) return;
+  const book = await loadPlaybook(key);
+  if (!idbAvailable()) {
+    if (book) await deletePlaybookImageBlobs(playbookImageIds(book));
+    return;
+  }
   const db = await openCs2Db();
   try {
     const tx = db.transaction(PLAYBOOK_STORE, "readwrite");
@@ -73,6 +78,7 @@ export async function deletePlaybook(key: string): Promise<void> {
   } finally {
     db.close();
   }
+  if (book) await deletePlaybookImageBlobs(playbookImageIds(book));
   emitPlaybooksChanged();
 }
 
@@ -87,6 +93,7 @@ export async function deleteAllPlaybooks(): Promise<number> {
   } finally {
     db.close();
   }
+  await clearPlaybookImageBlobs();
   emitPlaybooksChanged();
   return existing.length;
 }

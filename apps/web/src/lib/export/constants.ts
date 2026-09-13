@@ -58,3 +58,8 @@ export const PLAYBOOK_PDF_SECTION_GAP = 16;
 export const PLAYBOOK_PDF_FLOOR_GAP = 12;
 export const PLAYBOOK_PDF_FLOOR_LABEL_UPPER = "Upper";
 export const PLAYBOOK_PDF_FLOOR_LABEL_LOWER = "Lower";
+/** Fit-to-width photo on a strat page; keep a still + notes readable above. */
+export const PLAYBOOK_PDF_PHOTO_MAX_HEIGHT = 240;
+/** Smallest clickable pin overlay on a still (PDF points). */
+export const PLAYBOOK_PDF_PIN_HIT_MIN = 12;
+export const PLAYBOOK_PDF_PHOTO_BACK = "Go back to strat";

@@ -107,6 +107,8 @@ describe("playbookStore indexedDB", () => {
     const loaded = await loadPlaybook(book.key);
     expect(loaded?.schema).toBe(PLAYBOOK_SCHEMA);
     expect(loaded?.pages[0]?.videos).toEqual([]);
+    expect(loaded?.pages[0]?.images).toEqual([]);
+    expect(loaded?.pages[0]?.lowerImages).toEqual([]);
     expect(loaded?.title).toBe("Legacy");
   });
 

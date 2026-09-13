@@ -541,4 +541,84 @@ describe("PlaybookCanvas", () => {
     expect(onVideos.mock.calls.at(-1)?.[0][0].x).not.toBe(0);
     expect(onOpenVideo).not.toHaveBeenCalled();
   });
+
+  it("places an image pin, opens it on click, and drags it", () => {
+    const onPlaceImage = vi.fn();
+    const onImages = vi.fn();
+    const onOpenImage = vi.fn();
+    const onDropImages = vi.fn();
+    const still = {
+      id: "img-1",
+      name: "lineup.png",
+      mime: "image/png" as const,
+      x: 0,
+      y: 0,
+    };
+    const { container, rerender } = render(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        tool="image"
+        pageImages={[]}
+        onPlaceImage={onPlaceImage}
+      />,
+    );
+    const wrap = sizedWrap(container);
+    fireEvent.mouseDown(wrap, { clientX: 200, clientY: 200, button: 0 });
+    expect(onPlaceImage).toHaveBeenCalledWith(expect.objectContaining({ x: expect.any(Number) }));
+
+    rerender(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        tool="pan"
+        pageImages={[still]}
+        onImages={onImages}
+        onOpenImage={onOpenImage}
+        onDropImages={onDropImages}
+      />,
+    );
+    const center = worldToScreen(UNIT_CALIBRATION, 400, 400, identityView, 0, 0);
+    fireEvent.mouseDown(wrap, { clientX: center.x, clientY: center.y, button: 0 });
+    fireEvent.mouseUp(window);
+    expect(onOpenImage).toHaveBeenCalledWith("img-1");
+    expect(onImages).not.toHaveBeenCalled();
+
+    onOpenImage.mockClear();
+    fireEvent.mouseDown(wrap, { clientX: center.x, clientY: center.y, button: 0 });
+    fireEvent.mouseMove(window, { clientX: center.x + 30, clientY: center.y });
+    fireEvent.mouseUp(window);
+    expect(onImages).toHaveBeenCalled();
+    expect(onImages.mock.calls.at(-1)?.[0][0].x).not.toBe(0);
+    expect(onOpenImage).not.toHaveBeenCalled();
+
+    rerender(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        tool="eraser"
+        pageImages={[still]}
+        onImages={onImages}
+        onOpenImage={onOpenImage}
+        onDropImages={onDropImages}
+      />,
+    );
+    onImages.mockClear();
+    fireEvent.mouseDown(wrap, { clientX: center.x, clientY: center.y, button: 0 });
+    expect(onImages).toHaveBeenCalledWith([]);
+
+    const file = new File([new Uint8Array(8)], "drop.png", { type: "image/png" });
+    fireEvent.drop(wrap, {
+      clientX: 200,
+      clientY: 200,
+      dataTransfer: { files: [file], types: ["Files"] },
+    });
+    expect(onDropImages).toHaveBeenCalledWith(
+      [file],
+      expect.objectContaining({ x: expect.any(Number) }),
+    );
+  });
 });

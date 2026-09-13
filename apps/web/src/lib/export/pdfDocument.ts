@@ -1,4 +1,6 @@
 import type { PDFFont, PDFImage, PDFPage, RGB } from "pdf-lib";
+import type { PlaybookFloorLayer } from "@/lib/playbook/pages";
+import type { MapCalibration } from "@/lib/replay/replayTypes";
 import { DEFAULT_PDF_THEME, type PdfTheme } from "@/lib/settings/userSettings";
 import {
   PLAYBOOK_PDF_BODY_SIZE,
@@ -17,23 +19,31 @@ import {
   PLAYBOOK_PDF_MARGIN,
   PLAYBOOK_PDF_MUTED,
   PLAYBOOK_PDF_PAGE_BG,
+  PLAYBOOK_PDF_PHOTO_BACK,
+  PLAYBOOK_PDF_PHOTO_MAX_HEIGHT,
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
   PLAYBOOK_PDF_TITLE_SIZE,
 } from "./constants";
-import { addGoToLink, addOutline, addUriLink } from "./pdfLinks";
+import { addGoToLink, addOutline, addUriLink, type PdfLinkHit } from "./pdfLinks";
 import { loadPlaybookPdfFontBytes, registerPlaybookPdfFontkit } from "./pdfFonts";
-import type { PlaybookReport, PlaybookReportPage } from "./playbookReport";
+import {
+  embedPhotos,
+  embedSnapshots,
+  type EmbeddedStills,
+  type PlaybookPdfPhotos,
+  type PlaybookPdfSnapshots,
+} from "./playbookPdfEmbed";
+import { playbookPdfPinHit } from "./playbookPdfPins";
+import type { PlaybookReport, PlaybookReportPage, PlaybookReportPhoto } from "./playbookReport";
 import { pdfSafeText, wrapPdfText } from "./pdfText";
 
 export { pdfSafeText, wrapPdfText } from "./pdfText";
-
-export interface PlaybookPageStills {
-  readonly upper?: Uint8Array;
-  readonly lower?: Uint8Array;
-}
-
-export type PlaybookPdfSnapshots = Readonly<Record<string, PlaybookPageStills>>;
+export type {
+  PlaybookPageStills,
+  PlaybookPdfPhotos,
+  PlaybookPdfSnapshots,
+} from "./playbookPdfEmbed";
 
 interface PdfLib {
   PDFDocument: (typeof import("pdf-lib"))["PDFDocument"];
@@ -73,9 +83,23 @@ interface Layout {
   contentWidth: number;
 }
 
-interface EmbeddedStills {
-  upper?: PDFImage;
-  lower?: PDFImage;
+interface StillPlacement {
+  floor: PlaybookFloorLayer;
+  page: PDFPage;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface PhotoDest {
+  page: PDFPage;
+  y: number;
+}
+
+interface PhotoNav {
+  dests: Map<string, PhotoDest>;
+  backHits: PdfLinkHit[];
 }
 
 interface Writer {
@@ -192,33 +216,6 @@ function drawGap(writer: Writer, gap = PLAYBOOK_PDF_SECTION_GAP): void {
   writer.y -= gap;
 }
 
-async function embedPng(
-  pdf: import("pdf-lib").PDFDocument,
-  bytes: Uint8Array | undefined,
-): Promise<PDFImage | undefined> {
-  if (!bytes || bytes.byteLength === 0) return undefined;
-  try {
-    return await pdf.embedPng(bytes);
-  } catch {
-    return undefined;
-  }
-}
-
-async function embedSnapshots(
-  pdf: import("pdf-lib").PDFDocument,
-  snapshots: PlaybookPdfSnapshots,
-): Promise<Map<string, EmbeddedStills>> {
-  const images = new Map<string, EmbeddedStills>();
-  for (const [id, stills] of Object.entries(snapshots)) {
-    const embedded: EmbeddedStills = {
-      upper: await embedPng(pdf, stills.upper),
-      lower: await embedPng(pdf, stills.lower),
-    };
-    if (embedded.upper || embedded.lower) images.set(id, embedded);
-  }
-  return images;
-}
-
 function drawCover(writer: Writer, report: PlaybookReport): TocHit[] {
   drawLines(
     writer,
@@ -298,27 +295,42 @@ function radarPageBudget(writer: Writer): number {
   return writer.y - writer.layout.bottom;
 }
 
-function drawCenteredRadar(writer: Writer, image: PDFImage, maxW: number, maxH: number): number {
+function drawCenteredRadar(
+  writer: Writer,
+  image: PDFImage,
+  maxW: number,
+  maxH: number,
+): { x: number; y: number; width: number; height: number } {
   const dims = image.scaleToFit(maxW, maxH);
+  const x = centerOnContent(writer.layout.left, writer.layout.contentWidth, dims.width);
+  const y = writer.y - dims.height;
   writer.page.drawImage(image, {
-    x: centerOnContent(writer.layout.left, writer.layout.contentWidth, dims.width),
-    y: writer.y - dims.height,
+    x,
+    y,
     width: dims.width,
     height: dims.height,
   });
-  return dims.height;
+  return { x, y, width: dims.width, height: dims.height };
 }
 
-function drawRadars(writer: Writer, stills: EmbeddedStills | undefined): void {
-  if (!stills?.upper && !stills?.lower) return;
-  const floors: { image: PDFImage; label: string | null }[] = [];
+function drawRadars(writer: Writer, stills: EmbeddedStills | undefined): StillPlacement[] {
+  if (!stills?.upper && !stills?.lower) return [];
+  const floors: { image: PDFImage; label: string | null; floor: PlaybookFloorLayer }[] = [];
   if (stills.upper && stills.lower) {
-    floors.push({ image: stills.upper, label: PLAYBOOK_PDF_FLOOR_LABEL_UPPER });
-    floors.push({ image: stills.lower, label: PLAYBOOK_PDF_FLOOR_LABEL_LOWER });
+    floors.push({
+      image: stills.upper,
+      label: PLAYBOOK_PDF_FLOOR_LABEL_UPPER,
+      floor: "upper",
+    });
+    floors.push({
+      image: stills.lower,
+      label: PLAYBOOK_PDF_FLOOR_LABEL_LOWER,
+      floor: "lower",
+    });
   } else if (stills.upper) {
-    floors.push({ image: stills.upper, label: null });
+    floors.push({ image: stills.upper, label: null, floor: "upper" });
   } else if (stills.lower) {
-    floors.push({ image: stills.lower, label: null });
+    floors.push({ image: stills.lower, label: null, floor: "lower" });
   }
   const labeled = floors.some((floor) => floor.label !== null);
   const labelSize = PLAYBOOK_PDF_SMALL_SIZE;
@@ -345,6 +357,7 @@ function drawRadars(writer: Writer, stills: EmbeddedStills | undefined): void {
     floors.length,
     labeled,
   );
+  const placed: StillPlacement[] = [];
   floors.forEach((floor, index) => {
     if (floor.label) {
       const dims = floor.image.scaleToFit(slot.maxW, slot.maxH);
@@ -357,10 +370,100 @@ function drawRadars(writer: Writer, stills: EmbeddedStills | undefined): void {
       });
       writer.y -= labelH;
     }
-    writer.y -= drawCenteredRadar(writer, floor.image, slot.maxW, slot.maxH);
+    const rect = drawCenteredRadar(writer, floor.image, slot.maxW, slot.maxH);
+    placed.push({ floor: floor.floor, page: writer.page, ...rect });
+    writer.y -= rect.height;
     if (index < floors.length - 1) writer.y -= PLAYBOOK_PDF_FLOOR_GAP;
   });
   writer.y -= PLAYBOOK_PDF_SECTION_GAP;
+  return placed;
+}
+
+function pinHitsOnStills(
+  stills: readonly StillPlacement[],
+  photos: readonly PlaybookReportPhoto[],
+  cal: MapCalibration | undefined,
+): (PdfLinkHit & { photoId: string })[] {
+  if (!cal) return [];
+  const hits: (PdfLinkHit & { photoId: string })[] = [];
+  for (const still of stills) {
+    for (const photo of photos) {
+      if (photo.floor !== still.floor) continue;
+      hits.push({
+        photoId: photo.id,
+        page: still.page,
+        ...playbookPdfPinHit(photo, cal, still),
+      });
+    }
+  }
+  return hits;
+}
+
+function drawPhotos(
+  writer: Writer,
+  photos: readonly PlaybookReportPhoto[],
+  embedded: ReadonlyMap<string, PDFImage>,
+): PhotoNav {
+  const dests = new Map<string, PhotoDest>();
+  const backHits: PdfLinkHit[] = [];
+  const backSize = PLAYBOOK_PDF_SMALL_SIZE;
+  const backH = lineHeight(backSize);
+  for (const photo of photos) {
+    const image = embedded.get(photo.id);
+    if (!image) continue;
+    const dims = image.scaleToFit(writer.layout.contentWidth, PLAYBOOK_PDF_PHOTO_MAX_HEIGHT);
+    const caption = wrapPdfText(
+      writer.fonts.regular,
+      photo.name,
+      PLAYBOOK_PDF_SMALL_SIZE,
+      writer.layout.contentWidth,
+    );
+    const captionH = Math.max(caption.length, 1) * lineHeight(PLAYBOOK_PDF_SMALL_SIZE);
+    ensureSpace(writer, captionH + dims.height + backH + PLAYBOOK_PDF_LINE_GAP);
+    dests.set(photo.id, { page: writer.page, y: writer.y });
+    drawLines(writer, caption, PLAYBOOK_PDF_SMALL_SIZE, writer.fonts.regular, writer.colors.muted);
+    writer.page.drawImage(image, {
+      x: centerOnContent(writer.layout.left, writer.layout.contentWidth, dims.width),
+      y: writer.y - dims.height,
+      width: dims.width,
+      height: dims.height,
+    });
+    writer.y -= dims.height;
+    ensureSpace(writer, backH);
+    const backTop = writer.y;
+    writer.page.drawText(PLAYBOOK_PDF_PHOTO_BACK, {
+      x: writer.layout.left,
+      y: writer.y - backSize,
+      size: backSize,
+      font: writer.fonts.regular,
+      color: writer.colors.muted,
+    });
+    writer.y -= backH;
+    backHits.push({
+      page: writer.page,
+      x: writer.layout.left,
+      y: writer.y,
+      width: writer.fonts.regular.widthOfTextAtSize(PLAYBOOK_PDF_PHOTO_BACK, backSize),
+      height: backTop - writer.y,
+    });
+    drawGap(writer, PLAYBOOK_PDF_LINE_GAP);
+  }
+  return { dests, backHits };
+}
+
+function wirePhotoLinks(
+  stratDest: PDFPage,
+  pinHits: readonly (PdfLinkHit & { photoId: string })[],
+  nav: PhotoNav,
+): void {
+  for (const hit of pinHits) {
+    const dest = nav.dests.get(hit.photoId);
+    if (!dest) continue;
+    addGoToLink(hit.page, hit, dest.page, dest.y);
+  }
+  for (const hit of nav.backHits) {
+    addGoToLink(hit.page, hit, stratDest);
+  }
 }
 
 function drawStrat(
@@ -368,6 +471,8 @@ function drawStrat(
   report: PlaybookReport,
   page: PlaybookReportPage,
   stills: EmbeddedStills | undefined,
+  photos: ReadonlyMap<string, PDFImage>,
+  cal?: MapCalibration,
 ): PDFPage {
   writer.page = writer.addPage();
   const dest = writer.page;
@@ -398,7 +503,7 @@ function drawStrat(
     writer.colors.ink,
   );
   drawGap(writer, 8);
-  drawRadars(writer, stills);
+  const stillPlaced = drawRadars(writer, stills);
   if (page.body !== "") {
     drawLines(
       writer,
@@ -414,6 +519,8 @@ function drawStrat(
     );
     drawGap(writer, 8);
   }
+  const photoNav = drawPhotos(writer, page.photos, photos);
+  wirePhotoLinks(dest, pinHitsOnStills(stillPlaced, page.photos, cal), photoNav);
   for (const clip of page.clips) {
     const caption = clip.title === "" ? clip.url : `${clip.title} — ${clip.url}`;
     drawLines(
@@ -436,6 +543,8 @@ export async function buildPlaybookPdf(
   report: PlaybookReport,
   snapshots: PlaybookPdfSnapshots = {},
   theme: PdfTheme = DEFAULT_PDF_THEME,
+  photoBytes: PlaybookPdfPhotos = {},
+  cal?: MapCalibration,
 ): Promise<Uint8Array> {
   const { PDFDocument, PDFName, PDFString, PageSizes, rgb } = (await import("pdf-lib")) as PdfLib;
   const pdf = await PDFDocument.create();
@@ -449,6 +558,7 @@ export async function buildPlaybookPdf(
   const [pageWidth, pageHeight] = PageSizes.A4;
   const layout = makeLayout(pageWidth, pageHeight);
   const images = await embedSnapshots(pdf, snapshots);
+  const photos = await embedPhotos(pdf, report, photoBytes);
 
   const writer = {
     fonts,
@@ -469,7 +579,7 @@ export async function buildPlaybookPdf(
   const destById = new Map<string, PDFPage>();
   const outlineItems: { title: string; page: PDFPage }[] = [];
   for (const page of report.pages) {
-    const dest = drawStrat(writer, report, page, images.get(page.id));
+    const dest = drawStrat(writer, report, page, images.get(page.id), photos, cal);
     destById.set(page.id, dest);
     outlineItems.push({ title: page.title, page: dest });
   }

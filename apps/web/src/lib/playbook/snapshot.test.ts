@@ -143,6 +143,32 @@ describe("addSnapshotPage", () => {
     expect(next.pages[1]?.title).toBe("Snap");
   });
 
+  it("does not overwrite an untitled strat that already has a still", () => {
+    let book = newPlaybook("de_mirage", "Defaults");
+    const first = book.pages[0]!;
+    book = {
+      ...book,
+      pages: [
+        {
+          ...first,
+          images: [
+            {
+              id: "i1",
+              name: "lineup.png",
+              mime: "image/png",
+              x: 1,
+              y: 2,
+            },
+          ],
+        },
+      ],
+    };
+    const next = addSnapshotPage(book, "Snap", [makePiece("he", 1, 1)]);
+    expect(next.pages).toHaveLength(2);
+    expect(next.pages[0]?.images).toHaveLength(1);
+    expect(next.pages[1]?.title).toBe("Snap");
+  });
+
   it("does not overwrite an untitled strat that already has tokens", () => {
     let book = newPlaybook("de_mirage", "Defaults");
     const first = book.pages[0]!;

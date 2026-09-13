@@ -35,8 +35,12 @@ export function addUriLink(
   page.node.addAnnot(page.doc.context.register(annot));
 }
 
-export function addGoToLink(from: PDFPage, hit: PdfLinkHit, dest: PDFPage): void {
-  const top = dest.getHeight();
+export function addGoToLink(
+  from: PDFPage,
+  hit: PdfLinkHit,
+  dest: PDFPage,
+  destTop = dest.getHeight(),
+): void {
   const annot = from.doc.context.obj({
     Type: "Annot",
     Subtype: "Link",
@@ -45,7 +49,7 @@ export function addGoToLink(from: PDFPage, hit: PdfLinkHit, dest: PDFPage): void
     A: {
       Type: "Action",
       S: "GoTo",
-      D: [dest.ref, "XYZ", null, top, null],
+      D: [dest.ref, "XYZ", null, destTop, null],
     },
   });
   from.node.addAnnot(from.doc.context.register(annot));
