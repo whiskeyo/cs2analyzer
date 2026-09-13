@@ -8,7 +8,7 @@ import {
   typingInField,
 } from "./hotkeys";
 import { notePawnLegend, visiblePieces } from "./legend";
-import { playbookFloorNote, type PlaybookFloorLayer } from "./pages";
+import { playbookFloorImages, playbookFloorNote, type PlaybookFloorLayer } from "./pages";
 import type { PlaybookTool } from "./pieces";
 import type { Playbook, PlaybookPage } from "./types";
 import type { useNoteHistory } from "./history";
@@ -32,6 +32,7 @@ export function usePlaybookBoard(opts: {
   const [nadeTrail, setNadeTrail] = useState(false);
   const [nadeStyle, setNadeStyle] = useState<NadeStyle>("icon");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [viewEpoch, setViewEpoch] = useState(0);
 
   const resetView = useCallback(() => setViewEpoch((n) => n + 1), []);
@@ -71,6 +72,7 @@ export function usePlaybookBoard(opts: {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "Escape") {
         setSelectedId(null);
+        setSelectedImageId(null);
         setTool("pan");
         return;
       }
@@ -109,6 +111,11 @@ export function usePlaybookBoard(opts: {
   const visibleSelectedId = boardNote?.pieces.some((piece) => piece.id === selectedId)
     ? selectedId
     : null;
+  const visibleSelectedImageId = page
+    ? playbookFloorImages(page, floorLayer).some((image) => image.id === selectedImageId)
+      ? selectedImageId
+      : null
+    : null;
   const boardPieces = boardNote ? visiblePieces(boardNote) : [];
   const legend = boardNote ? notePawnLegend(boardNote) : [];
 
@@ -122,6 +129,9 @@ export function usePlaybookBoard(opts: {
     selectedId,
     setSelectedId,
     visibleSelectedId,
+    selectedImageId,
+    setSelectedImageId,
+    visibleSelectedImageId,
     viewEpoch,
     resetView,
     boardPieces,

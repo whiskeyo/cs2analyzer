@@ -1343,6 +1343,10 @@ code {
   color: var(--text-muted);
 }
 .playbook-field select,
+.playbook-field input[type="file"] {
+  padding: 0.3rem;
+  font-size: 0.8rem;
+}
 .playbook-field input,
 .playbook-field textarea,
 .playbook-create input {

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { PieceList } from "@/components/playbook/PieceList";
+import { PlaybookImages } from "@/components/playbook/PlaybookImages";
 import { PlaybookVideos } from "@/components/playbook/PlaybookVideos";
 import type { Note } from "@/lib/notes/types";
-import type { PlaybookYouTube } from "@/lib/playbook/types";
+import type { PlaybookImage, PlaybookYouTube } from "@/lib/playbook/types";
 import {
   groupOverlayItems,
   renamePlaybookGroup,
@@ -16,12 +17,18 @@ interface Props {
   stratTitle: string;
   body: string;
   videos: PlaybookYouTube[];
+  images: PlaybookImage[];
   openVideoId: string | null;
   pendingPin: { x: number; y: number } | null;
   onCancelPin: () => void;
   selectedId: string | null;
+  selectedImageId: string | null;
   onBody: (body: string) => void;
   onVideos: (videos: PlaybookYouTube[]) => void;
+  onImages: (images: PlaybookImage[]) => void;
+  onSelectImage: (id: string | null) => void;
+  imageError: string | null;
+  onImageError: (message: string | null) => void;
   onOpenVideo: (id: string | null) => void;
   onSelect: (id: string | null) => void;
   onNote: (note: Note) => void;
@@ -32,12 +39,18 @@ export function PlaybookStratPanel({
   stratTitle,
   body,
   videos,
+  images,
   openVideoId,
   pendingPin,
   onCancelPin,
   selectedId,
+  selectedImageId,
   onBody,
   onVideos,
+  onImages,
+  onSelectImage,
+  imageError,
+  onImageError,
   onOpenVideo,
   onSelect,
   onNote,
@@ -68,6 +81,14 @@ export function PlaybookStratPanel({
         onOpen={onOpenVideo}
         pendingPin={pendingPin}
         onCancelPin={onCancelPin}
+      />
+      <PlaybookImages
+        images={images}
+        selectedId={selectedImageId}
+        error={imageError}
+        onImages={onImages}
+        onSelect={onSelectImage}
+        onError={onImageError}
       />
       <label className="playbook-field playbook-notes-field">
         Strat notes

@@ -16,6 +16,7 @@ import { PlaybookTree } from "@/components/playbook/PlaybookTree";
 import { TokenPalette } from "@/components/playbook/TokenPalette";
 import { downloadPlaybookPdf } from "@/lib/export/exportPlaybook";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
+import { ingestPlaybookImages } from "@/lib/playbook/addPlaybookImages";
 import { consumePlaybookFocus } from "@/lib/playbook/focus";
 import { useNoteHistory } from "@/lib/playbook/history";
 import { PLAYBOOK_KEYS_HINT } from "@/lib/playbook/hotkeys";
@@ -23,10 +24,12 @@ import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";
 import { playbookUsesLower } from "@/lib/playbook/paint";
 import {
   activePage,
+  playbookFloorImages,
   playbookFloorLayer,
   playbookFloorNote,
   playbookFloorVideos,
 } from "@/lib/playbook/pages";
+import { usePlaybookImageBitmaps } from "@/lib/playbook/usePlaybookImageBitmaps";
 import { booksWithDraft } from "@/lib/playbook/tree";
 import type { Playbook as PlaybookDoc } from "@/lib/playbook/types";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
@@ -69,6 +72,7 @@ export function Playbook() {
   const openedBooksRef = useRef<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const pendingFocus = useRef(consumePlaybookFocus());
   const pendingPage = useRef<string | null>(null);
   const names = maps ? sortedMapNames(maps) : [];
@@ -83,6 +87,7 @@ export function Playbook() {
     commitStratTitle,
     setBody,
     setVideos,
+    setImages,
     setFloor,
     removeStrat,
     duplicateStrat,
@@ -105,6 +110,8 @@ export function Playbook() {
   const floorLayer = playbookFloorLayer(playbookUsesLower(cal, page?.floor ?? "auto"));
   const floorNote = page ? playbookFloorNote(page, floorLayer) : null;
   const floorVideos = page ? playbookFloorVideos(page, floorLayer) : [];
+  const floorImages = page ? playbookFloorImages(page, floorLayer) : [];
+  const imageBitmaps = usePlaybookImageBitmaps(floorImages.map((image) => image.id));
   const openVideoId = videoPageId === page?.id ? openVideoIdState : null;
   const pendingPin = videoPageId === page?.id ? pendingPinState : null;
   const setOpenVideoId = (id: string | null) => {
@@ -320,9 +327,22 @@ export function Playbook() {
                   videos={floorVideos}
                   selectedVideoId={openVideoId}
                   pendingPin={pendingPin}
+                  pageImages={floorImages}
+                  imageBitmaps={imageBitmaps}
+                  selectedImageId={board.visibleSelectedImageId}
                   onNote={board.commitNote}
                   onSelect={board.setSelectedId}
                   onVideos={(videos) => setVideos(page.id, videos, floorLayer)}
+                  onImages={(images) => setImages(page.id, images, floorLayer)}
+                  onSelectImage={board.setSelectedImageId}
+                  onDropImages={(files, at) => {
+                    void ingestPlaybookImages(files, floorImages, at).then((result) => {
+                      setImages(page.id, result.images, floorLayer);
+                      setImageError(result.error);
+                      const added = result.images[result.images.length - 1];
+                      if (added) board.setSelectedImageId(added.id);
+                    });
+                  }}
                   onOpenVideo={setOpenVideoId}
                   onPlaceYouTube={(at) => {
                     setPendingPin(at);
@@ -342,15 +362,21 @@ export function Playbook() {
               stratTitle={page.title}
               body={page.body}
               videos={floorVideos}
+              images={floorImages}
               openVideoId={openVideoId}
               pendingPin={pendingPin}
               onCancelPin={() => setPendingPin(null)}
               selectedId={board.visibleSelectedId}
+              selectedImageId={board.visibleSelectedImageId}
               onBody={(body) => setBody(page.id, body)}
               onVideos={(videos) => {
                 setVideos(page.id, videos, floorLayer);
                 setPendingPin(null);
               }}
+              onImages={(images) => setImages(page.id, images, floorLayer)}
+              onSelectImage={board.setSelectedImageId}
+              imageError={imageError}
+              onImageError={setImageError}
               onOpenVideo={setOpenVideoId}
               onSelect={board.setSelectedId}
               onNote={board.commitNote}

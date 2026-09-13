@@ -7,6 +7,7 @@ import { defaultPlaybookColor } from "./pages";
 import { createPlaybookView, usePlaybookPointer } from "./pointer";
 import type { PlaybookTool } from "./pieces";
 import type { NadeTrailDraft } from "./nadeTrail";
+import type { PlaybookImage, PlaybookYouTube } from "./types";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
 function EmptyWrap() {
@@ -22,6 +23,9 @@ function EmptyWrap() {
   const nadeTrailOnRef = useRef(false);
   const nadeStyleRef = useRef<NadeStyle>("icon");
   const nadeTrailRef = useRef<NadeTrailDraft | null>(null);
+  const videosRef = useRef<readonly PlaybookYouTube[]>([]);
+  const imagesRef = useRef<readonly PlaybookImage[]>([]);
+  const selectedImageIdRef = useRef<string | null>(null);
   usePlaybookPointer({
     wrapRef,
     view,
@@ -35,6 +39,9 @@ function EmptyWrap() {
     nadeTrailOnRef,
     nadeStyleRef,
     nadeTrailRef,
+    videosRef,
+    imagesRef,
+    selectedImageIdRef,
   });
   return null;
 }
