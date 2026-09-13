@@ -39,6 +39,11 @@ export type PdfTheme = (typeof PDF_THEMES)[number];
 /** Dark matches the on-screen playbook; light is paper-friendly. */
 export const DEFAULT_PDF_THEME: PdfTheme = "dark";
 
+export const PDF_PHOTO_MODES = ["with", "without"] as const;
+export type PdfPhotos = (typeof PDF_PHOTO_MODES)[number];
+/** Embedded lineup stills under the radar; pins stay either way. */
+export const DEFAULT_PDF_PHOTOS: PdfPhotos = "with";
+
 const GRENADE_KINDS = Object.keys(DEFAULT_SUMMARY_FILTER.kinds) as GrenadeKind[];
 const LAYER_KEYS = Object.keys(DEFAULT_LAYERS) as (keyof MapLayers)[];
 
@@ -58,6 +63,8 @@ export interface UserSettings {
   noteMomentSec: number;
   seriesMaxFiles: number;
   pdfTheme: PdfTheme;
+  /** Embed full lineup photos in the Playbook PDF. Pins stay on the still either way. */
+  pdfPhotos: PdfPhotos;
   /** 0 = original map color, 1 = full grayscale. Applies to Analyzer, Playbook, PDF stills. */
   radarGray: number;
 }
@@ -106,6 +113,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     noteMomentSec: NOTE_MOMENT_SECONDS,
     seriesMaxFiles: SERIES_MAX_FILES,
     pdfTheme: DEFAULT_PDF_THEME,
+    pdfPhotos: DEFAULT_PDF_PHOTOS,
     radarGray: DEFAULT_RADAR_GRAY,
   };
 }
@@ -145,6 +153,10 @@ function parseFloorMode(value: unknown): FloorMode {
 
 function parsePdfTheme(value: unknown): PdfTheme {
   return value === "light" || value === "dark" ? value : DEFAULT_PDF_THEME;
+}
+
+function parsePdfPhotos(value: unknown): PdfPhotos {
+  return value === "with" || value === "without" ? value : DEFAULT_PDF_PHOTOS;
 }
 
 function parsePlaybackSpeed(value: unknown): number {
@@ -237,6 +249,7 @@ export function parseUserSettings(raw: unknown): UserSettings {
       defaults.seriesMaxFiles,
     ),
     pdfTheme: parsePdfTheme(raw.pdfTheme),
+    pdfPhotos: parsePdfPhotos(raw.pdfPhotos),
     radarGray: parseClampedNumber(
       raw.radarGray,
       RADAR_GRAY_MIN,

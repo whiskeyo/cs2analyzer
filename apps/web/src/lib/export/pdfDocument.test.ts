@@ -424,6 +424,9 @@ describe("buildPlaybookPdf", () => {
     });
     const stillOnly = await buildPlaybookPdf(report, { [page.id]: { upper: TINY_PNG } });
     expect(pdfDrawnText(withPhoto)).toContain("window-lineup.png");
+    expect(pdfDrawnText(withPhoto)).toContain(PLAYBOOK_PDF_PHOTO_BACK);
+    expect(pdfDrawnText(stillOnly)).not.toContain("window-lineup.png");
+    expect(pdfDrawnText(stillOnly)).not.toContain(PLAYBOOK_PDF_PHOTO_BACK);
     expect(pdfImageCount(withPhoto)).toBeGreaterThan(pdfImageCount(stillOnly));
     expect(pdfImageCount(stillOnly)).toBeGreaterThan(0);
   });

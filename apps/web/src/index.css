@@ -1142,6 +1142,9 @@ code {
   gap: 0.5rem;
   justify-content: flex-end;
 }
+.playbook-pdf-export-actions {
+  flex-wrap: wrap;
+}
 .settings-modal {
   z-index: var(--z-modal);
   align-items: flex-start;

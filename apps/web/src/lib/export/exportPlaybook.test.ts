@@ -176,6 +176,27 @@ describe("downloadPlaybookPdf", () => {
     expect(photos["img-1"]).toEqual(png);
   });
 
+  it("skips IDB photo bytes when exporting without photos", async () => {
+    let book = newPlaybook("de_mirage", "A execs");
+    const page = book.pages[0]!;
+    book = setPageImages(book, page.id, [
+      { id: "img-1", name: "window.png", mime: "image/png", x: 0, y: 0 },
+    ]);
+    mocks.loadPlaybookSnapshotImage.mockResolvedValue(null);
+    mocks.loadPlaybookSnapshotIcons.mockResolvedValue({ c4: null, nades: {} });
+    mocks.snapshotPlaybookPagePng.mockResolvedValue(new Uint8Array([1]));
+    mocks.buildPlaybookPdf.mockResolvedValue(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+    await downloadPlaybookPdf(book, UNIT_CALIBRATION, EXPORTED_AT, "dark", DEFAULT_RADAR_GRAY, false);
+    expect(mocks.loadPlaybookImageBlobs).not.toHaveBeenCalled();
+    expect(mocks.buildPlaybookPdf).toHaveBeenCalledWith(
+      expect.anything(),
+      { [page.id]: { upper: new Uint8Array([1]) } },
+      "dark",
+      {},
+      UNIT_CALIBRATION,
+    );
+  });
+
   it("forwards radarGray into PDF stills", async () => {
     const book = newPlaybook("de_nuke", "default executes");
     mocks.loadPlaybookSnapshotImage.mockResolvedValue(null);

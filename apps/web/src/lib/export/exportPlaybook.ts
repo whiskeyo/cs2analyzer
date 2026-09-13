@@ -72,10 +72,11 @@ export async function downloadPlaybookPdf(
   exportedAt = Date.now(),
   theme: PdfTheme = DEFAULT_PDF_THEME,
   radarGray: number = DEFAULT_RADAR_GRAY,
+  includePhotos = true,
 ): Promise<void> {
   const report = playbookReport(book, exportedAt);
   const snapshots = await snapshotPlaybookPages(book, cal, radarGray);
-  const photos = await loadPlaybookPdfPhotos(book);
+  const photos = includePhotos ? await loadPlaybookPdfPhotos(book) : {};
   const bytes = await buildPlaybookPdf(report, snapshots, theme, photos, cal);
   const copy = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(copy).set(bytes);

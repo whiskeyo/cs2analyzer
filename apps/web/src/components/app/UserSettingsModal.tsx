@@ -7,7 +7,7 @@ import type { FloorMode, MapLayers } from "@/lib/notes/types";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
-import type { PdfTheme } from "@/lib/settings/userSettings";
+import type { PdfPhotos, PdfTheme } from "@/lib/settings/userSettings";
 import {
   NOTE_MOMENT_MAX_SECONDS,
   NOTE_MOMENT_MIN_SECONDS,
@@ -42,6 +42,11 @@ const FLOOR_MODES: { id: FloorMode; label: string }[] = [
 const PDF_THEME_MODES: { id: PdfTheme; label: string }[] = [
   { id: "dark", label: "Dark" },
   { id: "light", label: "Light" },
+];
+
+const PDF_PHOTO_MODES: { id: PdfPhotos; label: string }[] = [
+  { id: "with", label: "With photos" },
+  { id: "without", label: "Without photos" },
 ];
 
 function radarGrayValueText(amount: number): string {
@@ -312,7 +317,7 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           <h3>Playbook PDF</h3>
           <p className="settings-hint">
             Dark matches the app. Light is paper-friendly. Radar stills sit on the page color — no
-            extra panel behind the map.
+            extra panel behind the map. Without photos skips embedded lineup pictures; pins stay.
           </p>
           <div className="settings-field">
             <span>Page theme</span>
@@ -325,6 +330,23 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
                   aria-pressed={settings.pdfTheme === mode.id}
                   aria-label={`${mode.label} PDF`}
                   onClick={() => void update({ pdfTheme: mode.id })}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </span>
+          </div>
+          <div className="settings-field">
+            <span>Photos</span>
+            <span className="floor-picks">
+              {PDF_PHOTO_MODES.map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  className={settings.pdfPhotos === mode.id ? "on" : ""}
+                  aria-pressed={settings.pdfPhotos === mode.id}
+                  aria-label={mode.label}
+                  onClick={() => void update({ pdfPhotos: mode.id })}
                 >
                   {mode.label}
                 </button>

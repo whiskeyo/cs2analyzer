@@ -119,6 +119,8 @@ describe("Playbook", () => {
     expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
     fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
+    expect(screen.getByRole("dialog", { name: "Export PDF" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "With photos" }));
     await waitFor(() => expect(downloadPlaybookPdf).toHaveBeenCalledTimes(1));
     expect(downloadPlaybookPdf.mock.calls[0]?.[0]).toMatchObject({
       title: "Untitled playbook",
@@ -127,6 +129,17 @@ describe("Playbook", () => {
     expect(downloadPlaybookPdf.mock.calls[0]?.[1]).toBe(UNIT_CALIBRATION);
     expect(downloadPlaybookPdf.mock.calls[0]?.[3]).toBe("dark");
     expect(downloadPlaybookPdf.mock.calls[0]?.[4]).toBe(DEFAULT_RADAR_GRAY);
+    expect(downloadPlaybookPdf.mock.calls[0]?.[5]).toBe(true);
+  });
+
+  it("exports a PDF without embedded photos when that choice is picked", async () => {
+    renderBoard();
+    await createBookFromMap();
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
+    await userEvent.click(screen.getByRole("button", { name: "Without photos" }));
+    await waitFor(() => expect(downloadPlaybookPdf).toHaveBeenCalledTimes(1));
+    expect(downloadPlaybookPdf.mock.calls[0]?.[5]).toBe(false);
   });
 
   it("shows an error when playbook PDF export fails", async () => {
@@ -135,6 +148,7 @@ describe("Playbook", () => {
     await createBookFromMap();
     fireEvent.contextMenu(screen.getByRole("button", { name: "Untitled playbook" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
+    await userEvent.click(screen.getByRole("button", { name: "With photos" }));
     expect(await screen.findByText("Could not export PDF.")).toBeInTheDocument();
   });
 
