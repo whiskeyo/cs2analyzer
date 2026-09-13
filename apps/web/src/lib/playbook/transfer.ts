@@ -10,6 +10,15 @@ import {
   type ImportChoices,
   type ImportConflict,
 } from "./merge";
+import { playbookImageIds } from "./pages";
+import {
+  blobToDataUrl,
+  dataUrlToBlob,
+  deletePlaybookImageBlobs,
+  loadPlaybookImageBlobs,
+  parsePlaybookImageDataUrls,
+  putPlaybookImageBlob,
+} from "./playbookImageStore";
 import { PLAYBOOK_SCHEMA, type Playbook } from "./types";
 
 export const PLAYBOOK_BUNDLE_SCHEMA = PLAYBOOK_SCHEMA;
@@ -19,6 +28,8 @@ export interface PlaybookBundle {
   schema: number;
   exportedAt: number;
   playbooks: Playbook[];
+  /** Image id → data URL. Live books never store bytes on the page. */
+  images: Record<string, string>;
 }
 
 export type TransferResult =
@@ -30,11 +41,16 @@ export type TransferResult =
       bundle?: PlaybookBundle;
     };
 
-export function serializePlaybookBundle(playbooks: Playbook[], exportedAt = Date.now()): string {
+export function serializePlaybookBundle(
+  playbooks: Playbook[],
+  exportedAt = Date.now(),
+  images: Record<string, string> = {},
+): string {
   const bundle: PlaybookBundle = {
     schema: PLAYBOOK_BUNDLE_SCHEMA,
     exportedAt,
     playbooks,
+    images,
   };
   return JSON.stringify(bundle);
 }
@@ -53,11 +69,52 @@ export function parsePlaybookBundle(value: unknown): PlaybookBundle | null {
       schema: PLAYBOOK_BUNDLE_SCHEMA,
       exportedAt: isFiniteNumber(value.exportedAt) ? value.exportedAt : 0,
       playbooks,
+      images: parsePlaybookImageDataUrls(value.images),
     };
   }
   const single = parsePlaybook(value);
   if (!single) return null;
-  return { schema: PLAYBOOK_BUNDLE_SCHEMA, exportedAt: 0, playbooks: [single] };
+  return {
+    schema: PLAYBOOK_BUNDLE_SCHEMA,
+    exportedAt: 0,
+    playbooks: [single],
+    images: parsePlaybookImageDataUrls(value.images),
+  };
+}
+
+export async function encodePlaybookBundleImages(
+  playbooks: readonly Playbook[],
+): Promise<Record<string, string>> {
+  const ids = [...new Set(playbooks.flatMap(playbookImageIds))];
+  const blobs = await loadPlaybookImageBlobs(ids);
+  const images: Record<string, string> = {};
+  for (const [id, blob] of blobs) {
+    images[id] = await blobToDataUrl(blob);
+  }
+  return images;
+}
+
+export async function writePlaybookBundleImages(images: Record<string, string>): Promise<void> {
+  for (const [id, dataUrl] of Object.entries(images)) {
+    const blob = dataUrlToBlob(dataUrl);
+    if (blob) await putPlaybookImageBlob(id, blob);
+  }
+}
+
+function staleImportedImageIds(
+  existing: readonly Playbook[],
+  incoming: readonly Playbook[],
+): string[] {
+  const incomingIds = new Set(incoming.flatMap(playbookImageIds));
+  const incomingKeys = new Set(incoming.map((book) => book.key));
+  const stale: string[] = [];
+  for (const book of existing) {
+    if (!incomingKeys.has(book.key)) continue;
+    for (const id of playbookImageIds(book)) {
+      if (!incomingIds.has(id)) stale.push(id);
+    }
+  }
+  return stale;
 }
 
 export async function exportPlaybooks(): Promise<TransferResult> {
@@ -66,7 +123,12 @@ export async function exportPlaybooks(): Promise<TransferResult> {
     if (playbooks.length === 0) {
       return { ok: false, message: "No playbooks in this browser yet." };
     }
-    downloadBlob(PLAYBOOK_EXPORT_FILE, "application/json", serializePlaybookBundle(playbooks));
+    const images = await encodePlaybookBundleImages(playbooks);
+    downloadBlob(
+      PLAYBOOK_EXPORT_FILE,
+      "application/json",
+      serializePlaybookBundle(playbooks, Date.now(), images),
+    );
     const n = playbooks.length;
     return {
       ok: true,
@@ -84,6 +146,8 @@ export async function commitPlaybookImport(
   try {
     const existing = await loadAllPlaybooks();
     const books = booksToSaveOnImport(existing, bundle.playbooks, choices);
+    await writePlaybookBundleImages(bundle.images);
+    await deletePlaybookImageBlobs(staleImportedImageIds(existing, books));
     for (const book of books) {
       await savePlaybook(book);
     }
