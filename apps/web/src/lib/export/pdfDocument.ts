@@ -20,6 +20,7 @@ import {
   PLAYBOOK_PDF_MUTED,
   PLAYBOOK_PDF_PAGE_BG,
   PLAYBOOK_PDF_PHOTO_BACK,
+  PLAYBOOK_PDF_PHOTO_BACK_ARROW_SIZE,
   PLAYBOOK_PDF_PHOTO_MAX_HEIGHT,
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
@@ -34,6 +35,10 @@ import {
   type PlaybookPdfPhotos,
   type PlaybookPdfSnapshots,
 } from "./playbookPdfEmbed";
+import {
+  drawPlaybookPdfPhotoBackArrow,
+  playbookPdfPhotoBackPlacement,
+} from "./playbookPdfPhotoBack";
 import { playbookPdfPinHit } from "./playbookPdfPins";
 import type { PlaybookReport, PlaybookReportPage, PlaybookReportPhoto } from "./playbookReport";
 import { pdfSafeText, wrapPdfText } from "./pdfText";
@@ -51,6 +56,7 @@ interface PdfLib {
   PDFString: (typeof import("pdf-lib"))["PDFString"];
   PageSizes: (typeof import("pdf-lib"))["PageSizes"];
   rgb: (typeof import("pdf-lib"))["rgb"];
+  degrees: (typeof import("pdf-lib"))["degrees"];
 }
 
 interface DocFonts {
@@ -111,6 +117,7 @@ interface Writer {
   footer: string;
   footerUri: string;
   PDFString: PdfLib["PDFString"];
+  degrees: PdfLib["degrees"];
   addPage: () => PDFPage;
 }
 
@@ -407,7 +414,7 @@ function drawPhotos(
   const dests = new Map<string, PhotoDest>();
   const backHits: PdfLinkHit[] = [];
   const backSize = PLAYBOOK_PDF_SMALL_SIZE;
-  const backH = lineHeight(backSize);
+  const backLabel = PLAYBOOK_PDF_PHOTO_BACK;
   for (const photo of photos) {
     const image = embedded.get(photo.id);
     if (!image) continue;
@@ -419,32 +426,44 @@ function drawPhotos(
       writer.layout.contentWidth,
     );
     const captionH = Math.max(caption.length, 1) * lineHeight(PLAYBOOK_PDF_SMALL_SIZE);
-    ensureSpace(writer, captionH + dims.height + backH + PLAYBOOK_PDF_LINE_GAP);
+    ensureSpace(writer, captionH + dims.height + PLAYBOOK_PDF_LINE_GAP);
     dests.set(photo.id, { page: writer.page, y: writer.y });
     drawLines(writer, caption, PLAYBOOK_PDF_SMALL_SIZE, writer.fonts.regular, writer.colors.muted);
+    const photoY = writer.y - dims.height;
     writer.page.drawImage(image, {
       x: centerOnContent(writer.layout.left, writer.layout.contentWidth, dims.width),
-      y: writer.y - dims.height,
+      y: photoY,
       width: dims.width,
       height: dims.height,
     });
     writer.y -= dims.height;
-    ensureSpace(writer, backH);
-    const backTop = writer.y;
-    writer.page.drawText(PLAYBOOK_PDF_PHOTO_BACK, {
-      x: writer.layout.left,
-      y: writer.y - backSize,
+    const labelWidth = writer.fonts.regular.widthOfTextAtSize(backLabel, backSize);
+    const back = playbookPdfPhotoBackPlacement(
+      { y: photoY, height: dims.height },
+      labelWidth,
+      backSize,
+    );
+    writer.page.drawText(backLabel, {
+      x: back.textX,
+      y: back.textY,
       size: backSize,
       font: writer.fonts.regular,
       color: writer.colors.muted,
+      rotate: writer.degrees(90),
     });
-    writer.y -= backH;
+    drawPlaybookPdfPhotoBackArrow(
+      writer.page,
+      back.arrowX,
+      back.arrowY,
+      PLAYBOOK_PDF_PHOTO_BACK_ARROW_SIZE,
+      writer.colors.muted,
+    );
     backHits.push({
       page: writer.page,
-      x: writer.layout.left,
-      y: writer.y,
-      width: writer.fonts.regular.widthOfTextAtSize(PLAYBOOK_PDF_PHOTO_BACK, backSize),
-      height: backTop - writer.y,
+      x: back.x,
+      y: back.y,
+      width: back.width,
+      height: back.height,
     });
     drawGap(writer, PLAYBOOK_PDF_LINE_GAP);
   }
@@ -546,7 +565,8 @@ export async function buildPlaybookPdf(
   photoBytes: PlaybookPdfPhotos = {},
   cal?: MapCalibration,
 ): Promise<Uint8Array> {
-  const { PDFDocument, PDFName, PDFString, PageSizes, rgb } = (await import("pdf-lib")) as PdfLib;
+  const { PDFDocument, PDFName, PDFString, PageSizes, rgb, degrees } =
+    (await import("pdf-lib")) as PdfLib;
   const pdf = await PDFDocument.create();
   await registerPlaybookPdfFontkit(pdf);
   const fontBytes = await loadPlaybookPdfFontBytes();
@@ -567,6 +587,7 @@ export async function buildPlaybookPdf(
     footer: PLAYBOOK_PDF_FOOTER,
     footerUri: PLAYBOOK_PDF_FOOTER_URL,
     PDFString,
+    degrees,
   } as Writer;
   writer.addPage = () => {
     const page = pdf.addPage(PageSizes.A4);

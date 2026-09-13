@@ -7,15 +7,22 @@ import {
   playbookImagePinIndex,
   PLAYBOOK_IMAGE_SIZE_ERROR,
   PLAYBOOK_IMAGE_TYPE_ERROR,
+  PLAYBOOK_IMAGE_URL_ERROR,
+  PLAYBOOK_IMAGE_URL_PARSE_ERROR,
   hitTestImage,
   imageFileName,
+  imageFileNameFromUrl,
+  imgurDirectImageUrl,
   makePlaybookImage,
   moveImage,
   nextImagePin,
   normalizePlaybookImageMime,
+  playbookImageCandidateUrls,
   playbookImageFilesFromList,
   readPlaybookImageFile,
+  readPlaybookImageUrl,
   removeImage,
+  sniffPlaybookImageMime,
 } from "./images";
 import type { PlaybookImage } from "./types";
 
@@ -75,6 +82,34 @@ describe("image pin geometry", () => {
     });
     expect(imageFileName({ name: "  A smoke.png  " })).toBe("A smoke.png");
     expect(imageFileName({ name: "   " })).toBe("image");
+    expect(imageFileNameFromUrl(new URL("https://i.imgur.com/abc123.png"))).toBe("abc123.png");
+    expect(imageFileNameFromUrl(new URL("https://example.com/"))).toBe("image");
+  });
+});
+
+describe("playbook image URLs", () => {
+  it("parses http(s) and rewrites an Imgur page to the direct image host", () => {
+    expect(playbookImageCandidateUrls("not a url")).toBeNull();
+    expect(playbookImageCandidateUrls("ftp://example.com/a.png")).toBeNull();
+    const direct = playbookImageCandidateUrls("https://cdn.example.com/lineup.png");
+    expect(direct?.map((url) => url.href)).toEqual(["https://cdn.example.com/lineup.png"]);
+    const imgur = playbookImageCandidateUrls("https://imgur.com/abc123");
+    expect(imgur?.map((url) => url.href)).toEqual([
+      "https://imgur.com/abc123",
+      "https://i.imgur.com/abc123.jpg",
+    ]);
+    expect(imgurDirectImageUrl(new URL("https://imgur.com/a/album"))).toBeNull();
+    expect(imgurDirectImageUrl(new URL("https://imgur.com/xyz.webp"))?.href).toBe(
+      "https://i.imgur.com/xyz.webp",
+    );
+    expect(sniffPlaybookImageMime(Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d))).toBe("image/png");
+    expect(sniffPlaybookImageMime(Uint8Array.of(0xff, 0xd8, 0xff, 0xe0))).toBe("image/jpeg");
+    expect(
+      sniffPlaybookImageMime(
+        Uint8Array.of(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50),
+      ),
+    ).toBe("image/webp");
+    expect(sniffPlaybookImageMime(Uint8Array.of(0x47, 0x49, 0x46))).toBeNull();
   });
 });
 
@@ -140,5 +175,114 @@ describe("readPlaybookImageFile", () => {
     const file = new File([new Uint8Array(1)], "a.png", { type: "image/png" });
     expect(playbookImageFilesFromList([file])).toEqual([file]);
     expect(playbookImageFilesFromList(null)).toEqual([]);
+  });
+});
+
+function mockImageFetch(partial: {
+  ok?: boolean;
+  type?: string;
+  body?: Uint8Array;
+  contentLength?: string | null;
+  href?: string;
+}): ReturnType<typeof vi.fn> {
+  return vi.fn(async (input: string) => {
+    if (partial.href && input !== partial.href) {
+      return { ok: false, headers: { get: () => null }, blob: async () => new Blob() };
+    }
+    return {
+      ok: partial.ok ?? true,
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === "content-length" ? (partial.contentLength ?? null) : null,
+      },
+      blob: async () =>
+        new Blob(
+          [new Uint8Array(partial.body ?? [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])],
+          {
+            type: partial.type ?? "image/png",
+          },
+        ),
+    };
+  });
+}
+
+describe("readPlaybookImageUrl", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects junk, failed fetches, non-images, and oversized bodies", async () => {
+    expect(await readPlaybookImageUrl("not a url")).toEqual({
+      ok: false,
+      message: PLAYBOOK_IMAGE_URL_PARSE_ERROR,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("offline");
+      }),
+    );
+    expect(await readPlaybookImageUrl("https://example.com/a.png")).toEqual({
+      ok: false,
+      message: PLAYBOOK_IMAGE_URL_ERROR,
+    });
+    vi.stubGlobal("fetch", mockImageFetch({ ok: false }));
+    expect(await readPlaybookImageUrl("https://example.com/a.png")).toEqual({
+      ok: false,
+      message: PLAYBOOK_IMAGE_URL_ERROR,
+    });
+    vi.stubGlobal("fetch", mockImageFetch({ type: "text/html", body: new Uint8Array([1, 2]) }));
+    expect(await readPlaybookImageUrl("https://example.com/page")).toEqual({
+      ok: false,
+      message: PLAYBOOK_IMAGE_TYPE_ERROR,
+    });
+    vi.stubGlobal(
+      "fetch",
+      mockImageFetch({
+        type: "image/png",
+        contentLength: String(PLAYBOOK_IMAGE_MAX_BYTES + 1),
+      }),
+    );
+    expect(await readPlaybookImageUrl("https://example.com/huge.png")).toEqual({
+      ok: false,
+      message: PLAYBOOK_IMAGE_SIZE_ERROR,
+    });
+  });
+
+  it("fetches a png URL and uses the Imgur direct host after an HTML page", async () => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => ({ width: 80, height: 40, close: vi.fn() })),
+    );
+    vi.stubGlobal("fetch", mockImageFetch({ type: "image/png", body: new Uint8Array(24) }));
+    const decoded = await readPlaybookImageUrl("https://cdn.example.com/lineup.png");
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) throw new Error("expected decode");
+    expect(decoded).toMatchObject({ name: "lineup.png", mime: "image/png" });
+
+    const fetchMock = vi.fn(async (input: string) => {
+      if (input === "https://imgur.com/abc123") {
+        return {
+          ok: true,
+          headers: { get: () => null },
+          blob: async () => new Blob(["<html>"], { type: "text/html" }),
+        };
+      }
+      return {
+        ok: true,
+        headers: { get: () => null },
+        blob: async () => new Blob([new Uint8Array(24)], { type: "image/jpeg" }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const imgur = await readPlaybookImageUrl("https://imgur.com/abc123");
+    expect(imgur.ok).toBe(true);
+    if (!imgur.ok) throw new Error("expected imgur");
+    expect(imgur.mime).toBe("image/jpeg");
+    expect(imgur.name).toBe("abc123.jpg");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://i.imgur.com/abc123.jpg",
+      expect.objectContaining({ headers: expect.anything() }),
+    );
   });
 });

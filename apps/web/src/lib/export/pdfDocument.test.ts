@@ -17,7 +17,10 @@ import {
   PLAYBOOK_PDF_LIGHT_PAGE_BG,
   PLAYBOOK_PDF_LINE_GAP,
   PLAYBOOK_PDF_PAGE_BG,
+  PLAYBOOK_PDF_MARGIN,
   PLAYBOOK_PDF_PHOTO_BACK,
+  PLAYBOOK_PDF_PHOTO_BACK_ARROW_GAP,
+  PLAYBOOK_PDF_PHOTO_BACK_ARROW_SIZE,
   PLAYBOOK_PDF_PIN_HIT_MIN,
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
@@ -29,6 +32,7 @@ import {
   playbookRadarMaxSize,
   wrapPdfText,
 } from "./pdfDocument";
+import { playbookPdfPhotoBackPlacement } from "./playbookPdfPhotoBack";
 import { formatPlaybookExportDate, playbookReport } from "./playbookReport";
 
 const EXPORTED_AT = Date.UTC(2026, 8, 12, 15, 0, 0);
@@ -396,6 +400,22 @@ describe("buildPlaybookPdf", () => {
     expect(centerOnContent(48, contentWidth, 300)).toBe(48 + (contentWidth - 300) / 2);
   });
 
+  it("sits the back link in the left page margin next to the photo", () => {
+    const photo = { y: 200, height: 240 };
+    const labelWidth = 90;
+    const labelSize = 10;
+    const placed = playbookPdfPhotoBackPlacement(photo, labelWidth, labelSize);
+    expect(placed.arrowY).toBe(placed.textY + labelWidth + PLAYBOOK_PDF_PHOTO_BACK_ARROW_GAP);
+    expect(placed.height).toBe(
+      labelWidth + PLAYBOOK_PDF_PHOTO_BACK_ARROW_GAP + PLAYBOOK_PDF_PHOTO_BACK_ARROW_SIZE,
+    );
+    expect(placed.x + placed.width).toBeLessThanOrEqual(PLAYBOOK_PDF_MARGIN);
+    expect(placed.x).toBeGreaterThanOrEqual(0);
+    expect(placed.y).toBeGreaterThanOrEqual(photo.y);
+    expect(placed.y + placed.height).toBeLessThanOrEqual(photo.y + photo.height);
+    expect(placed.width).toBe(labelSize);
+  });
+
   it("round-trips Polish letters through the embedded font", async () => {
     let book = newPlaybook("de_mirage", "Łódź");
     const page = book.pages[0]!;
@@ -424,6 +444,9 @@ describe("buildPlaybookPdf", () => {
     });
     const stillOnly = await buildPlaybookPdf(report, { [page.id]: { upper: TINY_PNG } });
     expect(pdfDrawnText(withPhoto)).toContain("window-lineup.png");
+    expect(pdfDrawnText(withPhoto)).toContain(PLAYBOOK_PDF_PHOTO_BACK);
+    expect(pdfDrawnText(stillOnly)).not.toContain("window-lineup.png");
+    expect(pdfDrawnText(stillOnly)).not.toContain(PLAYBOOK_PDF_PHOTO_BACK);
     expect(pdfImageCount(withPhoto)).toBeGreaterThan(pdfImageCount(stillOnly));
     expect(pdfImageCount(stillOnly)).toBeGreaterThan(0);
   });
@@ -456,7 +479,10 @@ describe("buildPlaybookPdf", () => {
     const pin = gotos.find((hit) => hit.width <= PLAYBOOK_PDF_PIN_HIT_MIN + 4);
     const back = gotos.find(
       (hit) =>
-        hit.destPage === stratPage && hit.destY === stratTop && hit.width > 40 && hit.width < 200,
+        hit.destPage === stratPage &&
+        hit.destY === stratTop &&
+        hit.width <= PLAYBOOK_PDF_SMALL_SIZE + 2 &&
+        hit.height > 40,
     );
     expect(pin).toBeDefined();
     expect(pin?.destY).toBeLessThan(loaded.getPage(pin?.destPage ?? 0).getHeight());

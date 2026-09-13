@@ -9,9 +9,11 @@ import type { PlaybookImage } from "@/lib/playbook/types";
 import { PlaybookImages } from "./PlaybookImages";
 
 const ingestPlaybookImages = vi.hoisted(() => vi.fn());
+const ingestPlaybookImageUrl = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/playbook/addPlaybookImages", () => ({
   ingestPlaybookImages,
+  ingestPlaybookImageUrl,
 }));
 
 vi.mock("@/lib/playbook/usePlaybookImageBitmaps", () => ({
@@ -50,6 +52,7 @@ function renderImages(
 describe("PlaybookImages", () => {
   afterEach(() => {
     ingestPlaybookImages.mockReset();
+    ingestPlaybookImageUrl.mockReset();
   });
 
   it("lists a thumbnail name and removes from the row without opening", async () => {
@@ -87,28 +90,11 @@ describe("PlaybookImages", () => {
     expect(onOpen).toHaveBeenLastCalledWith(null);
   });
 
-  it("adds a picked file and shows a type error", async () => {
-    const onImages = vi.fn();
-    const onError = vi.fn();
-    const onOpen = vi.fn();
-    ingestPlaybookImages.mockResolvedValue({
-      images: [still({ id: "i2" })],
-      error: PLAYBOOK_IMAGE_TYPE_ERROR,
-    });
-    renderImages({
-      error: PLAYBOOK_IMAGE_TYPE_ERROR,
-      onImages,
-      onOpen,
-      onError,
-    });
+  it("keeps a drop error on the list and has no idle add form", () => {
+    renderImages({ error: PLAYBOOK_IMAGE_TYPE_ERROR });
     expect(screen.getByText(PLAYBOOK_IMAGE_TYPE_ERROR)).toBeInTheDocument();
-    const input = screen.getByLabelText("Add playbook image");
-    const file = new File([new Uint8Array(8)], "lineup.png", { type: "image/png" });
-    fireEvent.change(input, { target: { files: [file] } });
-    await waitFor(() => expect(ingestPlaybookImages).toHaveBeenCalled());
-    expect(onImages).toHaveBeenCalledWith([expect.objectContaining({ id: "i2" })]);
-    expect(onOpen).toHaveBeenCalledWith("i2");
-    expect(onError).toHaveBeenCalledWith(PLAYBOOK_IMAGE_TYPE_ERROR);
+    expect(screen.queryByLabelText("Add playbook image")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Image URL" })).not.toBeInTheDocument();
   });
 
   it("opens a picker on pin drop and ingests at that world XY", async () => {
@@ -135,5 +121,60 @@ describe("PlaybookImages", () => {
     expect(onImages).toHaveBeenCalledWith([expect.objectContaining({ id: "i2", x: 40, y: 50 })]);
     expect(onOpen).toHaveBeenCalledWith("i2");
     expect(onCancelPin).toHaveBeenCalled();
+  });
+
+  it("pastes an image URL on pin drop and shows a fetch error without closing", async () => {
+    const onImages = vi.fn();
+    const onOpen = vi.fn();
+    const onError = vi.fn();
+    const onCancelPin = vi.fn();
+    ingestPlaybookImageUrl.mockResolvedValue({
+      images: [still({ id: "i2", name: "abc123.jpg", x: 4, y: 5 })],
+      error: null,
+    });
+    const { rerender } = renderImages({
+      pendingPin: { x: 4, y: 5 },
+      onImages,
+      onOpen,
+      onError,
+      onCancelPin,
+    });
+    expect(screen.getByText(/or paste an image URL/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Image URL" }), {
+      target: { value: "https://imgur.com/abc123" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(ingestPlaybookImageUrl).toHaveBeenCalled());
+    expect(ingestPlaybookImageUrl).toHaveBeenCalledWith("https://imgur.com/abc123", [], {
+      x: 4,
+      y: 5,
+    });
+    expect(onImages).toHaveBeenCalledWith([expect.objectContaining({ id: "i2" })]);
+    expect(onOpen).toHaveBeenCalledWith("i2");
+    expect(onCancelPin).toHaveBeenCalled();
+
+    ingestPlaybookImageUrl.mockResolvedValue({
+      images: [],
+      error: PLAYBOOK_IMAGE_TYPE_ERROR,
+    });
+    onCancelPin.mockClear();
+    rerender(
+      <PlaybookImages
+        images={[]}
+        openId={null}
+        error={PLAYBOOK_IMAGE_TYPE_ERROR}
+        pendingPin={{ x: 4, y: 5 }}
+        onImages={onImages}
+        onOpen={onOpen}
+        onError={onError}
+        onCancelPin={onCancelPin}
+      />,
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Image URL" }), {
+      target: { value: "https://example.com/page" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(PLAYBOOK_IMAGE_TYPE_ERROR));
+    expect(onCancelPin).not.toHaveBeenCalled();
   });
 });

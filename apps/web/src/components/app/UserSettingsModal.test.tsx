@@ -204,6 +204,23 @@ describe("UserSettingsModal", () => {
     expect(screen.getByRole("button", { name: "Dark PDF" })).not.toHaveClass("on");
   });
 
+  it("persists a Playbook PDF without-photos choice", async () => {
+    renderModal();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "With photos" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "With photos" })).toHaveClass("on");
+    await userEvent.click(screen.getByRole("button", { name: "Without photos" }));
+    await waitFor(async () => {
+      expect((await loadUserSettings()).pdfPhotos).toBe("without");
+    });
+    expect(screen.getByRole("button", { name: "Without photos" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "With photos" })).not.toHaveClass("on");
+  });
+
   it("ignores a leftover click on the backdrop and closes on a new pointerdown", async () => {
     const onClose = vi.fn();
     renderModal(onClose);

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { ingestPlaybookImages } from "@/lib/playbook/addPlaybookImages";
+import { ingestPlaybookImageUrl, ingestPlaybookImages } from "@/lib/playbook/addPlaybookImages";
 import { PLAYBOOK_IMAGE_MAX_MB, removeImage } from "@/lib/playbook/images";
 import { peekPlaybookImageBitmap } from "@/lib/playbook/playbookImageBitmaps";
 import type { PlaybookImage } from "@/lib/playbook/types";
@@ -32,6 +32,8 @@ export function PlaybookImages({
   const pickerTitleId = useId();
   const viewerTitleId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const urlRef = useRef<HTMLInputElement>(null);
+  const [url, setUrl] = useState("");
   const [pending, setPending] = useState(false);
   const bitmaps = usePlaybookImageBitmaps(images.map((image) => image.id));
   const open = images.find((image) => image.id === openId) ?? null;
@@ -41,7 +43,7 @@ export function PlaybookImages({
 
   useEffect(() => {
     if (!pendingPin) return;
-    inputRef.current?.click();
+    urlRef.current?.focus();
   }, [pendingPin]);
 
   useEffect(() => {
@@ -52,23 +54,47 @@ export function PlaybookImages({
         return;
       }
       if (!pendingPin) return;
+      setUrl("");
       onCancelPin();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, pendingPin, onOpen, onCancelPin]);
 
+  const finishAdd = (
+    result: { images: PlaybookImage[]; error: string | null },
+    closePin: boolean,
+  ) => {
+    onImages(result.images);
+    onError(result.error);
+    const added = result.images[result.images.length - 1];
+    if (added && added !== images[images.length - 1]) onOpen(added.id);
+    if (closePin && pendingPin) {
+      setUrl("");
+      onCancelPin();
+    }
+  };
+
   const addFiles = async (files: File[]) => {
     if (files.length === 0) return;
     setPending(true);
     const result = await ingestPlaybookImages(files, images, pendingPin ?? undefined);
     setPending(false);
-    onImages(result.images);
-    onError(result.error);
     if (inputRef.current) inputRef.current.value = "";
-    const added = result.images[result.images.length - 1];
-    if (added && added !== images[images.length - 1]) onOpen(added.id);
-    if (pendingPin) onCancelPin();
+    finishAdd(result, true);
+  };
+
+  const addUrl = async () => {
+    if (url.trim() === "") return;
+    setPending(true);
+    const result = await ingestPlaybookImageUrl(url, images, pendingPin ?? undefined);
+    setPending(false);
+    finishAdd(result, result.images.length > images.length);
+  };
+
+  const cancelPin = () => {
+    setUrl("");
+    onCancelPin();
   };
 
   const remove = (id: string) => {
@@ -77,28 +103,57 @@ export function PlaybookImages({
   };
 
   const addForm = (
-    <div className="playbook-video-add">
-      <label className="playbook-field" htmlFor={inputId}>
-        Images
-        <input
-          id={inputId}
-          ref={inputRef}
-          type="file"
-          accept={ACCEPT}
-          multiple
-          aria-label="Add playbook image"
-          disabled={pending}
-          onChange={(event) => {
-            void addFiles(Array.from(event.target.files ?? []));
+    <div className="playbook-image-add">
+      <div className="playbook-video-add">
+        <label className="playbook-field" htmlFor={inputId}>
+          Images
+          <input
+            id={inputId}
+            ref={inputRef}
+            type="file"
+            accept={ACCEPT}
+            multiple
+            aria-label="Add playbook image"
+            disabled={pending}
+            onChange={(event) => {
+              void addFiles(Array.from(event.target.files ?? []));
+            }}
+          />
+        </label>
+        <span className="playbook-pin-add-slot" aria-hidden="true" />
+      </div>
+      {pendingPin ? (
+        <form
+          className="playbook-video-add"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void addUrl();
           }}
-        />
-      </label>
+        >
+          <label className="playbook-field">
+            Image URL
+            <input
+              ref={urlRef}
+              aria-label="Image URL"
+              value={url}
+              placeholder="https://i.imgur.com/…"
+              disabled={pending}
+              onChange={(event) => {
+                setUrl(event.target.value);
+                if (error) onError(null);
+              }}
+            />
+          </label>
+          <button type="submit" disabled={pending || url.trim() === ""}>
+            {pending ? "Adding…" : "Add"}
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 
   return (
     <div className="playbook-videos">
-      {pendingPin ? null : addForm}
       {pendingPin ? null : error ? <p className="error">{error}</p> : null}
       {images.length === 0 ? (
         <p className="playbook-lead">
@@ -137,7 +192,7 @@ export function PlaybookImages({
         </ul>
       )}
       {pendingPin ? (
-        <div className="home-modal playbook-video-paste" onClick={onCancelPin}>
+        <div className="home-modal playbook-video-paste" onClick={cancelPin}>
           <div
             className="home-modal-card"
             role="dialog"
@@ -146,11 +201,11 @@ export function PlaybookImages({
             onClick={(event) => event.stopPropagation()}
           >
             <h2 id={pickerTitleId}>Add photo</h2>
-            <p>Choose a PNG, JPEG, or WebP for this pin.</p>
+            <p>Choose a PNG, JPEG, or WebP, or paste an image URL.</p>
             {addForm}
             {error ? <p className="error">{error}</p> : null}
             <div className="home-modal-actions">
-              <button type="button" className="ghost" onClick={onCancelPin}>
+              <button type="button" className="ghost" onClick={cancelPin}>
                 Cancel
               </button>
             </div>

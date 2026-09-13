@@ -47,6 +47,7 @@ describe("defaultUserSettings", () => {
       noteMomentSec: NOTE_MOMENT_SECONDS,
       seriesMaxFiles: SERIES_MAX_FILES,
       pdfTheme: "dark",
+      pdfPhotos: "with",
       radarGray: DEFAULT_RADAR_GRAY,
     });
     expect(settings.defaultPaletteId).toBe(COLOR_PRESETS[0].id);
@@ -76,6 +77,7 @@ describe("parseUserSettings", () => {
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MAX);
     expect(parsed.eventLeadInSec).toBe(DEFAULT_LEAD_IN_SEC);
     expect(parsed.pdfTheme).toBe("dark");
+    expect(parsed.pdfPhotos).toBe("with");
     expect(parsed.radarGray).toBe(DEFAULT_RADAR_GRAY);
     expect(parsed.schema).toBe(USER_SETTINGS_SCHEMA);
     expect("habitsTrailWindowSec" in parsed).toBe(false);
@@ -96,6 +98,7 @@ describe("parseUserSettings", () => {
       noteMomentSec: 400,
       seriesMaxFiles: 1,
       pdfTheme: "sepia",
+      pdfPhotos: "color",
       radarGray: 4,
     });
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_HARD_MAX);
@@ -109,11 +112,17 @@ describe("parseUserSettings", () => {
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MAX_SECONDS);
     expect(parsed.seriesMaxFiles).toBe(SERIES_MIN_FILES);
     expect(parsed.pdfTheme).toBe("dark");
+    expect(parsed.pdfPhotos).toBe("with");
     expect(parsed.radarGray).toBe(RADAR_GRAY_MAX);
   });
 
   it("keeps a stored light PDF theme", () => {
     expect(parseUserSettings({ pdfTheme: "light" }).pdfTheme).toBe("light");
+  });
+
+  it("keeps a stored PDF photos choice", () => {
+    expect(parseUserSettings({ pdfPhotos: "without" }).pdfPhotos).toBe("without");
+    expect(parseUserSettings({ pdfPhotos: "with" }).pdfPhotos).toBe("with");
   });
 
   it("keeps a stored color map and migrates missing or invalid radarGray to full gray", () => {

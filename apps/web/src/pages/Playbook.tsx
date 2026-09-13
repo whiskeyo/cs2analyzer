@@ -11,10 +11,12 @@ import {
 } from "@/lib/app/playbookSearch";
 import { PlaybookCanvas } from "@/components/playbook/PlaybookCanvas";
 import { PlaybookEmpty } from "@/components/playbook/PlaybookEmpty";
+import { PlaybookPdfExportDialog } from "@/components/playbook/PlaybookPdfExportDialog";
 import { PlaybookStratPanel } from "@/components/playbook/PlaybookStratPanel";
 import { PlaybookTree } from "@/components/playbook/PlaybookTree";
 import { TokenPalette } from "@/components/playbook/TokenPalette";
 import { downloadPlaybookPdf } from "@/lib/export/exportPlaybook";
+import type { PdfPhotos } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { ingestPlaybookImages } from "@/lib/playbook/addPlaybookImages";
 import { consumePlaybookFocus } from "@/lib/playbook/focus";
@@ -50,7 +52,7 @@ import { errorMessage } from "@/lib/validate/json.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
 export function Playbook() {
-  const { settings } = useUserSettings();
+  const { settings, update } = useUserSettings();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchKey = searchParams.toString();
   const query = useMemo(() => parsePlaybookQuery(searchKey), [searchKey]);
@@ -76,6 +78,7 @@ export function Playbook() {
   const [expandedBooks, setExpandedBooks] = useState<Set<string>>(() => new Set());
   const openedBooksRef = useRef<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
+  const [pdfExportBook, setPdfExportBook] = useState<PlaybookDoc | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const pendingFocus = useRef(consumePlaybookFocus());
@@ -197,7 +200,7 @@ export function Playbook() {
       const match = findPlaybook(allBooks, mapName, query.playbook);
       if (!match) return;
       appliedSearchRef.current = incomingSearch;
-      if (activeKey !== match.key) select(match.key);
+      select(match.key);
       if (query.strat) {
         const strat = findStrat(match, query.strat);
         if (strat) pendingPage.current = strat.id;
@@ -207,10 +210,10 @@ export function Playbook() {
     appliedSearchRef.current = incomingSearch;
     const focus = pendingFocus.current;
     if (focus && mapName === focus.mapName && allBooks.some((row) => row.key === focus.bookKey)) {
-      if (activeKey !== focus.bookKey) select(focus.bookKey);
+      select(focus.bookKey);
       pendingFocus.current = null;
     }
-  }, [activeKey, allBooks, incomingSearch, mapName, query.playbook, query.strat, select]);
+  }, [allBooks, incomingSearch, mapName, query.playbook, query.strat, select]);
 
   useEffect(() => {
     if (!book) return;
@@ -258,23 +261,33 @@ export function Playbook() {
     select(row.key, row.mapName);
   };
 
-  const exportBook = (row: PlaybookDoc) => {
+  const requestExport = (row: PlaybookDoc) => {
     if (exportingKey) return;
-    const live = row.key === activeKey && book ? book : row;
     setExportError(null);
-    setExportingKey(live.key);
-    void downloadPlaybookPdf(
-      live,
-      maps?.[live.mapName],
-      Date.now(),
-      settings.pdfTheme,
-      settings.radarGray,
-    )
+    setPdfExportBook(row.key === activeKey && book ? book : row);
+  };
+
+  const exportBook = (row: PlaybookDoc, photos: PdfPhotos) => {
+    if (exportingKey) return;
+    setExportError(null);
+    setExportingKey(row.key);
+    void update({ pdfPhotos: photos })
+      .then(() =>
+        downloadPlaybookPdf(
+          row,
+          maps?.[row.mapName],
+          Date.now(),
+          settings.pdfTheme,
+          settings.radarGray,
+          photos === "with",
+        ),
+      )
       .catch(() => {
         setExportError("Could not export PDF.");
       })
       .finally(() => {
         setExportingKey(null);
+        setPdfExportBook(null);
       });
   };
 
@@ -445,7 +458,7 @@ export function Playbook() {
               if (row.key === activeKey) addStrat();
               else void addStratTo(row.key);
             }}
-            onExportPdf={exportBook}
+            onExportPdf={requestExport}
             onDuplicateBook={(row) => {
               void duplicateBook(row.key).then((copy) => {
                 if (copy) {
@@ -468,6 +481,17 @@ export function Playbook() {
         </aside>
       </div>
       <p className="keys">{PLAYBOOK_KEYS_HINT}</p>
+      {pdfExportBook ? (
+        <PlaybookPdfExportDialog
+          bookTitle={pdfExportBook.title}
+          current={settings.pdfPhotos}
+          busy={exportingKey === pdfExportBook.key}
+          onChoose={(photos) => exportBook(pdfExportBook, photos)}
+          onClose={() => {
+            if (!exportingKey) setPdfExportBook(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

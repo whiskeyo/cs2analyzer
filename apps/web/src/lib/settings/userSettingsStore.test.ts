@@ -61,6 +61,13 @@ describe("userSettingsStore without indexedDB", () => {
     expect((await resetUserSettings()).pdfTheme).toBe("dark");
   });
 
+  it("round-trips pdfPhotos and reset restores with photos", async () => {
+    expect((await loadUserSettings()).pdfPhotos).toBe("with");
+    await saveUserSettings({ pdfPhotos: "without" });
+    expect((await loadUserSettings()).pdfPhotos).toBe("without");
+    expect((await resetUserSettings()).pdfPhotos).toBe("with");
+  });
+
   it("round-trips radarGray and reset restores full gray", async () => {
     expect((await loadUserSettings()).radarGray).toBe(DEFAULT_RADAR_GRAY);
     await saveUserSettings({ radarGray: RADAR_GRAY_MIN });

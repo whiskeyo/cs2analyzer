@@ -121,6 +121,21 @@ describe("PlaybookVideos", () => {
     expect(onCancelPin).toHaveBeenCalled();
   });
 
+  it("has no idle YouTube add form", () => {
+    render(
+      <PlaybookVideos
+        videos={[]}
+        onVideos={vi.fn()}
+        openId={null}
+        onOpen={vi.fn()}
+        pendingPin={null}
+        onCancelPin={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("textbox", { name: "YouTube link" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Place a YouTube pin/)).toBeInTheDocument();
+  });
+
   it("rejects junk and duplicate links, and falls back when oEmbed fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     const onVideos = vi.fn();
@@ -132,7 +147,7 @@ describe("PlaybookVideos", () => {
         onVideos={onVideos}
         openId={null}
         onOpen={onOpen}
-        pendingPin={null}
+        pendingPin={{ x: 1, y: 2 }}
         onCancelPin={onCancelPin}
       />,
     );
@@ -155,7 +170,7 @@ describe("PlaybookVideos", () => {
         onVideos={onVideos}
         openId={null}
         onOpen={onOpen}
-        pendingPin={null}
+        pendingPin={{ x: 1, y: 2 }}
         onCancelPin={onCancelPin}
       />,
     );
@@ -167,8 +182,8 @@ describe("PlaybookVideos", () => {
     expect(onVideos.mock.calls.at(-1)?.[0][0]).toMatchObject({
       videoId: VIDEO,
       title: YOUTUBE_UNTITLED,
-      x: 0,
-      y: 0,
+      x: 1,
+      y: 2,
     });
   });
 });

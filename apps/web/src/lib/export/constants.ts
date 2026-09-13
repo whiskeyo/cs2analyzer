@@ -63,3 +63,6 @@ export const PLAYBOOK_PDF_PHOTO_MAX_HEIGHT = 240;
 /** Smallest clickable pin overlay on a still (PDF points). */
 export const PLAYBOOK_PDF_PIN_HIT_MIN = 12;
 export const PLAYBOOK_PDF_PHOTO_BACK = "Go back to strat";
+/** Vector arrow beside the margin label — Liberation subset has no ↑. */
+export const PLAYBOOK_PDF_PHOTO_BACK_ARROW_SIZE = 5;
+export const PLAYBOOK_PDF_PHOTO_BACK_ARROW_GAP = 3;
