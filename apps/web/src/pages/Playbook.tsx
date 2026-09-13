@@ -200,7 +200,7 @@ export function Playbook() {
       const match = findPlaybook(allBooks, mapName, query.playbook);
       if (!match) return;
       appliedSearchRef.current = incomingSearch;
-      if (activeKey !== match.key) select(match.key);
+      select(match.key);
       if (query.strat) {
         const strat = findStrat(match, query.strat);
         if (strat) pendingPage.current = strat.id;
@@ -210,10 +210,10 @@ export function Playbook() {
     appliedSearchRef.current = incomingSearch;
     const focus = pendingFocus.current;
     if (focus && mapName === focus.mapName && allBooks.some((row) => row.key === focus.bookKey)) {
-      if (activeKey !== focus.bookKey) select(focus.bookKey);
+      select(focus.bookKey);
       pendingFocus.current = null;
     }
-  }, [activeKey, allBooks, incomingSearch, mapName, query.playbook, query.strat, select]);
+  }, [allBooks, incomingSearch, mapName, query.playbook, query.strat, select]);
 
   useEffect(() => {
     if (!book) return;
