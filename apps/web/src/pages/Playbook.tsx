@@ -105,7 +105,6 @@ export function Playbook() {
   const floorLayer = playbookFloorLayer(playbookUsesLower(cal, page?.floor ?? "auto"));
   const floorNote = page ? playbookFloorNote(page, floorLayer) : null;
   const floorVideos = page ? playbookFloorVideos(page, floorLayer) : [];
-  const floorPage = page ? { ...page, note: floorNote ?? page.note, videos: floorVideos } : null;
   const openVideoId = videoPageId === page?.id ? openVideoIdState : null;
   const pendingPin = videoPageId === page?.id ? pendingPinState : null;
   const setOpenVideoId = (id: string | null) => {
@@ -119,7 +118,8 @@ export function Playbook() {
   const history = useNoteHistory(page ? `${page.id}:${floorLayer}` : null, floorNote);
   const board = usePlaybookBoard({
     book,
-    page: floorPage,
+    page,
+    floorLayer,
     history,
     setNote: (note) => setNote(note, floorLayer),
     setPalette,

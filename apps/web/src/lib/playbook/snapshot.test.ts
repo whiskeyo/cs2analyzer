@@ -8,6 +8,7 @@ import {
 } from "@/lib/parse/seriesOverlay";
 import { DEFAULT_TICK_RATE } from "@/lib/shared/constants";
 import { makeGrenade, makeReplay, makeRound } from "@/lib/testing/fixtures";
+import { pawnLegend, shouldShowPawnLegend } from "./legend";
 import { newPlaybook } from "./pages";
 import { makePiece } from "./pieces";
 import { UNTITLED_STRAT, UNTITLED_PLAYBOOK } from "./types";
@@ -54,7 +55,12 @@ describe("snapshot titles", () => {
     const replay = makeReplay({
       header: { team_ct: "NaVi", team_t: "FaZe" },
       rounds: [
-        makeRound({ number: 12, start_tick: 0, freeze_end_tick: freeze, end_tick: tick + 10 }),
+        makeRound({
+          number: 12,
+          start_tick: 0,
+          freeze_end_tick: freeze,
+          end_tick: tick + 10,
+        }),
       ],
     });
     expect(snapshotTitleFromReplay(replay, tick, "faceit.dem")).toBe(
@@ -62,7 +68,14 @@ describe("snapshot titles", () => {
     );
     const knife = makeReplay({
       header: { team_ct: "", team_t: "" },
-      rounds: [makeRound({ number: 0, is_knife: true, start_tick: 0, freeze_end_tick: freeze })],
+      rounds: [
+        makeRound({
+          number: 0,
+          is_knife: true,
+          start_tick: 0,
+          freeze_end_tick: freeze,
+        }),
+      ],
     });
     expect(snapshotTitleFromReplay(knife, freeze, "  ")).toBe(
       `CT - T (${SNAPSHOT_FALLBACK_FILE}) · Knife 0:00`,
@@ -79,7 +92,8 @@ describe("addSnapshotPage", () => {
     const next = addSnapshotPage(newPlaybook("de_mirage", "Defaults"), "R1 0:05", [pawn], "lower");
     expect(next.pages).toHaveLength(1);
     expect(next.pages[0]).toMatchObject({ title: "R1 0:05", floor: "lower" });
-    expect(next.pages[0]?.note.pieces).toEqual([pawn]);
+    expect(next.pages[0]?.note.pieces).toEqual([]);
+    expect(next.pages[0]?.lowerNote.pieces).toEqual([pawn]);
     expect(next.activePageId).toBe(next.pages[0]?.id);
   });
 
@@ -87,7 +101,11 @@ describe("addSnapshotPage", () => {
     let book = newPlaybook("de_mirage", "Defaults");
     const first = book.pages[0]!;
     const note = emptyNote();
-    note.drawings.push({ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] });
+    note.drawings.push({
+      type: "pen",
+      color: "#fff",
+      points: [{ x: 0, y: 0 }],
+    });
     book = { ...book, pages: [{ ...first, title: "Old", note }] };
     const next = addSnapshotPage(book, "Snap", [makePiece("bomb", 3, 4)]);
     expect(next.pages).toHaveLength(2);
@@ -143,7 +161,10 @@ describe("writeSnapshot", () => {
     vi.mocked(loadPlaybook).mockReset();
     vi.mocked(createPlaybook).mockReset();
     vi.mocked(savePlaybook).mockReset();
-    vi.mocked(savePlaybook).mockImplementation(async (book) => ({ ...book, savedAt: 1 }));
+    vi.mocked(savePlaybook).mockImplementation(async (book) => ({
+      ...book,
+      savedAt: 1,
+    }));
   });
 
   afterEach(() => {
@@ -302,7 +323,11 @@ describe("overlayToPieces", () => {
       trails: [overlayTrail()],
       nades: [
         nade,
-        { ...nade, kind: "flash", grenade: makeGrenade({ kind: "flash", start_tick: 100 }) },
+        {
+          ...nade,
+          kind: "flash",
+          grenade: makeGrenade({ kind: "flash", start_tick: 100 }),
+        },
       ],
     });
     const withNades = overlayToPieces(overlay, 2);
@@ -368,11 +393,37 @@ describe("overlayToPieces", () => {
     expect(
       snap.pieces.filter((piece) => piece.groupId === donk.id).map((piece) => piece.kind),
     ).toEqual(["pawn", "smoke"]);
-    expect(snap.radarFx?.trails[0]).toMatchObject({ groupId: donk.id, label: "donk" });
+    expect(snap.radarFx?.trails[0]).toMatchObject({
+      groupId: donk.id,
+      label: "donk",
+    });
     const smokes = snap.pieces.filter((piece) => piece.kind === "smoke");
     expect(smokes).toHaveLength(2);
     expect(smokes.filter((piece) => piece.groupId === donk.id)).toHaveLength(1);
     expect(smokes.filter((piece) => piece.groupId == null)).toHaveLength(1);
+  });
+
+  it("builds a colour legend from unique tinted pawn labels", () => {
+    const snap = overlayToSnapshot(
+      overlayOf({
+        trails: [
+          overlayTrail({ playerName: "donk" }),
+          overlayTrail({ playerName: "donk", steamId: 2 }),
+          overlayTrail({ playerName: "m0NESY", steamId: 3 }),
+          overlayTrail({ playerName: "  ", steamId: 4 }),
+        ],
+      }),
+      1,
+    );
+    const pawns = snap.pieces.filter((piece) => piece.kind === "pawn");
+    expect(pawns[0]?.label).toBe("donk");
+    expect(pawns[2]?.label).toBe("m0NESY");
+    expect(pawns[3]?.label).toBeUndefined();
+    expect(shouldShowPawnLegend(snap.pieces)).toBe(true);
+    expect(pawnLegend(snap.pieces)).toEqual([
+      { label: "donk", color: pawns[0]?.color },
+      { label: "m0NESY", color: pawns[2]?.color },
+    ]);
   });
 });
 
@@ -399,7 +450,11 @@ describe("snapshotAggTitle / snapshotFromAnalyzer", () => {
       mapName: "de_anubis",
       overlay: overlayOf({ trails: [overlayTrail()] }),
       playSec: 24,
-      series: { mapName: "de_dust2", focalTeam: "Spirit", demos: { length: 12 } },
+      series: {
+        mapName: "de_dust2",
+        focalTeam: "Spirit",
+        demos: { length: 12 },
+      },
       bucket: { side: "CT", kind: "pistol" },
     });
     expect(fromOverlay.mapName).toBe("de_dust2");

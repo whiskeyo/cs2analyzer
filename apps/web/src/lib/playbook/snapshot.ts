@@ -35,7 +35,7 @@ import { currentRound } from "@/lib/replay/sample";
 import { matchScorecard } from "@/lib/stats/scorecard";
 import { formatClock } from "@/lib/weapons/weapons";
 import { tintForName } from "@/lib/notes/palettes";
-import { addPage, renamePage, setPageFloor, setPageNote } from "./pages";
+import { addPage, playbookFloorLayer, renamePage, setPageFloor, setPageLayerNote } from "./pages";
 import { createPlaybook, loadPlaybook, savePlaybook } from "./playbookStore";
 import { makePiece } from "./pieces";
 import { UNTITLED_PLAYBOOK, UNTITLED_STRAT, type Playbook, type PlaybookPage } from "./types";
@@ -188,7 +188,11 @@ export function snapshotFrame(
   const frame = buildRadarFrame({
     replay,
     tick,
-    layers: opts?.layers ?? { ...DEFAULT_LAYERS, heatmap: false, summary: false },
+    layers: opts?.layers ?? {
+      ...DEFAULT_LAYERS,
+      heatmap: false,
+      summary: false,
+    },
     summaryFilter: opts?.summaryFilter ?? DEFAULT_SUMMARY_FILTER,
     selected: opts?.selected ?? null,
     trails: opts?.trails ?? false,
@@ -246,16 +250,18 @@ export function addSnapshotPage(
     groups,
     ...(radarFx ? { radarFx } : {}),
   };
+  const layer = playbookFloorLayer(floor === "lower");
   const first = book.pages[0];
   if (book.pages.length === 1 && first && isBlankStrat(first)) {
-    return setPageNote(
+    return setPageLayerNote(
       setPageFloor(renamePage(book, first.id, title), first.id, floor),
       first.id,
+      layer,
       note,
     );
   }
   const withPage = addPage(book, title, floor);
-  return setPageNote(withPage, withPage.activePageId, note);
+  return setPageLayerNote(withPage, withPage.activePageId, layer, note);
 }
 
 export async function writeSnapshot(opts: {
