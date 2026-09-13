@@ -88,6 +88,8 @@ describe("paintPlaybookSnapshot", () => {
       DEFAULT_RADAR_GRAY,
       page.images,
       null,
+      null,
+      true,
     );
   });
 
@@ -123,6 +125,8 @@ describe("paintPlaybookSnapshot", () => {
       DEFAULT_RADAR_GRAY,
       page.images,
       null,
+      null,
+      true,
     );
   });
 
@@ -153,6 +157,8 @@ describe("paintPlaybookSnapshot", () => {
       DEFAULT_RADAR_GRAY,
       page.images,
       null,
+      null,
+      true,
     );
   });
 
@@ -179,6 +185,8 @@ describe("paintPlaybookSnapshot", () => {
       RADAR_GRAY_MIN,
       page.images,
       null,
+      null,
+      true,
     );
   });
 
@@ -214,6 +222,8 @@ describe("paintPlaybookSnapshot", () => {
       DEFAULT_RADAR_GRAY,
       page.images,
       null,
+      null,
+      true,
     );
   });
 });
