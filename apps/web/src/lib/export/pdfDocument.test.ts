@@ -17,8 +17,12 @@ import {
   PLAYBOOK_PDF_LIGHT_PAGE_BG,
   PLAYBOOK_PDF_LINE_GAP,
   PLAYBOOK_PDF_PAGE_BG,
+  PLAYBOOK_PDF_MARGIN,
   PLAYBOOK_PDF_PHOTO_BACK,
+  PLAYBOOK_PDF_PHOTO_BACK_ARROW,
   PLAYBOOK_PDF_PIN_HIT_MIN,
+  PLAYBOOK_PDF_SMALL_SIZE,
+  playbookPdfPhotoBackLabel,
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
 } from "./constants";
@@ -26,6 +30,7 @@ import {
   buildPlaybookPdf,
   centerOnContent,
   pdfSafeText,
+  playbookPdfPhotoBackPlacement,
   playbookRadarMaxSize,
   wrapPdfText,
 } from "./pdfDocument";
@@ -396,6 +401,22 @@ describe("buildPlaybookPdf", () => {
     expect(centerOnContent(48, contentWidth, 300)).toBe(48 + (contentWidth - 300) / 2);
   });
 
+  it("sits the back link in the left page margin next to the photo", () => {
+    const photo = { y: 200, height: 240 };
+    const labelWidth = 90;
+    const labelSize = 10;
+    const placed = playbookPdfPhotoBackPlacement(photo, labelWidth, labelSize);
+    expect(playbookPdfPhotoBackLabel()).toBe(
+      `${PLAYBOOK_PDF_PHOTO_BACK_ARROW} ${PLAYBOOK_PDF_PHOTO_BACK}`,
+    );
+    expect(placed.x + placed.width).toBeLessThanOrEqual(PLAYBOOK_PDF_MARGIN);
+    expect(placed.x).toBeGreaterThanOrEqual(0);
+    expect(placed.y).toBeGreaterThanOrEqual(photo.y);
+    expect(placed.y + placed.height).toBeLessThanOrEqual(photo.y + photo.height);
+    expect(placed.width).toBe(labelSize);
+    expect(placed.height).toBe(labelWidth);
+  });
+
   it("round-trips Polish letters through the embedded font", async () => {
     let book = newPlaybook("de_mirage", "Łódź");
     const page = book.pages[0]!;
@@ -451,7 +472,8 @@ describe("buildPlaybookPdf", () => {
       { "img-1": TINY_PNG },
       UNIT_CALIBRATION,
     );
-    expect(pdfDrawnText(bytes)).toContain(PLAYBOOK_PDF_PHOTO_BACK);
+    expect(pdfDrawnText(bytes)).toContain(playbookPdfPhotoBackLabel());
+    expect(pdfDrawnText(bytes)).toContain(PLAYBOOK_PDF_PHOTO_BACK_ARROW);
     const gotos = await pdfGoToAnnots(bytes);
     const stratPage = 1;
     const loaded = await PDFDocument.load(bytes);
@@ -459,7 +481,10 @@ describe("buildPlaybookPdf", () => {
     const pin = gotos.find((hit) => hit.width <= PLAYBOOK_PDF_PIN_HIT_MIN + 4);
     const back = gotos.find(
       (hit) =>
-        hit.destPage === stratPage && hit.destY === stratTop && hit.width > 40 && hit.width < 200,
+        hit.destPage === stratPage &&
+        hit.destY === stratTop &&
+        hit.width <= PLAYBOOK_PDF_SMALL_SIZE + 2 &&
+        hit.height > 40,
     );
     expect(pin).toBeDefined();
     expect(pin?.destY).toBeLessThan(loaded.getPage(pin?.destPage ?? 0).getHeight());
