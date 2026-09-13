@@ -21,6 +21,8 @@ interface Props {
   openVideoId: string | null;
   pendingPin: { x: number; y: number } | null;
   onCancelPin: () => void;
+  pendingImagePin: { x: number; y: number } | null;
+  onCancelImagePin: () => void;
   selectedId: string | null;
   openImageId: string | null;
   onBody: (body: string) => void;
@@ -43,6 +45,8 @@ export function PlaybookStratPanel({
   openVideoId,
   pendingPin,
   onCancelPin,
+  pendingImagePin,
+  onCancelImagePin,
   selectedId,
   openImageId,
   onBody,
@@ -86,6 +90,8 @@ export function PlaybookStratPanel({
         images={images}
         openId={openImageId}
         error={imageError}
+        pendingPin={pendingImagePin}
+        onCancelPin={onCancelImagePin}
         onImages={onImages}
         onOpen={onOpenImage}
         onError={onImageError}

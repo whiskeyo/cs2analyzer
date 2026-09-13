@@ -16,6 +16,8 @@ function panelProps(overrides: Partial<Parameters<typeof PlaybookStratPanel>[0]>
     openVideoId: null,
     pendingPin: null,
     onCancelPin: vi.fn(),
+    pendingImagePin: null,
+    onCancelImagePin: vi.fn(),
     selectedId: null,
     openImageId: null,
     onBody: vi.fn(),

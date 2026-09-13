@@ -30,6 +30,7 @@ interface Props {
   videos?: readonly PlaybookYouTube[];
   selectedVideoId?: string | null;
   pendingPin?: { x: number; y: number } | null;
+  pendingImagePin?: { x: number; y: number } | null;
   pageImages?: readonly PlaybookImage[];
   selectedImageId?: string | null;
   onNote?: (note: Note) => void;
@@ -40,6 +41,7 @@ interface Props {
   onOpenImage?: (id: string) => void;
   onOpenVideo?: (id: string) => void;
   onPlaceYouTube?: (at: { x: number; y: number }) => void;
+  onPlaceImage?: (at: { x: number; y: number }) => void;
   radarGray?: number;
 }
 
@@ -63,6 +65,7 @@ export function PlaybookCanvas(props: Props) {
     onOpenImage,
     onOpenVideo,
     onPlaceYouTube,
+    onPlaceImage,
   } = props;
   const propsRef = useRef(props);
   propsRef.current = props;
@@ -124,6 +127,7 @@ export function PlaybookCanvas(props: Props) {
     onOpenImage,
     onOpenVideo,
     onPlaceYouTube,
+    onPlaceImage,
   });
 
   useCanvasLoop(
@@ -154,6 +158,7 @@ export function PlaybookCanvas(props: Props) {
         p.radarGray ?? DEFAULT_RADAR_GRAY,
         p.pageImages ?? [],
         p.selectedImageId ?? null,
+        p.pendingImagePin ?? null,
       );
     },
     [cal],
@@ -181,6 +186,8 @@ export function PlaybookCanvas(props: Props) {
         p.selectedVideoId ?? null,
         p.pendingPin?.x ?? null,
         p.pendingPin?.y ?? null,
+        p.pendingImagePin?.x ?? null,
+        p.pendingImagePin?.y ?? null,
         p.pageImages,
         p.selectedImageId ?? null,
         images.current.upper,

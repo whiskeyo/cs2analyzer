@@ -9,6 +9,7 @@ describe("playbook hotkeys", () => {
     expect(PLAYBOOK_TOOL_KEYS.q).toBe("pawn-ct");
     expect(PLAYBOOK_TOOL_KEYS.s).toBe("smoke");
     expect(PLAYBOOK_TOOL_KEYS.u).toBe("youtube");
+    expect(PLAYBOOK_TOOL_KEYS.p).toBe("image");
   });
 
   it("cycles palettes and reads swatches", () => {

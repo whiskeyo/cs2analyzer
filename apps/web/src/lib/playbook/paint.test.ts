@@ -393,9 +393,11 @@ describe("paintPlaybookImages", () => {
       ],
       (wx, wy) => ({ x: wx, y: wy }),
       "i1",
+      { x: 30, y: 40 },
     );
     expect(ctx.roundRect).toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
+    expect(ctx.globalAlpha).toBe(0.55);
   });
 });
 

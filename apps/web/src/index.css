@@ -1388,7 +1388,8 @@ code {
 .playbook-video-add button {
   flex: 0 0 auto;
 }
-.playbook-youtube-icon {
+.playbook-youtube-icon,
+.playbook-image-icon {
   width: 1rem;
   height: 1rem;
   display: block;

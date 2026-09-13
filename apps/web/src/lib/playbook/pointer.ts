@@ -150,6 +150,7 @@ export function usePlaybookPointer(opts: {
   onOpenImage?: (id: string) => void;
   onOpenVideo?: (id: string) => void;
   onPlaceYouTube?: (at: { x: number; y: number }) => void;
+  onPlaceImage?: (at: { x: number; y: number }) => void;
 }): void {
   const {
     wrapRef,
@@ -174,6 +175,7 @@ export function usePlaybookPointer(opts: {
     onOpenImage,
     onOpenVideo,
     onPlaceYouTube,
+    onPlaceImage,
   } = opts;
   const onNoteRef = useRef(onNote);
   onNoteRef.current = onNote;
@@ -185,6 +187,8 @@ export function usePlaybookPointer(opts: {
   onOpenVideoRef.current = onOpenVideo;
   const onPlaceYouTubeRef = useRef(onPlaceYouTube);
   onPlaceYouTubeRef.current = onPlaceYouTube;
+  const onPlaceImageRef = useRef(onPlaceImage);
+  onPlaceImageRef.current = onPlaceImage;
   const onImagesRef = useRef(onImages);
   onImagesRef.current = onImages;
   const onOpenImageRef = useRef(onOpenImage);
@@ -288,6 +292,11 @@ export function usePlaybookPointer(opts: {
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         if (toolRef.current === "youtube") {
           onPlaceYouTubeRef.current?.(world);
+          gizmoRef.current = null;
+          return;
+        }
+        if (toolRef.current === "image") {
+          onPlaceImageRef.current?.(world);
           gizmoRef.current = null;
           return;
         }

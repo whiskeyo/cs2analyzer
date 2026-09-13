@@ -68,6 +68,10 @@ export function Playbook() {
     x: number;
     y: number;
   } | null>(null);
+  const [pendingImagePinState, setPendingImagePinState] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [collapsedMaps, setCollapsedMaps] = useState<Set<string>>(() => new Set());
   const [expandedBooks, setExpandedBooks] = useState<Set<string>>(() => new Set());
   const openedBooksRef = useRef<Set<string>>(new Set());
@@ -115,6 +119,7 @@ export function Playbook() {
   const openVideoId = videoPageId === page?.id ? openVideoIdState : null;
   const openImageId = imagePageId === page?.id ? openImageIdState : null;
   const pendingPin = videoPageId === page?.id ? pendingPinState : null;
+  const pendingImagePin = imagePageId === page?.id ? pendingImagePinState : null;
   const setOpenVideoId = (id: string | null) => {
     setVideoPageId(page?.id ?? null);
     setOpenVideoIdState(id);
@@ -126,6 +131,10 @@ export function Playbook() {
   const setPendingPin = (at: { x: number; y: number } | null) => {
     setVideoPageId(page?.id ?? null);
     setPendingPinState(at);
+  };
+  const setPendingImagePin = (at: { x: number; y: number } | null) => {
+    if (at) setImagePageId(page?.id ?? null);
+    setPendingImagePinState(at);
   };
   const history = useNoteHistory(page ? `${page.id}:${floorLayer}` : null, floorNote);
   const board = usePlaybookBoard({
@@ -332,6 +341,7 @@ export function Playbook() {
                   videos={floorVideos}
                   selectedVideoId={openVideoId}
                   pendingPin={pendingPin}
+                  pendingImagePin={pendingImagePin}
                   pageImages={floorImages}
                   selectedImageId={openImageId}
                   onNote={board.commitNote}
@@ -350,7 +360,13 @@ export function Playbook() {
                   onOpenVideo={setOpenVideoId}
                   onPlaceYouTube={(at) => {
                     setPendingPin(at);
+                    setPendingImagePin(null);
                     setOpenVideoId(null);
+                  }}
+                  onPlaceImage={(at) => {
+                    setPendingImagePin(at);
+                    setPendingPin(null);
+                    setOpenImageId(null);
                   }}
                 />
               </div>
@@ -370,6 +386,8 @@ export function Playbook() {
               openVideoId={openVideoId}
               pendingPin={pendingPin}
               onCancelPin={() => setPendingPin(null)}
+              pendingImagePin={pendingImagePin}
+              onCancelImagePin={() => setPendingImagePin(null)}
               selectedId={board.visibleSelectedId}
               openImageId={openImageId}
               onBody={(body) => setBody(page.id, body)}
@@ -377,7 +395,10 @@ export function Playbook() {
                 setVideos(page.id, videos, floorLayer);
                 setPendingPin(null);
               }}
-              onImages={(images) => setImages(page.id, images, floorLayer)}
+              onImages={(images) => {
+                setImages(page.id, images, floorLayer);
+                setPendingImagePin(null);
+              }}
               onOpenImage={setOpenImageId}
               imageError={imageError}
               onImageError={setImageError}

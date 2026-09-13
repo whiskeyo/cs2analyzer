@@ -397,9 +397,16 @@ export function paintPlaybookImages(
   images: readonly PlaybookImage[],
   toScreen: WorldToScreen,
   selectedId?: string | null,
+  pending?: { x: number; y: number } | null,
 ): void {
   for (const image of images) {
     paintPlaybookImagePin(ctx, toScreen(image.x, image.y), image.id === selectedId);
+  }
+  if (pending) {
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    paintPlaybookImagePin(ctx, toScreen(pending.x, pending.y), true);
+    ctx.restore();
   }
 }
 
@@ -468,10 +475,11 @@ export function paintPlaybookBoard(
   radarGray: number = DEFAULT_RADAR_GRAY,
   images: readonly PlaybookImage[] = [],
   selectedImageId?: string | null,
+  pendingImagePin?: { x: number; y: number } | null,
 ): void {
   paintMapImage(ctx, w, h, view, img, cal, radarGray);
   const toScreen = (wx: number, wy: number) => worldToScreen(cal, w, h, view, wx, wy);
-  paintPlaybookImages(ctx, images, toScreen, selectedImageId);
+  paintPlaybookImages(ctx, images, toScreen, selectedImageId, pendingImagePin);
   paintDrawings(ctx, visibleDrawings(note, null), toScreen);
   if (draft) {
     paintDrawing(ctx, draft, toScreen, { alpha: 0.85, live: true });

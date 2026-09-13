@@ -543,6 +543,7 @@ describe("PlaybookCanvas", () => {
   });
 
   it("places an image pin, opens it on click, and drags it", () => {
+    const onPlaceImage = vi.fn();
     const onImages = vi.fn();
     const onOpenImage = vi.fn();
     const onDropImages = vi.fn();
@@ -558,6 +559,20 @@ describe("PlaybookCanvas", () => {
         cal={UNIT_CALIBRATION}
         floorMode="auto"
         note={emptyNote()}
+        tool="image"
+        pageImages={[]}
+        onPlaceImage={onPlaceImage}
+      />,
+    );
+    const wrap = sizedWrap(container);
+    fireEvent.mouseDown(wrap, { clientX: 200, clientY: 200, button: 0 });
+    expect(onPlaceImage).toHaveBeenCalledWith(expect.objectContaining({ x: expect.any(Number) }));
+
+    rerender(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
         tool="pan"
         pageImages={[still]}
         onImages={onImages}
@@ -565,7 +580,6 @@ describe("PlaybookCanvas", () => {
         onDropImages={onDropImages}
       />,
     );
-    const wrap = sizedWrap(container);
     const center = worldToScreen(UNIT_CALIBRATION, 400, 400, identityView, 0, 0);
     fireEvent.mouseDown(wrap, { clientX: center.x, clientY: center.y, button: 0 });
     fireEvent.mouseUp(window);
