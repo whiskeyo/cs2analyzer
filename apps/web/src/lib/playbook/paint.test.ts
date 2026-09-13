@@ -7,6 +7,7 @@ import {
   paintNadeTrailLine,
   paintPawnLegend,
   paintPlaybookBoard,
+  paintPlaybookImages,
   paintPlaybookPiece,
   paintPlaybookPieces,
   paintRotateGizmo,
@@ -368,6 +369,34 @@ describe("paintPawnLegend", () => {
     paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, null, UNIT_CALIBRATION, note);
     expect(ctx.fillText).toHaveBeenCalledWith("donk", expect.any(Number), expect.any(Number));
     expect(ctx.roundRect).not.toHaveBeenCalled();
+  });
+});
+
+describe("paintPlaybookImages", () => {
+  it("draws the still under tokens and outlines the selection", () => {
+    const ctx = createMockCanvas();
+    const photo = { complete: true, naturalWidth: 80 } as HTMLImageElement;
+    paintPlaybookImages(
+      ctx,
+      [
+        {
+          id: "i1",
+          name: "lineup.png",
+          mime: "image/png",
+          x: 10,
+          y: 20,
+          width: 40,
+          height: 20,
+        },
+      ],
+      (wx, wy) => ({ x: wx, y: wy }),
+      new Map([["i1", photo]]),
+      "i1",
+    );
+    expect(ctx.drawImage).toHaveBeenCalledWith(photo, -10, 10, 40, 20);
+    expect(ctx.rect).toHaveBeenCalledWith(-10, 10, 40, 20);
+    expect(ctx.stroke).toHaveBeenCalled();
+    expect(ctx.fillRect).toHaveBeenCalled();
   });
 });
 

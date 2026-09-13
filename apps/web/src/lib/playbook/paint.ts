@@ -30,7 +30,8 @@ import {
   rotateHandleOffset,
 } from "./pieces";
 import { notePawnLegend, shouldShowPawnLegend, visiblePieces, type LegendEntry } from "./legend";
-import type { PlaybookYouTube } from "./types";
+import { PLAYBOOK_IMAGE_HANDLE_PX, imageHandlePoints, imageScreenRect } from "./images";
+import type { PlaybookImage, PlaybookYouTube } from "./types";
 import { YOUTUBE_PIN_HEIGHT, YOUTUBE_PIN_WIDTH, YOUTUBE_PLAY, YOUTUBE_RED } from "./videos";
 
 /** Match Analyzer nade flight trails. */
@@ -331,6 +332,39 @@ export function paintYouTubePin(
   ctx.restore();
 }
 
+/**
+ * Lineup stills sit on the map under ink, tokens, and YouTube pins so a
+ * screenshot never hides a nade icon or steals those hits.
+ */
+export function paintPlaybookImages(
+  ctx: CanvasRenderingContext2D,
+  images: readonly PlaybookImage[],
+  toScreen: WorldToScreen,
+  bitmaps?: ReadonlyMap<string, CanvasImageSource>,
+  selectedId?: string | null,
+): void {
+  for (const image of images) {
+    const rect = imageScreenRect(image, toScreen);
+    const src = bitmaps?.get(image.id);
+    if (src) {
+      ctx.drawImage(src, rect.x, rect.y, rect.w, rect.h);
+    }
+    if (image.id !== selectedId) continue;
+    ctx.save();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.rect(rect.x, rect.y, rect.w, rect.h);
+    ctx.stroke();
+    ctx.fillStyle = "#fff";
+    const half = PLAYBOOK_IMAGE_HANDLE_PX / 2;
+    for (const [, at] of imageHandlePoints(image, toScreen)) {
+      ctx.fillRect(at.x - half, at.y - half, PLAYBOOK_IMAGE_HANDLE_PX, PLAYBOOK_IMAGE_HANDLE_PX);
+    }
+    ctx.restore();
+  }
+}
+
 export function paintYouTubePins(
   ctx: CanvasRenderingContext2D,
   videos: readonly PlaybookYouTube[],
@@ -394,9 +428,13 @@ export function paintPlaybookBoard(
   selectedVideoId?: string | null,
   pendingPin?: { x: number; y: number } | null,
   radarGray: number = DEFAULT_RADAR_GRAY,
+  images: readonly PlaybookImage[] = [],
+  imageBitmaps?: ReadonlyMap<string, CanvasImageSource>,
+  selectedImageId?: string | null,
 ): void {
   paintMapImage(ctx, w, h, view, img, cal, radarGray);
   const toScreen = (wx: number, wy: number) => worldToScreen(cal, w, h, view, wx, wy);
+  paintPlaybookImages(ctx, images, toScreen, imageBitmaps, selectedImageId);
   paintDrawings(ctx, visibleDrawings(note, null), toScreen);
   if (draft) {
     paintDrawing(ctx, draft, toScreen, { alpha: 0.85, live: true });
