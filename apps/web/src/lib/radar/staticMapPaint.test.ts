@@ -8,6 +8,7 @@ import {
 } from "./staticMapPaint";
 import { emptyNote } from "@/lib/notes/note";
 import type { Note } from "@/lib/notes/types";
+import { radarMapPaperFilter } from "./mapPaper";
 
 function mockCtx() {
   return {
@@ -49,6 +50,19 @@ describe("paintMapImage", () => {
     paintMapImage(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, img, undefined);
     expect(ctx.drawImage).toHaveBeenCalledWith(img, 16, 16, 368, 368);
     expect(filters).toEqual(["saturate(0)"]);
+    expect(ctx.filter).toBe("none");
+  });
+
+  it("inverts the PNG and draws a wall outline when paper is on", () => {
+    const ctx = mockCtx();
+    const filters: string[] = [];
+    const img = { complete: true, naturalWidth: 1024, naturalHeight: 1024 } as HTMLImageElement;
+    ctx.drawImage = vi.fn(() => {
+      filters.push(ctx.filter);
+    }) as CanvasRenderingContext2D["drawImage"];
+    paintMapImage(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, img, undefined, 1, true);
+    expect(filters[0]).toBe(radarMapPaperFilter());
+    expect(ctx.drawImage).toHaveBeenCalled();
     expect(ctx.filter).toBe("none");
   });
 

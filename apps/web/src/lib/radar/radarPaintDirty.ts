@@ -72,6 +72,7 @@ export interface RadarPaintDirtyArgs {
   editX: number | null;
   editY: number | null;
   radarGray: number;
+  radarPaper: boolean;
 }
 
 /**
@@ -135,5 +136,6 @@ export function radarPaintInputs(args: RadarPaintDirtyArgs): readonly unknown[] 
     args.editX,
     args.editY,
     args.radarGray,
+    args.radarPaper,
   ];
 }

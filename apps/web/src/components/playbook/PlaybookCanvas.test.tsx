@@ -151,6 +151,26 @@ describe("PlaybookCanvas", () => {
     expect(vi.mocked(paintPlaybookBoard).mock.calls.at(-1)?.[15]).toBe(0);
   });
 
+  it("repaints when radarPaper changes", () => {
+    const { container, rerender } = render(
+      <PlaybookCanvas cal={UNIT_CALIBRATION} floorMode="auto" note={emptyNote()} />,
+    );
+    sizedWrap(container);
+    act(() => {
+      rafCb?.(0);
+    });
+    expect(paintPlaybookBoard).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(paintPlaybookBoard).mock.calls.at(-1)?.[16]).toBe(false);
+    rerender(
+      <PlaybookCanvas cal={UNIT_CALIBRATION} floorMode="auto" note={emptyNote()} radarPaper />,
+    );
+    act(() => {
+      rafCb?.(1);
+    });
+    expect(paintPlaybookBoard).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(paintPlaybookBoard).mock.calls.at(-1)?.[16]).toBe(true);
+  });
+
   it("pans on drag and zooms on wheel", () => {
     const { container } = render(
       <PlaybookCanvas cal={lowerCal} floorMode="lower" note={emptyNote()} />,

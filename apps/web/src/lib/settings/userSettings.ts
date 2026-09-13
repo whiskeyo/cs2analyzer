@@ -21,6 +21,7 @@ import {
   SAVED_NOTES_PAGE_SIZE_MAX,
   SAVED_NOTES_PAGE_SIZE_MIN,
   DEFAULT_RADAR_GRAY,
+  DEFAULT_RADAR_PAPER,
   RADAR_GRAY_MAX,
   RADAR_GRAY_MIN,
   SERIES_MAX_FILES,
@@ -67,6 +68,8 @@ export interface UserSettings {
   pdfPhotos: PdfPhotos;
   /** 0 = original map color, 1 = full grayscale. Applies to Analyzer, Playbook, PDF stills. */
   radarGray: number;
+  /** Invert + lift the map PNG and draw a wall outline. Same surfaces as radarGray. */
+  radarPaper: boolean;
 }
 
 export type UserSettingsRecord = UserSettings & { id: typeof USER_SETTINGS_ID };
@@ -115,6 +118,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     pdfTheme: DEFAULT_PDF_THEME,
     pdfPhotos: DEFAULT_PDF_PHOTOS,
     radarGray: DEFAULT_RADAR_GRAY,
+    radarPaper: DEFAULT_RADAR_PAPER,
   };
 }
 
@@ -256,5 +260,6 @@ export function parseUserSettings(raw: unknown): UserSettings {
       RADAR_GRAY_MAX,
       defaults.radarGray,
     ),
+    radarPaper: typeof raw.radarPaper === "boolean" ? raw.radarPaper : defaults.radarPaper,
   };
 }

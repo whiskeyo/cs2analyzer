@@ -280,7 +280,7 @@ describe("RadarCanvas", () => {
     expect(staticMapPaint.paintMapImage).toHaveBeenCalledTimes(1);
   });
 
-  it("rebuilds when tick, layers, note strokes, habits playSec, or radarGray change", () => {
+  it("rebuilds when tick, layers, note strokes, habits playSec, radarGray, or radarPaper change", () => {
     const playSecRef = { current: 0 };
     const strokedNote = {
       groups: [],
@@ -348,6 +348,22 @@ describe("RadarCanvas", () => {
     });
     expect(paintRadarFrame.paintRadarFrame).toHaveBeenCalledTimes(6);
     expect(vi.mocked(staticMapPaint.paintMapImage).mock.calls.at(-1)?.[6]).toBe(0);
+
+    rerender(
+      <RadarCanvas
+        {...base}
+        tick={140}
+        layers={{ ...DEFAULT_LAYERS, names: false }}
+        note={strokedNote}
+        radarGray={0}
+        radarPaper
+      />,
+    );
+    act(() => {
+      rafCb?.(6);
+    });
+    expect(paintRadarFrame.paintRadarFrame).toHaveBeenCalledTimes(7);
+    expect(vi.mocked(staticMapPaint.paintMapImage).mock.calls.at(-1)?.[7]).toBe(true);
   });
 
   it("rebuilds after pan or zoom", () => {

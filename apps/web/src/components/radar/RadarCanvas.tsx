@@ -25,7 +25,11 @@ import {
 import { useRadarImages } from "@/lib/radar/useRadarImages";
 import { TextNoteEditor, useTextNotes, type TextMove } from "@/components/radar/TextNoteEditor";
 import { useRadarPointer, type RadarPanView } from "@/lib/radar/useRadarPointer";
-import { DEFAULT_RADAR_GRAY, NOTE_MOMENT_SECONDS } from "@/lib/shared/constants";
+import {
+  DEFAULT_RADAR_GRAY,
+  DEFAULT_RADAR_PAPER,
+  NOTE_MOMENT_SECONDS,
+} from "@/lib/shared/constants";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
 import {
@@ -71,6 +75,7 @@ interface Props {
   habitsOnly?: boolean;
   onHabitsJump?: (target: { demoId: string; jumpTick: number }) => void;
   radarGray?: number;
+  radarPaper?: boolean;
 }
 
 export function RadarCanvas(props: Props) {
@@ -184,7 +189,16 @@ export function RadarCanvas(props: Props) {
       ctx.beginPath();
       ctx.rect(0, 0, w, h);
       ctx.clip();
-      paintMapImage(ctx, w, h, v, img, calNow, p.radarGray ?? DEFAULT_RADAR_GRAY);
+      paintMapImage(
+        ctx,
+        w,
+        h,
+        v,
+        img,
+        calNow,
+        p.radarGray ?? DEFAULT_RADAR_GRAY,
+        p.radarPaper ?? DEFAULT_RADAR_PAPER,
+      );
       paintRadarFrame(ctx, frame, toScreen, {
         scale: v.scale,
         c4Icon: c4Icon.current,
@@ -275,6 +289,7 @@ export function RadarCanvas(props: Props) {
           editX: ed?.x ?? null,
           editY: ed?.y ?? null,
           radarGray: p.radarGray ?? DEFAULT_RADAR_GRAY,
+          radarPaper: p.radarPaper ?? DEFAULT_RADAR_PAPER,
         }),
       );
     },

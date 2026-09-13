@@ -14,7 +14,7 @@ import { screenToWorld } from "@/lib/radar/maps";
 import { useRadarImages } from "@/lib/radar/useRadarImages";
 import { wrapLocalPoint } from "@/lib/shared/pointer";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
-import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
+import { DEFAULT_RADAR_GRAY, DEFAULT_RADAR_PAPER } from "@/lib/shared/constants";
 
 interface Props {
   cal: MapCalibration | undefined;
@@ -43,6 +43,7 @@ interface Props {
   onPlaceYouTube?: (at: { x: number; y: number }) => void;
   onPlaceImage?: (at: { x: number; y: number }) => void;
   radarGray?: number;
+  radarPaper?: boolean;
 }
 
 export function PlaybookCanvas(props: Props) {
@@ -156,6 +157,7 @@ export function PlaybookCanvas(props: Props) {
         p.selectedVideoId ?? null,
         p.pendingPin ?? null,
         p.radarGray ?? DEFAULT_RADAR_GRAY,
+        p.radarPaper ?? DEFAULT_RADAR_PAPER,
         p.pageImages ?? [],
         p.selectedImageId ?? null,
         p.pendingImagePin ?? null,
@@ -195,6 +197,7 @@ export function PlaybookCanvas(props: Props) {
         c4Icon.current,
         nadeIconLoadCount(nadeIcons.current),
         p.radarGray ?? DEFAULT_RADAR_GRAY,
+        p.radarPaper ?? DEFAULT_RADAR_PAPER,
       ]);
     },
   );

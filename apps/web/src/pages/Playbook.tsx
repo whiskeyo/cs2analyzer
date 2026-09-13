@@ -280,6 +280,7 @@ export function Playbook() {
           settings.pdfTheme,
           settings.radarGray,
           photos === "with",
+          settings.radarPaper,
         ),
       )
       .catch(() => {
@@ -329,6 +330,7 @@ export function Playbook() {
                   cal={cal}
                   floorMode={page.floor}
                   radarGray={settings.radarGray}
+                  radarPaper={settings.radarPaper}
                   note={floorNote ?? page.note}
                   tool={board.tool}
                   color={book.color}

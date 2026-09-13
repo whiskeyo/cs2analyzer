@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
-import { DEFAULT_RADAR_GRAY, RADAR_GRAY_MIN } from "@/lib/shared/constants";
+import { DEFAULT_RADAR_GRAY, DEFAULT_RADAR_PAPER, RADAR_GRAY_MIN } from "@/lib/shared/constants";
 import { applyRadarFollowCam, radarPaintInputs } from "./radarPaintDirty";
 import { canvasInputsChanged } from "@/lib/shared/useCanvasLoop";
 import { worldToRadar } from "./maps";
@@ -53,6 +53,7 @@ function dirtyArgs(overrides: Partial<Parameters<typeof radarPaintInputs>[0]> = 
     editX: null,
     editY: null,
     radarGray: DEFAULT_RADAR_GRAY,
+    radarPaper: DEFAULT_RADAR_PAPER,
     ...overrides,
   };
 }
@@ -65,7 +66,7 @@ describe("radarPaintInputs", () => {
     expect(canvasInputsChanged(last, radarPaintInputs(args))).toBe(false);
   });
 
-  it("dirties on tick, view pan, layer toggle, note identity, habits playSec, and radarGray", () => {
+  it("dirties on tick, view pan, layer toggle, note identity, habits playSec, radarGray, and radarPaper", () => {
     const last: { current: readonly unknown[] | null } = { current: null };
     const base = dirtyArgs();
     canvasInputsChanged(last, radarPaintInputs(base));
@@ -133,6 +134,22 @@ describe("radarPaintInputs", () => {
           note,
           playSec: 1.25,
           radarGray: RADAR_GRAY_MIN,
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      canvasInputsChanged(
+        last,
+        radarPaintInputs({
+          ...base,
+          tick: 101,
+          view: { scale: 1, ox: 8, oy: 0 },
+          layers: { ...DEFAULT_LAYERS, names: false },
+          note,
+          playSec: 1.25,
+          radarGray: RADAR_GRAY_MIN,
+          radarPaper: true,
         }),
       ),
     ).toBe(true);

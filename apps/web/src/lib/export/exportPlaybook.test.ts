@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newPlaybook, setPageBody, setPageImages } from "@/lib/playbook/pages";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
-import { DEFAULT_RADAR_GRAY, RADAR_GRAY_MIN } from "@/lib/shared/constants";
+import { DEFAULT_RADAR_GRAY, DEFAULT_RADAR_PAPER, RADAR_GRAY_MIN } from "@/lib/shared/constants";
 import { PLAYBOOK_PDF_MIME } from "./constants";
 
 const mocks = vi.hoisted(() => ({
@@ -73,6 +73,7 @@ describe("snapshotPlaybookPages", () => {
       },
       undefined,
       DEFAULT_RADAR_GRAY,
+      DEFAULT_RADAR_PAPER,
     );
 
     mocks.snapshotPlaybookPagePng.mockResolvedValue(null);
@@ -92,6 +93,24 @@ describe("snapshotPlaybookPages", () => {
       { c4: null, nades: {} },
       undefined,
       RADAR_GRAY_MIN,
+      DEFAULT_RADAR_PAPER,
+    );
+  });
+
+  it("forwards radarPaper into each floor still", async () => {
+    const book = newPlaybook("de_mirage", "A execs");
+    mocks.loadPlaybookSnapshotImage.mockResolvedValue(null);
+    mocks.loadPlaybookSnapshotIcons.mockResolvedValue({ c4: null, nades: {} });
+    mocks.snapshotPlaybookPagePng.mockResolvedValue(new Uint8Array([3]));
+    await snapshotPlaybookPages(book, UNIT_CALIBRATION, RADAR_GRAY_MIN, true);
+    expect(mocks.snapshotPlaybookPagePng).toHaveBeenCalledWith(
+      expect.anything(),
+      UNIT_CALIBRATION,
+      null,
+      { c4: null, nades: {} },
+      undefined,
+      RADAR_GRAY_MIN,
+      true,
     );
   });
 });
@@ -218,6 +237,33 @@ describe("downloadPlaybookPdf", () => {
       { c4: null, nades: {} },
       undefined,
       RADAR_GRAY_MIN,
+      DEFAULT_RADAR_PAPER,
+    );
+  });
+
+  it("forwards radarPaper into PDF stills", async () => {
+    const book = newPlaybook("de_nuke", "default executes");
+    mocks.loadPlaybookSnapshotImage.mockResolvedValue(null);
+    mocks.loadPlaybookSnapshotIcons.mockResolvedValue({ c4: null, nades: {} });
+    mocks.snapshotPlaybookPagePng.mockResolvedValue(null);
+    mocks.buildPlaybookPdf.mockResolvedValue(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+    await downloadPlaybookPdf(
+      book,
+      UNIT_CALIBRATION,
+      EXPORTED_AT,
+      "light",
+      RADAR_GRAY_MIN,
+      true,
+      true,
+    );
+    expect(mocks.snapshotPlaybookPagePng).toHaveBeenCalledWith(
+      expect.anything(),
+      UNIT_CALIBRATION,
+      null,
+      { c4: null, nades: {} },
+      undefined,
+      RADAR_GRAY_MIN,
+      true,
     );
   });
 });

@@ -8,7 +8,7 @@ import { newPage, playbookPageOnFloor } from "@/lib/playbook/pages";
 import type { GrenadeKind } from "@/lib/replay/replayTypes";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { createMockCanvas } from "@/lib/testing/mockCanvas";
-import { DEFAULT_RADAR_GRAY, RADAR_GRAY_MIN } from "@/lib/shared/constants";
+import { DEFAULT_RADAR_GRAY, DEFAULT_RADAR_PAPER, RADAR_GRAY_MIN } from "@/lib/shared/constants";
 import { PLAYBOOK_PDF_RADAR_SIZE } from "./constants";
 import {
   encodeCanvasPng,
@@ -86,6 +86,7 @@ describe("paintPlaybookSnapshot", () => {
       null,
       null,
       DEFAULT_RADAR_GRAY,
+      DEFAULT_RADAR_PAPER,
       page.images,
       null,
       null,
@@ -123,6 +124,7 @@ describe("paintPlaybookSnapshot", () => {
       null,
       null,
       DEFAULT_RADAR_GRAY,
+      DEFAULT_RADAR_PAPER,
       page.images,
       null,
       null,
@@ -155,6 +157,7 @@ describe("paintPlaybookSnapshot", () => {
       null,
       null,
       DEFAULT_RADAR_GRAY,
+      DEFAULT_RADAR_PAPER,
       page.images,
       null,
       null,
@@ -183,6 +186,36 @@ describe("paintPlaybookSnapshot", () => {
       null,
       null,
       RADAR_GRAY_MIN,
+      DEFAULT_RADAR_PAPER,
+      page.images,
+      null,
+      null,
+      true,
+    );
+  });
+
+  it("forwards radarPaper into the board paint", () => {
+    const ctx = createMockCanvas();
+    const page = newPage("A exec", "upper");
+    paintPlaybookSnapshot(ctx, 240, page, UNIT_CALIBRATION, null, undefined, RADAR_GRAY_MIN, true);
+    expect(paintPlaybookBoard).toHaveBeenCalledWith(
+      ctx,
+      240,
+      240,
+      { scale: 1, ox: 0, oy: 0 },
+      null,
+      UNIT_CALIBRATION,
+      page.note,
+      null,
+      undefined,
+      null,
+      null,
+      null,
+      page.videos,
+      null,
+      null,
+      RADAR_GRAY_MIN,
+      true,
       page.images,
       null,
       null,
@@ -220,6 +253,7 @@ describe("paintPlaybookSnapshot", () => {
       null,
       null,
       DEFAULT_RADAR_GRAY,
+      DEFAULT_RADAR_PAPER,
       page.images,
       null,
       null,

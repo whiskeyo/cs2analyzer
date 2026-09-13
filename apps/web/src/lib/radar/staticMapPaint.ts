@@ -2,11 +2,12 @@ import { overlayVisible, refsEqual } from "@/lib/notes";
 import type { NoteItemRef } from "@/lib/notes/noteGroups";
 import { drawArrow, drawTextLabel } from "@/lib/radar/draw";
 import { withRadarMapGray } from "@/lib/radar/mapGray";
+import { paintMapOutline, withRadarMapPaper } from "@/lib/radar/mapPaper";
 import { radarLayout, type RadarView } from "@/lib/radar/maps";
 import { drawSmoothLine, simplifyStroke } from "@/lib/radar/strokes";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import type { Drawing, Note } from "@/lib/notes/types";
-import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
+import { DEFAULT_RADAR_GRAY, DEFAULT_RADAR_PAPER } from "@/lib/shared/constants";
 
 export type WorldToScreen = (wx: number, wy: number) => { x: number; y: number };
 
@@ -35,13 +36,20 @@ export function paintMapImage(
   img: HTMLImageElement | null | undefined,
   cal: MapCalibration | undefined,
   radarGray: number = DEFAULT_RADAR_GRAY,
+  radarPaper: boolean = DEFAULT_RADAR_PAPER,
 ): void {
   const { pad, fit, baseX, baseY } = radarLayout(w, h, view);
   const size = fit * view.scale;
   if (img && img.complete && img.naturalWidth > 0) {
-    withRadarMapGray(ctx, radarGray, () => {
+    const blit = () => {
       ctx.drawImage(img, baseX, baseY, size, size);
-    });
+    };
+    if (radarPaper) {
+      withRadarMapPaper(ctx, blit);
+      paintMapOutline(ctx, img, baseX, baseY, size);
+    } else {
+      withRadarMapGray(ctx, radarGray, blit);
+    }
     return;
   }
   if (!cal) {
@@ -162,7 +170,8 @@ export function paintStaticMap(
   paintOpts: NotePaintOpts,
   toScreen: WorldToScreen,
   radarGray: number = DEFAULT_RADAR_GRAY,
+  radarPaper: boolean = DEFAULT_RADAR_PAPER,
 ): void {
-  paintMapImage(ctx, w, h, view, img, cal, radarGray);
+  paintMapImage(ctx, w, h, view, img, cal, radarGray, radarPaper);
   paintNote(ctx, note, toScreen, paintOpts);
 }

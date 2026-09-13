@@ -83,6 +83,7 @@ describe("UserSettingsModal", () => {
     expect(stored.sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
     expect(stored.eventLeadInSec).toBe(1.5);
     expect(stored.radarGray).toBe(DEFAULT_RADAR_GRAY);
+    expect(stored.radarPaper).toBe(false);
   });
 
   it("closes on Escape", async () => {
@@ -182,6 +183,22 @@ describe("UserSettingsModal", () => {
     });
     expect(slider).toHaveValue("0");
     expect(slider).toHaveAttribute("aria-valuetext", "Color");
+  });
+
+  it("toggles a paper map next to Color–Gray and persists radarPaper", async () => {
+    renderModal();
+    const paper = await screen.findByRole("button", { name: "Paper map" });
+    const slider = screen.getByLabelText("Radar map color");
+    expect(paper).toHaveAttribute("aria-pressed", "false");
+    expect(slider).toBeEnabled();
+    await userEvent.click(paper);
+    await waitFor(async () => {
+      expect((await loadUserSettings()).radarPaper).toBe(true);
+    });
+    expect(paper).toHaveAttribute("aria-pressed", "true");
+    expect(paper).toHaveClass("on");
+    expect(slider).toBeDisabled();
+    expect(slider).toHaveAttribute("aria-valuetext", "Paper");
   });
 
   it("persists a light playbook PDF theme", async () => {

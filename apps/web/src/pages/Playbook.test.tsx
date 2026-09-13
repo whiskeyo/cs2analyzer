@@ -130,6 +130,7 @@ describe("Playbook", () => {
     expect(downloadPlaybookPdf.mock.calls[0]?.[3]).toBe("dark");
     expect(downloadPlaybookPdf.mock.calls[0]?.[4]).toBe(DEFAULT_RADAR_GRAY);
     expect(downloadPlaybookPdf.mock.calls[0]?.[5]).toBe(true);
+    expect(downloadPlaybookPdf.mock.calls[0]?.[6]).toBe(false);
   });
 
   it("exports a PDF without embedded photos when that choice is picked", async () => {

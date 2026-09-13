@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import type { Note } from "@/lib/notes/types";
-import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
+import { radarMapPaperFilter } from "@/lib/radar/mapPaper";
+import { DEFAULT_RADAR_GRAY, DEFAULT_RADAR_PAPER } from "@/lib/shared/constants";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { createMockCanvas } from "@/lib/testing/mockCanvas";
 import {
@@ -97,6 +98,36 @@ describe("paintPlaybookBoard", () => {
       0,
     );
     expect(filters).toEqual(["saturate(0)", "none"]);
+  });
+
+  it("inverts the map PNG when paper is on", () => {
+    const ctx = createMockCanvas();
+    const filters: string[] = [];
+    ctx.drawImage = vi.fn(() => {
+      filters.push(ctx.filter);
+    });
+    const img = { complete: true, naturalWidth: 1024, naturalHeight: 1024 } as HTMLImageElement;
+    paintPlaybookBoard(
+      ctx,
+      400,
+      400,
+      { scale: 1, ox: 0, oy: 0 },
+      img,
+      UNIT_CALIBRATION,
+      emptyNote(),
+      null,
+      undefined,
+      null,
+      null,
+      null,
+      [],
+      null,
+      null,
+      DEFAULT_RADAR_GRAY,
+      true,
+    );
+    expect(filters[0]).toBe(radarMapPaperFilter());
+    expect(ctx.filter).toBe("none");
   });
 
   it("paints pawns, nades, and the bomb on the board", () => {
@@ -393,6 +424,7 @@ describe("paintPawnLegend", () => {
       null,
       null,
       DEFAULT_RADAR_GRAY,
+      DEFAULT_RADAR_PAPER,
       [],
       null,
       null,
@@ -428,6 +460,7 @@ describe("paintPawnLegend", () => {
       null,
       null,
       DEFAULT_RADAR_GRAY,
+      DEFAULT_RADAR_PAPER,
       [],
       null,
       null,

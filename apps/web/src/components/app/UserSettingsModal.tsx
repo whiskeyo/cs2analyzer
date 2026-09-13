@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
+import { UserSettingsRadarMap } from "@/components/app/UserSettingsRadarMap";
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { NadeLegend } from "@/components/radar/NadeLegend";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
@@ -48,16 +49,6 @@ const PDF_PHOTO_MODES: { id: PdfPhotos; label: string }[] = [
   { id: "with", label: "With photos" },
   { id: "without", label: "Without photos" },
 ];
-
-function radarGrayValueText(amount: number): string {
-  if (amount <= 0) {
-    return "Color";
-  }
-  if (amount >= 1) {
-    return "Gray";
-  }
-  return `${Math.round(amount * 100)}% gray`;
-}
 
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
   const { settings, update, reset } = useUserSettings();
@@ -193,25 +184,11 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
 
         <section className="settings-section">
           <h3>Radar</h3>
-          <label className="settings-field">
-            <span>Map</span>
-            <span className="settings-range-end">Color</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={Math.round(settings.radarGray * 100)}
-              aria-label="Radar map color"
-              aria-valuetext={radarGrayValueText(settings.radarGray)}
-              onChange={(e) => void update({ radarGray: Number(e.target.value) / 100 })}
-            />
-            <span className="settings-range-end">Gray</span>
-          </label>
-          <p className="settings-hint">
-            Desaturates the map PNG only. Tokens, nades, and ink stay in color. Analyzer, Playbook,
-            and PDF stills share this amount.
-          </p>
+          <UserSettingsRadarMap
+            radarGray={settings.radarGray}
+            radarPaper={settings.radarPaper}
+            onChange={(patch) => void update(patch)}
+          />
           <p className="settings-hint">Applied when a demo loads. Toolbar toggles stay per-demo.</p>
           <div className="settings-field">
             <span>Default floor</span>

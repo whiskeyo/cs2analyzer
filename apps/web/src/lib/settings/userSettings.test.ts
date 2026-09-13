@@ -5,6 +5,7 @@ import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import {
   DEFAULT_PLAYBACK_SPEED,
   DEFAULT_RADAR_GRAY,
+  DEFAULT_RADAR_PAPER,
   NOTE_MOMENT_MAX_SECONDS,
   NOTE_MOMENT_MIN_SECONDS,
   NOTE_MOMENT_SECONDS,
@@ -49,6 +50,7 @@ describe("defaultUserSettings", () => {
       pdfTheme: "dark",
       pdfPhotos: "with",
       radarGray: DEFAULT_RADAR_GRAY,
+      radarPaper: DEFAULT_RADAR_PAPER,
     });
     expect(settings.defaultPaletteId).toBe(COLOR_PRESETS[0].id);
     expect(settings.defaultColor).toBe(COLOR_PRESETS[0].colors[0]);
@@ -79,6 +81,7 @@ describe("parseUserSettings", () => {
     expect(parsed.pdfTheme).toBe("dark");
     expect(parsed.pdfPhotos).toBe("with");
     expect(parsed.radarGray).toBe(DEFAULT_RADAR_GRAY);
+    expect(parsed.radarPaper).toBe(DEFAULT_RADAR_PAPER);
     expect(parsed.schema).toBe(USER_SETTINGS_SCHEMA);
     expect("habitsTrailWindowSec" in parsed).toBe(false);
     expect("roundAutoplay" in parsed).toBe(false);
@@ -114,6 +117,7 @@ describe("parseUserSettings", () => {
     expect(parsed.pdfTheme).toBe("dark");
     expect(parsed.pdfPhotos).toBe("with");
     expect(parsed.radarGray).toBe(RADAR_GRAY_MAX);
+    expect(parsed.radarPaper).toBe(false);
   });
 
   it("keeps a stored light PDF theme", () => {
@@ -132,6 +136,14 @@ describe("parseUserSettings", () => {
     expect(parseUserSettings({ radarGray: "gray" }).radarGray).toBe(DEFAULT_RADAR_GRAY);
     expect(parseUserSettings({ radarGray: Number.NaN }).radarGray).toBe(DEFAULT_RADAR_GRAY);
     expect(parseUserSettings({ radarGray: -2 }).radarGray).toBe(RADAR_GRAY_MIN);
+  });
+
+  it("keeps a stored paper map and migrates missing or invalid radarPaper to off", () => {
+    expect(parseUserSettings({ radarPaper: true }).radarPaper).toBe(true);
+    expect(parseUserSettings({ radarPaper: false }).radarPaper).toBe(false);
+    expect(parseUserSettings({}).radarPaper).toBe(DEFAULT_RADAR_PAPER);
+    expect(parseUserSettings({ radarPaper: "paper" }).radarPaper).toBe(DEFAULT_RADAR_PAPER);
+    expect(parseUserSettings({ radarPaper: 1 }).radarPaper).toBe(DEFAULT_RADAR_PAPER);
   });
 
   it("clamps the low end of parse pool and moment length", () => {

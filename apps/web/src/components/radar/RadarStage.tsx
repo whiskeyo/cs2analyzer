@@ -166,6 +166,7 @@ export function RadarStage() {
           habitsOnly={habitsOnly}
           onHabitsJump={habits.playRound}
           radarGray={settings.radarGray}
+          radarPaper={settings.radarPaper}
         />
         {!habitsOnly && <Hud replay={replay} tick={tick} />}
         {view.layers.summary && (

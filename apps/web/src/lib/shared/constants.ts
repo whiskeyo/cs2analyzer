@@ -70,6 +70,11 @@ export const RADAR_GRAY_MIN = 0;
 export const RADAR_GRAY_MAX = 1;
 /** Shipped look: HSV-style desaturate on the map PNG only. */
 export const DEFAULT_RADAR_GRAY = 1;
+/** Paper layout: invert + lift the same PNG so floors read as paper-white. */
+export const DEFAULT_RADAR_PAPER = false;
+export const RADAR_PAPER_INVERT = 1;
+export const RADAR_PAPER_BRIGHTNESS = 1.4;
+export const RADAR_PAPER_CONTRAST = 1.08;
 
 /** Floor for the user-settings series drop cap. */
 export const SERIES_MIN_FILES = 2;
