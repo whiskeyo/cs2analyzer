@@ -62,7 +62,10 @@ describe("ingestPlaybookImages", () => {
     });
     expect(putPlaybookImageBlob).toHaveBeenCalled();
 
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, headers: { get: () => null } })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, headers: { get: () => null } })),
+    );
     const failed = await ingestPlaybookImageUrl("https://example.com/gone.png", added.images);
     expect(failed.error).toBe(PLAYBOOK_IMAGE_URL_ERROR);
     expect(failed.images).toEqual(added.images);

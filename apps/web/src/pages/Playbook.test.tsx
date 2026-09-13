@@ -296,7 +296,9 @@ describe("Playbook", () => {
     expect(
       youtubeBtn.compareDocumentPosition(imageBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(youtubeBtn.compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      youtubeBtn.compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Flash" }));
     expect(screen.getByRole("button", { name: "Flash" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Reset view" })).toBeInTheDocument();

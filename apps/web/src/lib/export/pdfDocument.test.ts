@@ -19,10 +19,9 @@ import {
   PLAYBOOK_PDF_PAGE_BG,
   PLAYBOOK_PDF_MARGIN,
   PLAYBOOK_PDF_PHOTO_BACK,
-  PLAYBOOK_PDF_PHOTO_BACK_ARROW,
+  PLAYBOOK_PDF_PHOTO_BACK_ARROW_GAP,
+  PLAYBOOK_PDF_PHOTO_BACK_ARROW_SIZE,
   PLAYBOOK_PDF_PIN_HIT_MIN,
-  PLAYBOOK_PDF_SMALL_SIZE,
-  playbookPdfPhotoBackLabel,
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
 } from "./constants";
@@ -30,10 +29,10 @@ import {
   buildPlaybookPdf,
   centerOnContent,
   pdfSafeText,
-  playbookPdfPhotoBackPlacement,
   playbookRadarMaxSize,
   wrapPdfText,
 } from "./pdfDocument";
+import { playbookPdfPhotoBackPlacement } from "./playbookPdfPhotoBack";
 import { formatPlaybookExportDate, playbookReport } from "./playbookReport";
 
 const EXPORTED_AT = Date.UTC(2026, 8, 12, 15, 0, 0);
@@ -406,15 +405,15 @@ describe("buildPlaybookPdf", () => {
     const labelWidth = 90;
     const labelSize = 10;
     const placed = playbookPdfPhotoBackPlacement(photo, labelWidth, labelSize);
-    expect(playbookPdfPhotoBackLabel()).toBe(
-      `${PLAYBOOK_PDF_PHOTO_BACK_ARROW} ${PLAYBOOK_PDF_PHOTO_BACK}`,
+    expect(placed.arrowY).toBe(placed.textY + labelWidth + PLAYBOOK_PDF_PHOTO_BACK_ARROW_GAP);
+    expect(placed.height).toBe(
+      labelWidth + PLAYBOOK_PDF_PHOTO_BACK_ARROW_GAP + PLAYBOOK_PDF_PHOTO_BACK_ARROW_SIZE,
     );
     expect(placed.x + placed.width).toBeLessThanOrEqual(PLAYBOOK_PDF_MARGIN);
     expect(placed.x).toBeGreaterThanOrEqual(0);
     expect(placed.y).toBeGreaterThanOrEqual(photo.y);
     expect(placed.y + placed.height).toBeLessThanOrEqual(photo.y + photo.height);
     expect(placed.width).toBe(labelSize);
-    expect(placed.height).toBe(labelWidth);
   });
 
   it("round-trips Polish letters through the embedded font", async () => {
@@ -472,8 +471,7 @@ describe("buildPlaybookPdf", () => {
       { "img-1": TINY_PNG },
       UNIT_CALIBRATION,
     );
-    expect(pdfDrawnText(bytes)).toContain(playbookPdfPhotoBackLabel());
-    expect(pdfDrawnText(bytes)).toContain(PLAYBOOK_PDF_PHOTO_BACK_ARROW);
+    expect(pdfDrawnText(bytes)).toContain(PLAYBOOK_PDF_PHOTO_BACK);
     const gotos = await pdfGoToAnnots(bytes);
     const stratPage = 1;
     const loaded = await PDFDocument.load(bytes);

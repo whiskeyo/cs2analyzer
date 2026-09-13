@@ -19,8 +19,9 @@ import {
   PLAYBOOK_PDF_MARGIN,
   PLAYBOOK_PDF_MUTED,
   PLAYBOOK_PDF_PAGE_BG,
+  PLAYBOOK_PDF_PHOTO_BACK,
+  PLAYBOOK_PDF_PHOTO_BACK_ARROW_SIZE,
   PLAYBOOK_PDF_PHOTO_MAX_HEIGHT,
-  playbookPdfPhotoBackLabel,
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
   PLAYBOOK_PDF_TITLE_SIZE,
@@ -34,6 +35,10 @@ import {
   type PlaybookPdfPhotos,
   type PlaybookPdfSnapshots,
 } from "./playbookPdfEmbed";
+import {
+  drawPlaybookPdfPhotoBackArrow,
+  playbookPdfPhotoBackPlacement,
+} from "./playbookPdfPhotoBack";
 import { playbookPdfPinHit } from "./playbookPdfPins";
 import type { PlaybookReport, PlaybookReportPage, PlaybookReportPhoto } from "./playbookReport";
 import { pdfSafeText, wrapPdfText } from "./pdfText";
@@ -293,25 +298,6 @@ export function centerOnContent(left: number, contentWidth: number, width: numbe
   return left + (contentWidth - width) / 2;
 }
 
-/** 90° CCW in the left page margin, centered on the photo. */
-export function playbookPdfPhotoBackPlacement(
-  photo: { y: number; height: number },
-  labelWidth: number,
-  labelSize: number,
-  margin = PLAYBOOK_PDF_MARGIN,
-): { textX: number; textY: number; x: number; y: number; width: number; height: number } {
-  const textX = margin / 2 + labelSize / 2;
-  const textY = labelWidth >= photo.height ? photo.y : photo.y + (photo.height - labelWidth) / 2;
-  return {
-    textX,
-    textY,
-    x: textX - labelSize,
-    y: textY,
-    width: labelSize,
-    height: labelWidth,
-  };
-}
-
 function radarPageBudget(writer: Writer): number {
   return writer.y - writer.layout.bottom;
 }
@@ -428,7 +414,7 @@ function drawPhotos(
   const dests = new Map<string, PhotoDest>();
   const backHits: PdfLinkHit[] = [];
   const backSize = PLAYBOOK_PDF_SMALL_SIZE;
-  const backLabel = playbookPdfPhotoBackLabel();
+  const backLabel = PLAYBOOK_PDF_PHOTO_BACK;
   for (const photo of photos) {
     const image = embedded.get(photo.id);
     if (!image) continue;
@@ -465,6 +451,13 @@ function drawPhotos(
       color: writer.colors.muted,
       rotate: writer.degrees(90),
     });
+    drawPlaybookPdfPhotoBackArrow(
+      writer.page,
+      back.arrowX,
+      back.arrowY,
+      PLAYBOOK_PDF_PHOTO_BACK_ARROW_SIZE,
+      writer.colors.muted,
+    );
     backHits.push({
       page: writer.page,
       x: back.x,
@@ -572,9 +565,8 @@ export async function buildPlaybookPdf(
   photoBytes: PlaybookPdfPhotos = {},
   cal?: MapCalibration,
 ): Promise<Uint8Array> {
-  const { PDFDocument, PDFName, PDFString, PageSizes, rgb, degrees } = (await import(
-    "pdf-lib"
-  )) as PdfLib;
+  const { PDFDocument, PDFName, PDFString, PageSizes, rgb, degrees } =
+    (await import("pdf-lib")) as PdfLib;
   const pdf = await PDFDocument.create();
   await registerPlaybookPdfFontkit(pdf);
   const fontBytes = await loadPlaybookPdfFontBytes();

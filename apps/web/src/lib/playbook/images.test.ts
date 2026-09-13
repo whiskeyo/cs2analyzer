@@ -106,9 +106,7 @@ describe("playbook image URLs", () => {
     expect(sniffPlaybookImageMime(Uint8Array.of(0xff, 0xd8, 0xff, 0xe0))).toBe("image/jpeg");
     expect(
       sniffPlaybookImageMime(
-        Uint8Array.of(
-          0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50,
-        ),
+        Uint8Array.of(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50),
       ),
     ).toBe("image/webp");
     expect(sniffPlaybookImageMime(Uint8Array.of(0x47, 0x49, 0x46))).toBeNull();
@@ -198,7 +196,12 @@ function mockImageFetch(partial: {
           name.toLowerCase() === "content-length" ? (partial.contentLength ?? null) : null,
       },
       blob: async () =>
-        new Blob([partial.body ?? new Uint8Array(16)], { type: partial.type ?? "image/png" }),
+        new Blob(
+          [new Uint8Array(partial.body ?? [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])],
+          {
+            type: partial.type ?? "image/png",
+          },
+        ),
     };
   });
 }
@@ -213,9 +216,12 @@ describe("readPlaybookImageUrl", () => {
       ok: false,
       message: PLAYBOOK_IMAGE_URL_PARSE_ERROR,
     });
-    vi.stubGlobal("fetch", vi.fn(async () => {
-      throw new Error("offline");
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("offline");
+      }),
+    );
     expect(await readPlaybookImageUrl("https://example.com/a.png")).toEqual({
       ok: false,
       message: PLAYBOOK_IMAGE_URL_ERROR,

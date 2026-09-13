@@ -128,7 +128,9 @@ export function PlaybookVideos({
   return (
     <div className="playbook-videos">
       {videos.length === 0 ? (
-        <p className="playbook-lead">Place a YouTube pin on the radar. Clips stay on this machine.</p>
+        <p className="playbook-lead">
+          Place a YouTube pin on the radar. Clips stay on this machine.
+        </p>
       ) : (
         <ul className="playbook-video-list">
           {videos.map((clip) => {

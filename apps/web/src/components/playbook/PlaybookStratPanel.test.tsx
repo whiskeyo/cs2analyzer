@@ -69,9 +69,7 @@ describe("PlaybookStratPanel", () => {
               y: 0,
             },
           ],
-          images: [
-            { id: "i1", name: "lineup.png", mime: "image/png", x: 1, y: 2 },
-          ],
+          images: [{ id: "i1", name: "lineup.png", mime: "image/png", x: 1, y: 2 }],
         })}
       />,
     );

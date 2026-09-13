@@ -112,7 +112,7 @@ export function imageFileNameFromUrl(url: URL): string {
   try {
     decoded = decodeURIComponent(last);
   } catch {
-    decoded = last;
+    // keep the raw path segment
   }
   const trimmed = decoded.trim();
   return trimmed === "" ? "image" : trimmed;
@@ -121,7 +121,10 @@ export function imageFileNameFromUrl(url: URL): string {
 export function parsePlaybookImageUrl(raw: string): URL | null {
   const trimmed = raw.trim();
   if (trimmed === "") return null;
-  for (const candidate of [trimmed, `https://${trimmed}`]) {
+  const candidates = /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+    ? [trimmed]
+    : [trimmed, `https://${trimmed}`];
+  for (const candidate of candidates) {
     try {
       const url = new URL(candidate);
       if (url.protocol === "http:" || url.protocol === "https:") return url;

@@ -182,8 +182,8 @@ describe("PlaybookVideos", () => {
     expect(onVideos.mock.calls.at(-1)?.[0][0]).toMatchObject({
       videoId: VIDEO,
       title: YOUTUBE_UNTITLED,
-      x: 0,
-      y: 0,
+      x: 1,
+      y: 2,
     });
   });
 });

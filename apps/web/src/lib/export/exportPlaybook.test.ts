@@ -186,7 +186,14 @@ describe("downloadPlaybookPdf", () => {
     mocks.loadPlaybookSnapshotIcons.mockResolvedValue({ c4: null, nades: {} });
     mocks.snapshotPlaybookPagePng.mockResolvedValue(new Uint8Array([1]));
     mocks.buildPlaybookPdf.mockResolvedValue(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
-    await downloadPlaybookPdf(book, UNIT_CALIBRATION, EXPORTED_AT, "dark", DEFAULT_RADAR_GRAY, false);
+    await downloadPlaybookPdf(
+      book,
+      UNIT_CALIBRATION,
+      EXPORTED_AT,
+      "dark",
+      DEFAULT_RADAR_GRAY,
+      false,
+    );
     expect(mocks.loadPlaybookImageBlobs).not.toHaveBeenCalled();
     expect(mocks.buildPlaybookPdf).toHaveBeenCalledWith(
       expect.anything(),

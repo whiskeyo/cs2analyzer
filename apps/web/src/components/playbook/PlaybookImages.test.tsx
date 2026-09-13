@@ -145,11 +145,10 @@ describe("PlaybookImages", () => {
     });
     await userEvent.click(screen.getByRole("button", { name: "Add" }));
     await waitFor(() => expect(ingestPlaybookImageUrl).toHaveBeenCalled());
-    expect(ingestPlaybookImageUrl).toHaveBeenCalledWith(
-      "https://imgur.com/abc123",
-      [],
-      { x: 4, y: 5 },
-    );
+    expect(ingestPlaybookImageUrl).toHaveBeenCalledWith("https://imgur.com/abc123", [], {
+      x: 4,
+      y: 5,
+    });
     expect(onImages).toHaveBeenCalledWith([expect.objectContaining({ id: "i2" })]);
     expect(onOpen).toHaveBeenCalledWith("i2");
     expect(onCancelPin).toHaveBeenCalled();
