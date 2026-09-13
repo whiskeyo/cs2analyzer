@@ -3,6 +3,7 @@ import {
   nextImagePin,
   playbookImageFilesFromList,
   readPlaybookImageFile,
+  readPlaybookImageUrl,
 } from "./images";
 import { rememberPlaybookImage } from "./playbookImageBitmaps";
 import { putPlaybookImageBlob } from "./playbookImageStore";
@@ -31,4 +32,18 @@ export async function ingestPlaybookImages(
     at = nextImagePin(next);
   }
   return { images: next, error };
+}
+
+export async function ingestPlaybookImageUrl(
+  raw: string,
+  current: readonly PlaybookImage[],
+  origin?: { x: number; y: number },
+): Promise<{ images: PlaybookImage[]; error: string | null }> {
+  const decoded = await readPlaybookImageUrl(raw);
+  if (!decoded.ok) return { images: [...current], error: decoded.message };
+  const at = origin ?? nextImagePin(current);
+  const image = makePlaybookImage(decoded, at);
+  await putPlaybookImageBlob(image.id, decoded.blob);
+  rememberPlaybookImage(image.id, decoded.blob);
+  return { images: [...current, image], error: null };
 }

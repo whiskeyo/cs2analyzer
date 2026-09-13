@@ -1465,8 +1465,19 @@ code {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+.playbook-image-add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
 .playbook-video-paste .playbook-video-add {
   margin-bottom: 0.85rem;
+}
+.playbook-video-paste .playbook-image-add {
+  margin-bottom: 0.85rem;
+}
+.playbook-video-paste .playbook-image-add .playbook-video-add {
+  margin-bottom: 0;
 }
 .playbook-video-modal .home-modal-card {
   width: min(52rem, 100%);

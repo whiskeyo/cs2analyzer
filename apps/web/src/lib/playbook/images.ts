@@ -28,6 +28,16 @@ export const PLAYBOOK_IMAGE_PIN_INDEX_SIZE = 7;
 export const PLAYBOOK_IMAGE_TYPE_ERROR = "Use a PNG, JPEG, or WebP image.";
 export const PLAYBOOK_IMAGE_SIZE_ERROR = `Image must be ${PLAYBOOK_IMAGE_MAX_MB} MB or smaller.`;
 export const PLAYBOOK_IMAGE_DECODE_ERROR = "Could not read that image.";
+export const PLAYBOOK_IMAGE_URL_PARSE_ERROR = "Paste an image URL (http or https).";
+export const PLAYBOOK_IMAGE_URL_ERROR = "Could not load that image URL.";
+
+const IMGUR_PAGE_HOSTS = new Set(["imgur.com", "www.imgur.com", "m.imgur.com"]);
+const IMGUR_DIRECT_HOST = "i.imgur.com";
+const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47] as const;
+const JPEG_MAGIC = [0xff, 0xd8, 0xff] as const;
+const RIFF_MAGIC = [0x52, 0x49, 0x46, 0x46] as const;
+const WEBP_MAGIC = [0x57, 0x45, 0x42, 0x50] as const;
+const SNIFF_BYTES = 12;
 
 export type PlaybookImageFile =
   | {
@@ -96,6 +106,83 @@ export function imageFileName(file: Pick<File, "name">): string {
   return trimmed === "" ? "image" : trimmed;
 }
 
+export function imageFileNameFromUrl(url: URL): string {
+  const last = url.pathname.split("/").filter(Boolean).at(-1) ?? "";
+  let decoded = last;
+  try {
+    decoded = decodeURIComponent(last);
+  } catch {
+    decoded = last;
+  }
+  const trimmed = decoded.trim();
+  return trimmed === "" ? "image" : trimmed;
+}
+
+export function parsePlaybookImageUrl(raw: string): URL | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  for (const candidate of [trimmed, `https://${trimmed}`]) {
+    try {
+      const url = new URL(candidate);
+      if (url.protocol === "http:" || url.protocol === "https:") return url;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
+/** Imgur page → `i.imgur.com` so we fetch bytes, not HTML. Never uploads. */
+export function imgurDirectImageUrl(url: URL): URL | null {
+  const host = url.hostname.toLowerCase();
+  if (host === IMGUR_DIRECT_HOST) return url;
+  if (!IMGUR_PAGE_HOSTS.has(host)) return null;
+  const parts = url.pathname.split("/").filter(Boolean);
+  const first = parts[0];
+  if (first == null || first === "a" || first === "gallery" || first === "t" || first === "r") {
+    return null;
+  }
+  const id = first.replace(/\.jpe?g$/i, ".jpg");
+  if (/\.(png|jpg|webp)$/i.test(id)) {
+    return new URL(`https://${IMGUR_DIRECT_HOST}/${id}`);
+  }
+  if (/^[A-Za-z0-9]+$/.test(id)) {
+    return new URL(`https://${IMGUR_DIRECT_HOST}/${id}.jpg`);
+  }
+  return null;
+}
+
+export function playbookImageCandidateUrls(raw: string): URL[] | null {
+  const parsed = parsePlaybookImageUrl(raw);
+  if (!parsed) return null;
+  const out = [parsed];
+  const imgur = imgurDirectImageUrl(parsed);
+  if (imgur && imgur.href !== parsed.href) out.push(imgur);
+  return out;
+}
+
+export function sniffPlaybookImageMime(bytes: Uint8Array): PlaybookImageMime | null {
+  if (bytes.length >= PNG_MAGIC.length && PNG_MAGIC.every((b, i) => bytes[i] === b)) {
+    return "image/png";
+  }
+  if (bytes.length >= JPEG_MAGIC.length && JPEG_MAGIC.every((b, i) => bytes[i] === b)) {
+    return "image/jpeg";
+  }
+  if (
+    bytes.length >= SNIFF_BYTES &&
+    RIFF_MAGIC.every((b, i) => bytes[i] === b) &&
+    WEBP_MAGIC.every((b, i) => bytes[8 + i] === b)
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+function mimeFromContentType(value: string | null): PlaybookImageMime | null {
+  if (!value) return null;
+  return normalizePlaybookImageMime(value.split(";")[0]!.trim().toLowerCase());
+}
+
 export function playbookImageFilesFromList(list: FileList | readonly File[] | null): File[] {
   if (!list) return [];
   return Array.from(list);
@@ -120,6 +207,62 @@ export async function readPlaybookImageFile(file: File): Promise<PlaybookImageFi
   } catch {
     return { ok: false, message: PLAYBOOK_IMAGE_DECODE_ERROR };
   }
+}
+
+async function fetchPlaybookImage(url: URL): Promise<PlaybookImageFile> {
+  let response: Response;
+  try {
+    response = await fetch(url.href, {
+      headers: { Accept: PLAYBOOK_IMAGE_MIMES.join(",") },
+    });
+  } catch {
+    return { ok: false, message: PLAYBOOK_IMAGE_URL_ERROR };
+  }
+  if (!response.ok) return { ok: false, message: PLAYBOOK_IMAGE_URL_ERROR };
+  const length = Number(response.headers.get("content-length"));
+  if (Number.isFinite(length) && length > PLAYBOOK_IMAGE_MAX_BYTES) {
+    return { ok: false, message: PLAYBOOK_IMAGE_SIZE_ERROR };
+  }
+  let blob: Blob;
+  try {
+    blob = await response.blob();
+  } catch {
+    return { ok: false, message: PLAYBOOK_IMAGE_URL_ERROR };
+  }
+  if (blob.size > PLAYBOOK_IMAGE_MAX_BYTES) {
+    return { ok: false, message: PLAYBOOK_IMAGE_SIZE_ERROR };
+  }
+  const header = new Uint8Array(await blob.slice(0, SNIFF_BYTES).arrayBuffer());
+  const mime = mimeFromContentType(blob.type) ?? sniffPlaybookImageMime(header);
+  if (!mime) return { ok: false, message: PLAYBOOK_IMAGE_TYPE_ERROR };
+  const typed = blob.type === mime ? blob : new Blob([blob], { type: mime });
+  try {
+    const natural = await naturalImageSize(typed);
+    if (natural.width <= 0 || natural.height <= 0) {
+      return { ok: false, message: PLAYBOOK_IMAGE_DECODE_ERROR };
+    }
+    return {
+      ok: true,
+      name: imageFileNameFromUrl(url),
+      mime,
+      blob: typed,
+    };
+  } catch {
+    return { ok: false, message: PLAYBOOK_IMAGE_DECODE_ERROR };
+  }
+}
+
+export async function readPlaybookImageUrl(raw: string): Promise<PlaybookImageFile> {
+  const urls = playbookImageCandidateUrls(raw);
+  if (!urls) return { ok: false, message: PLAYBOOK_IMAGE_URL_PARSE_ERROR };
+  let last: PlaybookImageFile = { ok: false, message: PLAYBOOK_IMAGE_URL_ERROR };
+  for (const url of urls) {
+    const decoded = await fetchPlaybookImage(url);
+    if (decoded.ok) return decoded;
+    last = decoded;
+    if (decoded.message === PLAYBOOK_IMAGE_SIZE_ERROR) return decoded;
+  }
+  return last;
 }
 
 export function makePlaybookImage(
