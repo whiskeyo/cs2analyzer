@@ -120,6 +120,7 @@ export function PlaybookImages({
             }}
           />
         </label>
+        <span className="playbook-pin-add-slot" aria-hidden="true" />
       </div>
       {pendingPin ? (
         <form
