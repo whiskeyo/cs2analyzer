@@ -13,6 +13,7 @@ import {
   paintPlaybookPieces,
   paintRotateGizmo,
   paintYouTubePin,
+  paintYouTubePins,
   playbookUsesLower,
 } from "./paint";
 import { makePiece, PLAYBOOK_ROTATE_RADIUS_PX } from "./pieces";
@@ -423,5 +424,31 @@ describe("paintYouTubePin", () => {
     expect(ctx.roundRect).toHaveBeenCalled();
     expect(ctx.fill).toHaveBeenCalled();
     expect(ctx.stroke).toHaveBeenCalled();
+  });
+});
+
+describe("paintYouTubePins", () => {
+  const clip = (id: string, x: number) => ({
+    id,
+    videoId: "dQw4w9WgXcQ",
+    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    title: id,
+    x,
+    y: 0,
+  });
+
+  it("omits the number when a floor has one clip", () => {
+    const ctx = createMockCanvas();
+    paintYouTubePins(ctx, [clip("a", 10)], (wx, wy) => ({ x: wx, y: wy }), "a", { x: 30, y: 40 });
+    expect(ctx.roundRect).toHaveBeenCalled();
+    expect(ctx.globalAlpha).toBe(0.55);
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+
+  it("paints 1 and 2 when two clips share a floor", () => {
+    const ctx = createMockCanvas();
+    paintYouTubePins(ctx, [clip("a", 0), clip("b", 8)], (wx, wy) => ({ x: wx, y: wy }));
+    expect(ctx.fillText).toHaveBeenCalledWith("1", expect.any(Number), expect.any(Number));
+    expect(ctx.fillText).toHaveBeenCalledWith("2", expect.any(Number), expect.any(Number));
   });
 });

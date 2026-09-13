@@ -44,6 +44,16 @@ export function removeVideo(videos: readonly PlaybookYouTube[], id: string): Pla
   return videos.filter((clip) => clip.id !== id);
 }
 
+/** 1-based index when a floor has more than one clip; otherwise omit. */
+export function playbookVideoPinIndex(
+  videos: readonly PlaybookYouTube[],
+  id: string,
+): number | null {
+  if (videos.length < 2) return null;
+  const index = videos.findIndex((clip) => clip.id === id);
+  return index >= 0 ? index + 1 : null;
+}
+
 export function nextVideoPin(
   videos: readonly PlaybookYouTube[],
   fallback: { x: number; y: number } = { x: 0, y: 0 },

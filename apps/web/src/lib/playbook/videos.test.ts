@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { PlaybookYouTube } from "./types";
-import { hitTestVideo, moveVideo, nextVideoPin, removeVideo, YOUTUBE_PIN_STACK } from "./videos";
+import {
+  hitTestVideo,
+  moveVideo,
+  nextVideoPin,
+  playbookVideoPinIndex,
+  removeVideo,
+  YOUTUBE_PIN_STACK,
+} from "./videos";
 
 function clip(partial: Partial<PlaybookYouTube> = {}): PlaybookYouTube {
   return {
@@ -24,6 +31,15 @@ describe("video pins", () => {
     expect(moveVideo(pins, "a", 8, 9)[0]).toMatchObject({ id: "a", x: 8, y: 9 });
     expect(removeVideo(pins, "b").map((row) => row.id)).toEqual(["a"]);
     expect(removeVideo(pins, "missing")).toEqual(pins);
+  });
+
+  it("numbers pins only when a floor has more than one clip", () => {
+    const one = [clip({ id: "a" })];
+    expect(playbookVideoPinIndex(one, "a")).toBeNull();
+    const two = [clip({ id: "a" }), clip({ id: "b", x: 8 })];
+    expect(playbookVideoPinIndex(two, "a")).toBe(1);
+    expect(playbookVideoPinIndex(two, "b")).toBe(2);
+    expect(playbookVideoPinIndex(two, "missing")).toBeNull();
   });
 
   it("stacks a new pin after the last one", () => {
