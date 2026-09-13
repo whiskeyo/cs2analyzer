@@ -20,6 +20,9 @@ import {
   SAVED_NOTES_PAGE_SIZE,
   SAVED_NOTES_PAGE_SIZE_MAX,
   SAVED_NOTES_PAGE_SIZE_MIN,
+  DEFAULT_RADAR_GRAY,
+  RADAR_GRAY_MAX,
+  RADAR_GRAY_MIN,
   SERIES_MAX_FILES,
   SERIES_MIN_FILES,
   SIDEBAR_DEFAULT_WIDTH,
@@ -55,6 +58,8 @@ export interface UserSettings {
   noteMomentSec: number;
   seriesMaxFiles: number;
   pdfTheme: PdfTheme;
+  /** 0 = original map color, 1 = full grayscale. Applies to Analyzer, Playbook, PDF stills. */
+  radarGray: number;
 }
 
 export type UserSettingsRecord = UserSettings & { id: typeof USER_SETTINGS_ID };
@@ -101,6 +106,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     noteMomentSec: NOTE_MOMENT_SECONDS,
     seriesMaxFiles: SERIES_MAX_FILES,
     pdfTheme: DEFAULT_PDF_THEME,
+    radarGray: DEFAULT_RADAR_GRAY,
   };
 }
 
@@ -231,5 +237,11 @@ export function parseUserSettings(raw: unknown): UserSettings {
       defaults.seriesMaxFiles,
     ),
     pdfTheme: parsePdfTheme(raw.pdfTheme),
+    radarGray: parseClampedNumber(
+      raw.radarGray,
+      RADAR_GRAY_MIN,
+      RADAR_GRAY_MAX,
+      defaults.radarGray,
+    ),
   };
 }

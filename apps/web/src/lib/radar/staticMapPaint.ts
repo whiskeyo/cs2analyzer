@@ -1,10 +1,12 @@
 import { overlayVisible, refsEqual } from "@/lib/notes";
 import type { NoteItemRef } from "@/lib/notes/noteGroups";
 import { drawArrow, drawTextLabel } from "@/lib/radar/draw";
+import { withRadarMapGray } from "@/lib/radar/mapGray";
 import { radarLayout, type RadarView } from "@/lib/radar/maps";
 import { drawSmoothLine, simplifyStroke } from "@/lib/radar/strokes";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import type { Drawing, Note } from "@/lib/notes/types";
+import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
 
 export type WorldToScreen = (wx: number, wy: number) => { x: number; y: number };
 
@@ -32,11 +34,14 @@ export function paintMapImage(
   view: RadarView,
   img: HTMLImageElement | null | undefined,
   cal: MapCalibration | undefined,
+  radarGray: number = DEFAULT_RADAR_GRAY,
 ): void {
   const { pad, fit, baseX, baseY } = radarLayout(w, h, view);
   const size = fit * view.scale;
   if (img && img.complete && img.naturalWidth > 0) {
-    ctx.drawImage(img, baseX, baseY, size, size);
+    withRadarMapGray(ctx, radarGray, () => {
+      ctx.drawImage(img, baseX, baseY, size, size);
+    });
     return;
   }
   if (!cal) {
@@ -156,7 +161,8 @@ export function paintStaticMap(
   note: Note,
   paintOpts: NotePaintOpts,
   toScreen: WorldToScreen,
+  radarGray: number = DEFAULT_RADAR_GRAY,
 ): void {
-  paintMapImage(ctx, w, h, view, img, cal);
+  paintMapImage(ctx, w, h, view, img, cal, radarGray);
   paintNote(ctx, note, toScreen, paintOpts);
 }

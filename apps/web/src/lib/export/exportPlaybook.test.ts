@@ -4,6 +4,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newPlaybook, setPageBody } from "@/lib/playbook/pages";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
+import { DEFAULT_RADAR_GRAY, RADAR_GRAY_MIN } from "@/lib/shared/constants";
 import { PLAYBOOK_PDF_MIME } from "./constants";
 
 const mocks = vi.hoisted(() => ({
@@ -61,10 +62,28 @@ describe("snapshotPlaybookPages", () => {
         c4: { src: "/weapons/c4.svg" },
         nades: { smoke: { src: "/weapons/smokegrenade.svg" } },
       },
+      undefined,
+      DEFAULT_RADAR_GRAY,
     );
 
     mocks.snapshotPlaybookPagePng.mockResolvedValue(null);
     await expect(snapshotPlaybookPages(book, UNIT_CALIBRATION)).resolves.toEqual({});
+  });
+
+  it("forwards radarGray into each floor still", async () => {
+    const book = newPlaybook("de_mirage", "A execs");
+    mocks.loadPlaybookSnapshotImage.mockResolvedValue(null);
+    mocks.loadPlaybookSnapshotIcons.mockResolvedValue({ c4: null, nades: {} });
+    mocks.snapshotPlaybookPagePng.mockResolvedValue(new Uint8Array([3]));
+    await snapshotPlaybookPages(book, UNIT_CALIBRATION, RADAR_GRAY_MIN);
+    expect(mocks.snapshotPlaybookPagePng).toHaveBeenCalledWith(
+      expect.anything(),
+      UNIT_CALIBRATION,
+      null,
+      { c4: null, nades: {} },
+      undefined,
+      RADAR_GRAY_MIN,
+    );
   });
 });
 
@@ -119,6 +138,23 @@ describe("downloadPlaybookPdf", () => {
       expect.objectContaining({ heading: "Nuke: default executes" }),
       {},
       "light",
+    );
+  });
+
+  it("forwards radarGray into PDF stills", async () => {
+    const book = newPlaybook("de_nuke", "default executes");
+    mocks.loadPlaybookSnapshotImage.mockResolvedValue(null);
+    mocks.loadPlaybookSnapshotIcons.mockResolvedValue({ c4: null, nades: {} });
+    mocks.snapshotPlaybookPagePng.mockResolvedValue(null);
+    mocks.buildPlaybookPdf.mockResolvedValue(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+    await downloadPlaybookPdf(book, UNIT_CALIBRATION, EXPORTED_AT, "dark", RADAR_GRAY_MIN);
+    expect(mocks.snapshotPlaybookPagePng).toHaveBeenCalledWith(
+      expect.anything(),
+      UNIT_CALIBRATION,
+      null,
+      { c4: null, nades: {} },
+      undefined,
+      RADAR_GRAY_MIN,
     );
   });
 });

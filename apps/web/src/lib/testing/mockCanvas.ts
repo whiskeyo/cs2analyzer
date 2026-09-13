@@ -65,6 +65,7 @@ export function createMockCanvas(opts: MockCanvasOptions = {}): MockCanvasContex
     translate: vi.fn(),
     rotate: vi.fn(),
     setLineDash: vi.fn(),
+    filter: "none",
     globalAlpha: 1,
     fillStyle: "",
     strokeStyle: "",

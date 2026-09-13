@@ -4,12 +4,15 @@ import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import {
   DEFAULT_PLAYBACK_SPEED,
+  DEFAULT_RADAR_GRAY,
   NOTE_MOMENT_MAX_SECONDS,
   NOTE_MOMENT_MIN_SECONDS,
   NOTE_MOMENT_SECONDS,
   PARSE_POOL_HARD_MAX,
   PARSE_POOL_MAX,
   PARSE_POOL_MIN,
+  RADAR_GRAY_MAX,
+  RADAR_GRAY_MIN,
   SAVED_NOTES_PAGE_SIZE,
   SAVED_NOTES_PAGE_SIZE_MAX,
   SERIES_MAX_FILES,
@@ -44,6 +47,7 @@ describe("defaultUserSettings", () => {
       noteMomentSec: NOTE_MOMENT_SECONDS,
       seriesMaxFiles: SERIES_MAX_FILES,
       pdfTheme: "dark",
+      radarGray: DEFAULT_RADAR_GRAY,
     });
     expect(settings.defaultPaletteId).toBe(COLOR_PRESETS[0].id);
     expect(settings.defaultColor).toBe(COLOR_PRESETS[0].colors[0]);
@@ -72,6 +76,7 @@ describe("parseUserSettings", () => {
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MAX);
     expect(parsed.eventLeadInSec).toBe(DEFAULT_LEAD_IN_SEC);
     expect(parsed.pdfTheme).toBe("dark");
+    expect(parsed.radarGray).toBe(DEFAULT_RADAR_GRAY);
     expect(parsed.schema).toBe(USER_SETTINGS_SCHEMA);
     expect("habitsTrailWindowSec" in parsed).toBe(false);
     expect("roundAutoplay" in parsed).toBe(false);
@@ -91,6 +96,7 @@ describe("parseUserSettings", () => {
       noteMomentSec: 400,
       seriesMaxFiles: 1,
       pdfTheme: "sepia",
+      radarGray: 4,
     });
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_HARD_MAX);
     expect(parsed.sidebarWidth).toBe(SIDEBAR_MIN_WIDTH);
@@ -103,10 +109,20 @@ describe("parseUserSettings", () => {
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MAX_SECONDS);
     expect(parsed.seriesMaxFiles).toBe(SERIES_MIN_FILES);
     expect(parsed.pdfTheme).toBe("dark");
+    expect(parsed.radarGray).toBe(RADAR_GRAY_MAX);
   });
 
   it("keeps a stored light PDF theme", () => {
     expect(parseUserSettings({ pdfTheme: "light" }).pdfTheme).toBe("light");
+  });
+
+  it("keeps a stored color map and migrates missing or invalid radarGray to full gray", () => {
+    expect(parseUserSettings({ radarGray: 0 }).radarGray).toBe(RADAR_GRAY_MIN);
+    expect(parseUserSettings({ radarGray: 0.35 }).radarGray).toBe(0.35);
+    expect(parseUserSettings({}).radarGray).toBe(DEFAULT_RADAR_GRAY);
+    expect(parseUserSettings({ radarGray: "gray" }).radarGray).toBe(DEFAULT_RADAR_GRAY);
+    expect(parseUserSettings({ radarGray: Number.NaN }).radarGray).toBe(DEFAULT_RADAR_GRAY);
+    expect(parseUserSettings({ radarGray: -2 }).radarGray).toBe(RADAR_GRAY_MIN);
   });
 
   it("clamps the low end of parse pool and moment length", () => {

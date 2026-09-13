@@ -10,6 +10,7 @@ import { radarUrl } from "@/lib/radar/maps";
 import type { GrenadeKind, MapCalibration } from "@/lib/replay/replayTypes";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { weaponIconSrc } from "@/lib/weapons/weapons";
+import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
 import { PLAYBOOK_PDF_RADAR_SIZE } from "./constants";
 
 const SNAPSHOT_VIEW = { scale: 1, ox: 0, oy: 0 };
@@ -39,6 +40,7 @@ export function paintPlaybookSnapshot(
   cal: MapCalibration | undefined,
   img: HTMLImageElement | null | undefined,
   icons?: PlaybookPaintIcons,
+  radarGray: number = DEFAULT_RADAR_GRAY,
 ): void {
   ctx.clearRect(0, 0, size, size);
   paintPlaybookBoard(
@@ -57,6 +59,7 @@ export function paintPlaybookSnapshot(
     page.videos,
     null,
     null,
+    radarGray,
   );
 }
 
@@ -115,13 +118,14 @@ export async function snapshotPlaybookPagePng(
   img: HTMLImageElement | null | undefined,
   icons?: PlaybookPaintIcons,
   size = PLAYBOOK_PDF_RADAR_SIZE,
+  radarGray: number = DEFAULT_RADAR_GRAY,
 ): Promise<Uint8Array | null> {
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  paintPlaybookSnapshot(ctx, size, page, cal, img, icons);
+  paintPlaybookSnapshot(ctx, size, page, cal, img, icons, radarGray);
   try {
     return await encodeCanvasPng(canvas);
   } catch {

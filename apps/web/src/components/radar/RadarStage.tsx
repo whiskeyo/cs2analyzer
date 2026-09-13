@@ -165,6 +165,7 @@ export function RadarStage() {
           habitsPlaySecRef={habitsOnly ? habits.bucketPlaySecRef : undefined}
           habitsOnly={habitsOnly}
           onHabitsJump={habits.playRound}
+          radarGray={settings.radarGray}
         />
         {!habitsOnly && <Hud replay={replay} tick={tick} />}
         {view.layers.summary && (

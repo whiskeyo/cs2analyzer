@@ -34,15 +34,34 @@ function mockCtx() {
     font: "",
     textAlign: "left",
     textBaseline: "top",
+    filter: "none",
   } as unknown as CanvasRenderingContext2D;
 }
 
 describe("paintMapImage", () => {
-  it("draws the radar PNG at the layout rect", () => {
+  it("draws the radar PNG at the layout rect through the gray filter", () => {
     const ctx = mockCtx();
+    const filters: string[] = [];
     const img = { complete: true, naturalWidth: 1024 } as HTMLImageElement;
+    ctx.drawImage = vi.fn(() => {
+      filters.push(ctx.filter);
+    }) as CanvasRenderingContext2D["drawImage"];
     paintMapImage(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, img, undefined);
     expect(ctx.drawImage).toHaveBeenCalledWith(img, 16, 16, 368, 368);
+    expect(filters).toEqual(["saturate(0)"]);
+    expect(ctx.filter).toBe("none");
+  });
+
+  it("skips the canvas filter when radarGray is 0", () => {
+    const ctx = mockCtx();
+    const filters: string[] = [];
+    const img = { complete: true, naturalWidth: 1024 } as HTMLImageElement;
+    ctx.drawImage = vi.fn(() => {
+      filters.push(ctx.filter);
+    }) as CanvasRenderingContext2D["drawImage"];
+    paintMapImage(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, img, undefined, 0);
+    expect(filters).toEqual(["none"]);
+    expect(ctx.filter).toBe("none");
   });
 
   it("shows a placeholder when calibration is missing", () => {
@@ -50,6 +69,7 @@ describe("paintMapImage", () => {
     paintMapImage(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, null, undefined);
     expect(ctx.fillRect).toHaveBeenCalledWith(16, 16, 368, 368);
     expect(ctx.fillText).toHaveBeenCalledWith("No radar for this map — showing world XY", 16, 24);
+    expect(ctx.filter).toBe("none");
   });
 });
 

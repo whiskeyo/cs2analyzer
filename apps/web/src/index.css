@@ -1204,6 +1204,14 @@ code {
   font-size: 0.78rem;
   text-align: right;
 }
+.settings-range-end {
+  min-width: 2.4rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.settings-field > .settings-range-end:last-of-type {
+  text-align: right;
+}
 .settings-hint {
   margin: 0 0 0.55rem !important;
   font-size: 0.75rem !important;
