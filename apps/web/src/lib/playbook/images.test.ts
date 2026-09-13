@@ -4,6 +4,7 @@ import {
   PLAYBOOK_IMAGE_DECODE_ERROR,
   PLAYBOOK_IMAGE_MAX_BYTES,
   PLAYBOOK_IMAGE_PIN_STACK,
+  playbookImagePinIndex,
   PLAYBOOK_IMAGE_SIZE_ERROR,
   PLAYBOOK_IMAGE_TYPE_ERROR,
   hitTestImage,
@@ -54,6 +55,15 @@ describe("image pin geometry", () => {
 
   it("uses a YouTube-sized click slop constant", () => {
     expect(PLAYBOOK_IMAGE_CLICK_PX).toBe(4);
+  });
+
+  it("numbers pins only when a floor has more than one photo", () => {
+    const one = [still({ id: "a" })];
+    expect(playbookImagePinIndex(one, "a")).toBeNull();
+    const two = [still({ id: "a" }), still({ id: "b", x: 8 })];
+    expect(playbookImagePinIndex(two, "a")).toBe(1);
+    expect(playbookImagePinIndex(two, "b")).toBe(2);
+    expect(playbookImagePinIndex(two, "missing")).toBeNull();
   });
 
   it("stacks a new pin after the last one", () => {

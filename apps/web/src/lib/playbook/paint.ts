@@ -33,10 +33,15 @@ import { notePawnLegend, shouldShowPawnLegend, visiblePieces, type LegendEntry }
 import {
   PLAYBOOK_IMAGE_PIN_FRAME,
   PLAYBOOK_IMAGE_PIN_HEIGHT,
+  PLAYBOOK_IMAGE_PIN_INDEX_BG,
+  PLAYBOOK_IMAGE_PIN_INDEX_INK,
+  PLAYBOOK_IMAGE_PIN_INDEX_SIZE,
   PLAYBOOK_IMAGE_PIN_LAND,
   PLAYBOOK_IMAGE_PIN_SKY,
+  PLAYBOOK_IMAGE_PIN_STROKE,
   PLAYBOOK_IMAGE_PIN_SUN,
   PLAYBOOK_IMAGE_PIN_WIDTH,
+  playbookImagePinIndex,
 } from "./images";
 import type { PlaybookImage, PlaybookYouTube } from "./types";
 import { YOUTUBE_PIN_HEIGHT, YOUTUBE_PIN_WIDTH, YOUTUBE_PLAY, YOUTUBE_RED } from "./videos";
@@ -343,6 +348,7 @@ export function paintPlaybookImagePin(
   ctx: CanvasRenderingContext2D,
   at: { x: number; y: number },
   selected = false,
+  index: number | null = null,
 ): void {
   const w = PLAYBOOK_IMAGE_PIN_WIDTH;
   const h = PLAYBOOK_IMAGE_PIN_HEIGHT;
@@ -358,33 +364,45 @@ export function paintPlaybookImagePin(
   }
   ctx.fillStyle = PLAYBOOK_IMAGE_PIN_FRAME;
   ctx.fill();
-  if (selected) {
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1.4;
-    ctx.stroke();
-  }
-  const inset = 2;
+  ctx.strokeStyle = selected ? "#fff" : PLAYBOOK_IMAGE_PIN_STROKE;
+  ctx.lineWidth = selected ? 1.6 : 1.2;
+  ctx.stroke();
+  const inset = 1.6;
   const photoX = x + inset;
   const photoY = y + inset;
   const photoW = w - inset * 2;
-  const photoH = h - inset * 2 - 2;
+  const photoH = h - inset * 2;
   ctx.beginPath();
   ctx.rect(photoX, photoY, photoW, photoH);
   ctx.fillStyle = PLAYBOOK_IMAGE_PIN_SKY;
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(photoX + photoW * 0.72, photoY + photoH * 0.32, 1.4, 0, Math.PI * 2);
+  ctx.arc(photoX + photoW * 0.74, photoY + photoH * 0.3, 1.45, 0, Math.PI * 2);
   ctx.fillStyle = PLAYBOOK_IMAGE_PIN_SUN;
   ctx.fill();
   ctx.beginPath();
   ctx.moveTo(photoX, photoY + photoH);
-  ctx.lineTo(photoX + photoW * 0.38, photoY + photoH * 0.42);
-  ctx.lineTo(photoX + photoW * 0.62, photoY + photoH * 0.68);
-  ctx.lineTo(photoX + photoW, photoY + photoH * 0.5);
+  ctx.lineTo(photoX + photoW * 0.34, photoY + photoH * 0.38);
+  ctx.lineTo(photoX + photoW * 0.54, photoY + photoH * 0.62);
+  ctx.lineTo(photoX + photoW, photoY + photoH * 0.22);
   ctx.lineTo(photoX + photoW, photoY + photoH);
   ctx.closePath();
   ctx.fillStyle = PLAYBOOK_IMAGE_PIN_LAND;
   ctx.fill();
+  if (index != null) {
+    const badgeR = 4;
+    const bx = x + w - 1;
+    const by = y + h - 1;
+    ctx.beginPath();
+    ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
+    ctx.fillStyle = PLAYBOOK_IMAGE_PIN_INDEX_BG;
+    ctx.fill();
+    ctx.fillStyle = PLAYBOOK_IMAGE_PIN_INDEX_INK;
+    ctx.font = `700 ${PLAYBOOK_IMAGE_PIN_INDEX_SIZE}px ui-sans-serif, system-ui`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(index), bx, by);
+  }
   ctx.restore();
 }
 
@@ -400,7 +418,12 @@ export function paintPlaybookImages(
   pending?: { x: number; y: number } | null,
 ): void {
   for (const image of images) {
-    paintPlaybookImagePin(ctx, toScreen(image.x, image.y), image.id === selectedId);
+    paintPlaybookImagePin(
+      ctx,
+      toScreen(image.x, image.y),
+      image.id === selectedId,
+      playbookImagePinIndex(images, image.id),
+    );
   }
   if (pending) {
     ctx.save();

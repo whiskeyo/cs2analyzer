@@ -18,6 +18,7 @@ import {
   PLAYBOOK_IMAGE_PIN_FRAME,
   PLAYBOOK_IMAGE_PIN_LAND,
   PLAYBOOK_IMAGE_PIN_SKY,
+  PLAYBOOK_IMAGE_PIN_STROKE,
   PLAYBOOK_IMAGE_PIN_SUN,
 } from "@/lib/playbook/images";
 import { YOUTUBE_PLAY, YOUTUBE_RED } from "@/lib/playbook/videos";
@@ -87,18 +88,18 @@ function tokenGlyph(token: PaletteToken) {
     return (
       <svg className="playbook-image-icon" viewBox="0 0 16 16" aria-hidden="true">
         <rect
-          x="2"
-          y="1.5"
-          width="12"
-          height="13"
-          rx="1.6"
+          x="1"
+          y="2.5"
+          width="14"
+          height="11"
+          rx="1.4"
           fill={PLAYBOOK_IMAGE_PIN_FRAME}
-          stroke="#0b0e12"
-          strokeWidth="1"
+          stroke={PLAYBOOK_IMAGE_PIN_STROKE}
+          strokeWidth="1.2"
         />
-        <rect x="3.5" y="3" width="9" height="7.5" fill={PLAYBOOK_IMAGE_PIN_SKY} />
-        <circle cx="10" cy="5.2" r="1.1" fill={PLAYBOOK_IMAGE_PIN_SUN} />
-        <path d="M3.5 10.5 6.4 7.2 8.4 9.2 12.5 6.6 12.5 10.5Z" fill={PLAYBOOK_IMAGE_PIN_LAND} />
+        <rect x="2.4" y="3.8" width="11.2" height="8.4" fill={PLAYBOOK_IMAGE_PIN_SKY} />
+        <circle cx="11.2" cy="6" r="1.35" fill={PLAYBOOK_IMAGE_PIN_SUN} />
+        <path d="M2.4 12.2 6.2 7.4 8.4 9.6 13.6 6.2 13.6 12.2Z" fill={PLAYBOOK_IMAGE_PIN_LAND} />
       </svg>
     );
   }

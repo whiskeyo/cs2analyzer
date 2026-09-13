@@ -398,6 +398,21 @@ describe("paintPlaybookImages", () => {
     expect(ctx.roundRect).toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
     expect(ctx.globalAlpha).toBe(0.55);
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+
+  it("paints 1 and 2 when two photos share a floor", () => {
+    const ctx = createMockCanvas();
+    paintPlaybookImages(
+      ctx,
+      [
+        { id: "a", name: "a.png", mime: "image/png", x: 0, y: 0 },
+        { id: "b", name: "b.png", mime: "image/png", x: 8, y: 0 },
+      ],
+      (wx, wy) => ({ x: wx, y: wy }),
+    );
+    expect(ctx.fillText).toHaveBeenCalledWith("1", expect.any(Number), expect.any(Number));
+    expect(ctx.fillText).toHaveBeenCalledWith("2", expect.any(Number), expect.any(Number));
   });
 });
 

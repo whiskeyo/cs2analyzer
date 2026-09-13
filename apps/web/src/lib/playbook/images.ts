@@ -6,9 +6,9 @@ import { PLAYBOOK_IMAGE_MIMES } from "./types";
 export const PLAYBOOK_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
 export const PLAYBOOK_IMAGE_MAX_MB = 4;
 
-/** Canvas size of the photo pin (matches a nade token / YouTube pin). */
+/** Landscape picture-frame pin (readable next to a YouTube mark). */
 export const PLAYBOOK_IMAGE_PIN_WIDTH = 16;
-export const PLAYBOOK_IMAGE_PIN_HEIGHT = 18;
+export const PLAYBOOK_IMAGE_PIN_HEIGHT = 14;
 
 /** World-unit gap when stacking pins added from the sidebar. */
 export const PLAYBOOK_IMAGE_PIN_STACK = 240;
@@ -17,9 +17,13 @@ export const PLAYBOOK_IMAGE_PIN_STACK = 240;
 export const PLAYBOOK_IMAGE_CLICK_PX = 4;
 
 export const PLAYBOOK_IMAGE_PIN_FRAME = "#f2eee6";
+export const PLAYBOOK_IMAGE_PIN_STROKE = "#0b0e12";
 export const PLAYBOOK_IMAGE_PIN_SKY = "#5b9fd6";
 export const PLAYBOOK_IMAGE_PIN_LAND = "#3a6b4a";
 export const PLAYBOOK_IMAGE_PIN_SUN = "#f6d36a";
+export const PLAYBOOK_IMAGE_PIN_INDEX_BG = "#0b0e12";
+export const PLAYBOOK_IMAGE_PIN_INDEX_INK = "#f4f1ea";
+export const PLAYBOOK_IMAGE_PIN_INDEX_SIZE = 7;
 
 export const PLAYBOOK_IMAGE_TYPE_ERROR = "Use a PNG, JPEG, or WebP image.";
 export const PLAYBOOK_IMAGE_SIZE_ERROR = `Image must be ${PLAYBOOK_IMAGE_MAX_MB} MB or smaller.`;
@@ -69,6 +73,13 @@ export function moveImage(
 
 export function removeImage(images: readonly PlaybookImage[], id: string): PlaybookImage[] {
   return images.filter((image) => image.id !== id);
+}
+
+/** 1-based index when a floor has more than one photo; otherwise omit. */
+export function playbookImagePinIndex(images: readonly PlaybookImage[], id: string): number | null {
+  if (images.length < 2) return null;
+  const index = images.findIndex((image) => image.id === id);
+  return index >= 0 ? index + 1 : null;
 }
 
 export function nextImagePin(
