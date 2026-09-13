@@ -22,11 +22,11 @@ interface Props {
   pendingPin: { x: number; y: number } | null;
   onCancelPin: () => void;
   selectedId: string | null;
-  selectedImageId: string | null;
+  openImageId: string | null;
   onBody: (body: string) => void;
   onVideos: (videos: PlaybookYouTube[]) => void;
   onImages: (images: PlaybookImage[]) => void;
-  onSelectImage: (id: string | null) => void;
+  onOpenImage: (id: string | null) => void;
   imageError: string | null;
   onImageError: (message: string | null) => void;
   onOpenVideo: (id: string | null) => void;
@@ -44,11 +44,11 @@ export function PlaybookStratPanel({
   pendingPin,
   onCancelPin,
   selectedId,
-  selectedImageId,
+  openImageId,
   onBody,
   onVideos,
   onImages,
-  onSelectImage,
+  onOpenImage,
   imageError,
   onImageError,
   onOpenVideo,
@@ -84,10 +84,10 @@ export function PlaybookStratPanel({
       />
       <PlaybookImages
         images={images}
-        selectedId={selectedImageId}
+        openId={openImageId}
         error={imageError}
         onImages={onImages}
-        onSelect={onSelectImage}
+        onOpen={onOpenImage}
         onError={onImageError}
       />
       <label className="playbook-field playbook-notes-field">

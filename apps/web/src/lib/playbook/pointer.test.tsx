@@ -25,7 +25,7 @@ function EmptyWrap() {
   const nadeTrailRef = useRef<NadeTrailDraft | null>(null);
   const videosRef = useRef<readonly PlaybookYouTube[]>([]);
   const imagesRef = useRef<readonly PlaybookImage[]>([]);
-  const selectedImageIdRef = useRef<string | null>(null);
+  const openImageIdRef = useRef<string | null>(null);
   usePlaybookPointer({
     wrapRef,
     view,
@@ -41,7 +41,7 @@ function EmptyWrap() {
     nadeTrailRef,
     videosRef,
     imagesRef,
-    selectedImageIdRef,
+    openImageIdRef,
   });
   return null;
 }

@@ -31,14 +31,13 @@ interface Props {
   selectedVideoId?: string | null;
   pendingPin?: { x: number; y: number } | null;
   pageImages?: readonly PlaybookImage[];
-  imageBitmaps?: ReadonlyMap<string, CanvasImageSource>;
   selectedImageId?: string | null;
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
   onVideos?: (videos: PlaybookYouTube[]) => void;
   onImages?: (images: PlaybookImage[]) => void;
-  onSelectImage?: (id: string | null) => void;
   onDropImages?: (files: File[], at: { x: number; y: number }) => void;
+  onOpenImage?: (id: string) => void;
   onOpenVideo?: (id: string) => void;
   onPlaceYouTube?: (at: { x: number; y: number }) => void;
   radarGray?: number;
@@ -60,8 +59,8 @@ export function PlaybookCanvas(props: Props) {
     onSelect,
     onVideos,
     onImages,
-    onSelectImage,
     onDropImages,
+    onOpenImage,
     onOpenVideo,
     onPlaceYouTube,
   } = props;
@@ -89,8 +88,8 @@ export function PlaybookCanvas(props: Props) {
   videosRef.current = videos;
   const pageImagesRef = useRef(pageImages);
   pageImagesRef.current = pageImages;
-  const selectedImageIdRef = useRef(props.selectedImageId ?? null);
-  selectedImageIdRef.current = props.selectedImageId ?? null;
+  const openImageIdRef = useRef(props.selectedImageId ?? null);
+  openImageIdRef.current = props.selectedImageId ?? null;
   const lastPaintInputs = useRef<readonly unknown[] | null>(null);
   const { images, c4Icon, nadeIcons } = useRadarImages(cal);
 
@@ -117,12 +116,12 @@ export function PlaybookCanvas(props: Props) {
     nadeTrailRef,
     videosRef,
     imagesRef: pageImagesRef,
-    selectedImageIdRef,
+    openImageIdRef,
     onNote,
     onSelect,
     onVideos,
     onImages,
-    onSelectImage,
+    onOpenImage,
     onOpenVideo,
     onPlaceYouTube,
   });
@@ -154,7 +153,6 @@ export function PlaybookCanvas(props: Props) {
         p.pendingPin ?? null,
         p.radarGray ?? DEFAULT_RADAR_GRAY,
         p.pageImages ?? [],
-        p.imageBitmaps,
         p.selectedImageId ?? null,
       );
     },
@@ -185,7 +183,6 @@ export function PlaybookCanvas(props: Props) {
         p.pendingPin?.y ?? null,
         p.pageImages,
         p.selectedImageId ?? null,
-        p.imageBitmaps,
         images.current.upper,
         images.current.lower,
         c4Icon.current,

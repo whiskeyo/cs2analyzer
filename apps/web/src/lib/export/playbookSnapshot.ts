@@ -4,7 +4,6 @@ import {
   playbookUsesLower,
   type PlaybookPaintIcons,
 } from "@/lib/playbook/paint";
-import { loadPlaybookImageBitmaps } from "@/lib/playbook/playbookImageBitmaps";
 import type { PlaybookPage } from "@/lib/playbook/types";
 import type { NadeIcons } from "@/lib/radar/draw";
 import { radarUrl } from "@/lib/radar/maps";
@@ -42,7 +41,6 @@ export function paintPlaybookSnapshot(
   img: HTMLImageElement | null | undefined,
   icons?: PlaybookPaintIcons,
   radarGray: number = DEFAULT_RADAR_GRAY,
-  imageBitmaps?: ReadonlyMap<string, CanvasImageSource>,
 ): void {
   ctx.clearRect(0, 0, size, size);
   paintPlaybookBoard(
@@ -63,7 +61,6 @@ export function paintPlaybookSnapshot(
     null,
     radarGray,
     page.images,
-    imageBitmaps,
     null,
   );
 }
@@ -124,16 +121,13 @@ export async function snapshotPlaybookPagePng(
   icons?: PlaybookPaintIcons,
   size = PLAYBOOK_PDF_RADAR_SIZE,
   radarGray: number = DEFAULT_RADAR_GRAY,
-  imageBitmaps?: ReadonlyMap<string, CanvasImageSource>,
 ): Promise<Uint8Array | null> {
-  const bitmaps =
-    imageBitmaps ?? (await loadPlaybookImageBitmaps(page.images.map((image) => image.id)));
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  paintPlaybookSnapshot(ctx, size, page, cal, img, icons, radarGray, bitmaps);
+  paintPlaybookSnapshot(ctx, size, page, cal, img, icons, radarGray);
   try {
     return await encodeCanvasPng(canvas);
   } catch {

@@ -14,6 +14,10 @@ vi.mock("@/lib/playbook/addPlaybookImages", () => ({
   ingestPlaybookImages,
 }));
 
+vi.mock("@/lib/playbook/usePlaybookImageBitmaps", () => ({
+  usePlaybookImageBitmaps: () => new Map(),
+}));
+
 function still(partial: Partial<PlaybookImage> = {}): PlaybookImage {
   return {
     id: "i1",
@@ -21,8 +25,6 @@ function still(partial: Partial<PlaybookImage> = {}): PlaybookImage {
     mime: "image/png",
     x: 0,
     y: 0,
-    width: 200,
-    height: 100,
     ...partial,
   };
 }
@@ -32,29 +34,61 @@ describe("PlaybookImages", () => {
     ingestPlaybookImages.mockReset();
   });
 
-  it("lists a thumbnail name and removes from the row", async () => {
+  it("lists a thumbnail name and removes from the row without opening", async () => {
     const onImages = vi.fn();
-    const onSelect = vi.fn();
+    const onOpen = vi.fn();
     render(
       <PlaybookImages
         images={[still()]}
-        selectedId="i1"
+        openId={null}
         error={null}
         onImages={onImages}
-        onSelect={onSelect}
+        onOpen={onOpen}
         onError={vi.fn()}
       />,
     );
     expect(screen.getByRole("button", { name: "lineup.png" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Remove lineup.png" }));
     expect(onImages).toHaveBeenCalledWith([]);
-    expect(onSelect).toHaveBeenCalledWith(null);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("opens the picture in a modal and deletes from there", async () => {
+    const onImages = vi.fn();
+    const onOpen = vi.fn();
+    const { rerender } = render(
+      <PlaybookImages
+        images={[still()]}
+        openId={null}
+        error={null}
+        onImages={onImages}
+        onOpen={onOpen}
+        onError={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "lineup.png" }));
+    expect(onOpen).toHaveBeenCalledWith("i1");
+
+    rerender(
+      <PlaybookImages
+        images={[still()]}
+        openId="i1"
+        error={null}
+        onImages={onImages}
+        onOpen={onOpen}
+        onError={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("dialog", { name: "lineup.png" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(onImages).toHaveBeenCalledWith([]);
+    expect(onOpen).toHaveBeenLastCalledWith(null);
   });
 
   it("adds a picked file and shows a type error", async () => {
     const onImages = vi.fn();
     const onError = vi.fn();
-    const onSelect = vi.fn();
+    const onOpen = vi.fn();
     ingestPlaybookImages.mockResolvedValue({
       images: [still({ id: "i2" })],
       error: PLAYBOOK_IMAGE_TYPE_ERROR,
@@ -62,10 +96,10 @@ describe("PlaybookImages", () => {
     render(
       <PlaybookImages
         images={[]}
-        selectedId={null}
+        openId={null}
         error={PLAYBOOK_IMAGE_TYPE_ERROR}
         onImages={onImages}
-        onSelect={onSelect}
+        onOpen={onOpen}
         onError={onError}
       />,
     );
@@ -75,7 +109,7 @@ describe("PlaybookImages", () => {
     fireEvent.change(input, { target: { files: [file] } });
     await waitFor(() => expect(ingestPlaybookImages).toHaveBeenCalled());
     expect(onImages).toHaveBeenCalledWith([expect.objectContaining({ id: "i2" })]);
-    expect(onSelect).toHaveBeenCalledWith("i2");
+    expect(onOpen).toHaveBeenCalledWith("i2");
     expect(onError).toHaveBeenCalledWith(PLAYBOOK_IMAGE_TYPE_ERROR);
   });
 });

@@ -28,12 +28,9 @@ export interface PlaybookImage {
   id: string;
   name: string;
   mime: PlaybookImageMime;
-  /** World XY of the image center — same space as tokens / YouTube pins. */
+  /** World XY of the photo pin — same space as tokens / YouTube pins. */
   x: number;
   y: number;
-  /** World-space size. Resize keeps the source aspect. */
-  width: number;
-  height: number;
 }
 
 export interface PlaybookPage {

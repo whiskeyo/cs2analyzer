@@ -30,7 +30,14 @@ import {
   rotateHandleOffset,
 } from "./pieces";
 import { notePawnLegend, shouldShowPawnLegend, visiblePieces, type LegendEntry } from "./legend";
-import { PLAYBOOK_IMAGE_HANDLE_PX, imageHandlePoints, imageScreenRect } from "./images";
+import {
+  PLAYBOOK_IMAGE_PIN_FRAME,
+  PLAYBOOK_IMAGE_PIN_HEIGHT,
+  PLAYBOOK_IMAGE_PIN_LAND,
+  PLAYBOOK_IMAGE_PIN_SKY,
+  PLAYBOOK_IMAGE_PIN_SUN,
+  PLAYBOOK_IMAGE_PIN_WIDTH,
+} from "./images";
 import type { PlaybookImage, PlaybookYouTube } from "./types";
 import { YOUTUBE_PIN_HEIGHT, YOUTUBE_PIN_WIDTH, YOUTUBE_PLAY, YOUTUBE_RED } from "./videos";
 
@@ -332,36 +339,67 @@ export function paintYouTubePin(
   ctx.restore();
 }
 
+export function paintPlaybookImagePin(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  selected = false,
+): void {
+  const w = PLAYBOOK_IMAGE_PIN_WIDTH;
+  const h = PLAYBOOK_IMAGE_PIN_HEIGHT;
+  const x = at.x - w / 2;
+  const y = at.y - h / 2;
+  const radius = 2;
+  ctx.save();
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(x, y, w, h, radius);
+  } else {
+    ctx.rect(x, y, w, h);
+  }
+  ctx.fillStyle = PLAYBOOK_IMAGE_PIN_FRAME;
+  ctx.fill();
+  if (selected) {
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+  }
+  const inset = 2;
+  const photoX = x + inset;
+  const photoY = y + inset;
+  const photoW = w - inset * 2;
+  const photoH = h - inset * 2 - 2;
+  ctx.beginPath();
+  ctx.rect(photoX, photoY, photoW, photoH);
+  ctx.fillStyle = PLAYBOOK_IMAGE_PIN_SKY;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(photoX + photoW * 0.72, photoY + photoH * 0.32, 1.4, 0, Math.PI * 2);
+  ctx.fillStyle = PLAYBOOK_IMAGE_PIN_SUN;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(photoX, photoY + photoH);
+  ctx.lineTo(photoX + photoW * 0.38, photoY + photoH * 0.42);
+  ctx.lineTo(photoX + photoW * 0.62, photoY + photoH * 0.68);
+  ctx.lineTo(photoX + photoW, photoY + photoH * 0.5);
+  ctx.lineTo(photoX + photoW, photoY + photoH);
+  ctx.closePath();
+  ctx.fillStyle = PLAYBOOK_IMAGE_PIN_LAND;
+  ctx.fill();
+  ctx.restore();
+}
+
 /**
- * Lineup stills sit on the map under ink, tokens, and YouTube pins so a
- * screenshot never hides a nade icon or steals those hits.
+ * Photo pins sit on the map under ink, tokens, and YouTube pins so a
+ * still never hides a nade icon or steals those hits.
  */
 export function paintPlaybookImages(
   ctx: CanvasRenderingContext2D,
   images: readonly PlaybookImage[],
   toScreen: WorldToScreen,
-  bitmaps?: ReadonlyMap<string, CanvasImageSource>,
   selectedId?: string | null,
 ): void {
   for (const image of images) {
-    const rect = imageScreenRect(image, toScreen);
-    const src = bitmaps?.get(image.id);
-    if (src) {
-      ctx.drawImage(src, rect.x, rect.y, rect.w, rect.h);
-    }
-    if (image.id !== selectedId) continue;
-    ctx.save();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.rect(rect.x, rect.y, rect.w, rect.h);
-    ctx.stroke();
-    ctx.fillStyle = "#fff";
-    const half = PLAYBOOK_IMAGE_HANDLE_PX / 2;
-    for (const [, at] of imageHandlePoints(image, toScreen)) {
-      ctx.fillRect(at.x - half, at.y - half, PLAYBOOK_IMAGE_HANDLE_PX, PLAYBOOK_IMAGE_HANDLE_PX);
-    }
-    ctx.restore();
+    paintPlaybookImagePin(ctx, toScreen(image.x, image.y), image.id === selectedId);
   }
 }
 
@@ -429,12 +467,11 @@ export function paintPlaybookBoard(
   pendingPin?: { x: number; y: number } | null,
   radarGray: number = DEFAULT_RADAR_GRAY,
   images: readonly PlaybookImage[] = [],
-  imageBitmaps?: ReadonlyMap<string, CanvasImageSource>,
   selectedImageId?: string | null,
 ): void {
   paintMapImage(ctx, w, h, view, img, cal, radarGray);
   const toScreen = (wx: number, wy: number) => worldToScreen(cal, w, h, view, wx, wy);
-  paintPlaybookImages(ctx, images, toScreen, imageBitmaps, selectedImageId);
+  paintPlaybookImages(ctx, images, toScreen, selectedImageId);
   paintDrawings(ctx, visibleDrawings(note, null), toScreen);
   if (draft) {
     paintDrawing(ctx, draft, toScreen, { alpha: 0.85, live: true });

@@ -542,9 +542,9 @@ describe("PlaybookCanvas", () => {
     expect(onOpenVideo).not.toHaveBeenCalled();
   });
 
-  it("selects, moves, resizes, erases, and drops a local still", () => {
+  it("places an image pin, opens it on click, and drags it", () => {
     const onImages = vi.fn();
-    const onSelectImage = vi.fn();
+    const onOpenImage = vi.fn();
     const onDropImages = vi.fn();
     const still = {
       id: "img-1",
@@ -552,8 +552,6 @@ describe("PlaybookCanvas", () => {
       mime: "image/png" as const,
       x: 0,
       y: 0,
-      width: 80,
-      height: 40,
     };
     const { container, rerender } = render(
       <PlaybookCanvas
@@ -562,29 +560,25 @@ describe("PlaybookCanvas", () => {
         note={emptyNote()}
         tool="pan"
         pageImages={[still]}
-        selectedImageId="img-1"
         onImages={onImages}
-        onSelectImage={onSelectImage}
+        onOpenImage={onOpenImage}
         onDropImages={onDropImages}
       />,
     );
     const wrap = sizedWrap(container);
     const center = worldToScreen(UNIT_CALIBRATION, 400, 400, identityView, 0, 0);
     fireEvent.mouseDown(wrap, { clientX: center.x, clientY: center.y, button: 0 });
-    fireEvent.mouseMove(window, { clientX: center.x + 40, clientY: center.y });
+    fireEvent.mouseUp(window);
+    expect(onOpenImage).toHaveBeenCalledWith("img-1");
+    expect(onImages).not.toHaveBeenCalled();
+
+    onOpenImage.mockClear();
+    fireEvent.mouseDown(wrap, { clientX: center.x, clientY: center.y, button: 0 });
+    fireEvent.mouseMove(window, { clientX: center.x + 30, clientY: center.y });
     fireEvent.mouseUp(window);
     expect(onImages).toHaveBeenCalled();
     expect(onImages.mock.calls.at(-1)?.[0][0].x).not.toBe(0);
-    expect(onSelectImage).toHaveBeenCalledWith("img-1");
-
-    onImages.mockClear();
-    const se = worldToScreen(UNIT_CALIBRATION, 400, 400, identityView, 40, -20);
-    fireEvent.mouseDown(wrap, { clientX: se.x, clientY: se.y, button: 0 });
-    fireEvent.mouseMove(window, { clientX: se.x + 20, clientY: se.y + 10 });
-    fireEvent.mouseUp(window);
-    expect(onImages).toHaveBeenCalled();
-    const resized = onImages.mock.calls.at(-1)?.[0][0] as { width: number; height: number };
-    expect(resized.width / resized.height).toBeCloseTo(2);
+    expect(onOpenImage).not.toHaveBeenCalled();
 
     rerender(
       <PlaybookCanvas
@@ -594,7 +588,7 @@ describe("PlaybookCanvas", () => {
         tool="eraser"
         pageImages={[still]}
         onImages={onImages}
-        onSelectImage={onSelectImage}
+        onOpenImage={onOpenImage}
         onDropImages={onDropImages}
       />,
     );

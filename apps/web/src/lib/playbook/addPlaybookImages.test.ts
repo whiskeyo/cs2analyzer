@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PLAYBOOK_IMAGE_DEFAULT_WIDTH, PLAYBOOK_IMAGE_TYPE_ERROR } from "./images";
+import { PLAYBOOK_IMAGE_TYPE_ERROR } from "./images";
 import { ingestPlaybookImages } from "./addPlaybookImages";
 import { putPlaybookImageBlob } from "./playbookImageStore";
 
@@ -31,9 +31,8 @@ describe("ingestPlaybookImages", () => {
       mime: "image/png",
       x: 12,
       y: 34,
-      width: PLAYBOOK_IMAGE_DEFAULT_WIDTH,
-      height: PLAYBOOK_IMAGE_DEFAULT_WIDTH / 2,
     });
+    expect(result.images[0]).not.toHaveProperty("width");
     expect(putPlaybookImageBlob).toHaveBeenCalled();
   });
 });

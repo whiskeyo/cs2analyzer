@@ -7,6 +7,7 @@ import {
   paintNadeTrailLine,
   paintPawnLegend,
   paintPlaybookBoard,
+  paintPlaybookImagePin,
   paintPlaybookImages,
   paintPlaybookPiece,
   paintPlaybookPieces,
@@ -373,9 +374,12 @@ describe("paintPawnLegend", () => {
 });
 
 describe("paintPlaybookImages", () => {
-  it("draws the still under tokens and outlines the selection", () => {
+  it("paints a selected photo pin at world XY", () => {
     const ctx = createMockCanvas();
-    const photo = { complete: true, naturalWidth: 80 } as HTMLImageElement;
+    paintPlaybookImagePin(ctx, { x: 20, y: 10 }, true);
+    expect(ctx.roundRect).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalled();
+    expect(ctx.stroke).toHaveBeenCalled();
     paintPlaybookImages(
       ctx,
       [
@@ -385,18 +389,13 @@ describe("paintPlaybookImages", () => {
           mime: "image/png",
           x: 10,
           y: 20,
-          width: 40,
-          height: 20,
         },
       ],
       (wx, wy) => ({ x: wx, y: wy }),
-      new Map([["i1", photo]]),
       "i1",
     );
-    expect(ctx.drawImage).toHaveBeenCalledWith(photo, -10, 10, 40, 20);
-    expect(ctx.rect).toHaveBeenCalledWith(-10, 10, 40, 20);
-    expect(ctx.stroke).toHaveBeenCalled();
-    expect(ctx.fillRect).toHaveBeenCalled();
+    expect(ctx.roundRect).toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 });
 

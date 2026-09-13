@@ -153,18 +153,11 @@ function parseImageMime(value: unknown): PlaybookImageMime | null {
     : null;
 }
 
-function parsePositiveSize(value: unknown): number | null {
-  if (!isFiniteNumber(value) || value <= 0) return null;
-  return value;
-}
-
 function parsePlaybookImage(value: unknown): PlaybookImage | null {
   if (!isRecord(value)) return null;
   const id = optionalNonEmpty(value.id);
   const mime = parseImageMime(value.mime);
-  const width = parsePositiveSize(value.width);
-  const height = parsePositiveSize(value.height);
-  if (!id || !mime || width == null || height == null) return null;
+  if (!id || !mime) return null;
   const name = optionalNonEmpty(value.name) ?? "image";
   return {
     id,
@@ -172,7 +165,5 @@ function parsePlaybookImage(value: unknown): PlaybookImage | null {
     mime,
     x: isFiniteNumber(value.x) ? value.x : 0,
     y: isFiniteNumber(value.y) ? value.y : 0,
-    width,
-    height,
   };
 }

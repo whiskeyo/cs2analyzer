@@ -1,6 +1,6 @@
 import {
   makePlaybookImage,
-  nextImageOrigin,
+  nextImagePin,
   playbookImageFilesFromList,
   readPlaybookImageFile,
 } from "./images";
@@ -16,7 +16,7 @@ export async function ingestPlaybookImages(
   const list = playbookImageFilesFromList(files);
   if (list.length === 0) return { images: [...current], error: null };
   const next = current.slice();
-  let at = origin ?? nextImageOrigin(current);
+  let at = origin ?? nextImagePin(current);
   let error: string | null = null;
   for (const file of list) {
     const decoded = await readPlaybookImageFile(file);
@@ -28,7 +28,7 @@ export async function ingestPlaybookImages(
     await putPlaybookImageBlob(image.id, decoded.blob);
     rememberPlaybookImage(image.id, decoded.blob);
     next.push(image);
-    at = nextImageOrigin(next);
+    at = nextImagePin(next);
   }
   return { images: next, error };
 }

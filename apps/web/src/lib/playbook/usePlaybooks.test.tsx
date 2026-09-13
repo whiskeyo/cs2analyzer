@@ -151,8 +151,6 @@ describe("usePlaybooks", () => {
         mime: "image/png" as const,
         x: 1,
         y: 2,
-        width: 200,
-        height: 100,
       },
     ];
     await act(async () => {

@@ -158,8 +158,6 @@ describe("exportPlaybooks / importPlaybooksFromText", () => {
         mime: "image/png",
         x: 10,
         y: 20,
-        width: 200,
-        height: 100,
       },
     ]);
     await playbookStore.savePlaybook(book);

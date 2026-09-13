@@ -257,8 +257,6 @@ describe("floor layers", () => {
       mime: "image/png" as const,
       x: 4,
       y: 5,
-      width: 200,
-      height: 100,
     };
     book = setPageLayerImages(book, id, "lower", [image]);
     expect(book.pages[0]?.images).toEqual([]);

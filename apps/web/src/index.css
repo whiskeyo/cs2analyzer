@@ -1494,6 +1494,22 @@ code {
   color: var(--accent);
   font-size: 0.85rem;
 }
+.playbook-image-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-height: min(70vh, 36rem);
+  margin: 0 0 1rem;
+  background: #000;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.playbook-image-frame img {
+  display: block;
+  max-width: 100%;
+  max-height: min(70vh, 36rem);
+}
 .playbook-books {
   list-style: none;
   margin: 0;

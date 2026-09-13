@@ -1,26 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  PLAYBOOK_IMAGE_CLICK_PX,
   PLAYBOOK_IMAGE_DECODE_ERROR,
-  PLAYBOOK_IMAGE_DEFAULT_WIDTH,
   PLAYBOOK_IMAGE_MAX_BYTES,
-  PLAYBOOK_IMAGE_MIN_WIDTH,
+  PLAYBOOK_IMAGE_PIN_STACK,
   PLAYBOOK_IMAGE_SIZE_ERROR,
-  PLAYBOOK_IMAGE_STACK,
   PLAYBOOK_IMAGE_TYPE_ERROR,
   hitTestImage,
-  hitTestImageHandle,
   imageFileName,
-  imageScreenRect,
   makePlaybookImage,
   moveImage,
-  nextImageOrigin,
+  nextImagePin,
   normalizePlaybookImageMime,
   playbookImageFilesFromList,
   readPlaybookImageFile,
   removeImage,
-  resizeImage,
-  resizeImageFromHandle,
-  scaleImageSize,
 } from "./images";
 import type { PlaybookImage } from "./types";
 
@@ -31,8 +25,6 @@ function still(partial: Partial<PlaybookImage> = {}): PlaybookImage {
     mime: "image/png",
     x: 0,
     y: 0,
-    width: 200,
-    height: 100,
     ...partial,
   };
 }
@@ -50,12 +42,9 @@ describe("normalizePlaybookImageMime", () => {
   });
 });
 
-describe("image geometry", () => {
-  it("hits the topmost still and moves / removes by id", () => {
-    const images = [
-      still({ id: "a", x: 0, y: 0 }),
-      still({ id: "b", x: 0, y: 0, width: 80, height: 40 }),
-    ];
+describe("image pin geometry", () => {
+  it("hits the topmost pin and moves / removes by id", () => {
+    const images = [still({ id: "a", x: 0, y: 0 }), still({ id: "b", x: 0, y: 0 })];
     expect(hitTestImage(images, { x: 0, y: 0 }, identity)?.id).toBe("b");
     expect(hitTestImage(images, { x: 400, y: 400 }, identity)).toBeNull();
     expect(moveImage(images, "a", 8, 9)[0]).toMatchObject({ id: "a", x: 8, y: 9 });
@@ -63,44 +52,16 @@ describe("image geometry", () => {
     expect(removeImage(images, "missing")).toEqual(images);
   });
 
-  it("maps world size through a flipped radar projection", () => {
-    const image = still({ x: 10, y: 20, width: 40, height: 20 });
-    const toScreen = (wx: number, wy: number) => ({ x: wx, y: 100 - wy });
-    expect(imageScreenRect(image, toScreen)).toEqual({ x: -10, y: 70, w: 40, h: 20 });
+  it("uses a YouTube-sized click slop constant", () => {
+    expect(PLAYBOOK_IMAGE_CLICK_PX).toBe(4);
   });
 
-  it("hits a corner handle of the selected still", () => {
-    const image = still({ width: 100, height: 50 });
-    expect(hitTestImageHandle(image, { x: 50, y: 25 }, identity)).toBe("se");
-    expect(hitTestImageHandle(image, { x: -50, y: -25 }, identity)).toBe("nw");
-    expect(hitTestImageHandle(image, { x: 0, y: 0 }, identity)).toBeNull();
-  });
-
-  it("resizes from a corner and keeps aspect", () => {
-    const image = still({ x: 0, y: 0, width: 200, height: 100 });
-    const grown = resizeImageFromHandle(image, "se", { x: 200, y: 100 });
-    expect(grown.width / grown.height).toBeCloseTo(2);
-    expect(grown.width).toBeGreaterThan(200);
-    const floor = resizeImageFromHandle(image, "se", { x: 1, y: 1 });
-    expect(floor.width).toBe(PLAYBOOK_IMAGE_MIN_WIDTH);
-    expect(floor.height).toBe(PLAYBOOK_IMAGE_MIN_WIDTH / 2);
-    const list = resizeImage([image], image.id, "nw", { x: -200, y: 100 });
-    expect(list[0]?.width / (list[0]?.height ?? 1)).toBeCloseTo(2);
-  });
-
-  it("stacks a new still after the last one", () => {
-    expect(nextImageOrigin([])).toEqual({ x: 0, y: 0 });
-    expect(nextImageOrigin([], { x: 10, y: 20 })).toEqual({ x: 10, y: 20 });
-    expect(nextImageOrigin([still({ x: 5, y: 7 })])).toEqual({
-      x: 5 + PLAYBOOK_IMAGE_STACK,
+  it("stacks a new pin after the last one", () => {
+    expect(nextImagePin([])).toEqual({ x: 0, y: 0 });
+    expect(nextImagePin([], { x: 10, y: 20 })).toEqual({ x: 10, y: 20 });
+    expect(nextImagePin([still({ x: 5, y: 7 })])).toEqual({
+      x: 5 + PLAYBOOK_IMAGE_PIN_STACK,
       y: 7,
-    });
-  });
-
-  it("scales world size from the source aspect", () => {
-    expect(scaleImageSize(800, 400)).toEqual({
-      width: PLAYBOOK_IMAGE_DEFAULT_WIDTH,
-      height: PLAYBOOK_IMAGE_DEFAULT_WIDTH / 2,
     });
     expect(imageFileName({ name: "  A smoke.png  " })).toBe("A smoke.png");
     expect(imageFileName({ name: "   " })).toBe("image");
@@ -127,7 +88,7 @@ describe("readPlaybookImageFile", () => {
     });
   });
 
-  it("reads a png and builds a still at the drop point", async () => {
+  it("reads a png and builds a pin at the drop point", async () => {
     vi.stubGlobal(
       "createImageBitmap",
       vi.fn(async () => ({ width: 800, height: 400, close: vi.fn() })),
@@ -139,17 +100,15 @@ describe("readPlaybookImageFile", () => {
     expect(decoded).toMatchObject({
       name: "lineup.png",
       mime: "image/png",
-      width: PLAYBOOK_IMAGE_DEFAULT_WIDTH,
-      height: PLAYBOOK_IMAGE_DEFAULT_WIDTH / 2,
     });
-    const stills = [makePlaybookImage(decoded, { x: 12, y: 34 }, "img-1")];
-    expect(stills[0]).toMatchObject({
+    expect(decoded).not.toHaveProperty("width");
+    const pin = makePlaybookImage(decoded, { x: 12, y: 34 }, "img-1");
+    expect(pin).toEqual({
       id: "img-1",
       name: "lineup.png",
+      mime: "image/png",
       x: 12,
       y: 34,
-      width: PLAYBOOK_IMAGE_DEFAULT_WIDTH,
-      height: PLAYBOOK_IMAGE_DEFAULT_WIDTH / 2,
     });
   });
 

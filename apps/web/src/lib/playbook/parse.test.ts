@@ -61,10 +61,10 @@ describe("parsePlaybookPage", () => {
             width: 200,
             height: 100,
           },
-          { id: "bad", mime: "image/gif", width: 10, height: 10 },
+          { id: "bad", mime: "image/gif" },
           { id: "no-size", mime: "image/png" },
         ],
-        lowerImages: [{ id: "i2", name: "lower.webp", mime: "image/webp", width: 40, height: 20 }],
+        lowerImages: [{ id: "i2", name: "lower.webp", mime: "image/webp" }],
       }),
     ).toMatchObject({
       images: [
@@ -74,13 +74,10 @@ describe("parsePlaybookPage", () => {
           mime: "image/jpeg",
           x: 8,
           y: 9,
-          width: 200,
-          height: 100,
         },
+        { id: "no-size", mime: "image/png", name: "image", x: 0, y: 0 },
       ],
-      lowerImages: [
-        { id: "i2", name: "lower.webp", mime: "image/webp", width: 40, height: 20, x: 0, y: 0 },
-      ],
+      lowerImages: [{ id: "i2", name: "lower.webp", mime: "image/webp", x: 0, y: 0 }],
     });
     expect(parsePlaybookPage({ id: "p3", floor: "nope" })?.floor).toBe("auto");
     expect(parsePlaybookPage({ id: "  " })).toBeNull();

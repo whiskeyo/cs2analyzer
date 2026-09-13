@@ -29,7 +29,6 @@ import {
   playbookFloorNote,
   playbookFloorVideos,
 } from "@/lib/playbook/pages";
-import { usePlaybookImageBitmaps } from "@/lib/playbook/usePlaybookImageBitmaps";
 import { booksWithDraft } from "@/lib/playbook/tree";
 import type { Playbook as PlaybookDoc } from "@/lib/playbook/types";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
@@ -63,6 +62,8 @@ export function Playbook() {
   const [mapName, setMapName] = useState<string | null>(null);
   const [videoPageId, setVideoPageId] = useState<string | null>(null);
   const [openVideoIdState, setOpenVideoIdState] = useState<string | null>(null);
+  const [imagePageId, setImagePageId] = useState<string | null>(null);
+  const [openImageIdState, setOpenImageIdState] = useState<string | null>(null);
   const [pendingPinState, setPendingPinState] = useState<{
     x: number;
     y: number;
@@ -111,12 +112,16 @@ export function Playbook() {
   const floorNote = page ? playbookFloorNote(page, floorLayer) : null;
   const floorVideos = page ? playbookFloorVideos(page, floorLayer) : [];
   const floorImages = page ? playbookFloorImages(page, floorLayer) : [];
-  const imageBitmaps = usePlaybookImageBitmaps(floorImages.map((image) => image.id));
   const openVideoId = videoPageId === page?.id ? openVideoIdState : null;
+  const openImageId = imagePageId === page?.id ? openImageIdState : null;
   const pendingPin = videoPageId === page?.id ? pendingPinState : null;
   const setOpenVideoId = (id: string | null) => {
     setVideoPageId(page?.id ?? null);
     setOpenVideoIdState(id);
+  };
+  const setOpenImageId = (id: string | null) => {
+    setImagePageId(page?.id ?? null);
+    setOpenImageIdState(id);
   };
   const setPendingPin = (at: { x: number; y: number } | null) => {
     setVideoPageId(page?.id ?? null);
@@ -328,21 +333,20 @@ export function Playbook() {
                   selectedVideoId={openVideoId}
                   pendingPin={pendingPin}
                   pageImages={floorImages}
-                  imageBitmaps={imageBitmaps}
-                  selectedImageId={board.visibleSelectedImageId}
+                  selectedImageId={openImageId}
                   onNote={board.commitNote}
                   onSelect={board.setSelectedId}
                   onVideos={(videos) => setVideos(page.id, videos, floorLayer)}
                   onImages={(images) => setImages(page.id, images, floorLayer)}
-                  onSelectImage={board.setSelectedImageId}
                   onDropImages={(files, at) => {
                     void ingestPlaybookImages(files, floorImages, at).then((result) => {
                       setImages(page.id, result.images, floorLayer);
                       setImageError(result.error);
                       const added = result.images[result.images.length - 1];
-                      if (added) board.setSelectedImageId(added.id);
+                      if (added) setOpenImageId(added.id);
                     });
                   }}
+                  onOpenImage={setOpenImageId}
                   onOpenVideo={setOpenVideoId}
                   onPlaceYouTube={(at) => {
                     setPendingPin(at);
@@ -367,14 +371,14 @@ export function Playbook() {
               pendingPin={pendingPin}
               onCancelPin={() => setPendingPin(null)}
               selectedId={board.visibleSelectedId}
-              selectedImageId={board.visibleSelectedImageId}
+              openImageId={openImageId}
               onBody={(body) => setBody(page.id, body)}
               onVideos={(videos) => {
                 setVideos(page.id, videos, floorLayer);
                 setPendingPin(null);
               }}
               onImages={(images) => setImages(page.id, images, floorLayer)}
-              onSelectImage={board.setSelectedImageId}
+              onOpenImage={setOpenImageId}
               imageError={imageError}
               onImageError={setImageError}
               onOpenVideo={setOpenVideoId}

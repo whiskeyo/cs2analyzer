@@ -36,15 +36,7 @@ import {
   startNadeTrail,
   type NadeTrailDraft,
 } from "./nadeTrail";
-import {
-  PLAYBOOK_IMAGE_CLICK_PX,
-  hitTestImage,
-  hitTestImageHandle,
-  moveImage,
-  removeImage,
-  resizeImage,
-  type ImageHandle,
-} from "./images";
+import { PLAYBOOK_IMAGE_CLICK_PX, hitTestImage, moveImage, removeImage } from "./images";
 import type { PlaybookImage, PlaybookYouTube } from "./types";
 import { hitTestVideo, moveVideo, removeVideo, YOUTUBE_CLICK_PX } from "./videos";
 
@@ -150,12 +142,12 @@ export function usePlaybookPointer(opts: {
   nadeTrailRef: MutableRefObject<NadeTrailDraft | null>;
   videosRef: MutableRefObject<readonly PlaybookYouTube[]>;
   imagesRef: MutableRefObject<readonly PlaybookImage[]>;
-  selectedImageIdRef: MutableRefObject<string | null>;
+  openImageIdRef: MutableRefObject<string | null>;
   onNote?: (note: Note) => void;
   onSelect?: (id: string | null) => void;
   onVideos?: (videos: PlaybookYouTube[]) => void;
   onImages?: (images: PlaybookImage[]) => void;
-  onSelectImage?: (id: string | null) => void;
+  onOpenImage?: (id: string) => void;
   onOpenVideo?: (id: string) => void;
   onPlaceYouTube?: (at: { x: number; y: number }) => void;
 }): void {
@@ -174,12 +166,12 @@ export function usePlaybookPointer(opts: {
     nadeTrailRef,
     videosRef,
     imagesRef,
-    selectedImageIdRef,
+    openImageIdRef,
     onNote,
     onSelect,
     onVideos,
     onImages,
-    onSelectImage,
+    onOpenImage,
     onOpenVideo,
     onPlaceYouTube,
   } = opts;
@@ -195,8 +187,8 @@ export function usePlaybookPointer(opts: {
   onPlaceYouTubeRef.current = onPlaceYouTube;
   const onImagesRef = useRef(onImages);
   onImagesRef.current = onImages;
-  const onSelectImageRef = useRef(onSelectImage);
-  onSelectImageRef.current = onSelectImage;
+  const onOpenImageRef = useRef(onOpenImage);
+  onOpenImageRef.current = onOpenImage;
 
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -205,7 +197,6 @@ export function usePlaybookPointer(opts: {
     let drawingDrag: DrawingDrag | null = null;
     let videoDrag: (PieceDrag & { sx: number; sy: number; moved: boolean }) | null = null;
     let imageDrag: (PieceDrag & { sx: number; sy: number; moved: boolean }) | null = null;
-    let imageResize: { id: string; handle: ImageHandle } | null = null;
 
     const pos = (e: MouseEvent | WheelEvent) => wrapLocalPoint(wrap, e);
 
@@ -246,13 +237,6 @@ export function usePlaybookPointer(opts: {
         }
       }
       const videoHit = hitTestVideo(videosRef.current, { x, y }, toScreen);
-      const selectedImage = selectedImageIdRef.current
-        ? (imagesRef.current.find((row) => row.id === selectedImageIdRef.current) ?? null)
-        : null;
-      const handleHit =
-        toolRef.current === "pan" && selectedImage
-          ? hitTestImageHandle(selectedImage, { x, y }, toScreen)
-          : null;
       const imageHit = hitTestImage(imagesRef.current, { x, y }, toScreen);
       const hit = hitTestPiece(visiblePieces(noteRef.current), { x, y }, toScreen);
       const action = resolvePlaybookDown(toolRef.current, hit, e.shiftKey, nadeTrailOnRef.current);
@@ -264,7 +248,6 @@ export function usePlaybookPointer(opts: {
         }
         if (imageHit && onImagesRef.current) {
           onImagesRef.current(removeImage(imagesRef.current, imageHit.id));
-          onSelectImageRef.current?.(null);
           gizmoRef.current = null;
           return;
         }
@@ -318,13 +301,6 @@ export function usePlaybookPointer(opts: {
         gizmoRef.current = null;
         return;
       }
-      if (toolRef.current === "pan" && handleHit && selectedImage && cal) {
-        imageResize = { id: selectedImage.id, handle: handleHit };
-        onSelectImageRef.current?.(selectedImage.id);
-        onSelectRef.current?.(null);
-        gizmoRef.current = null;
-        return;
-      }
       if (toolRef.current === "pan" && videoHit && cal) {
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         videoDrag = {
@@ -339,15 +315,7 @@ export function usePlaybookPointer(opts: {
         gizmoRef.current = null;
         return;
       }
-      if ((action === "move" || action === "rotate") && hit && cal) {
-        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
-        pieceDrag = pieceDragAt(hit, world, action === "rotate");
-        onSelectRef.current?.(hit.id);
-        onSelectImageRef.current?.(null);
-        if (hit.id !== gizmoRef.current) gizmoRef.current = null;
-        return;
-      }
-      if (toolRef.current === "pan" && !hit && imageHit && cal) {
+      if (toolRef.current === "pan" && imageHit && cal) {
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         imageDrag = {
           id: imageHit.id,
@@ -358,9 +326,14 @@ export function usePlaybookPointer(opts: {
           sy: y,
           moved: false,
         };
-        onSelectImageRef.current?.(imageHit.id);
-        onSelectRef.current?.(null);
         gizmoRef.current = null;
+        return;
+      }
+      if ((action === "move" || action === "rotate") && hit && cal) {
+        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
+        pieceDrag = pieceDragAt(hit, world, action === "rotate");
+        onSelectRef.current?.(hit.id);
+        if (hit.id !== gizmoRef.current) gizmoRef.current = null;
         return;
       }
       if (action === "pan" && cal && onNoteRef.current) {
@@ -377,7 +350,6 @@ export function usePlaybookPointer(opts: {
       gizmoRef.current = null;
       beginPlaybookPan(view.current, x, y);
       if (!hit) onSelectRef.current?.(null);
-      if (!imageHit) onSelectImageRef.current?.(null);
     };
 
     const onDblClick = (e: MouseEvent) => {
@@ -402,13 +374,6 @@ export function usePlaybookPointer(opts: {
       if (draftRef.current && cal) {
         const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
         draftRef.current = extendDraft(draftRef.current, world);
-        return;
-      }
-      if (imageResize && cal && onImagesRef.current) {
-        const world = screenToWorld(cal, wrap.clientWidth, wrap.clientHeight, view.current, x, y);
-        onImagesRef.current(
-          resizeImage(imagesRef.current, imageResize.id, imageResize.handle, world),
-        );
         return;
       }
       if (imageDrag && cal && onImagesRef.current) {
@@ -482,11 +447,13 @@ export function usePlaybookPointer(opts: {
       if (videoDrag && !videoDrag.moved) {
         onOpenVideoRef.current?.(videoDrag.id);
       }
+      if (imageDrag && !imageDrag.moved) {
+        onOpenImageRef.current?.(imageDrag.id);
+      }
       pieceDrag = null;
       drawingDrag = null;
       videoDrag = null;
       imageDrag = null;
-      imageResize = null;
       endPlaybookPan(view.current);
     };
 
@@ -496,12 +463,11 @@ export function usePlaybookPointer(opts: {
         return;
       }
       if (e.key !== "Delete" && e.key !== "Backspace") return;
-      const selected = selectedImageIdRef.current;
+      const selected = openImageIdRef.current;
       if (!selected || !onImagesRef.current) return;
       if (typingTarget(e.target)) return;
       e.preventDefault();
       onImagesRef.current(removeImage(imagesRef.current, selected));
-      onSelectImageRef.current?.(null);
     };
 
     wrap.addEventListener("wheel", onWheel, { passive: false });
@@ -535,7 +501,7 @@ export function usePlaybookPointer(opts: {
     nadeTrailRef,
     videosRef,
     imagesRef,
-    selectedImageIdRef,
+    openImageIdRef,
   ]);
 }
 

@@ -87,7 +87,6 @@ describe("paintPlaybookSnapshot", () => {
       null,
       DEFAULT_RADAR_GRAY,
       page.images,
-      undefined,
       null,
     );
   });
@@ -123,7 +122,6 @@ describe("paintPlaybookSnapshot", () => {
       null,
       DEFAULT_RADAR_GRAY,
       page.images,
-      undefined,
       null,
     );
   });
@@ -154,7 +152,6 @@ describe("paintPlaybookSnapshot", () => {
       null,
       DEFAULT_RADAR_GRAY,
       page.images,
-      undefined,
       null,
     );
   });
@@ -181,12 +178,11 @@ describe("paintPlaybookSnapshot", () => {
       null,
       RADAR_GRAY_MIN,
       page.images,
-      undefined,
       null,
     );
   });
 
-  it("forwards floor stills into the board paint", () => {
+  it("forwards floor image pins into the board paint", () => {
     const ctx = createMockCanvas();
     const page = newPage("A exec", "upper");
     page.images = [
@@ -196,13 +192,9 @@ describe("paintPlaybookSnapshot", () => {
         mime: "image/png",
         x: 8,
         y: 9,
-        width: 200,
-        height: 100,
       },
     ];
-    const photo = { src: "blob:lineup" } as HTMLImageElement;
-    const bitmaps = new Map<string, CanvasImageSource>([["i1", photo]]);
-    paintPlaybookSnapshot(ctx, 240, page, UNIT_CALIBRATION, null, undefined, DEFAULT_RADAR_GRAY, bitmaps);
+    paintPlaybookSnapshot(ctx, 240, page, UNIT_CALIBRATION, null);
     expect(paintPlaybookBoard).toHaveBeenCalledWith(
       ctx,
       240,
@@ -221,7 +213,6 @@ describe("paintPlaybookSnapshot", () => {
       null,
       DEFAULT_RADAR_GRAY,
       page.images,
-      bitmaps,
       null,
     );
   });
