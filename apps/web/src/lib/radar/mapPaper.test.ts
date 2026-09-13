@@ -52,8 +52,12 @@ describe("mapPixelIsContent", () => {
   });
 });
 
+function isInk(data: ImageData, x: number, y: number): boolean {
+  return rgbaAt(data, x, y)[3] === MAP_OUTLINE_INK.a;
+}
+
 describe("mapOutlineImageData", () => {
-  it("traces the outer silhouette of a content island", () => {
+  it("traces a 1px silhouette and does not bleed into empty padding", () => {
     // 5×5: empty padding around a 3×3 gray floor.
     const gray = [70, 70, 70, 255];
     const empty = [0, 0, 0, 0];
@@ -68,25 +72,32 @@ describe("mapOutlineImageData", () => {
     const out = mapOutlineImageData(src);
     const ink = [MAP_OUTLINE_INK.r, MAP_OUTLINE_INK.g, MAP_OUTLINE_INK.b, MAP_OUTLINE_INK.a];
     expect(rgbaAt(out, 1, 1)).toEqual(ink);
-    expect(rgbaAt(out, 2, 0)).toEqual(ink);
+    expect(rgbaAt(out, 2, 1)).toEqual(ink);
+    expect(rgbaAt(out, 2, 0)).toEqual([0, 0, 0, 0]);
     expect(rgbaAt(out, 0, 0)).toEqual([0, 0, 0, 0]);
+    expect(isInk(out, 2, 2)).toBe(false);
   });
 
-  it("marks an interior wall as ink on a uniform floor", () => {
-    // 5×5 gray floor with a white vertical wall down the middle.
+  it("marks an interior wall as a 1px ridge, not a dilated band", () => {
     const floor = [60, 60, 60, 255];
     const wall = [240, 240, 240, 255];
-    const row = (mid: number[]) => [...floor, ...floor, ...mid, ...floor, ...floor].flat();
-    const src = imageData(5, 5, [
-      ...row(wall),
-      ...row(wall),
-      ...row(wall),
-      ...row(wall),
-      ...row(wall),
-    ]);
+    const row = [...floor, ...floor, ...floor, ...wall, ...floor, ...floor, ...floor];
+    const src = imageData(7, 7, [...row, ...row, ...row, ...row, ...row, ...row, ...row]);
     const out = mapOutlineImageData(src);
-    expect(rgbaAt(out, 2, 2)[3]).toBe(MAP_OUTLINE_INK.a);
-    expect(rgbaAt(out, 2, 2)[0]).toBe(MAP_OUTLINE_INK.r);
+    expect(isInk(out, 3, 3)).toBe(true);
+    expect(rgbaAt(out, 3, 3)[0]).toBe(MAP_OUTLINE_INK.r);
+    expect(isInk(out, 1, 3)).toBe(false);
+  });
+
+  it("does not fill a one-pixel corridor between two walls", () => {
+    const floor = [60, 60, 60, 255];
+    const wall = [240, 240, 240, 255];
+    const row = [...floor, ...floor, ...wall, ...floor, ...wall, ...floor, ...floor];
+    const src = imageData(7, 5, [...row, ...row, ...row, ...row, ...row]);
+    const out = mapOutlineImageData(src);
+    expect(isInk(out, 2, 2)).toBe(true);
+    expect(isInk(out, 4, 2)).toBe(true);
+    expect(isInk(out, 3, 2)).toBe(false);
   });
 });
 

@@ -56,15 +56,44 @@ export function withRadarMapPaper(ctx: CanvasRenderingContext2D, draw: () => voi
   ctx.filter = previous;
 }
 
+function sobelAt(
+  lumaAt: (x: number, y: number) => number,
+  x: number,
+  y: number,
+): { gx: number; gy: number; mag: number } {
+  const gx =
+    -lumaAt(x - 1, y - 1) +
+    lumaAt(x + 1, y - 1) +
+    -2 * lumaAt(x - 1, y) +
+    2 * lumaAt(x + 1, y) +
+    -lumaAt(x - 1, y + 1) +
+    lumaAt(x + 1, y + 1);
+  const gy =
+    -lumaAt(x - 1, y - 1) -
+    2 * lumaAt(x, y - 1) -
+    lumaAt(x + 1, y - 1) +
+    lumaAt(x - 1, y + 1) +
+    2 * lumaAt(x, y + 1) +
+    lumaAt(x + 1, y + 1);
+  return { gx, gy, mag: Math.hypot(gx, gy) };
+}
+
 /**
  * Interior walls (luma Sobel) plus the outer map silhouette. Output is dark
  * ink on a transparent canvas so it can sit on the inverted PNG.
+ *
+ * Valve walls are anti-aliased, so a raw Sobel band is already 2–3px. A
+ * dilate on top of that fills corridors. Keep a 1px ridge on the bright
+ * (wall) side of each edge — no dilation.
  */
 export function mapOutlineImageData(src: ImageData): ImageData {
   const { width: w, height: h, data } = src;
   const dest = new Uint8ClampedArray(w * h * 4);
   const ink = MAP_OUTLINE_INK;
   const mark = new Uint8Array(w * h);
+  const mag = new Float32Array(w * h);
+  const gradX = new Float32Array(w * h);
+  const gradY = new Float32Array(w * h);
 
   const lumaAt = (x: number, y: number): number => {
     const i = (y * w + x) * 4;
@@ -76,59 +105,60 @@ export function mapOutlineImageData(src: ImageData): ImageData {
     return mapPixelIsContent(data[i], data[i + 1], data[i + 2], data[i + 3]);
   };
 
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      if (!contentAt(x, y)) continue;
+      const edge = sobelAt(lumaAt, x, y);
+      if (edge.mag < MAP_OUTLINE_SOBEL_MIN) continue;
+      const i = y * w + x;
+      mag[i] = edge.mag;
+      gradX[i] = edge.gx;
+      gradY[i] = edge.gy;
+    }
+  }
+
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      const m = mag[i];
+      if (m <= 0) continue;
+      const gx = gradX[i];
+      const gy = gradY[i];
+      const alongX = Math.abs(gx) >= Math.abs(gy);
+      const a = alongX ? mag[i - 1] : mag[i - w];
+      const b = alongX ? mag[i + 1] : mag[i + w];
+      if (a > m || b > m) continue;
+      // Soft AA fires on the floor beside a 1px wall. Snap ink onto the
+      // brighter ridge so corridors stay open and the line sits on the wall.
+      let inkX = x;
+      let inkY = y;
+      const brightX = x + Math.sign(gx);
+      const brightY = y + Math.sign(gy);
+      if (contentAt(brightX, brightY) && lumaAt(brightX, brightY) > lumaAt(x, y)) {
+        inkX = brightX;
+        inkY = brightY;
+      }
+      mark[inkY * w + inkX] = 1;
+    }
+  }
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
-      const content = contentAt(x, y);
-      if (!content) continue;
-      const silhouette =
+      if (!contentAt(x, y)) continue;
+      if (
         !contentAt(x - 1, y) ||
         !contentAt(x + 1, y) ||
         !contentAt(x, y - 1) ||
-        !contentAt(x, y + 1);
-      let wall = false;
-      if (x > 0 && y > 0 && x < w - 1 && y < h - 1) {
-        const gx =
-          -lumaAt(x - 1, y - 1) +
-          lumaAt(x + 1, y - 1) +
-          -2 * lumaAt(x - 1, y) +
-          2 * lumaAt(x + 1, y) +
-          -lumaAt(x - 1, y + 1) +
-          lumaAt(x + 1, y + 1);
-        const gy =
-          -lumaAt(x - 1, y - 1) -
-          2 * lumaAt(x, y - 1) -
-          lumaAt(x + 1, y - 1) +
-          lumaAt(x - 1, y + 1) +
-          2 * lumaAt(x, y + 1) +
-          lumaAt(x + 1, y + 1);
-        wall = Math.hypot(gx, gy) >= MAP_OUTLINE_SOBEL_MIN;
-      }
-      if (silhouette || wall) {
+        !contentAt(x, y + 1)
+      ) {
         mark[i] = 1;
       }
     }
   }
 
-  // One-pixel dilate so thin Valve walls survive PDF downscale.
-  const dilated = new Uint8Array(mark);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      if (mark[i]) continue;
-      if (
-        (x > 0 && mark[i - 1]) ||
-        (x < w - 1 && mark[i + 1]) ||
-        (y > 0 && mark[i - w]) ||
-        (y < h - 1 && mark[i + w])
-      ) {
-        dilated[i] = 1;
-      }
-    }
-  }
-
-  for (let i = 0; i < dilated.length; i++) {
-    if (!dilated[i]) continue;
+  for (let i = 0; i < mark.length; i++) {
+    if (!mark[i]) continue;
     const p = i * 4;
     dest[p] = ink.r;
     dest[p + 1] = ink.g;
