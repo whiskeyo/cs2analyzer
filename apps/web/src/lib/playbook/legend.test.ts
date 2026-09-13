@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import { makePiece } from "./pieces";
-import { pawnLegend, shouldShowPawnLegend, visiblePieces } from "./legend";
+import { notePawnLegend, pawnLegend, shouldShowPawnLegend, visiblePieces } from "./legend";
 
 describe("pawnLegend", () => {
   it("lists unique labeled pawns and hides overlapping names", () => {
@@ -17,6 +17,23 @@ describe("pawnLegend", () => {
       { label: "m0NESY", color: "#00f0ff" },
     ]);
     expect(shouldShowPawnLegend([makePiece("pawn", 0, 0, { label: "donk" })])).toBe(false);
+  });
+});
+
+describe("notePawnLegend", () => {
+  it("uses the given note and skips a single labeled pawn", () => {
+    const note = emptyNote();
+    note.pieces.push(
+      makePiece("pawn", 0, 0, { label: "donk", color: "#ff2d6a" }),
+      makePiece("pawn", 1, 0, { label: "m0NESY", color: "#00f0ff" }),
+    );
+    expect(notePawnLegend(note)).toEqual([
+      { label: "donk", color: "#ff2d6a" },
+      { label: "m0NESY", color: "#00f0ff" },
+    ]);
+    const one = emptyNote();
+    one.pieces.push(makePiece("pawn", 0, 0, { label: "donk" }));
+    expect(notePawnLegend(one)).toEqual([]);
   });
 });
 

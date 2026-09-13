@@ -37,3 +37,9 @@ export function shouldShowPawnLegend(pieces: readonly Piece[]): boolean {
   }
   return false;
 }
+
+/** Colour → name rows for the current floor note (hidden groups omitted). */
+export function notePawnLegend(note: Note): LegendEntry[] {
+  const pieces = visiblePieces(note);
+  return shouldShowPawnLegend(pieces) ? pawnLegend(pieces) : [];
+}

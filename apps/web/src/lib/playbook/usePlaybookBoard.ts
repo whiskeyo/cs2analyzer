@@ -7,7 +7,8 @@ import {
   PLAYBOOK_TOOL_KEYS,
   typingInField,
 } from "./hotkeys";
-import { pawnLegend, shouldShowPawnLegend, visiblePieces } from "./legend";
+import { notePawnLegend, visiblePieces } from "./legend";
+import { playbookFloorNote, type PlaybookFloorLayer } from "./pages";
 import type { PlaybookTool } from "./pieces";
 import type { Playbook, PlaybookPage } from "./types";
 import type { useNoteHistory } from "./history";
@@ -21,11 +22,12 @@ type NoteHistory = ReturnType<typeof useNoteHistory>;
 export function usePlaybookBoard(opts: {
   book: Playbook | null;
   page: PlaybookPage | null;
+  floorLayer?: PlaybookFloorLayer;
   history: NoteHistory;
   setNote: (note: Note) => void;
   setPalette: (paletteId: string, color?: string) => void;
 }) {
-  const { book, page, history, setNote, setPalette } = opts;
+  const { book, page, floorLayer = "upper", history, setNote, setPalette } = opts;
   const [tool, setTool] = useState<PlaybookTool>("pan");
   const [nadeTrail, setNadeTrail] = useState(false);
   const [nadeStyle, setNadeStyle] = useState<NadeStyle>("icon");
@@ -103,11 +105,12 @@ export function usePlaybookBoard(opts: {
     return () => window.removeEventListener("keydown", onKey);
   }, [book, redo, resetView, setPalette, undo]);
 
-  const visibleSelectedId = page?.note.pieces.some((piece) => piece.id === selectedId)
+  const boardNote = page ? playbookFloorNote(page, floorLayer) : null;
+  const visibleSelectedId = boardNote?.pieces.some((piece) => piece.id === selectedId)
     ? selectedId
     : null;
-  const boardPieces = page ? visiblePieces(page.note) : [];
-  const legend = shouldShowPawnLegend(boardPieces) ? pawnLegend(boardPieces) : [];
+  const boardPieces = boardNote ? visiblePieces(boardNote) : [];
+  const legend = boardNote ? notePawnLegend(boardNote) : [];
 
   return {
     tool,

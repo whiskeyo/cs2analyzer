@@ -29,7 +29,7 @@ import {
   PLAYBOOK_ROTATE_RADIUS_PX,
   rotateHandleOffset,
 } from "./pieces";
-import { shouldShowPawnLegend, visiblePieces } from "./legend";
+import { notePawnLegend, shouldShowPawnLegend, visiblePieces, type LegendEntry } from "./legend";
 import type { PlaybookYouTube } from "./types";
 import { YOUTUBE_PIN_HEIGHT, YOUTUBE_PIN_WIDTH, YOUTUBE_PLAY, YOUTUBE_RED } from "./videos";
 
@@ -38,6 +38,63 @@ export const PLAYBOOK_NADE_TRAIL_OPACITY = 0.4;
 
 /** Bounce dots only for short hand-placed trails, not dense demo samples. */
 export const PLAYBOOK_NADE_BOUNCE_DOT_MAX = 6;
+
+/** Screen-space inset so the pawn legend sits off the map art. */
+export const PLAYBOOK_LEGEND_INSET = 10;
+const PLAYBOOK_LEGEND_PAD_X = 10;
+const PLAYBOOK_LEGEND_PAD_Y = 8;
+const PLAYBOOK_LEGEND_ROW = 18;
+const PLAYBOOK_LEGEND_SWATCH = 8;
+const PLAYBOOK_LEGEND_GAP = 8;
+const PLAYBOOK_LEGEND_FONT = "11px ui-sans-serif, system-ui";
+const PLAYBOOK_LEGEND_BG = "#10161ce6";
+const PLAYBOOK_LEGEND_BORDER = "#2a3540";
+const PLAYBOOK_LEGEND_TEXT = "#e8eef4";
+
+/** Colour → name rows in a corner; used by the board and PDF stills. */
+export function paintPawnLegend(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  entries: readonly LegendEntry[],
+): void {
+  if (entries.length === 0) return;
+  ctx.save();
+  ctx.font = PLAYBOOK_LEGEND_FONT;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  let textW = 0;
+  for (const entry of entries) {
+    textW = Math.max(textW, ctx.measureText(entry.label).width);
+  }
+  const boxW = PLAYBOOK_LEGEND_PAD_X * 2 + PLAYBOOK_LEGEND_SWATCH + PLAYBOOK_LEGEND_GAP + textW;
+  const boxH = PLAYBOOK_LEGEND_PAD_Y * 2 + entries.length * PLAYBOOK_LEGEND_ROW;
+  const x = Math.max(0, Math.min(PLAYBOOK_LEGEND_INSET, w - boxW));
+  const y = Math.max(0, Math.min(PLAYBOOK_LEGEND_INSET, h - boxH));
+  ctx.fillStyle = PLAYBOOK_LEGEND_BG;
+  ctx.strokeStyle = PLAYBOOK_LEGEND_BORDER;
+  ctx.lineWidth = 1;
+  if (typeof ctx.roundRect === "function") {
+    ctx.beginPath();
+    ctx.roundRect(x, y, boxW, boxH, 6);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.fillRect(x, y, boxW, boxH);
+    ctx.strokeRect(x, y, boxW, boxH);
+  }
+  entries.forEach((entry, i) => {
+    const rowY = y + PLAYBOOK_LEGEND_PAD_Y + i * PLAYBOOK_LEGEND_ROW + PLAYBOOK_LEGEND_ROW / 2;
+    const swatchX = x + PLAYBOOK_LEGEND_PAD_X + PLAYBOOK_LEGEND_SWATCH / 2;
+    ctx.fillStyle = entry.color;
+    ctx.beginPath();
+    ctx.arc(swatchX, rowY, PLAYBOOK_LEGEND_SWATCH / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = PLAYBOOK_LEGEND_TEXT;
+    ctx.fillText(entry.label, swatchX + PLAYBOOK_LEGEND_SWATCH / 2 + PLAYBOOK_LEGEND_GAP, rowY);
+  });
+  ctx.restore();
+}
 
 function circle(ctx: CanvasRenderingContext2D, at: { x: number; y: number }, radius: number): void {
   ctx.beginPath();
@@ -378,4 +435,5 @@ export function paintPlaybookBoard(
     );
   }
   paintYouTubePins(ctx, videos, toScreen, selectedVideoId, pendingPin);
+  paintPawnLegend(ctx, w, h, notePawnLegend(note));
 }

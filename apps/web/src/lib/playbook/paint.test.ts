@@ -5,6 +5,7 @@ import { createMockCanvas } from "@/lib/testing/mockCanvas";
 import {
   paintNadeEffect,
   paintNadeTrailLine,
+  paintPawnLegend,
   paintPlaybookBoard,
   paintPlaybookPiece,
   paintPlaybookPieces,
@@ -187,7 +188,10 @@ describe("paintPlaybookBoard", () => {
       y,
     }));
     paintNadeTrailLine(ctx, [], { x: 1, y: 1 }, "smoke", (x, y) => ({ x, y }));
-    paintPlaybookPieces(ctx, [makePiece("he", 6, 6, { id: "h" })], (x, y) => ({ x, y }));
+    paintPlaybookPieces(ctx, [makePiece("he", 6, 6, { id: "h" })], (x, y) => ({
+      x,
+      y,
+    }));
     paintPlaybookPiece(
       ctx,
       { id: "raw", kind: "pawn", x: 0, y: 0 },
@@ -224,7 +228,10 @@ describe("paintPlaybookBoard", () => {
   it("paints nade flights as a solid line, not a dotted sample path", () => {
     const dense = createMockCanvas();
     const points = Array.from({ length: 12 }, (_, i) => ({ x: i, y: i }));
-    paintNadeTrailLine(dense, points, { x: 12, y: 12 }, "he", (x, y) => ({ x, y }));
+    paintNadeTrailLine(dense, points, { x: 12, y: 12 }, "he", (x, y) => ({
+      x,
+      y,
+    }));
     expect(dense.setLineDash).toHaveBeenCalledWith([]);
     expect(dense.stroke).toHaveBeenCalled();
     expect(dense.fill).not.toHaveBeenCalled();
@@ -331,6 +338,36 @@ describe("paintPlaybookBoard", () => {
     expect(ctx.setLineDash).toHaveBeenCalledWith([]);
     paintRotateGizmo(ctx, { x: 10, y: 20 }, 90, "#5b9fd6");
     expect(ctx.arc).toHaveBeenCalledWith(10, 20, PLAYBOOK_ROTATE_RADIUS_PX, 0, Math.PI * 2);
+  });
+});
+
+describe("paintPawnLegend", () => {
+  it("paints unique tinted names after an aggregated snapshot", () => {
+    const ctx = createMockCanvas();
+    const note = emptyNote();
+    note.pieces.push(
+      makePiece("pawn", 0, 0, { id: "a", label: "donk", color: "#ff2d6a" }),
+      makePiece("pawn", 4, 0, { id: "b", label: "donk", color: "#ff2d6a" }),
+      makePiece("pawn", 8, 0, { id: "c", label: "m0NESY", color: "#00f0ff" }),
+      makePiece("pawn", 12, 0, { id: "d", side: "CT" }),
+    );
+    paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, null, UNIT_CALIBRATION, note);
+    const names = ctx.fillText.mock.calls.map((call) => call[0]);
+    expect(names).toContain("donk");
+    expect(names).toContain("m0NESY");
+    expect(names.filter((name) => name === "donk")).toHaveLength(1);
+    expect(names.filter((name) => name === "m0NESY")).toHaveLength(1);
+  });
+
+  it("skips the panel when fewer than two pawns have names", () => {
+    const ctx = createMockCanvas();
+    paintPawnLegend(ctx, 400, 400, []);
+    expect(ctx.fillText).not.toHaveBeenCalled();
+    const note = emptyNote();
+    note.pieces.push(makePiece("pawn", 0, 0, { id: "p", label: "donk", color: "#ff2d6a" }));
+    paintPlaybookBoard(ctx, 400, 400, { scale: 1, ox: 0, oy: 0 }, null, UNIT_CALIBRATION, note);
+    expect(ctx.fillText).toHaveBeenCalledWith("donk", expect.any(Number), expect.any(Number));
+    expect(ctx.roundRect).not.toHaveBeenCalled();
   });
 });
 

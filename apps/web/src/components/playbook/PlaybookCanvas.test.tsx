@@ -185,6 +185,23 @@ describe("PlaybookCanvas", () => {
     expect(wrap).toBeInTheDocument();
   });
 
+  it("lists pawn colours in the HTML overlay", () => {
+    const { getByLabelText } = render(
+      <PlaybookCanvas
+        cal={UNIT_CALIBRATION}
+        floorMode="auto"
+        note={emptyNote()}
+        legend={[
+          { label: "donk", color: "#ff2d6a" },
+          { label: "m0NESY", color: "#00f0ff" },
+        ]}
+      />,
+    );
+    const list = getByLabelText("Player colours");
+    expect(list).toHaveTextContent("donk");
+    expect(list).toHaveTextContent("m0NESY");
+  });
+
   it("skips the loop when the canvas has no 2d context", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     render(<PlaybookCanvas cal={UNIT_CALIBRATION} floorMode="auto" note={emptyNote()} />);
