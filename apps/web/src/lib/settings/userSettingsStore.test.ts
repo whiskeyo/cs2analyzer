@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_RADAR_GRAY,
   PARSE_POOL_MAX,
+  RADAR_GRAY_MIN,
   SAVED_NOTES_PAGE_SIZE,
   SIDEBAR_DEFAULT_WIDTH,
 } from "@/lib/shared/constants";
@@ -59,6 +61,13 @@ describe("userSettingsStore without indexedDB", () => {
     expect((await resetUserSettings()).pdfTheme).toBe("dark");
   });
 
+  it("round-trips radarGray and reset restores full gray", async () => {
+    expect((await loadUserSettings()).radarGray).toBe(DEFAULT_RADAR_GRAY);
+    await saveUserSettings({ radarGray: RADAR_GRAY_MIN });
+    expect((await loadUserSettings()).radarGray).toBe(RADAR_GRAY_MIN);
+    expect((await resetUserSettings()).radarGray).toBe(DEFAULT_RADAR_GRAY);
+  });
+
   it("keeps overlapping patches instead of last-write-wins on a stale load", async () => {
     await Promise.all([
       saveUserSettings({ seriesMaxFiles: 3 }),
@@ -77,6 +86,7 @@ describe("userSettingsStore without indexedDB", () => {
     expect(reset.sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
     expect(reset.savedNotesPageSize).toBe(SAVED_NOTES_PAGE_SIZE);
     expect(reset.pdfTheme).toBe("dark");
+    expect(reset.radarGray).toBe(DEFAULT_RADAR_GRAY);
     expect((await loadUserSettings()).sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
   });
 

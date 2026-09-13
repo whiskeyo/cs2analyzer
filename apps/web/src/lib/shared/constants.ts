@@ -65,6 +65,12 @@ export const FIRST_OVERTIME_ROUND = 25;
 /** CS2 OT freeze money per player (no pistol round in OT). */
 export const OVERTIME_START_MONEY = 10000;
 
+/** Radar map PNG desaturate: 0 = original color, 1 = full gray. */
+export const RADAR_GRAY_MIN = 0;
+export const RADAR_GRAY_MAX = 1;
+/** Shipped look: HSV-style desaturate on the map PNG only. */
+export const DEFAULT_RADAR_GRAY = 1;
+
 /** Floor for the user-settings series drop cap. */
 export const SERIES_MIN_FILES = 2;
 
