@@ -11,6 +11,13 @@ import {
 import { radarFloor, worldToScreen, type RadarView } from "@/lib/radar/maps";
 import { NADE_COLORS } from "@/lib/radar/radarFx";
 import { NADE_LINGER_RADIUS, type RadarFrame } from "@/lib/radar/radarFrame";
+import {
+  OVERLAY_CHEVRON_OUTLINE,
+  applyOverlayStrokeStyle,
+  overlayChevronPath,
+  overlayMarkerSize,
+  overlayStrokeWidth,
+} from "@/lib/radar/overlayStroke";
 import { paintPawns, paintRadarFrame, paintViewCone } from "@/lib/radar/paintRadarFrame";
 import {
   paintDrawing,
@@ -126,7 +133,7 @@ export function paintNadeTrailLine(
   ctx.save();
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.lineWidth = kind === "he" ? 2.2 : 1.8;
+  applyOverlayStrokeStyle(ctx, overlayStrokeWidth(kind === "he" ? 2.2 : 1.8));
   ctx.setLineDash([]);
   ctx.globalAlpha = PLAYBOOK_NADE_TRAIL_OPACITY;
   ctx.beginPath();
@@ -186,6 +193,7 @@ function paintPlaybookPawn(
   c4Icon: HTMLImageElement | null,
   selected: boolean,
   hideName = false,
+  zoom = 1,
 ): void {
   const color = piece.color ?? pawnColor(piece.side);
   const alive = piece.alive !== false;
@@ -193,21 +201,16 @@ function paintPlaybookPawn(
   ctx.save();
   ctx.translate(at.x, at.y);
   ctx.rotate(yawToCanvas(piece.yaw ?? 0));
-  ctx.beginPath();
-  const size = selected ? PLAYBOOK_PAWN_SIZE + 2 : PLAYBOOK_PAWN_SIZE;
-  ctx.moveTo(size + 2, 0);
-  ctx.lineTo(-size * 0.7, size * 0.7);
-  ctx.lineTo(-size * 0.35, 0);
-  ctx.lineTo(-size * 0.7, -size * 0.7);
-  ctx.closePath();
+  const size = overlayMarkerSize(selected ? PLAYBOOK_PAWN_SIZE + 2 : PLAYBOOK_PAWN_SIZE, zoom);
+  overlayChevronPath(ctx, size);
   ctx.strokeStyle = "#0b0e12";
-  ctx.lineWidth = 2;
+  applyOverlayStrokeStyle(ctx, overlayStrokeWidth(OVERLAY_CHEVRON_OUTLINE, zoom));
   ctx.stroke();
   ctx.fillStyle = color;
   ctx.fill();
   if (selected) {
     ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1.4;
+    applyOverlayStrokeStyle(ctx, overlayStrokeWidth(1.4, zoom));
     ctx.stroke();
   }
   ctx.restore();
@@ -277,7 +280,7 @@ export function paintPlaybookPiece(
 ): void {
   const at = toScreen(piece.x, piece.y);
   if (piece.kind === "pawn") {
-    paintPlaybookPawn(ctx, piece, at, icons?.c4 ?? null, selected, hidePawnNames);
+    paintPlaybookPawn(ctx, piece, at, icons?.c4 ?? null, selected, hidePawnNames, scale);
     return;
   }
   if (piece.kind === "bomb") {
@@ -529,7 +532,7 @@ export function paintPlaybookBoard(
   if (note.radarFx) {
     const fxFrame = radarFxFrame(note.radarFx, note);
     paintViewCone(ctx, fxFrame, toScreen);
-    paintPawns(ctx, fxFrame, toScreen, false, icons?.c4 ?? null);
+    paintPawns(ctx, fxFrame, toScreen, false, icons?.c4 ?? null, view.scale);
   }
   const aimed = rotateId
     ? pieces.find((piece) => piece.id === rotateId && piece.kind === "pawn")

@@ -22,6 +22,12 @@ import {
 import { arcCountAt, createMockCanvas, identityToScreen } from "@/lib/testing/mockCanvas";
 import { NADE_COLORS } from "@/lib/radar/radarFx";
 import { buildRadarFrame, CT_COLOR, RADAR_STYLE, type RadarFrame } from "./radarFrame";
+import {
+  OVERLAY_CHEVRON_OUTLINE,
+  OVERLAY_CHEVRON_SIZE,
+  OVERLAY_HABITS_TRAIL_STROKE,
+  OVERLAY_REPLAY_TRAIL_STROKE,
+} from "./overlayStroke";
 import { paintHabitsOverlay, paintPawns, paintRadarFrame, paintViewCone } from "./paintRadarFrame";
 
 const tps = DEFAULT_TICK_RATE;
@@ -485,6 +491,29 @@ describe("paintRadarFrame", () => {
     expect(ctx.stroke).toHaveBeenCalled();
   });
 
+  it("keeps replay trail width screen-space when zoomed", () => {
+    const ctx = createMockCanvas();
+    paintRadarFrame(
+      ctx,
+      minimalFrame({
+        trails: [
+          {
+            color: "#ff2d6a",
+            points: [
+              { x: 0, y: 0 },
+              { x: 12, y: 8 },
+            ],
+          },
+        ],
+      }),
+      toScreen,
+      { ...paintOpts, scale: 6 },
+    );
+    expect(ctx.lineWidth).toBe(OVERLAY_REPLAY_TRAIL_STROKE);
+    expect(ctx.lineJoin).toBe("round");
+    expect(ctx.lineCap).toBe("round");
+  });
+
   it("resets globalAlpha after painting", () => {
     const ctx = createMockCanvas();
     paintRadarFrame(
@@ -595,6 +624,48 @@ describe("paintHabitsOverlay", () => {
     });
     expect(ctx.strokeStyle).toBe(RADAR_STYLE.surviveMarkColor);
     expect(ctx.rotate).not.toHaveBeenCalled();
+  });
+
+  it("keeps habits trail and path-arrow sizes screen-space when zoomed", () => {
+    const ctx = createMockCanvas();
+    const overlay = {
+      ...habitsOverlay(),
+      trails: [
+        {
+          demoId: "a",
+          roundNumber: 1,
+          jumpTick: 64,
+          tps: 64,
+          steamId: 1,
+          playerName: "A",
+          color: "#ff2d6a",
+          points: [
+            { x: 0, y: 0, z: 0, tick: 64, yaw: 0 },
+            { x: 40, y: 40, z: 0, tick: 200, yaw: 45 },
+          ],
+          deathAt: null,
+          deathTick: null,
+          survivedAt: null,
+          survivedTick: null,
+        },
+      ],
+      nades: [],
+    };
+    const widths: number[] = [];
+    ctx.stroke.mockImplementation(() => {
+      widths.push(ctx.lineWidth);
+    });
+    paintHabitsOverlay(ctx, overlay, "trails", nadeFilter, toScreen, 6, {
+      showTrails: true,
+      showArrows: true,
+      nadesOn: false,
+      cal: UNIT_CALIBRATION,
+    });
+    expect(widths).toContain(OVERLAY_HABITS_TRAIL_STROKE);
+    expect(widths).toContain(OVERLAY_CHEVRON_OUTLINE);
+    expect(ctx.lineJoin).toBe("round");
+    expect(ctx.moveTo).toHaveBeenCalledWith(OVERLAY_CHEVRON_SIZE + 2, 0);
+    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
   it("paints player arrows when showArrows is on", () => {
@@ -739,6 +810,36 @@ describe("paintPawns", () => {
     const pawn = f.pawns.find((p) => p.flash > 0);
     expect(pawn).toBeDefined();
     expect(arcCountAt(ctx, pawn!.x, pawn!.y)).toBeGreaterThan(0);
+  });
+
+  it("paints a path pawn head that does not fatten at zoom", () => {
+    const ctx = createMockCanvas();
+    paintPawns(
+      ctx,
+      minimalFrame({
+        pawns: [
+          {
+            index: 0,
+            x: 10,
+            y: 20,
+            yaw: 0,
+            color: CT_COLOR,
+            alive: true,
+            selected: false,
+            flash: 0,
+            name: "Alice",
+            health: 100,
+          },
+        ],
+      }),
+      toScreen,
+      false,
+      null,
+      6,
+    );
+    expect(ctx.moveTo).toHaveBeenCalledWith(OVERLAY_CHEVRON_SIZE + 2, 0);
+    expect(ctx.lineWidth).toBe(OVERLAY_CHEVRON_OUTLINE);
+    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
   it("paints pawn arrows, selection ring, and nickname labels", () => {

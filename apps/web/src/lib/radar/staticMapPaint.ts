@@ -7,6 +7,11 @@ import { radarLayout, type RadarView } from "@/lib/radar/maps";
 import { drawSmoothLine, simplifyStroke } from "@/lib/radar/strokes";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import type { Drawing, Note } from "@/lib/notes/types";
+import {
+  OVERLAY_NOTE_ARROW_STROKE,
+  OVERLAY_NOTE_PEN_STROKE,
+  overlayStrokeWidth,
+} from "@/lib/radar/overlayStroke";
 import { DEFAULT_RADAR_GRAY, DEFAULT_RADAR_PAPER } from "@/lib/shared/constants";
 
 export type WorldToScreen = (wx: number, wy: number) => { x: number; y: number };
@@ -79,7 +84,9 @@ export function paintDrawing(
   ctx.globalAlpha = alpha;
   ctx.strokeStyle = drawing.color;
   ctx.fillStyle = drawing.color;
-  ctx.lineWidth = drawing.type === "arrow" ? 3.2 : 2.8;
+  ctx.lineWidth = overlayStrokeWidth(
+    drawing.type === "arrow" ? OVERLAY_NOTE_ARROW_STROKE : OVERLAY_NOTE_PEN_STROKE,
+  );
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
   if (drawing.type === "pen") {

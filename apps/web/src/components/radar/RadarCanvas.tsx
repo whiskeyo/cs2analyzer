@@ -242,7 +242,7 @@ export function RadarCanvas(props: Props) {
       }
 
       paintViewCone(ctx, frame, toScreen);
-      paintPawns(ctx, frame, toScreen, p.layers.names, c4Icon.current);
+      paintPawns(ctx, frame, toScreen, p.layers.names, c4Icon.current, v.scale);
       ctx.restore();
     },
     [replay],

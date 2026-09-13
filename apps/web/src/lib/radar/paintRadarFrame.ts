@@ -15,6 +15,17 @@ import {
   type NadeIcons,
 } from "@/lib/radar/draw";
 import { worldOnRadar } from "@/lib/radar/maps";
+import {
+  OVERLAY_CHEVRON_OUTLINE,
+  OVERLAY_CHEVRON_SIZE,
+  OVERLAY_DEATH_STROKE,
+  OVERLAY_HABITS_TRAIL_STROKE,
+  OVERLAY_REPLAY_TRAIL_STROKE,
+  applyOverlayStrokeStyle,
+  overlayChevronPath,
+  overlayMarkerSize,
+  overlayStrokeWidth,
+} from "@/lib/radar/overlayStroke";
 import type {
   HabitsNadeFilter,
   SeriesOverlay,
@@ -46,7 +57,7 @@ function paintDeathCross(ctx: CanvasRenderingContext2D, toScreen: ToScreen, x: n
   const s = toScreen(x, y);
   ctx.strokeStyle = RADAR_STYLE.deathMarkColor;
   ctx.globalAlpha = 0.85;
-  ctx.lineWidth = 1.6;
+  applyOverlayStrokeStyle(ctx, overlayStrokeWidth(OVERLAY_DEATH_STROKE));
   ctx.beginPath();
   ctx.moveTo(s.x - 4, s.y - 4);
   ctx.lineTo(s.x + 4, s.y + 4);
@@ -60,9 +71,7 @@ function paintSurviveTick(ctx: CanvasRenderingContext2D, toScreen: ToScreen, x: 
   const s = toScreen(x, y);
   ctx.strokeStyle = RADAR_STYLE.surviveMarkColor;
   ctx.globalAlpha = 0.92;
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+  applyOverlayStrokeStyle(ctx, overlayStrokeWidth(2));
   ctx.beginPath();
   ctx.moveTo(s.x - 4, s.y + 0.5);
   ctx.lineTo(s.x - 1, s.y + 4);
@@ -270,7 +279,7 @@ export function paintRadarFrame(
     const s = toScreen(death.x, death.y);
     ctx.strokeStyle = RADAR_STYLE.deathMarkColor;
     ctx.globalAlpha = 0.85;
-    ctx.lineWidth = 1.6;
+    applyOverlayStrokeStyle(ctx, overlayStrokeWidth(OVERLAY_DEATH_STROKE, opts.scale));
     ctx.beginPath();
     ctx.moveTo(s.x - 4, s.y - 4);
     ctx.lineTo(s.x + 4, s.y + 4);
@@ -301,7 +310,7 @@ export function paintRadarFrame(
 
   for (const trail of frame.trails) {
     ctx.strokeStyle = trail.color;
-    ctx.lineWidth = 2;
+    applyOverlayStrokeStyle(ctx, overlayStrokeWidth(OVERLAY_REPLAY_TRAIL_STROKE, opts.scale));
     ctx.globalAlpha = 0.45;
     ctx.beginPath();
     trail.points.forEach((pt, i) => {
@@ -321,24 +330,20 @@ function paintHabitsArrow(
   y: number,
   yaw: number,
   color: string,
+  zoom: number,
 ) {
   const s = toScreen(x, y);
+  const size = overlayMarkerSize(OVERLAY_CHEVRON_SIZE, zoom);
   ctx.save();
   ctx.translate(s.x, s.y);
   ctx.rotate(yawToCanvas(yaw));
-  ctx.beginPath();
-  const size = 7;
-  ctx.moveTo(size + 2, 0);
-  ctx.lineTo(-size * 0.7, size * 0.7);
-  ctx.lineTo(-size * 0.35, 0);
-  ctx.lineTo(-size * 0.7, -size * 0.7);
-  ctx.closePath();
+  overlayChevronPath(ctx, size);
   ctx.fillStyle = color;
   ctx.globalAlpha = 0.92;
   ctx.fill();
-  // Add outline so the arrow is visible over bright radar backgrounds.
+  // Outline so the path head stays readable on a bright / paper map.
   ctx.strokeStyle = darkenHexColor(color, 0.7);
-  ctx.lineWidth = 2;
+  applyOverlayStrokeStyle(ctx, overlayStrokeWidth(OVERLAY_CHEVRON_OUTLINE, zoom));
   ctx.stroke();
   ctx.restore();
   ctx.globalAlpha = 1;
@@ -380,7 +385,7 @@ export function paintHabitsOverlay(
   } else if (showTrails && display === "trails") {
     for (const trail of visible.trails) {
       ctx.strokeStyle = trail.color;
-      ctx.lineWidth = 2.2;
+      applyOverlayStrokeStyle(ctx, overlayStrokeWidth(OVERLAY_HABITS_TRAIL_STROKE, scale));
       ctx.globalAlpha = 0.38;
       ctx.beginPath();
       trail.points.forEach((pt, i) => {
@@ -405,7 +410,7 @@ export function paintHabitsOverlay(
       const head = trail.points.at(-1);
       if (!head) continue;
       if (cal && !worldOnRadar(cal, head.x, head.y)) continue;
-      paintHabitsArrow(ctx, toScreen, head.x, head.y, head.yaw, trail.color);
+      paintHabitsArrow(ctx, toScreen, head.x, head.y, head.yaw, trail.color, scale);
     }
   }
 
@@ -454,6 +459,7 @@ export function paintPawns(
   toScreen: ToScreen,
   showNames: boolean,
   packC4Icon: HTMLImageElement | null = null,
+  zoom = 1,
 ) {
   for (const hit of frame.hits) {
     const s = toScreen(hit.x, hit.y);
@@ -488,22 +494,20 @@ export function paintPawns(
     ctx.save();
     ctx.translate(s.x, s.y);
     ctx.rotate(yawToCanvas(pawn.yaw));
-    ctx.beginPath();
-    const size = pawn.selected ? 9 : 7;
-    ctx.moveTo(size + 2, 0);
-    ctx.lineTo(-size * 0.7, size * 0.7);
-    ctx.lineTo(-size * 0.35, 0);
-    ctx.lineTo(-size * 0.7, -size * 0.7);
-    ctx.closePath();
+    const size = overlayMarkerSize(
+      pawn.selected ? OVERLAY_CHEVRON_SIZE + 2 : OVERLAY_CHEVRON_SIZE,
+      zoom,
+    );
+    overlayChevronPath(ctx, size);
     // Stroke behind the pawn arrow to improve readability.
     ctx.strokeStyle = darkenHexColor(pawn.color, 0.7);
-    ctx.lineWidth = 2;
+    applyOverlayStrokeStyle(ctx, overlayStrokeWidth(OVERLAY_CHEVRON_OUTLINE, zoom));
     ctx.stroke();
     ctx.fillStyle = pawn.color;
     ctx.fill();
     if (pawn.selected) {
       ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 1.4;
+      applyOverlayStrokeStyle(ctx, overlayStrokeWidth(1.4, zoom));
       ctx.stroke();
     }
     ctx.restore();
