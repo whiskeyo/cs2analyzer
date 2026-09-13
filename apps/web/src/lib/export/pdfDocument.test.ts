@@ -2,7 +2,13 @@ import { inflateSync } from "node:zlib";
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRef } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
-import { addPage, newPlaybook, setPageBody, setPageVideos } from "@/lib/playbook/pages";
+import {
+  addPage,
+  newPlaybook,
+  setPageBody,
+  setPageImages,
+  setPageVideos,
+} from "@/lib/playbook/pages";
 import {
   PLAYBOOK_PDF_FLOOR_GAP,
   PLAYBOOK_PDF_FOOTER,
@@ -250,6 +256,14 @@ describe("wrapPdfText", () => {
   });
 });
 
+function pdfImageCount(bytes: Uint8Array): number {
+  return [
+    ...Buffer.from(bytes)
+      .toString("latin1")
+      .matchAll(/\/Subtype\s*\/Image\b/g),
+  ].length;
+}
+
 describe("buildPlaybookPdf", () => {
   it("writes a cover plus one page per strat", async () => {
     let book = newPlaybook("de_mirage", "A execs");
@@ -338,6 +352,28 @@ describe("buildPlaybookPdf", () => {
     const text = pdfDrawnText(bytes);
     expect(text).toContain("Mirage: Łódź");
     expect(text).toContain("zawinięcie");
+  });
+
+  it("embeds local photos under the notes and keeps the radar still", async () => {
+    let book = newPlaybook("de_mirage", "A execs");
+    const page = book.pages[0]!;
+    book = setPageImages(book, page.id, [
+      {
+        id: "img-1",
+        name: "window-lineup.png",
+        mime: "image/png",
+        x: 10,
+        y: 20,
+      },
+    ]);
+    const report = playbookReport(book, EXPORTED_AT);
+    const withPhoto = await buildPlaybookPdf(report, { [page.id]: { upper: TINY_PNG } }, "dark", {
+      "img-1": TINY_PNG,
+    });
+    const stillOnly = await buildPlaybookPdf(report, { [page.id]: { upper: TINY_PNG } });
+    expect(pdfDrawnText(withPhoto)).toContain("window-lineup.png");
+    expect(pdfImageCount(withPhoto)).toBeGreaterThan(pdfImageCount(stillOnly));
+    expect(pdfImageCount(stillOnly)).toBeGreaterThan(0);
   });
 
   it("still builds when a snapshot is not a PNG", async () => {

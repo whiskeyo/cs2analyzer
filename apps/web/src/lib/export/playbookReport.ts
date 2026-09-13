@@ -1,5 +1,11 @@
 import type { FloorMode, Note } from "@/lib/notes/types";
-import type { Playbook, PlaybookPage, PlaybookYouTube } from "@/lib/playbook/types";
+import type {
+  Playbook,
+  PlaybookImage,
+  PlaybookImageMime,
+  PlaybookPage,
+  PlaybookYouTube,
+} from "@/lib/playbook/types";
 import { youtubeWatchUrl } from "@/lib/playbook/youtube";
 import { prettyMap } from "@/lib/weapons/weapons";
 import { PLAYBOOK_PDF_FILE_FALLBACK } from "./constants";
@@ -9,11 +15,18 @@ export interface PlaybookReportClip {
   url: string;
 }
 
+export interface PlaybookReportPhoto {
+  id: string;
+  name: string;
+  mime: PlaybookImageMime;
+}
+
 export interface PlaybookReportPage {
   id: string;
   title: string;
   body: string;
   clips: PlaybookReportClip[];
+  photos: PlaybookReportPhoto[];
   floor: FloorMode;
   note: Note;
 }
@@ -69,6 +82,19 @@ function clipFromVideo(clip: PlaybookYouTube): PlaybookReportClip | null {
   };
 }
 
+function photoFromImage(image: PlaybookImage): PlaybookReportPhoto {
+  return { id: image.id, name: image.name, mime: image.mime };
+}
+
+/** Current floor first, then the other floor — same order a coach sees on the board. */
+export function playbookPagePhotos(page: PlaybookPage): PlaybookReportPhoto[] {
+  const currentFirst =
+    page.floor === "lower"
+      ? [...page.lowerImages, ...page.images]
+      : [...page.images, ...page.lowerImages];
+  return currentFirst.map(photoFromImage);
+}
+
 export function playbookReportPage(page: PlaybookPage): PlaybookReportPage {
   const clips: PlaybookReportClip[] = [];
   for (const clip of [...page.videos, ...page.lowerVideos]) {
@@ -80,6 +106,7 @@ export function playbookReportPage(page: PlaybookPage): PlaybookReportPage {
     title: page.title,
     body: page.body.trim(),
     clips,
+    photos: playbookPagePhotos(page),
     floor: page.floor,
     note: page.note,
   };

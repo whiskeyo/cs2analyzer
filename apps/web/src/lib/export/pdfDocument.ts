@@ -17,13 +17,14 @@ import {
   PLAYBOOK_PDF_MARGIN,
   PLAYBOOK_PDF_MUTED,
   PLAYBOOK_PDF_PAGE_BG,
+  PLAYBOOK_PDF_PHOTO_MAX_HEIGHT,
   PLAYBOOK_PDF_SECTION_GAP,
   PLAYBOOK_PDF_SMALL_SIZE,
   PLAYBOOK_PDF_TITLE_SIZE,
 } from "./constants";
 import { addGoToLink, addOutline, addUriLink } from "./pdfLinks";
 import { loadPlaybookPdfFontBytes, registerPlaybookPdfFontkit } from "./pdfFonts";
-import type { PlaybookReport, PlaybookReportPage } from "./playbookReport";
+import type { PlaybookReport, PlaybookReportPage, PlaybookReportPhoto } from "./playbookReport";
 import { pdfSafeText, wrapPdfText } from "./pdfText";
 
 export { pdfSafeText, wrapPdfText } from "./pdfText";
@@ -34,6 +35,7 @@ export interface PlaybookPageStills {
 }
 
 export type PlaybookPdfSnapshots = Readonly<Record<string, PlaybookPageStills>>;
+export type PlaybookPdfPhotos = Readonly<Record<string, Uint8Array>>;
 
 interface PdfLib {
   PDFDocument: (typeof import("pdf-lib"))["PDFDocument"];
@@ -204,6 +206,53 @@ async function embedPng(
   }
 }
 
+async function embedJpg(
+  pdf: import("pdf-lib").PDFDocument,
+  bytes: Uint8Array | undefined,
+): Promise<PDFImage | undefined> {
+  if (!bytes || bytes.byteLength === 0) return undefined;
+  try {
+    return await pdf.embedJpg(bytes);
+  } catch {
+    return undefined;
+  }
+}
+
+async function rasterizeImageToPng(bytes: Uint8Array): Promise<Uint8Array | null> {
+  if (typeof createImageBitmap !== "function" || typeof document === "undefined") return null;
+  try {
+    const copy = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(copy).set(bytes);
+    const bitmap = await createImageBitmap(new Blob([copy]));
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(bitmap, 0, 0);
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/png");
+    });
+    if (!blob) return null;
+    return new Uint8Array(await blob.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+async function embedPlaybookPhoto(
+  pdf: import("pdf-lib").PDFDocument,
+  photo: PlaybookReportPhoto,
+  bytes: Uint8Array | undefined,
+): Promise<PDFImage | undefined> {
+  if (photo.mime === "image/jpeg") return embedJpg(pdf, bytes);
+  if (photo.mime === "image/webp") {
+    const png = bytes ? await rasterizeImageToPng(bytes) : null;
+    return embedPng(pdf, png ?? undefined);
+  }
+  return embedPng(pdf, bytes);
+}
+
 async function embedSnapshots(
   pdf: import("pdf-lib").PDFDocument,
   snapshots: PlaybookPdfSnapshots,
@@ -215,6 +264,22 @@ async function embedSnapshots(
       lower: await embedPng(pdf, stills.lower),
     };
     if (embedded.upper || embedded.lower) images.set(id, embedded);
+  }
+  return images;
+}
+
+async function embedPhotos(
+  pdf: import("pdf-lib").PDFDocument,
+  report: PlaybookReport,
+  photoBytes: PlaybookPdfPhotos,
+): Promise<Map<string, PDFImage>> {
+  const images = new Map<string, PDFImage>();
+  for (const page of report.pages) {
+    for (const photo of page.photos) {
+      if (images.has(photo.id)) continue;
+      const embedded = await embedPlaybookPhoto(pdf, photo, photoBytes[photo.id]);
+      if (embedded) images.set(photo.id, embedded);
+    }
   }
   return images;
 }
@@ -363,11 +428,41 @@ function drawRadars(writer: Writer, stills: EmbeddedStills | undefined): void {
   writer.y -= PLAYBOOK_PDF_SECTION_GAP;
 }
 
+function drawPhotos(
+  writer: Writer,
+  photos: readonly PlaybookReportPhoto[],
+  embedded: ReadonlyMap<string, PDFImage>,
+): void {
+  for (const photo of photos) {
+    const image = embedded.get(photo.id);
+    if (!image) continue;
+    const dims = image.scaleToFit(writer.layout.contentWidth, PLAYBOOK_PDF_PHOTO_MAX_HEIGHT);
+    const caption = wrapPdfText(
+      writer.fonts.regular,
+      photo.name,
+      PLAYBOOK_PDF_SMALL_SIZE,
+      writer.layout.contentWidth,
+    );
+    const captionH = Math.max(caption.length, 1) * lineHeight(PLAYBOOK_PDF_SMALL_SIZE);
+    ensureSpace(writer, captionH + dims.height + PLAYBOOK_PDF_LINE_GAP);
+    drawLines(writer, caption, PLAYBOOK_PDF_SMALL_SIZE, writer.fonts.regular, writer.colors.muted);
+    writer.page.drawImage(image, {
+      x: centerOnContent(writer.layout.left, writer.layout.contentWidth, dims.width),
+      y: writer.y - dims.height,
+      width: dims.width,
+      height: dims.height,
+    });
+    writer.y -= dims.height;
+    drawGap(writer, PLAYBOOK_PDF_LINE_GAP);
+  }
+}
+
 function drawStrat(
   writer: Writer,
   report: PlaybookReport,
   page: PlaybookReportPage,
   stills: EmbeddedStills | undefined,
+  photos: ReadonlyMap<string, PDFImage>,
 ): PDFPage {
   writer.page = writer.addPage();
   const dest = writer.page;
@@ -414,6 +509,7 @@ function drawStrat(
     );
     drawGap(writer, 8);
   }
+  drawPhotos(writer, page.photos, photos);
   for (const clip of page.clips) {
     const caption = clip.title === "" ? clip.url : `${clip.title} — ${clip.url}`;
     drawLines(
@@ -436,6 +532,7 @@ export async function buildPlaybookPdf(
   report: PlaybookReport,
   snapshots: PlaybookPdfSnapshots = {},
   theme: PdfTheme = DEFAULT_PDF_THEME,
+  photoBytes: PlaybookPdfPhotos = {},
 ): Promise<Uint8Array> {
   const { PDFDocument, PDFName, PDFString, PageSizes, rgb } = (await import("pdf-lib")) as PdfLib;
   const pdf = await PDFDocument.create();
@@ -449,6 +546,7 @@ export async function buildPlaybookPdf(
   const [pageWidth, pageHeight] = PageSizes.A4;
   const layout = makeLayout(pageWidth, pageHeight);
   const images = await embedSnapshots(pdf, snapshots);
+  const photos = await embedPhotos(pdf, report, photoBytes);
 
   const writer = {
     fonts,
@@ -469,7 +567,7 @@ export async function buildPlaybookPdf(
   const destById = new Map<string, PDFPage>();
   const outlineItems: { title: string; page: PDFPage }[] = [];
   for (const page of report.pages) {
-    const dest = drawStrat(writer, report, page, images.get(page.id));
+    const dest = drawStrat(writer, report, page, images.get(page.id), photos);
     destById.set(page.id, dest);
     outlineItems.push({ title: page.title, page: dest });
   }

@@ -1,5 +1,6 @@
 import { playbookPageOnFloor, type PlaybookFloorLayer } from "@/lib/playbook/pages";
 import type { PlaybookPaintIcons } from "@/lib/playbook/paint";
+import { loadPlaybookImageBlobs } from "@/lib/playbook/playbookImageStore";
 import type { Playbook } from "@/lib/playbook/types";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import { DEFAULT_PDF_THEME, type PdfTheme } from "@/lib/settings/userSettings";
@@ -9,6 +10,7 @@ import { PLAYBOOK_PDF_MIME } from "./constants";
 import {
   buildPlaybookPdf,
   type PlaybookPageStills,
+  type PlaybookPdfPhotos,
   type PlaybookPdfSnapshots,
 } from "./pdfDocument";
 import { playbookPdfFilename, playbookReport } from "./playbookReport";
@@ -51,6 +53,18 @@ export async function snapshotPlaybookPages(
   return snapshots;
 }
 
+export async function loadPlaybookPdfPhotos(book: Playbook): Promise<PlaybookPdfPhotos> {
+  const ids = book.pages.flatMap((page) =>
+    [...page.images, ...page.lowerImages].map((image) => image.id),
+  );
+  const blobs = await loadPlaybookImageBlobs(ids);
+  const out: Record<string, Uint8Array> = {};
+  for (const [id, blob] of blobs) {
+    out[id] = new Uint8Array(await blob.arrayBuffer());
+  }
+  return out;
+}
+
 /** Build and download a local PDF for one playbook. The file never leaves the machine. */
 export async function downloadPlaybookPdf(
   book: Playbook,
@@ -61,7 +75,8 @@ export async function downloadPlaybookPdf(
 ): Promise<void> {
   const report = playbookReport(book, exportedAt);
   const snapshots = await snapshotPlaybookPages(book, cal, radarGray);
-  const bytes = await buildPlaybookPdf(report, snapshots, theme);
+  const photos = await loadPlaybookPdfPhotos(book);
+  const bytes = await buildPlaybookPdf(report, snapshots, theme, photos);
   const copy = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(copy).set(bytes);
   downloadBlob(playbookPdfFilename(report), PLAYBOOK_PDF_MIME, copy);

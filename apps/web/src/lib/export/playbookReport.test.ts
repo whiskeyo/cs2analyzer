@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
-import { addPage, newPlaybook, setPageBody, setPageVideos } from "@/lib/playbook/pages";
+import {
+  addPage,
+  newPlaybook,
+  setPageBody,
+  setPageFloor,
+  setPageLayerImages,
+  setPageVideos,
+} from "@/lib/playbook/pages";
+import type { PlaybookImage } from "@/lib/playbook/types";
 import { YOUTUBE_UNTITLED } from "@/lib/playbook/youtube";
 import {
   formatPlaybookExportDate,
+  playbookPagePhotos,
   playbookPdfFilename,
   playbookPdfHeading,
   playbookPdfStem,
@@ -99,6 +108,7 @@ describe("playbookReport", () => {
           url: "https://www.youtube.com/watch?v=abcdefghijk",
         },
       ],
+      photos: [],
     });
     expect(report.pages[0]?.note.drawings).toHaveLength(1);
     expect(report.pages[1]).toMatchObject({
@@ -106,7 +116,36 @@ describe("playbookReport", () => {
       title: "Mid control",
       body: "",
       clips: [],
+      photos: [],
     });
+  });
+
+  it("lists current-floor photos first, then the other floor", () => {
+    let book = newPlaybook("de_nuke", "Nuke execs");
+    const page = book.pages[0]!;
+    const upper: PlaybookImage = {
+      id: "up",
+      name: "upper.png",
+      mime: "image/png",
+      x: 0,
+      y: 0,
+    };
+    const lower: PlaybookImage = {
+      id: "lo",
+      name: "lower.png",
+      mime: "image/png",
+      x: 1,
+      y: 1,
+    };
+    book = setPageLayerImages(book, page.id, "upper", [upper]);
+    book = setPageLayerImages(book, page.id, "lower", [lower]);
+    expect(playbookPagePhotos(book.pages[0]!).map((photo) => photo.id)).toEqual(["up", "lo"]);
+    book = setPageFloor(book, page.id, "lower");
+    expect(playbookPagePhotos(book.pages[0]!).map((photo) => photo.id)).toEqual(["lo", "up"]);
+    expect(playbookReport(book, EXPORTED_AT).pages[0]?.photos).toEqual([
+      { id: "lo", name: "lower.png", mime: "image/png" },
+      { id: "up", name: "upper.png", mime: "image/png" },
+    ]);
   });
 
   it("rebuilds a watch URL when the clip only stored a video id", () => {

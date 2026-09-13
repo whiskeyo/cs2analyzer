@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { newPlaybook, setPageBody } from "@/lib/playbook/pages";
+import { newPlaybook, setPageBody, setPageImages } from "@/lib/playbook/pages";
 import { UNIT_CALIBRATION } from "@/lib/testing/fixtures";
 import { DEFAULT_RADAR_GRAY, RADAR_GRAY_MIN } from "@/lib/shared/constants";
 import { PLAYBOOK_PDF_MIME } from "./constants";
@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   loadPlaybookSnapshotImage: vi.fn(),
   loadPlaybookSnapshotIcons: vi.fn(),
   snapshotPlaybookPagePng: vi.fn(),
+  loadPlaybookImageBlobs: vi.fn(async () => new Map()),
 }));
 
 vi.mock("@/lib/shared/download", () => ({
@@ -29,7 +30,15 @@ vi.mock("./playbookSnapshot", () => ({
   snapshotPlaybookPagePng: mocks.snapshotPlaybookPagePng,
 }));
 
-import { downloadPlaybookPdf, snapshotPlaybookPages } from "./exportPlaybook";
+vi.mock("@/lib/playbook/playbookImageStore", () => ({
+  loadPlaybookImageBlobs: mocks.loadPlaybookImageBlobs,
+}));
+
+import {
+  downloadPlaybookPdf,
+  loadPlaybookPdfPhotos,
+  snapshotPlaybookPages,
+} from "./exportPlaybook";
 
 const EXPORTED_AT = Date.UTC(2026, 8, 12);
 
@@ -94,6 +103,8 @@ describe("downloadPlaybookPdf", () => {
     mocks.loadPlaybookSnapshotImage.mockReset();
     mocks.loadPlaybookSnapshotIcons.mockReset();
     mocks.snapshotPlaybookPagePng.mockReset();
+    mocks.loadPlaybookImageBlobs.mockReset();
+    mocks.loadPlaybookImageBlobs.mockResolvedValue(new Map());
   });
 
   it("builds the PDF and triggers a local download", async () => {
@@ -117,6 +128,7 @@ describe("downloadPlaybookPdf", () => {
       }),
       { [page.id]: { upper: new Uint8Array([1]) } },
       "dark",
+      {},
     );
     expect(mocks.downloadBlob).toHaveBeenCalledWith(
       "mirage-a-execs.pdf",
@@ -138,7 +150,28 @@ describe("downloadPlaybookPdf", () => {
       expect.objectContaining({ heading: "Nuke: default executes" }),
       {},
       "light",
+      {},
     );
+  });
+
+  it("forwards IDB photo bytes into the PDF", async () => {
+    let book = newPlaybook("de_mirage", "A execs");
+    const page = book.pages[0]!;
+    book = setPageImages(book, page.id, [
+      { id: "img-1", name: "window.png", mime: "image/png", x: 0, y: 0 },
+    ]);
+    const png = new Uint8Array([9, 8, 7]);
+    mocks.loadPlaybookSnapshotImage.mockResolvedValue(null);
+    mocks.loadPlaybookSnapshotIcons.mockResolvedValue({ c4: null, nades: {} });
+    mocks.snapshotPlaybookPagePng.mockResolvedValue(null);
+    mocks.loadPlaybookImageBlobs.mockResolvedValue(
+      new Map([["img-1", new Blob([png], { type: "image/png" })]]),
+    );
+    mocks.buildPlaybookPdf.mockResolvedValue(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+    await downloadPlaybookPdf(book, UNIT_CALIBRATION, EXPORTED_AT);
+    expect(mocks.loadPlaybookImageBlobs).toHaveBeenCalledWith(["img-1"]);
+    const photos = mocks.buildPlaybookPdf.mock.calls[0]?.[3] as Record<string, Uint8Array>;
+    expect(photos["img-1"]).toEqual(png);
   });
 
   it("forwards radarGray into PDF stills", async () => {
@@ -156,6 +189,41 @@ describe("downloadPlaybookPdf", () => {
       undefined,
       RADAR_GRAY_MIN,
     );
+  });
+});
+
+describe("loadPlaybookPdfPhotos", () => {
+  afterEach(() => {
+    mocks.loadPlaybookImageBlobs.mockReset();
+  });
+
+  it("reads local bytes keyed by image id", async () => {
+    let book = newPlaybook("de_nuke", "Nuke execs");
+    const page = book.pages[0]!;
+    book = setPageImages(book, page.id, [
+      { id: "up", name: "upper.png", mime: "image/png", x: 0, y: 0 },
+    ]);
+    book = {
+      ...book,
+      pages: book.pages.map((row) =>
+        row.id === page.id
+          ? {
+              ...row,
+              lowerImages: [{ id: "lo", name: "lower.png", mime: "image/png", x: 1, y: 1 }],
+            }
+          : row,
+      ),
+    };
+    mocks.loadPlaybookImageBlobs.mockResolvedValue(
+      new Map([
+        ["up", new Blob([new Uint8Array([1])], { type: "image/png" })],
+        ["lo", new Blob([new Uint8Array([2])], { type: "image/png" })],
+      ]),
+    );
+    const photos = await loadPlaybookPdfPhotos(book);
+    expect(mocks.loadPlaybookImageBlobs).toHaveBeenCalledWith(["up", "lo"]);
+    expect(photos.up).toEqual(new Uint8Array([1]));
+    expect(photos.lo).toEqual(new Uint8Array([2]));
   });
 });
 
