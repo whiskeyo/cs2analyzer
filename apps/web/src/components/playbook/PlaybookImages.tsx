@@ -23,7 +23,9 @@ export function PlaybookImages({ images, onImages, openId, onOpen, error, onErro
   const [pending, setPending] = useState(false);
   const bitmaps = usePlaybookImageBitmaps(images.map((image) => image.id));
   const open = images.find((image) => image.id === openId) ?? null;
-  const openSrc = open ? (bitmaps.get(open.id)?.src ?? peekPlaybookImageBitmap(open.id)?.src) : null;
+  const openSrc = open
+    ? (bitmaps.get(open.id)?.src ?? peekPlaybookImageBitmap(open.id)?.src)
+    : null;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
