@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlaybookYouTube } from "./types";
 import {
   hitTestVideo,
   moveVideo,
   nextVideoPin,
+  openPlaybookVideoWatch,
   playbookVideoPinIndex,
+  playbookVideoWatchUrl,
   removeVideo,
   YOUTUBE_PIN_STACK,
 } from "./videos";
@@ -23,6 +25,10 @@ function clip(partial: Partial<PlaybookYouTube> = {}): PlaybookYouTube {
 
 const identity = (x: number, y: number) => ({ x, y });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("video pins", () => {
   it("hits the topmost pin and moves / removes by id", () => {
     const pins = [clip({ id: "a", x: 0, y: 0 }), clip({ id: "b", x: 0, y: 0 })];
@@ -40,6 +46,29 @@ describe("video pins", () => {
     expect(playbookVideoPinIndex(two, "a")).toBe(1);
     expect(playbookVideoPinIndex(two, "b")).toBe(2);
     expect(playbookVideoPinIndex(two, "missing")).toBeNull();
+  });
+
+  it("prefers the stored watch URL and rebuilds from video id", () => {
+    expect(
+      playbookVideoWatchUrl(clip({ url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30" })),
+    ).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30");
+    expect(playbookVideoWatchUrl(clip({ url: "  ", videoId: "", startSeconds: 12 }))).toBeNull();
+    expect(playbookVideoWatchUrl(clip({ url: "", startSeconds: 30 }))).toBe(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30",
+    );
+  });
+
+  it("opens the watch URL in a new tab", () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    openPlaybookVideoWatch(clip({ url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=12" }));
+    expect(open).toHaveBeenCalledWith(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=12",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    openPlaybookVideoWatch(clip({ url: "  ", videoId: "" }));
+    expect(open).toHaveBeenCalledTimes(1);
   });
 
   it("stacks a new pin after the last one", () => {

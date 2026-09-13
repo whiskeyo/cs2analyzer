@@ -169,9 +169,11 @@ function pdfContentHasRgb(bytes: Uint8Array, color: { r: number; g: number; b: n
   return false;
 }
 
-async function pdfLinkUris(bytes: Uint8Array): Promise<string[]> {
+async function pdfUriAnnots(
+  bytes: Uint8Array,
+): Promise<{ uri: string; width: number; height: number }[]> {
   const loaded = await PDFDocument.load(bytes);
-  const uris: string[] = [];
+  const out: { uri: string; width: number; height: number }[] = [];
   for (const page of loaded.getPages()) {
     const annots = page.node.Annots();
     if (!annots) continue;
@@ -182,11 +184,32 @@ async function pdfLinkUris(bytes: Uint8Array): Promise<string[]> {
       const action = actionRef instanceof PDFDict ? actionRef : page.doc.context.lookup(actionRef);
       if (!(action instanceof PDFDict)) continue;
       const uriObj = action.get(PDFName.of("URI"));
-      if (!uriObj || !("decodeText" in uriObj)) continue;
-      uris.push((uriObj as { decodeText: () => string }).decodeText());
+      const rect = annot.get(PDFName.of("Rect"));
+      if (!uriObj || !("decodeText" in uriObj) || !(rect instanceof PDFArray)) continue;
+      const x0 = rect.get(0);
+      const y0 = rect.get(1);
+      const x1 = rect.get(2);
+      const y1 = rect.get(3);
+      if (
+        !(x0 instanceof PDFNumber) ||
+        !(y0 instanceof PDFNumber) ||
+        !(x1 instanceof PDFNumber) ||
+        !(y1 instanceof PDFNumber)
+      ) {
+        continue;
+      }
+      out.push({
+        uri: (uriObj as { decodeText: () => string }).decodeText(),
+        width: Math.abs(x1.asNumber() - x0.asNumber()),
+        height: Math.abs(y1.asNumber() - y0.asNumber()),
+      });
     }
   }
-  return uris;
+  return out;
+}
+
+async function pdfLinkUris(bytes: Uint8Array): Promise<string[]> {
+  return (await pdfUriAnnots(bytes)).map((hit) => hit.uri);
 }
 
 function destPageIndex(loaded: PDFDocument, destObj: unknown): number {
@@ -357,10 +380,15 @@ describe("buildPlaybookPdf", () => {
     expect(text).toContain(formatPlaybookExportDate(EXPORTED_AT));
     expect(text).toContain("Mid control");
     expect(text).toContain("Smoke **stairs** and flash mid.");
-    expect(text).toContain("Window lineup");
+    expect(text).toContain("1 - Window lineup");
+    expect(text).not.toContain("https://www.youtube.com");
     expect(text).toContain(PLAYBOOK_PDF_FOOTER);
     expect(text).not.toContain("Drawings stay on this machine");
-    expect(await pdfLinkUris(bytes)).toEqual(loaded.getPages().map(() => PLAYBOOK_PDF_FOOTER_URL));
+    const uris = await pdfLinkUris(bytes);
+    expect(uris.filter((uri) => uri === PLAYBOOK_PDF_FOOTER_URL)).toHaveLength(
+      loaded.getPageCount(),
+    );
+    expect(uris).toContain("https://www.youtube.com/watch?v=abcdefghijk");
     expect(await pdfGoToPageIndexes(bytes)).toEqual([1, 2]);
     expect(await pdfOutlineTitles(bytes)).toEqual(["Untitled strat", "Mid control"]);
     expect(pdfContentHasRgb(bytes, PLAYBOOK_PDF_PAGE_BG)).toBe(true);
@@ -489,6 +517,55 @@ describe("buildPlaybookPdf", () => {
     expect(pin?.destPage !== stratPage || (pin?.destY ?? stratTop) < stratTop).toBe(true);
     expect(back).toBeDefined();
     expect(await pdfGoToPageIndexes(bytes)).toContain(stratPage);
+  });
+
+  it("lists numbered clip titles as URI links and hits the still pins", async () => {
+    let book = newPlaybook("de_mirage", "A execs");
+    const page = book.pages[0]!;
+    book = setPageVideos(book, page.id, [
+      {
+        id: "v1",
+        videoId: "abcdefghijk",
+        url: "https://www.youtube.com/watch?v=abcdefghijk",
+        title: "Window lineup",
+        x: 0,
+        y: 0,
+      },
+      {
+        id: "v2",
+        videoId: "bbbbbbbbbbb",
+        url: "https://www.youtube.com/watch?v=bbbbbbbbbbb&t=30",
+        title: "Palace smoke",
+        x: 8,
+        y: 0,
+      },
+    ]);
+    const report = playbookReport(book, EXPORTED_AT);
+    const bytes = await buildPlaybookPdf(
+      report,
+      { [page.id]: { upper: TINY_PNG } },
+      "dark",
+      {},
+      UNIT_CALIBRATION,
+    );
+    const text = pdfDrawnText(bytes);
+    expect(text).toContain("1 - Window lineup");
+    expect(text).toContain("2 - Palace smoke");
+    expect(text).not.toContain("https://www.youtube.com");
+    expect(text).not.toContain(" — ");
+    const youtube = (await pdfUriAnnots(bytes)).filter((hit) =>
+      hit.uri.startsWith("https://www.youtube.com/watch"),
+    );
+    const pins = youtube.filter((hit) => hit.width <= PLAYBOOK_PDF_PIN_HIT_MIN + 4);
+    const lines = youtube.filter((hit) => hit.width > PLAYBOOK_PDF_PIN_HIT_MIN + 4);
+    expect(pins).toHaveLength(2);
+    expect(lines).toHaveLength(2);
+    expect(youtube.map((hit) => hit.uri)).toEqual(
+      expect.arrayContaining([
+        "https://www.youtube.com/watch?v=abcdefghijk",
+        "https://www.youtube.com/watch?v=bbbbbbbbbbb&t=30",
+      ]),
+    );
   });
 
   it("still builds when a snapshot is not a PNG", async () => {

@@ -11,13 +11,14 @@ export function playbookPdfPinHit(
   cal: MapCalibration | undefined,
   still: { x: number; y: number; width: number; height: number },
   snapshotSize = PLAYBOOK_PDF_RADAR_SIZE,
+  pin = { width: PLAYBOOK_IMAGE_PIN_WIDTH, height: PLAYBOOK_IMAGE_PIN_HEIGHT },
 ): { x: number; y: number; width: number; height: number } {
   const screen = worldToScreen(cal, snapshotSize, snapshotSize, SNAPSHOT_VIEW, world.x, world.y);
   const scaleX = still.width / snapshotSize;
   const scaleY = still.height / snapshotSize;
   const cx = still.x + screen.x * scaleX;
   const cy = still.y + still.height - screen.y * scaleY;
-  const width = Math.max(PLAYBOOK_IMAGE_PIN_WIDTH * scaleX, PLAYBOOK_PDF_PIN_HIT_MIN);
-  const height = Math.max(PLAYBOOK_IMAGE_PIN_HEIGHT * scaleY, PLAYBOOK_PDF_PIN_HIT_MIN);
+  const width = Math.max(pin.width * scaleX, PLAYBOOK_PDF_PIN_HIT_MIN);
+  const height = Math.max(pin.height * scaleY, PLAYBOOK_PDF_PIN_HIT_MIN);
   return { x: cx - width / 2, y: cy - height / 2, width, height };
 }

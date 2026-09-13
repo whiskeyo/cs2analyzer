@@ -24,6 +24,7 @@ import { useNoteHistory } from "@/lib/playbook/history";
 import { PLAYBOOK_KEYS_HINT } from "@/lib/playbook/hotkeys";
 import { pickInitialMap, sortedMapNames } from "@/lib/playbook/maps";
 import { playbookUsesLower } from "@/lib/playbook/paint";
+import { openPlaybookVideoWatch } from "@/lib/playbook/videos";
 import {
   activePage,
   playbookFloorImages,
@@ -356,7 +357,10 @@ export function Playbook() {
                     });
                   }}
                   onOpenImage={setOpenImageId}
-                  onOpenVideo={setOpenVideoId}
+                  onOpenVideo={(id) => {
+                    const clip = floorVideos.find((row) => row.id === id);
+                    if (clip) openPlaybookVideoWatch(clip);
+                  }}
                   onPlaceYouTube={(at) => {
                     setPendingPin(at);
                     setPendingImagePin(null);
