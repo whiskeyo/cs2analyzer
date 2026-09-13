@@ -272,17 +272,17 @@ describe("Playbook", () => {
     await userEvent.click(notes);
     await userEvent.paste("smoke CT, flash palace");
     expect(notes).toHaveTextContent("smoke CT, flash palace");
-    expect(screen.getByRole("textbox", { name: "YouTube link" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "YouTube link" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Add playbook image")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "YouTube" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Image" })).toBeInTheDocument();
-    expect(screen.getByText(/Place a YouTube token/)).toBeInTheDocument();
+    expect(screen.getByText(/Place a YouTube pin/)).toBeInTheDocument();
     const youtubeBtn = screen.getByRole("button", { name: "YouTube" });
     const imageBtn = screen.getByRole("button", { name: "Image" });
     expect(
       youtubeBtn.compareDocumentPosition(imageBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    const youtube = screen.getByRole("textbox", { name: "YouTube link" });
-    expect(youtube.compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(youtubeBtn.compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Flash" }));
     expect(screen.getByRole("button", { name: "Flash" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Reset view" })).toBeInTheDocument();

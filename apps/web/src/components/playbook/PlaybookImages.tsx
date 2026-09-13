@@ -153,7 +153,6 @@ export function PlaybookImages({
 
   return (
     <div className="playbook-videos">
-      {pendingPin ? null : addForm}
       {pendingPin ? null : error ? <p className="error">{error}</p> : null}
       {images.length === 0 ? (
         <p className="playbook-lead">

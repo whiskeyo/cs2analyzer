@@ -90,29 +90,11 @@ describe("PlaybookImages", () => {
     expect(onOpen).toHaveBeenLastCalledWith(null);
   });
 
-  it("adds a picked file and shows a type error", async () => {
-    const onImages = vi.fn();
-    const onError = vi.fn();
-    const onOpen = vi.fn();
-    ingestPlaybookImages.mockResolvedValue({
-      images: [still({ id: "i2" })],
-      error: PLAYBOOK_IMAGE_TYPE_ERROR,
-    });
-    renderImages({
-      error: PLAYBOOK_IMAGE_TYPE_ERROR,
-      onImages,
-      onOpen,
-      onError,
-    });
+  it("keeps a drop error on the list and has no idle add form", () => {
+    renderImages({ error: PLAYBOOK_IMAGE_TYPE_ERROR });
     expect(screen.getByText(PLAYBOOK_IMAGE_TYPE_ERROR)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Add playbook image")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Image URL" })).not.toBeInTheDocument();
-    const input = screen.getByLabelText("Add playbook image");
-    const file = new File([new Uint8Array(8)], "lineup.png", { type: "image/png" });
-    fireEvent.change(input, { target: { files: [file] } });
-    await waitFor(() => expect(ingestPlaybookImages).toHaveBeenCalled());
-    expect(onImages).toHaveBeenCalledWith([expect.objectContaining({ id: "i2" })]);
-    expect(onOpen).toHaveBeenCalledWith("i2");
-    expect(onError).toHaveBeenCalledWith(PLAYBOOK_IMAGE_TYPE_ERROR);
   });
 
   it("opens a picker on pin drop and ingests at that world XY", async () => {

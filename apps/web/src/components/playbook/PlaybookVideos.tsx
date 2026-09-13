@@ -127,12 +127,8 @@ export function PlaybookVideos({
 
   return (
     <div className="playbook-videos">
-      {pendingPin ? null : addForm}
-      {pendingPin ? null : error ? <p className="error">{error}</p> : null}
       {videos.length === 0 ? (
-        <p className="playbook-lead">
-          Place a YouTube token or paste a link. Clips stay on this machine.
-        </p>
+        <p className="playbook-lead">Place a YouTube pin on the radar. Clips stay on this machine.</p>
       ) : (
         <ul className="playbook-video-list">
           {videos.map((clip) => {

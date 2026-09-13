@@ -7,6 +7,10 @@ import { describe, expect, it, vi } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
 import { PlaybookStratPanel } from "./PlaybookStratPanel";
 
+vi.mock("@/lib/playbook/usePlaybookImageBitmaps", () => ({
+  usePlaybookImageBitmaps: () => new Map(),
+}));
+
 function panelProps(overrides: Partial<Parameters<typeof PlaybookStratPanel>[0]> = {}) {
   return {
     stratTitle: "A exec",
@@ -45,6 +49,38 @@ describe("PlaybookStratPanel", () => {
     expect(screen.queryByRole("button", { name: "Underline" })).not.toBeInTheDocument();
     expect(screen.queryByRole("toolbar", { name: "Strat notes style" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "YouTube link" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Add playbook image")).not.toBeInTheDocument();
+    expect(screen.getByText(/Place a YouTube pin/)).toBeInTheDocument();
+    expect(screen.getByText(/Place a photo pin/)).toBeInTheDocument();
+  });
+
+  it("lists clips and photos without an add form", () => {
+    render(
+      <PlaybookStratPanel
+        {...panelProps({
+          videos: [
+            {
+              id: "v1",
+              videoId: "dQw4w9WgXcQ",
+              url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+              title: "Window lineup",
+              x: 0,
+              y: 0,
+            },
+          ],
+          images: [
+            { id: "i1", name: "lineup.png", mime: "image/png", x: 1, y: 2 },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Window lineup" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Window lineup" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "lineup.png" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove lineup.png" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "YouTube link" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Add playbook image")).not.toBeInTheDocument();
   });
 
   it("keeps leftover markers as characters and edits the stored string", async () => {
