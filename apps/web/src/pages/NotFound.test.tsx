@@ -18,6 +18,9 @@ describe("NotFound", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "here" })).toHaveAttribute("href", ISSUES_URL);
     expect(screen.getByRole("link", { name: "here" })).toHaveAttribute("target", "_blank");
-    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Go back to CS2 Analyzer" })).toHaveAttribute(
+      "href",
+      "/",
+    );
   });
 });

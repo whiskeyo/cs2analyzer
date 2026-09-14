@@ -16,7 +16,7 @@ export function NotFound() {
           .
         </p>
         <p className="not-found-home">
-          <Link to={ROUTES.home}>Home</Link>
+          <Link to={ROUTES.home}>Go back to CS2 Analyzer</Link>
         </p>
       </article>
       <Credits />

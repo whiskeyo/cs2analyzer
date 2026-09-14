@@ -315,7 +315,10 @@ describe("App", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "here" })).toHaveAttribute("href", ISSUES_URL);
-    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Go back to CS2 Analyzer" })).toHaveAttribute(
+      "href",
+      "/",
+    );
     expect(screen.getByRole("navigation", { name: "Site" })).toBeInTheDocument();
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
     expect(
@@ -327,7 +330,7 @@ describe("App", () => {
       "This page does not exist.",
     );
 
-    await userEvent.click(screen.getByRole("link", { name: "Home" }));
+    await userEvent.click(screen.getByRole("link", { name: "Go back to CS2 Analyzer" }));
     expect(window.location.pathname).toBe("/");
     expect(
       screen.getByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
