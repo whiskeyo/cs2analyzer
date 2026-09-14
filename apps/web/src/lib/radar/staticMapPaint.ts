@@ -4,6 +4,12 @@ import { drawArrow, drawTextLabel } from "@/lib/radar/draw";
 import { withRadarMapGray } from "@/lib/radar/mapGray";
 import { radarLayout, type RadarView } from "@/lib/radar/maps";
 import { drawSmoothLine, simplifyStroke } from "@/lib/radar/strokes";
+import {
+  OVERLAY_NOTE_ARROW_STROKE,
+  OVERLAY_NOTE_PEN_STROKE,
+  applyOverlayStrokeStyle,
+  overlayStrokeWidth,
+} from "@/lib/radar/overlayStroke";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 import type { Drawing, Note } from "@/lib/notes/types";
 import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
@@ -71,9 +77,12 @@ export function paintDrawing(
   ctx.globalAlpha = alpha;
   ctx.strokeStyle = drawing.color;
   ctx.fillStyle = drawing.color;
-  ctx.lineWidth = drawing.type === "arrow" ? 3.2 : 2.8;
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
+  applyOverlayStrokeStyle(
+    ctx,
+    overlayStrokeWidth(
+      drawing.type === "arrow" ? OVERLAY_NOTE_ARROW_STROKE : OVERLAY_NOTE_PEN_STROKE,
+    ),
+  );
   if (drawing.type === "pen") {
     const worldPts = live ? drawing.points : simplifyStroke(drawing.points);
     const pts = worldPts.map((pt) => toScreen(pt.x, pt.y));
@@ -81,7 +90,7 @@ export function paintDrawing(
   } else {
     const a = toScreen(drawing.from.x, drawing.from.y);
     const b = toScreen(drawing.to.x, drawing.to.y);
-    drawArrow(ctx, a, b, drawing.color, 3.2);
+    drawArrow(ctx, a, b, drawing.color, OVERLAY_NOTE_ARROW_STROKE);
   }
   ctx.globalAlpha = 1;
 }
