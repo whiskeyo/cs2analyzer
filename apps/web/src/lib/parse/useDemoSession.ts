@@ -18,22 +18,9 @@ import {
   type ParsePoolProgress,
   type ParseWorkerPool,
 } from "./parsePool";
-import {
-  demoFileNameIssue,
-  inspectDemoFile,
-  partitionDemoFiles,
-} from "./demoFile";
-import {
-  discardParserWarmup,
-  ensureParser,
-  parserFactory,
-} from "./ensureParser";
-import {
-  buildSeries,
-  withFocalTeam,
-  type DemoSeries,
-  type LoadedDemo,
-} from "./session";
+import { demoFileNameIssue, inspectDemoFile, partitionDemoFiles } from "./demoFile";
+import { discardParserWarmup, ensureParser, parserFactory } from "./ensureParser";
+import { buildSeries, withFocalTeam, type DemoSeries, type LoadedDemo } from "./session";
 import { formatParseTimings } from "./timings";
 import { parseDump } from "./parseDump";
 import { clearSeriesReviewCache } from "@/lib/notes/seriesReviewCache";
@@ -68,17 +55,13 @@ export function useDemoSession(opts: {
 
   const [demo, setDemo] = useState<LoadedDemo | null>(null);
   const [series, setSeries] = useState<DemoSeries | null>(null);
-  const [mapGroups, setMapGroups] = useState<
-    { mapName: string; demos: LoadedDemo[] }[]
-  >([]);
+  const [mapGroups, setMapGroups] = useState<{ mapName: string; demos: LoadedDemo[] }[]>([]);
   const [selectedMapName, setSelectedMapName] = useState<string | null>(null);
   /** Every demo from the last multi-file drop (all maps); cleared on single-file load / close. */
   const [parsedDemos, setParsedDemos] = useState<LoadedDemo[]>([]);
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState<ParseProgress | null>(null);
-  const [parseFiles, setParseFiles] = useState<ParseFileProgress[] | null>(
-    null,
-  );
+  const [parseFiles, setParseFiles] = useState<ParseFileProgress[] | null>(null);
   const [switching, setSwitching] = useState(false);
   const poolRef = useRef<ParseWorkerPool | null>(null);
   const parseGenRef = useRef(0);
@@ -87,8 +70,7 @@ export function useDemoSession(opts: {
   const onBeforeSelectRef = useRef(onBeforeSelectDemo);
   onBeforeSelectRef.current = onBeforeSelectDemo;
 
-  const getPool = useCallback(():
-    ParseWorkerPool | Promise<ParseWorkerPool> => {
+  const getPool = useCallback((): ParseWorkerPool | Promise<ParseWorkerPool> => {
     if (poolRef.current) {
       return poolRef.current;
     }
@@ -133,14 +115,11 @@ export function useDemoSession(opts: {
     setDemo(next);
   }, []);
 
-  const loadMapGroup = useCallback(
-    (group: { mapName: string; demos: LoadedDemo[] }) => {
-      setSelectedMapName(group.mapName);
-      setSeries(buildSeries(group.mapName, group.demos));
-      setDemo(group.demos[0]);
-    },
-    [],
-  );
+  const loadMapGroup = useCallback((group: { mapName: string; demos: LoadedDemo[] }) => {
+    setSelectedMapName(group.mapName);
+    setSeries(buildSeries(group.mapName, group.demos));
+    setDemo(group.demos[0]);
+  }, []);
 
   const beginParse = useCallback(() => {
     const gen = ++parseGenRef.current;
@@ -236,18 +215,14 @@ export function useDemoSession(opts: {
         return;
       }
       if (files.length > seriesMaxFilesRef.current) {
-        statusRef.current.setError(
-          `Series supports at most ${seriesMaxFilesRef.current} demos.`,
-        );
+        statusRef.current.setError(`Series supports at most ${seriesMaxFilesRef.current} demos.`);
         return;
       }
 
       const { ok: valid, issues } = await partitionDemoFiles(files);
       if (valid.length === 0) {
         statusRef.current.clear();
-        statusRef.current.setError(
-          issues.map((issue) => issue.message).join(" "),
-        );
+        statusRef.current.setError(issues.map((issue) => issue.message).join(" "));
         return;
       }
 
@@ -287,10 +262,7 @@ export function useDemoSession(opts: {
       let pool: ParseWorkerPool;
       try {
         const poolOrPromise = getPool();
-        pool =
-          poolOrPromise instanceof Promise
-            ? await poolOrPromise
-            : poolOrPromise;
+        pool = poolOrPromise instanceof Promise ? await poolOrPromise : poolOrPromise;
       } catch (err: unknown) {
         if (gen !== parseGenRef.current) return;
         endParse();
@@ -298,29 +270,19 @@ export function useDemoSession(opts: {
         return;
       }
       if (gen !== parseGenRef.current) return;
-      const results = await runParsePool(
-        pool,
-        valid,
-        onPoolProgress,
-        parsePoolMaxRef.current,
-      );
+      const results = await runParsePool(pool, valid, onPoolProgress, parsePoolMaxRef.current);
       if (gen !== parseGenRef.current) return;
 
       const wallMs = performance.now() - wall0;
       endParse();
       setParseFiles(null);
       const { groups, skipped } = groupParsedDemosByMap(results);
-      const skippedLines = [
-        ...issues.map((issue) => issue.message),
-        ...skipped,
-      ];
+      const skippedLines = [...issues.map((issue) => issue.message), ...skipped];
       for (const line of skippedLines) statusRef.current.setNotice(line);
 
       if (groups.length === 0) {
         statusRef.current.setError(
-          skippedLines.length > 0
-            ? skippedLines.join(" ")
-            : "No demos parsed for this series.",
+          skippedLines.length > 0 ? skippedLines.join(" ") : "No demos parsed for this series.",
         );
         return;
       }
@@ -351,9 +313,7 @@ export function useDemoSession(opts: {
           ? `${groups.length} maps (${groups.map((g) => `${g.demos.length}× ${g.mapName}`).join(", ")})`
           : groups[0].mapName;
       const seriesNotice = `Series: ${groups[0].demos.length} ${groups[0].mapName} demo${groups[0].demos.length === 1 ? "" : "s"} · ${nextSeries.focalTeam}${groups.length > 1 ? ` · ${mapSummary}` : ""}`;
-      statusRef.current.setNotice(
-        ramWarn ? `${seriesNotice} ${seriesRamWarning()}` : seriesNotice,
-      );
+      statusRef.current.setNotice(ramWarn ? `${seriesNotice} ${seriesRamWarning()}` : seriesNotice);
     },
     [beginParse, endParse, getPool, loadMapGroup, parseDemo, scheduleProgress],
   );
@@ -367,9 +327,7 @@ export function useDemoSession(opts: {
       clearSeriesReviewCache();
       setSwitching(true);
       loadMapGroup(group);
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => setSwitching(false)),
-      );
+      requestAnimationFrame(() => requestAnimationFrame(() => setSwitching(false)));
     },
     [loadMapGroup, mapGroups, selectedMapName],
   );

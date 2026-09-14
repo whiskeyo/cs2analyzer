@@ -182,9 +182,7 @@ describe("parseWorker", () => {
     workerSelf.postMessage.mockClear();
     await runWorker();
     expect(wasmMocks.init).toHaveBeenCalledOnce();
-    const done = workerSelf.postMessage.mock.calls.find(
-      (call) => call[0].type === "done",
-    )?.[0];
+    const done = workerSelf.postMessage.mock.calls.find((call) => call[0].type === "done")?.[0];
     expect(done?.type).toBe("done");
   });
 
@@ -251,14 +249,10 @@ describe("parseWorker", () => {
       },
     );
     await runWorker();
-    const done = workerSelf.postMessage.mock.calls.find(
-      (call) => call[0].type === "done",
-    )?.[0];
+    const done = workerSelf.postMessage.mock.calls.find((call) => call[0].type === "done")?.[0];
     expect(done?.replay.ticks.frameCount).toBe(1);
     expect(done?.replay.ticks.x).toEqual(new Float32Array([1, 2]));
-    const transfer = workerSelf.postMessage.mock.calls.find(
-      (call) => call[0].type === "done",
-    )?.[1];
+    const transfer = workerSelf.postMessage.mock.calls.find((call) => call[0].type === "done")?.[1];
     expect(transfer?.transfer).toHaveLength(16);
   });
 });

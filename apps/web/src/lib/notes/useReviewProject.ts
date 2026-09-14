@@ -3,6 +3,7 @@ import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import type { LoadedDemo, DemoSeries } from "@/lib/parse/session";
 import type { Playback } from "@/lib/playback/usePlayback";
 import type { Status } from "@/lib/state/status";
+import { reportQuotaError } from "@/lib/storage/quota";
 import type { SeriesReviewSnapshot } from "./seriesReviewCache";
 import {
   demoEnterClear,
@@ -186,7 +187,13 @@ export function useReviewProject(opts: {
   const seededPoolRef = useRef<string | null>(null);
 
   /** Save the demo currently on screen, e.g. before the tab closes. */
-  const persistNow = useCallback(() => persist(demoRef.current).catch(() => undefined), [persist]);
+  const persistNow = useCallback(
+    () =>
+      persist(demoRef.current).catch((err) => {
+        reportQuotaError(err, (message) => statusRef.current.setError(message));
+      }),
+    [persist],
+  );
 
   useEffect(() => {
     refreshSaved();
@@ -214,7 +221,11 @@ export function useReviewProject(opts: {
       if (!cancelled) {
         refreshSaved();
       }
-    })();
+    })().catch((err) => {
+      if (!cancelled) {
+        reportQuotaError(err, (message) => statusRef.current.setError(message));
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -315,7 +326,9 @@ export function useReviewProject(opts: {
     return () => {
       cancelled = true;
       if (plan.persistOutgoingOnLeave) {
-        void persist(demo, { stats: false, refreshList: false }).catch(() => undefined);
+        void persist(demo, { stats: false, refreshList: false }).catch((err) => {
+          reportQuotaError(err, (message) => statusRef.current.setError(message));
+        });
       }
     };
   }, [demo, series, applyProject, applySnapshot, persist]);

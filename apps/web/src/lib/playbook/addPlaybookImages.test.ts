@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PLAYBOOK_IMAGE_TYPE_ERROR, PLAYBOOK_IMAGE_URL_ERROR } from "./images";
 import { ingestPlaybookImageUrl, ingestPlaybookImages } from "./addPlaybookImages";
 import { putPlaybookImageBlob } from "./playbookImageStore";
+import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
 
 vi.mock("./playbookImageStore", () => ({
   putPlaybookImageBlob: vi.fn(async () => undefined),
@@ -14,6 +15,8 @@ vi.mock("./playbookImageBitmaps", () => ({
 describe("ingestPlaybookImages", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.mocked(putPlaybookImageBlob).mockReset();
+    vi.mocked(putPlaybookImageBlob).mockResolvedValue(undefined);
   });
 
   it("adds a valid file at the drop point and skips a rejected type", async () => {
@@ -69,5 +72,19 @@ describe("ingestPlaybookImages", () => {
     const failed = await ingestPlaybookImageUrl("https://example.com/gone.png", added.images);
     expect(failed.error).toBe(PLAYBOOK_IMAGE_URL_ERROR);
     expect(failed.images).toEqual(added.images);
+  });
+
+  it("returns quota copy when storing a photo fails", async () => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => ({ width: 400, height: 200, close: vi.fn() })),
+    );
+    const quota = new Error("full");
+    quota.name = "QuotaExceededError";
+    vi.mocked(putPlaybookImageBlob).mockRejectedValueOnce(quota);
+    const png = new File([new Uint8Array(8)], "lineup.png", { type: "image/png" });
+    const result = await ingestPlaybookImages([png], []);
+    expect(result.error).toBe(IDB_QUOTA_MESSAGE);
+    expect(result.images).toHaveLength(0);
   });
 });

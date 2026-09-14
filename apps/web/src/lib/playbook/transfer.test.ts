@@ -15,6 +15,7 @@ import * as playbookStore from "./playbookStore";
 import { setPageImages } from "./pages";
 import { getPlaybookImageBlob, putPlaybookImageBlob } from "./playbookImageStore";
 import { PLAYBOOK_SCHEMA } from "./types";
+import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
 
 const downloadBlob = vi.hoisted(() => vi.fn());
 
@@ -127,6 +128,19 @@ describe("exportPlaybooks / importPlaybooksFromText", () => {
     ).toEqual({
       ok: false,
       message: "Could not import playbooks.",
+    });
+    vi.mocked(playbookStore.savePlaybook).mockRestore();
+  });
+
+  it("uses quota copy when import cannot write", async () => {
+    const quota = new Error("full");
+    quota.name = "QuotaExceededError";
+    vi.spyOn(playbookStore, "savePlaybook").mockRejectedValueOnce(quota);
+    expect(
+      await importPlaybooksFromText(serializePlaybookBundle([newPlaybook("de_nuke", "C")])),
+    ).toEqual({
+      ok: false,
+      message: IDB_QUOTA_MESSAGE,
     });
     vi.mocked(playbookStore.savePlaybook).mockRestore();
   });

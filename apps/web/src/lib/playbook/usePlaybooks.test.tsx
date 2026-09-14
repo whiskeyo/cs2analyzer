@@ -7,8 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { addPiece, makePiece } from "./pieces";
 import { deleteAllPlaybooks, loadPlaybook } from "./playbookStore";
+import * as playbookStore from "./playbookStore";
 import { COPY_SUFFIX, UNTITLED_PLAYBOOK } from "./types";
 import { usePlaybooks } from "./usePlaybooks";
+import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
 
 describe("usePlaybooks", () => {
   beforeEach(async () => {
@@ -17,6 +19,7 @@ describe("usePlaybooks", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
     await deleteAllPlaybooks();
   });
@@ -209,5 +212,22 @@ describe("usePlaybooks", () => {
       await result.current.reload();
     });
     await waitFor(() => expect(result.current.books.some((row) => row.key === key)).toBe(true));
+  });
+
+  it("surfaces quota when a draft cannot persist", async () => {
+    const { result } = renderHook(() => usePlaybooks("de_mirage"));
+    await act(async () => {
+      await result.current.create("Defaults");
+    });
+    const quota = new Error("full");
+    quota.name = "QuotaExceededError";
+    vi.spyOn(playbookStore, "savePlaybook").mockRejectedValue(quota);
+    await act(async () => {
+      result.current.rename("A execs");
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(PROJECT_SAVE_DEBOUNCE_MS);
+    });
+    await waitFor(() => expect(result.current.saveError).toBe(IDB_QUOTA_MESSAGE));
   });
 });

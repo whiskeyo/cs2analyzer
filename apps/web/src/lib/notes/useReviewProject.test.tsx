@@ -3,6 +3,7 @@ import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { NadeLegend } from "@/components/radar/NadeLegend";
 import { loadedDemo, type DemoSeries } from "@/lib/parse/session";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
+import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
 import type { Status } from "@/lib/state/status";
 import { emptyNote } from "./note";
@@ -417,5 +418,26 @@ describe("useReviewProject", () => {
     rerender({ current: first });
 
     await waitFor(() => expect(result.current.notes[0]?.note.drawings).toEqual([drawing]));
+  });
+
+  it("reports quota when auto-save cannot write", async () => {
+    const st = status();
+    const quota = new Error("full");
+    quota.name = "QuotaExceededError";
+    mocks.saveProject.mockRejectedValue(quota);
+    const { result } = renderHook(() =>
+      useReviewProject({
+        demo: demo(),
+        series: null,
+        parsedDemos: [],
+        status: st,
+        playback: playback(),
+      }),
+    );
+    await waitFor(() => expect(mocks.loadProject).toHaveBeenCalled());
+    await act(async () => {
+      await result.current.persistNow();
+    });
+    expect(st.setError).toHaveBeenCalledWith(IDB_QUOTA_MESSAGE);
   });
 });

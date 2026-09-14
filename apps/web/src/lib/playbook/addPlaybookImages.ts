@@ -1,3 +1,4 @@
+import { IDB_QUOTA_MESSAGE, isQuotaExceededError } from "@/lib/storage/quota";
 import {
   makePlaybookImage,
   nextImagePin,
@@ -26,7 +27,14 @@ export async function ingestPlaybookImages(
       continue;
     }
     const image = makePlaybookImage(decoded, at);
-    await putPlaybookImageBlob(image.id, decoded.blob);
+    try {
+      await putPlaybookImageBlob(image.id, decoded.blob);
+    } catch (err) {
+      if (isQuotaExceededError(err)) {
+        return { images: next, error: IDB_QUOTA_MESSAGE };
+      }
+      throw err;
+    }
     rememberPlaybookImage(image.id, decoded.blob);
     next.push(image);
     at = nextImagePin(next);
@@ -43,7 +51,14 @@ export async function ingestPlaybookImageUrl(
   if (!decoded.ok) return { images: [...current], error: decoded.message };
   const at = origin ?? nextImagePin(current);
   const image = makePlaybookImage(decoded, at);
-  await putPlaybookImageBlob(image.id, decoded.blob);
+  try {
+    await putPlaybookImageBlob(image.id, decoded.blob);
+  } catch (err) {
+    if (isQuotaExceededError(err)) {
+      return { images: [...current], error: IDB_QUOTA_MESSAGE };
+    }
+    throw err;
+  }
   rememberPlaybookImage(image.id, decoded.blob);
   return { images: [...current, image], error: null };
 }

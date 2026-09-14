@@ -79,9 +79,7 @@ function startsWithAscii(bytes: Uint8Array, ascii: string): boolean {
 }
 
 export function isGzipBytes(bytes: Uint8Array): boolean {
-  return (
-    bytes.length >= 2 && bytes[0] === GZIP_MAGIC0 && bytes[1] === GZIP_MAGIC1
-  );
+  return bytes.length >= 2 && bytes[0] === GZIP_MAGIC0 && bytes[1] === GZIP_MAGIC1;
 }
 
 /** Sync checks: name, MIME, empty, size. Does not read file bytes. */
@@ -89,11 +87,7 @@ export function demoFileNameIssue(file: File): string | null {
   const name = file.name;
   if (file.size === 0) return demoEmptyMessage(name);
   if (file.size > DEMO_MAX_BYTES) return demoOversizedMessage(name);
-  if (
-    isGzipType(file.type) ||
-    /\.dem\.gz$/i.test(name) ||
-    /\.gz$/i.test(name)
-  ) {
+  if (isGzipType(file.type) || /\.dem\.gz$/i.test(name) || /\.gz$/i.test(name)) {
     return demoGzipMessage(name);
   }
   if (!/\.dem$/i.test(name)) return demoExtensionMessage(name);
@@ -102,15 +96,10 @@ export function demoFileNameIssue(file: File): string | null {
 }
 
 /** Cheap magic sniff: gzip, Source 1, or not PBDEMS2. */
-export function sniffDemoMagic(
-  bytes: Uint8Array,
-  fileName: string,
-): string | null {
+export function sniffDemoMagic(bytes: Uint8Array, fileName: string): string | null {
   if (isGzipBytes(bytes)) return demoGzipMessage(fileName);
-  if (startsWithAscii(bytes, SOURCE1_DEMO_MAGIC))
-    return demoSource1Message(fileName);
-  if (!startsWithAscii(bytes, CS2_DEMO_MAGIC))
-    return demoNotCs2Message(fileName);
+  if (startsWithAscii(bytes, SOURCE1_DEMO_MAGIC)) return demoSource1Message(fileName);
+  if (!startsWithAscii(bytes, CS2_DEMO_MAGIC)) return demoNotCs2Message(fileName);
   return null;
 }
 

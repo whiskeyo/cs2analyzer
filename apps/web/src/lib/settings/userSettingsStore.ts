@@ -3,6 +3,7 @@ import { loadHabitsTrailWindowSec } from "@/lib/parse/seriesOverlay";
 import { loadSidebarWidth } from "@/lib/shared/sidebarWidth";
 import { STORAGE_KEYS } from "@/lib/shared/storageKeys";
 import { SETTINGS_STORE, hasStore, idbAvailable, openCs2Db, requestOf } from "@/lib/storage/idb";
+import { isQuotaExceededError, wrapIdbError } from "@/lib/storage/quota";
 import { isRecord } from "@/lib/validate/guards.ts";
 import {
   USER_SETTINGS_ID,
@@ -107,8 +108,11 @@ async function persist(settings: UserSettings): Promise<boolean> {
     await writeRecord(settings);
     memoryFallback = null;
     return true;
-  } catch {
+  } catch (err) {
     memoryFallback = cloneUserSettings(settings);
+    if (isQuotaExceededError(err)) {
+      throw wrapIdbError(err);
+    }
     return false;
   }
 }
@@ -120,10 +124,10 @@ async function persist(settings: UserSettings): Promise<boolean> {
  * removed.
  */
 export async function loadUserSettings(): Promise<UserSettings> {
+  if (memoryFallback) {
+    return cloneUserSettings(memoryFallback);
+  }
   if (!idbAvailable()) {
-    if (memoryFallback) {
-      return cloneUserSettings(memoryFallback);
-    }
     memoryFallback = mergeLocalStorage(defaultUserSettings());
     return cloneUserSettings(memoryFallback);
   }

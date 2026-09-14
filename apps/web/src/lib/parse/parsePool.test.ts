@@ -118,9 +118,9 @@ describe("parsePoolOverallPct", () => {
 
 describe("mapNameFromReplay", () => {
   it("reads the header map name", () => {
-    expect(
-      mapNameFromReplay(makeReplay({ header: { map_name: "de_inferno" } })),
-    ).toBe("de_inferno");
+    expect(mapNameFromReplay(makeReplay({ header: { map_name: "de_inferno" } }))).toBe(
+      "de_inferno",
+    );
   });
 });
 
@@ -173,8 +173,7 @@ describe("runParsePool", () => {
       },
       terminate: vi.fn(),
       postMessage: vi.fn(() => {
-        const current =
-          outcomes[Math.min(outcomeIndex, outcomes.length - 1)] ?? "done";
+        const current = outcomes[Math.min(outcomeIndex, outcomes.length - 1)] ?? "done";
         outcomeIndex += 1;
         if (current === "fail") {
           onerror?.({ message: "Worker failed" } as ErrorEvent);
@@ -227,27 +226,19 @@ describe("runParsePool", () => {
     const createWorker = () => mockWorker(n++ === 0 ? replayA : replayB);
     const onProgress = vi.fn();
     const files = [new File([], "a.dem"), new File([], "b.dem")];
-    const results = await runParsePool(
-      createParseWorkerPool(createWorker),
-      files,
-      onProgress,
-    );
+    const results = await runParsePool(createParseWorkerPool(createWorker), files, onProgress);
     expect(results).toHaveLength(2);
     expect(results[0].demo?.replay.header.map_name).toBe("de_a");
     expect(results[1].demo?.replay.header.map_name).toBe("de_b");
     const last = onProgress.mock.calls.at(-1)?.[0];
     expect(last?.completed).toBe(2);
-    expect(
-      last?.files.every((f: { state: string }) => f.state === "done"),
-    ).toBe(true);
+    expect(last?.files.every((f: { state: string }) => f.state === "done")).toBe(true);
   });
 
   it("records worker errors on the matching file row", async () => {
     const onProgress = vi.fn();
     const results = await runParsePool(
-      createParseWorkerPool(() =>
-        mockWorker(makeReplay(), "error", "bad header"),
-      ),
+      createParseWorkerPool(() => mockWorker(makeReplay(), "error", "bad header")),
       [new File([], "broken.dem")],
       onProgress,
     );
@@ -296,11 +287,7 @@ describe("runParsePool", () => {
       return worker;
     });
     const pool = createParseWorkerPool(createWorker);
-    const files = [
-      new File([], "a.dem"),
-      new File([], "b.dem"),
-      new File([], "c.dem"),
-    ];
+    const files = [new File([], "a.dem"), new File([], "b.dem"), new File([], "c.dem")];
     const results = await runParsePool(pool, files, vi.fn());
     expect(results).toHaveLength(3);
     expect(results.every((r) => r.demo)).toBe(true);
@@ -380,8 +367,7 @@ function roundWithEquip(
   const ticks = makeFreezeTicks(10, ctCount, tick);
   for (let i = 0; i < 10; i++) {
     ticks.equip[i] = avgEquip;
-    if (roundNumber >= FIRST_OVERTIME_ROUND)
-      ticks.money[i] = OVERTIME_START_MONEY;
+    if (roundNumber >= FIRST_OVERTIME_ROUND) ticks.money[i] = OVERTIME_START_MONEY;
   }
   const rounds =
     replay.rounds.length > 0

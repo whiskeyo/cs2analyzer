@@ -7,12 +7,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { IDB_QUOTA_MESSAGE, isQuotaExceededError } from "@/lib/storage/quota";
 import { loadUserSettings, resetUserSettings, saveUserSettings } from "./userSettingsStore";
 import { defaultUserSettings, parseUserSettings, type UserSettings } from "./userSettings";
 
 export interface UserSettingsApi {
   settings: UserSettings;
   ready: boolean;
+  saveError: string | null;
   update: (patch: Partial<UserSettings>) => Promise<UserSettings>;
   reset: () => Promise<UserSettings>;
 }
@@ -22,6 +24,7 @@ const UserSettingsContext = createContext<UserSettingsApi | null>(null);
 function useUserSettingsState(): UserSettingsApi {
   const [settings, setSettings] = useState<UserSettings>(defaultUserSettings);
   const [ready, setReady] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const dirtyRef = useRef(false);
 
   useEffect(() => {
@@ -42,19 +45,41 @@ function useUserSettingsState(): UserSettingsApi {
 
   const update = useCallback(async (patch: Partial<UserSettings>) => {
     dirtyRef.current = true;
-    const next = await saveUserSettings(patch);
-    setSettings(next);
-    return next;
+    try {
+      const next = await saveUserSettings(patch);
+      setSaveError(null);
+      setSettings(next);
+      return next;
+    } catch (err) {
+      if (!isQuotaExceededError(err)) {
+        throw err;
+      }
+      setSaveError(IDB_QUOTA_MESSAGE);
+      const next = await loadUserSettings();
+      setSettings(next);
+      return next;
+    }
   }, []);
 
   const reset = useCallback(async () => {
     dirtyRef.current = true;
-    const next = await resetUserSettings();
-    setSettings(next);
-    return next;
+    try {
+      const next = await resetUserSettings();
+      setSaveError(null);
+      setSettings(next);
+      return next;
+    } catch (err) {
+      if (!isQuotaExceededError(err)) {
+        throw err;
+      }
+      setSaveError(IDB_QUOTA_MESSAGE);
+      const next = await loadUserSettings();
+      setSettings(next);
+      return next;
+    }
   }, []);
 
-  return { settings, ready, update, reset };
+  return { settings, ready, saveError, update, reset };
 }
 
 /** Loads the IndexedDB document once at app boot and shares it with consumers. */
@@ -75,6 +100,7 @@ export function useUserSettings(): UserSettingsApi {
   return {
     settings: defaultUserSettings(),
     ready: true,
+    saveError: null,
     update: async (patch) => parseUserSettings({ ...defaultUserSettings(), ...patch }),
     reset: async () => defaultUserSettings(),
   };

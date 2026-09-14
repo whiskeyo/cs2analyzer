@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
 import { loadedDemo } from "@/lib/parse/session";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
 import { DEFAULT_SUMMARY_FILTER } from "./types";
@@ -226,6 +227,22 @@ describe("importNotesFromText", () => {
     expect(applyProject).not.toHaveBeenCalled();
     expect(s.notice).toContain("Imported 1 saved match");
   });
+
+  it("surfaces quota when import cannot write", async () => {
+    const s = status();
+    const quota = new Error("full");
+    quota.name = "QuotaExceededError";
+    mocks.parseBundle.mockReturnValue({ schema: 2, exportedAt: 1, projects: [project()] });
+    mocks.importProjects.mockRejectedValue(quota);
+    await importNotesFromText("{}", {
+      demo: null,
+      applyProject: vi.fn(),
+      refreshSaved: vi.fn(),
+      status: s,
+    });
+    expect(s.error).toBe(IDB_QUOTA_MESSAGE);
+    expect(s.notice).toBeNull();
+  });
 });
 
 describe("tryOpenLinkedDemo", () => {
@@ -301,5 +318,17 @@ describe("linkDemoFile", () => {
     mocks.pickDemoFileHandle.mockRejectedValue(new Error("abort"));
     await linkDemoFile(project(), vi.fn(), s);
     expect(s.notice).toBe("Demo link cancelled.");
+  });
+
+  it("surfaces quota instead of treating it as a cancelled picker", async () => {
+    const s = status();
+    const quota = new Error("full");
+    quota.name = "QuotaExceededError";
+    mocks.demoFilePickerAvailable.mockReturnValue(true);
+    mocks.pickDemoFileHandle.mockResolvedValue({ name: "match.dem" });
+    mocks.saveDemoFileHandle.mockRejectedValue(quota);
+    await linkDemoFile(project(), vi.fn(), s);
+    expect(s.error).toBe(IDB_QUOTA_MESSAGE);
+    expect(s.notice).toBeNull();
   });
 });

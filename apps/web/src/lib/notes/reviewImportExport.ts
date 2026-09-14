@@ -1,6 +1,7 @@
 import { parseJson } from "@/lib/validate/json.ts";
 import { downloadBlob } from "@/lib/shared/download";
 import type { LoadedDemo } from "@/lib/parse/session";
+import { reportQuotaError, storageWriteError } from "@/lib/storage/quota";
 import {
   deleteAllProjects,
   demoFilePickerAvailable,
@@ -80,19 +81,23 @@ export async function importNotesFromText(text: string, ctx: ReviewImportContext
     ctx.status.setError("Notes file has no valid reviews.");
     return;
   }
-  const n = await importProjects(bundle);
-  ctx.refreshSaved();
-  ctx.status.setError(null);
-  ctx.status.setNotice(
-    `Imported ${n} saved match${n === 1 ? "" : "es"}. Drop the demo to restore drawings.`,
-  );
-  const current = ctx.demo;
-  if (!current) {
-    return;
-  }
-  const mine = bundle.projects.find((p) => p.key === matchKey(current.replay, current.fileName));
-  if (mine) {
-    ctx.applyProject(mine, false);
+  try {
+    const n = await importProjects(bundle);
+    ctx.refreshSaved();
+    ctx.status.setError(null);
+    ctx.status.setNotice(
+      `Imported ${n} saved match${n === 1 ? "" : "es"}. Drop the demo to restore drawings.`,
+    );
+    const current = ctx.demo;
+    if (!current) {
+      return;
+    }
+    const mine = bundle.projects.find((p) => p.key === matchKey(current.replay, current.fileName));
+    if (mine) {
+      ctx.applyProject(mine, false);
+    }
+  } catch (err) {
+    ctx.status.setError(storageWriteError(err, "Could not import notes."));
   }
 }
 
@@ -144,7 +149,10 @@ export async function linkDemoFile(
     }
     refreshSaved();
     status.setNotice(`Linked ${handle.name} for saved notes.`);
-  } catch {
+  } catch (err) {
+    if (reportQuotaError(err, (message) => status.setError(message))) {
+      return;
+    }
     status.setNotice("Demo link cancelled.");
   }
 }

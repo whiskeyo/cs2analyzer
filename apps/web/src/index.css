@@ -317,6 +317,9 @@ button.home-card {
   color: #c5d0da;
   font-size: var(--page-body-size);
 }
+.home-modal-card p.error {
+  color: #ff6b6b;
+}
 .home-create-fields {
   display: flex;
   flex-direction: column;
@@ -508,6 +511,14 @@ code {
 /* Above `.stage` (same `.app > *` stacking slot) so the gear menu is clickable. */
 .app > .top {
   z-index: 2;
+}
+.status-banner {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.45rem 1rem;
+  background: #10151b;
+  border-bottom: 1px solid #1e2732;
+  font-size: 0.85rem;
 }
 .brand-row {
   display: flex;

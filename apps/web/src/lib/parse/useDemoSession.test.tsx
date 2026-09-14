@@ -90,10 +90,7 @@ function demoFile(name: string, extra = "body"): File {
   return new File([`${CS2_DEMO_MAGIC}${extra}`], name);
 }
 
-function renderSession(opts?: {
-  onBeforeSelectDemo?: () => void;
-  seriesMaxFiles?: number;
-}) {
+function renderSession(opts?: { onBeforeSelectDemo?: () => void; seriesMaxFiles?: number }) {
   const workers: FakeWorker[] = [];
   const status = makeStatus();
   const createWorker = () => {
@@ -193,31 +190,23 @@ describe("useDemoSession", () => {
     act(() => {
       result.current.parseDemo(new File(["x"], "clip.mp4"));
     });
-    expect(status.setError).toHaveBeenCalledWith(
-      expect.stringContaining("not a .dem file"),
-    );
+    expect(status.setError).toHaveBeenCalledWith(expect.stringContaining("not a .dem file"));
     expect(workers).toHaveLength(0);
 
     await act(async () => {
       result.current.parseDemo(new File(["x"], "match.dem.gz"));
     });
-    expect(status.setError).toHaveBeenCalledWith(
-      expect.stringContaining("unsupported gzip"),
-    );
+    expect(status.setError).toHaveBeenCalledWith(expect.stringContaining("unsupported gzip"));
 
     await act(async () => {
       result.current.parseDemo(new File([], "empty.dem"));
     });
-    expect(status.setError).toHaveBeenCalledWith(
-      expect.stringContaining("empty"),
-    );
+    expect(status.setError).toHaveBeenCalledWith(expect.stringContaining("empty"));
 
     await act(async () => {
       result.current.parseDemo(demoFile("player_pov.dem"));
     });
-    expect(status.setError).toHaveBeenCalledWith(
-      expect.stringContaining("POV demo"),
-    );
+    expect(status.setError).toHaveBeenCalledWith(expect.stringContaining("POV demo"));
     expect(result.current.parsing).toBe(false);
   });
 
@@ -339,9 +328,7 @@ describe("useDemoSession", () => {
     expect(result.current.selectedMapName).toBe("de_ancient");
     expect(result.current.series?.demos).toEqual([demoA, demoB]);
     expect(result.current.demo).toBe(demoA);
-    expect(status.setNotice).toHaveBeenCalledWith(
-      "Series: 2 de_ancient demos · Spirit",
-    );
+    expect(status.setNotice).toHaveBeenCalledWith("Series: 2 de_ancient demos · Spirit");
   });
 
   it("rejects a multi-drop when every file fails inspection", async () => {
@@ -352,9 +339,7 @@ describe("useDemoSession", () => {
       await result.current.parseDemos(files);
     });
 
-    expect(status.setError).toHaveBeenCalledWith(
-      expect.stringContaining("not a .dem file"),
-    );
+    expect(status.setError).toHaveBeenCalledWith(expect.stringContaining("not a .dem file"));
     expect(runParsePool).not.toHaveBeenCalled();
     expect(result.current.parsing).toBe(false);
   });
@@ -366,9 +351,7 @@ describe("useDemoSession", () => {
     });
     const good = demoFile("a.dem");
     const demoA = loadedDemo(replay, "a.dem", good);
-    vi.mocked(runParsePool).mockResolvedValue([
-      { file: good, demo: demoA, timings: TIMINGS },
-    ]);
+    vi.mocked(runParsePool).mockResolvedValue([{ file: good, demo: demoA, timings: TIMINGS }]);
 
     await act(async () => {
       await result.current.parseDemos([new File(["x"], "clip.mp4"), good]);
@@ -388,9 +371,7 @@ describe("useDemoSession", () => {
       await result.current.parseDemos(files);
     });
 
-    expect(status.setError).toHaveBeenCalledWith(
-      "Series supports at most 2 demos.",
-    );
+    expect(status.setError).toHaveBeenCalledWith("Series supports at most 2 demos.");
     expect(runParsePool).not.toHaveBeenCalled();
     expect(result.current.parsing).toBe(false);
     expect(result.current.demo).toBeNull();
@@ -412,9 +393,7 @@ describe("useDemoSession", () => {
     });
 
     expect(status.setNotice).toHaveBeenCalledWith(seriesRamWarning());
-    expect(status.setNotice).toHaveBeenCalledWith(
-      expect.stringContaining(seriesRamWarning()),
-    );
+    expect(status.setNotice).toHaveBeenCalledWith(expect.stringContaining(seriesRamWarning()));
     expect(result.current.series?.demos).toHaveLength(13);
   });
 
@@ -536,9 +515,7 @@ describe("useDemoSession", () => {
   });
 
   it("reports a bootstrap error when the lazy parser fails to load", async () => {
-    parserMocks.ensureParser.mockRejectedValue(
-      new Error("failed to fetch Wasm"),
-    );
+    parserMocks.ensureParser.mockRejectedValue(new Error("failed to fetch Wasm"));
     const status = makeStatus();
     const { result } = renderHook(() => useDemoSession({ status }));
 

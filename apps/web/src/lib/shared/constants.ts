@@ -138,10 +138,7 @@ export const BOT_STEAM_ID_SPAN = 0x10000;
 
 /** True for parser-assigned bot identities, never for a human SteamID64. */
 export function isBotSteamId(steamId: number): boolean {
-  return (
-    steamId >= BOT_STEAM_ID_BASE &&
-    steamId < BOT_STEAM_ID_BASE + BOT_STEAM_ID_SPAN
-  );
+  return steamId >= BOT_STEAM_ID_BASE && steamId < BOT_STEAM_ID_BASE + BOT_STEAM_ID_SPAN;
 }
 
 /** KAST / trade window: teammate kills the attacker. */
@@ -177,8 +174,7 @@ export const FLASH_FULL_SECONDS = 5.47;
  */
 /** Wide enough that `4.95.toFixed(1) === "5.0"` leftover snaps are excluded. */
 export const FLASH_OVERLAY_SLACK_SECONDS = 0.57;
-export const FLASH_OVERLAY_SPIKE_SECONDS =
-  FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
+export const FLASH_OVERLAY_SPIKE_SECONDS = FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
 
 /**
  * How long after detonate a blind may still be attributed to that flash.

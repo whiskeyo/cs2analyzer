@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FloorMode, Note } from "@/lib/notes/types";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
+import { reportQuotaError } from "@/lib/storage/quota";
 import { PLAYBOOKS_CHANGED_EVENT } from "./events";
 import {
   addPage,
@@ -40,6 +41,7 @@ export function usePlaybooks(mapName: string | null) {
   const [allBooks, setAllBooks] = useState<Playbook[]>([]);
   const [activeByMap, setActiveByMap] = useState<Record<string, string | null>>({});
   const [draft, setDraft] = useState<Playbook | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const skipSaveRef = useRef(true);
   const activeKey = mapName ? (activeByMap[mapName] ?? null) : null;
   const book =
@@ -81,7 +83,14 @@ export function usePlaybooks(mapName: string | null) {
       return;
     }
     const handle = window.setTimeout(() => {
-      void savePlaybook(book).then(() => void refresh());
+      void savePlaybook(book)
+        .then(() => {
+          setSaveError(null);
+          void refresh();
+        })
+        .catch((err) => {
+          reportQuotaError(err, setSaveError);
+        });
     }, PROJECT_SAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
   }, [book, refresh]);
@@ -232,7 +241,11 @@ export function usePlaybooks(mapName: string | null) {
         const source = current.pages.find((row) => row.id === pageId);
         const next = duplicatePage(current, pageId);
         const copy = next.pages.find((row) => row.id === next.activePageId);
-        if (source && copy) void copyPlaybookImageBlobs(clonedPageImageIdMap(source, copy));
+        if (source && copy) {
+          void copyPlaybookImageBlobs(clonedPageImageIdMap(source, copy)).catch((err) => {
+            reportQuotaError(err, setSaveError);
+          });
+        }
         return next;
       });
     },
@@ -287,16 +300,28 @@ export function usePlaybooks(mapName: string | null) {
           for (const [from, to] of clonedPageImageIdMap(page, copy)) idMap.set(from, to);
         }
       });
-      if (idMap.size > 0) await copyPlaybookImageBlobs(idMap);
-      const copy = await savePlaybook({
-        ...duplicated,
-        sort: nextPlaybookSort(allBooks, loaded.mapName),
-      });
-      skipSaveRef.current = true;
-      setDraft(copy);
-      setActiveByMap((prev) => ({ ...prev, [copy.mapName]: copy.key }));
-      await refresh();
-      return copy;
+      if (idMap.size > 0) {
+        try {
+          await copyPlaybookImageBlobs(idMap);
+        } catch (err) {
+          reportQuotaError(err, setSaveError);
+          return null;
+        }
+      }
+      try {
+        const copy = await savePlaybook({
+          ...duplicated,
+          sort: nextPlaybookSort(allBooks, loaded.mapName),
+        });
+        skipSaveRef.current = true;
+        setDraft(copy);
+        setActiveByMap((prev) => ({ ...prev, [copy.mapName]: copy.key }));
+        await refresh();
+        return copy;
+      } catch (err) {
+        reportQuotaError(err, setSaveError);
+        return null;
+      }
     },
     [allBooks, draft, refresh],
   );
@@ -345,7 +370,11 @@ export function usePlaybooks(mapName: string | null) {
         const source = current.pages.find((row) => row.id === pageId);
         const next = duplicatePage(current, pageId);
         const copy = next.pages.find((row) => row.id === next.activePageId);
-        if (source && copy) void copyPlaybookImageBlobs(clonedPageImageIdMap(source, copy));
+        if (source && copy) {
+          void copyPlaybookImageBlobs(clonedPageImageIdMap(source, copy)).catch((err) => {
+            reportQuotaError(err, setSaveError);
+          });
+        }
         return next;
       };
       if (draft?.key === key) {
@@ -452,5 +481,6 @@ export function usePlaybooks(mapName: string | null) {
     movePlaybook,
     moveStrat,
     reload,
+    saveError,
   };
 }

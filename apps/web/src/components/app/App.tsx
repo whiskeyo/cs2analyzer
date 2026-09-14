@@ -23,12 +23,13 @@ function pageTitle(pathname: string): string {
 }
 
 function AppLayout() {
-  const { session } = useApp();
+  const { session, status } = useApp();
   const { pathname } = useLocation();
   const onAnalyzer = isAnalyzerPath(pathname);
   const onPlaybook = isPlaybookPath(pathname);
   const showLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
   const fillBoard = onPlaybook || (onAnalyzer && session.replay != null);
+  const showStorageError = onAnalyzer && session.replay != null && status.error != null;
 
   useEffect(() => {
     document.title = pageTitle(pathname);
@@ -42,6 +43,11 @@ function AppLayout() {
     <div className={shellClass}>
       <AppBackdrop />
       <Header />
+      {showStorageError ? (
+        <p className="error status-banner" role="alert">
+          {status.error}
+        </p>
+      ) : null}
       <Outlet />
     </div>
   );
