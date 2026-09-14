@@ -71,3 +71,8 @@ Flags combine and run in the order above; `--dev` and `--prod` are mutually excl
 ## Credits
 
 Radar map images are vendored from [cs2-map-icons](https://github.com/MurkyYT/cs2-map-icons). Weapon / killfeed icons from [ChetdeJong/cs2-killfeed-generator](https://github.com/ChetdeJong/cs2-killfeed-generator) and [Juknum/counter-strike-icons](https://github.com/Juknum/counter-strike-icons). Offline use only — we do not claim ownership of those assets.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
