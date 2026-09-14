@@ -12,28 +12,24 @@ export const CONTACT_CHANNELS = [
     href: CONTACT_MAILTO,
     label: "Email",
     detail: CONTACT_EMAIL,
-    hint: "Private notes.",
     external: false,
   },
   {
     href: STEAM_PROFILE_URL,
     label: "Steam profile",
     detail: "steamcommunity.com/id/whiskeyo",
-    hint: "Friend request or comment.",
     external: true,
   },
   {
     href: STEAM_GROUP_URL,
     label: "Steam group",
     detail: "steamcommunity.com/groups/cs2analyzer-whiskeyo",
-    hint: "Announcements and discussion.",
     external: true,
   },
   {
     href: REPO_URL,
     label: "GitHub",
     detail: "github.com/whiskeyo/cs2analyzer",
-    hint: "Source, and Issues for bugs.",
     external: true,
   },
 ] as const;

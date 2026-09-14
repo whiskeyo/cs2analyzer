@@ -120,8 +120,7 @@
 .app.splash .home-intro,
 .app.splash .faq h2,
 .app.splash .faq-lead,
-.app.splash .contact h2,
-.app.splash .contact-lead {
+.app.splash .contact h2 {
   text-shadow: 0 1px 18px rgba(11, 14, 18, 0.55);
 }
 

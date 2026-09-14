@@ -12,7 +12,12 @@ describe("Contact", () => {
       </TestRouter>,
     );
     expect(screen.getByRole("heading", { level: 2, name: "Contact" })).toBeInTheDocument();
-    expect(screen.getByText(/never leaves this machine/)).toBeInTheDocument();
+    expect(screen.queryByText(/The analyzer is local-first/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/never leaves this machine/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Private notes/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Friend request or comment/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Announcements and discussion/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Source, and Issues for bugs/)).not.toBeInTheDocument();
     expect(screen.queryByRole("form")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
 

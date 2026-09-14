@@ -6,10 +6,6 @@ export function Contact() {
     <div className="home">
       <article className="contact">
         <h2>Contact</h2>
-        <p className="contact-lead">
-          Fan project. The analyzer is local-first: a dropped demo is parsed in your browser and
-          never leaves this machine.
-        </p>
         <ul className="contact-list">
           {CONTACT_CHANNELS.map((channel) => (
             <li key={channel.href}>
@@ -20,7 +16,6 @@ export function Contact() {
               >
                 <span className="contact-card-label">{channel.label}</span>
                 <span className="contact-card-detail">{channel.detail}</span>
-                <span className="contact-card-hint muted">{channel.hint}</span>
               </a>
             </li>
           ))}
