@@ -2,14 +2,20 @@
  * @vitest-environment jsdom
  */
 import "fake-indexeddb/auto";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_RADAR_GRAY,
   SERIES_MAX_FILES,
   SERIES_MAX_FILES_HARD,
-  SERIES_MAX_FILES_SOFT_WARN,
+  seriesRamWarning,
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
@@ -41,12 +47,18 @@ describe("UserSettingsModal", () => {
   it("edits settings and persists them", async () => {
     renderModal();
     await waitFor(() =>
-      expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("dialog", { name: "Preferences" }),
+      ).toBeInTheDocument(),
     );
     expect(
-      screen.getByRole("dialog", { name: "Preferences" }).closest(".settings-modal")?.parentElement,
+      screen
+        .getByRole("dialog", { name: "Preferences" })
+        .closest(".settings-modal")?.parentElement,
     ).toBe(document.body);
-    await waitFor(() => expect(screen.getByLabelText("Saved notes page size")).toHaveValue(5));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Saved notes page size")).toHaveValue(5),
+    );
 
     const pageSize = screen.getByLabelText("Saved notes page size");
     fireEvent.change(pageSize, { target: { value: "8" } });
@@ -56,7 +68,9 @@ describe("UserSettingsModal", () => {
       target: { value: String(SIDEBAR_MIN_WIDTH) },
     });
     await waitFor(() =>
-      expect(screen.getByLabelText("Sidebar width")).toHaveValue(String(SIDEBAR_MIN_WIDTH)),
+      expect(screen.getByLabelText("Sidebar width")).toHaveValue(
+        String(SIDEBAR_MIN_WIDTH),
+      ),
     );
 
     const stored = await loadUserSettings();
@@ -71,15 +85,23 @@ describe("UserSettingsModal", () => {
       radarGray: 0,
     });
     renderModal();
-    await waitFor(() => expect(screen.getByLabelText("Event lead-in")).toHaveValue(4));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Event lead-in")).toHaveValue(4),
+    );
 
-    await userEvent.click(screen.getByRole("button", { name: "Reset all settings" }));
-    expect(screen.getByRole("dialog", { name: "Reset all settings?" })).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Reset all settings" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Reset all settings?" }),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Reset all" }));
 
     await waitFor(() => {
       expect(screen.getByLabelText("Event lead-in")).toHaveValue(1.5);
-      expect(screen.getByLabelText("Sidebar width")).toHaveValue(String(SIDEBAR_DEFAULT_WIDTH));
+      expect(screen.getByLabelText("Sidebar width")).toHaveValue(
+        String(SIDEBAR_DEFAULT_WIDTH),
+      );
       expect(screen.getByLabelText("Radar map color")).toHaveValue("100");
     });
     const stored = await loadUserSettings();
@@ -92,7 +114,9 @@ describe("UserSettingsModal", () => {
     const onClose = vi.fn();
     renderModal(onClose);
     await waitFor(() =>
-      expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("dialog", { name: "Preferences" }),
+      ).toBeInTheDocument(),
     );
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledOnce();
@@ -105,8 +129,12 @@ describe("UserSettingsModal", () => {
     expect(chips).toHaveClass("nade-legend-embedded");
     expect(dialog).toContainElement(chips);
     expect(chips.parentElement).toHaveClass("settings-summary");
-    expect(within(dialog).getByText("Default nade summary")).toBeInTheDocument();
-    expect(within(chips).getByRole("button", { name: "Smoke" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("Default nade summary"),
+    ).toBeInTheDocument();
+    expect(
+      within(chips).getByRole("button", { name: "Smoke" }),
+    ).toBeInTheDocument();
 
     await userEvent.click(within(chips).getByRole("button", { name: "T" }));
     await userEvent.click(within(chips).getByRole("button", { name: "HE" }));
@@ -122,16 +150,23 @@ describe("UserSettingsModal", () => {
 
   it("round-trips drawing, radar, playback, and series defaults after remount", async () => {
     const { unmount } = renderModal();
-    await waitFor(() => expect(screen.getByLabelText("Saved notes page size")).toHaveValue(5));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Saved notes page size")).toHaveValue(5),
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Heat" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Heat" })).toHaveClass("on"));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Heat" })).toHaveClass("on"),
+    );
     await userEvent.click(screen.getByRole("button", { name: "#ff7a00" }));
     await userEvent.click(screen.getByRole("button", { name: "Pen" }));
     await userEvent.click(screen.getByRole("button", { name: "Lower" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Names" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Heat" }));
-    await userEvent.selectOptions(screen.getByLabelText("Default sidebar tab"), "notes");
+    await userEvent.selectOptions(
+      screen.getByLabelText("Default sidebar tab"),
+      "notes",
+    );
     await userEvent.selectOptions(screen.getByLabelText("Default speed"), "2");
     fireEvent.change(screen.getByLabelText("Max demos per drop"), {
       target: { value: "3" },
@@ -145,7 +180,9 @@ describe("UserSettingsModal", () => {
     fireEvent.change(screen.getByLabelText("Habits trail"), {
       target: { value: "30" },
     });
-    await userEvent.click(screen.getByLabelText("Skip knife round when a demo loads"));
+    await userEvent.click(
+      screen.getByLabelText("Skip knife round when a demo loads"),
+    );
 
     await waitFor(async () => {
       const stored = await loadUserSettings();
@@ -166,7 +203,9 @@ describe("UserSettingsModal", () => {
 
     unmount();
     renderModal();
-    await waitFor(() => expect(screen.getByLabelText("Default sidebar tab")).toHaveValue("notes"));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Default sidebar tab")).toHaveValue("notes"),
+    );
     expect(screen.getByLabelText("Default speed")).toHaveValue("2");
     expect(screen.getByRole("button", { name: "Heat" })).toHaveClass("on");
     expect(screen.getByRole("button", { name: "#ff7a00" })).toHaveClass("on");
@@ -178,7 +217,9 @@ describe("UserSettingsModal", () => {
     expect(screen.getByLabelText("Event lead-in")).toHaveValue(3);
     expect(screen.getByLabelText("Moment length")).toHaveValue(8);
     expect(screen.getByLabelText("Habits trail")).toHaveValue("30");
-    expect(screen.getByLabelText("Skip knife round when a demo loads")).not.toBeChecked();
+    expect(
+      screen.getByLabelText("Skip knife round when a demo loads"),
+    ).not.toBeChecked();
     expect(screen.getByLabelText("Saved notes page size")).toHaveValue(5);
     expect(screen.getByRole("button", { name: "Dark PDF" })).toHaveAttribute(
       "aria-pressed",
@@ -204,7 +245,9 @@ describe("UserSettingsModal", () => {
   it("persists a light playbook PDF theme", async () => {
     renderModal();
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Dark PDF" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("button", { name: "Dark PDF" }),
+      ).toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: "Dark PDF" })).toHaveClass("on");
     expect(screen.getByRole("button", { name: "Auto" })).toHaveClass("on");
@@ -218,24 +261,33 @@ describe("UserSettingsModal", () => {
       "true",
     );
     expect(screen.getByRole("button", { name: "Light PDF" })).toHaveClass("on");
-    expect(screen.getByRole("button", { name: "Dark PDF" })).not.toHaveClass("on");
+    expect(screen.getByRole("button", { name: "Dark PDF" })).not.toHaveClass(
+      "on",
+    );
   });
 
   it("persists a Playbook PDF without-photos choice", async () => {
     renderModal();
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "With photos" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("button", { name: "With photos" }),
+      ).toBeInTheDocument(),
     );
-    expect(screen.getByRole("button", { name: "With photos" })).toHaveClass("on");
-    await userEvent.click(screen.getByRole("button", { name: "Without photos" }));
+    expect(screen.getByRole("button", { name: "With photos" })).toHaveClass(
+      "on",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Without photos" }),
+    );
     await waitFor(async () => {
       expect((await loadUserSettings()).pdfPhotos).toBe("without");
     });
-    expect(screen.getByRole("button", { name: "Without photos" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    expect(
+      screen.getByRole("button", { name: "Without photos" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "With photos" })).not.toHaveClass(
+      "on",
     );
-    expect(screen.getByRole("button", { name: "With photos" })).not.toHaveClass("on");
   });
 
   it("raises the series drop cap to the hard ceiling and warns about RAM", async () => {
@@ -243,19 +295,15 @@ describe("UserSettingsModal", () => {
     const slider = await screen.findByLabelText("Max demos per drop");
     expect(slider).toHaveAttribute("max", String(SERIES_MAX_FILES_HARD));
     expect(slider).toHaveValue(String(SERIES_MAX_FILES));
-    expect(
-      screen.queryByText(
-        `More than ${SERIES_MAX_FILES_SOFT_WARN} demos at once can use a lot of RAM.`,
-      ),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(seriesRamWarning())).not.toBeInTheDocument();
 
-    fireEvent.change(slider, { target: { value: String(SERIES_MAX_FILES_HARD) } });
-    await waitFor(() => expect(slider).toHaveValue(String(SERIES_MAX_FILES_HARD)));
-    expect(
-      screen.getByText(
-        `More than ${SERIES_MAX_FILES_SOFT_WARN} demos at once can use a lot of RAM.`,
-      ),
-    ).toBeInTheDocument();
+    fireEvent.change(slider, {
+      target: { value: String(SERIES_MAX_FILES_HARD) },
+    });
+    await waitFor(() =>
+      expect(slider).toHaveValue(String(SERIES_MAX_FILES_HARD)),
+    );
+    expect(screen.getByText(seriesRamWarning())).toBeInTheDocument();
 
     const stored = await loadUserSettings();
     expect(stored.seriesMaxFiles).toBe(SERIES_MAX_FILES_HARD);

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Status } from "@/lib/state/status";
-import { PARSE_POOL_MAX, SERIES_MAX_FILES } from "@/lib/shared/constants";
+import {
+  PARSE_POOL_MAX,
+  SERIES_MAX_FILES,
+  SERIES_MAX_FILES_SOFT_WARN,
+  seriesRamWarning,
+} from "@/lib/shared/constants";
 import { errorMessage } from "@/lib/validate/json.ts";
 import {
   createParseWorkerPool,
@@ -246,8 +251,13 @@ export function useDemoSession(opts: {
         return;
       }
 
+      const ramWarn = files.length > SERIES_MAX_FILES_SOFT_WARN;
+
       const gen = beginParse();
       statusRef.current.clear();
+      if (ramWarn) {
+        statusRef.current.setNotice(seriesRamWarning());
+      }
       clearSeriesReviewCache();
       setParsing(true);
       setProgress({ current: 0, total: valid.length * 100 });
@@ -340,8 +350,9 @@ export function useDemoSession(opts: {
         groups.length > 1
           ? `${groups.length} maps (${groups.map((g) => `${g.demos.length}× ${g.mapName}`).join(", ")})`
           : groups[0].mapName;
+      const seriesNotice = `Series: ${groups[0].demos.length} ${groups[0].mapName} demo${groups[0].demos.length === 1 ? "" : "s"} · ${nextSeries.focalTeam}${groups.length > 1 ? ` · ${mapSummary}` : ""}`;
       statusRef.current.setNotice(
-        `Series: ${groups[0].demos.length} ${groups[0].mapName} demo${groups[0].demos.length === 1 ? "" : "s"} · ${nextSeries.focalTeam}${groups.length > 1 ? ` · ${mapSummary}` : ""}`,
+        ramWarn ? `${seriesNotice} ${seriesRamWarning()}` : seriesNotice,
       );
     },
     [beginParse, endParse, getPool, loadMapGroup, parseDemo, scheduleProgress],

@@ -4,14 +4,21 @@ import { ColorPalette } from "@/components/notes/ColorPalette";
 import { NadeLegend } from "@/components/radar/NadeLegend";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
-import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
+import {
+  MAX_LEAD_IN_SEC,
+  MIN_LEAD_IN_SEC,
+  clampLeadInSec,
+} from "@/lib/match/roundEvents";
 import {
   DEFAULT_DRAW_TOOLS,
   DEFAULT_SIDEBAR_TABS,
   type DefaultSidebarTab,
 } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
-import { UserSettingsPdfSection, UserSettingsResetDialog } from "./userSettingsPanels";
+import {
+  UserSettingsPdfSection,
+  UserSettingsResetDialog,
+} from "./userSettingsPanels";
 import {
   DRAW_TOOL_LABELS,
   FLOOR_MODES,
@@ -32,6 +39,7 @@ import {
   SERIES_MAX_FILES_HARD,
   SERIES_MAX_FILES_SOFT_WARN,
   SERIES_MIN_FILES,
+  seriesRamWarning,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
@@ -75,8 +83,8 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
       >
         <h2 id={titleId}>Preferences</h2>
         <p className="settings-modal-lead">
-          Stored in this browser. Reset restores shipped defaults and does not delete notes or
-          playbooks.
+          Stored in this browser. Reset restores shipped defaults and does not
+          delete notes or playbooks.
         </p>
 
         <section className="settings-section">
@@ -91,17 +99,21 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               value={Math.min(settings.parsePoolMax, poolMax)}
               aria-label="Parse workers"
               aria-valuetext={`${Math.min(settings.parsePoolMax, poolMax)}`}
-              onChange={(e) => void update({ parsePoolMax: Number(e.target.value) })}
+              onChange={(e) =>
+                void update({ parsePoolMax: Number(e.target.value) })
+              }
             />
             <output>{Math.min(settings.parsePoolMax, poolMax)}</output>
           </label>
           <p className="settings-hint">
-            Each worker loads a full demo parser in memory. Higher = faster multi-drop, lower =
-            safer on laptops. Applies on the next multi-file drop.
+            Each worker loads a full demo parser in memory. Higher = faster
+            multi-drop, lower = safer on laptops. Applies on the next multi-file
+            drop.
           </p>
           {settings.parsePoolMax > PARSE_POOL_SOFT_WARN ? (
             <p className="settings-warn">
-              More than {PARSE_POOL_SOFT_WARN} workers can use a lot of RAM on laptops.
+              More than {PARSE_POOL_SOFT_WARN} workers can use a lot of RAM on
+              laptops.
             </p>
           ) : null}
           <label className="settings-field">
@@ -114,15 +126,15 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               aria-label="Max demos per drop"
               aria-valuetext={`${settings.seriesMaxFiles}`}
               value={settings.seriesMaxFiles}
-              onChange={(e) => void update({ seriesMaxFiles: Number(e.target.value) })}
+              onChange={(e) =>
+                void update({ seriesMaxFiles: Number(e.target.value) })
+              }
             />
             <output>{settings.seriesMaxFiles}</output>
           </label>
           <p className="settings-hint">Applies on the next multi-file drop.</p>
           {settings.seriesMaxFiles > SERIES_MAX_FILES_SOFT_WARN ? (
-            <p className="settings-warn">
-              More than {SERIES_MAX_FILES_SOFT_WARN} demos at once can use a lot of RAM.
-            </p>
+            <p className="settings-warn">{seriesRamWarning()}</p>
           ) : null}
         </section>
 
@@ -137,7 +149,9 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               step={8}
               aria-label="Sidebar width"
               value={settings.sidebarWidth}
-              onChange={(e) => void update({ sidebarWidth: Number(e.target.value) })}
+              onChange={(e) =>
+                void update({ sidebarWidth: Number(e.target.value) })
+              }
             />
             <output>{settings.sidebarWidth}px</output>
           </label>
@@ -147,7 +161,9 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               aria-label="Default sidebar tab"
               value={settings.defaultSidebarTab}
               onChange={(e) =>
-                void update({ defaultSidebarTab: e.target.value as DefaultSidebarTab })
+                void update({
+                  defaultSidebarTab: e.target.value as DefaultSidebarTab,
+                })
               }
             >
               {DEFAULT_SIDEBAR_TABS.map((id) => (
@@ -166,7 +182,9 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               max={SAVED_NOTES_PAGE_SIZE_MAX}
               aria-label="Saved notes page size"
               value={settings.savedNotesPageSize}
-              onChange={(e) => void update({ savedNotesPageSize: Number(e.target.value) })}
+              onChange={(e) =>
+                void update({ savedNotesPageSize: Number(e.target.value) })
+              }
             />
           </label>
         </section>
@@ -174,7 +192,8 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <h3>Drawing</h3>
           <p className="settings-hint">
-            Defaults for new demos and new playbooks. Open notes keep their own palette and tool.
+            Defaults for new demos and new playbooks. Open notes keep their own
+            palette and tool.
           </p>
           <div className="settings-field">
             <span>Default tool</span>
@@ -198,7 +217,10 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               onPalette={(id) => {
                 const preset = COLOR_PRESETS.find((row) => row.id === id);
                 const nextColor =
-                  preset && !(preset.colors as readonly string[]).includes(settings.defaultColor)
+                  preset &&
+                  !(preset.colors as readonly string[]).includes(
+                    settings.defaultColor,
+                  )
                     ? preset.colors[0]
                     : settings.defaultColor;
                 void update({ defaultPaletteId: id, defaultColor: nextColor });
@@ -221,15 +243,19 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               value={Math.round(settings.radarGray * 100)}
               aria-label="Radar map color"
               aria-valuetext={radarGrayValueText(settings.radarGray)}
-              onChange={(e) => void update({ radarGray: Number(e.target.value) / 100 })}
+              onChange={(e) =>
+                void update({ radarGray: Number(e.target.value) / 100 })
+              }
             />
             <span className="settings-range-end">Gray</span>
           </label>
           <p className="settings-hint">
-            Desaturates the map PNG only. Tokens, nades, and ink stay in color. Analyzer, Playbook,
-            and PDF stills share this amount.
+            Desaturates the map PNG only. Tokens, nades, and ink stay in color.
+            Analyzer, Playbook, and PDF stills share this amount.
           </p>
-          <p className="settings-hint">Applied when a demo loads. Toolbar toggles stay per-demo.</p>
+          <p className="settings-hint">
+            Applied when a demo loads. Toolbar toggles stay per-demo.
+          </p>
           <div className="settings-field">
             <span>Default floor</span>
             <span className="floor-picks">
@@ -272,7 +298,9 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               filter={settings.defaultSummaryFilter}
               onFilter={(next) => {
                 const value =
-                  typeof next === "function" ? next(settings.defaultSummaryFilter) : next;
+                  typeof next === "function"
+                    ? next(settings.defaultSummaryFilter)
+                    : next;
                 void update({ defaultSummaryFilter: value });
               }}
             />
@@ -282,15 +310,17 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <h3>Playback</h3>
           <p className="settings-hint">
-            Default speed applies when a demo loads. Lead-in, moment length, and habits trail apply
-            immediately.
+            Default speed applies when a demo loads. Lead-in, moment length, and
+            habits trail apply immediately.
           </p>
           <label className="settings-field">
             <span>Default speed</span>
             <select
               aria-label="Default speed"
               value={settings.defaultPlaybackSpeed}
-              onChange={(e) => void update({ defaultPlaybackSpeed: Number(e.target.value) })}
+              onChange={(e) =>
+                void update({ defaultPlaybackSpeed: Number(e.target.value) })
+              }
             >
               {PLAYBACK_SPEEDS.map((speed) => (
                 <option key={speed} value={speed}>
@@ -325,7 +355,9 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               step={0.5}
               aria-label="Moment length"
               value={settings.noteMomentSec}
-              onChange={(e) => void update({ noteMomentSec: Number(e.target.value) })}
+              onChange={(e) =>
+                void update({ noteMomentSec: Number(e.target.value) })
+              }
             />
             <span>s</span>
           </label>
@@ -339,19 +371,24 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               aria-label="Habits trail"
               aria-valuetext={`${settings.habitsTrailWindowSec} seconds`}
               value={settings.habitsTrailWindowSec}
-              onChange={(e) => void update({ habitsTrailWindowSec: Number(e.target.value) })}
+              onChange={(e) =>
+                void update({ habitsTrailWindowSec: Number(e.target.value) })
+              }
             />
             <output>{settings.habitsTrailWindowSec}s</output>
           </label>
           <p className="settings-hint">
-            Seconds after freeze on the aggregated habits overlay. Applies immediately.
+            Seconds after freeze on the aggregated habits overlay. Applies
+            immediately.
           </p>
           <label className="settings-check">
             <input
               type="checkbox"
               checked={settings.skipKnifeOnOpen}
               aria-label="Skip knife round when a demo loads"
-              onChange={() => void update({ skipKnifeOnOpen: !settings.skipKnifeOnOpen })}
+              onChange={() =>
+                void update({ skipKnifeOnOpen: !settings.skipKnifeOnOpen })
+              }
             />
             Skip knife round when a demo loads
           </label>
@@ -368,7 +405,11 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           <button type="button" className="ghost" onClick={onClose}>
             Close
           </button>
-          <button type="button" className="danger" onClick={() => setConfirmReset(true)}>
+          <button
+            type="button"
+            className="danger"
+            onClick={() => setConfirmReset(true)}
+          >
             Reset all settings
           </button>
         </div>

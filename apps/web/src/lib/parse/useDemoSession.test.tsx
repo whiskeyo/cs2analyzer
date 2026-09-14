@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
+import { seriesRamWarning } from "@/lib/shared/constants";
 import { makeReplay } from "@/lib/testing/fixtures";
 import { runParsePool } from "./parsePool";
 import { CS2_DEMO_MAGIC } from "./demoFile";
@@ -393,6 +394,28 @@ describe("useDemoSession", () => {
     expect(runParsePool).not.toHaveBeenCalled();
     expect(result.current.parsing).toBe(false);
     expect(result.current.demo).toBeNull();
+  });
+
+  it("warns that a large series drop uses a lot of RAM", async () => {
+    const { result, status } = renderSession({ seriesMaxFiles: 24 });
+    const replay = makeReplay({
+      header: { map_name: "de_ancient", team_ct: "Spirit", team_t: "G2" },
+    });
+    const files = Array.from({ length: 13 }, (_, i) => demoFile(`${i}.dem`));
+    const demos = files.map((file) => loadedDemo(replay, file.name, file));
+    vi.mocked(runParsePool).mockResolvedValue(
+      files.map((file, i) => ({ file, demo: demos[i], timings: TIMINGS })),
+    );
+
+    await act(async () => {
+      await result.current.parseDemos(files);
+    });
+
+    expect(status.setNotice).toHaveBeenCalledWith(seriesRamWarning());
+    expect(status.setNotice).toHaveBeenCalledWith(
+      expect.stringContaining(seriesRamWarning()),
+    );
+    expect(result.current.series?.demos).toHaveLength(13);
   });
 
   it("selects another demo in the active series", async () => {
