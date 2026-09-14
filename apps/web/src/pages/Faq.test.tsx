@@ -17,6 +17,13 @@ describe("Faq", () => {
       expect(screen.getByRole("heading", { level: 3, name: item.question })).toBeInTheDocument();
     }
     expect(screen.getByRole("heading", { level: 4, name: "ADR and trades" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 4, name: "Do not patch generated proto" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "GitHub Issues" })).toHaveAttribute("href", ISSUES_URL);
+    expect(screen.getByRole("link", { name: "source2-demo" })).toHaveAttribute(
+      "href",
+      "https://crates.io/crates/source2-demo",
+    );
   });
 });

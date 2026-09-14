@@ -28,10 +28,21 @@ describe("FAQ_ITEMS", () => {
       "Is this affiliated with Valve or FACEIT?",
       "The site says pre-release — should I worry?",
       "How do I report a bug or request a feature?",
+      "Why did a demo stop parsing after a CS2 update?",
     ]);
     for (const item of FAQ_ITEMS) {
       expect(item.html).toContain(`<h3>${item.question}</h3>`);
       expect(item.html).not.toContain("react-markdown");
     }
+  });
+
+  it("documents the source2-demo bump procedure after a CS2 proto break", () => {
+    const article = FAQ_ITEMS.find((item) => item.question.includes("CS2 update"));
+    expect(article).toBeDefined();
+    expect(article?.html).toContain("source2-demo");
+    expect(article?.html).toMatch(/Do not (hand-edit|patch) generated proto/i);
+    expect(article?.html).toContain("build-wasm");
+    expect(article?.html).toMatch(/re-drop/i);
+    expect(article?.html).toContain("crates.io/crates/source2-demo");
   });
 });
