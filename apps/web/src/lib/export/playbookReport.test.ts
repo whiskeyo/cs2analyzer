@@ -6,14 +6,17 @@ import {
   setPageBody,
   setPageFloor,
   setPageLayerImages,
+  setPageLayerVideos,
   setPageVideos,
 } from "@/lib/playbook/pages";
 import type { PlaybookImage } from "@/lib/playbook/types";
 import { YOUTUBE_UNTITLED } from "@/lib/playbook/youtube";
 import {
   formatPlaybookExportDate,
+  playbookPageClips,
   playbookPagePhotos,
   playbookPdfFilename,
+  playbookReportClipLine,
   playbookPdfHeading,
   playbookPdfStem,
   playbookReport,
@@ -106,6 +109,10 @@ describe("playbookReport", () => {
         {
           title: `${YOUTUBE_UNTITLED} lineup`,
           url: "https://www.youtube.com/watch?v=abcdefghijk",
+          x: 0,
+          y: 0,
+          floor: "upper",
+          index: 1,
         },
       ],
       photos: [],
@@ -163,7 +170,35 @@ describe("playbookReport", () => {
       {
         title: "Window",
         url: "https://www.youtube.com/watch?v=dQw4w9wgxcQ&t=30",
+        x: 0,
+        y: 0,
+        floor: "upper",
+        index: 1,
       },
     ]);
+  });
+
+  it("numbers clips 1-based per floor and lists the current floor first", () => {
+    let book = newPlaybook("de_nuke", "Nuke execs");
+    const page = book.pages[0]!;
+    book = setPageVideos(book, page.id, [
+      video({ id: "u1", title: "Window lineup" }),
+      video({ id: "u2", title: "Palace smoke", videoId: "bbbbbbbbbbb" }),
+    ]);
+    book = setPageLayerVideos(book, page.id, "lower", [video({ id: "l1", title: "Ramp" })]);
+    expect(playbookPageClips(book.pages[0]!).map((clip) => playbookReportClipLine(clip))).toEqual([
+      "1 - Window lineup",
+      "2 - Palace smoke",
+      "1 - Ramp",
+    ]);
+    book = setPageFloor(book, page.id, "lower");
+    expect(playbookPageClips(book.pages[0]!).map((clip) => clip.floor)).toEqual([
+      "lower",
+      "upper",
+      "upper",
+    ]);
+    expect(
+      playbookReportClipLine({ title: "", url: "", x: 0, y: 0, floor: "upper", index: 1 }),
+    ).toBe(`1 - ${YOUTUBE_UNTITLED}`);
   });
 });

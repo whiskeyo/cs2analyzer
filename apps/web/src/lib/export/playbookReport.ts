@@ -7,13 +7,19 @@ import type {
   PlaybookPage,
   PlaybookYouTube,
 } from "@/lib/playbook/types";
-import { youtubeWatchUrl } from "@/lib/playbook/youtube";
+import { playbookVideoWatchUrl } from "@/lib/playbook/videos";
+import { YOUTUBE_UNTITLED } from "@/lib/playbook/youtube";
 import { prettyMap } from "@/lib/weapons/weapons";
 import { PLAYBOOK_PDF_FILE_FALLBACK } from "./constants";
 
 export interface PlaybookReportClip {
   title: string;
   url: string;
+  x: number;
+  y: number;
+  floor: PlaybookFloorLayer;
+  /** 1-based index in that floor's video list (matches the pin badge). */
+  index: number;
 }
 
 export interface PlaybookReportPhoto {
@@ -76,14 +82,46 @@ export function playbookPdfFilename(report: Pick<PlaybookReport, "fileStem">): s
   return `${report.fileStem}.pdf`;
 }
 
-function clipFromVideo(clip: PlaybookYouTube): PlaybookReportClip | null {
-  const stored = clip.url.trim();
-  if (stored !== "") return { title: clip.title.trim(), url: stored };
-  if (clip.videoId.trim() === "") return null;
+function clipFromVideo(
+  clip: PlaybookYouTube,
+  floor: PlaybookFloorLayer,
+  index: number,
+): PlaybookReportClip | null {
+  const url = playbookVideoWatchUrl(clip);
+  if (!url) return null;
   return {
     title: clip.title.trim(),
-    url: youtubeWatchUrl(clip.videoId, clip.startSeconds),
+    url,
+    x: clip.x,
+    y: clip.y,
+    floor,
+    index,
   };
+}
+
+/** Current floor first, then the other floor — same order as photos. */
+export function playbookPageClips(page: PlaybookPage): PlaybookReportClip[] {
+  const upper = clipsFromVideos(page.videos, "upper");
+  const lower = clipsFromVideos(page.lowerVideos, "lower");
+  return page.floor === "lower" ? [...lower, ...upper] : [...upper, ...lower];
+}
+
+function clipsFromVideos(
+  videos: readonly PlaybookYouTube[],
+  floor: PlaybookFloorLayer,
+): PlaybookReportClip[] {
+  const clips: PlaybookReportClip[] = [];
+  videos.forEach((clip, i) => {
+    const row = clipFromVideo(clip, floor, i + 1);
+    if (row) clips.push(row);
+  });
+  return clips;
+}
+
+/** Always `N - title`, even when the pin badge is omitted. */
+export function playbookReportClipLine(clip: PlaybookReportClip): string {
+  const title = clip.title === "" ? YOUTUBE_UNTITLED : clip.title;
+  return `${clip.index} - ${title}`;
 }
 
 function photoFromImage(image: PlaybookImage, floor: PlaybookFloorLayer): PlaybookReportPhoto {
@@ -105,16 +143,11 @@ export function playbookPagePhotos(page: PlaybookPage): PlaybookReportPhoto[] {
 }
 
 export function playbookReportPage(page: PlaybookPage): PlaybookReportPage {
-  const clips: PlaybookReportClip[] = [];
-  for (const clip of [...page.videos, ...page.lowerVideos]) {
-    const row = clipFromVideo(clip);
-    if (row) clips.push(row);
-  }
   return {
     id: page.id,
     title: page.title,
     body: page.body.trim(),
-    clips,
+    clips: playbookPageClips(page),
     photos: playbookPagePhotos(page),
     floor: page.floor,
     note: page.note,

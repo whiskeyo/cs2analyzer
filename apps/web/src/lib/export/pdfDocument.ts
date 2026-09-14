@@ -39,8 +39,15 @@ import {
   drawPlaybookPdfPhotoBackArrow,
   playbookPdfPhotoBackPlacement,
 } from "./playbookPdfPhotoBack";
+import { wirePlaybookPdfVideoPins } from "./playbookPdfClips";
 import { playbookPdfPinHit } from "./playbookPdfPins";
-import type { PlaybookReport, PlaybookReportPage, PlaybookReportPhoto } from "./playbookReport";
+import {
+  playbookReportClipLine,
+  type PlaybookReport,
+  type PlaybookReportClip,
+  type PlaybookReportPage,
+  type PlaybookReportPhoto,
+} from "./playbookReport";
 import { pdfSafeText, wrapPdfText } from "./pdfText";
 
 export { pdfSafeText, wrapPdfText } from "./pdfText";
@@ -406,6 +413,28 @@ function pinHitsOnStills(
   return hits;
 }
 
+function drawClips(writer: Writer, clips: readonly PlaybookReportClip[]): void {
+  const size = PLAYBOOK_PDF_SMALL_SIZE;
+  const font = writer.fonts.regular;
+  for (const clip of clips) {
+    const lines = wrapPdfText(font, playbookReportClipLine(clip), size, writer.layout.contentWidth);
+    const blockHeight = Math.max(lines.length, 1) * lineHeight(size);
+    ensureSpace(writer, blockHeight);
+    const hitPage = writer.page;
+    const top = writer.y;
+    drawLines(writer, lines, size, font, writer.colors.muted);
+    addUriLink(
+      hitPage,
+      writer.layout.left,
+      writer.y,
+      writer.layout.contentWidth,
+      top - writer.y,
+      clip.url,
+      writer.PDFString,
+    );
+  }
+}
+
 function drawPhotos(
   writer: Writer,
   photos: readonly PlaybookReportPhoto[],
@@ -540,21 +569,8 @@ function drawStrat(
   }
   const photoNav = drawPhotos(writer, page.photos, photos);
   wirePhotoLinks(dest, pinHitsOnStills(stillPlaced, page.photos, cal), photoNav);
-  for (const clip of page.clips) {
-    const caption = clip.title === "" ? clip.url : `${clip.title} — ${clip.url}`;
-    drawLines(
-      writer,
-      wrapPdfText(
-        writer.fonts.regular,
-        caption,
-        PLAYBOOK_PDF_SMALL_SIZE,
-        writer.layout.contentWidth,
-      ),
-      PLAYBOOK_PDF_SMALL_SIZE,
-      writer.fonts.regular,
-      writer.colors.muted,
-    );
-  }
+  wirePlaybookPdfVideoPins(stillPlaced, page.clips, cal, writer.PDFString);
+  drawClips(writer, page.clips);
   return dest;
 }
 

@@ -44,7 +44,13 @@ import {
   playbookImagePinIndex,
 } from "./images";
 import type { PlaybookImage, PlaybookYouTube } from "./types";
-import { YOUTUBE_PIN_HEIGHT, YOUTUBE_PIN_WIDTH, YOUTUBE_PLAY, YOUTUBE_RED } from "./videos";
+import {
+  playbookVideoPinIndex,
+  YOUTUBE_PIN_HEIGHT,
+  YOUTUBE_PIN_WIDTH,
+  YOUTUBE_PLAY,
+  YOUTUBE_RED,
+} from "./videos";
 
 /** Match Analyzer nade flight trails. */
 export const PLAYBOOK_NADE_TRAIL_OPACITY = 0.4;
@@ -310,10 +316,34 @@ export function paintPlaybookPieces(
   }
 }
 
+function paintPinIndex(
+  ctx: CanvasRenderingContext2D,
+  pinX: number,
+  pinY: number,
+  pinW: number,
+  pinH: number,
+  index: number | null,
+): void {
+  if (index == null) return;
+  const badgeR = 4;
+  const bx = pinX + pinW - 1;
+  const by = pinY + pinH - 1;
+  ctx.beginPath();
+  ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
+  ctx.fillStyle = PLAYBOOK_IMAGE_PIN_INDEX_BG;
+  ctx.fill();
+  ctx.fillStyle = PLAYBOOK_IMAGE_PIN_INDEX_INK;
+  ctx.font = `700 ${PLAYBOOK_IMAGE_PIN_INDEX_SIZE}px ui-sans-serif, system-ui`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(index), bx, by);
+}
+
 export function paintYouTubePin(
   ctx: CanvasRenderingContext2D,
   at: { x: number; y: number },
   selected = false,
+  index: number | null = null,
 ): void {
   const w = YOUTUBE_PIN_WIDTH;
   const h = YOUTUBE_PIN_HEIGHT;
@@ -341,6 +371,7 @@ export function paintYouTubePin(
   ctx.closePath();
   ctx.fillStyle = YOUTUBE_PLAY;
   ctx.fill();
+  paintPinIndex(ctx, x, y, w, h, index);
   ctx.restore();
 }
 
@@ -389,20 +420,7 @@ export function paintPlaybookImagePin(
   ctx.closePath();
   ctx.fillStyle = PLAYBOOK_IMAGE_PIN_LAND;
   ctx.fill();
-  if (index != null) {
-    const badgeR = 4;
-    const bx = x + w - 1;
-    const by = y + h - 1;
-    ctx.beginPath();
-    ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
-    ctx.fillStyle = PLAYBOOK_IMAGE_PIN_INDEX_BG;
-    ctx.fill();
-    ctx.fillStyle = PLAYBOOK_IMAGE_PIN_INDEX_INK;
-    ctx.font = `700 ${PLAYBOOK_IMAGE_PIN_INDEX_SIZE}px ui-sans-serif, system-ui`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(String(index), bx, by);
-  }
+  paintPinIndex(ctx, x, y, w, h, index);
   ctx.restore();
 }
 
@@ -441,7 +459,12 @@ export function paintYouTubePins(
   pending?: { x: number; y: number } | null,
 ): void {
   for (const clip of videos) {
-    paintYouTubePin(ctx, toScreen(clip.x, clip.y), clip.id === selectedId);
+    paintYouTubePin(
+      ctx,
+      toScreen(clip.x, clip.y),
+      clip.id === selectedId,
+      playbookVideoPinIndex(videos, clip.id),
+    );
   }
   if (pending) {
     ctx.save();

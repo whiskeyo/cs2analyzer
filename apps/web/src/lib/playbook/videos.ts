@@ -1,5 +1,6 @@
 import { PIECE_HIT_PX } from "./pieces";
 import type { PlaybookYouTube } from "./types";
+import { youtubeWatchUrl } from "./youtube";
 
 /** Canvas size of the YouTube pin (matches a nade token). */
 export const YOUTUBE_PIN_WIDTH = 18;
@@ -42,6 +43,34 @@ export function moveVideo(
 
 export function removeVideo(videos: readonly PlaybookYouTube[], id: string): PlaybookYouTube[] {
   return videos.filter((clip) => clip.id !== id);
+}
+
+/** 1-based index when a floor has more than one clip; otherwise omit. */
+export function playbookVideoPinIndex(
+  videos: readonly PlaybookYouTube[],
+  id: string,
+): number | null {
+  if (videos.length < 2) return null;
+  const index = videos.findIndex((clip) => clip.id === id);
+  return index >= 0 ? index + 1 : null;
+}
+
+/** Stored watch URL, or rebuild from video id + start time. */
+export function playbookVideoWatchUrl(
+  clip: Pick<PlaybookYouTube, "url" | "videoId" | "startSeconds">,
+): string | null {
+  const stored = clip.url.trim();
+  if (stored !== "") return stored;
+  if (clip.videoId.trim() === "") return null;
+  return youtubeWatchUrl(clip.videoId, clip.startSeconds);
+}
+
+export function openPlaybookVideoWatch(
+  clip: Pick<PlaybookYouTube, "url" | "videoId" | "startSeconds">,
+): void {
+  const url = playbookVideoWatchUrl(clip);
+  if (!url) return;
+  globalThis.open(url, "_blank", "noopener,noreferrer");
 }
 
 export function nextVideoPin(
