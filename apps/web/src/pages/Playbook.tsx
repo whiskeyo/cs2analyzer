@@ -148,6 +148,7 @@ export function Playbook() {
     history,
     setNote: (note) => setNote(note, floorLayer),
     setPalette,
+    defaultTool: settings.defaultDrawTool,
   });
   const treeResize = usePanelResize({
     storageKey: PLAYBOOK_TREE_WIDTH_STORAGE_KEY,

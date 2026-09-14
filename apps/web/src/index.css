@@ -1250,6 +1250,13 @@ code {
   gap: 0.3rem;
   font-size: 0.82rem;
 }
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.55rem;
+  font-size: 0.86rem;
+}
 .settings-summary {
   margin-top: 0.35rem;
 }

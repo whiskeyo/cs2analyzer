@@ -15,7 +15,11 @@ import {
   RADAR_GRAY_MIN,
   SAVED_NOTES_PAGE_SIZE,
   SAVED_NOTES_PAGE_SIZE_MAX,
+  SERIES_HABITS_WINDOW_MAX_SECONDS,
+  SERIES_HABITS_WINDOW_MIN_SECONDS,
+  SERIES_HABITS_WINDOW_SECONDS,
   SERIES_MAX_FILES,
+  SERIES_MAX_FILES_HARD,
   SERIES_MIN_FILES,
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MAX_WIDTH,
@@ -39,12 +43,16 @@ describe("defaultUserSettings", () => {
       savedNotesPageSize: SAVED_NOTES_PAGE_SIZE,
       defaultPaletteId: "neon",
       defaultColor: "#ff2d6a",
+      defaultDrawTool: "pan",
+      defaultSidebarTab: "score",
       defaultFloorMode: "auto",
       defaultSummaryFilter: DEFAULT_SUMMARY_FILTER,
       defaultLayers: DEFAULT_LAYERS,
       defaultPlaybackSpeed: DEFAULT_PLAYBACK_SPEED,
       eventLeadInSec: DEFAULT_LEAD_IN_SEC,
       noteMomentSec: NOTE_MOMENT_SECONDS,
+      habitsTrailWindowSec: SERIES_HABITS_WINDOW_SECONDS,
+      skipKnifeOnOpen: true,
       seriesMaxFiles: SERIES_MAX_FILES,
       pdfTheme: "dark",
       pdfPhotos: "with",
@@ -52,7 +60,6 @@ describe("defaultUserSettings", () => {
     });
     expect(settings.defaultPaletteId).toBe(COLOR_PRESETS[0].id);
     expect(settings.defaultColor).toBe(COLOR_PRESETS[0].colors[0]);
-    expect("habitsTrailWindowSec" in settings).toBe(false);
     expect("roundAutoplay" in settings).toBe(false);
   });
 
@@ -69,18 +76,18 @@ describe("parseUserSettings", () => {
   it("fills missing fields from defaults and ignores unknown keys", () => {
     const parsed = parseUserSettings({
       sidebarWidth: 520,
-      habitsTrailWindowSec: 20,
       roundAutoplay: true,
       id: "user",
     });
     expect(parsed.sidebarWidth).toBe(520);
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MAX);
     expect(parsed.eventLeadInSec).toBe(DEFAULT_LEAD_IN_SEC);
+    expect(parsed.habitsTrailWindowSec).toBe(SERIES_HABITS_WINDOW_SECONDS);
+    expect(parsed.skipKnifeOnOpen).toBe(true);
     expect(parsed.pdfTheme).toBe("dark");
     expect(parsed.pdfPhotos).toBe("with");
     expect(parsed.radarGray).toBe(DEFAULT_RADAR_GRAY);
     expect(parsed.schema).toBe(USER_SETTINGS_SCHEMA);
-    expect("habitsTrailWindowSec" in parsed).toBe(false);
     expect("roundAutoplay" in parsed).toBe(false);
     expect("id" in parsed).toBe(false);
   });
@@ -93,9 +100,13 @@ describe("parseUserSettings", () => {
       defaultPaletteId: "nope",
       defaultColor: "",
       defaultFloorMode: "roof",
+      defaultDrawTool: "eraser",
+      defaultSidebarTab: "clutch",
       defaultPlaybackSpeed: 3,
+      skipKnifeOnOpen: "yes",
       eventLeadInSec: 9,
       noteMomentSec: 400,
+      habitsTrailWindowSec: 90,
       seriesMaxFiles: 1,
       pdfTheme: "sepia",
       pdfPhotos: "color",
@@ -107,9 +118,13 @@ describe("parseUserSettings", () => {
     expect(parsed.defaultPaletteId).toBe("neon");
     expect(parsed.defaultColor).toBe("#ff2d6a");
     expect(parsed.defaultFloorMode).toBe("auto");
+    expect(parsed.defaultDrawTool).toBe("pan");
+    expect(parsed.defaultSidebarTab).toBe("score");
     expect(parsed.defaultPlaybackSpeed).toBe(DEFAULT_PLAYBACK_SPEED);
+    expect(parsed.skipKnifeOnOpen).toBe(true);
     expect(parsed.eventLeadInSec).toBe(5);
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MAX_SECONDS);
+    expect(parsed.habitsTrailWindowSec).toBe(SERIES_HABITS_WINDOW_MAX_SECONDS);
     expect(parsed.seriesMaxFiles).toBe(SERIES_MIN_FILES);
     expect(parsed.pdfTheme).toBe("dark");
     expect(parsed.pdfPhotos).toBe("with");
@@ -134,17 +149,35 @@ describe("parseUserSettings", () => {
     expect(parseUserSettings({ radarGray: -2 }).radarGray).toBe(RADAR_GRAY_MIN);
   });
 
+  it("keeps a stored series cap of 12 and clamps above the hard ceiling", () => {
+    expect(parseUserSettings({ seriesMaxFiles: SERIES_MAX_FILES }).seriesMaxFiles).toBe(
+      SERIES_MAX_FILES,
+    );
+    expect(parseUserSettings({ seriesMaxFiles: SERIES_MAX_FILES_HARD }).seriesMaxFiles).toBe(
+      SERIES_MAX_FILES_HARD,
+    );
+    expect(parseUserSettings({ seriesMaxFiles: SERIES_MAX_FILES_HARD + 1 }).seriesMaxFiles).toBe(
+      SERIES_MAX_FILES_HARD,
+    );
+  });
+
   it("clamps the low end of parse pool and moment length", () => {
     const parsed = parseUserSettings({
       parsePoolMax: 0,
       noteMomentSec: 0,
+      habitsTrailWindowSec: 1,
       defaultPlaybackSpeed: 4,
       defaultFloorMode: "lower",
+      defaultDrawTool: "pen",
+      defaultSidebarTab: "notes",
     });
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MIN);
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MIN_SECONDS);
+    expect(parsed.habitsTrailWindowSec).toBe(SERIES_HABITS_WINDOW_MIN_SECONDS);
     expect(parsed.defaultPlaybackSpeed).toBe(4);
     expect(parsed.defaultFloorMode).toBe("lower");
+    expect(parsed.defaultDrawTool).toBe("pen");
+    expect(parsed.defaultSidebarTab).toBe("notes");
   });
 
   it("merges partial layer and summary-filter objects", () => {
@@ -183,5 +216,9 @@ describe("parseUserSettings", () => {
 
   it("widens sidebar to the named max", () => {
     expect(parseUserSettings({ sidebarWidth: 900 }).sidebarWidth).toBe(SIDEBAR_MAX_WIDTH);
+  });
+
+  it("keeps skipKnifeOnOpen false when stored", () => {
+    expect(parseUserSettings({ skipKnifeOnOpen: false }).skipKnifeOnOpen).toBe(false);
   });
 });

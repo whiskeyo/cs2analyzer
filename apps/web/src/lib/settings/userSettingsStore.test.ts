@@ -101,9 +101,11 @@ describe("userSettingsStore without indexedDB", () => {
     stubLocalStorage({
       [STORAGE_KEYS.sidebarWidth]: "520",
       [STORAGE_KEYS.eventLeadInSec]: "2.5",
+      [STORAGE_KEYS.seriesTrailWindowSec]: "30",
     });
     const loaded = await loadUserSettings();
     expect(loaded.sidebarWidth).toBe(520);
     expect(loaded.eventLeadInSec).toBe(2.5);
+    expect(loaded.habitsTrailWindowSec).toBe(30);
   });
 });

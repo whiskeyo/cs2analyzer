@@ -1,4 +1,5 @@
 import { loadLeadInSec } from "@/lib/match/roundEvents";
+import { loadHabitsTrailWindowSec } from "@/lib/parse/seriesOverlay";
 import { loadSidebarWidth } from "@/lib/shared/sidebarWidth";
 import { STORAGE_KEYS } from "@/lib/shared/storageKeys";
 import { SETTINGS_STORE, hasStore, idbAvailable, openCs2Db, requestOf } from "@/lib/storage/idb";
@@ -40,6 +41,9 @@ function readLocalStoragePatch(): Partial<UserSettings> {
     if (localStorage.getItem(STORAGE_KEYS.eventLeadInSec) != null) {
       patch.eventLeadInSec = loadLeadInSec();
     }
+    if (localStorage.getItem(STORAGE_KEYS.seriesTrailWindowSec) != null) {
+      patch.habitsTrailWindowSec = loadHabitsTrailWindowSec();
+    }
   } catch {
     /* private mode / missing storage */
   }
@@ -51,7 +55,9 @@ function mergeLocalStorage(base: UserSettings): UserSettings {
 }
 
 function localStoragePatchPresent(patch: Partial<UserSettings>): boolean {
-  return patch.sidebarWidth != null || patch.eventLeadInSec != null;
+  return (
+    patch.sidebarWidth != null || patch.eventLeadInSec != null || patch.habitsTrailWindowSec != null
+  );
 }
 
 async function readRecord(): Promise<unknown> {
@@ -85,6 +91,7 @@ function clearMigratedLocalStorage(): void {
     }
     localStorage.removeItem(STORAGE_KEYS.sidebarWidth);
     localStorage.removeItem(STORAGE_KEYS.eventLeadInSec);
+    localStorage.removeItem(STORAGE_KEYS.seriesTrailWindowSec);
   } catch {
     /* private mode / missing storage */
   }
@@ -108,8 +115,9 @@ async function persist(settings: UserSettings): Promise<boolean> {
 
 /**
  * Load the user settings document. Missing IndexedDB row: merge live
- * `sidebarWidth` / `eventLeadInSec` localStorage (once, then persist).
- * After a successful IndexedDB write, those keys are removed.
+ * `sidebarWidth` / `eventLeadInSec` / `seriesTrailWindowSec` localStorage
+ * (once, then persist). After a successful IndexedDB write, those keys are
+ * removed.
  */
 export async function loadUserSettings(): Promise<UserSettings> {
   if (!idbAvailable()) {

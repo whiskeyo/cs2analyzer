@@ -1,7 +1,13 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+/**
+ * @vitest-environment jsdom
+ */
+import "fake-indexeddb/auto";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
+import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
+import { clearUserSettingsForTests, saveUserSettings } from "@/lib/settings/userSettingsStore";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { playerIdentityKey } from "@/lib/parse/seriesRoster";
 import {
@@ -88,15 +94,31 @@ function mockSidebar(overrides?: Parameters<typeof sidebarAppState>[0]) {
 }
 
 describe("Sidebar", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.mocked(useApp).mockReset();
     mockSidebar();
+    await clearUserSettingsForTests();
+  });
+
+  afterEach(async () => {
+    await clearUserSettingsForTests();
   });
 
   it("starts on the scoreboard tab", () => {
     render(<Sidebar />);
     expect(screen.getByRole("button", { name: "Score" })).toHaveClass("on");
     expect(screen.getByText("Astralis")).toBeInTheDocument();
+  });
+
+  it("opens the Notes tab when that is the Preferences default", async () => {
+    await saveUserSettings({ defaultSidebarTab: "notes" });
+    render(
+      <UserSettingsProvider>
+        <Sidebar />
+      </UserSettingsProvider>,
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Notes" })).toHaveClass("on"));
+    expect(screen.getByText(/Draw or add a text box/)).toBeInTheDocument();
   });
 
   it("switches tabs", async () => {

@@ -4,6 +4,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_LAYERS } from "@/lib/notes/types";
+import type { DefaultDrawTool } from "@/lib/settings/userSettings";
 import { useViewState } from "./viewState";
 
 describe("useViewState", () => {
@@ -41,6 +42,32 @@ describe("useViewState", () => {
     });
     rerender({ id: "b", layers: custom });
     expect(result.current.layers).toEqual(custom);
+  });
+
+  it("applies the settings default draw tool on a new demo", () => {
+    const { result, rerender } = renderHook(
+      ({ id, tool }) => useViewState(id, DEFAULT_LAYERS, tool),
+      {
+        initialProps: { id: "a" as string | null, tool: "pen" as const },
+      },
+    );
+    expect(result.current.tool).toBe("pen");
+    act(() => {
+      result.current.setTool("eraser");
+    });
+    rerender({ id: "b", tool: "pen" });
+    expect(result.current.tool).toBe("pen");
+  });
+
+  it("keeps the current draw tool when only the settings default changes", () => {
+    const { result, rerender } = renderHook(({ tool }) => useViewState("a", DEFAULT_LAYERS, tool), {
+      initialProps: { tool: "pan" as DefaultDrawTool },
+    });
+    act(() => {
+      result.current.setTool("eraser");
+    });
+    rerender({ tool: "pen" });
+    expect(result.current.tool).toBe("eraser");
   });
 
   it("keeps per-demo layer toggles when settings defaults change", () => {

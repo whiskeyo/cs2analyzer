@@ -3,11 +3,22 @@ import { createPortal } from "react-dom";
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { NadeLegend } from "@/components/radar/NadeLegend";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
-import type { FloorMode, MapLayers } from "@/lib/notes/types";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
+import {
+  DEFAULT_DRAW_TOOLS,
+  DEFAULT_SIDEBAR_TABS,
+  type DefaultSidebarTab,
+} from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
-import type { PdfPhotos, PdfTheme } from "@/lib/settings/userSettings";
+import { UserSettingsPdfSection, UserSettingsResetDialog } from "./userSettingsPanels";
+import {
+  DRAW_TOOL_LABELS,
+  FLOOR_MODES,
+  LAYER_LABELS,
+  SIDEBAR_TAB_LABELS,
+  radarGrayValueText,
+} from "./userSettingsOptions";
 import {
   NOTE_MOMENT_MAX_SECONDS,
   NOTE_MOMENT_MIN_SECONDS,
@@ -16,48 +27,14 @@ import {
   PLAYBACK_SPEEDS,
   SAVED_NOTES_PAGE_SIZE_MAX,
   SAVED_NOTES_PAGE_SIZE_MIN,
-  SERIES_MAX_FILES,
+  SERIES_HABITS_WINDOW_MAX_SECONDS,
+  SERIES_HABITS_WINDOW_MIN_SECONDS,
+  SERIES_MAX_FILES_HARD,
+  SERIES_MAX_FILES_SOFT_WARN,
   SERIES_MIN_FILES,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
-
-const LAYER_LABELS: { key: keyof MapLayers; label: string }[] = [
-  { key: "grenades", label: "Nades" },
-  { key: "shots", label: "Shots" },
-  { key: "deaths", label: "Deaths" },
-  { key: "openings", label: "FK" },
-  { key: "names", label: "Names" },
-  { key: "cone", label: "Cone" },
-  { key: "heatmap", label: "Heat" },
-  { key: "summary", label: "Summary" },
-];
-
-const FLOOR_MODES: { id: FloorMode; label: string }[] = [
-  { id: "auto", label: "Auto" },
-  { id: "upper", label: "Upper" },
-  { id: "lower", label: "Lower" },
-];
-
-const PDF_THEME_MODES: { id: PdfTheme; label: string }[] = [
-  { id: "dark", label: "Dark" },
-  { id: "light", label: "Light" },
-];
-
-const PDF_PHOTO_MODES: { id: PdfPhotos; label: string }[] = [
-  { id: "with", label: "With photos" },
-  { id: "without", label: "Without photos" },
-];
-
-function radarGrayValueText(amount: number): string {
-  if (amount <= 0) {
-    return "Color";
-  }
-  if (amount >= 1) {
-    return "Gray";
-  }
-  return `${Math.round(amount * 100)}% gray`;
-}
 
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
   const { settings, update, reset } = useUserSettings();
@@ -130,15 +107,23 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           <label className="settings-field">
             <span>Max demos per drop</span>
             <input
-              type="number"
+              type="range"
               min={SERIES_MIN_FILES}
-              max={SERIES_MAX_FILES}
+              max={SERIES_MAX_FILES_HARD}
+              step={1}
               aria-label="Max demos per drop"
+              aria-valuetext={`${settings.seriesMaxFiles}`}
               value={settings.seriesMaxFiles}
               onChange={(e) => void update({ seriesMaxFiles: Number(e.target.value) })}
             />
+            <output>{settings.seriesMaxFiles}</output>
           </label>
           <p className="settings-hint">Applies on the next multi-file drop.</p>
+          {settings.seriesMaxFiles > SERIES_MAX_FILES_SOFT_WARN ? (
+            <p className="settings-warn">
+              More than {SERIES_MAX_FILES_SOFT_WARN} demos at once can use a lot of RAM.
+            </p>
+          ) : null}
         </section>
 
         <section className="settings-section">
@@ -157,6 +142,23 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             <output>{settings.sidebarWidth}px</output>
           </label>
           <label className="settings-field">
+            <span>Default sidebar tab</span>
+            <select
+              aria-label="Default sidebar tab"
+              value={settings.defaultSidebarTab}
+              onChange={(e) =>
+                void update({ defaultSidebarTab: e.target.value as DefaultSidebarTab })
+              }
+            >
+              {DEFAULT_SIDEBAR_TABS.map((id) => (
+                <option key={id} value={id}>
+                  {SIDEBAR_TAB_LABELS[id]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="settings-hint">Opens this tab when a demo loads.</p>
+          <label className="settings-field">
             <span>Saved notes page size</span>
             <input
               type="number"
@@ -172,8 +174,23 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <h3>Drawing</h3>
           <p className="settings-hint">
-            Defaults for new demos and new playbooks. Open notes keep their own palette.
+            Defaults for new demos and new playbooks. Open notes keep their own palette and tool.
           </p>
+          <div className="settings-field">
+            <span>Default tool</span>
+            <span className="floor-picks">
+              {DEFAULT_DRAW_TOOLS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={settings.defaultDrawTool === id ? "on" : ""}
+                  onClick={() => void update({ defaultDrawTool: id })}
+                >
+                  {DRAW_TOOL_LABELS[id]}
+                </button>
+              ))}
+            </span>
+          </div>
           <div className="settings-drawing">
             <ColorPalette
               paletteId={settings.defaultPaletteId}
@@ -265,7 +282,8 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <h3>Playback</h3>
           <p className="settings-hint">
-            Default speed applies when a demo loads. Lead-in and moment length apply immediately.
+            Default speed applies when a demo loads. Lead-in, moment length, and habits trail apply
+            immediately.
           </p>
           <label className="settings-field">
             <span>Default speed</span>
@@ -311,49 +329,40 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             />
             <span>s</span>
           </label>
+          <label className="settings-field">
+            <span>Habits trail</span>
+            <input
+              type="range"
+              min={SERIES_HABITS_WINDOW_MIN_SECONDS}
+              max={SERIES_HABITS_WINDOW_MAX_SECONDS}
+              step={1}
+              aria-label="Habits trail"
+              aria-valuetext={`${settings.habitsTrailWindowSec} seconds`}
+              value={settings.habitsTrailWindowSec}
+              onChange={(e) => void update({ habitsTrailWindowSec: Number(e.target.value) })}
+            />
+            <output>{settings.habitsTrailWindowSec}s</output>
+          </label>
+          <p className="settings-hint">
+            Seconds after freeze on the aggregated habits overlay. Applies immediately.
+          </p>
+          <label className="settings-check">
+            <input
+              type="checkbox"
+              checked={settings.skipKnifeOnOpen}
+              aria-label="Skip knife round when a demo loads"
+              onChange={() => void update({ skipKnifeOnOpen: !settings.skipKnifeOnOpen })}
+            />
+            Skip knife round when a demo loads
+          </label>
         </section>
 
-        <section className="settings-section">
-          <h3>Playbook PDF</h3>
-          <p className="settings-hint">
-            Dark matches the app. Light is paper-friendly. Radar stills sit on the page color — no
-            extra panel behind the map. Without photos skips embedded lineup pictures; pins stay.
-          </p>
-          <div className="settings-field">
-            <span>Page theme</span>
-            <span className="floor-picks">
-              {PDF_THEME_MODES.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  className={settings.pdfTheme === mode.id ? "on" : ""}
-                  aria-pressed={settings.pdfTheme === mode.id}
-                  aria-label={`${mode.label} PDF`}
-                  onClick={() => void update({ pdfTheme: mode.id })}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </span>
-          </div>
-          <div className="settings-field">
-            <span>Photos</span>
-            <span className="floor-picks">
-              {PDF_PHOTO_MODES.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  className={settings.pdfPhotos === mode.id ? "on" : ""}
-                  aria-pressed={settings.pdfPhotos === mode.id}
-                  aria-label={mode.label}
-                  onClick={() => void update({ pdfPhotos: mode.id })}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </span>
-          </div>
-        </section>
+        <UserSettingsPdfSection
+          pdfTheme={settings.pdfTheme}
+          pdfPhotos={settings.pdfPhotos}
+          onTheme={(pdfTheme) => void update({ pdfTheme })}
+          onPhotos={(pdfPhotos) => void update({ pdfPhotos })}
+        />
 
         <div className="home-modal-actions">
           <button type="button" className="ghost" onClick={onClose}>
@@ -366,41 +375,13 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
       </div>
 
       {confirmReset ? (
-        <div
-          className="home-modal settings-reset-confirm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setConfirmReset(false);
+        <UserSettingsResetDialog
+          titleId={confirmTitleId}
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={() => {
+            void reset().then(() => setConfirmReset(false));
           }}
-        >
-          <div
-            className="home-modal-card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={confirmTitleId}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id={confirmTitleId}>Reset all settings?</h2>
-            <p>
-              This restores shipped defaults. Saved notes, linked demos, and playbooks are not
-              deleted.
-            </p>
-            <div className="home-modal-actions">
-              <button type="button" className="ghost" onClick={() => setConfirmReset(false)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="danger"
-                onClick={() => {
-                  void reset().then(() => setConfirmReset(false));
-                }}
-              >
-                Reset all
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       ) : null}
     </div>,
     document.body,

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useResetOnDemoChange } from "@/lib/state/demoReset";
 import { DEFAULT_LAYERS, type DrawTool, type MapLayers } from "@/lib/notes/types";
+import type { DefaultDrawTool } from "@/lib/settings/userSettings";
 
 /**
  * Radar view state that is not persisted with a review: selection, camera
@@ -8,14 +9,20 @@ import { DEFAULT_LAYERS, type DrawTool, type MapLayers } from "@/lib/notes/types
  * different demo is loaded (including a series file hop). Habits filters stay
  * on the series identity — see `useSeriesHabits`.
  */
-export function useViewState(demoId: string | null, defaultLayers: MapLayers = DEFAULT_LAYERS) {
+export function useViewState(
+  demoId: string | null,
+  defaultLayers: MapLayers = DEFAULT_LAYERS,
+  defaultTool: DefaultDrawTool = "pan",
+) {
   const layersDefaultRef = useRef(defaultLayers);
   layersDefaultRef.current = defaultLayers;
+  const toolDefaultRef = useRef<DrawTool>(defaultTool);
+  toolDefaultRef.current = defaultTool;
   const [selected, setSelectedState] = useState<number | null>(null);
   const [follow, setFollow] = useState(false);
   const [trails, setTrails] = useState(false);
   const [moment, setMoment] = useState(false);
-  const [tool, setTool] = useState<DrawTool>("pan");
+  const [tool, setTool] = useState<DrawTool>(defaultTool);
   const [layers, setLayers] = useState<MapLayers>(() => ({ ...defaultLayers }));
   const [viewEpoch, setViewEpoch] = useState(0);
   const selectedRef = useRef(selected);
@@ -27,7 +34,7 @@ export function useViewState(demoId: string | null, defaultLayers: MapLayers = D
     setLayers({ ...layersDefaultRef.current });
     setTrails(false);
     setMoment(false);
-    setTool("pan");
+    setTool(toolDefaultRef.current);
     setViewEpoch((n) => n + 1);
   });
 

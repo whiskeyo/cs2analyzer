@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { NadeStyle, Note } from "@/lib/notes/types";
 import {
   colorAtSwatch,
@@ -9,6 +9,7 @@ import {
 } from "./hotkeys";
 import { notePawnLegend, visiblePieces } from "./legend";
 import { playbookFloorNote, type PlaybookFloorLayer } from "./pages";
+import type { DefaultDrawTool } from "@/lib/settings/userSettings";
 import type { PlaybookTool } from "./pieces";
 import type { Playbook, PlaybookPage } from "./types";
 import type { useNoteHistory } from "./history";
@@ -26,15 +27,23 @@ export function usePlaybookBoard(opts: {
   history: NoteHistory;
   setNote: (note: Note) => void;
   setPalette: (paletteId: string, color?: string) => void;
+  defaultTool?: DefaultDrawTool;
 }) {
   const { book, page, floorLayer = "upper", history, setNote, setPalette } = opts;
-  const [tool, setTool] = useState<PlaybookTool>("pan");
+  const defaultTool = opts.defaultTool ?? "pan";
+  const defaultToolRef = useRef<PlaybookTool>(defaultTool);
+  defaultToolRef.current = defaultTool;
+  const [tool, setTool] = useState<PlaybookTool>(defaultTool);
   const [nadeTrail, setNadeTrail] = useState(false);
   const [nadeStyle, setNadeStyle] = useState<NadeStyle>("icon");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewEpoch, setViewEpoch] = useState(0);
 
   const resetView = useCallback(() => setViewEpoch((n) => n + 1), []);
+
+  useEffect(() => {
+    setTool(defaultToolRef.current);
+  }, [book?.key]);
 
   const commitNote = useCallback(
     (note: Note) => {

@@ -1,6 +1,7 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
+import { type DefaultSidebarTab } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { isAggregatedView, isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { Action } from "./Action";
@@ -20,7 +21,7 @@ import { SeriesActionList } from "./SeriesActionList";
 import { SeriesPlayerReview } from "./SeriesPlayerReview";
 import { seriesPlayerReview } from "@/lib/parse/seriesPlayerReview";
 
-type Tab = "score" | "player" | "notes" | "action" | "util" | "rounds" | "weapons";
+type Tab = DefaultSidebarTab;
 
 const DEMO_ONLY_TABS: Tab[] = ["score", "notes", "rounds", "weapons"];
 
@@ -60,7 +61,13 @@ export const Sidebar = memo(function Sidebar() {
     return seriesPlayerReview(session.series, playerKey, playerName);
   }, [showSeriesReview, session.series, playerKey, playerName]);
 
-  const [tab, setTab] = useState<Tab>("score");
+  const [tab, setTab] = useState<Tab>(settings.defaultSidebarTab);
+  const choseTab = useRef(false);
+  useEffect(() => {
+    if (!choseTab.current) {
+      setTab(settings.defaultSidebarTab);
+    }
+  }, [settings.defaultSidebarTab]);
   const activeTab: Tab = seriesMode && DEMO_ONLY_TABS.includes(tab) ? "action" : tab;
   const { width, handleProps } = usePanelResize({
     minWidth: SIDEBAR_MIN_WIDTH,
@@ -88,7 +95,10 @@ export const Sidebar = memo(function Sidebar() {
               className={activeTab === id ? "on" : ""}
               disabled={tabDisabled(id)}
               title={tabDisabled(id) ? "Not available in aggregated view" : undefined}
-              onClick={() => setTab(id)}
+              onClick={() => {
+                choseTab.current = true;
+                setTab(id);
+              }}
             >
               {TAB_LABEL[id]}
             </button>

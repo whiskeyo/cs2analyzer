@@ -14,6 +14,7 @@ import {
 } from "@/lib/parse/seriesAnalysis";
 import {
   buildSeriesOverlay,
+  clampSeriesTrailWindowSec,
   DEFAULT_HABITS_NADE_FILTER,
   type HabitsNadeFilter,
   type HabitsNadeKind,
@@ -27,6 +28,7 @@ import { seriesDemoColors } from "@/lib/parse/seriesDemoColor";
 import type { RoundKind } from "@/lib/parse/roundTags";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { Side } from "@/lib/replay/replayTypes";
+import { SERIES_HABITS_WINDOW_SECONDS } from "@/lib/shared/constants";
 
 export type SeriesViewMode = "demos" | "aggregated";
 
@@ -105,8 +107,12 @@ export function useSeriesHabits(opts: {
   activeDemoId: string | null;
   selectDemo: (id: string) => void;
   jump: (tick: number) => void;
+  trailWindowSec?: number;
 }): SeriesHabitsState {
   const { series, places, activeDemoId, selectDemo, jump } = opts;
+  const trailWindowSec = clampSeriesTrailWindowSec(
+    opts.trailWindowSec ?? SERIES_HABITS_WINDOW_SECONDS,
+  );
   const [filter, setFilter] = useState<SeriesHabitsFilter>(DEFAULT_FILTER);
   const [overlayOn, setOverlayOn] = useState(true);
   const [bucketOverlay, setBucketOverlay] = useState<BucketOverlaySelection | null>(null);
@@ -141,8 +147,8 @@ export function useSeriesHabits(opts: {
 
   const overlay = useMemo(() => {
     if (!series || !aggregated || !overlayOn || !bucketOverlay) return null;
-    return buildSeriesOverlay(series, bucketFilter, playerKey);
-  }, [series, aggregated, overlayOn, bucketOverlay, bucketFilter, playerKey]);
+    return buildSeriesOverlay(series, bucketFilter, playerKey, trailWindowSec);
+  }, [series, aggregated, overlayOn, bucketOverlay, bucketFilter, playerKey, trailWindowSec]);
 
   const bucketWindowSec = overlay?.windowSec ?? 0;
 

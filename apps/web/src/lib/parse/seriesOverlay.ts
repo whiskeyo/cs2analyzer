@@ -10,6 +10,7 @@ import {
   SERIES_HABITS_WINDOW_MIN_SECONDS,
   SERIES_HABITS_WINDOW_SECONDS,
 } from "@/lib/shared/constants";
+import { SERIES_TRAIL_WINDOW_STORAGE_KEY } from "@/lib/shared/storageKeys";
 import { matchingTags, type SeriesFilter } from "./seriesAnalysis";
 import type { RoundTag } from "./roundTags";
 import { playerIdentityKey } from "./seriesRoster";
@@ -136,6 +137,17 @@ export function clampSeriesTrailWindowSec(value: number): number {
     SERIES_HABITS_WINDOW_MAX_SECONDS,
     Math.max(SERIES_HABITS_WINDOW_MIN_SECONDS, Math.round(value)),
   );
+}
+
+/** One-time localStorage read before IndexedDB settings own this field. */
+export function loadHabitsTrailWindowSec(): number {
+  try {
+    const raw = localStorage.getItem(SERIES_TRAIL_WINDOW_STORAGE_KEY);
+    if (raw == null) return SERIES_HABITS_WINDOW_SECONDS;
+    return clampSeriesTrailWindowSec(Number(raw));
+  } catch {
+    return SERIES_HABITS_WINDOW_SECONDS;
+  }
 }
 
 function focalSidePlayersAtFreeze(replay: Replay, tag: RoundTag): number[] {

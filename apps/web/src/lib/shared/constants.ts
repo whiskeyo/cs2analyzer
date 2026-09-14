@@ -74,8 +74,14 @@ export const DEFAULT_RADAR_GRAY = 1;
 /** Floor for the user-settings series drop cap. */
 export const SERIES_MIN_FILES = 2;
 
-/** Max GOTV files in one habits series. */
+/** Shipped default GOTV files in one habits series (Preferences default). */
 export const SERIES_MAX_FILES = 12;
+
+/** Hard ceiling for the user-settings series drop cap. */
+export const SERIES_MAX_FILES_HARD = 24;
+
+/** Soft UI warning when the series drop cap is set above this (RAM). */
+export const SERIES_MAX_FILES_SOFT_WARN = SERIES_MAX_FILES;
 
 /** Concurrent WASM parse workers (queue the rest). */
 export const PARSE_POOL_MAX = 3;

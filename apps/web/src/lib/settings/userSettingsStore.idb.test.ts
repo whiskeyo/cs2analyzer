@@ -112,32 +112,40 @@ describe("userSettingsStore indexedDB", () => {
     const store = stubLocalStorage({
       [STORAGE_KEYS.sidebarWidth]: String(SIDEBAR_MAX_WIDTH),
       [STORAGE_KEYS.eventLeadInSec]: "4",
+      [STORAGE_KEYS.seriesTrailWindowSec]: "45",
     });
     const loaded = await loadUserSettings();
     expect(loaded.sidebarWidth).toBe(520);
     expect(store.get(STORAGE_KEYS.sidebarWidth)).toBeUndefined();
     expect(store.get(STORAGE_KEYS.eventLeadInSec)).toBeUndefined();
+    expect(store.get(STORAGE_KEYS.seriesTrailWindowSec)).toBeUndefined();
   });
 
-  it("migrates sidebarWidth and eventLeadInSec once, then removes the keys", async () => {
+  it("migrates sidebarWidth, eventLeadInSec, and trail window once, then removes the keys", async () => {
     const store = stubLocalStorage({
       [STORAGE_KEYS.sidebarWidth]: "520",
       [STORAGE_KEYS.eventLeadInSec]: "2.5",
+      [STORAGE_KEYS.seriesTrailWindowSec]: "30",
     });
 
     const first = await loadUserSettings();
     expect(first.sidebarWidth).toBe(520);
     expect(first.eventLeadInSec).toBe(2.5);
+    expect(first.habitsTrailWindowSec).toBe(30);
     expect(store.get(STORAGE_KEYS.sidebarWidth)).toBeUndefined();
     expect(store.get(STORAGE_KEYS.eventLeadInSec)).toBeUndefined();
+    expect(store.get(STORAGE_KEYS.seriesTrailWindowSec)).toBeUndefined();
 
     store.set(STORAGE_KEYS.sidebarWidth, String(SIDEBAR_MAX_WIDTH));
     store.set(STORAGE_KEYS.eventLeadInSec, "4");
+    store.set(STORAGE_KEYS.seriesTrailWindowSec, "45");
     const second = await loadUserSettings();
     expect(second.sidebarWidth).toBe(520);
     expect(second.eventLeadInSec).toBe(2.5);
+    expect(second.habitsTrailWindowSec).toBe(30);
     expect(store.get(STORAGE_KEYS.sidebarWidth)).toBeUndefined();
     expect(store.get(STORAGE_KEYS.eventLeadInSec)).toBeUndefined();
+    expect(store.get(STORAGE_KEYS.seriesTrailWindowSec)).toBeUndefined();
   });
 
   it("does not persist a defaults row when localStorage has nothing to migrate", async () => {

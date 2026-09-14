@@ -23,7 +23,11 @@ import {
   DEFAULT_RADAR_GRAY,
   RADAR_GRAY_MAX,
   RADAR_GRAY_MIN,
+  SERIES_HABITS_WINDOW_MAX_SECONDS,
+  SERIES_HABITS_WINDOW_MIN_SECONDS,
+  SERIES_HABITS_WINDOW_SECONDS,
   SERIES_MAX_FILES,
+  SERIES_MAX_FILES_HARD,
   SERIES_MIN_FILES,
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MAX_WIDTH,
@@ -44,6 +48,20 @@ export type PdfPhotos = (typeof PDF_PHOTO_MODES)[number];
 /** Embedded lineup stills under the radar; pins stay either way. */
 export const DEFAULT_PDF_PHOTOS: PdfPhotos = "with";
 
+export const DEFAULT_DRAW_TOOLS = ["pan", "pen"] as const;
+export type DefaultDrawTool = (typeof DEFAULT_DRAW_TOOLS)[number];
+
+export const DEFAULT_SIDEBAR_TABS = [
+  "score",
+  "player",
+  "notes",
+  "action",
+  "util",
+  "rounds",
+  "weapons",
+] as const;
+export type DefaultSidebarTab = (typeof DEFAULT_SIDEBAR_TABS)[number];
+
 const GRENADE_KINDS = Object.keys(DEFAULT_SUMMARY_FILTER.kinds) as GrenadeKind[];
 const LAYER_KEYS = Object.keys(DEFAULT_LAYERS) as (keyof MapLayers)[];
 
@@ -55,12 +73,16 @@ export interface UserSettings {
   savedNotesPageSize: number;
   defaultPaletteId: string;
   defaultColor: string;
+  defaultDrawTool: DefaultDrawTool;
+  defaultSidebarTab: DefaultSidebarTab;
   defaultFloorMode: FloorMode;
   defaultSummaryFilter: SummaryFilter;
   defaultLayers: MapLayers;
   defaultPlaybackSpeed: number;
   eventLeadInSec: number;
   noteMomentSec: number;
+  habitsTrailWindowSec: number;
+  skipKnifeOnOpen: boolean;
   seriesMaxFiles: number;
   pdfTheme: PdfTheme;
   /** Embed full lineup photos in the Playbook PDF. Pins stay on the still either way. */
@@ -105,12 +127,16 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     savedNotesPageSize: SAVED_NOTES_PAGE_SIZE,
     defaultPaletteId: defaultPaletteId(),
     defaultColor: defaultColor(),
+    defaultDrawTool: "pan",
+    defaultSidebarTab: "score",
     defaultFloorMode: "auto",
     defaultSummaryFilter: cloneSummaryFilter(DEFAULT_SUMMARY_FILTER),
     defaultLayers: cloneLayers(DEFAULT_LAYERS),
     defaultPlaybackSpeed: DEFAULT_PLAYBACK_SPEED,
     eventLeadInSec: DEFAULT_LEAD_IN_SEC,
     noteMomentSec: NOTE_MOMENT_SECONDS,
+    habitsTrailWindowSec: SERIES_HABITS_WINDOW_SECONDS,
+    skipKnifeOnOpen: true,
     seriesMaxFiles: SERIES_MAX_FILES,
     pdfTheme: DEFAULT_PDF_THEME,
     pdfPhotos: DEFAULT_PDF_PHOTOS,
@@ -157,6 +183,18 @@ function parsePdfTheme(value: unknown): PdfTheme {
 
 function parsePdfPhotos(value: unknown): PdfPhotos {
   return value === "with" || value === "without" ? value : DEFAULT_PDF_PHOTOS;
+}
+
+function parseDefaultDrawTool(value: unknown): DefaultDrawTool {
+  return value === "pan" || value === "pen" ? value : "pan";
+}
+
+function parseDefaultSidebarTab(value: unknown): DefaultSidebarTab {
+  return DEFAULT_SIDEBAR_TABS.some((id) => id === value) ? (value as DefaultSidebarTab) : "score";
+}
+
+function parseBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function parsePlaybackSpeed(value: unknown): number {
@@ -229,6 +267,8 @@ export function parseUserSettings(raw: unknown): UserSettings {
     ),
     defaultPaletteId: paletteId,
     defaultColor: parseColor(raw.defaultColor, preset.colors[0]),
+    defaultDrawTool: parseDefaultDrawTool(raw.defaultDrawTool),
+    defaultSidebarTab: parseDefaultSidebarTab(raw.defaultSidebarTab),
     defaultFloorMode: parseFloorMode(raw.defaultFloorMode),
     defaultSummaryFilter: parseSummaryFilter(raw.defaultSummaryFilter),
     defaultLayers: parseLayers(raw.defaultLayers),
@@ -242,10 +282,17 @@ export function parseUserSettings(raw: unknown): UserSettings {
       NOTE_MOMENT_MAX_SECONDS,
       defaults.noteMomentSec,
     ),
+    habitsTrailWindowSec: parseClampedInt(
+      raw.habitsTrailWindowSec,
+      SERIES_HABITS_WINDOW_MIN_SECONDS,
+      SERIES_HABITS_WINDOW_MAX_SECONDS,
+      defaults.habitsTrailWindowSec,
+    ),
+    skipKnifeOnOpen: parseBoolean(raw.skipKnifeOnOpen, defaults.skipKnifeOnOpen),
     seriesMaxFiles: parseClampedInt(
       raw.seriesMaxFiles,
       SERIES_MIN_FILES,
-      SERIES_MAX_FILES,
+      SERIES_MAX_FILES_HARD,
       defaults.seriesMaxFiles,
     ),
     pdfTheme: parsePdfTheme(raw.pdfTheme),

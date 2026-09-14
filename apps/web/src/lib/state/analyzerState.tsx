@@ -57,6 +57,7 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     session.demo?.id ?? null,
     bucketTransportRef,
     settings.defaultPlaybackSpeed,
+    settings.skipKnifeOnOpen,
   );
   const review = useReviewProject({
     demo: session.demo,
@@ -74,7 +75,11 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
       },
     },
   });
-  const view = useViewState(session.demo?.id ?? null, settings.defaultLayers);
+  const view = useViewState(
+    session.demo?.id ?? null,
+    settings.defaultLayers,
+    settings.defaultDrawTool,
+  );
 
   const [maps, setMaps] = useState<Record<string, MapCalibration>>({});
   const [layout, setLayout] = useState<MapLayout | null>(null);
@@ -124,6 +129,7 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     activeDemoId: session.demo?.id ?? null,
     selectDemo: session.selectDemo,
     jump: playback.jump,
+    trailWindowSec: settings.habitsTrailWindowSec,
   });
 
   const bucketActive = isBucketOverlayActive(session.series, habits);
