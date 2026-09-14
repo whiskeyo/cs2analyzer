@@ -48,7 +48,7 @@ FAQ explains *what* the app is. It does not walk someone through clicking Skip f
 |---|---|
 | **Home** | Secondary control next to the drop zone: **Try the tutorial** (or equivalent). Not a blocking modal. |
 | **FAQ** | Short article or lead-paragraph link that starts the same flow (`/analyzer?tutorial=1` or a start helper). |
-| **Settings** (later) | **Replay tour** — re-run even if `tutorialCompleted` is true. Gear menu today is notes/playbook import; wait for the preferences slice of `USER-SETTINGS.md`. |
+| **Settings** (later) | **Replay tour** — re-run even if `tutorialCompleted` is true. Gear menu today is notes/playbook import; wait for the Preferences slice. |
 
 No first-visit popup. Optional later: a one-line Home hint when `tutorialCompleted` is false, dismissible without starting. That hint is polish, not v1.
 

@@ -120,7 +120,7 @@ Do not commit until the checks for **every touched app** pass. If a step fails, 
 | `crates/**` | `cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` |
 | WASM / parser types | Above Rust checks **and** `./scripts/build-wasm.sh`, then web row |
 
-**Refactor / behavior-preserving commits** (`todos/WEB-REFACTOR.md`): same commands; diff must not change stats formulas, parse output, or replay timing unless that commit’s goal says otherwise. Add or extend unit tests when extracting pure logic; run the test file you touched.
+**Refactor / behavior-preserving commits**: same commands; diff must not change stats formulas, parse output, or replay timing unless that commit’s goal says otherwise. Add or extend unit tests when extracting pure logic; run the test file you touched.
 
 **Mechanical style commits** (eslint `--fix` braces, prettier): web lint/format/typecheck/test must still pass; no new test required unless you moved code.
 
@@ -132,8 +132,6 @@ Do not commit until the checks for **every touched app** pass. If a step fails, 
 - Ignore generated parser JS in lint/format.
 - `computeStats` is cached per `(replay, tick)` — mutate replay identity if tests share an object and expect a recompute.
 - Spectator economy: T left, CT right. Scoreboard groups by `currentSide()` at the current tick.
-
-Why the UI is React/TS (and how to move it) is in `docs/frontend-migration.md`. Parser stays Rust either way. FACEIT scoreboard comparison and the analysis backlog are in `docs/faceit-parity.md`.
 
 ## Product context
 
