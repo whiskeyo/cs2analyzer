@@ -1417,6 +1417,43 @@ code {
   max-height: 12rem;
   overflow: auto;
 }
+.snapshot-recent-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.snapshot-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 0.85rem;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.75rem;
+  max-width: min(36rem, calc(100% - 1.2rem));
+  padding: 0.5rem 0.7rem;
+  background: rgba(13, 17, 22, 0.94);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.snapshot-toast p {
+  margin: 0;
+  min-width: 0;
+}
+.snapshot-toast-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
 .stage {
   flex: 1;
   display: grid;

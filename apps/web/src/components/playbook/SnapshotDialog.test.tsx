@@ -4,103 +4,90 @@
 import "fake-indexeddb/auto";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { playbookHref } from "@/lib/app/playbookSearch";
-import { TestRouter } from "@/lib/testing/router";
 import { PLAYBOOK_FOCUS_KEY } from "@/lib/playbook/focus";
 import * as playbookStore from "@/lib/playbook/playbookStore";
 import * as snapshot from "@/lib/playbook/snapshot";
+import { rememberRecentPlaybook } from "@/lib/playbook/snapshotRecent";
+import { SNAPSHOT_RECENT_BOOKS_KEY } from "@/lib/shared/storageKeys";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
 import { SnapshotDialog } from "./SnapshotDialog";
 
-const navigate = vi.fn();
-vi.mock("react-router", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react-router")>();
-  return { ...actual, useNavigate: () => navigate };
-});
-
 const DEFAULT_TITLE = "NaVi - FaZe (faceit.dem) · R12 0:00";
 
-function renderDialog() {
+function renderDialog(extra: Partial<ComponentProps<typeof SnapshotDialog>> = {}) {
   const onClose = vi.fn();
+  const onSaved = vi.fn();
   render(
-    <TestRouter path="/analyzer">
-      <SnapshotDialog
-        mapName="de_anubis"
-        pieces={[]}
-        stratTitle={DEFAULT_TITLE}
-        floor="auto"
-        onClose={onClose}
-      />
-    </TestRouter>,
+    <SnapshotDialog
+      mapName="de_anubis"
+      pieces={[]}
+      stratTitle={DEFAULT_TITLE}
+      floor="auto"
+      onClose={onClose}
+      onSaved={onSaved}
+      {...extra}
+    />,
   );
-  return onClose;
+  return { onClose, onSaved };
 }
 
 describe("SnapshotDialog", () => {
   beforeEach(async () => {
     await playbookStore.deleteAllPlaybooks();
     sessionStorage.removeItem(PLAYBOOK_FOCUS_KEY);
-    vi.mocked(navigate).mockReset();
+    localStorage.removeItem(SNAPSHOT_RECENT_BOOKS_KEY);
   });
 
   afterEach(async () => {
     await playbookStore.deleteAllPlaybooks();
     sessionStorage.removeItem(PLAYBOOK_FOCUS_KEY);
+    localStorage.removeItem(SNAPSHOT_RECENT_BOOKS_KEY);
   });
 
-  it("saves into an existing book and opens the strat", async () => {
+  it("saves into an existing book and reports where it landed", async () => {
     await playbookStore.createPlaybook("de_anubis", "A execs");
-    const onClose = renderDialog();
+    const { onClose, onSaved } = renderDialog();
     expect(await screen.findByRole("radio", { name: "A execs" })).toBeChecked();
-    expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue(
-      DEFAULT_TITLE,
-    );
+    expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue(DEFAULT_TITLE);
     expect(screen.getByRole("checkbox", { name: "Pawns" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Util" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Kills" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Drawings" })).toBeChecked();
     await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
-    expect(await screen.findByText(/Saved to/)).toBeInTheDocument();
-    expect(screen.getByText("A execs")).toBeInTheDocument();
-    expect(
-      JSON.parse(sessionStorage.getItem(PLAYBOOK_FOCUS_KEY) ?? "null"),
-    ).toMatchObject({
-      mapName: "de_anubis",
-    });
-    await userEvent.click(screen.getByRole("button", { name: "Open strat" }));
-    expect(navigate).toHaveBeenCalledWith(
-      playbookHref({
-        map: "de_anubis",
-        playbook: "A execs",
-        strat: DEFAULT_TITLE,
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(onSaved).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mapName: "de_anubis",
+        bookTitle: "A execs",
+        stratTitle: DEFAULT_TITLE,
       }),
     );
     expect(onClose).toHaveBeenCalled();
+    expect(JSON.parse(sessionStorage.getItem(PLAYBOOK_FOCUS_KEY) ?? "null")).toMatchObject({
+      mapName: "de_anubis",
+    });
   });
 
   it("creates a new playbook when chosen", async () => {
     await playbookStore.createPlaybook("de_anubis", "Old");
-    const onClose = renderDialog();
+    const { onClose, onSaved } = renderDialog();
     await screen.findByRole("radio", { name: "Old" });
     await userEvent.click(screen.getByRole("radio", { name: "New playbook" }));
-    await userEvent.type(
-      screen.getByRole("textbox", { name: "New playbook title" }),
-      "Fresh",
-    );
+    await userEvent.type(screen.getByRole("textbox", { name: "New playbook title" }), "Fresh");
     await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
-    expect(await screen.findByText("Fresh")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() =>
+      expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ bookTitle: "Fresh" })),
+    );
     expect(onClose).toHaveBeenCalled();
   });
 
   it("lets the user pick another book and rename the strat", async () => {
     await playbookStore.createPlaybook("de_anubis", "Older");
     await playbookStore.createPlaybook("de_anubis", "Newer");
-    renderDialog();
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled(),
-    );
+    const { onSaved } = renderDialog();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled());
     const older = screen.getByRole("radio", { name: "Older" });
     await userEvent.click(older);
     await waitFor(() => expect(older).toBeChecked());
@@ -108,35 +95,42 @@ describe("SnapshotDialog", () => {
       target: { value: "Custom strat" },
     });
     await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
-    expect(await screen.findByText(/Saved to/)).toBeInTheDocument();
-    expect(screen.getByRole("strong")).toHaveTextContent("Older");
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ bookTitle: "Older" }));
     const saved = await playbookStore.loadPlaybook(
       JSON.parse(sessionStorage.getItem(PLAYBOOK_FOCUS_KEY) ?? "null").bookKey,
     );
-    expect(saved?.pages.some((page) => page.title === "Custom strat")).toBe(
-      true,
-    );
+    expect(saved?.pages.some((page) => page.title === "Custom strat")).toBe(true);
+  });
+
+  it("lists recent books first and defaults to the last used one", async () => {
+    const older = await playbookStore.createPlaybook("de_anubis", "Older");
+    await playbookStore.createPlaybook("de_anubis", "Newer");
+    rememberRecentPlaybook(older.key);
+    renderDialog();
+    expect(await screen.findByText("Recent")).toBeInTheDocument();
+    expect(screen.getByText("All")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Older" })).toBeChecked();
+    const radios = screen.getAllByRole("radio");
+    expect(radios[0]).toHaveAccessibleName("Older");
+    expect(radios[1]).toHaveAccessibleName("Newer");
   });
 
   it("shows an error when the playbook list fails", async () => {
-    vi.spyOn(playbookStore, "listPlaybooksForMap").mockRejectedValueOnce(
-      new Error("idb down"),
-    );
+    vi.spyOn(playbookStore, "listPlaybooksForMap").mockRejectedValueOnce(new Error("idb down"));
     renderDialog();
     expect(await screen.findByText("idb down")).toBeInTheDocument();
     vi.mocked(playbookStore.listPlaybooksForMap).mockRestore();
   });
 
   it("shows an error when snapshot write fails", async () => {
-    vi.spyOn(snapshot, "writeSnapshot").mockRejectedValueOnce(
-      new Error("write failed"),
-    );
-    renderDialog();
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled(),
-    );
+    vi.spyOn(snapshot, "writeSnapshot").mockRejectedValueOnce(new Error("write failed"));
+    const { onClose, onSaved } = renderDialog();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled());
     await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
     expect(await screen.findByText("write failed")).toBeInTheDocument();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
     vi.mocked(snapshot.writeSnapshot).mockRestore();
   });
 
@@ -169,35 +163,23 @@ describe("SnapshotDialog", () => {
       color: "#fff",
       points: [{ x: 0, y: 0 }],
     };
-    render(
-      <TestRouter path="/analyzer">
-        <SnapshotDialog
-          mapName="de_anubis"
-          pieces={[pawn, smoke]}
-          groups={[{ id: "g1", name: "Alice", drawings: [] }]}
-          drawings={[drawing]}
-          radarFx={{
-            deaths: [{ x: 1, y: 2, line: null }],
-            opening: null,
-            tracers: [],
-            trails: [
-              { points: [{ x: 0, y: 0 }], color: "#0f0", groupId: "g1" },
-            ],
-            heatmap: [],
-            summary: [],
-            cone: null,
-            hits: [],
-            flashes: [],
-          }}
-          stratTitle={DEFAULT_TITLE}
-          floor="auto"
-          onClose={() => undefined}
-        />
-      </TestRouter>,
-    );
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled(),
-    );
+    const { onSaved } = renderDialog({
+      pieces: [pawn, smoke],
+      groups: [{ id: "g1", name: "Alice", drawings: [] }],
+      drawings: [drawing],
+      radarFx: {
+        deaths: [{ x: 1, y: 2, line: null }],
+        opening: null,
+        tracers: [],
+        trails: [{ points: [{ x: 0, y: 0 }], color: "#0f0", groupId: "g1" }],
+        heatmap: [],
+        summary: [],
+        cone: null,
+        hits: [],
+        flashes: [],
+      },
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled());
     await userEvent.click(screen.getByRole("checkbox", { name: "Pawns" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Kills" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Drawings" }));
@@ -208,14 +190,13 @@ describe("SnapshotDialog", () => {
       drawings: undefined,
       radarFx: undefined,
     });
+    expect(onSaved).toHaveBeenCalled();
     write.mockRestore();
   });
 
   it("disables snapshot when every layer is off", async () => {
     renderDialog();
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled(),
-    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled());
     for (const name of ["Pawns", "Util", "Kills", "Drawings"]) {
       await userEvent.click(screen.getByRole("checkbox", { name }));
     }
@@ -223,22 +204,19 @@ describe("SnapshotDialog", () => {
   });
 
   it("closes from cancel", async () => {
-    const onClose = renderDialog();
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled(),
-    );
+    const { onClose } = renderDialog();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled());
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("uses the untitled fallback when no books exist", async () => {
     renderDialog();
-    expect(
-      await screen.findByRole("radio", { name: "New playbook" }),
-    ).toBeChecked();
-    expect(
-      screen.getByRole("textbox", { name: "New playbook title" }),
-    ).toHaveAttribute("placeholder", UNTITLED_PLAYBOOK);
+    expect(await screen.findByRole("radio", { name: "New playbook" })).toBeChecked();
+    expect(screen.getByRole("textbox", { name: "New playbook title" })).toHaveAttribute(
+      "placeholder",
+      UNTITLED_PLAYBOOK,
+    );
   });
 
   it("ignores a late book list after unmount", async () => {
@@ -252,15 +230,13 @@ describe("SnapshotDialog", () => {
         }),
     );
     const { unmount } = render(
-      <TestRouter path="/analyzer">
-        <SnapshotDialog
-          mapName="de_anubis"
-          pieces={[]}
-          stratTitle={DEFAULT_TITLE}
-          floor="auto"
-          onClose={() => undefined}
-        />
-      </TestRouter>,
+      <SnapshotDialog
+        mapName="de_anubis"
+        pieces={[]}
+        stratTitle={DEFAULT_TITLE}
+        floor="auto"
+        onClose={() => undefined}
+      />,
     );
     unmount();
     resolve([]);

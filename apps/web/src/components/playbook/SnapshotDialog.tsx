@@ -1,13 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { useNavigate } from "react-router";
-import { playbookHref } from "@/lib/app/playbookSearch";
-import type {
-  Drawing,
-  DrawingGroup,
-  FloorMode,
-  NoteRadarFx,
-  Piece,
-} from "@/lib/notes/types";
+import type { Drawing, DrawingGroup, FloorMode, NoteRadarFx, Piece } from "@/lib/notes/types";
 import { rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { listPlaybooksForMap } from "@/lib/playbook/playbookStore";
 import { writeSnapshot } from "@/lib/playbook/snapshot";
@@ -18,8 +10,15 @@ import {
   snapshotLayerSelected,
   type SnapshotLayers,
 } from "@/lib/playbook/snapshotLayers";
+import {
+  defaultSnapshotBookKey,
+  loadRecentPlaybookKeys,
+  partitionRecentPlaybooks,
+  rememberRecentPlaybook,
+} from "@/lib/playbook/snapshotRecent";
 import { UNTITLED_PLAYBOOK, type Playbook } from "@/lib/playbook/types";
 import { errorMessage } from "@/lib/validate/json.ts";
+import type { SnapshotToastInfo } from "./SnapshotToast";
 
 const NEW_BOOK = "new";
 
@@ -32,6 +31,29 @@ interface Props {
   stratTitle: string;
   floor: FloorMode;
   onClose: () => void;
+  onSaved?: (saved: SnapshotToastInfo) => void;
+}
+
+function BookOption({
+  book,
+  target,
+  onPick,
+}: {
+  book: Playbook;
+  target: string;
+  onPick: (key: string) => void;
+}) {
+  return (
+    <label>
+      <input
+        type="radio"
+        name="snapshot-book"
+        checked={target === book.key}
+        onChange={() => onPick(book.key)}
+      />
+      {book.title}
+    </label>
+  );
 }
 
 export function SnapshotDialog({
@@ -43,9 +65,9 @@ export function SnapshotDialog({
   stratTitle: initialTitle,
   floor,
   onClose,
+  onSaved,
 }: Props) {
   const titleId = useId();
-  const navigate = useNavigate();
   const [books, setBooks] = useState<Playbook[] | null>(null);
   const [target, setTarget] = useState(NEW_BOOK);
   const [newTitle, setNewTitle] = useState("");
@@ -53,9 +75,8 @@ export function SnapshotDialog({
   const [layers, setLayers] = useState<SnapshotLayers>(DEFAULT_SNAPSHOT_LAYERS);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<{ title: string; key: string } | null>(
-    null,
-  );
+  const recentKeys = loadRecentPlaybookKeys();
+  const { recent, rest } = partitionRecentPlaybooks(books ?? [], recentKeys);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +84,7 @@ export function SnapshotDialog({
       .then((list) => {
         if (cancelled) return;
         setBooks(list);
-        setTarget(list[0]?.key ?? NEW_BOOK);
+        setTarget(defaultSnapshotBookKey(list, loadRecentPlaybookKeys()) ?? NEW_BOOK);
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(errorMessage(err));
@@ -81,10 +102,7 @@ export function SnapshotDialog({
     setSaving(true);
     setError(null);
     try {
-      const stamped = applySnapshotLayers(
-        { pieces, groups, radarFx, drawings },
-        layers,
-      );
+      const stamped = applySnapshotLayers({ pieces, groups, radarFx, drawings }, layers);
       const { book } = await writeSnapshot({
         mapName,
         bookKey: target === NEW_BOOK ? null : target,
@@ -96,9 +114,15 @@ export function SnapshotDialog({
         drawings: stamped.drawings,
         floor,
       });
-      // Playbook reads this once on mount (`consumePlaybookFocus`) after navigate.
       rememberPlaybookFocus({ mapName, bookKey: book.key });
-      setSaved({ title: book.title, key: book.key });
+      rememberRecentPlaybook(book.key);
+      onSaved?.({
+        mapName,
+        bookTitle: book.title,
+        bookKey: book.key,
+        stratTitle,
+      });
+      onClose();
     } catch (err: unknown) {
       setError(errorMessage(err) || "Snapshot failed");
     } finally {
@@ -116,113 +140,77 @@ export function SnapshotDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id={titleId}>Snapshot to playbook</h2>
-        {saved ? (
-          <>
-            <p>
-              Saved to <strong>{saved.title}</strong>.
-            </p>
-            <div className="home-modal-actions">
-              <button type="button" className="ghost" onClick={onClose}>
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  rememberPlaybookFocus({ mapName, bookKey: saved.key });
-                  navigate(
-                    playbookHref({
-                      map: mapName,
-                      playbook: saved.title,
-                      strat: stratTitle,
-                    }),
-                  );
-                  onClose();
-                }}
-              >
-                Open strat
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p>
-              Pick a playbook for this map, then a new named strat. Analyzer ink
-              stays unless Drawings is on.
-            </p>
-            <fieldset className="snapshot-layers">
-              <legend>Include</legend>
-              {SNAPSHOT_LAYER_OPTIONS.map((option) => (
-                <label key={option.id}>
-                  <input
-                    type="checkbox"
-                    checked={layers[option.id]}
-                    onChange={() =>
-                      setLayers({ ...layers, [option.id]: !layers[option.id] })
-                    }
-                  />
-                  {option.label}
-                </label>
-              ))}
-            </fieldset>
-            <fieldset className="snapshot-books">
-              <legend>Playbook</legend>
-              {(books ?? []).map((book) => (
-                <label key={book.key}>
-                  <input
-                    type="radio"
-                    name="snapshot-book"
-                    checked={target === book.key}
-                    onChange={() => setTarget(book.key)}
-                  />
-                  {book.title}
-                </label>
-              ))}
-              <label>
-                <input
-                  type="radio"
-                  name="snapshot-book"
-                  checked={target === NEW_BOOK}
-                  onChange={() => setTarget(NEW_BOOK)}
-                />
-                New playbook
-              </label>
-            </fieldset>
-            {target === NEW_BOOK ? (
-              <label className="playbook-field">
-                New playbook title
-                <input
-                  aria-label="New playbook title"
-                  value={newTitle}
-                  placeholder={UNTITLED_PLAYBOOK}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                />
-              </label>
-            ) : null}
-            <label className="playbook-field">
-              Strat name
+        <p>
+          Pick a playbook for this map, then a new named strat. Analyzer ink stays unless Drawings
+          is on.
+        </p>
+        <fieldset className="snapshot-layers">
+          <legend>Include</legend>
+          {SNAPSHOT_LAYER_OPTIONS.map((option) => (
+            <label key={option.id}>
               <input
-                aria-label="Strat name"
-                value={stratTitle}
-                onChange={(e) => setStratTitle(e.target.value)}
+                type="checkbox"
+                checked={layers[option.id]}
+                onChange={() => setLayers({ ...layers, [option.id]: !layers[option.id] })}
               />
+              {option.label}
             </label>
-            {error ? <p className="error">{error}</p> : null}
-            <div className="home-modal-actions">
-              <button type="button" className="ghost" onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={
-                  saving || books == null || !snapshotLayerSelected(layers)
-                }
-                onClick={() => void save()}
-              >
-                Snapshot
-              </button>
-            </div>
-          </>
-        )}
+          ))}
+        </fieldset>
+        <fieldset className="snapshot-books">
+          <legend>Playbook</legend>
+          {recent.length > 0 ? <p className="snapshot-recent-hint">Recent</p> : null}
+          {recent.map((book) => (
+            <BookOption key={book.key} book={book} target={target} onPick={setTarget} />
+          ))}
+          {rest.length > 0 && recent.length > 0 ? (
+            <p className="snapshot-recent-hint">All</p>
+          ) : null}
+          {rest.map((book) => (
+            <BookOption key={book.key} book={book} target={target} onPick={setTarget} />
+          ))}
+          <label>
+            <input
+              type="radio"
+              name="snapshot-book"
+              checked={target === NEW_BOOK}
+              onChange={() => setTarget(NEW_BOOK)}
+            />
+            New playbook
+          </label>
+        </fieldset>
+        {target === NEW_BOOK ? (
+          <label className="playbook-field">
+            New playbook title
+            <input
+              aria-label="New playbook title"
+              value={newTitle}
+              placeholder={UNTITLED_PLAYBOOK}
+              onChange={(e) => setNewTitle(e.target.value)}
+            />
+          </label>
+        ) : null}
+        <label className="playbook-field">
+          Strat name
+          <input
+            aria-label="Strat name"
+            value={stratTitle}
+            onChange={(e) => setStratTitle(e.target.value)}
+          />
+        </label>
+        {error ? <p className="error">{error}</p> : null}
+        <div className="home-modal-actions">
+          <button type="button" className="ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={saving || books == null || !snapshotLayerSelected(layers)}
+            onClick={() => void save()}
+          >
+            Snapshot
+          </button>
+        </div>
       </div>
     </div>
   );
