@@ -13,7 +13,8 @@ vi.mock("@/lib/parse/ensureParser", () => ({
 }));
 
 vi.mock("@/lib/notes/projectStore", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/notes/projectStore")>();
+  const actual =
+    await importOriginal<typeof import("@/lib/notes/projectStore")>();
   return {
     ...actual,
     demoFilePickerAvailable: vi.fn(() => false),
@@ -21,7 +22,10 @@ vi.mock("@/lib/notes/projectStore", async (importOriginal) => {
   };
 });
 
-import { demoFilePickerAvailable, pickOpenFiles } from "@/lib/notes/projectStore";
+import {
+  demoFilePickerAvailable,
+  pickOpenFiles,
+} from "@/lib/notes/projectStore";
 
 const noop = () => {};
 
@@ -92,7 +96,11 @@ describe("DropZone", () => {
   });
 
   it("shows parse progress as a percentage", () => {
-    render(<DropZone {...props({ parsing: true, progress: { current: 25, total: 200 } })} />);
+    render(
+      <DropZone
+        {...props({ parsing: true, progress: { current: 25, total: 200 } })}
+      />,
+    );
     expect(screen.getByText("13%")).toBeInTheDocument();
   });
 
@@ -102,7 +110,11 @@ describe("DropZone", () => {
   });
 
   it("hides saved notes when the homepage drop zone is used", () => {
-    render(<DropZone {...props({ showSavedNotes: false, saved: [savedProject()] })} />);
+    render(
+      <DropZone
+        {...props({ showSavedNotes: false, saved: [savedProject()] })}
+      />,
+    );
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
     expect(screen.queryByText("a.dem")).not.toBeInTheDocument();
   });
@@ -123,18 +135,25 @@ describe("DropZone", () => {
     expect(beside).toBeTruthy();
     expect(below).toBeTruthy();
     if (drop && beside) {
-      expect(drop.compareDocumentPosition(beside) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+      expect(
+        drop.compareDocumentPosition(beside) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).not.toBe(0);
     }
     if (beside && below) {
-      expect(beside.compareDocumentPosition(below) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+      expect(
+        beside.compareDocumentPosition(below) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).not.toBe(0);
     }
   });
 
   it("surfaces parse errors and notices", () => {
     render(
-      <DropZone {...props({ error: "Supports only Source 2 replays", notice: "Restored" })} />,
+      <DropZone
+        {...props({ error: "Drop a GOTV .dem", notice: "Restored" })}
+      />,
     );
-    expect(screen.getByText("Supports only Source 2 replays")).toBeInTheDocument();
+    expect(screen.getByText("Drop a GOTV .dem")).toBeInTheDocument();
     expect(screen.getByText("Restored")).toBeInTheDocument();
   });
 
@@ -146,7 +165,9 @@ describe("DropZone", () => {
 
     await userEvent.click(screen.getByText("a.dem"));
     const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveTextContent("Drop a.dem here to restore those drawings");
+    expect(dialog).toHaveTextContent(
+      "Drop a.dem here to restore those drawings",
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -196,7 +217,9 @@ describe("DropZone", () => {
     );
 
     expect(
-      screen.getByLabelText("Inferno: EYEBALLERS - Phantom, 17:19 (6:6, 6:6, OT 5:7)"),
+      screen.getByLabelText(
+        "Inferno: EYEBALLERS - Phantom, 17:19 (6:6, 6:6, OT 5:7)",
+      ),
     ).toBeInTheDocument();
     const rows = screen.getAllByRole("row");
     expect(rows[1]).toHaveTextContent(/^s1mple/);
@@ -279,7 +302,11 @@ describe("DropZone", () => {
   it("restores notes when the matching demo is dropped in the modal", async () => {
     const onFiles = vi.fn();
     const onTryOpenSaved = vi.fn(async () => null);
-    render(<DropZone {...props({ saved: [savedProject()], onFiles, onTryOpenSaved })} />);
+    render(
+      <DropZone
+        {...props({ saved: [savedProject()], onFiles, onTryOpenSaved })}
+      />,
+    );
 
     await userEvent.click(screen.getByText("a.dem"));
     const dialog = screen.getByRole("dialog");
@@ -294,7 +321,11 @@ describe("DropZone", () => {
     const onFiles = vi.fn();
     const file = new File(["fake"], "a.dem");
     const onTryOpenSaved = vi.fn(async () => file);
-    render(<DropZone {...props({ saved: [savedProject()], onFiles, onTryOpenSaved })} />);
+    render(
+      <DropZone
+        {...props({ saved: [savedProject()], onFiles, onTryOpenSaved })}
+      />,
+    );
 
     await userEvent.click(screen.getByText("a.dem"));
     expect(onFiles).toHaveBeenCalledWith([file]);
@@ -304,17 +335,24 @@ describe("DropZone", () => {
   it("shows link-demo when the file picker API is available", async () => {
     vi.mocked(demoFilePickerAvailable).mockReturnValue(true);
     const onLinkDemoFile = vi.fn();
-    render(<DropZone {...props({ saved: [savedProject()], onLinkDemoFile })} />);
+    render(
+      <DropZone {...props({ saved: [savedProject()], onLinkDemoFile })} />,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Link demo" }));
-    expect(onLinkDemoFile).toHaveBeenCalledWith(expect.objectContaining({ fileName: "a.dem" }));
+    expect(onLinkDemoFile).toHaveBeenCalledWith(
+      expect.objectContaining({ fileName: "a.dem" }),
+    );
   });
 
   it("uses the file picker on the drop zone when it is available", async () => {
     vi.mocked(demoFilePickerAvailable).mockReturnValue(true);
     const file = new File(["fake"], "picked.dem");
     const handle = { name: "picked.dem" } as FileSystemFileHandle;
-    vi.mocked(pickOpenFiles).mockResolvedValue({ files: [file], handles: [handle] });
+    vi.mocked(pickOpenFiles).mockResolvedValue({
+      files: [file],
+      handles: [handle],
+    });
     const onFiles = vi.fn();
     const { container } = render(<DropZone {...props({ onFiles })} />);
 
@@ -336,7 +374,9 @@ describe("DropZone", () => {
             round: 1,
             note: {
               groups: [],
-              drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+              drawings: [
+                { type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] },
+              ],
               pieces: [],
               bookmarks: [],
             },
@@ -359,7 +399,9 @@ describe("DropZone", () => {
   it("dismisses the restore modal when clicking the backdrop", async () => {
     render(<DropZone {...props({ saved: [savedProject()] })} />);
     await userEvent.click(screen.getByText("a.dem"));
-    await userEvent.click(screen.getByRole("dialog").parentElement as HTMLElement);
+    await userEvent.click(
+      screen.getByRole("dialog").parentElement as HTMLElement,
+    );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

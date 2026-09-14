@@ -1,5 +1,10 @@
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
-import { PARSE_POOL_HARD_MAX, PARSE_POOL_MAX, PARSE_POOL_MIN } from "@/lib/shared/constants";
+import {
+  PARSE_POOL_HARD_MAX,
+  PARSE_POOL_MAX,
+  PARSE_POOL_MIN,
+} from "@/lib/shared/constants";
+import { formatParseError } from "./demoFile";
 import { loadedDemo, type LoadedDemo } from "./session";
 
 /** Injectable so tests can drive parse without instantiating WASM. */
@@ -32,7 +37,10 @@ export interface ParseFileProgress {
 }
 
 /** Worker count: user cap, hardware, and file count. */
-export function parsePoolSize(fileCount: number, parsePoolMax = PARSE_POOL_MAX): number {
+export function parsePoolSize(
+  fileCount: number,
+  parsePoolMax = PARSE_POOL_MAX,
+): number {
   const hw =
     typeof navigator !== "undefined" && navigator.hardwareConcurrency
       ? navigator.hardwareConcurrency
@@ -75,8 +83,14 @@ export function groupParsedDemosByMap(results: ParseFileResult[]): {
     byMap.set(map, list);
   }
 
-  const groups = order.map((mapName) => ({ mapName, demos: byMap.get(mapName)! }));
-  groups.sort((a, b) => b.demos.length - a.demos.length || a.mapName.localeCompare(b.mapName));
+  const groups = order.map((mapName) => ({
+    mapName,
+    demos: byMap.get(mapName)!,
+  }));
+  groups.sort(
+    (a, b) =>
+      b.demos.length - a.demos.length || a.mapName.localeCompare(b.mapName),
+  );
   return { groups, skipped };
 }
 
@@ -97,7 +111,9 @@ export interface ParseWorkerPool {
  * Warm parse workers: WASM inits once per slot. Callers cap concurrency with
  * `parsePoolSize`. `reset` on session close, cancelled in-flight parse, or tests.
  */
-export function createParseWorkerPool(createWorker: CreateWorker): ParseWorkerPool {
+export function createParseWorkerPool(
+  createWorker: CreateWorker,
+): ParseWorkerPool {
   const live = new Set<Worker>();
   const idle: Worker[] = [];
   const pending = new Map<Worker, PendingParseJob>();
@@ -149,7 +165,10 @@ export function createParseWorkerPool(createWorker: CreateWorker): ParseWorkerPo
             settle(
               {
                 file,
-                error: msg.type === "error" ? msg.message : "Parse failed",
+                error:
+                  msg.type === "error"
+                    ? formatParseError(msg.message, file.name)
+                    : "Parse failed",
               },
               false,
             );
@@ -165,7 +184,13 @@ export function createParseWorkerPool(createWorker: CreateWorker): ParseWorkerPo
           );
         };
         worker.onerror = (e) => {
-          settle({ file, error: e.message || "Worker failed" }, true);
+          settle(
+            {
+              file,
+              error: formatParseError(e.message || "Worker failed", file.name),
+            },
+            true,
+          );
         };
         void file.arrayBuffer().then((bytes) => {
           if (settled || jobGen !== generation) return;
@@ -223,7 +248,12 @@ export async function runParsePool(
     for (const slot of inFlight.values()) {
       inFlightFraction += slot.total > 0 ? slot.current / slot.total : 0;
     }
-    return { completed, total, inFlightFraction, files: fileProgress.map((f) => ({ ...f })) };
+    return {
+      completed,
+      total,
+      inFlightFraction,
+      files: fileProgress.map((f) => ({ ...f })),
+    };
   };
   const scheduleProgress = () => {
     if (progressDirty) return;
@@ -268,7 +298,9 @@ export async function runParsePool(
           .parseFile(job.file, (current, workerTotal) => {
             inFlight.set(job.index, { current, total: workerTotal });
             const pct =
-              workerTotal > 0 ? Math.min(100, Math.round((100 * current) / workerTotal)) : 0;
+              workerTotal > 0
+                ? Math.min(100, Math.round((100 * current) / workerTotal))
+                : 0;
             setFile(job.index, { state: "parsing", pct });
             report();
           })
@@ -307,12 +339,20 @@ export async function runParsePool(
 }
 
 /** Map parse-pool progress to a single `{ current, total }` pair for the splash bar. */
-export function parsePoolBar(progress: ParsePoolProgress): { current: number; total: number } {
-  const current = Math.min(progress.total, progress.completed + progress.inFlightFraction);
+export function parsePoolBar(progress: ParsePoolProgress): {
+  current: number;
+  total: number;
+} {
+  const current = Math.min(
+    progress.total,
+    progress.completed + progress.inFlightFraction,
+  );
   return { current: Math.round(current * 100), total: progress.total * 100 };
 }
 
 export function parsePoolOverallPct(progress: ParsePoolProgress): number {
   const bar = parsePoolBar(progress);
-  return bar.total > 0 ? Math.min(100, Math.round((100 * bar.current) / bar.total)) : 0;
+  return bar.total > 0
+    ? Math.min(100, Math.round((100 * bar.current) / bar.total))
+    : 0;
 }

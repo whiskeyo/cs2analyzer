@@ -83,7 +83,9 @@ let workerSelf: WorkerSelf;
 
 async function runWorker(bytes = new ArrayBuffer(8)) {
   await import("./parseWorker");
-  await workerSelf.onmessage?.({ data: { bytes } } as MessageEvent<ParseWorkerIn>);
+  await workerSelf.onmessage?.({
+    data: { bytes },
+  } as MessageEvent<ParseWorkerIn>);
 }
 
 beforeEach(() => {
@@ -152,7 +154,10 @@ describe("parseWorker", () => {
     );
     await runWorker();
     const err = workerSelf.postMessage.mock.calls.at(-1)?.[0];
-    expect(err).toEqual({ type: "error", message: "failed to fetch Wasm: 404 Not Found" });
+    expect(err).toEqual({
+      type: "error",
+      message: "failed to fetch Wasm: 404 Not Found",
+    });
   });
 
   it("retries wasm init after a failed fetch", async () => {
@@ -177,7 +182,9 @@ describe("parseWorker", () => {
     workerSelf.postMessage.mockClear();
     await runWorker();
     expect(wasmMocks.init).toHaveBeenCalledOnce();
-    const done = workerSelf.postMessage.mock.calls.find((call) => call[0].type === "done")?.[0];
+    const done = workerSelf.postMessage.mock.calls.find(
+      (call) => call[0].type === "done",
+    )?.[0];
     expect(done?.type).toBe("done");
   });
 
@@ -188,6 +195,16 @@ describe("parseWorker", () => {
     await runWorker();
     const err = workerSelf.postMessage.mock.calls.at(-1)?.[0];
     expect(err).toEqual({ type: "error", message: "bad demo" });
+  });
+
+  it("maps Source 2 parser failures onto GOTV drop copy", async () => {
+    wasmMocks.parseDemo.mockImplementation(() => {
+      throw new Error("Supports only Source 2 replays");
+    });
+    await runWorker();
+    const err = workerSelf.postMessage.mock.calls.at(-1)?.[0];
+    expect(err.type).toBe("error");
+    expect(err.message).toContain("not a Counter-Strike 2 demo");
   });
 
   it("copies non-empty tick buffers before freeing wasm memory", async () => {
@@ -234,10 +251,14 @@ describe("parseWorker", () => {
       },
     );
     await runWorker();
-    const done = workerSelf.postMessage.mock.calls.find((call) => call[0].type === "done")?.[0];
+    const done = workerSelf.postMessage.mock.calls.find(
+      (call) => call[0].type === "done",
+    )?.[0];
     expect(done?.replay.ticks.frameCount).toBe(1);
     expect(done?.replay.ticks.x).toEqual(new Float32Array([1, 2]));
-    const transfer = workerSelf.postMessage.mock.calls.find((call) => call[0].type === "done")?.[1];
+    const transfer = workerSelf.postMessage.mock.calls.find(
+      (call) => call[0].type === "done",
+    )?.[1];
     expect(transfer?.transfer).toHaveLength(16);
   });
 });

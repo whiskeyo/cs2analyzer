@@ -53,9 +53,18 @@ describe("groupParsedDemosByMap", () => {
     const mirage = makeReplay({ header: { map_name: "de_mirage" } });
     const ancient = makeReplay({ header: { map_name: "de_ancient" } });
     const results: ParseFileResult[] = [
-      { file: new File([], "a.dem"), demo: loadedDemo(mirage, "a.dem", new File([], "a.dem")) },
-      { file: new File([], "b.dem"), demo: loadedDemo(ancient, "b.dem", new File([], "b.dem")) },
-      { file: new File([], "c.dem"), demo: loadedDemo(ancient, "c.dem", new File([], "c.dem")) },
+      {
+        file: new File([], "a.dem"),
+        demo: loadedDemo(mirage, "a.dem", new File([], "a.dem")),
+      },
+      {
+        file: new File([], "b.dem"),
+        demo: loadedDemo(ancient, "b.dem", new File([], "b.dem")),
+      },
+      {
+        file: new File([], "c.dem"),
+        demo: loadedDemo(ancient, "c.dem", new File([], "c.dem")),
+      },
     ];
     const { groups, skipped } = groupParsedDemosByMap(results);
     expect(skipped).toEqual([]);
@@ -69,7 +78,14 @@ describe("groupParsedDemosByMap", () => {
 
 describe("parsePoolBar", () => {
   it("blends completed files with in-flight progress", () => {
-    expect(parsePoolBar({ completed: 1, total: 3, inFlightFraction: 0.5, files: [] })).toEqual({
+    expect(
+      parsePoolBar({
+        completed: 1,
+        total: 3,
+        inFlightFraction: 0.5,
+        files: [],
+      }),
+    ).toEqual({
       current: 150,
       total: 300,
     });
@@ -78,21 +94,33 @@ describe("parsePoolBar", () => {
 
 describe("parsePoolOverallPct", () => {
   it("returns zero for an empty pool", () => {
-    expect(parsePoolOverallPct({ completed: 0, total: 0, inFlightFraction: 0, files: [] })).toBe(0);
+    expect(
+      parsePoolOverallPct({
+        completed: 0,
+        total: 0,
+        inFlightFraction: 0,
+        files: [],
+      }),
+    ).toBe(0);
   });
 
   it("rounds blended progress to a percentage", () => {
-    expect(parsePoolOverallPct({ completed: 1, total: 2, inFlightFraction: 0.5, files: [] })).toBe(
-      75,
-    );
+    expect(
+      parsePoolOverallPct({
+        completed: 1,
+        total: 2,
+        inFlightFraction: 0.5,
+        files: [],
+      }),
+    ).toBe(75);
   });
 });
 
 describe("mapNameFromReplay", () => {
   it("reads the header map name", () => {
-    expect(mapNameFromReplay(makeReplay({ header: { map_name: "de_inferno" } }))).toBe(
-      "de_inferno",
-    );
+    expect(
+      mapNameFromReplay(makeReplay({ header: { map_name: "de_inferno" } })),
+    ).toBe("de_inferno");
   });
 });
 
@@ -145,7 +173,8 @@ describe("runParsePool", () => {
       },
       terminate: vi.fn(),
       postMessage: vi.fn(() => {
-        const current = outcomes[Math.min(outcomeIndex, outcomes.length - 1)] ?? "done";
+        const current =
+          outcomes[Math.min(outcomeIndex, outcomes.length - 1)] ?? "done";
         outcomeIndex += 1;
         if (current === "fail") {
           onerror?.({ message: "Worker failed" } as ErrorEvent);
@@ -159,7 +188,13 @@ describe("runParsePool", () => {
             data: {
               type: "done",
               replay,
-              timings: { initMs: 1, parseMs: 2, jsonMs: 3, buffersMs: 4, totalMs: 10 },
+              timings: {
+                initMs: 1,
+                parseMs: 2,
+                jsonMs: 3,
+                buffersMs: 4,
+                totalMs: 10,
+              },
             },
           } as MessageEvent);
           return;
@@ -192,25 +227,48 @@ describe("runParsePool", () => {
     const createWorker = () => mockWorker(n++ === 0 ? replayA : replayB);
     const onProgress = vi.fn();
     const files = [new File([], "a.dem"), new File([], "b.dem")];
-    const results = await runParsePool(createParseWorkerPool(createWorker), files, onProgress);
+    const results = await runParsePool(
+      createParseWorkerPool(createWorker),
+      files,
+      onProgress,
+    );
     expect(results).toHaveLength(2);
     expect(results[0].demo?.replay.header.map_name).toBe("de_a");
     expect(results[1].demo?.replay.header.map_name).toBe("de_b");
     const last = onProgress.mock.calls.at(-1)?.[0];
     expect(last?.completed).toBe(2);
-    expect(last?.files.every((f: { state: string }) => f.state === "done")).toBe(true);
+    expect(
+      last?.files.every((f: { state: string }) => f.state === "done"),
+    ).toBe(true);
   });
 
   it("records worker errors on the matching file row", async () => {
     const onProgress = vi.fn();
     const results = await runParsePool(
-      createParseWorkerPool(() => mockWorker(makeReplay(), "error", "bad header")),
+      createParseWorkerPool(() =>
+        mockWorker(makeReplay(), "error", "bad header"),
+      ),
       [new File([], "broken.dem")],
       onProgress,
     );
     expect(results[0].error).toBe("bad header");
     const last = onProgress.mock.calls.at(-1)?.[0];
-    expect(last?.files[0]).toMatchObject({ name: "broken.dem", state: "error", pct: 100 });
+    expect(last?.files[0]).toMatchObject({
+      name: "broken.dem",
+      state: "error",
+      pct: 100,
+    });
+  });
+
+  it("maps Source 2 parser failures onto GOTV drop copy", async () => {
+    const results = await runParsePool(
+      createParseWorkerPool(() =>
+        mockWorker(makeReplay(), "error", "Supports only Source 2 replays"),
+      ),
+      [new File([], "bad.dem")],
+      vi.fn(),
+    );
+    expect(results[0].error).toContain("not a Counter-Strike 2 demo");
   });
 
   it("handles worker onerror and unknown message types", async () => {
@@ -238,7 +296,11 @@ describe("runParsePool", () => {
       return worker;
     });
     const pool = createParseWorkerPool(createWorker);
-    const files = [new File([], "a.dem"), new File([], "b.dem"), new File([], "c.dem")];
+    const files = [
+      new File([], "a.dem"),
+      new File([], "b.dem"),
+      new File([], "c.dem"),
+    ];
     const results = await runParsePool(pool, files, vi.fn());
     expect(results).toHaveLength(3);
     expect(results.every((r) => r.demo)).toBe(true);
@@ -318,7 +380,8 @@ function roundWithEquip(
   const ticks = makeFreezeTicks(10, ctCount, tick);
   for (let i = 0; i < 10; i++) {
     ticks.equip[i] = avgEquip;
-    if (roundNumber >= FIRST_OVERTIME_ROUND) ticks.money[i] = OVERTIME_START_MONEY;
+    if (roundNumber >= FIRST_OVERTIME_ROUND)
+      ticks.money[i] = OVERTIME_START_MONEY;
   }
   const rounds =
     replay.rounds.length > 0
@@ -370,7 +433,11 @@ describe("tagRounds", () => {
       800,
     );
     const tags = tagRounds(replay, demoId, focal);
-    expect(tags[0]).toMatchObject({ roundNumber: 1, sideForFocal: "CT", kind: "pistol" });
+    expect(tags[0]).toMatchObject({
+      roundNumber: 1,
+      sideForFocal: "CT",
+      kind: "pistol",
+    });
   });
 
   it("tags T pistol at R13 after side swap, not by round label", () => {

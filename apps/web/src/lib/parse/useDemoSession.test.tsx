@@ -2,10 +2,11 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
 import { makeReplay } from "@/lib/testing/fixtures";
 import { runParsePool } from "./parsePool";
+import { CS2_DEMO_MAGIC } from "./demoFile";
 import { loadedDemo } from "./session";
 import type { Status } from "@/lib/state/status";
 import { useDemoSession } from "./useDemoSession";
@@ -84,7 +85,14 @@ function makeStatus(): Status {
   };
 }
 
-function renderSession(opts?: { onBeforeSelectDemo?: () => void; seriesMaxFiles?: number }) {
+function demoFile(name: string, extra = "body"): File {
+  return new File([`${CS2_DEMO_MAGIC}${extra}`], name);
+}
+
+function renderSession(opts?: {
+  onBeforeSelectDemo?: () => void;
+  seriesMaxFiles?: number;
+}) {
   const workers: FakeWorker[] = [];
   const status = makeStatus();
   const createWorker = () => {
@@ -106,15 +114,14 @@ function renderSession(opts?: { onBeforeSelectDemo?: () => void; seriesMaxFiles?
 async function parseSingle(
   result: ReturnType<typeof renderSession>["result"],
   workers: FakeWorker[],
-  file = new File(["fake"], "match.dem"),
+  file = demoFile("match.dem"),
   replay: Replay = makeReplay({
     header: { team_ct: "Astralis", team_t: "Vitality" },
   }),
 ) {
-  act(() => {
-    result.current.parseDemo(file);
+  await act(async () => {
+    await result.current.parseDemo(file);
   });
-  await workers[0].posted;
   await act(async () => {
     workers[0].emit({ type: "done", replay, timings: TIMINGS });
   });
@@ -160,12 +167,11 @@ describe("useDemoSession", () => {
 
   it("reports a parse error from the worker", async () => {
     const { result, workers, status } = renderSession();
-    const file = new File(["fake"], "bad.dem");
+    const file = demoFile("bad.dem");
 
-    act(() => {
-      result.current.parseDemo(file);
+    await act(async () => {
+      await result.current.parseDemo(file);
     });
-    await workers[0].posted;
     await act(async () => {
       workers[0].emit({
         type: "error",
@@ -173,19 +179,54 @@ describe("useDemoSession", () => {
       });
     });
 
-    expect(status.setError).toHaveBeenCalledWith("Supports only Source 2 replays");
+    expect(status.setError).toHaveBeenCalledWith(
+      '"bad.dem" is not a Counter-Strike 2 demo. Drop a GOTV .dem from FACEIT, Premier, or matchmaking.',
+    );
     expect(result.current.demo).toBeNull();
+    expect(result.current.parsing).toBe(false);
+  });
+
+  it("rejects a drop that is not a usable GOTV demo before parsing", async () => {
+    const { result, workers, status } = renderSession();
+
+    act(() => {
+      result.current.parseDemo(new File(["x"], "clip.mp4"));
+    });
+    expect(status.setError).toHaveBeenCalledWith(
+      expect.stringContaining("not a .dem file"),
+    );
+    expect(workers).toHaveLength(0);
+
+    await act(async () => {
+      result.current.parseDemo(new File(["x"], "match.dem.gz"));
+    });
+    expect(status.setError).toHaveBeenCalledWith(
+      expect.stringContaining("unsupported gzip"),
+    );
+
+    await act(async () => {
+      result.current.parseDemo(new File([], "empty.dem"));
+    });
+    expect(status.setError).toHaveBeenCalledWith(
+      expect.stringContaining("empty"),
+    );
+
+    await act(async () => {
+      result.current.parseDemo(demoFile("player_pov.dem"));
+    });
+    expect(status.setError).toHaveBeenCalledWith(
+      expect.stringContaining("POV demo"),
+    );
     expect(result.current.parsing).toBe(false);
   });
 
   it("reports a worker runtime error", async () => {
     const { result, workers, status } = renderSession();
-    const file = new File(["fake"], "crash.dem");
+    const file = demoFile("crash.dem");
 
-    act(() => {
-      result.current.parseDemo(file);
+    await act(async () => {
+      await result.current.parseDemo(file);
     });
-    await workers[0].posted;
     await act(async () => {
       workers[0].emitError("Worker failed");
     });
@@ -226,14 +267,13 @@ describe("useDemoSession", () => {
     expect(workers).toHaveLength(1);
     expect(workers[0].terminate).not.toHaveBeenCalled();
 
-    const file2 = new File(["fake2"], "second.dem");
+    const file2 = demoFile("second.dem");
     const replay2 = makeReplay({
       header: { team_ct: "NaVi", team_t: "FaZe", map_name: "de_mirage" },
     });
-    act(() => {
-      result.current.parseDemo(file2);
+    await act(async () => {
+      await result.current.parseDemo(file2);
     });
-    await workers[0].posted;
     await act(async () => {
       workers[0].emit({ type: "done", replay: replay2, timings: TIMINGS });
     });
@@ -245,21 +285,21 @@ describe("useDemoSession", () => {
 
   it("resets the in-flight worker when a new parse starts", async () => {
     const { result, workers } = renderSession();
-    const file1 = new File(["a"], "first.dem");
-    const file2 = new File(["b"], "second.dem");
+    const file1 = demoFile("first.dem");
+    const file2 = demoFile("second.dem");
     const replay2 = makeReplay({ header: { team_ct: "NaVi", team_t: "FaZe" } });
 
-    act(() => {
-      result.current.parseDemo(file1);
+    await act(async () => {
+      await result.current.parseDemo(file1);
     });
-    await workers[0].posted;
+    expect(workers[0]).toBeDefined();
 
-    act(() => {
-      result.current.parseDemo(file2);
-    });
+    const second = result.current.parseDemo(file2);
     expect(workers[0].terminate).toHaveBeenCalledOnce();
-    expect(workers).toHaveLength(2);
-    await workers[1].posted;
+    await act(async () => {
+      await second;
+    });
+    expect(workers[1]).toBeDefined();
     await act(async () => {
       workers[1].emit({ type: "done", replay: replay2, timings: TIMINGS });
     });
@@ -276,8 +316,8 @@ describe("useDemoSession", () => {
     const replayB = makeReplay({
       header: { map_name: "de_ancient", team_ct: "Spirit", team_t: "G2" },
     });
-    const fileA = new File(["a"], "a.dem");
-    const fileB = new File(["b"], "b.dem");
+    const fileA = demoFile("a.dem");
+    const fileB = demoFile("b.dem");
     const demoA = loadedDemo(replayA, "a.dem", fileA);
     const demoB = loadedDemo(replayB, "b.dem", fileB);
 
@@ -298,18 +338,58 @@ describe("useDemoSession", () => {
     expect(result.current.selectedMapName).toBe("de_ancient");
     expect(result.current.series?.demos).toEqual([demoA, demoB]);
     expect(result.current.demo).toBe(demoA);
-    expect(status.setNotice).toHaveBeenCalledWith("Series: 2 de_ancient demos · Spirit");
+    expect(status.setNotice).toHaveBeenCalledWith(
+      "Series: 2 de_ancient demos · Spirit",
+    );
   });
 
-  it("rejects a multi-drop above the settings series cap", async () => {
-    const { result, status } = renderSession({ seriesMaxFiles: 2 });
-    const files = [new File(["a"], "a.dem"), new File(["b"], "b.dem"), new File(["c"], "c.dem")];
+  it("rejects a multi-drop when every file fails inspection", async () => {
+    const { result, status } = renderSession();
+    const files = [new File(["x"], "clip.mp4"), new File(["x"], "notes.txt")];
 
     await act(async () => {
       await result.current.parseDemos(files);
     });
 
-    expect(status.setError).toHaveBeenCalledWith("Series supports at most 2 demos.");
+    expect(status.setError).toHaveBeenCalledWith(
+      expect.stringContaining("not a .dem file"),
+    );
+    expect(runParsePool).not.toHaveBeenCalled();
+    expect(result.current.parsing).toBe(false);
+  });
+
+  it("parses valid files in a mixed drop and skips junk", async () => {
+    const { result } = renderSession();
+    const replay = makeReplay({
+      header: { map_name: "de_mirage", team_ct: "NaVi", team_t: "FaZe" },
+    });
+    const good = demoFile("a.dem");
+    const demoA = loadedDemo(replay, "a.dem", good);
+    vi.mocked(runParsePool).mockResolvedValue([
+      { file: good, demo: demoA, timings: TIMINGS },
+    ]);
+
+    await act(async () => {
+      await result.current.parseDemos([new File(["x"], "clip.mp4"), good]);
+    });
+
+    expect(runParsePool).toHaveBeenCalled();
+    const passed = vi.mocked(runParsePool).mock.calls[0][1];
+    expect(passed).toEqual([good]);
+    expect(result.current.demo).toBe(demoA);
+  });
+
+  it("rejects a multi-drop above the settings series cap", async () => {
+    const { result, status } = renderSession({ seriesMaxFiles: 2 });
+    const files = [demoFile("a.dem"), demoFile("b.dem"), demoFile("c.dem")];
+
+    await act(async () => {
+      await result.current.parseDemos(files);
+    });
+
+    expect(status.setError).toHaveBeenCalledWith(
+      "Series supports at most 2 demos.",
+    );
     expect(runParsePool).not.toHaveBeenCalled();
     expect(result.current.parsing).toBe(false);
     expect(result.current.demo).toBeNull();
@@ -323,8 +403,8 @@ describe("useDemoSession", () => {
     const replayB = makeReplay({
       header: { map_name: "de_mirage", team_ct: "NaVi", team_t: "FaZe" },
     });
-    const fileA = new File(["a"], "a.dem");
-    const fileB = new File(["b"], "b.dem");
+    const fileA = demoFile("a.dem");
+    const fileB = demoFile("b.dem");
     const demoA = loadedDemo(replayA, "a.dem", fileA);
     const demoB = loadedDemo(replayB, "b.dem", fileB);
 
@@ -358,9 +438,9 @@ describe("useDemoSession", () => {
     const mirage = makeReplay({
       header: { map_name: "de_mirage", team_ct: "CT", team_t: "T" },
     });
-    const fileAncientA = new File(["a"], "ancient-a.dem");
-    const fileAncientB = new File(["b"], "ancient-b.dem");
-    const fileMirage = new File(["c"], "mirage.dem");
+    const fileAncientA = demoFile("ancient-a.dem");
+    const fileAncientB = demoFile("ancient-b.dem");
+    const fileMirage = demoFile("mirage.dem");
     const demoAncientA = loadedDemo(ancientA, "ancient-a.dem", fileAncientA);
     const demoAncientB = loadedDemo(ancientB, "ancient-b.dem", fileAncientB);
     const demoMirage = loadedDemo(mirage, "mirage.dem", fileMirage);
@@ -393,8 +473,8 @@ describe("useDemoSession", () => {
     const replay = makeReplay({
       header: { map_name: "de_mirage", team_ct: "NaVi", team_t: "FaZe" },
     });
-    const fileA = new File(["a"], "a.dem");
-    const fileB = new File(["b"], "b.dem");
+    const fileA = demoFile("a.dem");
+    const fileB = demoFile("b.dem");
     const demoA = loadedDemo(replay, "a.dem", fileA);
     const demoB = loadedDemo(replay, "b.dem", fileB);
 
@@ -433,14 +513,16 @@ describe("useDemoSession", () => {
   });
 
   it("reports a bootstrap error when the lazy parser fails to load", async () => {
-    parserMocks.ensureParser.mockRejectedValue(new Error("failed to fetch Wasm"));
+    parserMocks.ensureParser.mockRejectedValue(
+      new Error("failed to fetch Wasm"),
+    );
     const status = makeStatus();
     const { result } = renderHook(() => useDemoSession({ status }));
 
-    act(() => {
-      result.current.parseDemo(new File(["fake"], "match.dem"));
+    await act(async () => {
+      await result.current.parseDemo(demoFile("match.dem"));
     });
-    await waitFor(() => expect(status.setError).toHaveBeenCalledWith("failed to fetch Wasm"));
+    expect(status.setError).toHaveBeenCalledWith("failed to fetch Wasm");
     expect(result.current.parsing).toBe(false);
   });
 });

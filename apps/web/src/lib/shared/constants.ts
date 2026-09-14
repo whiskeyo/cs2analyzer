@@ -83,6 +83,12 @@ export const SERIES_MAX_FILES_HARD = 24;
 /** Soft UI warning when the series drop cap is set above this (RAM). */
 export const SERIES_MAX_FILES_SOFT_WARN = SERIES_MAX_FILES;
 
+/** Hard cap for one dropped demo so a huge file fails before WASM (1 GiB). */
+export const DEMO_MAX_BYTES = 1024 * 1024 * 1024;
+
+/** Bytes read to classify a drop (gzip / Source 1 / CS2 magic). */
+export const DEMO_MAGIC_BYTES = 8;
+
 /** Concurrent WASM parse workers (queue the rest). */
 export const PARSE_POOL_MAX = 3;
 
@@ -128,7 +134,10 @@ export const BOT_STEAM_ID_SPAN = 0x10000;
 
 /** True for parser-assigned bot identities, never for a human SteamID64. */
 export function isBotSteamId(steamId: number): boolean {
-  return steamId >= BOT_STEAM_ID_BASE && steamId < BOT_STEAM_ID_BASE + BOT_STEAM_ID_SPAN;
+  return (
+    steamId >= BOT_STEAM_ID_BASE &&
+    steamId < BOT_STEAM_ID_BASE + BOT_STEAM_ID_SPAN
+  );
 }
 
 /** KAST / trade window: teammate kills the attacker. */
@@ -164,7 +173,8 @@ export const FLASH_FULL_SECONDS = 5.47;
  */
 /** Wide enough that `4.95.toFixed(1) === "5.0"` leftover snaps are excluded. */
 export const FLASH_OVERLAY_SLACK_SECONDS = 0.57;
-export const FLASH_OVERLAY_SPIKE_SECONDS = FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
+export const FLASH_OVERLAY_SPIKE_SECONDS =
+  FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
 
 /**
  * How long after detonate a blind may still be attributed to that flash.

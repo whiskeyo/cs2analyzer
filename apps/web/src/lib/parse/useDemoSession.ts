@@ -13,8 +13,22 @@ import {
   type ParsePoolProgress,
   type ParseWorkerPool,
 } from "./parsePool";
-import { discardParserWarmup, ensureParser, parserFactory } from "./ensureParser";
-import { buildSeries, withFocalTeam, type DemoSeries, type LoadedDemo } from "./session";
+import {
+  demoFileNameIssue,
+  inspectDemoFile,
+  partitionDemoFiles,
+} from "./demoFile";
+import {
+  discardParserWarmup,
+  ensureParser,
+  parserFactory,
+} from "./ensureParser";
+import {
+  buildSeries,
+  withFocalTeam,
+  type DemoSeries,
+  type LoadedDemo,
+} from "./session";
 import { formatParseTimings } from "./timings";
 import { parseDump } from "./parseDump";
 import { clearSeriesReviewCache } from "@/lib/notes/seriesReviewCache";
@@ -49,13 +63,17 @@ export function useDemoSession(opts: {
 
   const [demo, setDemo] = useState<LoadedDemo | null>(null);
   const [series, setSeries] = useState<DemoSeries | null>(null);
-  const [mapGroups, setMapGroups] = useState<{ mapName: string; demos: LoadedDemo[] }[]>([]);
+  const [mapGroups, setMapGroups] = useState<
+    { mapName: string; demos: LoadedDemo[] }[]
+  >([]);
   const [selectedMapName, setSelectedMapName] = useState<string | null>(null);
   /** Every demo from the last multi-file drop (all maps); cleared on single-file load / close. */
   const [parsedDemos, setParsedDemos] = useState<LoadedDemo[]>([]);
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState<ParseProgress | null>(null);
-  const [parseFiles, setParseFiles] = useState<ParseFileProgress[] | null>(null);
+  const [parseFiles, setParseFiles] = useState<ParseFileProgress[] | null>(
+    null,
+  );
   const [switching, setSwitching] = useState(false);
   const poolRef = useRef<ParseWorkerPool | null>(null);
   const parseGenRef = useRef(0);
@@ -64,7 +82,8 @@ export function useDemoSession(opts: {
   const onBeforeSelectRef = useRef(onBeforeSelectDemo);
   onBeforeSelectRef.current = onBeforeSelectDemo;
 
-  const getPool = useCallback((): ParseWorkerPool | Promise<ParseWorkerPool> => {
+  const getPool = useCallback(():
+    ParseWorkerPool | Promise<ParseWorkerPool> => {
     if (poolRef.current) {
       return poolRef.current;
     }
@@ -109,11 +128,14 @@ export function useDemoSession(opts: {
     setDemo(next);
   }, []);
 
-  const loadMapGroup = useCallback((group: { mapName: string; demos: LoadedDemo[] }) => {
-    setSelectedMapName(group.mapName);
-    setSeries(buildSeries(group.mapName, group.demos));
-    setDemo(group.demos[0]);
-  }, []);
+  const loadMapGroup = useCallback(
+    (group: { mapName: string; demos: LoadedDemo[] }) => {
+      setSelectedMapName(group.mapName);
+      setSeries(buildSeries(group.mapName, group.demos));
+      setDemo(group.demos[0]);
+    },
+    [],
+  );
 
   const beginParse = useCallback(() => {
     const gen = ++parseGenRef.current;
@@ -133,6 +155,13 @@ export function useDemoSession(opts: {
 
   const parseDemo = useCallback(
     (file: File) => {
+      const named = demoFileNameIssue(file);
+      if (named) {
+        statusRef.current.clear();
+        statusRef.current.setError(named);
+        return Promise.resolve();
+      }
+
       const gen = beginParse();
       statusRef.current.clear();
       setParsing(true);
@@ -177,12 +206,19 @@ export function useDemoSession(opts: {
           });
       };
 
-      const poolOrPromise = getPool();
-      if (poolOrPromise instanceof Promise) {
-        void poolOrPromise.then(run).catch(fail);
-        return;
-      }
-      run(poolOrPromise);
+      return inspectDemoFile(file).then((issue) => {
+        if (gen !== parseGenRef.current) return;
+        if (issue) {
+          endParse();
+          statusRef.current.setError(issue);
+          return;
+        }
+        const poolOrPromise = getPool();
+        if (poolOrPromise instanceof Promise) {
+          return poolOrPromise.then(run).catch(fail);
+        }
+        run(poolOrPromise);
+      }, fail);
     },
     [beginParse, endParse, finishSingle, getPool, scheduleProgress],
   );
@@ -191,11 +227,22 @@ export function useDemoSession(opts: {
     async (files: File[]) => {
       if (files.length === 0) return;
       if (files.length === 1) {
-        parseDemo(files[0]);
+        await parseDemo(files[0]);
         return;
       }
       if (files.length > seriesMaxFilesRef.current) {
-        statusRef.current.setError(`Series supports at most ${seriesMaxFilesRef.current} demos.`);
+        statusRef.current.setError(
+          `Series supports at most ${seriesMaxFilesRef.current} demos.`,
+        );
+        return;
+      }
+
+      const { ok: valid, issues } = await partitionDemoFiles(files);
+      if (valid.length === 0) {
+        statusRef.current.clear();
+        statusRef.current.setError(
+          issues.map((issue) => issue.message).join(" "),
+        );
         return;
       }
 
@@ -203,9 +250,9 @@ export function useDemoSession(opts: {
       statusRef.current.clear();
       clearSeriesReviewCache();
       setParsing(true);
-      setProgress({ current: 0, total: files.length * 100 });
+      setProgress({ current: 0, total: valid.length * 100 });
       setParseFiles(
-        files.map((file, index) => ({
+        valid.map((file, index) => ({
           name: file.name,
           index,
           state: "queued",
@@ -226,11 +273,14 @@ export function useDemoSession(opts: {
       };
 
       const wall0 = performance.now();
-      const poolWorkers = parsePoolSize(files.length, parsePoolMaxRef.current);
+      const poolWorkers = parsePoolSize(valid.length, parsePoolMaxRef.current);
       let pool: ParseWorkerPool;
       try {
         const poolOrPromise = getPool();
-        pool = poolOrPromise instanceof Promise ? await poolOrPromise : poolOrPromise;
+        pool =
+          poolOrPromise instanceof Promise
+            ? await poolOrPromise
+            : poolOrPromise;
       } catch (err: unknown) {
         if (gen !== parseGenRef.current) return;
         endParse();
@@ -238,17 +288,30 @@ export function useDemoSession(opts: {
         return;
       }
       if (gen !== parseGenRef.current) return;
-      const results = await runParsePool(pool, files, onPoolProgress, parsePoolMaxRef.current);
+      const results = await runParsePool(
+        pool,
+        valid,
+        onPoolProgress,
+        parsePoolMaxRef.current,
+      );
       if (gen !== parseGenRef.current) return;
 
       const wallMs = performance.now() - wall0;
       endParse();
       setParseFiles(null);
       const { groups, skipped } = groupParsedDemosByMap(results);
-      for (const line of skipped) statusRef.current.setNotice(line);
+      const skippedLines = [
+        ...issues.map((issue) => issue.message),
+        ...skipped,
+      ];
+      for (const line of skippedLines) statusRef.current.setNotice(line);
 
       if (groups.length === 0) {
-        statusRef.current.setError("No demos parsed for this series.");
+        statusRef.current.setError(
+          skippedLines.length > 0
+            ? skippedLines.join(" ")
+            : "No demos parsed for this series.",
+        );
         return;
       }
 
@@ -293,7 +356,9 @@ export function useDemoSession(opts: {
       clearSeriesReviewCache();
       setSwitching(true);
       loadMapGroup(group);
-      requestAnimationFrame(() => requestAnimationFrame(() => setSwitching(false)));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => setSwitching(false)),
+      );
     },
     [loadMapGroup, mapGroups, selectedMapName],
   );

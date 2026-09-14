@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
 import {
@@ -10,6 +16,7 @@ import {
   makeRound,
   UNIT_CALIBRATION,
 } from "@/lib/testing/fixtures";
+import { CS2_DEMO_MAGIC } from "@/lib/parse/demoFile";
 import { App } from "./App";
 
 vi.mock("@/lib/radar/maps", async (importOriginal) => {
@@ -31,7 +38,13 @@ vi.mock("@/lib/parse/ensureParser", () => ({
   discardParserWarmup: vi.fn(),
 }));
 
-const TIMINGS: ParseTimings = { initMs: 1, parseMs: 2, jsonMs: 3, buffersMs: 4, totalMs: 10 };
+const TIMINGS: ParseTimings = {
+  initMs: 1,
+  parseMs: 2,
+  jsonMs: 3,
+  buffersMs: 4,
+  totalMs: 10,
+};
 
 /**
  * Stands in for the parse worker so the app can be driven without WASM. The
@@ -72,7 +85,13 @@ function fixtureReplay(): Replay {
     ],
     rounds: [
       makeRound({ number: 0, is_knife: true, start_tick: 0, end_tick: 100 }),
-      makeRound({ number: 1, winner: "CT", start_tick: 200, freeze_end_tick: 264, end_tick: 900 }),
+      makeRound({
+        number: 1,
+        winner: "CT",
+        start_tick: 200,
+        freeze_end_tick: 264,
+        end_tick: 900,
+      }),
     ],
     ticks: makeFreezeTicks(4, 2, 264),
     kills: [makeKill(400, 0, 2)],
@@ -89,11 +108,16 @@ async function loadDemo(replay: Replay = fixtureReplay()) {
   };
   const { container } = render(<App createWorker={createWorker} />);
 
-  const input = container.querySelector(".drop input[type=file]") as HTMLInputElement;
-  await userEvent.upload(input, new File(["fake"], "match.dem"));
+  const input = container.querySelector(
+    ".drop input[type=file]",
+  ) as HTMLInputElement;
+  await userEvent.upload(
+    input,
+    new File([`${CS2_DEMO_MAGIC}body`], "match.dem"),
+  );
 
+  await waitFor(() => expect(workers[0]).toBeDefined());
   const worker = workers[0];
-  expect(worker).toBeDefined();
   await worker.posted;
   worker.emit({ type: "done", replay, timings: TIMINGS });
   // Playback settles on the first non-knife freeze end once the effects flush.
@@ -115,19 +139,38 @@ describe("App", () => {
     const { container } = render(
       <App createWorker={() => new FakeWorker() as unknown as Worker} />,
     );
-    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "New demo" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
-    expect(container.querySelector(".app-backdrop")).toHaveAttribute("aria-hidden", "true");
-    expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
-    expect(screen.getByRole("button", { name: /Create a playbook/ })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
+    expect(container.querySelector(".app-backdrop")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute(
+      "href",
+      "/analyzer",
+    );
+    expect(
+      screen.getByRole("button", { name: /Create a playbook/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Pick a map" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Start empty board" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute(
+      "href",
+      "/faq",
+    );
   });
 
   async function expectPreferencesOnBody() {
@@ -136,10 +179,14 @@ describe("App", () => {
     const dialog = await screen.findByRole("dialog", { name: "Preferences" });
     const backdrop = dialog.closest(".settings-modal");
     expect(backdrop?.parentElement).toBe(document.body);
-    expect(screen.getByRole("button", { name: "Reset all settings" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Reset all settings" }),
+    ).toBeInTheDocument();
     // Chrome retargets the opening click onto the new backdrop; that must not close.
     fireEvent.click(backdrop!);
-    expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Preferences" }),
+    ).toBeInTheDocument();
   }
 
   it("opens Preferences from the home gear onto document.body", async () => {
@@ -150,13 +197,23 @@ describe("App", () => {
 
   it("opens a create-playbook dialog from the home playbook card", async () => {
     render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
-    await userEvent.click(screen.getByRole("button", { name: /Create a playbook/ }));
-    expect(await screen.findByRole("heading", { name: "New playbook" })).toBeInTheDocument();
-    expect(await screen.findByRole("combobox", { name: "Map" })).toHaveValue("de_mirage");
-    expect(screen.getByRole("textbox", { name: "Playbook title" })).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: /Create a playbook/ }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "New playbook" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Map" })).toHaveValue(
+      "de_mirage",
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Playbook title" }),
+    ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("heading", { name: "New playbook" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "New playbook" }),
+    ).not.toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
   });
 
@@ -165,7 +222,9 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("link", { name: "see the FAQ" }));
     expect(window.location.pathname).toBe("/faq");
     expect(screen.queryByText("Loading FAQ…")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "FAQ" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
   });
 
@@ -178,7 +237,9 @@ describe("App", () => {
   it("opens Preferences from Playbook onto document.body", async () => {
     render(<App createWorker={() => new FakeWorker() as unknown as Worker} />);
     await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
-    expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Playbooks" }),
+    ).toBeInTheDocument();
     await expectPreferencesOnBody();
   });
 
@@ -206,14 +267,49 @@ describe("App", () => {
     };
     const { container } = render(<App createWorker={createWorker} />);
 
-    const input = container.querySelector(".drop input[type=file]") as HTMLInputElement;
-    await userEvent.upload(input, new File(["fake"], "bad.dem"));
+    const input = container.querySelector(
+      ".drop input[type=file]",
+    ) as HTMLInputElement;
+    await userEvent.upload(
+      input,
+      new File([`${CS2_DEMO_MAGIC}body`], "bad.dem"),
+    );
+    await waitFor(() => expect(workers[0]).toBeDefined());
     await workers[0].posted;
-    workers[0].emit({ type: "error", message: "Supports only Source 2 replays" });
+    workers[0].emit({
+      type: "error",
+      message: "Supports only Source 2 replays",
+    });
 
-    expect(await screen.findByText("Supports only Source 2 replays")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        '"bad.dem" is not a Counter-Strike 2 demo. Drop a GOTV .dem from FACEIT, Premier, or matchmaking.',
+      ),
+    ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/analyzer");
-    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "New demo" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("rejects a non-demo drop before starting the parser", async () => {
+    const workers: FakeWorker[] = [];
+    const createWorker = () => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker as unknown as Worker;
+    };
+    render(<App createWorker={createWorker} />);
+
+    const input = document.querySelector(
+      ".drop input[type=file]",
+    ) as HTMLInputElement;
+    const junk = new File(["nope"], "highlight.mp4");
+    fireEvent.change(input, { target: { files: [junk] } });
+
+    expect(await screen.findByText(/not a \.dem file/)).toBeInTheDocument();
+    expect(workers).toHaveLength(0);
+    expect(window.location.pathname).toBe("/analyzer");
   });
 
   it("returns to Analyzer on New demo", async () => {
@@ -234,7 +330,9 @@ describe("App", () => {
     const ct = container.querySelector(".sb-team") as HTMLElement;
 
     await userEvent.click(within(ct).getByText("Alice"));
-    expect(await screen.findByRole("heading", { name: "Alice" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Alice" }),
+    ).toBeInTheDocument();
   });
 
   it("opens the FAQ from the site nav and returns to Analyzer", async () => {
@@ -243,7 +341,9 @@ describe("App", () => {
     );
     await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
     expect(screen.queryByText("Loading FAQ…")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "FAQ" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
     expect(document.title).toBe("FAQ · CS2 Analyzer");
@@ -262,8 +362,13 @@ describe("App", () => {
       <App createWorker={() => new FakeWorker() as unknown as Worker} />,
     );
     expect(screen.queryByText("Loading FAQ…")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("heading", { level: 2, name: "FAQ" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
   });
 
@@ -271,11 +376,17 @@ describe("App", () => {
     await loadDemo();
     await userEvent.click(screen.getByRole("link", { name: "FAQ" }));
     expect(screen.queryByText("Loading FAQ…")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "FAQ" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "New demo" }),
+    ).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
-    expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "New demo" }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/match\.dem/)).toBeInTheDocument();
   });
 
@@ -286,19 +397,29 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
     expect(window.location.pathname).toBe("/playbook");
     expect(document.title).toBe("Playbook · CS2 Analyzer");
-    expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Playbooks" }),
+    ).toBeInTheDocument();
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "New demo" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps a loaded demo while visiting Playbook", async () => {
     await loadDemo();
     await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
-    expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Playbooks" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "New demo" }),
+    ).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
-    expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "New demo" }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/match\.dem/)).toBeInTheDocument();
   });
 });

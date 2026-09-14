@@ -1,5 +1,6 @@
 import init, { parseDemo } from "@/parser/cs2analyzer_wasm.js";
 import { errorMessage } from "@/lib/validate/json.ts";
+import { formatParseError } from "./demoFile";
 import { decodeList, decodeObject } from "./decode";
 import type {
   Blind,
@@ -71,22 +72,33 @@ self.onmessage = async (ev: MessageEvent<ParseWorkerIn>) => {
 
     const data = new Uint8Array(ev.data.bytes);
     const tParse = performance.now();
-    const parsed = parseDemo(data, 4, true, (current: number, total: number) => {
-      const msg: WorkerOut = { type: "progress", current, total };
-      self.postMessage(msg);
-    });
+    const parsed = parseDemo(
+      data,
+      4,
+      true,
+      (current: number, total: number) => {
+        const msg: WorkerOut = { type: "progress", current, total };
+        self.postMessage(msg);
+      },
+    );
     const parseMs = performance.now() - tParse;
 
     const tJson = performance.now();
     const header = decodeObject<MatchHeader>("header", parsed.headerJson());
     const players = decodeList<Player>("players", parsed.playersJson());
     const rounds = decodeList<Round>("rounds", parsed.roundsJson());
-    const grenades = decodeList<GrenadeThrow>("grenades", parsed.grenadesJson());
+    const grenades = decodeList<GrenadeThrow>(
+      "grenades",
+      parsed.grenadesJson(),
+    );
     const shots = decodeList<Shot>("shots", parsed.shotsJson());
     const kills = decodeList<Kill>("kills", parsed.killsJson());
     const hurts = decodeList<Hurt>("hurts", parsed.hurtsJson());
     const blinds = decodeList<Blind>("blinds", parsed.blindsJson());
-    const bombEvents = decodeList<BombEvent>("bombEvents", parsed.bombEventsJson());
+    const bombEvents = decodeList<BombEvent>(
+      "bombEvents",
+      parsed.bombEventsJson(),
+    );
     const buyEvents = decodeList<BuyEvent>("buyEvents", parsed.buyEventsJson());
     const controllerDump = decodeList<ControllerDump>(
       "controllerDump",
@@ -160,7 +172,7 @@ self.onmessage = async (ev: MessageEvent<ParseWorkerIn>) => {
     const msg: WorkerOut = { type: "done", replay, timings };
     self.postMessage(msg, { transfer });
   } catch (err: unknown) {
-    const message = errorMessage(err);
+    const message = formatParseError(errorMessage(err));
     const msg: WorkerOut = { type: "error", message };
     self.postMessage(msg);
   }
