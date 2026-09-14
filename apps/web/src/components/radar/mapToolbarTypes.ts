@@ -16,6 +16,7 @@ export interface MapToolbarViewState {
   moment: boolean;
   canFollow: boolean;
   layers: MapLayers;
+  pawnLegend: boolean;
 }
 
 export interface MapToolbarReviewActions {
@@ -34,6 +35,7 @@ export interface MapToolbarViewActions {
   onTrails: (trails: boolean) => void;
   onMoment: (moment: boolean) => void;
   onLayers: (layers: MapLayers) => void;
+  onPawnLegend: (on: boolean) => void;
   onResetView: () => void;
 }
 

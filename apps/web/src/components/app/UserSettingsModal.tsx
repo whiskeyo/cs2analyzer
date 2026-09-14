@@ -284,6 +284,20 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               }}
             />
           </div>
+          <label className="settings-check">
+            <input
+              type="checkbox"
+              checked={settings.livePawnLegend}
+              aria-label="Pawn colour legend on the Analyzer radar"
+              onChange={() => void update({ livePawnLegend: !settings.livePawnLegend })}
+            />
+            Pawn colour legend on the Analyzer radar
+          </label>
+          <p className="settings-hint">
+            Optional colour → name list in the corner. Off by default — live pawns already show
+            names. Applies immediately; toolbar Legend matches this. Playbook snapshots and PDF
+            stills keep their own legend.
+          </p>
         </section>
 
         <section className="settings-section">

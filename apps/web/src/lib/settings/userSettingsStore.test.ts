@@ -75,6 +75,13 @@ describe("userSettingsStore without indexedDB", () => {
     expect((await resetUserSettings()).radarGray).toBe(DEFAULT_RADAR_GRAY);
   });
 
+  it("round-trips livePawnLegend and reset restores off", async () => {
+    expect((await loadUserSettings()).livePawnLegend).toBe(false);
+    await saveUserSettings({ livePawnLegend: true });
+    expect((await loadUserSettings()).livePawnLegend).toBe(true);
+    expect((await resetUserSettings()).livePawnLegend).toBe(false);
+  });
+
   it("keeps overlapping patches instead of last-write-wins on a stale load", async () => {
     await Promise.all([
       saveUserSettings({ seriesMaxFiles: 3 }),

@@ -10,10 +10,10 @@ export function MapToolbar({
   onSnapshot,
 }: MapToolbarProps) {
   const { tool, color, paletteId, floorMode, hasFloors, canUndo, canRedo } = review;
-  const { follow, trails, moment, canFollow, layers } = view;
+  const { follow, trails, moment, canFollow, layers, pawnLegend } = view;
   const { onTool, onColor, onPalette, onFloorMode, onUndo, onRedo, onClear, onStampBookmark } =
     reviewActions;
-  const { onFollow, onTrails, onMoment, onLayers, onResetView } = viewActions;
+  const { onFollow, onTrails, onMoment, onLayers, onPawnLegend, onResetView } = viewActions;
 
   const toggle = (key: keyof typeof layers) => onLayers({ ...layers, [key]: !layers[key] });
   return (
@@ -122,6 +122,14 @@ export function MapToolbar({
       </button>
       <button type="button" className={layers.names ? "on" : ""} onClick={() => toggle("names")}>
         Names
+      </button>
+      <button
+        type="button"
+        className={pawnLegend ? "on" : ""}
+        title="Pawn colour legend"
+        onClick={() => onPawnLegend(!pawnLegend)}
+      >
+        Legend
       </button>
       <button type="button" className={layers.cone ? "on" : ""} onClick={() => toggle("cone")}>
         Cone
