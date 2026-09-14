@@ -15,10 +15,19 @@ if ! command -v wasm-bindgen >/dev/null 2>&1 || [[ "$(wasm-bindgen --version 2>/
   cargo install wasm-bindgen-cli --version "$BINDGEN_VERSION" --locked
 fi
 
+# Panic strings still carry source paths after strip=symbols. Remap cargo +
+# rustc homes so CI (/home/runner/.cargo) and a laptop produce the same .wasm.
+CARGO_HOME_DIR="${CARGO_HOME:-${HOME}/.cargo}"
+SYSROOT="$(rustc --print sysroot)"
+# RUSTFLAGS is extra to .cargo/config.toml wasm32 rustflags (gc-sections).
+export RUSTFLAGS="${RUSTFLAGS:+${RUSTFLAGS} }--remap-path-prefix=${CARGO_HOME_DIR}=/cargo --remap-path-prefix=${SYSROOT}=/rustc --remap-path-prefix=${ROOT}=."
+
 echo "Building wasm32 $PROFILE..."
 cargo build -p cs2analyzer-wasm --profile "$PROFILE" --target wasm32-unknown-unknown --manifest-path "$ROOT/Cargo.toml"
 
-if command -v wasm-opt >/dev/null 2>&1; then
+if [[ "${SKIP_WASM_OPT:-}" == "1" ]]; then
+  echo "SKIP_WASM_OPT=1; skipping post-link shrink (match CI / laptop without binaryen)"
+elif command -v wasm-opt >/dev/null 2>&1; then
   echo "Running wasm-opt..."
   wasm-opt -O3 --enable-bulk-memory --strip-debug "$TARGET" -o "$TARGET"
 else

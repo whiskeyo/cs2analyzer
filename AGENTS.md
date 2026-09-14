@@ -52,7 +52,7 @@ npm run format:check && npm run lint && npm run typecheck && npm test
 # Save to folder writes public/layouts/{map}.json via Vite middleware (not in production)
 ```
 
-CI (`.github/workflows/ci.yml`) runs Rust and web checks (including the layouts editor tests), plus `npm run build` for the production viewer. Push to `master`/`main` also FTPs `apps/web/dist` to OVH: upload to `/cs2analyzer_staging/`, then rename over `/cs2analyzer/` (Vite `base` is `/` because that folder is the subdomain document root). Never wipe the live folder first.
+CI (`.github/workflows/ci.yml`) runs Rust and web checks (including the layouts editor tests), plus `npm run build` for the production viewer. On crate / Cargo / `apps/web/src/parser/` / `scripts/build-wasm.sh` changes, CI rebuilds WASM and fails if committed `apps/web/src/parser/` is dirty. Push to `master`/`main` also FTPs `apps/web/dist` to OVH: upload to `/cs2analyzer_staging/`, then rename over `/cs2analyzer/` (Vite `base` is `/` because that folder is the subdomain document root). Never wipe the live folder first.
 
 ## Where to change what
 

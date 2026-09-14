@@ -2,7 +2,7 @@
 # Local workflow: toolchain, WASM, CI checks, tests, and the Vite app.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINDGEN_VERSION="0.2.127"
 WEB="$ROOT/apps/web"
 DEV_PORT="${DEV_PORT:-5173}"
@@ -22,8 +22,11 @@ Usage: scripts/run.sh [flags]
   --build-wasm     Compile WASM and emit JS bindings into apps/web/src/parser/
   --check          rustfmt, clippy, prettier, eslint, typecheck
   --test           cargo test and the web vitest suite
-  --dev            Start the Vite dev server (http://localhost:${DEV_PORT}/; layouts at /layouts)
-  --prod           Build the production bundle and preview it (http://localhost:${PROD_PORT}/)
+  --dev            Start the Vite dev server (http://localhost:${DEV_PORT}/; layouts at /layouts).
+                   Requires complete apps/web/src/parser/ artifacts (auto-builds if the
+                   wasm toolchain is already installed).
+  --prod           Build the production bundle and preview it (http://localhost:${PROD_PORT}/).
+                   Same parser check as --dev, then npm run build.
   --local-network  With --dev or --prod, bind 0.0.0.0 so other devices on the LAN can open it
                    (open the printed LAN IP on the other device — not http://0.0.0.0/)
 
@@ -127,8 +130,49 @@ cmd_prepare() {
   log "Prepare done"
 }
 
+# Bindgen output the Vite worker imports. Presence-only: CI owns byte drift.
+PARSER_DIR="$WEB/src/parser"
+PARSER_ARTIFACTS=(
+  cs2analyzer_wasm.js
+  cs2analyzer_wasm_bg.wasm
+  cs2analyzer_wasm.d.ts
+  cs2analyzer_wasm_bg.wasm.d.ts
+)
+
+parser_artifacts_complete() {
+  local name
+  [[ -d "$PARSER_DIR" ]] || return 1
+  for name in "${PARSER_ARTIFACTS[@]}"; do
+    [[ -s "${PARSER_DIR}/${name}" ]] || return 1
+  done
+  return 0
+}
+
+# rustup + pinned wasm-bindgen: enough to run cmd_build_wasm without --prepare.
+have_wasm_toolchain() {
+  command -v rustup >/dev/null 2>&1 || return 1
+  command -v cargo >/dev/null 2>&1 || return 1
+  command -v rustc >/dev/null 2>&1 || return 1
+  command -v wasm-bindgen >/dev/null 2>&1 || return 1
+  [[ "$(wasm-bindgen --version 2>/dev/null | awk '{print $2}')" == "$BINDGEN_VERSION" ]]
+}
+
+ensure_parser_artifacts() {
+  if parser_artifacts_complete; then
+    return 0
+  fi
+  if have_wasm_toolchain; then
+    log "parser artifacts missing or incomplete; building WASM"
+    cmd_build_wasm
+    parser_artifacts_complete || die "WASM build finished but apps/web/src/parser/ is still incomplete"
+    return 0
+  fi
+  die "apps/web/src/parser/ is missing or incomplete; run scripts/run.sh --build-wasm"
+}
+
 cmd_build_wasm() {
   ensure_rust
+  rustup target add wasm32-unknown-unknown
   "$ROOT/scripts/build-wasm.sh"
 }
 
@@ -197,6 +241,7 @@ log_lan() {
 }
 
 cmd_dev() {
+  ensure_parser_artifacts
   ensure_node
   log "viewer  http://localhost:${DEV_PORT}/"
   log "layouts http://localhost:${DEV_PORT}/layouts (DEV Settings → Layouts editor)"
@@ -207,6 +252,7 @@ cmd_dev() {
 }
 
 cmd_prod() {
+  ensure_parser_artifacts
   ensure_node
   log "web production build"
   npm_in "$WEB" run build
@@ -217,48 +263,50 @@ cmd_prod() {
   vite_run preview "$PROD_PORT"
 }
 
-PREPARE=0
-BUILD_WASM=0
-CHECK=0
-TEST=0
-DEV=0
-PROD=0
-LOCAL_NETWORK=0
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  PREPARE=0
+  BUILD_WASM=0
+  CHECK=0
+  TEST=0
+  DEV=0
+  PROD=0
+  LOCAL_NETWORK=0
 
-if [[ $# -eq 0 ]]; then
-  usage
-  exit 1
+  if [[ $# -eq 0 ]]; then
+    usage
+    exit 1
+  fi
+
+  for arg in "$@"; do
+    case "$arg" in
+      --prepare) PREPARE=1 ;;
+      --build-wasm) BUILD_WASM=1 ;;
+      --check) CHECK=1 ;;
+      --test) TEST=1 ;;
+      --dev) DEV=1 ;;
+      --prod) PROD=1 ;;
+      --local-network) LOCAL_NETWORK=1 ;;
+      -h | --help) usage; exit 0 ;;
+      *)
+        echo "unknown flag: $arg" >&2
+        usage
+        exit 1
+        ;;
+    esac
+  done
+
+  if [[ "$DEV" -eq 1 && "$PROD" -eq 1 ]]; then
+    die "pass either --dev or --prod, not both"
+  fi
+
+  if [[ "$LOCAL_NETWORK" -eq 1 && "$DEV" -eq 0 && "$PROD" -eq 0 ]]; then
+    die "--local-network requires --dev or --prod"
+  fi
+
+  [[ "$PREPARE" -eq 1 ]] && cmd_prepare
+  [[ "$BUILD_WASM" -eq 1 ]] && cmd_build_wasm
+  [[ "$CHECK" -eq 1 ]] && cmd_check
+  [[ "$TEST" -eq 1 ]] && cmd_test
+  [[ "$DEV" -eq 1 ]] && cmd_dev
+  [[ "$PROD" -eq 1 ]] && cmd_prod
 fi
-
-for arg in "$@"; do
-  case "$arg" in
-    --prepare) PREPARE=1 ;;
-    --build-wasm) BUILD_WASM=1 ;;
-    --check) CHECK=1 ;;
-    --test) TEST=1 ;;
-    --dev) DEV=1 ;;
-    --prod) PROD=1 ;;
-    --local-network) LOCAL_NETWORK=1 ;;
-    -h | --help) usage; exit 0 ;;
-    *)
-      echo "unknown flag: $arg" >&2
-      usage
-      exit 1
-      ;;
-  esac
-done
-
-if [[ "$DEV" -eq 1 && "$PROD" -eq 1 ]]; then
-  die "pass either --dev or --prod, not both"
-fi
-
-if [[ "$LOCAL_NETWORK" -eq 1 && "$DEV" -eq 0 && "$PROD" -eq 0 ]]; then
-  die "--local-network requires --dev or --prod"
-fi
-
-[[ "$PREPARE" -eq 1 ]] && cmd_prepare
-[[ "$BUILD_WASM" -eq 1 ]] && cmd_build_wasm
-[[ "$CHECK" -eq 1 ]] && cmd_check
-[[ "$TEST" -eq 1 ]] && cmd_test
-[[ "$DEV" -eq 1 ]] && cmd_dev
-[[ "$PROD" -eq 1 ]] && cmd_prod
