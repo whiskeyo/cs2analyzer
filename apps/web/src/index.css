@@ -1386,6 +1386,27 @@ code {
 .settings-reset-confirm {
   z-index: calc(var(--z-modal) + 1);
 }
+.snapshot-layers {
+  margin: 0 0 0.85rem;
+  padding: 0.35rem 0 0;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
+}
+.snapshot-layers legend,
+.snapshot-books legend {
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.snapshot-layers label,
+.snapshot-books label {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
 .snapshot-books {
   margin: 0 0 0.85rem;
   padding: 0.35rem 0 0;
@@ -1396,18 +1417,6 @@ code {
   max-height: 12rem;
   overflow: auto;
 }
-.snapshot-books legend {
-  padding: 0;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-.snapshot-books label {
-  display: flex;
-  gap: 0.45rem;
-  align-items: center;
-  font-size: 0.9rem;
-}
-
 .stage {
   flex: 1;
   display: grid;

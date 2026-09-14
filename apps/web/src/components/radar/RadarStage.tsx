@@ -27,7 +27,9 @@ import { SpectatorEconomy } from "./SpectatorEconomy";
 export function RadarStage() {
   const { session, playback, review, view, cal, habits } = useApp();
   const { settings } = useUserSettings();
-  const [snapshot, setSnapshot] = useState<ReturnType<typeof snapshotFromAnalyzer> | null>(null);
+  const [snapshot, setSnapshot] = useState<ReturnType<
+    typeof snapshotFromAnalyzer
+  > | null>(null);
   const replay = session.replay;
   if (!replay) return null;
   const { tick } = playback;
@@ -58,7 +60,10 @@ export function RadarStage() {
           onPalette: (id) => {
             review.setPaletteId(id);
             const preset = COLOR_PRESETS.find((p) => p.id === id);
-            if (preset && !(preset.colors as readonly string[]).includes(review.color)) {
+            if (
+              preset &&
+              !(preset.colors as readonly string[]).includes(review.color)
+            ) {
               review.setColor(preset.colors[0]);
             }
           },
@@ -71,7 +76,9 @@ export function RadarStage() {
               review.commitNotes([]);
               return;
             }
-            review.commitNotes(updateRoundNote(review.notes, round, clearRoundDrawings));
+            review.commitNotes(
+              updateRoundNote(review.notes, round, clearRoundDrawings),
+            );
           },
           onStampBookmark: () => {
             const round = currentRound(replay, tick);
@@ -126,6 +133,10 @@ export function RadarStage() {
               summaryFilter: review.summaryFilter,
               selected: view.selected,
               trails: view.trails,
+              note: noteForRound(
+                review.notes,
+                currentRound(replay, tick)?.number ?? 0,
+              ),
             }),
           )
         }
@@ -142,10 +153,15 @@ export function RadarStage() {
           trails={view.trails}
           tool={view.tool}
           color={review.color}
-          note={noteForRound(review.notes, currentRound(replay, tick)?.number ?? 0)}
+          note={noteForRound(
+            review.notes,
+            currentRound(replay, tick)?.number ?? 0,
+          )}
           onNote={(next) => {
             const round = currentRound(replay, tick)?.number ?? 0;
-            review.commitNotes(updateRoundNote(review.notes, round, () => next));
+            review.commitNotes(
+              updateRoundNote(review.notes, round, () => next),
+            );
           }}
           onPan={() => view.setFollow(false)}
           onPause={() => playback.setPlaying(false)}
@@ -169,7 +185,10 @@ export function RadarStage() {
         />
         {!habitsOnly && <Hud replay={replay} tick={tick} />}
         {view.layers.summary && (
-          <NadeLegend filter={review.summaryFilter} onFilter={review.setSummaryFilter} />
+          <NadeLegend
+            filter={review.summaryFilter}
+            onFilter={review.setSummaryFilter}
+          />
         )}
         {!habitsOnly && (
           <SpectatorEconomy
@@ -179,13 +198,16 @@ export function RadarStage() {
             onSelect={view.select}
           />
         )}
-        {!habitsOnly && <KillFeed replay={replay} tick={tick} onJump={playback.jump} />}
+        {!habitsOnly && (
+          <KillFeed replay={replay} tick={tick} onJump={playback.jump} />
+        )}
       </div>
       {snapshot ? (
         <SnapshotDialog
           mapName={snapshot.mapName}
           pieces={snapshot.pieces}
           groups={snapshot.groups}
+          drawings={snapshot.drawings}
           radarFx={snapshot.radarFx}
           stratTitle={snapshot.stratTitle}
           floor={snapshot.floor}

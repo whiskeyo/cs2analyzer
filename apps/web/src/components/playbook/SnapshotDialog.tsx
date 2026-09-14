@@ -1,10 +1,23 @@
 import { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router";
 import { playbookHref } from "@/lib/app/playbookSearch";
-import type { DrawingGroup, FloorMode, NoteRadarFx, Piece } from "@/lib/notes/types";
+import type {
+  Drawing,
+  DrawingGroup,
+  FloorMode,
+  NoteRadarFx,
+  Piece,
+} from "@/lib/notes/types";
 import { rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { listPlaybooksForMap } from "@/lib/playbook/playbookStore";
 import { writeSnapshot } from "@/lib/playbook/snapshot";
+import {
+  applySnapshotLayers,
+  DEFAULT_SNAPSHOT_LAYERS,
+  SNAPSHOT_LAYER_OPTIONS,
+  snapshotLayerSelected,
+  type SnapshotLayers,
+} from "@/lib/playbook/snapshotLayers";
 import { UNTITLED_PLAYBOOK, type Playbook } from "@/lib/playbook/types";
 import { errorMessage } from "@/lib/validate/json.ts";
 
@@ -14,6 +27,7 @@ interface Props {
   mapName: string;
   pieces: Piece[];
   groups?: DrawingGroup[];
+  drawings?: Drawing[];
   radarFx?: NoteRadarFx;
   stratTitle: string;
   floor: FloorMode;
@@ -24,6 +38,7 @@ export function SnapshotDialog({
   mapName,
   pieces,
   groups,
+  drawings,
   radarFx,
   stratTitle: initialTitle,
   floor,
@@ -35,9 +50,12 @@ export function SnapshotDialog({
   const [target, setTarget] = useState(NEW_BOOK);
   const [newTitle, setNewTitle] = useState("");
   const [stratTitle, setStratTitle] = useState(initialTitle);
+  const [layers, setLayers] = useState<SnapshotLayers>(DEFAULT_SNAPSHOT_LAYERS);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<{ title: string; key: string } | null>(null);
+  const [saved, setSaved] = useState<{ title: string; key: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -56,17 +74,26 @@ export function SnapshotDialog({
   }, [mapName]);
 
   const save = async () => {
+    if (!snapshotLayerSelected(layers)) {
+      setError("Pick at least one layer to snapshot.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
+      const stamped = applySnapshotLayers(
+        { pieces, groups, radarFx, drawings },
+        layers,
+      );
       const { book } = await writeSnapshot({
         mapName,
         bookKey: target === NEW_BOOK ? null : target,
         newBookTitle: newTitle,
         stratTitle,
-        pieces,
-        radarFx,
-        groups,
+        pieces: stamped.pieces,
+        radarFx: stamped.radarFx,
+        groups: stamped.groups,
+        drawings: stamped.drawings,
         floor,
       });
       // Playbook reads this once on mount (`consumePlaybookFocus`) after navigate.
@@ -118,7 +145,25 @@ export function SnapshotDialog({
           </>
         ) : (
           <>
-            <p>Pick a playbook for this map, then a new named strat. Drawings stay on Analyzer.</p>
+            <p>
+              Pick a playbook for this map, then a new named strat. Analyzer ink
+              stays unless Drawings is on.
+            </p>
+            <fieldset className="snapshot-layers">
+              <legend>Include</legend>
+              {SNAPSHOT_LAYER_OPTIONS.map((option) => (
+                <label key={option.id}>
+                  <input
+                    type="checkbox"
+                    checked={layers[option.id]}
+                    onChange={() =>
+                      setLayers({ ...layers, [option.id]: !layers[option.id] })
+                    }
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </fieldset>
             <fieldset className="snapshot-books">
               <legend>Playbook</legend>
               {(books ?? []).map((book) => (
@@ -166,7 +211,13 @@ export function SnapshotDialog({
               <button type="button" className="ghost" onClick={onClose}>
                 Cancel
               </button>
-              <button type="button" disabled={saving || books == null} onClick={() => void save()}>
+              <button
+                type="button"
+                disabled={
+                  saving || books == null || !snapshotLayerSelected(layers)
+                }
+                onClick={() => void save()}
+              >
                 Snapshot
               </button>
             </div>
