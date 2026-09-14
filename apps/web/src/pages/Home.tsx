@@ -26,7 +26,8 @@ function HomeIntro() {
 function HomeFaqHint() {
   return (
     <p className="home-faq-hint muted">
-      If you have questions, <Link to={ROUTES.faq}>see the FAQ</Link>.
+      If you have questions, <Link to={ROUTES.faq}>see the FAQ</Link>. To reach the author,{" "}
+      <Link to={ROUTES.contact}>Contact</Link>.
     </p>
   );
 }

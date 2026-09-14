@@ -1,9 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
 import { PROJECT_SCHEMA, type ReviewProject } from "@/lib/notes/projectStore";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
+import { TestRouter } from "@/lib/testing/router";
 import { DropZone } from "./DropZone";
 
 const prefetchParser = vi.hoisted(() => vi.fn());
@@ -22,6 +24,10 @@ vi.mock("@/lib/notes/projectStore", async (importOriginal) => {
 });
 
 import { demoFilePickerAvailable, pickOpenFiles } from "@/lib/notes/projectStore";
+
+function render(ui: ReactElement) {
+  return rtlRender(<TestRouter>{ui}</TestRouter>);
+}
 
 const noop = () => {};
 
@@ -243,8 +249,9 @@ describe("DropZone", () => {
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
   });
 
-  it("links GitHub, Issues, and Donate in the footer", () => {
+  it("links Contact, GitHub, Issues, and Donate in the footer", () => {
     render(<DropZone {...props()} />);
+    expect(screen.getByRole("link", { name: "Contact" })).toHaveAttribute("href", "/contact");
     expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(
       "href",
       "https://github.com/whiskeyo/cs2analyzer",

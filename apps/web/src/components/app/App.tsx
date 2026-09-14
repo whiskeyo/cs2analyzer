@@ -2,10 +2,18 @@ import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router";
 import { AppStateProvider, useApp } from "@/lib/state/appState";
 import type { CreateWorker } from "@/lib/parse/useDemoSession";
-import { isAnalyzerPath, isFaqPath, isLayoutsPath, isPlaybookPath, ROUTES } from "@/lib/app/routes";
+import {
+  isAnalyzerPath,
+  isContactPath,
+  isFaqPath,
+  isLayoutsPath,
+  isPlaybookPath,
+  ROUTES,
+} from "@/lib/app/routes";
 import { AppBackdrop } from "@/components/app/AppBackdrop";
 import { Header } from "@/components/app/Header";
 import { Analyzer } from "@/pages/Analyzer";
+import { Contact } from "@/pages/Contact";
 import { Faq } from "@/pages/Faq";
 import { Home } from "@/pages/Home";
 import { Playbook } from "@/pages/Playbook";
@@ -16,6 +24,7 @@ const LayoutsApp = import.meta.env.DEV
 
 function pageTitle(pathname: string): string {
   if (isFaqPath(pathname)) return "FAQ · CS2 Analyzer";
+  if (isContactPath(pathname)) return "Contact · CS2 Analyzer";
   if (isAnalyzerPath(pathname)) return "Analyzer · CS2 Analyzer";
   if (isPlaybookPath(pathname)) return "Playbook · CS2 Analyzer";
   if (import.meta.env.DEV && isLayoutsPath(pathname)) return "Layouts · CS2 Analyzer";
@@ -55,6 +64,7 @@ function AppRoutes() {
         <Route path={ROUTES.analyzer.slice(1)} element={<Analyzer />} />
         <Route path={ROUTES.playbook.slice(1)} element={<Playbook />} />
         <Route path={ROUTES.faq.slice(1)} element={<Faq />} />
+        <Route path={ROUTES.contact.slice(1)} element={<Contact />} />
         {import.meta.env.DEV && LayoutsApp != null ? (
           <Route
             path={ROUTES.layouts.slice(1)}

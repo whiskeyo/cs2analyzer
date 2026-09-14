@@ -119,12 +119,14 @@
 
 .app.splash .home-intro,
 .app.splash .faq h2,
-.app.splash .faq-lead {
+.app.splash .faq-lead,
+.app.splash .contact h2 {
   text-shadow: 0 1px 18px rgba(11, 14, 18, 0.55);
 }
 
 .app .drop,
-.app .home-card {
+.app .home-card,
+.app .contact-card {
   background: color-mix(in srgb, #12171d 92%, transparent);
   box-shadow:
     0 14px 40px rgba(0, 0, 0, 0.28),
