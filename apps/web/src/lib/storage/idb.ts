@@ -1,3 +1,5 @@
+import { wrapIdbError } from "./quota";
+
 export const DB_NAME = "cs2analyzer";
 export const DB_VERSION = 6;
 
@@ -14,7 +16,7 @@ export function idbAvailable(): boolean {
 export function requestOf<T>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error("indexedDB request failed"));
+    req.onerror = () => reject(wrapIdbError(req.error ?? new Error("indexedDB request failed")));
   });
 }
 
@@ -43,7 +45,7 @@ export function openCs2Db(): Promise<IDBDatabase> {
       ensureStores(req.result);
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error("indexedDB open failed"));
+    req.onerror = () => reject(wrapIdbError(req.error ?? new Error("indexedDB open failed")));
   });
 }
 

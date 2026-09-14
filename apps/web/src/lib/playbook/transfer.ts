@@ -1,6 +1,7 @@
 import { parseJson } from "@/lib/validate/json.ts";
 import { isFiniteNumber, isRecord } from "@/lib/validate/guards.ts";
 import { downloadBlob } from "@/lib/shared/download";
+import { storageWriteError } from "@/lib/storage/quota";
 import { isPlaybookSchema, parsePlaybook } from "./parse";
 import { loadAllPlaybooks, savePlaybook } from "./playbookStore";
 import { emitPlaybooksChanged } from "./events";
@@ -134,8 +135,8 @@ export async function exportPlaybooks(): Promise<TransferResult> {
       ok: true,
       message: `Exported ${n} playbook${n === 1 ? "" : "s"}.`,
     };
-  } catch {
-    return { ok: false, message: "Could not export playbooks." };
+  } catch (err) {
+    return { ok: false, message: storageWriteError(err, "Could not export playbooks.") };
   }
 }
 
@@ -157,8 +158,8 @@ export async function commitPlaybookImport(
       ok: true,
       message: `Imported ${n} playbook${n === 1 ? "" : "s"}.`,
     };
-  } catch {
-    return { ok: false, message: "Could not import playbooks." };
+  } catch (err) {
+    return { ok: false, message: storageWriteError(err, "Could not import playbooks.") };
   }
 }
 
@@ -185,7 +186,7 @@ export async function importPlaybooksFromText(text: string): Promise<TransferRes
       };
     }
     return commitPlaybookImport(bundle);
-  } catch {
-    return { ok: false, message: "Could not import playbooks." };
+  } catch (err) {
+    return { ok: false, message: storageWriteError(err, "Could not import playbooks.") };
   }
 }

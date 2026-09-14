@@ -110,6 +110,7 @@ export function Playbook() {
     duplicateStratOn,
     movePlaybook,
     moveStrat,
+    saveError,
   } = usePlaybooks(mapName);
 
   const treeWidthRef = useRef(PLAYBOOK_TREE_DEFAULT_WIDTH);
@@ -419,6 +420,11 @@ export function Playbook() {
           <p className="playbook-lead">Maps, then named books. Drawings stay on this machine.</p>
           {loadError ? <p className="error">{loadError}</p> : null}
           {exportError ? <p className="error">{exportError}</p> : null}
+          {saveError ? (
+            <p className="error" role="alert">
+              {saveError}
+            </p>
+          ) : null}
           <PlaybookTree
             mapNames={names}
             books={treeBooks}

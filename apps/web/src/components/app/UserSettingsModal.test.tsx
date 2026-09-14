@@ -9,7 +9,7 @@ import {
   DEFAULT_RADAR_GRAY,
   SERIES_MAX_FILES,
   SERIES_MAX_FILES_HARD,
-  SERIES_MAX_FILES_SOFT_WARN,
+  seriesRamWarning,
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
@@ -19,7 +19,10 @@ import {
   loadUserSettings,
   saveUserSettings,
 } from "@/lib/settings/userSettingsStore";
+import * as userSettingsStore from "@/lib/settings/userSettingsStore";
 import { UserSettingsModal } from "./UserSettingsModal";
+import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
+import { defaultUserSettings, parseUserSettings } from "@/lib/settings/userSettings";
 
 function renderModal(onClose = () => undefined) {
   return render(
@@ -35,6 +38,7 @@ describe("UserSettingsModal", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await clearUserSettingsForTests();
   });
 
@@ -243,19 +247,13 @@ describe("UserSettingsModal", () => {
     const slider = await screen.findByLabelText("Max demos per drop");
     expect(slider).toHaveAttribute("max", String(SERIES_MAX_FILES_HARD));
     expect(slider).toHaveValue(String(SERIES_MAX_FILES));
-    expect(
-      screen.queryByText(
-        `More than ${SERIES_MAX_FILES_SOFT_WARN} demos at once can use a lot of RAM.`,
-      ),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(seriesRamWarning())).not.toBeInTheDocument();
 
-    fireEvent.change(slider, { target: { value: String(SERIES_MAX_FILES_HARD) } });
+    fireEvent.change(slider, {
+      target: { value: String(SERIES_MAX_FILES_HARD) },
+    });
     await waitFor(() => expect(slider).toHaveValue(String(SERIES_MAX_FILES_HARD)));
-    expect(
-      screen.getByText(
-        `More than ${SERIES_MAX_FILES_SOFT_WARN} demos at once can use a lot of RAM.`,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(seriesRamWarning())).toBeInTheDocument();
 
     const stored = await loadUserSettings();
     expect(stored.seriesMaxFiles).toBe(SERIES_MAX_FILES_HARD);
@@ -271,5 +269,29 @@ describe("UserSettingsModal", () => {
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.pointerDown(backdrop!);
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("shows quota copy when a Preferences write cannot persist", async () => {
+    const quota = new Error("full");
+    quota.name = "QuotaExceededError";
+    renderModal();
+    await waitFor(() => expect(screen.getByLabelText("Saved notes page size")).toHaveValue(5));
+    vi.spyOn(userSettingsStore, "saveUserSettings").mockRejectedValue(quota);
+    vi.spyOn(userSettingsStore, "loadUserSettings").mockResolvedValue(
+      parseUserSettings({ ...defaultUserSettings(), savedNotesPageSize: 8 }),
+    );
+    fireEvent.change(screen.getByLabelText("Saved notes page size"), {
+      target: { value: "8" },
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(IDB_QUOTA_MESSAGE);
+    expect(screen.getByLabelText("Saved notes page size")).toHaveValue(8);
+  });
+
+  it("includes local database usage in Preferences", async () => {
+    renderModal();
+    expect(await screen.findByRole("heading", { name: "Local database" })).toBeInTheDocument();
+    expect(await screen.findByText(/Local database usage:/)).toBeInTheDocument();
+    expect(screen.getByText(/pages cannot raise it/)).toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: /storage/i })).not.toBeInTheDocument();
   });
 });

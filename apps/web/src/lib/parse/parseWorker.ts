@@ -1,5 +1,6 @@
 import init, { parseDemo } from "@/parser/cs2analyzer_wasm.js";
 import { errorMessage } from "@/lib/validate/json.ts";
+import { formatParseError } from "./demoFile";
 import { decodeList, decodeObject } from "./decode";
 import type {
   Blind,
@@ -160,7 +161,7 @@ self.onmessage = async (ev: MessageEvent<ParseWorkerIn>) => {
     const msg: WorkerOut = { type: "done", replay, timings };
     self.postMessage(msg, { transfer });
   } catch (err: unknown) {
-    const message = errorMessage(err);
+    const message = formatParseError(errorMessage(err));
     const msg: WorkerOut = { type: "error", message };
     self.postMessage(msg);
   }

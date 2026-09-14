@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Status } from "@/lib/state/status";
-import { PARSE_POOL_MAX, SERIES_MAX_FILES } from "@/lib/shared/constants";
+import {
+  PARSE_POOL_MAX,
+  SERIES_MAX_FILES,
+  SERIES_MAX_FILES_SOFT_WARN,
+  seriesRamWarning,
+} from "@/lib/shared/constants";
 import { errorMessage } from "@/lib/validate/json.ts";
 import {
   createParseWorkerPool,
@@ -13,6 +18,7 @@ import {
   type ParsePoolProgress,
   type ParseWorkerPool,
 } from "./parsePool";
+import { demoFileNameIssue, inspectDemoFile, partitionDemoFiles } from "./demoFile";
 import { discardParserWarmup, ensureParser, parserFactory } from "./ensureParser";
 import { buildSeries, withFocalTeam, type DemoSeries, type LoadedDemo } from "./session";
 import { formatParseTimings } from "./timings";
@@ -133,6 +139,13 @@ export function useDemoSession(opts: {
 
   const parseDemo = useCallback(
     (file: File) => {
+      const named = demoFileNameIssue(file);
+      if (named) {
+        statusRef.current.clear();
+        statusRef.current.setError(named);
+        return Promise.resolve();
+      }
+
       const gen = beginParse();
       statusRef.current.clear();
       setParsing(true);
@@ -177,12 +190,19 @@ export function useDemoSession(opts: {
           });
       };
 
-      const poolOrPromise = getPool();
-      if (poolOrPromise instanceof Promise) {
-        void poolOrPromise.then(run).catch(fail);
-        return;
-      }
-      run(poolOrPromise);
+      return inspectDemoFile(file).then((issue) => {
+        if (gen !== parseGenRef.current) return;
+        if (issue) {
+          endParse();
+          statusRef.current.setError(issue);
+          return;
+        }
+        const poolOrPromise = getPool();
+        if (poolOrPromise instanceof Promise) {
+          return poolOrPromise.then(run).catch(fail);
+        }
+        run(poolOrPromise);
+      }, fail);
     },
     [beginParse, endParse, finishSingle, getPool, scheduleProgress],
   );
@@ -191,7 +211,7 @@ export function useDemoSession(opts: {
     async (files: File[]) => {
       if (files.length === 0) return;
       if (files.length === 1) {
-        parseDemo(files[0]);
+        await parseDemo(files[0]);
         return;
       }
       if (files.length > seriesMaxFilesRef.current) {
@@ -199,13 +219,25 @@ export function useDemoSession(opts: {
         return;
       }
 
+      const { ok: valid, issues } = await partitionDemoFiles(files);
+      if (valid.length === 0) {
+        statusRef.current.clear();
+        statusRef.current.setError(issues.map((issue) => issue.message).join(" "));
+        return;
+      }
+
+      const ramWarn = files.length > SERIES_MAX_FILES_SOFT_WARN;
+
       const gen = beginParse();
       statusRef.current.clear();
+      if (ramWarn) {
+        statusRef.current.setNotice(seriesRamWarning());
+      }
       clearSeriesReviewCache();
       setParsing(true);
-      setProgress({ current: 0, total: files.length * 100 });
+      setProgress({ current: 0, total: valid.length * 100 });
       setParseFiles(
-        files.map((file, index) => ({
+        valid.map((file, index) => ({
           name: file.name,
           index,
           state: "queued",
@@ -226,7 +258,7 @@ export function useDemoSession(opts: {
       };
 
       const wall0 = performance.now();
-      const poolWorkers = parsePoolSize(files.length, parsePoolMaxRef.current);
+      const poolWorkers = parsePoolSize(valid.length, parsePoolMaxRef.current);
       let pool: ParseWorkerPool;
       try {
         const poolOrPromise = getPool();
@@ -238,17 +270,20 @@ export function useDemoSession(opts: {
         return;
       }
       if (gen !== parseGenRef.current) return;
-      const results = await runParsePool(pool, files, onPoolProgress, parsePoolMaxRef.current);
+      const results = await runParsePool(pool, valid, onPoolProgress, parsePoolMaxRef.current);
       if (gen !== parseGenRef.current) return;
 
       const wallMs = performance.now() - wall0;
       endParse();
       setParseFiles(null);
       const { groups, skipped } = groupParsedDemosByMap(results);
-      for (const line of skipped) statusRef.current.setNotice(line);
+      const skippedLines = [...issues.map((issue) => issue.message), ...skipped];
+      for (const line of skippedLines) statusRef.current.setNotice(line);
 
       if (groups.length === 0) {
-        statusRef.current.setError("No demos parsed for this series.");
+        statusRef.current.setError(
+          skippedLines.length > 0 ? skippedLines.join(" ") : "No demos parsed for this series.",
+        );
         return;
       }
 
@@ -277,9 +312,8 @@ export function useDemoSession(opts: {
         groups.length > 1
           ? `${groups.length} maps (${groups.map((g) => `${g.demos.length}× ${g.mapName}`).join(", ")})`
           : groups[0].mapName;
-      statusRef.current.setNotice(
-        `Series: ${groups[0].demos.length} ${groups[0].mapName} demo${groups[0].demos.length === 1 ? "" : "s"} · ${nextSeries.focalTeam}${groups.length > 1 ? ` · ${mapSummary}` : ""}`,
-      );
+      const seriesNotice = `Series: ${groups[0].demos.length} ${groups[0].mapName} demo${groups[0].demos.length === 1 ? "" : "s"} · ${nextSeries.focalTeam}${groups.length > 1 ? ` · ${mapSummary}` : ""}`;
+      statusRef.current.setNotice(ramWarn ? `${seriesNotice} ${seriesRamWarning()}` : seriesNotice);
     },
     [beginParse, endParse, getPool, loadMapGroup, parseDemo, scheduleProgress],
   );

@@ -3,10 +3,13 @@
  */
 import "fake-indexeddb/auto";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SIDEBAR_DEFAULT_WIDTH } from "@/lib/shared/constants";
+import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
 import { UserSettingsProvider, useUserSettings } from "./useUserSettings";
 import { clearUserSettingsForTests, saveUserSettings } from "./userSettingsStore";
+import * as store from "./userSettingsStore";
+import { defaultUserSettings, parseUserSettings } from "./userSettings";
 import type { ReactNode } from "react";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -19,6 +22,7 @@ describe("useUserSettings", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await clearUserSettingsForTests();
   });
 
@@ -43,5 +47,22 @@ describe("useUserSettings", () => {
       await result.current.reset();
     });
     expect(result.current.settings.sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
+  });
+
+  it("keeps the patch and sets saveError when IndexedDB is full", async () => {
+    const quota = new Error("full");
+    quota.name = "QuotaExceededError";
+    vi.spyOn(store, "saveUserSettings").mockRejectedValue(quota);
+    vi.spyOn(store, "loadUserSettings").mockResolvedValue(
+      parseUserSettings({ ...defaultUserSettings(), sidebarWidth: 560 }),
+    );
+    const { result } = renderHook(() => useUserSettings(), { wrapper });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+
+    await act(async () => {
+      await result.current.update({ sidebarWidth: 560 });
+    });
+    expect(result.current.saveError).toBe(IDB_QUOTA_MESSAGE);
+    expect(result.current.settings.sidebarWidth).toBe(560);
   });
 });

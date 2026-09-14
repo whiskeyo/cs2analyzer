@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CONTACT_CHANNELS, ISSUES_URL } from "@/lib/app/links";
@@ -11,6 +11,9 @@ import {
   makeRound,
   UNIT_CALIBRATION,
 } from "@/lib/testing/fixtures";
+import { CS2_DEMO_MAGIC } from "@/lib/parse/demoFile";
+import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
+import * as projectStore from "@/lib/notes/projectStore";
 import { App } from "./App";
 
 vi.mock("@/lib/radar/maps", async (importOriginal) => {
@@ -32,7 +35,13 @@ vi.mock("@/lib/parse/ensureParser", () => ({
   discardParserWarmup: vi.fn(),
 }));
 
-const TIMINGS: ParseTimings = { initMs: 1, parseMs: 2, jsonMs: 3, buffersMs: 4, totalMs: 10 };
+const TIMINGS: ParseTimings = {
+  initMs: 1,
+  parseMs: 2,
+  jsonMs: 3,
+  buffersMs: 4,
+  totalMs: 10,
+};
 
 /**
  * Stands in for the parse worker so the app can be driven without WASM. The
@@ -73,7 +82,13 @@ function fixtureReplay(): Replay {
     ],
     rounds: [
       makeRound({ number: 0, is_knife: true, start_tick: 0, end_tick: 100 }),
-      makeRound({ number: 1, winner: "CT", start_tick: 200, freeze_end_tick: 264, end_tick: 900 }),
+      makeRound({
+        number: 1,
+        winner: "CT",
+        start_tick: 200,
+        freeze_end_tick: 264,
+        end_tick: 900,
+      }),
     ],
     ticks: makeFreezeTicks(4, 2, 264),
     kills: [makeKill(400, 0, 2)],
@@ -91,10 +106,10 @@ async function loadDemo(replay: Replay = fixtureReplay()) {
   const { container } = render(<App createWorker={createWorker} />);
 
   const input = container.querySelector(".drop input[type=file]") as HTMLInputElement;
-  await userEvent.upload(input, new File(["fake"], "match.dem"));
+  await userEvent.upload(input, new File([`${CS2_DEMO_MAGIC}body`], "match.dem"));
 
+  await waitFor(() => expect(workers[0]).toBeDefined());
   const worker = workers[0];
-  expect(worker).toBeDefined();
   await worker.posted;
   worker.emit({ type: "done", replay, timings: TIMINGS });
   // Playback settles on the first non-knife freeze end once the effects flush.
@@ -110,6 +125,10 @@ describe("App", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
     document.title = "CS2 Analyzer";
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("starts on the home page with a drop zone and no Analyzer highlight", () => {
@@ -226,13 +245,39 @@ describe("App", () => {
     const { container } = render(<App createWorker={createWorker} />);
 
     const input = container.querySelector(".drop input[type=file]") as HTMLInputElement;
-    await userEvent.upload(input, new File(["fake"], "bad.dem"));
+    await userEvent.upload(input, new File([`${CS2_DEMO_MAGIC}body`], "bad.dem"));
+    await waitFor(() => expect(workers[0]).toBeDefined());
     await workers[0].posted;
-    workers[0].emit({ type: "error", message: "Supports only Source 2 replays" });
+    workers[0].emit({
+      type: "error",
+      message: "Supports only Source 2 replays",
+    });
 
-    expect(await screen.findByText("Supports only Source 2 replays")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        '"bad.dem" is not a Counter-Strike 2 demo. Drop a GOTV .dem from FACEIT, Premier, or matchmaking.',
+      ),
+    ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/analyzer");
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+  });
+
+  it("rejects a non-demo drop before starting the parser", async () => {
+    const workers: FakeWorker[] = [];
+    const createWorker = () => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker as unknown as Worker;
+    };
+    render(<App createWorker={createWorker} />);
+
+    const input = document.querySelector(".drop input[type=file]") as HTMLInputElement;
+    const junk = new File(["nope"], "highlight.mp4");
+    fireEvent.change(input, { target: { files: [junk] } });
+
+    expect(await screen.findByText(/not a \.dem file/)).toBeInTheDocument();
+    expect(workers).toHaveLength(0);
+    expect(window.location.pathname).toBe("/analyzer");
   });
 
   it("returns to Analyzer on New demo", async () => {
@@ -374,5 +419,19 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
     expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
     expect(screen.getByText(/match\.dem/)).toBeInTheDocument();
+  });
+
+  it("shows IndexedDB quota copy in the analyzer when notes cannot save", async () => {
+    const quota = new Error("full");
+    quota.name = "QuotaExceededError";
+    vi.spyOn(projectStore, "saveProject").mockRejectedValue(quota);
+    await loadDemo();
+    await waitFor(
+      () => {
+        expect(screen.getByRole("alert")).toHaveTextContent(IDB_QUOTA_MESSAGE);
+      },
+      { timeout: 2000 },
+    );
+    expect(screen.queryByText("Drop a demo")).not.toBeInTheDocument();
   });
 });

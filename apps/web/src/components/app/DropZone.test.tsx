@@ -137,10 +137,8 @@ describe("DropZone", () => {
   });
 
   it("surfaces parse errors and notices", () => {
-    render(
-      <DropZone {...props({ error: "Supports only Source 2 replays", notice: "Restored" })} />,
-    );
-    expect(screen.getByText("Supports only Source 2 replays")).toBeInTheDocument();
+    render(<DropZone {...props({ error: "Drop a GOTV .dem", notice: "Restored" })} />);
+    expect(screen.getByText("Drop a GOTV .dem")).toBeInTheDocument();
     expect(screen.getByText("Restored")).toBeInTheDocument();
   });
 
@@ -321,7 +319,10 @@ describe("DropZone", () => {
     vi.mocked(demoFilePickerAvailable).mockReturnValue(true);
     const file = new File(["fake"], "picked.dem");
     const handle = { name: "picked.dem" } as FileSystemFileHandle;
-    vi.mocked(pickOpenFiles).mockResolvedValue({ files: [file], handles: [handle] });
+    vi.mocked(pickOpenFiles).mockResolvedValue({
+      files: [file],
+      handles: [handle],
+    });
     const onFiles = vi.fn();
     const { container } = render(<DropZone {...props({ onFiles })} />);
 

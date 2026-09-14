@@ -12,6 +12,7 @@ import {
 } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { UserSettingsPdfSection, UserSettingsResetDialog } from "./userSettingsPanels";
+import { UserSettingsStorageSection } from "./StorageUsageSection";
 import {
   DRAW_TOOL_LABELS,
   FLOOR_MODES,
@@ -32,12 +33,13 @@ import {
   SERIES_MAX_FILES_HARD,
   SERIES_MAX_FILES_SOFT_WARN,
   SERIES_MIN_FILES,
+  seriesRamWarning,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
 
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
-  const { settings, update, reset } = useUserSettings();
+  const { settings, update, reset, saveError } = useUserSettings();
   const [confirmReset, setConfirmReset] = useState(false);
   const titleId = useId();
   const confirmTitleId = useId();
@@ -78,6 +80,11 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           Stored in this browser. Reset restores shipped defaults and does not delete notes or
           playbooks.
         </p>
+        {saveError ? (
+          <p className="error" role="alert">
+            {saveError}
+          </p>
+        ) : null}
 
         <section className="settings-section">
           <h3>Performance</h3>
@@ -120,9 +127,7 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           </label>
           <p className="settings-hint">Applies on the next multi-file drop.</p>
           {settings.seriesMaxFiles > SERIES_MAX_FILES_SOFT_WARN ? (
-            <p className="settings-warn">
-              More than {SERIES_MAX_FILES_SOFT_WARN} demos at once can use a lot of RAM.
-            </p>
+            <p className="settings-warn">{seriesRamWarning()}</p>
           ) : null}
         </section>
 
@@ -147,7 +152,9 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               aria-label="Default sidebar tab"
               value={settings.defaultSidebarTab}
               onChange={(e) =>
-                void update({ defaultSidebarTab: e.target.value as DefaultSidebarTab })
+                void update({
+                  defaultSidebarTab: e.target.value as DefaultSidebarTab,
+                })
               }
             >
               {DEFAULT_SIDEBAR_TABS.map((id) => (
@@ -363,6 +370,8 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           onTheme={(pdfTheme) => void update({ pdfTheme })}
           onPhotos={(pdfPhotos) => void update({ pdfPhotos })}
         />
+
+        <UserSettingsStorageSection />
 
         <div className="home-modal-actions">
           <button type="button" className="ghost" onClick={onClose}>

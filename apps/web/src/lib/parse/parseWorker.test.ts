@@ -83,7 +83,9 @@ let workerSelf: WorkerSelf;
 
 async function runWorker(bytes = new ArrayBuffer(8)) {
   await import("./parseWorker");
-  await workerSelf.onmessage?.({ data: { bytes } } as MessageEvent<ParseWorkerIn>);
+  await workerSelf.onmessage?.({
+    data: { bytes },
+  } as MessageEvent<ParseWorkerIn>);
 }
 
 beforeEach(() => {
@@ -152,7 +154,10 @@ describe("parseWorker", () => {
     );
     await runWorker();
     const err = workerSelf.postMessage.mock.calls.at(-1)?.[0];
-    expect(err).toEqual({ type: "error", message: "failed to fetch Wasm: 404 Not Found" });
+    expect(err).toEqual({
+      type: "error",
+      message: "failed to fetch Wasm: 404 Not Found",
+    });
   });
 
   it("retries wasm init after a failed fetch", async () => {
@@ -188,6 +193,16 @@ describe("parseWorker", () => {
     await runWorker();
     const err = workerSelf.postMessage.mock.calls.at(-1)?.[0];
     expect(err).toEqual({ type: "error", message: "bad demo" });
+  });
+
+  it("maps Source 2 parser failures onto GOTV drop copy", async () => {
+    wasmMocks.parseDemo.mockImplementation(() => {
+      throw new Error("Supports only Source 2 replays");
+    });
+    await runWorker();
+    const err = workerSelf.postMessage.mock.calls.at(-1)?.[0];
+    expect(err.type).toBe("error");
+    expect(err.message).toContain("not a Counter-Strike 2 demo");
   });
 
   it("copies non-empty tick buffers before freeing wasm memory", async () => {

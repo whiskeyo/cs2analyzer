@@ -14,6 +14,7 @@ import {
   openCs2Db,
   requestOf,
 } from "./idb";
+import { IDB_QUOTA_MESSAGE } from "./quota";
 
 function deleteCs2Db(): Promise<void> {
   const closing = indexedDB.deleteDatabase(DB_NAME);
@@ -119,6 +120,18 @@ describe("openCs2Db", () => {
     const pending = requestOf(req as unknown as IDBRequest<unknown>);
     req.onerror?.();
     await expect(pending).rejects.toThrow("fail");
+  });
+
+  it("rewrites QuotaExceededError to the storage-space copy", async () => {
+    const req = {
+      error: new DOMException("The quota has been exceeded.", "QuotaExceededError"),
+      result: undefined,
+      onsuccess: null as (() => void) | null,
+      onerror: null as (() => void) | null,
+    };
+    const pending = requestOf(req as unknown as IDBRequest<unknown>);
+    req.onerror?.();
+    await expect(pending).rejects.toThrow(IDB_QUOTA_MESSAGE);
   });
 
   it("rejects with a fallback when the request has no error object", async () => {

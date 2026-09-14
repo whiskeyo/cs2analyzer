@@ -83,6 +83,16 @@ export const SERIES_MAX_FILES_HARD = 24;
 /** Soft UI warning when the series drop cap is set above this (RAM). */
 export const SERIES_MAX_FILES_SOFT_WARN = SERIES_MAX_FILES;
 
+export function seriesRamWarning(): string {
+  return `More than ${SERIES_MAX_FILES_SOFT_WARN} demos at once can use a lot of RAM.`;
+}
+
+/** Hard cap for one dropped demo so a huge file fails before WASM (1 GiB). */
+export const DEMO_MAX_BYTES = 1024 * 1024 * 1024;
+
+/** Bytes read to classify a drop (gzip / Source 1 / CS2 magic). */
+export const DEMO_MAGIC_BYTES = 8;
+
 /** Concurrent WASM parse workers (queue the rest). */
 export const PARSE_POOL_MAX = 3;
 
