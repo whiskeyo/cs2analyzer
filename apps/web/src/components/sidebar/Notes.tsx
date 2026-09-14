@@ -16,9 +16,23 @@ interface Props {
   notes: RoundNote[];
   onJump: (tick: number) => void;
   onNotes: (next: RoundNote[]) => void;
+  onExportPdf?: () => void;
+  exportBusy?: boolean;
+  exportDisabled?: boolean;
+  exportTitle?: string;
 }
 
-export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
+export function Notes({
+  replay,
+  tick,
+  notes,
+  onJump,
+  onNotes,
+  onExportPdf,
+  exportBusy = false,
+  exportDisabled = false,
+  exportTitle,
+}: Props) {
   const { settings } = useUserSettings();
   const rounds = useMemo(() => notesByRound(notes), [notes]);
   const { selected, canGroup, canUngroup, toggle, toggleAll, clearSelection } =
@@ -42,12 +56,28 @@ export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
     momentSec: settings.noteMomentSec,
   });
 
+  const exportButton = onExportPdf ? (
+    <div className="notes-actions">
+      <button
+        type="button"
+        disabled={exportDisabled || exportBusy}
+        title={exportTitle}
+        onClick={onExportPdf}
+      >
+        {exportBusy ? "Exporting…" : "Export PDF"}
+      </button>
+    </div>
+  ) : null;
+
   if (rounds.length === 0) {
     return (
-      <p className="muted tab-hint">
-        Draw or add a text box on the radar. Use Moment to time it. Squash drawings into a layer so
-        the list stays short.
-      </p>
+      <>
+        <p className="muted tab-hint">
+          Draw or add a text box on the radar. Use Moment to time it. Squash drawings into a layer
+          so the list stays short.
+        </p>
+        {exportButton}
+      </>
     );
   }
 
@@ -64,6 +94,7 @@ export function Notes({ replay, tick, notes, onJump, onNotes }: Props) {
         Start/End clocks use the arrows (0:59 then 1:00). Double-click a clock to pin it to the
         playhead. The eye hides a map note or a timeline bookmark.
       </p>
+      {exportButton}
       <NoteActions
         notes={notes}
         selected={selected}
