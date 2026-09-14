@@ -2,34 +2,20 @@ import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router";
 import { AppStateProvider, useApp } from "@/lib/state/appState";
 import type { CreateWorker } from "@/lib/parse/useDemoSession";
-import {
-  isAnalyzerPath,
-  isContactPath,
-  isFaqPath,
-  isLayoutsPath,
-  isPlaybookPath,
-  ROUTES,
-} from "@/lib/app/routes";
+import { applyPageMeta } from "@/lib/app/pageMeta";
+import { isAnalyzerPath, isLayoutsPath, isPlaybookPath, ROUTES } from "@/lib/app/routes";
 import { AppBackdrop } from "@/components/app/AppBackdrop";
 import { Header } from "@/components/app/Header";
 import { Analyzer } from "@/pages/Analyzer";
 import { Contact } from "@/pages/Contact";
 import { Faq } from "@/pages/Faq";
 import { Home } from "@/pages/Home";
+import { NotFound } from "@/pages/NotFound";
 import { Playbook } from "@/pages/Playbook";
 
 const LayoutsApp = import.meta.env.DEV
   ? lazy(() => import("@/components/layouts/LayoutsApp").then((m) => ({ default: m.LayoutsApp })))
   : null;
-
-function pageTitle(pathname: string): string {
-  if (isFaqPath(pathname)) return "FAQ · CS2 Analyzer";
-  if (isContactPath(pathname)) return "Contact · CS2 Analyzer";
-  if (isAnalyzerPath(pathname)) return "Analyzer · CS2 Analyzer";
-  if (isPlaybookPath(pathname)) return "Playbook · CS2 Analyzer";
-  if (import.meta.env.DEV && isLayoutsPath(pathname)) return "Layouts · CS2 Analyzer";
-  return "CS2 Analyzer";
-}
 
 function AppLayout() {
   const { session } = useApp();
@@ -40,7 +26,7 @@ function AppLayout() {
   const fillBoard = onPlaybook || (onAnalyzer && session.replay != null);
 
   useEffect(() => {
-    document.title = pageTitle(pathname);
+    applyPageMeta(pathname);
     const root = document.querySelector(".app");
     if (root) root.scrollTop = 0;
   }, [pathname]);
@@ -75,7 +61,7 @@ function AppRoutes() {
             }
           />
         ) : null}
-        <Route path="*" element={<Home />} />
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   );
