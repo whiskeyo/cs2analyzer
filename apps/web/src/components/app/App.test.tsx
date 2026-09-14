@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { CONTACT_CHANNELS } from "@/lib/app/links";
+import { CONTACT_CHANNELS, ISSUES_URL } from "@/lib/app/links";
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
 import {
   makeFreezeTicks,
@@ -134,6 +134,7 @@ describe("App", () => {
     for (const link of contactLinks) {
       expect(link).toHaveAttribute("href", "/contact");
     }
+    expect(document.title).toBe("CS2 Analyzer");
   });
 
   async function expectPreferencesOnBody() {
@@ -183,7 +184,7 @@ describe("App", () => {
     await userEvent.click(within(hint).getByRole("link", { name: "Contact" }));
     expect(window.location.pathname).toBe("/contact");
     expect(screen.getByRole("heading", { level: 2, name: "Contact" })).toBeInTheDocument();
-    expect(document.title).toBe("Contact · CS2 Analyzer");
+    expect(document.title).toBe("CS2 Analyzer — Contact");
     expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
   });
 
@@ -264,14 +265,14 @@ describe("App", () => {
     expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
-    expect(document.title).toBe("FAQ · CS2 Analyzer");
+    expect(document.title).toBe("CS2 Analyzer — FAQ");
 
     await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
     expect(window.location.pathname).toBe("/analyzer");
     expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
     expect(screen.getByText(/Notes auto-save/)).toBeInTheDocument();
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
-    expect(document.title).toBe("Analyzer · CS2 Analyzer");
+    expect(document.title).toBe("CS2 Analyzer — Analyzer");
   });
 
   it("shows FAQ when opened at /faq", () => {
@@ -295,12 +296,46 @@ describe("App", () => {
       "href",
       "/contact",
     );
-    expect(document.title).toBe("Contact · CS2 Analyzer");
+    expect(document.title).toBe("CS2 Analyzer — Contact");
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
     const cards = [...container.querySelectorAll(".contact-card")];
     expect(cards.map((el) => el.getAttribute("href"))).toEqual(
       CONTACT_CHANNELS.map((channel) => channel.href),
     );
+  });
+
+  it("renders a 404 page with a GitHub issues report link", async () => {
+    window.history.replaceState({}, "", "/this-page-does-not-exist");
+    const { container } = render(
+      <App createWorker={() => new FakeWorker() as unknown as Worker} />,
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: "This page does not exist. Are you sure the link is correct?",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "here" })).toHaveAttribute("href", ISSUES_URL);
+    expect(screen.getByRole("link", { name: "Go back to CS2 Analyzer" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(screen.getByRole("navigation", { name: "Site" })).toBeInTheDocument();
+    expect(container.querySelector(".app-backdrop")).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
+    ).not.toBeInTheDocument();
+    expect(document.title).toBe("CS2 Analyzer — Page not found");
+    expect(document.querySelector('meta[name="description"]')).toHaveAttribute(
+      "content",
+      "This page does not exist.",
+    );
+
+    await userEvent.click(screen.getByRole("link", { name: "Go back to CS2 Analyzer" }));
+    expect(window.location.pathname).toBe("/");
+    expect(
+      screen.getByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
+    ).toBeInTheDocument();
+    expect(document.title).toBe("CS2 Analyzer");
   });
 
   it("keeps a loaded demo while visiting FAQ", async () => {
@@ -321,7 +356,10 @@ describe("App", () => {
     );
     await userEvent.click(screen.getByRole("link", { name: "Playbook" }));
     expect(window.location.pathname).toBe("/playbook");
-    expect(document.title).toBe("Playbook · CS2 Analyzer");
+    expect(document.title).toBe("CS2 Analyzer — Playbook");
+    expect(document.querySelector('meta[name="description"]')?.getAttribute("content")).toMatch(
+      /playbook/i,
+    );
     expect(await screen.findByRole("heading", { name: "Playbooks" })).toBeInTheDocument();
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();

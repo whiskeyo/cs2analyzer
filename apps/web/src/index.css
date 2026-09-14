@@ -55,6 +55,7 @@ body,
 .home-hero,
 .faq,
 .contact,
+.not-found,
 .home-notes {
   width: min(var(--page-width), 94vw);
   margin-inline: auto;
@@ -75,6 +76,7 @@ body,
 .home-intro h2,
 .faq h2,
 .contact h2,
+.not-found h2,
 .drop-title {
   margin: 0 0 0.45rem;
   font-size: var(--page-title-size);
@@ -94,7 +96,8 @@ body,
   text-transform: uppercase;
 }
 .home-intro-lead,
-.faq-lead {
+.faq-lead,
+.not-found-lead {
   margin: 0 0 1.25rem;
   color: var(--text-muted);
   font-size: var(--page-lead-size);
@@ -193,6 +196,16 @@ button.home-card {
   .contact-list {
     grid-template-columns: 1fr;
   }
+}
+.not-found a {
+  color: #8ec4ee;
+}
+.not-found a:hover {
+  color: var(--text);
+}
+.not-found-home {
+  margin: 0;
+  font-size: var(--page-body-size);
 }
 .home .muted,
 .home-card .muted {
