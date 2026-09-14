@@ -39,6 +39,9 @@ cargo test --workspace
 # Native CLI: JSON to stdout, progress to stderr
 cargo run --release -p cs2analyzer-cli -- .demos/your.dem            # summary
 cargo run --release -p cs2analyzer-cli -- .demos/your.dem -s replay  # everything, for fixtures
+cargo run --release -p cs2analyzer-cli -- .demos/your.dem --generate-ts-fixture
+        # two-round tutorial TS under apps/web/src/lib/tutorial/
+        # (walks up from cwd to apps/web/src/lib, or uses the cargo workspace)
 
 # Rust vs TS stats parity on a real demo (opt-in; needs the release CLI built)
 cd apps/web && CS2_DEMO=.demos/your.dem npx vitest run src/lib/stats/parity.test.ts

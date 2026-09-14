@@ -5,9 +5,12 @@
 //! fixture, or check the Rust scoreboard against the one the viewer computes.
 //! JSON goes to stdout and progress to stderr, so output can be piped.
 
+use std::path::Path;
 use std::process::ExitCode;
 
 use cs2analyzer::{compute_stats_until, parse_demo_with_progress, Match, ParseOptions};
+
+mod fixture;
 
 const USAGE: &str = "\
 cs2analyzer — dump a CS2 demo as JSON
@@ -18,7 +21,12 @@ USAGE:
 OPTIONS:
     -s, --section <NAME>  What to print (default: summary)
     -t, --tick <TICK>     Only count events up to this tick (sections: stats, replay)
-        --stride <N>      Keep one tick snapshot every N demo ticks (default: 4)
+        --stride <N>      Keep one tick snapshot every N demo ticks
+                          (default: 4; 6 ≈ 10 Hz when --generate-ts-fixture)
+        --generate-ts-fixture
+                          Two-round tutorial TypeScript under
+                          apps/web/src/lib/tutorial/ (walks up from cwd, or the
+                          cargo workspace). No match JSON on stdout.
         --pretty          Indent the JSON
     -q, --quiet           No progress on stderr
     -h, --help            Show this help
@@ -52,8 +60,10 @@ struct Args {
     section: String,
     tick: u32,
     stride: u32,
+    stride_explicit: bool,
     pretty: bool,
     quiet: bool,
+    generate_ts_fixture: bool,
 }
 
 fn main() -> ExitCode {
@@ -70,7 +80,9 @@ fn main() -> ExitCode {
     };
     match run(&args) {
         Ok(json) => {
-            println!("{json}");
+            if !json.is_empty() {
+                println!("{json}");
+            }
             ExitCode::SUCCESS
         }
         Err(message) => {
@@ -86,8 +98,10 @@ fn parse_args() -> Result<Option<Args>, String> {
     let mut section = "summary".to_string();
     let mut tick = u32::MAX;
     let mut stride = cs2analyzer::DEFAULT_TICK_STRIDE;
+    let mut stride_explicit = false;
     let mut pretty = false;
     let mut quiet = false;
+    let mut generate_ts_fixture = false;
 
     let mut argv = std::env::args().skip(1);
     while let Some(arg) = argv.next() {
@@ -95,9 +109,13 @@ fn parse_args() -> Result<Option<Args>, String> {
             "-h" | "--help" => return Ok(None),
             "--pretty" => pretty = true,
             "-q" | "--quiet" => quiet = true,
+            "--generate-ts-fixture" => generate_ts_fixture = true,
             "-s" | "--section" => section = next_value(&mut argv, &arg)?,
             "-t" | "--tick" => tick = parse_number(&next_value(&mut argv, &arg)?, &arg)?,
-            "--stride" => stride = parse_number(&next_value(&mut argv, &arg)?, &arg)?.max(1),
+            "--stride" => {
+                stride = parse_number(&next_value(&mut argv, &arg)?, &arg)?.max(1);
+                stride_explicit = true;
+            }
             other if other.starts_with('-') => return Err(format!("unknown option {other}")),
             other if path.is_none() => path = Some(other.to_string()),
             other => return Err(format!("unexpected argument {other}")),
@@ -115,8 +133,10 @@ fn parse_args() -> Result<Option<Args>, String> {
         section,
         tick,
         stride,
+        stride_explicit,
         pretty,
         quiet,
+        generate_ts_fixture,
     }))
 }
 
@@ -133,10 +153,15 @@ fn parse_number(value: &str, flag: &str) -> Result<u32, String> {
 fn run(args: &Args) -> Result<String, String> {
     let bytes = std::fs::read(&args.path).map_err(|e| format!("cannot read {}: {e}", args.path))?;
     let progress = progress_reporter(args.quiet);
+    let tick_stride = if args.generate_ts_fixture && !args.stride_explicit {
+        fixture::TUTORIAL_TICK_STRIDE
+    } else {
+        args.stride
+    };
     let parsed = parse_demo_with_progress(
         &bytes,
         ParseOptions {
-            tick_stride: args.stride,
+            tick_stride,
             skip_warmup: true,
         },
         progress,
@@ -145,7 +170,60 @@ fn run(args: &Args) -> Result<String, String> {
     if !args.quiet {
         eprintln!();
     }
+    if args.generate_ts_fixture {
+        return write_ts_fixture(&parsed, args.quiet);
+    }
     section_json(&parsed, args)
+}
+
+/// Slice two live rounds and write TypeScript. Progress and the success
+/// summary go to stderr; stdout stays empty so a pipe never sees megabytes.
+fn write_ts_fixture(parsed: &Match, quiet: bool) -> Result<String, String> {
+    if !quiet {
+        eprintln!(
+            "slicing first {} non-knife regulation rounds",
+            fixture::TUTORIAL_LIVE_ROUNDS
+        );
+    }
+    let slice = fixture::slice_tutorial_match(parsed, fixture::TUTORIAL_LIVE_ROUNDS)?;
+    let dir = fixture::discover_tutorial_dir(Path::new("."))?;
+    if !quiet {
+        eprintln!("writing TypeScript under {}", dir.display());
+    }
+    let hydrate = tutorial_hydrate_source();
+    let summary =
+        fixture::write_tutorial_fixture(&dir, &slice, fixture::TS_SHARD_VALUE_THRESHOLD, hydrate)?;
+    if !quiet {
+        eprintln!("wrote tutorial fixture:");
+        for (name, bytes) in &summary.files {
+            eprintln!("  {name} ({})", format_bytes(*bytes));
+        }
+        eprintln!(
+            "  {} frames, {} players, {} rounds, map {}, origin tick {} → 0",
+            summary.frame_count,
+            summary.player_count,
+            summary.round_count,
+            summary.map_name,
+            summary.origin_tick
+        );
+    }
+    Ok(String::new())
+}
+
+fn tutorial_hydrate_source() -> Option<&'static str> {
+    Some(include_str!(
+        "../../../apps/web/src/lib/tutorial/hydrate.ts"
+    ))
+}
+
+fn format_bytes(n: usize) -> String {
+    if n >= 1024 * 1024 {
+        format!("{:.1} MB", n as f64 / (1024.0 * 1024.0))
+    } else if n >= 1024 {
+        format!("{:.1} KB", n as f64 / 1024.0)
+    } else {
+        format!("{n} B")
+    }
 }
 
 /// Reports whole percents on stderr so a long parse does not look hung.
@@ -266,4 +344,15 @@ fn summary(m: &Match, until_tick: u32) -> serde_json::Value {
 
 fn round2(value: f32) -> f32 {
     (value * 100.0).round() / 100.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::USAGE;
+
+    #[test]
+    fn help_mentions_generate_ts_fixture() {
+        assert!(USAGE.contains("--generate-ts-fixture"));
+        assert!(USAGE.contains("apps/web/src/lib/tutorial"));
+    }
 }
