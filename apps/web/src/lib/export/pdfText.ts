@@ -39,6 +39,18 @@ export function wrapPdfText(font: PDFFont, text: string, size: number, maxWidth:
   return lines;
 }
 
+/** Single-line label that must stay inside a table cell. */
+export function fitPdfText(font: PDFFont, text: string, size: number, maxWidth: number): string {
+  const safe = pdfSafeText(text);
+  if (safe === "" || font.widthOfTextAtSize(safe, size) <= maxWidth) return safe;
+  const ellipsis = "...";
+  let out = safe;
+  while (out.length > 0 && font.widthOfTextAtSize(`${out}${ellipsis}`, size) > maxWidth) {
+    out = out.slice(0, -1);
+  }
+  return out === "" ? ellipsis : `${out}${ellipsis}`;
+}
+
 function splitLongWord(font: PDFFont, word: string, size: number, maxWidth: number): string[] {
   if (font.widthOfTextAtSize(word, size) <= maxWidth) return [word];
   const parts: string[] = [];

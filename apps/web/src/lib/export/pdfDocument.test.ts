@@ -32,6 +32,7 @@ import {
   playbookRadarMaxSize,
   wrapPdfText,
 } from "./pdfDocument";
+import { fitPdfText } from "./pdfText";
 import { playbookPdfPhotoBackPlacement } from "./playbookPdfPhotoBack";
 import { formatPlaybookExportDate, playbookReport } from "./playbookReport";
 
@@ -332,6 +333,17 @@ describe("wrapPdfText", () => {
     const lines = wrapPdfText(font, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", 11, 40);
     expect(lines.length).toBeGreaterThan(1);
     expect(lines.every((line) => font.widthOfTextAtSize(line, 11) <= 40)).toBe(true);
+  });
+});
+
+describe("fitPdfText", () => {
+  it("ellipsis a label that does not fit a cell", async () => {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont("Helvetica");
+    const fitted = fitPdfText(font, "s1mple-the-legend", 10, 24);
+    expect(fitted.endsWith("...")).toBe(true);
+    expect(font.widthOfTextAtSize(fitted, 10)).toBeLessThanOrEqual(24);
+    expect(fitPdfText(font, "A", 10, 40)).toBe("A");
   });
 });
 
