@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
 import { seriesRamWarning } from "@/lib/shared/constants";
 import { makeReplay } from "@/lib/testing/fixtures";
@@ -249,6 +249,83 @@ describe("useDemoSession", () => {
     expect(result.current.switching).toBe(false);
     expect(result.current.replay).toBeNull();
     expect(result.current.fileName).toBe("");
+  });
+
+  it("cancels an in-flight single-file parse without leaving a demo", async () => {
+    const { result, workers, status } = renderSession();
+    const file = demoFile("match.dem");
+    await act(async () => {
+      await result.current.parseDemo(file);
+    });
+    expect(result.current.parsing).toBe(true);
+    expect(result.current.parseFiles?.[0]).toMatchObject({ name: "match.dem", state: "parsing" });
+
+    act(() => {
+      result.current.cancelParse();
+    });
+
+    expect(result.current.parsing).toBe(false);
+    expect(result.current.demo).toBeNull();
+    expect(result.current.progress).toBeNull();
+    expect(result.current.parseFiles).toBeNull();
+    expect(workers[0].terminate).toHaveBeenCalledOnce();
+    expect(status.setNotice).toHaveBeenCalledWith("Parse cancelled.");
+
+    await act(async () => {
+      workers[0].emit({ type: "done", replay: makeReplay(), timings: TIMINGS });
+    });
+    expect(result.current.demo).toBeNull();
+    expect(result.current.parsing).toBe(false);
+  });
+
+  it("does nothing when cancelParse is called while idle", () => {
+    const { result, status } = renderSession();
+    act(() => {
+      result.current.cancelParse();
+    });
+    expect(status.setNotice).not.toHaveBeenCalled();
+    expect(result.current.parsing).toBe(false);
+  });
+
+  it("cancels a series parse without leaving a partial series", async () => {
+    const { result, status } = renderSession();
+    const fileA = demoFile("a.dem");
+    const fileB = demoFile("b.dem");
+    const replayA = makeReplay({
+      header: { map_name: "de_ancient", team_ct: "Spirit", team_t: "G2" },
+    });
+    const demoA = loadedDemo(replayA, "a.dem", fileA);
+
+    let resolvePool!: (
+      value: { file: File; demo?: ReturnType<typeof loadedDemo>; timings?: typeof TIMINGS }[],
+    ) => void;
+    vi.mocked(runParsePool).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePool = resolve;
+        }),
+    );
+
+    const finished = result.current.parseDemos([fileA, fileB]);
+    await waitFor(() => expect(runParsePool).toHaveBeenCalled());
+    expect(result.current.parsing).toBe(true);
+
+    act(() => {
+      result.current.cancelParse();
+    });
+    expect(result.current.parsing).toBe(false);
+    expect(status.setNotice).toHaveBeenCalledWith("Parse cancelled.");
+
+    resolvePool([{ file: fileA, demo: demoA, timings: TIMINGS }]);
+    await act(async () => {
+      await finished;
+    });
+
+    expect(result.current.demo).toBeNull();
+    expect(result.current.series).toBeNull();
+    expect(result.current.mapGroups).toEqual([]);
+    expect(result.current.parsedDemos).toEqual([]);
+    expect(result.current.parseFiles).toBeNull();
   });
 
   it("reuses the warm worker for a second single-file parse", async () => {

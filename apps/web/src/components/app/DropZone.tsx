@@ -9,6 +9,7 @@ import { noteDrawingCount } from "@/lib/notes/note";
 import {
   demoFilePickerAvailable,
   filesFromDataTransfer,
+  pickDemoFileHandle,
   pickOpenFiles,
   rememberDemoFileHandles,
   type ReviewProject,
@@ -25,6 +26,7 @@ interface Props {
   parsing: boolean;
   progress: { current: number; total: number } | null;
   parseFiles: ParseFileProgress[] | null;
+  onCancelParse?: () => void;
   error: string | null;
   notice: string | null;
   saved: ReviewProject[];
@@ -88,6 +90,7 @@ export function DropZone({
   parsing,
   progress,
   parseFiles,
+  onCancelParse,
   error,
   notice,
   saved,
@@ -98,7 +101,8 @@ export function DropZone({
   children,
 }: Props) {
   const [page, setPage] = useState(0);
-  const [wantedDemo, setWantedDemo] = useState<string | null>(null);
+  const [wantedDemo, setWantedDemo] = useState<{ fileName: string; linked: boolean } | null>(null);
+  const [restoreHint, setRestoreHint] = useState<string | null>(null);
   const overallPct =
     progress && progress.total > 0
       ? Math.min(100, Math.round((100 * progress.current) / progress.total))
@@ -114,7 +118,10 @@ export function DropZone({
   useEffect(() => {
     if (!wantedDemo) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setWantedDemo(null);
+      if (e.key === "Escape") {
+        setWantedDemo(null);
+        setRestoreHint(null);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -156,7 +163,7 @@ export function DropZone({
       <p className="muted">Parsed entirely in your browser.</p>
       {parsing && (
         <div className="drop-parse">
-          <ParseProgressPanel overallPct={overallPct} files={parseFiles} />
+          <ParseProgressPanel overallPct={overallPct} files={parseFiles} onCancel={onCancelParse} />
         </div>
       )}
       {error && <p className="error">{error}</p>}
@@ -197,7 +204,13 @@ export function DropZone({
                       onClick={() => {
                         void onTryOpenSaved(p).then((file) => {
                           if (file) onFiles([file]);
-                          else setWantedDemo(p.fileName || "unnamed.dem");
+                          else {
+                            setRestoreHint(null);
+                            setWantedDemo({
+                              fileName: p.fileName || "unnamed.dem",
+                              linked: Boolean(p.linkedFileLabel),
+                            });
+                          }
                         });
                       }}
                     >
@@ -290,7 +303,13 @@ export function DropZone({
       ) : null}
       <Credits />
       {wantedDemo && (
-        <div className="home-modal" onClick={() => setWantedDemo(null)}>
+        <div
+          className="home-modal"
+          onClick={() => {
+            setWantedDemo(null);
+            setRestoreHint(null);
+          }}
+        >
           <div
             className="home-modal-card"
             role="dialog"
@@ -303,18 +322,60 @@ export function DropZone({
             onDrop={(e) => {
               void takeDroppedFiles(e, (files) => {
                 setWantedDemo(null);
+                setRestoreHint(null);
                 onFiles(files);
               });
             }}
           >
             <h2 id="want-demo-title">Restore notes</h2>
             <p>
-              Drop <code>{wantedDemo}</code> here to restore those drawings. The demo itself is not
-              stored.
+              {wantedDemo.linked ? (
+                <>
+                  This browser no longer has permission to read the linked demo. Pick{" "}
+                  <code>{wantedDemo.fileName}</code> again, or drop it here.
+                </>
+              ) : (
+                <>
+                  Drop <code>{wantedDemo.fileName}</code> here to restore those drawings. The demo
+                  itself is not stored.
+                </>
+              )}
             </p>
-            <button type="button" className="ghost" onClick={() => setWantedDemo(null)}>
-              Close
-            </button>
+            {restoreHint && <p className="error">{restoreHint}</p>}
+            <div className="home-modal-actions">
+              {demoFilePickerAvailable() && (
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    void pickDemoFileHandle().then(async (handle) => {
+                      if (!handle) return;
+                      if (handle.name !== wantedDemo.fileName) {
+                        setRestoreHint(`Pick ${wantedDemo.fileName} — selected ${handle.name}.`);
+                        return;
+                      }
+                      rememberDemoFileHandles([handle]);
+                      const file = await handle.getFile();
+                      setWantedDemo(null);
+                      setRestoreHint(null);
+                      onFiles([file]);
+                    });
+                  }}
+                >
+                  Pick demo
+                </button>
+              )}
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setWantedDemo(null);
+                  setRestoreHint(null);
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

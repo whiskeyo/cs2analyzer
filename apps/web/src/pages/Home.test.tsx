@@ -42,6 +42,7 @@ function homeState(saved: ReviewProject[] = []) {
       parsing: false,
       progress: null,
       parseFiles: null,
+      cancelParse: vi.fn(),
     },
     status: { error: null, notice: null },
     review: {

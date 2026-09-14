@@ -23,13 +23,38 @@ export interface ParsePoolProgress {
   files: ParseFileProgress[];
 }
 
-export type ParseFileState = "queued" | "parsing" | "done" | "error";
+export type ParseFileState = "queued" | "parsing" | "done" | "error" | "cancelled";
 
 export interface ParseFileProgress {
   name: string;
   index: number;
   state: ParseFileState;
   pct: number;
+}
+
+/** Short English label for a series file row. */
+export function parseFileStateLabel(file: ParseFileProgress): string {
+  switch (file.state) {
+    case "done":
+      return "Done";
+    case "error":
+      return "Failed";
+    case "queued":
+      return "Waiting";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return `${file.pct}%`;
+  }
+}
+
+/** Files that have finished (ok or failed), for "3 of 8 files". */
+export function parsePoolFinishedCount(files: ParseFileProgress[]): number {
+  return files.filter((file) => file.state === "done" || file.state === "error").length;
+}
+
+export function parsePoolSummary(files: ParseFileProgress[]): string {
+  return `${parsePoolFinishedCount(files)} of ${files.length} files`;
 }
 
 /** Worker count: user cap, hardware, and file count. */
@@ -64,6 +89,7 @@ export function groupParsedDemosByMap(results: ParseFileResult[]): {
   const byMap = new Map<string, LoadedDemo[]>();
 
   for (const result of results) {
+    if (!result || result.cancelled) continue;
     if (result.error) {
       skipped.push(`${result.file.name}: ${result.error}`);
       continue;
@@ -291,14 +317,19 @@ export async function runParsePool(
           .then((result) => {
             inFlight.delete(job.index);
             active -= 1;
+            results[job.index] = result;
             if (result.cancelled) {
+              setFile(job.index, { state: "cancelled" });
+              for (const left of queue) {
+                setFile(left.index, { state: "cancelled", pct: 0 });
+              }
+              queue.length = 0;
               if (active === 0) {
                 flushProgress();
                 resolve();
               }
               return;
             }
-            results[job.index] = result;
             completed += 1;
             if (result.error) setFile(job.index, { state: "error", pct: 100 });
             else setFile(job.index, { state: "done", pct: 100 });
