@@ -4,6 +4,12 @@ node_modules
 src/parser
 # Hand-written FAQ articles (nested `-` lists; Prettier rewrites indent/emphasis).
 src/content/faq
+src/lib/tutorial/header.ts
+src/lib/tutorial/players.ts
+src/lib/tutorial/rounds.ts
+src/lib/tutorial/events.ts
+src/lib/tutorial/ticks.ts
+src/lib/tutorial/ticks_*.ts
 *.tsbuildinfo
 package-lock.json
 public/maps

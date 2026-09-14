@@ -8,7 +8,18 @@ import { sharedRules } from "./config/eslint.base.js";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "coverage/**", "src/parser/**", "*.tsbuildinfo"],
+    ignores: [
+      "dist/**",
+      "coverage/**",
+      "src/parser/**",
+      "src/lib/tutorial/header.ts",
+      "src/lib/tutorial/players.ts",
+      "src/lib/tutorial/rounds.ts",
+      "src/lib/tutorial/events.ts",
+      "src/lib/tutorial/ticks.ts",
+      "src/lib/tutorial/ticks_*.ts",
+      "*.tsbuildinfo",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
