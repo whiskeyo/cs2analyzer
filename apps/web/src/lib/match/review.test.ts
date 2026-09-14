@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { GEAR_FLASH, GEAR_HE } from "@/lib/replay/replayTypes";
-import { ECO_MAX_EQUIPMENT, MIN_REVIEW_FLASH_SECONDS } from "@/lib/shared/constants";
+import {
+  ECO_MAX_EQUIPMENT,
+  HITGROUP_CHEST,
+  MIN_REVIEW_FLASH_SECONDS,
+} from "@/lib/shared/constants";
 import {
   makeBlind,
   makeFreezeTicks,
@@ -87,6 +91,24 @@ describe("playerReview", () => {
     const death = playerReview(m, 0, 640).notes.find((n) => n.tick === 100);
     expect(death?.detail.split(" · ").slice(1)).toEqual([
       "opening death",
+      "untraded",
+      "no damage back",
+      "round lost",
+    ]);
+  });
+
+  it("adds killing-blow hitgroup after opening death when hurts exist", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "CT", "C"), makePlayer(2, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "T" })],
+      ticks: makeFreezeTicks(3, 2),
+      kills: [makeKill(100, 2, 0)],
+      hurts: [makeHurt(100, 2, 0, 34, { hitgroup: HITGROUP_CHEST })],
+    });
+    const death = playerReview(m, 0, 640).notes.find((n) => n.tick === 100);
+    expect(death?.detail.split(" · ").slice(1)).toEqual([
+      "opening death",
+      "chest",
       "untraded",
       "no damage back",
       "round lost",

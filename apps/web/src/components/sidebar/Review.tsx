@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { liveClutch } from "@/lib/match/clutches";
 import { playerReview } from "@/lib/match/review";
-import { matchEndTick } from "@/lib/stats/stats";
+import { reviewHeadshotLine } from "@/lib/match/reviewHeadshot";
+import { computeStats, matchEndTick } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { ReviewNoteFlow } from "./ReviewNoteFlow";
 
@@ -20,6 +21,10 @@ export function Review({ replay, tick, selected, onJump, onSelect }: Props) {
     () => (selected != null ? playerReview(replay, selected, end) : null),
     [replay, selected, end],
   );
+  const hsLine = useMemo(() => {
+    if (selected == null) return null;
+    return reviewHeadshotLine(computeStats(replay, end)[selected]);
+  }, [replay, selected, end]);
   const live = liveClutch(replay, tick);
   const showLive = live != null && selected != null && live.player === selected;
 
@@ -34,7 +39,8 @@ export function Review({ replay, tick, selected, onJump, onSelect }: Props) {
   return (
     <div className="review">
       <p className="tab-hint">
-        <strong>{name}</strong> — openings, clutches, and mistakes.
+        <strong>{name}</strong>
+        {hsLine ? ` · ${hsLine}` : ""} — openings, clutches, and mistakes.
       </p>
       {showLive && live && (
         <button

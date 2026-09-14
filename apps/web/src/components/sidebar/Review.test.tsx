@@ -2,12 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
+  makeHurt,
   makeKill,
   makePlayer,
   makeReplay,
   makeRound,
   makeFreezeTicks,
 } from "@/lib/testing/fixtures";
+import { HITGROUP_CHEST, HITGROUP_HEAD } from "@/lib/shared/constants";
 import { Review } from "./Review";
 
 describe("Review", () => {
@@ -110,6 +112,40 @@ describe("Review", () => {
     );
     expect(screen.getByText(/No player notes in this match/)).toBeInTheDocument();
     expect(screen.queryByRole("toolbar", { name: "Review sort" })).not.toBeInTheDocument();
+  });
+
+  it("shows headshot percent from enemy kills in the review header", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
+      rounds: [
+        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
+      ],
+      kills: [makeKill(200, 0, 1, { headshot: true }), makeKill(300, 0, 1)],
+    });
+    render(
+      <Review replay={replay} tick={640} selected={0} onJump={() => {}} onSelect={() => {}} />,
+    );
+    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.getByText(/50% HS \(1\/2\)/)).toBeInTheDocument();
+  });
+
+  it("includes killing-blow hitgroup on a death note", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
+      rounds: [
+        makeRound({ number: 1, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
+      ],
+      kills: [makeKill(200, 1, 0)],
+      hurts: [
+        makeHurt(120, 1, 0, 20, { hitgroup: HITGROUP_HEAD }),
+        makeHurt(200, 1, 0, 34, { hitgroup: HITGROUP_CHEST }),
+      ],
+    });
+    render(
+      <Review replay={replay} tick={640} selected={0} onJump={() => {}} onSelect={() => {}} />,
+    );
+    expect(screen.getByText(/chest · tagged in head/)).toBeInTheDocument();
+    expect(screen.getByText(/Tagged in the head before 1 death/)).toBeInTheDocument();
   });
 
   it("shows a live clutch for the selected player", async () => {
