@@ -111,6 +111,11 @@ describe("Home", () => {
     expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
+    const contactLinks = screen.getAllByRole("link", { name: "Contact" });
+    expect(contactLinks.length).toBeGreaterThan(0);
+    for (const link of contactLinks) {
+      expect(link).toHaveAttribute("href", "/contact");
+    }
   });
 
   it("opens the create dialog from the playbook card", async () => {

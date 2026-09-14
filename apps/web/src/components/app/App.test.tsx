@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { CONTACT_CHANNELS } from "@/lib/app/links";
 import type { ParseTimings, Replay, WorkerOut } from "@/lib/replay/replayTypes";
 import {
   makeFreezeTicks,
@@ -128,6 +129,11 @@ describe("App", () => {
     expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
+    const contactLinks = screen.getAllByRole("link", { name: "Contact" });
+    expect(contactLinks.length).toBeGreaterThan(0);
+    for (const link of contactLinks) {
+      expect(link).toHaveAttribute("href", "/contact");
+    }
   });
 
   async function expectPreferencesOnBody() {
@@ -166,6 +172,18 @@ describe("App", () => {
     expect(window.location.pathname).toBe("/faq");
     expect(screen.queryByText("Loading FAQ…")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
+  });
+
+  it("opens Contact from the home hint", async () => {
+    const { container } = render(
+      <App createWorker={() => new FakeWorker() as unknown as Worker} />,
+    );
+    const hint = container.querySelector(".home-faq-hint") as HTMLElement;
+    await userEvent.click(within(hint).getByRole("link", { name: "Contact" }));
+    expect(window.location.pathname).toBe("/contact");
+    expect(screen.getByRole("heading", { level: 2, name: "Contact" })).toBeInTheDocument();
+    expect(document.title).toBe("Contact · CS2 Analyzer");
     expect(screen.queryByText(/One Counter-Strike 2/)).not.toBeInTheDocument();
   });
 
@@ -265,6 +283,24 @@ describe("App", () => {
     expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
+  });
+
+  it("shows Contact when opened at /contact", () => {
+    window.history.replaceState({}, "", "/contact");
+    const { container } = render(
+      <App createWorker={() => new FakeWorker() as unknown as Worker} />,
+    );
+    expect(screen.getByRole("heading", { level: 2, name: "Contact" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Contact", current: "page" })).toHaveAttribute(
+      "href",
+      "/contact",
+    );
+    expect(document.title).toBe("Contact · CS2 Analyzer");
+    expect(container.querySelector(".app-backdrop")).toBeTruthy();
+    const cards = [...container.querySelectorAll(".contact-card")];
+    expect(cards.map((el) => el.getAttribute("href"))).toEqual(
+      CONTACT_CHANNELS.map((channel) => channel.href),
+    );
   });
 
   it("keeps a loaded demo while visiting FAQ", async () => {

@@ -1,9 +1,13 @@
+import { Link } from "react-router";
 import { ISSUES_URL, REPO_URL, STEAM_TRADE_URL } from "@/lib/app/links";
+import { ROUTES } from "@/lib/app/routes";
 
 export function Credits() {
   return (
     <footer className="credits">
       <p className="credits-links">
+        <Link to={ROUTES.contact}>Contact</Link>
+        <span aria-hidden="true">·</span>
         <a href={REPO_URL} target="_blank" rel="noreferrer">
           GitHub
         </a>

@@ -7,7 +7,7 @@ import { prettyMap } from "@/lib/weapons/weapons";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { useNavigate } from "react-router";
 import { ROUTES, usePathname } from "@/lib/app/devNavigate";
-import { isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
+import { isContactPath, isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
 import { SettingsMenu } from "./SettingsMenu";
 import { SiteNav } from "./SiteNav";
 
@@ -27,8 +27,9 @@ export function Header() {
   const pathname = usePathname();
   const onLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
   const onFaq = isFaqPath(pathname);
+  const onContact = isContactPath(pathname);
   const onPlaybook = isPlaybookPath(pathname);
-  const showMatchChrome = replay != null && !onFaq && !onLayouts && !onPlaybook;
+  const showMatchChrome = replay != null && !onFaq && !onContact && !onLayouts && !onPlaybook;
 
   return (
     <header className="top">

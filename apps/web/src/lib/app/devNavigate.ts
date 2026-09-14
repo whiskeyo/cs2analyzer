@@ -17,6 +17,7 @@ export function usePathname(): string {
 
 export {
   isAnalyzerPath,
+  isContactPath,
   isFaqPath,
   isHomePath,
   isLayoutsPath,

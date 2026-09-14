@@ -5,6 +5,7 @@ const LINKS = [
   { to: ROUTES.analyzer, label: "Analyzer" },
   { to: ROUTES.playbook, label: "Playbook" },
   { to: ROUTES.faq, label: "FAQ" },
+  { to: ROUTES.contact, label: "Contact" },
 ] as const;
 
 export function SiteNav() {
