@@ -8,6 +8,7 @@ import {
   exportSavedNotes,
   importNotesFromText,
   linkDemoFile,
+  linkedDemoPermissionNotice,
   removeAllSavedNotes,
   tryOpenLinkedDemo,
   type ReviewImportContext,
@@ -20,7 +21,8 @@ const mocks = vi.hoisted(() => ({
   parseBundle: vi.fn(),
   serializeBundle: vi.fn(),
   matchKey: vi.fn(),
-  readLinkedDemoFile: vi.fn(),
+  loadDemoFileHandle: vi.fn(),
+  readFileFromHandle: vi.fn(),
   demoFilePickerAvailable: vi.fn(),
   pickDemoFileHandle: vi.fn(),
   saveDemoFileHandle: vi.fn(),
@@ -38,7 +40,8 @@ vi.mock("./projectStore", () => ({
   parseBundle: mocks.parseBundle,
   serializeBundle: mocks.serializeBundle,
   matchKey: mocks.matchKey,
-  readLinkedDemoFile: mocks.readLinkedDemoFile,
+  loadDemoFileHandle: mocks.loadDemoFileHandle,
+  readFileFromHandle: mocks.readFileFromHandle,
   demoFilePickerAvailable: mocks.demoFilePickerAvailable,
   pickDemoFileHandle: mocks.pickDemoFileHandle,
   saveDemoFileHandle: mocks.saveDemoFileHandle,
@@ -247,13 +250,24 @@ describe("importNotesFromText", () => {
 
 describe("tryOpenLinkedDemo", () => {
   it("returns null when no file is linked", async () => {
-    mocks.readLinkedDemoFile.mockResolvedValue(null);
+    mocks.loadDemoFileHandle.mockResolvedValue(null);
     expect(await tryOpenLinkedDemo(project(), status())).toBeNull();
+    expect(mocks.readFileFromHandle).not.toHaveBeenCalled();
+  });
+
+  it("notices when a linked handle has lost read permission", async () => {
+    const s = status();
+    mocks.loadDemoFileHandle.mockResolvedValue({ name: "match.dem" });
+    mocks.readFileFromHandle.mockResolvedValue(null);
+    expect(await tryOpenLinkedDemo(project({ fileName: "match.dem" }), s)).toBeNull();
+    expect(s.notice).toBe(linkedDemoPermissionNotice("match.dem"));
+    expect(s.error).toBeNull();
   });
 
   it("errors when the linked filename does not match", async () => {
     const s = status();
-    mocks.readLinkedDemoFile.mockResolvedValue(new File([], "wrong.dem"));
+    mocks.loadDemoFileHandle.mockResolvedValue({ name: "wrong.dem" });
+    mocks.readFileFromHandle.mockResolvedValue(new File([], "wrong.dem"));
     expect(await tryOpenLinkedDemo(project({ fileName: "match.dem" }), s)).toBeNull();
     expect(s.error).toContain("wrong.dem");
     expect(s.error).toContain("match.dem");
@@ -261,7 +275,8 @@ describe("tryOpenLinkedDemo", () => {
 
   it("returns the linked file when names match", async () => {
     const file = new File([], "match.dem");
-    mocks.readLinkedDemoFile.mockResolvedValue(file);
+    mocks.loadDemoFileHandle.mockResolvedValue({ name: "match.dem" });
+    mocks.readFileFromHandle.mockResolvedValue(file);
     expect(await tryOpenLinkedDemo(project({ fileName: "match.dem" }), status())).toBe(file);
   });
 });
