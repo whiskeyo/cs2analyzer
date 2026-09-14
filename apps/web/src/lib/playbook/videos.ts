@@ -45,6 +45,38 @@ export function removeVideo(videos: readonly PlaybookYouTube[], id: string): Pla
   return videos.filter((clip) => clip.id !== id);
 }
 
+export function renameVideo(
+  videos: readonly PlaybookYouTube[],
+  id: string,
+  title: string,
+): PlaybookYouTube[] {
+  const next = title.trim();
+  if (next === "") return videos as PlaybookYouTube[];
+  let changed = false;
+  const renamed = videos.map((clip) => {
+    if (clip.id !== id || clip.title === next) return clip;
+    changed = true;
+    return { ...clip, title: next };
+  });
+  return changed ? renamed : (videos as PlaybookYouTube[]);
+}
+
+export function reorderVideos(
+  videos: readonly PlaybookYouTube[],
+  from: number,
+  to: number,
+): PlaybookYouTube[] {
+  if (from === to) return videos as PlaybookYouTube[];
+  if (from < 0 || to < 0 || from >= videos.length || to >= videos.length) {
+    return videos as PlaybookYouTube[];
+  }
+  const next = videos.slice();
+  const [moved] = next.splice(from, 1);
+  if (!moved) return videos as PlaybookYouTube[];
+  next.splice(to, 0, moved);
+  return next;
+}
+
 /** 1-based index when a floor has more than one clip; otherwise omit. */
 export function playbookVideoPinIndex(
   videos: readonly PlaybookYouTube[],
