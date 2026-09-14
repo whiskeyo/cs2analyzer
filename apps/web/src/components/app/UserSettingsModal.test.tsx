@@ -286,4 +286,12 @@ describe("UserSettingsModal", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(IDB_QUOTA_MESSAGE);
     expect(screen.getByLabelText("Saved notes page size")).toHaveValue(8);
   });
+
+  it("includes local database usage in Preferences", async () => {
+    renderModal();
+    expect(await screen.findByRole("heading", { name: "Local database" })).toBeInTheDocument();
+    expect(await screen.findByText(/Local database usage:/)).toBeInTheDocument();
+    expect(screen.getByText(/pages cannot raise it/)).toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: /storage/i })).not.toBeInTheDocument();
+  });
 });

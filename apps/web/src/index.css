@@ -1271,6 +1271,64 @@ code {
 .settings-summary {
   margin-top: 0.35rem;
 }
+.settings-usage-total {
+  margin: 0 0 0.45rem !important;
+  font-size: 0.86rem !important;
+  color: var(--text) !important;
+}
+.settings-usage-bar {
+  display: flex;
+  height: 0.7rem;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #1e2732;
+  margin: 0 0 0.55rem;
+}
+.settings-usage-seg {
+  min-width: 0;
+  height: 100%;
+}
+.settings-usage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  margin: 0 0 0.55rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.settings-usage-swatch {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 2px;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+.settings-usage-seg.is-notes,
+.settings-usage-swatch.is-notes {
+  background: #7dcea0;
+}
+.settings-usage-seg.is-playbooks,
+.settings-usage-swatch.is-playbooks {
+  background: #6cb6ff;
+}
+.settings-usage-seg.is-photos,
+.settings-usage-swatch.is-photos {
+  background: #e0a060;
+}
+.settings-usage-seg.is-settings,
+.settings-usage-swatch.is-settings {
+  background: #c5d0da;
+}
+.settings-usage-seg.is-other,
+.settings-usage-swatch.is-other {
+  background: #5c6b7a;
+}
+.settings-section > button.ghost {
+  margin: 0 0 0.55rem;
+}
 .settings-reset-confirm {
   z-index: calc(var(--z-modal) + 1);
 }

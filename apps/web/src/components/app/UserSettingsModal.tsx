@@ -12,6 +12,7 @@ import {
 } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { UserSettingsPdfSection, UserSettingsResetDialog } from "./userSettingsPanels";
+import { UserSettingsStorageSection } from "./StorageUsageSection";
 import {
   DRAW_TOOL_LABELS,
   FLOOR_MODES,
@@ -369,6 +370,8 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           onTheme={(pdfTheme) => void update({ pdfTheme })}
           onPhotos={(pdfPhotos) => void update({ pdfPhotos })}
         />
+
+        <UserSettingsStorageSection />
 
         <div className="home-modal-actions">
           <button type="button" className="ghost" onClick={onClose}>
