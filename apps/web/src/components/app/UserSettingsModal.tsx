@@ -11,12 +11,11 @@ import {
   type DefaultSidebarTab,
 } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
+import { UserSettingsPdfSection, UserSettingsResetDialog } from "./userSettingsPanels";
 import {
   DRAW_TOOL_LABELS,
   FLOOR_MODES,
   LAYER_LABELS,
-  PDF_PHOTO_MODES,
-  PDF_THEME_MODES,
   SIDEBAR_TAB_LABELS,
   radarGrayValueText,
 } from "./userSettingsOptions";
@@ -358,47 +357,12 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           </label>
         </section>
 
-        <section className="settings-section">
-          <h3>Playbook PDF</h3>
-          <p className="settings-hint">
-            Dark matches the app. Light is paper-friendly. Radar stills sit on the page color — no
-            extra panel behind the map. Without photos skips embedded lineup pictures; pins stay.
-          </p>
-          <div className="settings-field">
-            <span>Page theme</span>
-            <span className="floor-picks">
-              {PDF_THEME_MODES.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  className={settings.pdfTheme === mode.id ? "on" : ""}
-                  aria-pressed={settings.pdfTheme === mode.id}
-                  aria-label={`${mode.label} PDF`}
-                  onClick={() => void update({ pdfTheme: mode.id })}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </span>
-          </div>
-          <div className="settings-field">
-            <span>Photos</span>
-            <span className="floor-picks">
-              {PDF_PHOTO_MODES.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  className={settings.pdfPhotos === mode.id ? "on" : ""}
-                  aria-pressed={settings.pdfPhotos === mode.id}
-                  aria-label={mode.label}
-                  onClick={() => void update({ pdfPhotos: mode.id })}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </span>
-          </div>
-        </section>
+        <UserSettingsPdfSection
+          pdfTheme={settings.pdfTheme}
+          pdfPhotos={settings.pdfPhotos}
+          onTheme={(pdfTheme) => void update({ pdfTheme })}
+          onPhotos={(pdfPhotos) => void update({ pdfPhotos })}
+        />
 
         <div className="home-modal-actions">
           <button type="button" className="ghost" onClick={onClose}>
@@ -411,41 +375,13 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
       </div>
 
       {confirmReset ? (
-        <div
-          className="home-modal settings-reset-confirm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setConfirmReset(false);
+        <UserSettingsResetDialog
+          titleId={confirmTitleId}
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={() => {
+            void reset().then(() => setConfirmReset(false));
           }}
-        >
-          <div
-            className="home-modal-card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={confirmTitleId}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id={confirmTitleId}>Reset all settings?</h2>
-            <p>
-              This restores shipped defaults. Saved notes, linked demos, and playbooks are not
-              deleted.
-            </p>
-            <div className="home-modal-actions">
-              <button type="button" className="ghost" onClick={() => setConfirmReset(false)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="danger"
-                onClick={() => {
-                  void reset().then(() => setConfirmReset(false));
-                }}
-              >
-                Reset all
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       ) : null}
     </div>,
     document.body,

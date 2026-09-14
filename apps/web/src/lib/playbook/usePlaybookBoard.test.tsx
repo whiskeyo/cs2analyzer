@@ -31,10 +31,20 @@ function setup(
   const book = newPlaybook("de_mirage", "A execs");
   const page = opts.page ?? book.pages[0]!;
   const { result, rerender } = renderHook(
-    ({ book: nextBook, tool, floorLayer, page: nextPage }) =>
+    ({
+      book: nextBook,
+      tool,
+      floorLayer,
+      page: nextPage,
+    }: {
+      book: typeof book;
+      tool?: "pan" | "pen";
+      floorLayer?: PlaybookFloorLayer;
+      page?: PlaybookPage;
+    }) =>
       usePlaybookBoard({
         book: nextBook,
-        page: nextPage,
+        page: nextPage ?? page,
         floorLayer,
         history,
         setNote,
@@ -45,12 +55,12 @@ function setup(
       initialProps: {
         book,
         tool: opts.defaultTool,
-        floorLayer: opts.floorLayer,
         page,
+        ...(opts.floorLayer != null ? { floorLayer: opts.floorLayer } : {}),
       },
     },
   );
-  return { result, rerender, setNote, setPalette, history, book };
+  return { result, rerender, setNote, setPalette, history, book, page };
 }
 
 describe("usePlaybookBoard", () => {
@@ -95,13 +105,13 @@ describe("usePlaybookBoard", () => {
   });
 
   it("applies the default tool when a new playbook opens, not when the setting changes", () => {
-    const { result, rerender, book } = setup("pan");
+    const { result, rerender, book, page } = setup("pan");
     fireEvent.keyDown(window, { key: "a" });
     expect(result.current.tool).toBe("arrow");
-    rerender({ book, tool: "pen" });
+    rerender({ book, tool: "pen", page });
     expect(result.current.tool).toBe("arrow");
     const next = newPlaybook("de_mirage", "B execs");
-    rerender({ book: next, tool: "pen" });
+    rerender({ book: next, tool: "pen", page });
     expect(result.current.tool).toBe("pen");
   });
 
