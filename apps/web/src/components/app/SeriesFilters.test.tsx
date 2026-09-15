@@ -2,7 +2,10 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
+import type { RoundKind } from "@/lib/parse/roundTags";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
+import type { SeriesOverlay } from "@/lib/parse/seriesOverlay";
+import type { Side } from "@/lib/replay/replayTypes";
 import { makeReplay } from "@/lib/testing/fixtures";
 import { SeriesFilters } from "./SeriesFilters";
 
@@ -33,11 +36,11 @@ function multiDemoHabits() {
     habits: {
       filter: { side: "CT" as const, kind: "full" as const },
       overlayOn: false,
-      focalPlayers: [],
-      playerKey: null,
+      focalPlayers: [] as { key: string; name: string }[],
+      playerKey: null as string | null,
       aggregated: false,
-      bucketOverlay: null,
-      overlay: null,
+      bucketOverlay: null as { kind: RoundKind; side: Side } | null,
+      overlay: null as SeriesOverlay | null,
       overlayArrows: false,
       overlayTrails: true,
       overlayDisplay: "trails" as const,
