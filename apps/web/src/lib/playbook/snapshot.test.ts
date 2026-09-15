@@ -288,7 +288,7 @@ function overlayTrail(partial: Partial<HabitsTrail> = {}): HabitsTrail {
 function overlayOf(partial: Partial<SeriesOverlay> = {}): SeriesOverlay {
   return {
     trails: [],
-    heatDots: [],
+    branches: [],
     nades: [],
     roundCount: 1,
     windowSec: 10,

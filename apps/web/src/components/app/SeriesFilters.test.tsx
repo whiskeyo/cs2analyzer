@@ -78,7 +78,10 @@ describe("SeriesFilters", () => {
 
   it("shows team, side, and buy filters for multi-demo", () => {
     const { session, habits } = multiDemoHabits();
-    vi.mocked(useApp).mockReturnValue({ session, habits } as unknown as ReturnType<typeof useApp>);
+    vi.mocked(useApp).mockReturnValue({
+      session,
+      habits,
+    } as unknown as ReturnType<typeof useApp>);
     render(<SeriesFilters />);
     expect(screen.getByLabelText("Focal team for habits")).toBeInTheDocument();
     expect(screen.getByRole("toolbar", { name: "Habits side" })).toBeInTheDocument();
@@ -87,7 +90,10 @@ describe("SeriesFilters", () => {
 
   it("calls habits setters when filters change", async () => {
     const { session, habits } = multiDemoHabits();
-    vi.mocked(useApp).mockReturnValue({ session, habits } as unknown as ReturnType<typeof useApp>);
+    vi.mocked(useApp).mockReturnValue({
+      session,
+      habits,
+    } as unknown as ReturnType<typeof useApp>);
     render(<SeriesFilters />);
 
     await userEvent.click(screen.getByRole("button", { name: "T" }));
@@ -95,5 +101,60 @@ describe("SeriesFilters", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Eco" }));
     expect(habits.setKind).toHaveBeenCalledWith("eco");
+  });
+
+  it("hides Overall outside aggregated overlay", () => {
+    const { session, habits } = multiDemoHabits();
+    vi.mocked(useApp).mockReturnValue({
+      session,
+      habits,
+    } as unknown as ReturnType<typeof useApp>);
+    render(<SeriesFilters />);
+    expect(screen.queryByRole("toolbar", { name: "Habits path display" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Overall" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Heatmap" })).not.toBeInTheDocument();
+  });
+
+  it("keeps Overall hidden in aggregated view until a bucket overlay is on", () => {
+    const { session, habits } = multiDemoHabits();
+    habits.aggregated = true;
+    habits.overlayOn = true;
+    vi.mocked(useApp).mockReturnValue({
+      session,
+      habits,
+    } as unknown as ReturnType<typeof useApp>);
+    render(<SeriesFilters />);
+    expect(screen.getByRole("checkbox", { name: "Overlay" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Overall" })).not.toBeInTheDocument();
+  });
+
+  it("shows Overall instead of Heatmap only on an aggregated overlay", async () => {
+    const { session, habits } = multiDemoHabits();
+    habits.aggregated = true;
+    habits.overlayOn = true;
+    habits.bucketOverlay = { kind: "full", side: "CT" };
+    habits.focalPlayers = [{ key: "steam:1", name: "Donk" }];
+    habits.overlay = {
+      trails: [],
+      branches: [],
+      nades: [],
+      roundCount: 4,
+      windowSec: 20,
+    };
+    vi.mocked(useApp).mockReturnValue({
+      session,
+      habits,
+    } as unknown as ReturnType<typeof useApp>);
+    render(<SeriesFilters />);
+
+    expect(screen.getByRole("toolbar", { name: "Habits path display" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Overall" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Paths" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Heatmap" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Filter habits by player")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "All players" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Overall" }));
+    expect(habits.setOverlayDisplay).toHaveBeenCalledWith("overall");
   });
 });

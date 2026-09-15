@@ -118,7 +118,7 @@ export function SeriesFilters() {
                 {(
                   [
                     { id: "trails", label: "Paths" },
-                    { id: "heatmap", label: "Heatmap" },
+                    { id: "overall", label: "Overall" },
                   ] as const
                 ).map((mode) => (
                   <button
@@ -149,8 +149,8 @@ export function SeriesFilters() {
         <span className="series-bucket-meta">
           {habits.overlay.roundCount} rounds · freeze +{habits.bucketPlaySec.toFixed(1)}s /{" "}
           {habits.overlay.windowSec.toFixed(0)}s ·{" "}
-          {habits.overlayDisplay === "heatmap"
-            ? "heatmap"
+          {habits.overlayDisplay === "overall"
+            ? `${habits.overlay.branches.length} branches`
             : habits.overlayTrails
               ? `${habits.overlay.trails.length} paths`
               : "paths off"}{" "}

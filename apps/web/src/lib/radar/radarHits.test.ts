@@ -51,7 +51,7 @@ describe("canvasLocalPoint", () => {
 describe("habitsJumpAtScreen", () => {
   const overlay = {
     trails: [],
-    heatDots: [],
+    branches: [],
     nades: [],
     roundCount: 0,
     windowSec: 0,

@@ -8,6 +8,7 @@ import {
   makeRound,
   makeTicks,
 } from "@/lib/testing/fixtures";
+import { playerIdentityKey } from "./seriesRoster";
 import { buildSeries, loadedDemo } from "./session";
 import {
   bucketWindowSecForTag,
@@ -309,7 +310,39 @@ describe("buildSeriesOverlay", () => {
     expect(overlay.nades).toHaveLength(1);
     expect(overlay.nades[0]?.kind).toBe("smoke");
     expect(overlay.nades[0]?.grenade.points.length).toBe(2);
-    expect(overlay.heatDots.length).toBeGreaterThan(0);
+    expect(overlay.branches.length).toBeGreaterThan(0);
+  });
+
+  it("scopes Overall branches to one player or the whole side", () => {
+    const focal = "Team A";
+    const replay = makeReplay({
+      header: { team_ct: focal, team_t: "B" },
+      players: [
+        makePlayer(0, "CT", "A", 100),
+        makePlayer(1, "CT", "B", 101),
+        makePlayer(2, "T", "C", 200),
+      ],
+      ticks: makeTrailTicks(),
+      rounds: [
+        makeRound({
+          number: 1,
+          team_ct: focal,
+          team_t: "B",
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 2000,
+        }),
+      ],
+    });
+    const demo = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const series = buildSeries("de_mirage", [demo], focal);
+    const filter = { side: "CT" as const, kind: "pistol" as const };
+    const team = buildSeriesOverlay(series, filter, null, 8);
+    const one = buildSeriesOverlay(series, filter, playerIdentityKey(replay, 0), 8);
+    expect(one.trails.length).toBeGreaterThan(0);
+    expect(one.trails.length).toBeLessThan(team.trails.length);
+    expect(team.branches[0]?.totalRuns).toBe(team.trails.length);
+    expect(one.branches[0]?.totalRuns).toBe(one.trails.length);
   });
 
   it("renders in-flight nades with a partial arc at the playhead", () => {
@@ -391,7 +424,7 @@ describe("habitsArrowAtScreen", () => {
           survivedTick: null,
         },
       ],
-      heatDots: [],
+      branches: [],
       nades: [],
       roundCount: 1,
       windowSec: 20,

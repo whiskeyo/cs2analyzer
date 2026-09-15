@@ -61,7 +61,14 @@ function matchReplay(overrides: Parameters<typeof makeReplay>[0] = {}) {
       makePlayer(2, "T", "Cara"),
       makePlayer(3, "T", "Dan"),
     ],
-    rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 5000 })],
+    rounds: [
+      makeRound({
+        number: 1,
+        start_tick: 0,
+        freeze_end_tick: 64,
+        end_tick: 5000,
+      }),
+    ],
     ticks: makeFreezeTicks(4, 2),
     ...overrides,
   });
@@ -250,7 +257,11 @@ describe("paintRadarFrame", () => {
 
   it("paints a grenade SVG at the flight head when the icon is loaded", () => {
     const ctx = createMockCanvas();
-    const icon = { complete: true, naturalWidth: 15, naturalHeight: 32 } as HTMLImageElement;
+    const icon = {
+      complete: true,
+      naturalWidth: 15,
+      naturalHeight: 32,
+    } as HTMLImageElement;
     const nade = frame(
       matchReplay({
         grenades: [
@@ -319,8 +330,18 @@ describe("paintRadarFrame", () => {
             end_tick: 0,
             points: [{ tick: 100, x: 500, y: 500, z: 0 }],
             fires: [
-              { x: 100, y: 200, start_tick: 100, end_tick: 100 + MOLOTOV_SECONDS * tps },
-              { x: 300, y: 400, start_tick: 100, end_tick: 100 + MOLOTOV_SECONDS * tps },
+              {
+                x: 100,
+                y: 200,
+                start_tick: 100,
+                end_tick: 100 + MOLOTOV_SECONDS * tps,
+              },
+              {
+                x: 300,
+                y: 400,
+                start_tick: 100,
+                end_tick: 100 + MOLOTOV_SECONDS * tps,
+              },
             ],
           }),
         ],
@@ -401,7 +422,9 @@ describe("paintRadarFrame", () => {
 
   it("paints shot tracers with glow and core lines", () => {
     const ctx = createMockCanvas();
-    const replay = matchReplay({ shots: [makeShot(200, 0, { yaw: 0, x: 50, y: 50 })] });
+    const replay = matchReplay({
+      shots: [makeShot(200, 0, { yaw: 0, x: 50, y: 50 })],
+    });
     const f = frame(replay, 200);
     paintRadarFrame(ctx, f, toScreen, paintOpts);
     expect(f.tracers).toHaveLength(1);
@@ -504,16 +527,18 @@ describe("paintRadarFrame", () => {
 describe("paintHabitsOverlay", () => {
   const nadeFilter = { smoke: true, molotov: true, flash: true, he: true };
 
-  it("paints heatmap dots in heatmap display mode", () => {
+  it("paints Overall branches and percent labels", () => {
     const ctx = createMockCanvas();
     const overlay = habitsOverlay();
-    paintHabitsOverlay(ctx, overlay, "heatmap", nadeFilter, toScreen, 1, {
+    paintHabitsOverlay(ctx, overlay, "overall", nadeFilter, toScreen, 1, {
       showTrails: true,
       playSec: 5,
     });
-    expect(overlay.heatDots.length).toBeGreaterThan(0);
-    expect(ctx.arc).toHaveBeenCalled();
-    expect(ctx.fill).toHaveBeenCalled();
+    expect(overlay.branches.length).toBeGreaterThan(0);
+    expect(ctx.stroke).toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalled();
+    const label = ctx.fillText.mock.calls.find((call) => String(call[0]).includes("%"));
+    expect(label?.[0]).toMatch(/% \(\d+\/\d+\)/);
   });
 
   it("paints trails and death crosses in trails display mode", () => {
@@ -639,10 +664,10 @@ describe("paintHabitsOverlay", () => {
     expect(ctx.rotate).not.toHaveBeenCalled();
   });
 
-  it("paints util with reduced opacity in heatmap mode", () => {
+  it("paints util in Overall mode", () => {
     const ctx = createMockCanvas();
     const overlay = habitsOverlay();
-    paintHabitsOverlay(ctx, overlay, "heatmap", nadeFilter, toScreen, 1, {
+    paintHabitsOverlay(ctx, overlay, "overall", nadeFilter, toScreen, 1, {
       nadesOn: true,
       nadeOpacity: 0.5,
       playSec: 1.5,

@@ -66,7 +66,7 @@ export interface SeriesHabitsState {
   setBucketPlaySec: (sec: number | ((prev: number) => number)) => void;
   /** Max seconds after freeze for the active bucket (longest matched round). */
   bucketWindowSec: number;
-  /** Player-path display: individual trails or a density heatmap. */
+  /** Player-path display: individual trails or the Overall path tree. */
   overlayDisplay: SeriesOverlayDisplay;
   setOverlayDisplay: (display: SeriesOverlayDisplay) => void;
   /** Freeze-relative path polylines (default off). */

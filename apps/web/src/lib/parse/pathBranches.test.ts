@@ -105,9 +105,7 @@ describe("buildPathBranches", () => {
     const trunk = branches.find((b) => b.label === "100% (20/20)");
     expect(trunk?.points.length).toBeGreaterThan(1);
     const left = branches.find((b) => b.label === "75% (15/20)");
-    expect(left?.labelAt).toEqual(
-      left?.points[Math.floor((left?.points.length ?? 0) / 2)],
-    );
+    expect(left?.labelAt).toEqual(left?.points[Math.floor((left?.points.length ?? 0) / 2)]);
   });
 
   it("hides forks under the min share and keeps a 5% fork", () => {

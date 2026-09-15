@@ -9,6 +9,12 @@
 
 /** Habits trail polyline. */
 export const OVERLAY_HABITS_TRAIL_STROKE = 2.2;
+/** Aggregated Overall path-tree stroke (screen px), scaled by fork share. */
+export const OVERLAY_PATH_BRANCH_STROKE_MIN = 1.8;
+export const OVERLAY_PATH_BRANCH_STROKE_MAX = 5.5;
+/** Overall percentage labels stay CSS pixels so zoom does not smear them. */
+export const OVERLAY_PATH_BRANCH_LABEL_FONT = 11;
+export const OVERLAY_PATH_BRANCH_LABEL_HALO = 3;
 /** Live replay trail polyline. */
 export const OVERLAY_REPLAY_TRAIL_STROKE = 2;
 /** Pawn / habits-arrow chevron (unselected). */

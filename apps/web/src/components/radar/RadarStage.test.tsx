@@ -276,7 +276,7 @@ describe("RadarStage", () => {
     const state = radarState();
     state.habits.overlay = {
       trails: [],
-      heatDots: [],
+      branches: [],
       nades: [],
       roundCount: 0,
       windowSec: 5,
@@ -300,7 +300,7 @@ describe("RadarStage", () => {
     const state = radarState();
     state.habits.overlay = {
       trails: [],
-      heatDots: [],
+      branches: [],
       nades: [],
       roundCount: 4,
       windowSec: 30,
