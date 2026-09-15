@@ -6,9 +6,20 @@ import { roundLabel } from "@/lib/match/reviewItems/support";
 import { roundClock } from "@/lib/match/roundEvents";
 import { isPistolRoundNumber } from "@/lib/parse/roundTags";
 import { playerLabel } from "@/lib/replay/playerLabel";
-import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
+import {
+  FLAG_CT,
+  FLAG_PRESENT,
+  type Replay,
+  type Round,
+  type Side,
+} from "@/lib/replay/replayTypes";
 import { currentRound, samplePlayers } from "@/lib/replay/sample";
-import { ECO_MAX_EQUIPMENT, FORCE_BUY_MAX_EQUIPMENT, tickRate } from "@/lib/shared/constants";
+import {
+  COMPETITIVE_PLAYERS_PER_SIDE,
+  ECO_MAX_EQUIPMENT,
+  FORCE_BUY_MAX_EQUIPMENT,
+  tickRate,
+} from "@/lib/shared/constants";
 import {
   computeStats,
   currentSide,
@@ -176,6 +187,39 @@ function noteItems(note: Note): MatchReportNoteItem[] {
   return items;
 }
 
+function presentSidesAtFrame(replay: Replay, frame: number): { ct: number; t: number } {
+  const buf = replay.ticks;
+  let ct = 0;
+  let t = 0;
+  const base = frame * buf.playerCount;
+  for (let p = 0; p < buf.playerCount; p++) {
+    const flag = buf.flags[base + p] ?? 0;
+    if ((flag & FLAG_PRESENT) === 0) continue;
+    if ((flag & FLAG_CT) !== 0) ct += 1;
+    else t += 1;
+  }
+  return { ct, t };
+}
+
+/**
+ * Last sampled frame where both sides still have a full competitive roster.
+ * Counts `FLAG_PRESENT` only (dead pawns stay on the sheet). Falls back to
+ * `matchEndTick` when the demo never has 5 CT + 5 T present at once.
+ */
+export function matchRosterTick(replay: Replay): number {
+  const end = matchEndTick(replay);
+  const buf = replay.ticks;
+  for (let frame = buf.frameCount - 1; frame >= 0; frame--) {
+    const tick = buf.ticks[frame] ?? 0;
+    if (tick > end) continue;
+    const sides = presentSidesAtFrame(replay, frame);
+    if (sides.ct >= COMPETITIVE_PLAYERS_PER_SIDE && sides.t >= COMPETITIVE_PLAYERS_PER_SIDE) {
+      return tick;
+    }
+  }
+  return end;
+}
+
 function scoreboardPlayers(replay: Replay, tick: number): MatchReport["players"] {
   const stats = computeStats(replay, tick);
   const live = new Set(liveScoreboardPlayers(replay, tick));
@@ -266,7 +310,7 @@ export function matchReport(
   fileName: string,
   exportedAt = Date.now(),
 ): MatchReport {
-  const tick = matchEndTick(replay);
+  const tick = matchRosterTick(replay);
   const card = matchScorecard(replay, tick);
   const teams = liveTeams(replay, tick);
   const mapLabel = prettyMap(replay.header.map_name);

@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
-import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
+import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
+import { FULL_HEALTH, NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
+import { liveScoreboardPlayers } from "@/lib/stats/stats";
 import {
   makeFreezeTicks,
   makeKill,
   makePlayer,
   makeReplay,
   makeRound,
+  makeTicks,
 } from "@/lib/testing/fixtures";
 import {
   MATCH_PDF_ECO_ECO,
@@ -21,6 +24,7 @@ import {
   matchPdfHeading,
   matchPdfStem,
   matchReport,
+  matchRosterTick,
   matchRoundEconomy,
 } from "./matchReport";
 
@@ -168,5 +172,85 @@ describe("matchReport", () => {
     const report = matchReport(scoredReplay(), [], "match.dem", EXPORTED_AT);
     expect(report.notes).toEqual([]);
     expect(report.bookmarks).toEqual([]);
+  });
+
+  it("freezes the scoreboard on the last 5v5 roster after late disconnects", () => {
+    const players = [
+      makePlayer(0, "CT", "CT0"),
+      makePlayer(1, "CT", "CT1"),
+      makePlayer(2, "CT", "CT2"),
+      makePlayer(3, "CT", "CT3"),
+      makePlayer(4, "CT", "CT4"),
+      makePlayer(5, "T", "T0"),
+      makePlayer(6, "T", "T1"),
+      makePlayer(7, "T", "T2"),
+      makePlayer(8, "T", "T3"),
+      makePlayer(9, "T", "T4"),
+    ];
+    const ticks = makeTicks(10, 3);
+    ticks.ticks.set([64, 640, 800]);
+    for (let frame = 0; frame < 3; frame++) {
+      for (let i = 0; i < 10; i++) {
+        const slot = frame * 10 + i;
+        const left = frame === 2 && i >= 8;
+        ticks.flags[slot] = left ? 0 : FLAG_PRESENT | FLAG_ALIVE | (i < 5 ? FLAG_CT : 0);
+        ticks.health[slot] = FULL_HEALTH;
+      }
+    }
+    const replay = makeReplay({
+      header: { map_name: "de_mirage", team_ct: "NAVI", team_t: "Vitality" },
+      players,
+      rounds: [
+        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
+      ],
+      kills: [makeKill(200, 0, 5)],
+      ticks,
+    });
+    expect(liveScoreboardPlayers(replay, 800)).toHaveLength(8);
+    expect(matchRosterTick(replay)).toBe(640);
+    const report = matchReport(replay, [], "match.dem", EXPORTED_AT);
+    expect(report.players.ct).toHaveLength(5);
+    expect(report.players.t).toHaveLength(5);
+    expect(report.players.ct.map((p) => p.name).sort()).toEqual([
+      "CT0",
+      "CT1",
+      "CT2",
+      "CT3",
+      "CT4",
+    ]);
+    expect(report.players.t.map((p) => p.name).sort()).toEqual(["T0", "T1", "T2", "T3", "T4"]);
+    expect(report.scoreLine).toBe("NAVI - Vitality, 1:0 (1:0)");
+  });
+
+  it("falls back to the demo end when a full 5v5 never appears", () => {
+    const replay = scoredReplay();
+    expect(matchRosterTick(replay)).toBe(640);
+  });
+
+  it("counts dead but present pawns toward the 5v5 roster", () => {
+    const ticks = makeTicks(10, 1);
+    ticks.ticks[0] = 640;
+    for (let i = 0; i < 10; i++) {
+      ticks.flags[i] = FLAG_PRESENT | (i < 5 ? FLAG_CT : 0);
+      if (i !== 2 && i !== 7) ticks.flags[i] |= FLAG_ALIVE;
+      ticks.health[i] = i === 2 || i === 7 ? 0 : FULL_HEALTH;
+    }
+    const replay = makeReplay({
+      players: [
+        makePlayer(0, "CT", "CT0"),
+        makePlayer(1, "CT", "CT1"),
+        makePlayer(2, "CT", "CT2"),
+        makePlayer(3, "CT", "CT3"),
+        makePlayer(4, "CT", "CT4"),
+        makePlayer(5, "T", "T0"),
+        makePlayer(6, "T", "T1"),
+        makePlayer(7, "T", "T2"),
+        makePlayer(8, "T", "T3"),
+        makePlayer(9, "T", "T4"),
+      ],
+      rounds: [makeRound({ number: 1, end_tick: 640 })],
+      ticks,
+    });
+    expect(matchRosterTick(replay)).toBe(640);
   });
 });
