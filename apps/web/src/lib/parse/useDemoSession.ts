@@ -137,6 +137,26 @@ export function useDemoSession(opts: {
     setParsing(false);
   }, []);
 
+  /** Stop an in-flight single or series parse. No half-loaded demo/series is left. */
+  const cancelParse = useCallback(() => {
+    if (!parsingRef.current) return;
+    parseGenRef.current += 1;
+    parsingRef.current = false;
+    poolRef.current?.reset();
+    if (progressRafRef.current) cancelAnimationFrame(progressRafRef.current);
+    progressRafRef.current = 0;
+    setParsing(false);
+    setProgress(null);
+    setParseFiles(null);
+    setDemo(null);
+    setSeries(null);
+    setMapGroups([]);
+    setSelectedMapName(null);
+    setParsedDemos([]);
+    setSwitching(false);
+    statusRef.current.setNotice("Parse cancelled.");
+  }, []);
+
   const parseDemo = useCallback(
     (file: File) => {
       const named = demoFileNameIssue(file);
@@ -150,7 +170,7 @@ export function useDemoSession(opts: {
       statusRef.current.clear();
       setParsing(true);
       setProgress({ current: 0, total: 100 });
-      setParseFiles(null);
+      setParseFiles([{ name: file.name, index: 0, state: "parsing", pct: 0 }]);
       setDemo(null);
       setSeries(null);
       setMapGroups([]);
@@ -168,7 +188,9 @@ export function useDemoSession(opts: {
           .parseFile(file, (current, workerTotal) => {
             if (gen !== parseGenRef.current) return;
             const total = workerTotal > 0 ? workerTotal : 1;
-            scheduleProgress(Math.round((100 * current) / total), 100);
+            const pct = Math.round((100 * current) / total);
+            scheduleProgress(pct, 100);
+            setParseFiles([{ name: file.name, index: 0, state: "parsing", pct }]);
           })
           .then((result) => {
             if (gen !== parseGenRef.current) return;
@@ -382,6 +404,7 @@ export function useDemoSession(opts: {
     switching,
     parseDemo,
     parseDemos,
+    cancelParse,
     selectDemo,
     selectMap,
     setFocalTeam,

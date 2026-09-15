@@ -11,10 +11,13 @@ import {
   createParseWorkerPool,
   groupParsedDemosByMap,
   mapNameFromReplay,
+  parseFileStateLabel,
   parsePoolBar,
+  parsePoolFinishedCount,
   parsePoolOverallPct,
   parsePoolHardwareCap,
   parsePoolSize,
+  parsePoolSummary,
   runParsePool,
   type ParseFileResult,
 } from "./parsePool";
@@ -92,6 +95,34 @@ describe("parsePoolBar", () => {
   });
 });
 
+describe("parseFileStateLabel", () => {
+  it("uses full words for finished and queued rows", () => {
+    expect(parseFileStateLabel({ name: "a.dem", index: 0, state: "done", pct: 100 })).toBe("Done");
+    expect(parseFileStateLabel({ name: "a.dem", index: 0, state: "error", pct: 100 })).toBe(
+      "Failed",
+    );
+    expect(parseFileStateLabel({ name: "a.dem", index: 0, state: "queued", pct: 0 })).toBe(
+      "Waiting",
+    );
+    expect(parseFileStateLabel({ name: "a.dem", index: 0, state: "cancelled", pct: 20 })).toBe(
+      "Cancelled",
+    );
+    expect(parseFileStateLabel({ name: "a.dem", index: 0, state: "parsing", pct: 42 })).toBe("42%");
+  });
+});
+
+describe("parsePoolSummary", () => {
+  it("counts finished files including failures", () => {
+    const files = [
+      { name: "a.dem", index: 0, state: "done" as const, pct: 100 },
+      { name: "b.dem", index: 1, state: "error" as const, pct: 100 },
+      { name: "c.dem", index: 2, state: "parsing" as const, pct: 10 },
+    ];
+    expect(parsePoolFinishedCount(files)).toBe(2);
+    expect(parsePoolSummary(files)).toBe("2 of 3 files");
+  });
+});
+
 describe("parsePoolOverallPct", () => {
   it("returns zero for an empty pool", () => {
     expect(
@@ -131,6 +162,14 @@ describe("groupParsedDemosByMap errors", () => {
     ]);
     expect(groups).toEqual([]);
     expect(skipped).toEqual(["bad.dem: corrupt"]);
+  });
+
+  it("skips cancelled slots so a reset cannot assemble a half series", () => {
+    const { groups, skipped } = groupParsedDemosByMap([
+      { file: new File([], "a.dem"), cancelled: true },
+    ]);
+    expect(groups).toEqual([]);
+    expect(skipped).toEqual([]);
   });
 });
 
@@ -354,6 +393,42 @@ describe("runParsePool", () => {
     const result = await parse;
     expect(result.cancelled).toBe(true);
     expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
+  it("marks remaining series files cancelled when the pool is reset mid-parse", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 1 });
+    let onmessage: ((ev: MessageEvent) => void) | null = null;
+    const worker = {
+      set onmessage(fn: ((ev: MessageEvent) => void) | null) {
+        onmessage = fn;
+      },
+      get onmessage() {
+        return onmessage;
+      },
+      set onerror(_fn: ((ev: ErrorEvent) => void) | null) {},
+      terminate: vi.fn(),
+      postMessage: vi.fn(),
+    } as unknown as Worker;
+
+    const pool = createParseWorkerPool(() => worker);
+    const onProgress = vi.fn();
+    const files = [new File([], "a.dem"), new File([], "b.dem"), new File([], "c.dem")];
+    const running = runParsePool(pool, files, onProgress, 1);
+
+    await vi.waitFor(() => expect(worker.postMessage).toHaveBeenCalled());
+    pool.reset();
+    const results = await running;
+
+    expect(results[0]?.cancelled).toBe(true);
+    expect(results[1]).toBeUndefined();
+    expect(results[2]).toBeUndefined();
+    const last = onProgress.mock.calls.at(-1)?.[0];
+    expect(last?.files.map((row: { state: string }) => row.state)).toEqual([
+      "cancelled",
+      "cancelled",
+      "cancelled",
+    ]);
+    expect(worker.terminate).toHaveBeenCalled();
   });
 });
 

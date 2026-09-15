@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { PlaybookYouTube } from "@/lib/playbook/types";
-import { nextVideoPin, removeVideo } from "@/lib/playbook/videos";
+import { nextVideoPin, removeVideo, renameVideo, reorderVideos } from "@/lib/playbook/videos";
+import { useEditableName } from "@/lib/shared/useEditableName";
 import {
   fetchYouTubeTitle,
   formatVideoStart,
@@ -21,6 +22,46 @@ interface Props {
   onCancelPin: () => void;
 }
 
+function VideoTitle({
+  clip,
+  onRename,
+}: {
+  clip: PlaybookYouTube;
+  onRename: (id: string, title: string) => void;
+}) {
+  const { draft, editing, beginEdit, setDraft, commit, onKeyDown } = useEditableName(
+    clip.title,
+    (next) => onRename(clip.id, next),
+  );
+  if (!editing) {
+    return (
+      <span
+        className="playbook-video-title"
+        title="Double-click to rename"
+        onDoubleClick={(event) => {
+          event.stopPropagation();
+          event.preventDefault();
+          beginEdit();
+        }}
+      >
+        {clip.title}
+      </span>
+    );
+  }
+  return (
+    <input
+      className="playbook-video-title"
+      value={draft}
+      aria-label={`Rename ${clip.title}`}
+      autoFocus
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={onKeyDown}
+    />
+  );
+}
+
 export function PlaybookVideos({
   videos,
   onVideos,
@@ -35,7 +76,12 @@ export function PlaybookVideos({
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const open = videos.find((clip) => clip.id === openId) ?? null;
+  const playing = open != null && playingId === open.id;
+  const parsed = parseYouTubeUrl(input);
+  const pasteError =
+    input.trim() !== "" && !parsed ? "Paste a YouTube link (youtube.com or youtu.be)." : error;
 
   useEffect(() => {
     if (!pendingPin) return;
@@ -65,32 +111,32 @@ export function PlaybookVideos({
   };
 
   const add = async () => {
-    const parsed = parseYouTubeUrl(input);
-    if (!parsed) {
+    const next = parseYouTubeUrl(input);
+    if (!next) {
       setError("Paste a YouTube link (youtube.com or youtu.be).");
       return;
     }
-    if (videos.some((clip) => sameYouTubeVideo(clip, parsed))) {
+    if (videos.some((clip) => sameYouTubeVideo(clip, next))) {
       setError("That video is already on this strat.");
       return;
     }
     setPending(true);
     setError(null);
-    const title = (await fetchYouTubeTitle(parsed.videoId)) ?? YOUTUBE_UNTITLED;
+    const title = (await fetchYouTubeTitle(next.videoId)) ?? YOUTUBE_UNTITLED;
     const at = pendingPin ?? nextVideoPin(videos);
     const clip: PlaybookYouTube = {
       id: crypto.randomUUID(),
-      videoId: parsed.videoId,
-      url: youtubeWatchUrl(parsed.videoId, parsed.startSeconds),
+      videoId: next.videoId,
+      url: youtubeWatchUrl(next.videoId, next.startSeconds),
       title,
       x: at.x,
       y: at.y,
-      ...(parsed.startSeconds != null ? { startSeconds: parsed.startSeconds } : {}),
+      ...(next.startSeconds != null ? { startSeconds: next.startSeconds } : {}),
     };
     onVideos([...videos, clip]);
     setInput("");
     setPending(false);
-    onOpen(clip.id);
+    onCancelPin();
   };
 
   const remove = (id: string) => {
@@ -119,7 +165,7 @@ export function PlaybookVideos({
           }}
         />
       </label>
-      <button type="submit" disabled={pending || input.trim() === ""}>
+      <button type="submit" disabled={pending || !parsed}>
         {pending ? "Adding…" : "Add"}
       </button>
     </form>
@@ -133,11 +179,10 @@ export function PlaybookVideos({
         </p>
       ) : (
         <ul className="playbook-video-list">
-          {videos.map((clip) => {
-            const label =
-              clip.startSeconds != null
-                ? `${clip.title} · ${formatVideoStart(clip.startSeconds)}`
-                : clip.title;
+          {videos.map((clip, index) => {
+            const start =
+              clip.startSeconds != null ? ` · ${formatVideoStart(clip.startSeconds)}` : "";
+            const label = `${clip.title}${start}`;
             return (
               <li key={clip.id} className="playbook-video">
                 <button
@@ -145,21 +190,53 @@ export function PlaybookVideos({
                   className={
                     clip.id === openId ? "playbook-video-open is-active" : "playbook-video-open"
                   }
-                  onClick={() => onOpen(clip.id)}
+                  aria-label={label}
+                  onClick={() => {
+                    setPlayingId(null);
+                    onOpen(clip.id);
+                  }}
                 >
                   <span className="playbook-video-thumb">
                     <img src={youtubeThumbUrl(clip.videoId)} alt="" loading="lazy" />
                   </span>
-                  <span>{label}</span>
                 </button>
-                <button
-                  type="button"
-                  className="playbook-video-remove"
-                  aria-label={`Remove ${clip.title}`}
-                  onClick={() => remove(clip.id)}
-                >
-                  ×
-                </button>
+                <span className="playbook-video-meta">
+                  <VideoTitle
+                    clip={clip}
+                    onRename={(id, title) => onVideos(renameVideo(videos, id, title))}
+                  />
+                  {start !== "" ? (
+                    <span className="playbook-video-start">{start.trim()}</span>
+                  ) : null}
+                </span>
+                <div className="playbook-video-tools">
+                  <button
+                    type="button"
+                    className="playbook-video-move"
+                    aria-label={`Move ${clip.title} up`}
+                    disabled={index === 0}
+                    onClick={() => onVideos(reorderVideos(videos, index, index - 1))}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="playbook-video-move"
+                    aria-label={`Move ${clip.title} down`}
+                    disabled={index === videos.length - 1}
+                    onClick={() => onVideos(reorderVideos(videos, index, index + 1))}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className="playbook-video-remove"
+                    aria-label={`Remove ${clip.title}`}
+                    onClick={() => remove(clip.id)}
+                  >
+                    ×
+                  </button>
+                </div>
               </li>
             );
           })}
@@ -177,7 +254,12 @@ export function PlaybookVideos({
             <h2 id={pasteTitleId}>Add YouTube clip</h2>
             <p>Paste a youtube.com or youtu.be link for this pin.</p>
             {addForm}
-            {error ? <p className="error">{error}</p> : null}
+            {parsed ? (
+              <div className="playbook-video-preview">
+                <img src={youtubeThumbUrl(parsed.videoId)} alt="" />
+              </div>
+            ) : null}
+            {pasteError ? <p className="error">{pasteError}</p> : null}
             <div className="home-modal-actions">
               <button type="button" className="ghost" onClick={cancelPin}>
                 Cancel
@@ -197,13 +279,24 @@ export function PlaybookVideos({
           >
             <h2 id={playerTitleId}>{open.title}</h2>
             <div className="playbook-video-frame">
-              <iframe
-                src={youtubeEmbedUrl(open.videoId, open.startSeconds)}
-                title={open.title}
-                referrerPolicy="strict-origin-when-cross-origin"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
+              {playing ? (
+                <iframe
+                  src={youtubeEmbedUrl(open.videoId, open.startSeconds)}
+                  title={open.title}
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="playbook-video-poster"
+                  onClick={() => setPlayingId(open.id)}
+                >
+                  <img src={youtubeThumbUrl(open.videoId)} alt="" />
+                  <span>Play</span>
+                </button>
+              )}
             </div>
             <div className="home-modal-actions">
               <a href={open.url} target="_blank" rel="noreferrer">

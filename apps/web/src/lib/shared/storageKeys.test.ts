@@ -12,6 +12,7 @@ describe("STORAGE_KEYS", () => {
       playbookDetailWidth: "cs2analyzer.playbookDetailWidth",
       layoutsSidebarWidth: "cs2analyzer.layoutsSidebarWidth",
       playbookFocus: "cs2analyzer.playbook.focus",
+      snapshotRecentBooks: "cs2analyzer.snapshotRecentBooks",
     });
   });
 });
