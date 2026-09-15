@@ -5,10 +5,11 @@ import {
   addBookmark,
   clearRoundDrawings,
   makeBookmark,
-  noteForRound,
+  noteForAnalyzerBoard,
   updateRoundNote,
 } from "@/lib/notes";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
+import { isAggregatedView } from "@/lib/parse/seriesMode";
 import { snapshotFromAnalyzer } from "@/lib/playbook/snapshot";
 import { analyzerPawnLegend } from "@/lib/radar/pawnLegend";
 import { currentRound } from "@/lib/replay/sample";
@@ -36,6 +37,9 @@ export function RadarStage() {
   if (!replay) return null;
   const { tick } = playback;
   const habitsOnly = habits.overlay != null;
+  const aggregated = isAggregatedView(session.series, habits);
+  const round = currentRound(replay, tick);
+  const boardNote = noteForAnalyzerBoard(review.notes, round?.number ?? 0, aggregated);
   const pawnLegend = analyzerPawnLegend(session.series, habits, habits.overlay);
 
   return (
@@ -71,16 +75,15 @@ export function RadarStage() {
           onUndo: review.undo,
           onRedo: review.redo,
           onClear: () => {
-            const round = currentRound(replay, tick)?.number;
+            if (aggregated) return;
             if (round == null) {
               review.commitNotes([]);
               return;
             }
-            review.commitNotes(updateRoundNote(review.notes, round, clearRoundDrawings));
+            review.commitNotes(updateRoundNote(review.notes, round.number, clearRoundDrawings));
           },
           onStampBookmark: () => {
-            const round = currentRound(replay, tick);
-            if (!round) {
+            if (aggregated || !round) {
               return;
             }
             review.commitNotes(
@@ -131,7 +134,7 @@ export function RadarStage() {
               summaryFilter: review.summaryFilter,
               selected: view.selected,
               trails: view.trails,
-              note: noteForRound(review.notes, currentRound(replay, tick)?.number ?? 0),
+              note: boardNote,
             }),
           )
         }
@@ -148,10 +151,10 @@ export function RadarStage() {
           trails={view.trails}
           tool={view.tool}
           color={review.color}
-          note={noteForRound(review.notes, currentRound(replay, tick)?.number ?? 0)}
+          note={boardNote}
           onNote={(next) => {
-            const round = currentRound(replay, tick)?.number ?? 0;
-            review.commitNotes(updateRoundNote(review.notes, round, () => next));
+            if (aggregated || round == null) return;
+            review.commitNotes(updateRoundNote(review.notes, round.number, () => next));
           }}
           onPan={() => view.setFollow(false)}
           onPause={() => playback.setPlaying(false)}

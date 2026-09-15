@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import * as playbookStore from "@/lib/playbook/playbookStore";
 import { SNAPSHOT_RECENT_BOOKS_KEY } from "@/lib/shared/storageKeys";
 import { useApp } from "@/lib/state/appState";
+import type { Note } from "@/lib/notes/types";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { DEFAULT_HABITS_NADE_FILTER, type SeriesOverlay } from "@/lib/parse/seriesOverlay";
@@ -22,8 +23,13 @@ vi.mock("@/lib/state/appState", () => ({
   useApp: vi.fn(),
 }));
 
+const canvasProbe = { note: null as Note | null };
+
 vi.mock("./RadarCanvas", () => ({
-  RadarCanvas: () => <canvas data-testid="radar-canvas" />,
+  RadarCanvas: (props: { note: Note }) => {
+    canvasProbe.note = props.note;
+    return <canvas data-testid="radar-canvas" />;
+  },
 }));
 
 function radarState(replay = makeReplay()) {
@@ -121,6 +127,7 @@ function radarState(replay = makeReplay()) {
 
 describe("RadarStage", () => {
   beforeEach(async () => {
+    canvasProbe.note = null;
     vi.mocked(useApp).mockReset();
     await playbookStore.deleteAllPlaybooks();
     localStorage.removeItem(SNAPSHOT_RECENT_BOOKS_KEY);
@@ -145,6 +152,65 @@ describe("RadarStage", () => {
     expect(container.querySelector(".radar-col")).toBeInTheDocument();
     expect(screen.getByTestId("radar-canvas")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Draw" })).toBeInTheDocument();
+  });
+
+  it("clears the prior round's notes on Aggregated and restores them on a live round", () => {
+    const series = {
+      mapName: "de_dust2",
+      focalTeam: "Spirit",
+      demos: [{ id: "d1" }, { id: "d2" }],
+    };
+    const noted = radarState(
+      makeReplay({
+        rounds: [
+          makeRound({
+            number: 1,
+            start_tick: 0,
+            freeze_end_tick: 64,
+            end_tick: 640,
+          }),
+        ],
+      }),
+    );
+    noted.session.series = series;
+    vi.mocked(useApp).mockReturnValue(noted as unknown as ReturnType<typeof useApp>);
+    const { rerender } = renderStage();
+    expect(canvasProbe.note?.drawings).toHaveLength(1);
+    expect(canvasProbe.note?.bookmarks).toHaveLength(1);
+
+    const aggregated = radarState(
+      makeReplay({
+        rounds: [
+          makeRound({
+            number: 1,
+            start_tick: 0,
+            freeze_end_tick: 64,
+            end_tick: 640,
+          }),
+        ],
+      }),
+    );
+    aggregated.session.series = series;
+    aggregated.review.notes = noted.review.notes;
+    aggregated.habits.aggregated = true;
+    vi.mocked(useApp).mockReturnValue(aggregated as unknown as ReturnType<typeof useApp>);
+    rerender(
+      <TestRouter>
+        <RadarStage />
+      </TestRouter>,
+    );
+    expect(canvasProbe.note?.drawings).toEqual([]);
+    expect(canvasProbe.note?.bookmarks).toEqual([]);
+    expect(canvasProbe.note?.pieces).toEqual([]);
+
+    vi.mocked(useApp).mockReturnValue(noted as unknown as ReturnType<typeof useApp>);
+    rerender(
+      <TestRouter>
+        <RadarStage />
+      </TestRouter>,
+    );
+    expect(canvasProbe.note?.drawings).toHaveLength(1);
+    expect(canvasProbe.note?.bookmarks).toHaveLength(1);
   });
 
   it("wires undo, clear, and bookmark actions from the toolbar", async () => {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { emptyNote } from "@/lib/notes/note";
+import { PLAYER_TINTS } from "@/lib/notes/palettes";
 import type { Piece } from "@/lib/notes/types";
 import {
   DEFAULT_HABITS_NADE_FILTER,
@@ -397,7 +398,9 @@ describe("overlayToPieces", () => {
       }),
       1,
     );
+    expect(pieces[0]?.color).toBe(PLAYER_TINTS[0]);
     expect(pieces[0]?.color).toBe(pieces[1]?.color);
+    expect(pieces[2]?.color).toBe(PLAYER_TINTS[1]);
     expect(pieces[0]?.color).not.toBe(pieces[2]?.color);
   });
 

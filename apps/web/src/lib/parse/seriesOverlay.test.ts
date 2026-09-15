@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
-import { makeGrenade, makeKill, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
+import {
+  makeGrenade,
+  makeKill,
+  makePlayer,
+  makeReplay,
+  makeRound,
+  makeTicks,
+} from "@/lib/testing/fixtures";
 import { buildSeries, loadedDemo } from "./session";
 import {
   bucketWindowSecForTag,
@@ -14,6 +21,7 @@ import {
   overlayAtPlaySec,
 } from "./seriesOverlay";
 import { nadeRenderAt } from "@/lib/radar/radarFrame";
+import { PLAYER_TINTS, UNKNOWN_STEAM_TINT } from "@/lib/notes/palettes";
 import { steamColor } from "./seriesSteamColor";
 
 function makeTrailTicks(frames = 5): ReturnType<typeof makeTicks> {
@@ -33,8 +41,13 @@ function makeTrailTicks(frames = 5): ReturnType<typeof makeTicks> {
 }
 
 describe("steamColor", () => {
-  it("is stable for the same Steam ID", () => {
-    expect(steamColor(123456789)).toBe(steamColor(123456789));
+  it("assigns distinct palette tints per Steam ID and stays stable", () => {
+    const assigned = new Map<string, string>();
+    expect(steamColor(123456789, assigned)).toBe(PLAYER_TINTS[0]);
+    expect(steamColor(987654321, assigned)).toBe(PLAYER_TINTS[1]);
+    expect(steamColor(123456789, assigned)).toBe(PLAYER_TINTS[0]);
+    expect(steamColor(0, assigned)).toBe(UNKNOWN_STEAM_TINT);
+    expect(steamColor(987654321, assigned)).not.toBe(steamColor(123456789, assigned));
   });
 });
 
@@ -62,6 +75,36 @@ describe("buildSeriesOverlay", () => {
     expect(overlay.windowSec).toBeGreaterThan(20);
     expect(overlay.trails.length).toBeGreaterThan(0);
     expect(overlay.trails[0].points.length).toBeGreaterThan(1);
+  });
+
+  it("gives each Steam ID a distinct overlay tint from the shared palette", () => {
+    const focal = "Team A";
+    const playerCount = 10;
+    const ctCount = 5;
+    const players = Array.from({ length: playerCount }, (_, i) =>
+      makePlayer(i, i < ctCount ? "CT" : "T", `P${i}`, 100 + i),
+    );
+    const replay = makeReplay({
+      header: { team_ct: focal, team_t: "B" },
+      players,
+      ticks: makeTrailTicks(),
+      rounds: [
+        makeRound({
+          number: 1,
+          team_ct: focal,
+          team_t: "B",
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 2000,
+        }),
+      ],
+    });
+    const demo = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const series = buildSeries("de_mirage", [demo], focal);
+    const overlay = buildSeriesOverlay(series, { side: "CT", kind: "pistol" });
+    const colors = overlay.trails.map((trail) => trail.color);
+    expect(new Set(colors).size).toBe(ctCount);
+    expect(colors).toEqual(PLAYER_TINTS.slice(0, ctCount));
   });
 
   it("shortens trails when the window is smaller", () => {

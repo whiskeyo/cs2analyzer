@@ -189,7 +189,13 @@ function sampleForwardTrail(
     if (t < fromTick || t > untilTick) continue;
     const i = f * pc + player;
     if ((buf.flags[i] & FLAG_PRESENT) === 0) continue;
-    out.push({ x: buf.x[i], y: buf.y[i], z: buf.z[i], tick: t, yaw: buf.yaw[i] });
+    out.push({
+      x: buf.x[i],
+      y: buf.y[i],
+      z: buf.z[i],
+      tick: t,
+      yaw: buf.yaw[i],
+    });
   }
   return out;
 }
@@ -266,6 +272,7 @@ export function buildSeriesOverlay(
   const windowSec = windowSeconds ?? bucketWindowSecForFilter(series, filter);
   const trails: HabitsTrail[] = [];
   const nades: HabitsNade[] = [];
+  const steamTints = new Map<string, string>();
   let roundCount = 0;
 
   for (const demo of series.demos) {
@@ -301,7 +308,7 @@ export function buildSeriesOverlay(
           tps,
           steamId: sid,
           playerName: meta?.name ?? "?",
-          color: steamColor(sid),
+          color: steamColor(sid, steamTints),
           points,
           deathAt,
           deathTick,

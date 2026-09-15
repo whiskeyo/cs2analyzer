@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { emptyNote } from "./note";
-import { noteForRound, noteRoundNumbers, updateRoundNote, upsertRoundNote } from "./roundNotes";
+import {
+  noteForAnalyzerBoard,
+  noteForRound,
+  noteRoundNumbers,
+  updateRoundNote,
+  upsertRoundNote,
+} from "./roundNotes";
 import type { Drawing } from "./types";
 
 const pen: Drawing = { type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] };
@@ -8,6 +14,13 @@ const pen: Drawing = { type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] };
 describe("roundNotes", () => {
   it("returns an empty note for a round that has no row", () => {
     expect(noteForRound([], 1)).toEqual(emptyNote());
+  });
+
+  it("hides notes on Aggregated and restores them for a live round", () => {
+    const notes = [{ round: 1, note: { ...emptyNote(), drawings: [pen] } }];
+    expect(noteForAnalyzerBoard(notes, 1, false).drawings).toEqual([pen]);
+    expect(noteForAnalyzerBoard(notes, 1, true)).toEqual(emptyNote());
+    expect(noteForAnalyzerBoard(notes, 1, false).drawings).toEqual([pen]);
   });
 
   it("upserts a round and drops empty notes", () => {

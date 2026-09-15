@@ -43,7 +43,13 @@ export {
 } from "./note";
 export { parseDrawing, parseNote, parseRoundNote, parseRoundNotes } from "./noteParse";
 export { strokesToRoundNotes, strokesToNote } from "./migrate";
-export { noteForRound, upsertRoundNote, updateRoundNote, noteRoundNumbers } from "./roundNotes";
+export {
+  noteForRound,
+  noteForAnalyzerBoard,
+  upsertRoundNote,
+  updateRoundNote,
+  noteRoundNumbers,
+} from "./roundNotes";
 export {
   nextGroupId,
   nextLayerName,

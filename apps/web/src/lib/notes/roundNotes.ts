@@ -5,6 +5,16 @@ export function noteForRound(notes: readonly RoundNote[], round: number): Note {
   return notes.find((row) => row.round === round)?.note ?? emptyNote();
 }
 
+/** Aggregated boards have no notes; a live round keeps that round's ink. */
+export function noteForAnalyzerBoard(
+  notes: readonly RoundNote[],
+  round: number,
+  aggregated: boolean,
+): Note {
+  if (aggregated) return emptyNote();
+  return noteForRound(notes, round);
+}
+
 function noteIsEmpty(note: Note): boolean {
   return (
     note.groups.length === 0 &&
