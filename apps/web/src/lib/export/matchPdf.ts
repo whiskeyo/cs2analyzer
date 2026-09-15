@@ -13,7 +13,6 @@ import {
   MATCH_PDF_KICKER,
   MATCH_PDF_NO_NOTES,
   MATCH_PDF_NOTES,
-  MATCH_PDF_RATING_NOTE,
   MATCH_PDF_REOPEN,
   MATCH_PDF_SCOREBOARD,
   PLAYBOOK_PDF_BODY_SIZE,
@@ -298,13 +297,6 @@ function drawCover(writer: Writer, report: MatchReport): TocHit[] {
   drawGap(writer, 8);
   drawTeamTable(writer, report.ctName, report.ctScore, report.players.ct);
   drawTeamTable(writer, report.tName, report.tScore, report.players.t);
-  drawWrapped(
-    writer,
-    MATCH_PDF_RATING_NOTE,
-    PLAYBOOK_PDF_SMALL_SIZE,
-    writer.fonts.regular,
-    writer.colors.muted,
-  );
   drawGap(writer);
   drawLines(
     writer,

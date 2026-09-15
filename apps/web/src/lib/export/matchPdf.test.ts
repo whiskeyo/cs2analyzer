@@ -14,7 +14,6 @@ import {
   MATCH_PDF_KICKER,
   MATCH_PDF_NO_NOTES,
   MATCH_PDF_NOTES,
-  MATCH_PDF_RATING_NOTE,
   MATCH_PDF_REOPEN,
   MATCH_PDF_SCOREBOARD,
   PLAYBOOK_PDF_FOOTER,
@@ -208,7 +207,7 @@ describe("buildMatchPdf", () => {
     expect(text).toContain("ZywOo");
     expect(text).toContain(MATCH_PDF_NOTES);
     expect(text).toContain("Flash mid");
-    expect(text).toContain(MATCH_PDF_RATING_NOTE);
+    expect(text).not.toContain("HLTV");
     expect(text).toContain(MATCH_PDF_REOPEN);
     expect(text).toContain(PLAYBOOK_PDF_FOOTER);
     expect(text).not.toContain(MATCH_PDF_NO_NOTES);
@@ -247,6 +246,7 @@ describe("buildMatchPdf", () => {
     const text = pdfDrawnText(bytes);
     expect(text).toContain(MATCH_PDF_BOOKMARKS);
     expect(text).toContain("Entry timing");
+    expect(text).toContain(MATCH_PDF_NO_NOTES);
     expect(pdfImageCount(bytes)).toBeGreaterThan(0);
   });
 

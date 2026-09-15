@@ -73,7 +73,6 @@ export const MATCH_PDF_NOTES = "Notes";
 export const MATCH_PDF_BOOKMARKS = "Bookmarks";
 export const MATCH_PDF_NO_NOTES = "No notes on this match.";
 export const MATCH_PDF_REOPEN = "Re-open the .dem in cs2analyzer to scrub.";
-export const MATCH_PDF_RATING_NOTE = "Rating is HLTV 2.0-style, not FACEIT official.";
 export const MATCH_PDF_FILE_FALLBACK = "match";
 export const MATCH_PDF_COL_PLAYER = "Player";
 export const MATCH_PDF_COL_K = "K";
