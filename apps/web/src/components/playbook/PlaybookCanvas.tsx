@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { PawnLegend } from "@/components/radar/PawnLegend";
 import { canvasInputsChanged, useCanvasLoop } from "@/lib/shared/useCanvasLoop";
 import { type Drawing, type FloorMode, type NadeStyle, type Note } from "@/lib/notes/types";
 import { defaultPlaybookColor } from "@/lib/playbook/pages";
@@ -227,16 +228,7 @@ export function PlaybookCanvas(props: Props) {
       }}
     >
       <canvas ref={canvasRef} />
-      {legend.length > 0 ? (
-        <ul className="playbook-legend" aria-label="Player colours">
-          {legend.map((entry) => (
-            <li key={entry.label}>
-              <span className="playbook-legend-swatch" style={{ background: entry.color }} />
-              {entry.label}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <PawnLegend entries={legend} />
     </div>
   );
 }

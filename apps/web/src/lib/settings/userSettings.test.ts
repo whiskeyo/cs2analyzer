@@ -221,4 +221,8 @@ describe("parseUserSettings", () => {
   it("keeps skipKnifeOnOpen false when stored", () => {
     expect(parseUserSettings({ skipKnifeOnOpen: false }).skipKnifeOnOpen).toBe(false);
   });
+
+  it("drops a leftover livePawnLegend field", () => {
+    expect("livePawnLegend" in parseUserSettings({ livePawnLegend: true })).toBe(false);
+  });
 });

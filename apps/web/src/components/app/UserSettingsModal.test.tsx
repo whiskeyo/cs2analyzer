@@ -195,6 +195,7 @@ describe("UserSettingsModal", () => {
   it("moves the map color slider and persists radarGray", async () => {
     renderModal();
     const slider = await screen.findByLabelText("Radar map color");
+    expect(screen.queryByRole("checkbox", { name: /pawn colour legend/i })).toBeNull();
     expect(slider).toHaveValue("100");
     expect(slider).toHaveAttribute("aria-valuetext", "Gray");
     fireEvent.change(slider, { target: { value: "0" } });

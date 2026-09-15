@@ -94,6 +94,8 @@ function radarState(replay = makeReplay()) {
       lower_radar: "lower.png",
     },
     habits: {
+      aggregated: false,
+      overlayOn: true,
       overlay: null as SeriesOverlay | null,
       overlayDisplay: null,
       overlayTrails: false,
@@ -216,6 +218,7 @@ describe("RadarStage", () => {
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderStage();
     expect(screen.queryByRole("button", { name: /Round autoplay/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Player colours" })).toBeNull();
     expect(screen.getByRole("button", { name: "Snapshot to playbook" })).toBeInTheDocument();
   });
 
@@ -262,5 +265,87 @@ describe("RadarStage", () => {
     expect(screen.queryByRole("dialog", { name: "Snapshot to playbook" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("hides the pawn colour legend on a live single-demo HUD", () => {
+    vi.mocked(useApp).mockReturnValue(radarState() as unknown as ReturnType<typeof useApp>);
+    renderStage();
+    expect(screen.queryByRole("button", { name: "Legend" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Player colours" })).toBeNull();
+  });
+
+  it("shows the pawn colour legend only for a multi-demo Aggregated overlay", () => {
+    const overlay = {
+      trails: [
+        {
+          demoId: "d1",
+          roundNumber: 1,
+          jumpTick: 64,
+          tps: 64,
+          steamId: 1,
+          playerName: "donk",
+          color: "#ff2d6a",
+          points: [],
+          deathAt: null,
+          deathTick: null,
+          survivedAt: null,
+          survivedTick: null,
+        },
+        {
+          demoId: "d2",
+          roundNumber: 2,
+          jumpTick: 64,
+          tps: 64,
+          steamId: 2,
+          playerName: "m0NESY",
+          color: "#00f0ff",
+          points: [],
+          deathAt: null,
+          deathTick: null,
+          survivedAt: null,
+          survivedTick: null,
+        },
+      ],
+      heatDots: [],
+      nades: [],
+      roundCount: 2,
+      windowSec: 20,
+    } satisfies SeriesOverlay;
+    const series = {
+      mapName: "de_dust2",
+      focalTeam: "Spirit",
+      demos: [{ id: "d1" }, { id: "d2" }],
+    };
+
+    const demosView = radarState();
+    demosView.session.series = series;
+    demosView.habits.overlay = overlay;
+    vi.mocked(useApp).mockReturnValue(demosView as unknown as ReturnType<typeof useApp>);
+    const { unmount } = renderStage();
+    expect(screen.queryByRole("list", { name: "Player colours" })).toBeNull();
+    unmount();
+
+    const aggregatedNoBucket = radarState();
+    aggregatedNoBucket.session.series = series;
+    aggregatedNoBucket.habits.aggregated = true;
+    aggregatedNoBucket.habits.overlayOn = true;
+    aggregatedNoBucket.habits.overlay = overlay;
+    vi.mocked(useApp).mockReturnValue(aggregatedNoBucket as unknown as ReturnType<typeof useApp>);
+    const noBucket = renderStage();
+    expect(screen.queryByRole("list", { name: "Player colours" })).toBeNull();
+    noBucket.unmount();
+
+    const aggregated = radarState();
+    aggregated.session.series = series;
+    aggregated.habits.aggregated = true;
+    aggregated.habits.overlayOn = true;
+    aggregated.habits.bucketOverlay = { kind: "pistol", side: "CT" };
+    aggregated.habits.overlay = overlay;
+    vi.mocked(useApp).mockReturnValue(aggregated as unknown as ReturnType<typeof useApp>);
+    renderStage();
+    const list = screen.getByRole("list", { name: "Player colours" });
+    expect(list).toHaveTextContent("donk");
+    expect(list).toHaveTextContent("m0NESY");
+    expect(screen.queryByRole("button", { name: "Legend" })).toBeNull();
   });
 });

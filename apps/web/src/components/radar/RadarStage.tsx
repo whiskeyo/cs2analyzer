@@ -10,6 +10,7 @@ import {
 } from "@/lib/notes";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { snapshotFromAnalyzer } from "@/lib/playbook/snapshot";
+import { analyzerPawnLegend } from "@/lib/radar/pawnLegend";
 import { currentRound } from "@/lib/replay/sample";
 import { tickRate } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
@@ -18,6 +19,7 @@ import { Hud } from "./Hud";
 import { KillFeed } from "./KillFeed";
 import { MapToolbar } from "./MapToolbar";
 import { NadeLegend } from "./NadeLegend";
+import { PawnLegend } from "./PawnLegend";
 import { RadarCanvas } from "./RadarCanvas";
 import { SpectatorEconomy } from "./SpectatorEconomy";
 
@@ -34,6 +36,7 @@ export function RadarStage() {
   if (!replay) return null;
   const { tick } = playback;
   const habitsOnly = habits.overlay != null;
+  const pawnLegend = analyzerPawnLegend(session.series, habits, habits.overlay);
 
   return (
     <div className="radar-col">
@@ -170,6 +173,7 @@ export function RadarStage() {
           onHabitsJump={habits.playRound}
           radarGray={settings.radarGray}
         />
+        <PawnLegend entries={pawnLegend} />
         {!habitsOnly && <Hud replay={replay} tick={tick} />}
         {view.layers.summary && (
           <NadeLegend filter={review.summaryFilter} onFilter={review.setSummaryFilter} />

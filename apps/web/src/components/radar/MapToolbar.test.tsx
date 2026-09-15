@@ -48,6 +48,7 @@ describe("MapToolbar", () => {
   it("renders drawing tools and layer toggles", () => {
     render(<MapToolbar {...toolbarProps()} />);
     expect(screen.getByRole("button", { name: "Draw" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Legend" })).toBeNull();
     expect(screen.getByRole("button", { name: "Nades" })).toHaveClass("on");
   });
 
@@ -71,7 +72,10 @@ describe("MapToolbar", () => {
     render(<MapToolbar {...props} />);
     const heatLayers = screen.getAllByRole("button", { name: "Heat" });
     await userEvent.click(heatLayers[heatLayers.length - 1]);
-    expect(props.viewActions.onLayers).toHaveBeenCalledWith({ ...DEFAULT_LAYERS, heatmap: true });
+    expect(props.viewActions.onLayers).toHaveBeenCalledWith({
+      ...DEFAULT_LAYERS,
+      heatmap: true,
+    });
   });
 
   it("switches floor mode when the map has lower radar", async () => {
@@ -123,10 +127,16 @@ describe("MapToolbar", () => {
     expect(props.viewActions.onResetView).toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: "Shots" }));
-    expect(props.viewActions.onLayers).toHaveBeenCalledWith({ ...DEFAULT_LAYERS, shots: false });
+    expect(props.viewActions.onLayers).toHaveBeenCalledWith({
+      ...DEFAULT_LAYERS,
+      shots: false,
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "Deaths" }));
-    expect(props.viewActions.onLayers).toHaveBeenCalledWith({ ...DEFAULT_LAYERS, deaths: false });
+    expect(props.viewActions.onLayers).toHaveBeenCalledWith({
+      ...DEFAULT_LAYERS,
+      deaths: false,
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "FK" }));
     expect(props.viewActions.onLayers).toHaveBeenCalledWith({
@@ -135,10 +145,16 @@ describe("MapToolbar", () => {
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Names" }));
-    expect(props.viewActions.onLayers).toHaveBeenCalledWith({ ...DEFAULT_LAYERS, names: false });
+    expect(props.viewActions.onLayers).toHaveBeenCalledWith({
+      ...DEFAULT_LAYERS,
+      names: false,
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "Cone" }));
-    expect(props.viewActions.onLayers).toHaveBeenCalledWith({ ...DEFAULT_LAYERS, cone: false });
+    expect(props.viewActions.onLayers).toHaveBeenCalledWith({
+      ...DEFAULT_LAYERS,
+      cone: false,
+    });
   });
 
   it("selects arrow, text, and eraser tools", async () => {
