@@ -43,8 +43,6 @@ import {
 } from "./constants";
 import { formatPlaybookExportDate } from "./playbookReport";
 
-export type MatchPdfNoteKind = "text" | "bookmark";
-
 export interface MatchReportPlayer {
   name: string;
   side: Side;
@@ -59,7 +57,6 @@ export interface MatchReportPlayer {
 
 export interface MatchReportNoteItem {
   title: string;
-  kind: MatchPdfNoteKind;
 }
 
 export interface MatchReportRoundNotes {
@@ -176,15 +173,7 @@ function textTitle(drawing: Drawing): string | null {
 }
 
 function noteItems(note: Note): MatchReportNoteItem[] {
-  const items: MatchReportNoteItem[] = visibleTextTitles(note).map((title) => ({
-    title,
-    kind: "text",
-  }));
-  note.bookmarks.forEach((mark) => {
-    if (mark.hidden) return;
-    items.push({ title: bookmarkTitle(mark), kind: "bookmark" });
-  });
-  return items;
+  return visibleTextTitles(note).map((title) => ({ title }));
 }
 
 function presentSidesAtFrame(replay: Replay, frame: number): { ct: number; t: number } {

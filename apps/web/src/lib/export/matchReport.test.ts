@@ -129,10 +129,7 @@ describe("matchReport", () => {
     expect(report.notes).toEqual([
       {
         roundLabel: "R1",
-        items: [
-          { title: "Flash mid", kind: "text" },
-          { title: "Entry", kind: "bookmark" },
-        ],
+        items: [{ title: "Flash mid" }],
       },
     ]);
     expect(report.bookmarks).toHaveLength(1);
@@ -164,8 +161,46 @@ describe("matchReport", () => {
       "match.dem",
       EXPORTED_AT,
     );
-    expect(report.notes[0]?.items).toEqual([{ title: NOTE_BOOKMARK_TITLE, kind: "bookmark" }]);
+    expect(report.notes).toEqual([]);
     expect(report.bookmarks[0]?.title).toBe(NOTE_BOOKMARK_TITLE);
+  });
+
+  it("keeps bookmarks off the Notes list", () => {
+    const replay = scoredReplay();
+    const mixed = matchReport(
+      replay,
+      [
+        {
+          round: 1,
+          note: {
+            ...emptyNote(),
+            drawings: [{ type: "text", color: "#fff", x: 1, y: 2, text: "Flash mid" }],
+            bookmarks: [{ color: "#f00", text: "Entry", tick: 200 }],
+          },
+        },
+      ],
+      "match.dem",
+      EXPORTED_AT,
+    );
+    expect(mixed.notes).toEqual([{ roundLabel: "R1", items: [{ title: "Flash mid" }] }]);
+    expect(mixed.bookmarks.map((mark) => mark.title)).toEqual(["Entry"]);
+
+    const bookmarkOnly = matchReport(
+      replay,
+      [
+        {
+          round: 1,
+          note: {
+            ...emptyNote(),
+            bookmarks: [{ color: "#0f0", text: "Solo mark", tick: 300 }],
+          },
+        },
+      ],
+      "match.dem",
+      EXPORTED_AT,
+    );
+    expect(bookmarkOnly.notes).toEqual([]);
+    expect(bookmarkOnly.bookmarks.map((mark) => mark.title)).toEqual(["Solo mark"]);
   });
 
   it("returns an empty notes list when nothing is written", () => {
