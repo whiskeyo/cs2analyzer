@@ -1,6 +1,9 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import "fake-indexeddb/auto";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import * as playbookStore from "@/lib/playbook/playbookStore";
+import { SNAPSHOT_RECENT_BOOKS_KEY } from "@/lib/shared/storageKeys";
 import { useApp } from "@/lib/state/appState";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
@@ -34,7 +37,11 @@ function radarState(replay = makeReplay()) {
     session: {
       replay,
       fileName: "match.dem",
-      series: null as { mapName: string; focalTeam: string; demos: unknown[] } | null,
+      series: null as {
+        mapName: string;
+        focalTeam: string;
+        demos: unknown[];
+      } | null,
     },
     playback: { tick: 100, setPlaying, jump: vi.fn() },
     review: {
@@ -79,7 +86,13 @@ function radarState(replay = makeReplay()) {
       select: vi.fn(),
       viewEpoch: 0,
     },
-    cal: { pos_x: 0, pos_y: 1024, scale: 1, radar: "test.png", lower_radar: "lower.png" },
+    cal: {
+      pos_x: 0,
+      pos_y: 1024,
+      scale: 1,
+      radar: "test.png",
+      lower_radar: "lower.png",
+    },
     habits: {
       overlay: null as SeriesOverlay | null,
       overlayDisplay: null,
@@ -93,13 +106,27 @@ function radarState(replay = makeReplay()) {
       bucketPlaySecRef: { current: 0 },
       bucketOverlay: null as { kind: RoundKind; side: Side } | null,
     },
-    _actions: { setPaletteId, setColor, commitNotes, undo, setPlaying, setLayers },
+    _actions: {
+      setPaletteId,
+      setColor,
+      commitNotes,
+      undo,
+      setPlaying,
+      setLayers,
+    },
   };
 }
 
 describe("RadarStage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.mocked(useApp).mockReset();
+    await playbookStore.deleteAllPlaybooks();
+    localStorage.removeItem(SNAPSHOT_RECENT_BOOKS_KEY);
+  });
+
+  afterEach(async () => {
+    await playbookStore.deleteAllPlaybooks();
+    localStorage.removeItem(SNAPSHOT_RECENT_BOOKS_KEY);
   });
 
   it("renders nothing without a loaded replay", () => {
@@ -121,7 +148,14 @@ describe("RadarStage", () => {
   it("wires undo, clear, and bookmark actions from the toolbar", async () => {
     const state = radarState(
       makeReplay({
-        rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+        rounds: [
+          makeRound({
+            number: 1,
+            start_tick: 0,
+            freeze_end_tick: 64,
+            end_tick: 640,
+          }),
+        ],
       }),
     );
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
@@ -190,6 +224,7 @@ describe("RadarStage", () => {
     renderStage();
     await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
     expect(screen.getByRole("dialog", { name: "Snapshot to playbook" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Drawings" })).toBeChecked();
   });
 
   it("titles an aggregated snapshot from the series bucket", async () => {
@@ -214,5 +249,18 @@ describe("RadarStage", () => {
     expect(screen.getByRole("textbox", { name: "Strat name" })).toHaveValue(
       "Spirit series (12 demos) · CT pistol · 0:24",
     );
+  });
+
+  it("toasts after a snapshot so the landing book is obvious", async () => {
+    await playbookStore.createPlaybook("de_anubis", "A execs");
+    vi.mocked(useApp).mockReturnValue(radarState() as unknown as ReturnType<typeof useApp>);
+    renderStage();
+    await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled());
+    await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(/Saved to A execs/);
+    expect(screen.queryByRole("dialog", { name: "Snapshot to playbook" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });
