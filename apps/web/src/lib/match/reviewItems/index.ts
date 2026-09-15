@@ -5,6 +5,7 @@ import { deathTrade } from "./deathTrade";
 import { ecoWin } from "./ecoWin";
 import { fedMulti } from "./fedMulti";
 import { flashedDeath } from "./flashedDeath";
+import { hitgroupDeath } from "./hitgroupDeath";
 import { lowReturn } from "./lowReturn";
 import { multiKill } from "./multiKill";
 import { nadesLeft } from "./nadesLeft";
@@ -20,6 +21,7 @@ import { utilDeath } from "./utilDeath";
  */
 export const REVIEW_ITEMS: ReviewItem[] = [
   openingDeath,
+  hitgroupDeath,
   deathTrade,
   flashedDeath,
   utilDeath,

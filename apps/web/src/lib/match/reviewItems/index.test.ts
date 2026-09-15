@@ -5,6 +5,7 @@ import { deathTrade } from "./deathTrade";
 import { ecoWin } from "./ecoWin";
 import { fedMulti } from "./fedMulti";
 import { flashedDeath } from "./flashedDeath";
+import { hitgroupDeath } from "./hitgroupDeath";
 import { REVIEW_ITEMS } from "./index";
 import { lowReturn } from "./lowReturn";
 import { multiKill } from "./multiKill";
@@ -19,6 +20,7 @@ describe("REVIEW_ITEMS", () => {
   it("runs death collectors first so stacked detail bits stay in this order", () => {
     expect(REVIEW_ITEMS).toEqual([
       openingDeath,
+      hitgroupDeath,
       deathTrade,
       flashedDeath,
       utilDeath,
