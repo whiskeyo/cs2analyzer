@@ -10,7 +10,7 @@ import {
 } from "@/lib/notes";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { snapshotFromAnalyzer } from "@/lib/playbook/snapshot";
-import { livePawnLegend } from "@/lib/radar/pawnLegend";
+import { analyzerPawnLegend } from "@/lib/radar/pawnLegend";
 import { currentRound } from "@/lib/replay/sample";
 import { tickRate } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
@@ -29,16 +29,14 @@ import { SpectatorEconomy } from "./SpectatorEconomy";
  */
 export function RadarStage() {
   const { session, playback, review, view, cal, habits } = useApp();
-  const { settings, update } = useUserSettings();
+  const { settings } = useUserSettings();
   const [snapshot, setSnapshot] = useState<ReturnType<typeof snapshotFromAnalyzer> | null>(null);
   const [toast, setToast] = useState<SnapshotToastInfo | null>(null);
   const replay = session.replay;
   if (!replay) return null;
   const { tick } = playback;
   const habitsOnly = habits.overlay != null;
-  const pawnLegend = settings.livePawnLegend
-    ? livePawnLegend(replay, tick, habits.overlay)
-    : [];
+  const pawnLegend = analyzerPawnLegend(session.series, habits, habits.overlay);
 
   return (
     <div className="radar-col">
@@ -58,7 +56,6 @@ export function RadarStage() {
           moment: view.moment,
           canFollow: view.selected != null,
           layers: view.layers,
-          pawnLegend: settings.livePawnLegend,
         }}
         reviewActions={{
           onTool: view.setTool,
@@ -112,9 +109,6 @@ export function RadarStage() {
               playback.setPlaying(false);
             }
             view.setLayers(next);
-          },
-          onPawnLegend: (on) => {
-            void update({ livePawnLegend: on });
           },
           onResetView: view.resetView,
         }}
@@ -179,7 +173,7 @@ export function RadarStage() {
           onHabitsJump={habits.playRound}
           radarGray={settings.radarGray}
         />
-        {settings.livePawnLegend ? <PawnLegend entries={pawnLegend} /> : null}
+        <PawnLegend entries={pawnLegend} />
         {!habitsOnly && <Hud replay={replay} tick={tick} />}
         {view.layers.summary && (
           <NadeLegend filter={review.summaryFilter} onFilter={review.setSummaryFilter} />

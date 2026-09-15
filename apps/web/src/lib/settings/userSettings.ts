@@ -89,11 +89,6 @@ export interface UserSettings {
   pdfPhotos: PdfPhotos;
   /** 0 = original map color, 1 = full grayscale. Applies to Analyzer, Playbook, PDF stills. */
   radarGray: number;
-  /**
-   * Colour → name list on the live Analyzer radar. Off by default: pawns already
-   * show names. Playbook snapshots and PDF stills keep their own legend.
-   */
-  livePawnLegend: boolean;
 }
 
 export type UserSettingsRecord = UserSettings & { id: typeof USER_SETTINGS_ID };
@@ -146,7 +141,6 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     pdfTheme: DEFAULT_PDF_THEME,
     pdfPhotos: DEFAULT_PDF_PHOTOS,
     radarGray: DEFAULT_RADAR_GRAY,
-    livePawnLegend: false,
   };
 }
 
@@ -309,6 +303,5 @@ export function parseUserSettings(raw: unknown): UserSettings {
       RADAR_GRAY_MAX,
       defaults.radarGray,
     ),
-    livePawnLegend: parseBoolean(raw.livePawnLegend, defaults.livePawnLegend),
   };
 }

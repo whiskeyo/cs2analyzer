@@ -57,7 +57,6 @@ describe("defaultUserSettings", () => {
       pdfTheme: "dark",
       pdfPhotos: "with",
       radarGray: DEFAULT_RADAR_GRAY,
-      livePawnLegend: false,
     });
     expect(settings.defaultPaletteId).toBe(COLOR_PRESETS[0].id);
     expect(settings.defaultColor).toBe(COLOR_PRESETS[0].colors[0]);
@@ -88,7 +87,6 @@ describe("parseUserSettings", () => {
     expect(parsed.pdfTheme).toBe("dark");
     expect(parsed.pdfPhotos).toBe("with");
     expect(parsed.radarGray).toBe(DEFAULT_RADAR_GRAY);
-    expect(parsed.livePawnLegend).toBe(false);
     expect(parsed.schema).toBe(USER_SETTINGS_SCHEMA);
     expect("roundAutoplay" in parsed).toBe(false);
     expect("id" in parsed).toBe(false);
@@ -106,7 +104,6 @@ describe("parseUserSettings", () => {
       defaultSidebarTab: "clutch",
       defaultPlaybackSpeed: 3,
       skipKnifeOnOpen: "yes",
-      livePawnLegend: "yes",
       eventLeadInSec: 9,
       noteMomentSec: 400,
       habitsTrailWindowSec: 90,
@@ -125,7 +122,6 @@ describe("parseUserSettings", () => {
     expect(parsed.defaultSidebarTab).toBe("score");
     expect(parsed.defaultPlaybackSpeed).toBe(DEFAULT_PLAYBACK_SPEED);
     expect(parsed.skipKnifeOnOpen).toBe(true);
-    expect(parsed.livePawnLegend).toBe(false);
     expect(parsed.eventLeadInSec).toBe(5);
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MAX_SECONDS);
     expect(parsed.habitsTrailWindowSec).toBe(SERIES_HABITS_WINDOW_MAX_SECONDS);
@@ -226,7 +222,7 @@ describe("parseUserSettings", () => {
     expect(parseUserSettings({ skipKnifeOnOpen: false }).skipKnifeOnOpen).toBe(false);
   });
 
-  it("keeps livePawnLegend true when stored", () => {
-    expect(parseUserSettings({ livePawnLegend: true }).livePawnLegend).toBe(true);
+  it("drops a leftover livePawnLegend field", () => {
+    expect("livePawnLegend" in parseUserSettings({ livePawnLegend: true })).toBe(false);
   });
 });

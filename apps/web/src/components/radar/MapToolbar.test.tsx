@@ -22,7 +22,6 @@ function toolbarProps(overrides: Partial<MapToolbarProps> = {}): MapToolbarProps
       moment: false,
       canFollow: true,
       layers: { ...DEFAULT_LAYERS },
-      pawnLegend: false,
     },
     reviewActions: {
       onTool: vi.fn(),
@@ -39,7 +38,6 @@ function toolbarProps(overrides: Partial<MapToolbarProps> = {}): MapToolbarProps
       onTrails: vi.fn(),
       onMoment: vi.fn(),
       onLayers: vi.fn(),
-      onPawnLegend: vi.fn(),
       onResetView: vi.fn(),
     },
     ...overrides,
@@ -50,17 +48,8 @@ describe("MapToolbar", () => {
   it("renders drawing tools and layer toggles", () => {
     render(<MapToolbar {...toolbarProps()} />);
     expect(screen.getByRole("button", { name: "Draw" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Legend" })).not.toHaveClass("on");
-    expect(screen.getByRole("button", { name: "Legend" })).toHaveAttribute(
-      "title",
-      "Pawn colour legend",
-    );
+    expect(screen.queryByRole("button", { name: "Legend" })).toBeNull();
     expect(screen.getByRole("button", { name: "Nades" })).toHaveClass("on");
-  });
-
-  it("marks Legend on when the pawn legend pref is enabled", () => {
-    render(<MapToolbar {...toolbarProps({ view: { ...toolbarProps().view, pawnLegend: true } })} />);
-    expect(screen.getByRole("button", { name: "Legend" })).toHaveClass("on");
   });
 
   it("switches the active tool", async () => {
@@ -83,7 +72,10 @@ describe("MapToolbar", () => {
     render(<MapToolbar {...props} />);
     const heatLayers = screen.getAllByRole("button", { name: "Heat" });
     await userEvent.click(heatLayers[heatLayers.length - 1]);
-    expect(props.viewActions.onLayers).toHaveBeenCalledWith({ ...DEFAULT_LAYERS, heatmap: true });
+    expect(props.viewActions.onLayers).toHaveBeenCalledWith({
+      ...DEFAULT_LAYERS,
+      heatmap: true,
+    });
   });
 
   it("switches floor mode when the map has lower radar", async () => {
@@ -135,10 +127,16 @@ describe("MapToolbar", () => {
     expect(props.viewActions.onResetView).toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: "Shots" }));
-    expect(props.viewActions.onLayers).toHaveBeenCalledWith({ ...DEFAULT_LAYERS, shots: false });
+    expect(props.viewActions.onLayers).toHaveBeenCalledWith({
+      ...DEFAULT_LAYERS,
+      shots: false,
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "Deaths" }));
-    expect(props.viewActions.onLayers).toHaveBeenCalledWith({ ...DEFAULT_LAYERS, deaths: false });
+    expect(props.viewActions.onLayers).toHaveBeenCalledWith({
+      ...DEFAULT_LAYERS,
+      deaths: false,
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "FK" }));
     expect(props.viewActions.onLayers).toHaveBeenCalledWith({
@@ -147,13 +145,16 @@ describe("MapToolbar", () => {
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Names" }));
-    expect(props.viewActions.onLayers).toHaveBeenCalledWith({ ...DEFAULT_LAYERS, names: false });
-
-    await userEvent.click(screen.getByRole("button", { name: "Legend" }));
-    expect(props.viewActions.onPawnLegend).toHaveBeenCalledWith(true);
+    expect(props.viewActions.onLayers).toHaveBeenCalledWith({
+      ...DEFAULT_LAYERS,
+      names: false,
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "Cone" }));
-    expect(props.viewActions.onLayers).toHaveBeenCalledWith({ ...DEFAULT_LAYERS, cone: false });
+    expect(props.viewActions.onLayers).toHaveBeenCalledWith({
+      ...DEFAULT_LAYERS,
+      cone: false,
+    });
   });
 
   it("selects arrow, text, and eraser tools", async () => {

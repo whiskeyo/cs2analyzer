@@ -1,8 +1,7 @@
+import { isBucketOverlayActive } from "@/lib/parse/seriesMode";
+import type { DemoSeries } from "@/lib/parse/session";
 import type { SeriesOverlay } from "@/lib/parse/seriesOverlay";
-import { playerLabel } from "@/lib/replay/playerLabel";
-import type { Replay } from "@/lib/replay/replayTypes";
-import { samplePlayers } from "@/lib/replay/sample";
-import { CT_COLOR, T_COLOR } from "./radarFrame";
+import type { SeriesHabitsState } from "@/lib/state/useSeriesHabits";
 
 export interface LegendEntry {
   label: string;
@@ -23,26 +22,23 @@ export function uniquePawnLegend(
   return [...seen.entries()].map(([label, color]) => ({ label, color }));
 }
 
+type AggregatedHabits = Pick<SeriesHabitsState, "aggregated" | "overlayOn" | "bucketOverlay">;
+
 /**
- * Colour → name rows for the live Analyzer radar.
- * Habits overlay uses trail tints; otherwise present pawns use side colours.
+ * Colour → name rows for the Analyzer radar.
+ * Only the multi-demo Aggregated overlay (HUD is off there). Live single-demo
+ * rounds keep the score HUD and do not get a corner list.
  */
-export function livePawnLegend(
-  replay: Replay,
-  tick: number,
+export function analyzerPawnLegend(
+  series: DemoSeries | null | undefined,
+  habits: AggregatedHabits,
   overlay?: SeriesOverlay | null,
 ): LegendEntry[] {
-  if (overlay) {
-    return uniquePawnLegend(
-      overlay.trails.map((trail) => ({ label: trail.playerName, color: trail.color })),
-    );
-  }
+  if (!isBucketOverlayActive(series, habits) || !overlay) return [];
   return uniquePawnLegend(
-    samplePlayers(replay, tick)
-      .filter((player) => player.present)
-      .map((player) => ({
-        label: playerLabel(replay.players[player.index], ""),
-        color: player.ct ? CT_COLOR : T_COLOR,
-      })),
+    overlay.trails.map((trail) => ({
+      label: trail.playerName,
+      color: trail.color,
+    })),
   );
 }
