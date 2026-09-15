@@ -74,6 +74,8 @@ export const MATCH_PDF_BOOKMARKS = "Bookmarks";
 export const MATCH_PDF_NO_NOTES = "No notes on this match.";
 export const MATCH_PDF_REOPEN = "Re-open the .dem in cs2analyzer to scrub.";
 export const MATCH_PDF_FILE_FALLBACK = "match";
+export const MATCH_PDF_BOOKMARK_TOOLTIP =
+  "Bookmark this tick (Moment: a few seconds). Nothing is drawn on the radar. Only bookmarked rounds appear as pages in Export PDF.";
 export const MATCH_PDF_COL_PLAYER = "Player";
 export const MATCH_PDF_COL_K = "K";
 export const MATCH_PDF_COL_D = "D";

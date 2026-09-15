@@ -1,5 +1,6 @@
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { ToolbarIconBtn } from "@/components/map/ToolbarIcon";
+import { MATCH_PDF_BOOKMARK_TOOLTIP } from "@/lib/export/constants";
 import type { MapToolbarProps } from "./mapToolbarTypes";
 
 export function MapToolbar({
@@ -33,7 +34,7 @@ export function MapToolbar({
         path="text"
       />
       <ToolbarIconBtn
-        title="Bookmark this tick (Moment: a few seconds). Nothing is drawn on the radar."
+        title={MATCH_PDF_BOOKMARK_TOOLTIP}
         on={tool === "bookmark"}
         onClick={() => {
           onTool("bookmark");
