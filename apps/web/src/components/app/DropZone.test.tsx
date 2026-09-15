@@ -20,10 +20,15 @@ vi.mock("@/lib/notes/projectStore", async (importOriginal) => {
     ...actual,
     demoFilePickerAvailable: vi.fn(() => false),
     pickOpenFiles: vi.fn(),
+    pickDemoFileHandle: vi.fn(),
   };
 });
 
-import { demoFilePickerAvailable, pickOpenFiles } from "@/lib/notes/projectStore";
+import {
+  demoFilePickerAvailable,
+  pickDemoFileHandle,
+  pickOpenFiles,
+} from "@/lib/notes/projectStore";
 
 function render(ui: ReactElement) {
   return rtlRender(<TestRouter>{ui}</TestRouter>);
@@ -69,6 +74,7 @@ describe("DropZone", () => {
   beforeEach(() => {
     vi.mocked(demoFilePickerAvailable).mockReturnValue(false);
     vi.mocked(pickOpenFiles).mockResolvedValue(null);
+    vi.mocked(pickDemoFileHandle).mockResolvedValue(null);
     prefetchParser.mockClear();
   });
 
@@ -100,6 +106,38 @@ describe("DropZone", () => {
   it("shows parse progress as a percentage", () => {
     render(<DropZone {...props({ parsing: true, progress: { current: 25, total: 200 } })} />);
     expect(screen.getByText("13%")).toBeInTheDocument();
+  });
+
+  it("lists per-file series progress and Cancel on the drop card", async () => {
+    const onCancelParse = vi.fn();
+    const onFiles = vi.fn();
+    render(
+      <DropZone
+        {...props({
+          onFiles,
+          onCancelParse,
+          parsing: true,
+          progress: { current: 150, total: 300 },
+          parseFiles: [
+            { name: "a.dem", index: 0, state: "done", pct: 100 },
+            { name: "b.dem", index: 1, state: "parsing", pct: 50 },
+            { name: "c.dem", index: 2, state: "queued", pct: 0 },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("1 of 3 files · 50%")).toBeInTheDocument();
+    expect(screen.getByText("a.dem")).toBeInTheDocument();
+    expect(screen.getByText("b.dem")).toBeInTheDocument();
+    expect(screen.getByText("c.dem")).toBeInTheDocument();
+    expect(screen.getByText("Done")).toBeInTheDocument();
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel parse" }));
+    expect(onCancelParse).toHaveBeenCalledOnce();
+    expect(onFiles).not.toHaveBeenCalled();
+    expect(pickOpenFiles).not.toHaveBeenCalled();
   });
 
   it("keeps the progress bar hidden until a parse starts", () => {

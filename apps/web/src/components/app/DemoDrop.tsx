@@ -36,6 +36,7 @@ export function DemoDrop({
       parsing={session.parsing}
       progress={session.progress}
       parseFiles={session.parseFiles}
+      onCancelParse={session.cancelParse}
       error={status.error}
       notice={status.notice}
       saved={review.saved}

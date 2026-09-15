@@ -45,6 +45,7 @@ function analyzerState(saved: ReviewProject[] = []) {
       progress: null,
       parseFiles: null,
       replay: null,
+      cancelParse: vi.fn(),
     },
     status: { error: null, notice: null },
     review: {
@@ -97,6 +98,34 @@ describe("Analyzer", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(deleteProject).toHaveBeenCalledWith("notes-key");
     await waitFor(() => expect(state.refreshSaved).toHaveBeenCalled());
+  });
+
+  it("shows series parse progress and Cancel on the analyzer drop", async () => {
+    const cancelParse = vi.fn();
+    vi.mocked(useApp).mockReturnValue({
+      ...analyzerState(),
+      session: {
+        parsing: true,
+        progress: { current: 150, total: 300 },
+        parseFiles: [
+          { name: "a.dem", index: 0, state: "done", pct: 100 },
+          { name: "b.dem", index: 1, state: "parsing", pct: 50 },
+        ],
+        replay: null,
+        cancelParse,
+      },
+    } as unknown as ReturnType<typeof useApp>);
+    render(
+      <TestRouter path="/analyzer">
+        <Analyzer />
+      </TestRouter>,
+    );
+
+    expect(screen.getByText("1 of 2 files · 50%")).toBeInTheDocument();
+    expect(screen.getByText("a.dem")).toBeInTheDocument();
+    expect(screen.getByText("b.dem")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel parse" }));
+    expect(cancelParse).toHaveBeenCalledOnce();
   });
 
   it("shows the viewer when a demo is loaded", () => {

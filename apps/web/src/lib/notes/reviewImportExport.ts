@@ -6,11 +6,12 @@ import {
   deleteAllProjects,
   demoFilePickerAvailable,
   importProjects,
+  loadDemoFileHandle,
   loadProject,
   matchKey,
   parseBundle,
   pickDemoFileHandle,
-  readLinkedDemoFile,
+  readFileFromHandle,
   saveDemoFileHandle,
   saveProject,
   serializeBundle,
@@ -101,13 +102,22 @@ export async function importNotesFromText(text: string, ctx: ReviewImportContext
   }
 }
 
+export function linkedDemoPermissionNotice(fileName: string): string {
+  return `This browser no longer has permission to read the linked demo. Pick ${fileName} again.`;
+}
+
 /** Open the browser-linked demo file for a saved note, if any. */
 export async function tryOpenLinkedDemo(
   project: ReviewProject,
   status: NotesStatus,
 ): Promise<File | null> {
-  const file = await readLinkedDemoFile(project.key);
+  const handle = await loadDemoFileHandle(project.key);
+  if (!handle) {
+    return null;
+  }
+  const file = await readFileFromHandle(handle);
   if (!file) {
+    status.setNotice(linkedDemoPermissionNotice(project.fileName));
     return null;
   }
   if (file.name !== project.fileName) {
