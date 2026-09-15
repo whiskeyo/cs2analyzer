@@ -4,6 +4,7 @@ import { emptyNote } from "@/lib/notes/note";
 import {
   DEFAULT_LAYERS,
   DEFAULT_SUMMARY_FILTER,
+  type Drawing,
   type DrawingGroup,
   type FloorMode,
   type MapLayers,
@@ -245,11 +246,13 @@ export function addSnapshotPage(
   floor: FloorMode = "auto",
   radarFx?: NoteRadarFx,
   groups: DrawingGroup[] = [],
+  drawings: Drawing[] = [],
 ): Playbook {
   const note = {
     ...emptyNote(),
     pieces,
     groups,
+    drawings,
     ...(radarFx ? { radarFx } : {}),
   };
   const layer = playbookFloorLayer(floor === "lower");
@@ -275,6 +278,7 @@ export async function writeSnapshot(opts: {
   floor?: FloorMode;
   radarFx?: NoteRadarFx;
   groups?: DrawingGroup[];
+  drawings?: Drawing[];
 }): Promise<{ book: Playbook; pageId: string }> {
   const loaded = opts.bookKey ? await loadPlaybook(opts.bookKey) : null;
   const book =
@@ -286,6 +290,7 @@ export async function writeSnapshot(opts: {
     opts.floor ?? "auto",
     opts.radarFx,
     opts.groups,
+    opts.drawings,
   );
   const saved = await savePlaybook(next);
   return { book: saved, pageId: saved.activePageId };
@@ -461,14 +466,18 @@ export function snapshotFromAnalyzer(input: {
   summaryFilter?: SummaryFilter;
   selected?: number | null;
   trails?: boolean;
+  note?: Note;
 }): {
   mapName: string;
   pieces: Piece[];
   groups?: DrawingGroup[];
+  drawings?: Drawing[];
   stratTitle: string;
   floor: FloorMode;
   radarFx?: NoteRadarFx;
 } {
+  const drawings = input.note?.drawings;
+  const drawingGroups = input.note?.groups;
   if (input.overlay) {
     const bucket = input.bucket;
     const snap = overlayToSnapshot(
@@ -481,7 +490,8 @@ export function snapshotFromAnalyzer(input: {
     return {
       mapName: input.series?.mapName ?? input.mapName,
       pieces: snap.pieces,
-      groups: snap.groups,
+      groups: [...snap.groups, ...(drawingGroups ?? [])],
+      drawings,
       radarFx: snap.radarFx,
       stratTitle: snapshotAggTitle({
         focalTeam: input.series?.focalTeam || "Team",
@@ -503,6 +513,8 @@ export function snapshotFromAnalyzer(input: {
   return {
     mapName: input.mapName,
     pieces: snap.pieces,
+    groups: drawingGroups,
+    drawings,
     radarFx: snap.radarFx,
     stratTitle: snapshotTitleFromReplay(input.replay, input.tick, input.fileName),
     floor: input.floor,

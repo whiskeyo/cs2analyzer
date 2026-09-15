@@ -27,7 +27,7 @@ describe("PlaybookVideos", () => {
     vi.unstubAllGlobals();
   });
 
-  it("opens a paste dialog on pin drop, lists a thumbnail, and deletes from the player", async () => {
+  it("opens a paste dialog on pin drop, lists a thumbnail, and plays on demand", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -53,6 +53,9 @@ describe("PlaybookVideos", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "YouTube link" }), {
       target: { value: `https://youtu.be/${VIDEO}?t=30` },
     });
+    expect(screen.getByRole("dialog").querySelector("img")?.getAttribute("src")).toContain(
+      `/vi/${VIDEO}/hqdefault.jpg`,
+    );
     await userEvent.click(screen.getByRole("button", { name: "Add" }));
     await waitFor(() => expect(onVideos).toHaveBeenCalled());
     const added = onVideos.mock.calls[0]?.[0] as PlaybookYouTube[];
@@ -63,7 +66,8 @@ describe("PlaybookVideos", () => {
       x: 40,
       y: 50,
     });
-    expect(onOpen).toHaveBeenCalledWith(added[0]?.id);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(onCancelPin).toHaveBeenCalled();
 
     rerender(
       <PlaybookVideos
@@ -79,12 +83,69 @@ describe("PlaybookVideos", () => {
     expect(row.querySelector("img")?.getAttribute("src")).toContain(`/vi/${VIDEO}/hqdefault.jpg`);
     expect(screen.getByRole("button", { name: "Remove Mirage A smoke" })).toHaveTextContent("×");
     const dialog = screen.getByRole("dialog", { name: "Mirage A smoke" });
+    expect(dialog.querySelector("iframe")).toBeNull();
+    expect(dialog.querySelector("img")?.getAttribute("src")).toContain(
+      `/vi/${VIDEO}/hqdefault.jpg`,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Play" }));
     expect(dialog.querySelector("iframe")?.getAttribute("src")).toContain(
       `youtube-nocookie.com/embed/${VIDEO}`,
     );
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(onVideos).toHaveBeenLastCalledWith([]);
     expect(onOpen).toHaveBeenLastCalledWith(null);
+  });
+
+  it("validates a paste while typing", async () => {
+    render(
+      <PlaybookVideos
+        videos={[]}
+        onVideos={vi.fn()}
+        openId={null}
+        onOpen={vi.fn()}
+        pendingPin={{ x: 1, y: 2 }}
+        onCancelPin={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "YouTube link" }), {
+      target: { value: "https://example.com/watch?v=dQw4w9WgXcQ" },
+    });
+    expect(screen.getByText(/Paste a YouTube link/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox", { name: "YouTube link" }), {
+      target: { value: `https://youtu.be/${VIDEO}` },
+    });
+    expect(screen.queryByText(/Paste a YouTube link/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add" })).toBeEnabled();
+  });
+
+  it("renames and reorders clips from the list", async () => {
+    const onVideos = vi.fn();
+    const a = clip({ id: "a", title: "A smoke" });
+    const b = clip({ id: "b", title: "B flash", videoId: "bbbbbbbbbbb" });
+    render(
+      <PlaybookVideos
+        videos={[a, b]}
+        onVideos={onVideos}
+        openId={null}
+        onOpen={vi.fn()}
+        pendingPin={null}
+        onCancelPin={vi.fn()}
+      />,
+    );
+    await userEvent.dblClick(screen.getByText("A smoke"));
+    fireEvent.change(screen.getByRole("textbox", { name: "Rename A smoke" }), {
+      target: { value: "Mid smoke" },
+    });
+    fireEvent.blur(screen.getByRole("textbox", { name: "Rename A smoke" }));
+    expect(onVideos).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "a", title: "Mid smoke" }),
+      expect.objectContaining({ id: "b" }),
+    ]);
+    await userEvent.click(screen.getByRole("button", { name: "Move B flash up" }));
+    expect(onVideos).toHaveBeenLastCalledWith([b, a]);
+    expect(screen.getByRole("button", { name: "Move A smoke up" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move B flash down" })).toBeDisabled();
   });
 
   it("deletes from the list row X without opening the player", async () => {
@@ -154,7 +215,6 @@ describe("PlaybookVideos", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "YouTube link" }), {
       target: { value: "https://example.com/watch?v=dQw4w9WgXcQ" },
     });
-    await userEvent.click(screen.getByRole("button", { name: "Add" }));
     expect(screen.getByText(/Paste a YouTube link/)).toBeInTheDocument();
     expect(onVideos).not.toHaveBeenCalled();
 

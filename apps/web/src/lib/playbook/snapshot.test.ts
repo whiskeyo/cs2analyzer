@@ -180,6 +180,24 @@ describe("addSnapshotPage", () => {
     expect(next.pages).toHaveLength(2);
     expect(next.pages[0]?.note.pieces[0]?.kind).toBe("flash");
   });
+
+  it("stamps analyzer drawings onto the strat note", () => {
+    const drawing = {
+      type: "pen" as const,
+      color: "#fff",
+      points: [{ x: 1, y: 2 }],
+    };
+    const next = addSnapshotPage(
+      newPlaybook("de_mirage", "Defaults"),
+      "Ink",
+      [],
+      "auto",
+      undefined,
+      [],
+      [drawing],
+    );
+    expect(next.pages[0]?.note.drawings).toEqual([drawing]);
+  });
 });
 
 describe("writeSnapshot", () => {
@@ -489,6 +507,7 @@ describe("snapshotAggTitle / snapshotFromAnalyzer", () => {
     expect(fromOverlay.pieces[0]?.kind).toBe("pawn");
     expect(fromOverlay.groups).toHaveLength(1);
     expect(fromOverlay.groups?.[0]?.name).toBe("donk");
+    expect(fromOverlay.drawings).toBeUndefined();
 
     const live = snapshotFromAnalyzer({
       replay,
@@ -501,6 +520,26 @@ describe("snapshotAggTitle / snapshotFromAnalyzer", () => {
     });
     expect(live.mapName).toBe("de_anubis");
     expect(live.stratTitle).toContain("CT - T");
+  });
+
+  it("carries analyzer drawings onto a live snapshot", () => {
+    const drawing = {
+      type: "arrow" as const,
+      color: "#f00",
+      from: { x: 0, y: 0 },
+      to: { x: 1, y: 1 },
+    };
+    const live = snapshotFromAnalyzer({
+      replay: makeReplay(),
+      tick: 64,
+      fileName: "a.dem",
+      floor: "auto",
+      mapName: "de_anubis",
+      overlay: null,
+      playSec: 0,
+      note: { ...emptyNote(), drawings: [drawing] },
+    });
+    expect(live.drawings).toEqual([drawing]);
   });
 
   it("falls back when series metadata is missing", () => {

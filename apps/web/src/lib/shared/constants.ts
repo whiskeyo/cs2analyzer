@@ -317,6 +317,9 @@ export {
   LAYOUTS_SIDEBAR_WIDTH_STORAGE_KEY,
 } from "./storageKeys";
 
+/** How many playbooks the snapshot picker remembers as recent. */
+export const SNAPSHOT_RECENT_MAX = 8;
+
 /** Playbook strat data panel (left of the tree). */
 export const PLAYBOOK_DETAIL_MIN_WIDTH = 280;
 export const PLAYBOOK_DETAIL_DEFAULT_WIDTH = 360;

@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { VIEW_SCALE_MAX } from "@/lib/radar/constants";
+import { OVERLAY_NOTE_PEN_STROKE } from "@/lib/radar/overlayStroke";
 import {
   paintDrawings,
   paintDrawing,
@@ -92,7 +94,10 @@ describe("paintNote", () => {
         },
       ],
     };
-    paintNote(ctx, note, toScreen, { tick: 100, skipText: { kind: "loose", index: 0 } });
+    paintNote(ctx, note, toScreen, {
+      tick: 100,
+      skipText: { kind: "loose", index: 0 },
+    });
     expect(ctx.stroke).toHaveBeenCalled();
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
@@ -185,7 +190,12 @@ describe("paintDrawing", () => {
     );
     paintDrawing(
       ctx,
-      { type: "arrow", color: "#f00", from: { x: 0, y: 0 }, to: { x: 4, y: 4 } },
+      {
+        type: "arrow",
+        color: "#f00",
+        from: { x: 0, y: 0 },
+        to: { x: 4, y: 4 },
+      },
       toScreen,
     );
     paintDrawing(ctx, { type: "text", color: "#0f0", x: 1, y: 2, text: "hold" }, toScreen);
@@ -194,10 +204,36 @@ describe("paintDrawing", () => {
     });
     paintDrawings(
       ctx,
-      [{ type: "arrow", color: "#00f", from: { x: 1, y: 1 }, to: { x: 2, y: 2 } }],
+      [
+        {
+          type: "arrow",
+          color: "#00f",
+          from: { x: 1, y: 1 },
+          to: { x: 2, y: 2 },
+        },
+      ],
       toScreen,
     );
     expect(ctx.stroke).toHaveBeenCalled();
     expect(ctx.fillText).toHaveBeenCalled();
+  });
+
+  it("keeps pen ink in screen space when the view is zoomed", () => {
+    const ctx = mockCtx();
+    paintDrawing(
+      ctx,
+      {
+        type: "pen",
+        color: "#fff",
+        points: [
+          { x: 0, y: 0 },
+          { x: 2, y: 2 },
+        ],
+      },
+      (x, y) => ({ x: x * VIEW_SCALE_MAX, y: y * VIEW_SCALE_MAX }),
+    );
+    expect(ctx.lineWidth).toBe(OVERLAY_NOTE_PEN_STROKE);
+    expect(ctx.lineJoin).toBe("round");
+    expect(ctx.lineCap).toBe("round");
   });
 });

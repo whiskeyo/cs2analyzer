@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { SnapshotDialog } from "@/components/playbook/SnapshotDialog";
+import { SnapshotToast, type SnapshotToastInfo } from "@/components/playbook/SnapshotToast";
 import {
   addBookmark,
   clearRoundDrawings,
@@ -28,6 +29,7 @@ export function RadarStage() {
   const { session, playback, review, view, cal, habits } = useApp();
   const { settings } = useUserSettings();
   const [snapshot, setSnapshot] = useState<ReturnType<typeof snapshotFromAnalyzer> | null>(null);
+  const [toast, setToast] = useState<SnapshotToastInfo | null>(null);
   const replay = session.replay;
   if (!replay) return null;
   const { tick } = playback;
@@ -126,6 +128,7 @@ export function RadarStage() {
               summaryFilter: review.summaryFilter,
               selected: view.selected,
               trails: view.trails,
+              note: noteForRound(review.notes, currentRound(replay, tick)?.number ?? 0),
             }),
           )
         }
@@ -180,16 +183,22 @@ export function RadarStage() {
           />
         )}
         {!habitsOnly && <KillFeed replay={replay} tick={tick} onJump={playback.jump} />}
+        {toast ? <SnapshotToast {...toast} onDismiss={() => setToast(null)} /> : null}
       </div>
       {snapshot ? (
         <SnapshotDialog
           mapName={snapshot.mapName}
           pieces={snapshot.pieces}
           groups={snapshot.groups}
+          drawings={snapshot.drawings}
           radarFx={snapshot.radarFx}
           stratTitle={snapshot.stratTitle}
           floor={snapshot.floor}
           onClose={() => setSnapshot(null)}
+          onSaved={(saved) => {
+            setSnapshot(null);
+            setToast(saved);
+          }}
         />
       ) : null}
     </div>
