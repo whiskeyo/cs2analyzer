@@ -1,26 +1,75 @@
+import { useRef, useState } from "react";
 import { Controls } from "@/components/playback/Controls";
 import { RoundStrip } from "@/components/playback/RoundStrip";
 import { SeriesAggregatedRoundStrip } from "@/components/playback/SeriesAggregatedRoundStrip";
 import { BucketControls } from "@/components/playback/BucketControls";
 import { RadarStage } from "@/components/radar/RadarStage";
 import { Sidebar } from "@/components/sidebar/Sidebar";
+import { ParseProgressPanel } from "@/components/app/ParseProgressPanel";
 import { useApp } from "@/lib/state/appState";
+import { prefetchParser } from "@/lib/parse/ensureParser";
+import { takeDroppedDemoFiles } from "@/lib/parse/demoDrop";
 import { isAggregatedView, isBucketOverlayActive } from "@/lib/parse/seriesMode";
 import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
 
+function parseOverallPct(progress: { current: number; total: number } | null): number {
+  if (!progress || progress.total <= 0) return 0;
+  return Math.min(100, Math.round((100 * progress.current) / progress.total));
+}
+
 export function Viewer() {
-  const { session, playback, review, places, habits } = useApp();
+  const { session, playback, review, places, habits, appendFiles, status } = useApp();
   const replay = session.replay;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
   const bucketMode = replay != null && isBucketOverlayActive(session.series, habits);
+  const [dragOver, setDragOver] = useState(false);
+  const dragDepthRef = useRef(0);
 
   if (!replay) return null;
   const { tick } = playback;
   const switching = session.switching;
 
   return (
-    <>
+    <div
+      className={`viewer${dragOver ? " is-drop-target" : ""}`}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        prefetchParser();
+        dragDepthRef.current += 1;
+        setDragOver(true);
+      }}
+      onDragOver={(e) => e.preventDefault()}
+      onDragLeave={() => {
+        dragDepthRef.current -= 1;
+        if (dragDepthRef.current <= 0) {
+          dragDepthRef.current = 0;
+          setDragOver(false);
+        }
+      }}
+      onDrop={(e) => {
+        dragDepthRef.current = 0;
+        setDragOver(false);
+        void takeDroppedDemoFiles(e, appendFiles);
+      }}
+    >
+      {session.parsing ? (
+        <div className="viewer-parse">
+          <ParseProgressPanel
+            overallPct={parseOverallPct(session.progress)}
+            files={session.parseFiles}
+            onCancel={session.cancelParse}
+          />
+        </div>
+      ) : null}
+      {status?.notice && !session.parsing ? (
+        <p className="notice viewer-status">{status.notice}</p>
+      ) : null}
+      {dragOver ? (
+        <p className="viewer-drop-hint" aria-live="polite">
+          Drop to add this demo to the open session
+        </p>
+      ) : null}
       <SeriesBar />
       <SeriesFilters />
       <div className="viewer-body">
@@ -89,6 +138,6 @@ export function Viewer() {
         Space play · ←/→ scrub · [ ] rounds · e E executes · , . kills · F track · T trail · Ctrl+Z
         undo · Esc deselect
       </p>
-    </>
+    </div>
   );
 }

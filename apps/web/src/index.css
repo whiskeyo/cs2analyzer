@@ -901,6 +901,36 @@ code {
   margin: 0;
   text-align: center;
 }
+.viewer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+.viewer.is-drop-target {
+  outline: 2px dashed #3d6f99;
+  outline-offset: -2px;
+}
+.viewer-parse {
+  padding: 0.45rem 1rem 0.25rem;
+  background: #0a0d11;
+  border-bottom: 1px solid #1e2732;
+}
+.viewer-status {
+  margin: 0;
+  padding: 0.35rem 1rem;
+  border-bottom: 1px solid #1e2732;
+}
+.viewer-drop-hint {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  background: #13202c;
+  border-bottom: 1px solid #3d6f99;
+  color: #d5e4f2;
+  font-size: 0.82rem;
+  text-align: center;
+}
 .viewer-body {
   display: flex;
   flex: 1;

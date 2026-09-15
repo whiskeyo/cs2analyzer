@@ -103,6 +103,7 @@ describe("Header", () => {
     expect(screen.getByRole("link", { name: "Contact" })).toHaveAttribute("href", "/contact");
     expect(screen.getByText("[pre-release testing]")).toBeInTheDocument();
     expect(screen.getByRole("tooltip")).toHaveTextContent(/backward compatible/);
+    expect(screen.queryByRole("button", { name: "Add demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
@@ -155,6 +156,7 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderHeader();
     expect(screen.getByText(/Mirage · match\.dem · 1 kills/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add demo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeInTheDocument();
     await openSettings();
@@ -223,6 +225,7 @@ describe("Header", () => {
   it("hides viewer actions on Playbook even with a loaded replay", () => {
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
     renderHeader("/playbook");
+    expect(screen.queryByRole("button", { name: "Add demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
@@ -232,6 +235,7 @@ describe("Header", () => {
   it("hides viewer actions on the FAQ page even with a loaded replay", () => {
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
     renderHeader("/faq");
+    expect(screen.queryByRole("button", { name: "Add demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
@@ -241,6 +245,7 @@ describe("Header", () => {
   it("hides viewer actions on the Contact page even with a loaded replay", () => {
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
     renderHeader("/contact");
+    expect(screen.queryByRole("button", { name: "Add demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
