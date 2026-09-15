@@ -182,6 +182,41 @@ describe("useReviewProject", () => {
     expect(result.current.paletteId).toBe("default");
   });
 
+  it("does not re-restore or jump when a single demo is promoted into a series", async () => {
+    const pb = playback();
+    const d = demo();
+    mocks.loadProject.mockResolvedValue(project());
+    const { rerender } = renderHook(
+      ({ series }) =>
+        useReviewProject({
+          demo: d,
+          series,
+          parsedDemos: series?.demos ?? [],
+          status: status(),
+          playback: pb,
+        }),
+      { initialProps: { series: null as DemoSeries | null } },
+    );
+
+    await waitFor(() => expect(pb.jump).toHaveBeenCalledWith(300, true));
+    pb.jump.mockClear();
+
+    const series: DemoSeries = {
+      mapName: "de_mirage",
+      demos: [d, demo("other.dem")],
+      focalTeam: "A",
+      focalTeamNames: ["A"],
+      tagsByDemo: new Map(),
+    };
+    rerender({ series });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(pb.jump).not.toHaveBeenCalled();
+  });
+
   it("uses overlay defaults for a demo with no saved project", async () => {
     const overlayDefaults = {
       paletteId: "neon",

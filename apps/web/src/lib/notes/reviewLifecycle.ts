@@ -45,6 +45,17 @@ export function restorePlan(input: {
   hasCache: boolean;
 }): RestorePlan {
   const isSwitch = input.prevDemoId != null && input.prevDemoId !== input.demoId;
+  if (input.prevDemoId === input.demoId) {
+    return {
+      source: "idb",
+      jumpTick: false,
+      autoplayIfEmpty: false,
+      pauseOnRestore: false,
+      noticeOnRestore: false,
+      persistOutgoingOnLeave: !input.inSeries,
+      markRestoredImmediately: true,
+    };
+  }
   if (input.hasCache) {
     return {
       source: "cache",
