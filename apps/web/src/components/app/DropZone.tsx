@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ParseProgressPanel } from "@/components/app/ParseProgressPanel";
 import { Credits } from "@/components/app/Credits";
 import { prefetchParser } from "@/lib/parse/ensureParser";
@@ -6,9 +6,9 @@ import type { ParseFileProgress } from "@/lib/parse/parsePool";
 import { SAVED_NOTES_PAGE_SIZE } from "@/lib/shared/constants";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { noteDrawingCount } from "@/lib/notes/note";
+import { takeDroppedDemoFiles, takePickedDemoFiles } from "@/lib/parse/demoDrop";
 import {
   demoFilePickerAvailable,
-  filesFromDataTransfer,
   pickDemoFileHandle,
   pickOpenFiles,
   rememberDemoFileHandles,
@@ -66,22 +66,6 @@ function sortedSnapshots(rows: SavedPlayerSnapshot[]): SavedPlayerSnapshot[] {
   return [...rows].sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
 }
 
-async function takeDroppedFiles(e: DragEvent, onFiles: (files: File[]) => void): Promise<void> {
-  e.preventDefault();
-  const { files, handles } = await filesFromDataTransfer(e.dataTransfer);
-  rememberDemoFileHandles(handles);
-  if (files.length > 0) onFiles(files);
-}
-
-function takePickedFiles(
-  files: File[],
-  handles: Iterable<FileSystemFileHandle>,
-  onFiles: (files: File[]) => void,
-): void {
-  rememberDemoFileHandles(handles);
-  if (files.length > 0) onFiles(files);
-}
-
 export function DropZone({
   onFiles,
   onDeleteNotes,
@@ -134,13 +118,13 @@ export function DropZone({
       onPointerDown={() => prefetchParser()}
       onDragEnter={() => prefetchParser()}
       onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => void takeDroppedFiles(e, onFiles)}
+      onDrop={(e) => void takeDroppedDemoFiles(e, onFiles)}
       onClick={(e) => {
         if (!demoFilePickerAvailable()) return;
         e.preventDefault();
         void pickOpenFiles().then((picked) => {
           if (!picked) return;
-          takePickedFiles(picked.files, picked.handles, onFiles);
+          takePickedDemoFiles(picked.files, picked.handles, onFiles);
         });
       }}
     >
@@ -320,7 +304,7 @@ export function DropZone({
             onDragEnter={() => prefetchParser()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
-              void takeDroppedFiles(e, (files) => {
+              void takeDroppedDemoFiles(e, (files) => {
                 setWantedDemo(null);
                 setRestoreHint(null);
                 onFiles(files);

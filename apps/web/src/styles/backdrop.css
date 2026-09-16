@@ -1,8 +1,15 @@
 /* Product skin behind every AppLayout route. Fixed so tall splash pages
-   (FAQ) never scroll past a hard clip. Panels stay opaque on top. */
+   (FAQ) never scroll past a hard clip. Splash keeps the radar art; a filled
+   board (loaded Analyzer / Playbook) hides it so chrome stays fully opaque. */
 .app {
   position: relative;
   isolation: isolate;
+  background: var(--bg);
+}
+
+/* Loaded Analyzer / Playbook: opaque chrome over the decorative radar art. */
+.app.board > .app-backdrop {
+  visibility: hidden;
 }
 
 .app-backdrop {

@@ -19,6 +19,20 @@ describe("reviewLifecycle", () => {
     });
   });
 
+  it("does not jump or re-announce when the same demo stays mounted", () => {
+    const same = restorePlan({
+      prevDemoId: "a",
+      demoId: "a",
+      inSeries: true,
+      hasCache: false,
+    });
+    expect(same.jumpTick).toBe(false);
+    expect(same.noticeOnRestore).toBe(false);
+    expect(same.autoplayIfEmpty).toBe(false);
+    expect(same.markRestoredImmediately).toBe(true);
+    expect(same.persistOutgoingOnLeave).toBe(false);
+  });
+
   it("does not wipe overlay again while the same demo stays mounted", () => {
     expect(demoEnterClear({ prevDemoId: "a", nextDemoId: "a", hasSeries: false })).toEqual({
       clearStrokes: false,

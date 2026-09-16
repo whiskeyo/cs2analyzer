@@ -36,6 +36,8 @@ export interface AppState {
   places: MapPlaces | null;
   /** Routes dropped demo(s) to the parser or a notes file to the importer. */
   onFiles: (files: File[]) => void;
+  /** Add demo(s) to the open session (single→series or fold into a series). */
+  appendFiles: (files: File[]) => void;
 }
 
 /**
@@ -60,12 +62,13 @@ export function AppStateProvider({
 }
 
 export function useApp(): AppState {
-  const { status, session, notes, onFiles } = useSession();
+  const { status, session, notes, onFiles, appendFiles } = useSession();
   const analyzer = useOptionalAnalyzer();
   return {
     status,
     session,
     onFiles,
+    appendFiles,
     playback: analyzer?.playback ?? IDLE_PLAYBACK,
     review: analyzer?.review ?? notes,
     view: analyzer?.view ?? IDLE_VIEW,

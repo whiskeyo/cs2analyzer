@@ -34,6 +34,8 @@ export interface SessionState {
   session: DemoSession;
   notes: ReviewSession;
   onFiles: (files: File[]) => void;
+  /** Parse into the open Analyzer session without wiping it. */
+  appendFiles: (files: File[]) => void;
   bridgeRef: MutableRefObject<AnalyzerBridge>;
 }
 
@@ -146,8 +148,8 @@ export function SessionProvider({
     ],
   );
 
-  const onFiles = useCallback(
-    (files: File[]) => {
+  const takeDemoFiles = useCallback(
+    (files: File[], onDemos: (demos: File[]) => void) => {
       if (files.length === 0) return;
       if (files.length === 1 && isNotesFile(files[0])) {
         void files[0].text().then((text) => void importNotesText(text));
@@ -155,16 +157,34 @@ export function SessionProvider({
       }
       const demos = files.filter((f) => !isNotesFile(f));
       if (demos.length === 0) return;
-      const current = sessionRef.current;
-      if (demos.length === 1) current.parseDemo(demos[0]);
-      else void current.parseDemos(demos);
+      onDemos(demos);
     },
     [importNotesText],
   );
 
+  const onFiles = useCallback(
+    (files: File[]) => {
+      takeDemoFiles(files, (demos) => {
+        const current = sessionRef.current;
+        if (demos.length === 1) current.parseDemo(demos[0]);
+        else void current.parseDemos(demos);
+      });
+    },
+    [takeDemoFiles],
+  );
+
+  const appendFiles = useCallback(
+    (files: File[]) => {
+      takeDemoFiles(files, (demos) => {
+        void sessionRef.current.appendDemos(demos);
+      });
+    },
+    [takeDemoFiles],
+  );
+
   const value = useMemo(
-    (): SessionState => ({ status, session, notes, onFiles, bridgeRef }),
-    [status, session, notes, onFiles],
+    (): SessionState => ({ status, session, notes, onFiles, appendFiles, bridgeRef }),
+    [status, session, notes, onFiles, appendFiles],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

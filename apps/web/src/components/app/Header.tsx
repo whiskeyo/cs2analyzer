@@ -8,6 +8,7 @@ import type { Replay } from "@/lib/replay/replayTypes";
 import { useNavigate } from "react-router";
 import { ROUTES, usePathname } from "@/lib/app/devNavigate";
 import { isContactPath, isFaqPath, isLayoutsPath, isPlaybookPath } from "@/lib/app/routes";
+import { AddDemoControl } from "./AddDemoControl";
 import { SettingsMenu } from "./SettingsMenu";
 import { SiteNav } from "./SiteNav";
 
@@ -78,6 +79,7 @@ export function Header() {
         ) : null}
       </div>
       <div className="top-actions">
+        {replay && showMatchChrome ? <AddDemoControl /> : null}
         {replay && showMatchChrome ? (
           <button type="button" className="ghost" onClick={session.close}>
             New demo
