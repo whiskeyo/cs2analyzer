@@ -8,6 +8,7 @@ import {
   liveTeams,
   teamEntryShare,
 } from "@/lib/stats/stats";
+import { RatingValue } from "@/components/stats/RatingValue";
 import { playerLabel } from "@/lib/replay/playerLabel";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { PlayerStats, Replay } from "@/lib/replay/replayTypes";
@@ -74,7 +75,9 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
               <td>{s.assists}</td>
               <td>{formatAdr(s.adr)}</td>
               <td>{formatKast(s.kast)}</td>
-              <td>{s.rating.toFixed(2)}</td>
+              <td>
+                <RatingValue value={s.rating} />
+              </td>
               <td className="sb-entry">
                 <span className="entry-main">
                   {s.entry_attempts > 0 ? `${s.first_kills}/${s.entry_attempts}` : "—"}
@@ -115,9 +118,14 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
             <dd>
               {sel.kills} / {sel.deaths} / {sel.assists} ({sel.kd.toFixed(2)})
             </dd>
-            <dt>Rating / Impact</dt>
+            <dt>Rating</dt>
             <dd>
-              {sel.rating.toFixed(2)} / {sel.impact.toFixed(2)}
+              <RatingValue value={sel.rating} />
+            </dd>
+            <dt>Firepower / Impact / Support / Clutch</dt>
+            <dd>
+              {sel.rating_firepower.toFixed(2)} / {sel.rating_impact.toFixed(2)} /{" "}
+              {sel.rating_support.toFixed(2)} / {sel.rating_clutch.toFixed(2)}
             </dd>
             <dt>Kills / round · Deaths / round</dt>
             <dd>

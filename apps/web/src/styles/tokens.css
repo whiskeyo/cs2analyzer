@@ -10,6 +10,12 @@
   --text: #e8eef4;
   --text-muted: #8b98a5;
   --danger: #e04b4b;
+  --rating-poor: #c2544c;
+  --rating-average: #d49a3c;
+  --rating-good: #5aaa6a;
+  --rating-great: #3da8c4;
+  --rating-excellent: #6b86ee;
+  --rating-outstanding: #b07ae8;
   color: var(--text);
   background: var(--bg);
   /* Home, Analyzer splash, and FAQ share one column and type scale. */

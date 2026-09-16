@@ -3,6 +3,8 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import { FULL_HEALTH } from "@/lib/shared/constants";
+import { ratingBandClass, ratingRangeFor } from "@/lib/stats/rating";
+import { computeStats } from "@/lib/stats/stats";
 import {
   makeFreezeTicks,
   makeKill,
@@ -59,7 +61,7 @@ describe("Scoreboard", () => {
     // Alice won the only opening duel of the round.
     expect(within(detail as HTMLElement).getByText(/1 \/ 0 · 100% entry/)).toBeInTheDocument();
     expect(
-      within(detail as HTMLElement).getByText("Flash assists / utility damage per round"),
+      within(detail as HTMLElement).getByText("Firepower / Impact / Support / Clutch"),
     ).toBeInTheDocument();
     expect(
       within(detail as HTMLElement).getByText("1v1 / 1v2 / 1v3 / 1v4 / 1v5 (W/A)"),
@@ -211,5 +213,27 @@ describe("Scoreboard", () => {
     const ct = teamTable("Astralis");
     expect(within(ct).getByText("Bob").closest("tr")).toHaveClass("selected");
     expect(within(ct).getByText("Alice").closest("tr")).not.toHaveClass("selected");
+  });
+
+  it("colors each rating with the matching range band", () => {
+    const match = replay();
+    render(<Scoreboard replay={match} tick={640} selected={0} onSelect={() => {}} />);
+    const alice = computeStats(match, 640).find((s) => s.player === 0);
+    if (!alice) throw new Error("missing Alice stats");
+    const band = ratingBandClass(alice.rating);
+    const label = ratingRangeFor(alice.rating).label;
+    const formatted = alice.rating.toFixed(2);
+
+    const row = within(teamTable("Astralis")).getByText("Alice").closest("tr");
+    if (!row) throw new Error("missing Alice row");
+    const rowMark = within(row).getByTitle(label);
+    expect(rowMark).toHaveClass(band);
+    expect(rowMark).toHaveTextContent(formatted);
+
+    const detail = screen.getByRole("heading", { name: "Alice" }).closest(".detail");
+    if (!detail) throw new Error("missing Alice detail");
+    const detailMark = within(detail as HTMLElement).getByTitle(label);
+    expect(detailMark).toHaveClass(band);
+    expect(detailMark).toHaveTextContent(formatted);
   });
 });

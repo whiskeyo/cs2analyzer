@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { PROJECT_SCHEMA, type ReviewProject } from "@/lib/notes/projectStore";
@@ -219,7 +219,7 @@ describe("DropZone", () => {
                   deaths: 20,
                   adr: 60,
                   kast: 55,
-                  rating: 0.81,
+                  rating: 3.2,
                 },
                 {
                   name: "s1mple",
@@ -228,7 +228,7 @@ describe("DropZone", () => {
                   deaths: 18,
                   adr: 88,
                   kast: 72,
-                  rating: 1.23,
+                  rating: 6.54,
                 },
               ],
             }),
@@ -243,6 +243,10 @@ describe("DropZone", () => {
     const rows = screen.getAllByRole("row");
     expect(rows[1]).toHaveTextContent(/^s1mple/);
     expect(rows[2]).toHaveTextContent(/^device/);
+    expect(within(rows[1]!).getByTitle("Good")).toHaveClass("rating-band-good");
+    expect(within(rows[1]!).getByTitle("Good")).toHaveTextContent("6.54");
+    expect(within(rows[2]!).getByTitle("Poor")).toHaveClass("rating-band-poor");
+    expect(within(rows[2]!).getByTitle("Poor")).toHaveTextContent("3.20");
   });
 
   it("deletes saved notes by key", async () => {
