@@ -32,7 +32,7 @@ function AppLayout() {
     if (root) root.scrollTop = 0;
   }, [pathname]);
 
-  const shellClass = showLayouts ? "app layouts-app" : fillBoard ? "app" : "app splash";
+  const shellClass = showLayouts ? "app layouts-app" : fillBoard ? "app board" : "app splash";
 
   return (
     <div className={shellClass}>

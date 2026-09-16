@@ -907,6 +907,7 @@ code {
   flex-direction: column;
   min-height: 0;
   position: relative;
+  background: var(--bg);
 }
 .viewer.is-drop-target {
   outline: 2px dashed #3d6f99;

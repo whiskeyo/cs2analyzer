@@ -142,6 +142,8 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
     expect(container.querySelector(".app-backdrop")).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelector(".app")).toHaveClass("splash");
+    expect(container.querySelector(".app")).not.toHaveClass("board");
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
     expect(screen.getByRole("button", { name: /Create a playbook/ })).toBeInTheDocument();
@@ -228,6 +230,8 @@ describe("App", () => {
     expect(hudMeta(container)).toBe("Anubis · R1");
     expect(screen.getByText("Astralis")).toBeInTheDocument();
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
+    expect(container.querySelector(".app")).toHaveClass("board");
+    expect(container.querySelector(".app")).not.toHaveClass("splash");
 
     // Both rosters reach the scoreboard, grouped by the side they are on.
     const [ct, t] = container.querySelectorAll(".sb-team");
