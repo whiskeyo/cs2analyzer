@@ -7,6 +7,7 @@ import { reportQuotaError } from "@/lib/storage/quota";
 import type { SeriesReviewSnapshot } from "./seriesReviewCache";
 import {
   demoEnterClear,
+  notesBelongToDemo,
   restorePlan,
   shouldDebouncePersist,
   shouldFlushSeriesCache,
@@ -69,6 +70,12 @@ export function useReviewProject(opts: {
   overlayDefaultsRef.current = opts.overlayDefaults ?? overlayDefaultsRef.current;
   const [saved, setSaved] = useState<ReviewProject[]>([]);
   const { notes, notesRef, canUndo, canRedo, commitNotes, undo, redo } = useRoundNoteHistory();
+  const notesDemoIdRef = useRef<string | null>(null);
+  const [notesDemoId, setNotesDemoIdState] = useState<string | null>(null);
+  const setNotesDemoId = useCallback((id: string | null) => {
+    notesDemoIdRef.current = id;
+    setNotesDemoIdState(id);
+  }, []);
   const [paletteId, setPaletteId] = useState(overlayDefaultsRef.current.paletteId);
   const [color, setColor] = useState(overlayDefaultsRef.current.color);
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>(
@@ -100,6 +107,7 @@ export function useReviewProject(opts: {
   const applySnapshot = useCallback(
     (snap: SeriesReviewSnapshot, jumpTick: boolean) => {
       commitNotes(snap.notes, true);
+      setNotesDemoId(snap.demo.id);
       setSummaryFilter(snap.summaryFilter);
       setFloorMode(snap.floorMode);
       setPaletteId(snap.paletteId);
@@ -108,12 +116,13 @@ export function useReviewProject(opts: {
         playbackRef.current.jump(snap.tick, true);
       }
     },
-    [commitNotes],
+    [commitNotes, setNotesDemoId],
   );
 
   const applyProject = useCallback(
     (p: ReviewProject, jumpTick: boolean) => {
       commitNotes(p.notes, true);
+      setNotesDemoId(demoRef.current?.id ?? null);
       setSummaryFilter(p.summaryFilter);
       setFloorMode(p.floorMode);
       setPaletteId(p.paletteId);
@@ -122,7 +131,15 @@ export function useReviewProject(opts: {
         playbackRef.current.jump(p.tick, true);
       }
     },
-    [commitNotes],
+    [commitNotes, setNotesDemoId],
+  );
+
+  const commitOwnedNotes = useCallback(
+    (next: Parameters<typeof commitNotes>[0], reset = false) => {
+      commitNotes(next, reset);
+      setNotesDemoId(demoRef.current?.id ?? null);
+    },
+    [commitNotes, setNotesDemoId],
   );
 
   const snapshotNow = useCallback((): SeriesReviewSnapshot | null => {
@@ -161,6 +178,9 @@ export function useReviewProject(opts: {
   const persist = useCallback(
     async (target: LoadedDemo | null, opts?: { stats?: boolean; refreshList?: boolean }) => {
       if (!target) {
+        return;
+      }
+      if (!notesBelongToDemo(notesDemoIdRef.current, target.id)) {
         return;
       }
       const key = matchKey(target.replay, target.fileName);
@@ -246,6 +266,7 @@ export function useReviewProject(opts: {
       return;
     }
     commitNotes([], true);
+    setNotesDemoId(demo.id);
     if (enter.resetOverlay) {
       const defaults = overlayDefaultsRef.current;
       setSummaryFilter({ ...defaults.summaryFilter, kinds: { ...defaults.summaryFilter.kinds } });
@@ -253,7 +274,7 @@ export function useReviewProject(opts: {
       setPaletteId(defaults.paletteId);
       setColor(defaults.color);
     }
-  }, [demo?.id, series, commitNotes]);
+  }, [demo?.id, series, commitNotes, setNotesDemoId]);
 
   /** Call before swapping the active file in a series (refs still point at the outgoing demo). */
   const stashForSeriesSwitch = useCallback(() => {
@@ -305,6 +326,10 @@ export function useReviewProject(opts: {
       }
       restoredRef.current = true;
       if (!project || overlayIsUnset(project)) {
+        if (!notesBelongToDemo(notesDemoIdRef.current, demo.id)) {
+          commitNotes([], true);
+        }
+        setNotesDemoId(demo.id);
         if (plan.autoplayIfEmpty) {
           playbackRef.current.setPlaying(true);
         }
@@ -331,7 +356,7 @@ export function useReviewProject(opts: {
         });
       }
     };
-  }, [demo, series, applyProject, applySnapshot, persist]);
+  }, [demo, series, applyProject, applySnapshot, persist, commitNotes, setNotesDemoId]);
 
   useEffect(() => {
     if (!shouldFlushSeriesCache(series != null)) {
@@ -341,14 +366,31 @@ export function useReviewProject(opts: {
   }, [series]);
 
   useEffect(() => {
-    if (!shouldDebouncePersist({ hasDemo: demo != null, restored: restoredRef.current })) {
+    if (
+      !shouldDebouncePersist({
+        hasDemo: demo != null,
+        restored: restoredRef.current,
+        notesDemoId: notesDemoIdRef.current,
+        boardDemoId: demo?.id ?? null,
+      })
+    ) {
       return;
     }
     const id = window.setTimeout(() => {
       void persistNow();
     }, PROJECT_SAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(id);
-  }, [demo, playback.playing, notes, summaryFilter, floorMode, paletteId, color, persistNow]);
+  }, [
+    demo,
+    playback.playing,
+    notes,
+    notesDemoId,
+    summaryFilter,
+    floorMode,
+    paletteId,
+    color,
+    persistNow,
+  ]);
 
   useEffect(() => {
     const onUnload = () => {
@@ -373,6 +415,7 @@ export function useReviewProject(opts: {
   return {
     saved,
     notes,
+    notesDemoId,
     notesRef,
     canUndo,
     canRedo,
@@ -385,7 +428,7 @@ export function useReviewProject(opts: {
     floorMode,
     setFloorMode,
     refreshSaved,
-    commitNotes,
+    commitNotes: commitOwnedNotes,
     undo,
     redo,
     applyProject,

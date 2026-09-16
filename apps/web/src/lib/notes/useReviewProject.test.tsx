@@ -453,6 +453,50 @@ describe("useReviewProject", () => {
     rerender({ current: first });
 
     await waitFor(() => expect(result.current.notes[0]?.note.drawings).toEqual([drawing]));
+    expect(result.current.notesDemoId).toBe(first.id);
+  });
+
+  it("does not persist demo A notes onto demo B before restore settles", async () => {
+    const first = demo("a.dem");
+    const second = demo("b.dem");
+    const series: DemoSeries = {
+      mapName: "de_mirage",
+      demos: [first, second],
+      focalTeam: "A",
+      focalTeamNames: ["A"],
+      tagsByDemo: new Map(),
+    };
+    const pb = playback();
+    mocks.matchKey.mockImplementation((_replay: unknown, fileName: string) => fileName);
+    mocks.loadProject.mockResolvedValue(null);
+    const { result, rerender } = renderHook(
+      ({ current }) =>
+        useReviewProject({
+          demo: current,
+          series,
+          parsedDemos: [],
+          status: status(),
+          playback: pb,
+        }),
+      { initialProps: { current: first } },
+    );
+
+    await waitFor(() => expect(result.current.notesDemoId).toBe(first.id));
+
+    const drawing = {
+      type: "pen" as const,
+      color: "#fff",
+      points: [{ x: 1, y: 2 }],
+    };
+    act(() => {
+      result.current.commitNotes([{ round: 1, note: { ...emptyNote(), drawings: [drawing] } }]);
+    });
+    mocks.saveProject.mockClear();
+
+    rerender({ current: second });
+    await waitFor(() => expect(result.current.notesDemoId).toBe(second.id));
+    expect(result.current.notes).toEqual([]);
+    expect(mocks.saveProject).not.toHaveBeenCalled();
   });
 
   it("reports quota when auto-save cannot write", async () => {

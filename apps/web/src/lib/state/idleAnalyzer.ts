@@ -97,6 +97,7 @@ export function idleReview(partial: Partial<ReviewSession> = {}): ReviewSession 
   return {
     saved: [],
     notes: [],
+    notesDemoId: null,
     notesRef: { current: [] },
     canUndo: false,
     canRedo: false,

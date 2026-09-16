@@ -10,7 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import { useReviewProject, type ReviewSession } from "@/lib/notes/useReviewProject";
-import { isBucketOverlayActive } from "@/lib/parse/seriesMode";
+import { analyzerNotesLive } from "@/lib/notes";
+import { isAggregatedView, isBucketOverlayActive } from "@/lib/parse/seriesMode";
 import { useBucketTransport } from "@/lib/playback/useBucketTransport";
 import { useHotkeys } from "@/lib/playback/useHotkeys";
 import { PlaybackCommandProvider } from "@/lib/playback/playbackCommandContext";
@@ -195,6 +196,11 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
   const replayRef = useRef(replay);
   replayRef.current = replay;
 
+  const notesLive = analyzerNotesLive({
+    aggregated: isAggregatedView(session.series, habits),
+    notesDemoId: review.notesDemoId ?? null,
+    boardDemoId: session.demo?.id ?? null,
+  });
   useHotkeys({
     replayRef,
     placesRef,
@@ -202,8 +208,8 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     playingRef: playback.playingRef,
     selectedRef: view.selectedRef,
     jump: playback.jump,
-    undo: review.undo,
-    redo: review.redo,
+    undo: notesLive ? review.undo : () => undefined,
+    redo: notesLive ? review.redo : () => undefined,
     setPlaying: playback.setPlaying,
     togglePlaying: playback.togglePlaying,
     setFollow: view.setFollow,

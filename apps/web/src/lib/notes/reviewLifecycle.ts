@@ -89,8 +89,22 @@ export function restorePlan(input: {
   };
 }
 
-export function shouldDebouncePersist(input: { hasDemo: boolean; restored: boolean }): boolean {
-  return input.hasDemo && input.restored;
+export function notesBelongToDemo(
+  notesDemoId: string | null | undefined,
+  demoId: string | null | undefined,
+): boolean {
+  return notesDemoId != null && demoId != null && notesDemoId === demoId;
+}
+
+export function shouldDebouncePersist(input: {
+  hasDemo: boolean;
+  restored: boolean;
+  notesDemoId?: string | null;
+  boardDemoId?: string | null;
+}): boolean {
+  if (!input.hasDemo || !input.restored) return false;
+  if (input.notesDemoId === undefined && input.boardDemoId === undefined) return true;
+  return notesBelongToDemo(input.notesDemoId, input.boardDemoId);
 }
 
 /**

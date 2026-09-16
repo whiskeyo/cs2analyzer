@@ -3,6 +3,7 @@ import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
 import { type DefaultSidebarTab } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
+import { analyzerNotesLive, notesForAnalyzerSession } from "@/lib/notes";
 import { isAggregatedView, isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { Action } from "./Action";
 import { Review } from "./Review";
@@ -40,14 +41,20 @@ export const Sidebar = memo(function Sidebar() {
   const { settings, update } = useUserSettings();
   const replay = session.replay;
   const tick = playback.tick;
-  const notes = review.notes;
+  const multiDemo = isMultiDemoSeries(session.series);
+  const seriesMode = isAggregatedView(session.series, habits);
+  const notesQuery = {
+    aggregated: seriesMode,
+    notesDemoId: review.notesDemoId ?? null,
+    boardDemoId: session.demo?.id ?? null,
+  };
+  const notesLive = analyzerNotesLive(notesQuery);
+  const notes = notesForAnalyzerSession(review.notes, notesQuery);
   const selected = view.selected;
   const onSelect = view.select;
   const onJump = playback.jump;
-  const onNotes = review.commitNotes;
+  const onNotes = notesLive ? review.commitNotes : () => undefined;
   const activeRound = playback.activeRound;
-  const multiDemo = isMultiDemoSeries(session.series);
-  const seriesMode = isAggregatedView(session.series, habits);
   const playerKey = habits.playerKey;
   const playerName = playerKey
     ? (habits.focalPlayers.find((p) => p.key === playerKey)?.name ?? null)
