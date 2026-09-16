@@ -1,10 +1,16 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "cairosvg",
+#     "pillow",
+# ]
+# ///
 """Rasterize apps/web/public favicon.svg into the PNG/ICO set the web app links.
 
-Requires: cairosvg, Pillow. Does not change the SVG mark.
+Does not change the SVG mark.
 
-  pip install cairosvg Pillow
-  python3 scripts/generate-app-icons.py
+  uv run scripts/generate-app-icons.py
 """
 
 from __future__ import annotations
@@ -13,12 +19,8 @@ import io
 import sys
 from pathlib import Path
 
-try:
-    import cairosvg
-    from PIL import Image
-except ImportError:
-    sys.stderr.write("install cairosvg and Pillow, then re-run\n")
-    sys.exit(1)
+import cairosvg
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "apps/web/public"
