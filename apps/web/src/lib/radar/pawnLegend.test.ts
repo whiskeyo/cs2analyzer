@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DemoSeries } from "@/lib/parse/session";
 import type { SeriesOverlay } from "@/lib/parse/seriesOverlay";
+import { DEFAULT_PATH_BRANCH_OPTIONS } from "@/lib/parse/pathBranches";
 import { analyzerPawnLegend, uniquePawnLegend } from "./pawnLegend";
 
 function series(demoCount: number): DemoSeries {
@@ -22,7 +23,8 @@ function series(demoCount: number): DemoSeries {
 function overlay(trails: SeriesOverlay["trails"]): SeriesOverlay {
   return {
     trails,
-    heatDots: [],
+    branches: [],
+    branchOptions: DEFAULT_PATH_BRANCH_OPTIONS,
     nades: [],
     roundCount: trails.length,
     windowSec: 20,

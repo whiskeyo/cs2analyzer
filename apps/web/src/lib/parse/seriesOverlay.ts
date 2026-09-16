@@ -14,9 +14,15 @@ import { SERIES_TRAIL_WINDOW_STORAGE_KEY } from "@/lib/shared/storageKeys";
 import { matchingTags, type SeriesFilter } from "./seriesAnalysis";
 import type { RoundTag } from "./roundTags";
 import { playerIdentityKey } from "./seriesRoster";
+import {
+  buildPathBranches,
+  clampPathBranchOptions,
+  type PathBranch,
+  type PathBranchOptions,
+} from "./pathBranches";
 import { steamColor } from "./seriesSteamColor";
 
-export type SeriesOverlayDisplay = "trails" | "heatmap";
+export type SeriesOverlayDisplay = "trails" | "overall";
 
 export interface HabitsTrailPoint {
   x: number;
@@ -41,12 +47,6 @@ export interface HabitsTrail {
   /** Last in-round position when the player survived; no line into the next freeze. */
   survivedAt: { x: number; y: number } | null;
   survivedTick: number | null;
-}
-
-export interface HabitsHeatDot {
-  x: number;
-  y: number;
-  alpha: number;
 }
 
 export interface HabitsNade {
@@ -85,7 +85,10 @@ export function filterHabitsNades(nades: HabitsNade[], filter: HabitsNadeFilter)
 
 export interface SeriesOverlay {
   trails: HabitsTrail[];
-  heatDots: HabitsHeatDot[];
+  /** Aggregated Overall path tree (heatmap replacement). */
+  branches: PathBranch[];
+  /** Knobs used to build `branches` (playhead clip must reuse these). */
+  branchOptions: PathBranchOptions;
   nades: HabitsNade[];
   roundCount: number;
   /** Max freeze-relative seconds across matched rounds (full round length). */
@@ -200,26 +203,22 @@ function sampleForwardTrail(
   return out;
 }
 
-function trailsToHeatmap(trails: HabitsTrail[]): HabitsHeatDot[] {
-  const bins = new Map<string, { x: number; y: number; n: number }>();
-  const cell = 96;
-  for (const trail of trails) {
-    for (const pt of trail.points) {
-      const bx = Math.round(pt.x / cell);
-      const by = Math.round(pt.y / cell);
-      const key = `${bx},${by}`;
-      const prev = bins.get(key);
-      if (prev) prev.n += 1;
-      else bins.set(key, { x: bx * cell, y: by * cell, n: 1 });
-    }
-  }
-  let max = 1;
-  for (const bin of bins.values()) max = Math.max(max, bin.n);
-  return [...bins.values()].map((bin) => ({
-    x: bin.x,
-    y: bin.y,
-    alpha: 0.15 + (0.55 * bin.n) / max,
-  }));
+function overlayFromTrails(
+  trails: HabitsTrail[],
+  nades: HabitsNade[],
+  roundCount: number,
+  windowSec: number,
+  branchOptions?: Partial<PathBranchOptions>,
+): SeriesOverlay {
+  const options = clampPathBranchOptions(branchOptions);
+  return {
+    trails,
+    branches: buildPathBranches(trails, options),
+    branchOptions: options,
+    nades,
+    roundCount,
+    windowSec,
+  };
 }
 
 function habitsNadesInTaggedRound(
@@ -268,6 +267,7 @@ export function buildSeriesOverlay(
   filter: SeriesFilter,
   playerKey: string | null = null,
   windowSeconds?: number,
+  branchOptions?: Partial<PathBranchOptions>,
 ): SeriesOverlay {
   const windowSec = windowSeconds ?? bucketWindowSecForFilter(series, filter);
   const trails: HabitsTrail[] = [];
@@ -319,13 +319,7 @@ export function buildSeriesOverlay(
     }
   }
 
-  return {
-    trails,
-    heatDots: trailsToHeatmap(trails),
-    nades,
-    roundCount,
-    windowSec,
-  };
+  return overlayFromTrails(trails, nades, roundCount, windowSec, branchOptions);
 }
 
 function clipTrailsForPlaySec(trails: HabitsTrail[], playSec: number): HabitsTrail[] {
@@ -362,13 +356,13 @@ function clipNadesForPlaySec(nades: HabitsNade[], playSec: number): HabitsNade[]
 /** Visible slice of a full-window overlay at a freeze-relative playhead. */
 export function overlayAtPlaySec(overlay: SeriesOverlay, playSec: number): SeriesOverlay {
   const trails = clipTrailsForPlaySec(overlay.trails, playSec);
-  return {
+  return overlayFromTrails(
     trails,
-    heatDots: trailsToHeatmap(trails),
-    nades: clipNadesForPlaySec(overlay.nades, playSec),
-    roundCount: overlay.roundCount,
-    windowSec: overlay.windowSec,
-  };
+    clipNadesForPlaySec(overlay.nades, playSec),
+    overlay.roundCount,
+    overlay.windowSec,
+    overlay.branchOptions,
+  );
 }
 
 /** Screen-space hit test for jumping into a matched round from the habits overlay. */

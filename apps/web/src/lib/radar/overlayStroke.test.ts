@@ -4,6 +4,7 @@ import { createMockCanvas } from "@/lib/testing/mockCanvas";
 import {
   OVERLAY_CHEVRON_SIZE,
   OVERLAY_HABITS_TRAIL_STROKE,
+  OVERLAY_PATH_BRANCH_LABEL_FONT,
   applyOverlayStrokeStyle,
   overlayChevronPath,
   overlayMarkerSize,
@@ -31,6 +32,12 @@ describe("overlayStrokeWidth", () => {
 describe("overlayMarkerSize", () => {
   it("keeps pawn / arrow heads the same CSS size when zoomed", () => {
     expect(overlayMarkerSize(OVERLAY_CHEVRON_SIZE, VIEW_SCALE_MAX)).toBe(OVERLAY_CHEVRON_SIZE);
+  });
+
+  it("keeps Overall branch labels the same CSS size when zoomed", () => {
+    expect(overlayMarkerSize(OVERLAY_PATH_BRANCH_LABEL_FONT, VIEW_SCALE_MAX)).toBe(
+      OVERLAY_PATH_BRANCH_LABEL_FONT,
+    );
   });
 });
 

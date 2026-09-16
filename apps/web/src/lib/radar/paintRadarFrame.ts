@@ -20,12 +20,17 @@ import {
   OVERLAY_CHEVRON_SIZE,
   OVERLAY_DEATH_STROKE,
   OVERLAY_HABITS_TRAIL_STROKE,
+  OVERLAY_PATH_BRANCH_LABEL_FONT,
+  OVERLAY_PATH_BRANCH_LABEL_HALO,
+  OVERLAY_PATH_BRANCH_STROKE_MAX,
+  OVERLAY_PATH_BRANCH_STROKE_MIN,
   OVERLAY_REPLAY_TRAIL_STROKE,
   applyOverlayStrokeStyle,
   overlayChevronPath,
   overlayMarkerSize,
   overlayStrokeWidth,
 } from "@/lib/radar/overlayStroke";
+import type { PathBranch } from "@/lib/parse/pathBranches";
 import type {
   HabitsNadeFilter,
   SeriesOverlay,
@@ -349,7 +354,55 @@ function paintHabitsArrow(
   ctx.globalAlpha = 1;
 }
 
-/** Habits overlay: freeze-aligned paths, optional heatmap, util, and player arrows. */
+const OVERALL_BRANCH_STROKE = "rgb(255, 210, 90)";
+const OVERALL_BRANCH_ALPHA_MIN = 0.38;
+const OVERALL_BRANCH_ALPHA_SPAN = 0.5;
+const OVERALL_LABEL_FILL = "#fff8e6";
+const OVERALL_LABEL_HALO = "rgba(10, 12, 16, 0.88)";
+
+function branchStrokeWidth(share: number): number {
+  const clamped = Math.min(1, Math.max(0, share));
+  return (
+    OVERLAY_PATH_BRANCH_STROKE_MIN +
+    (OVERLAY_PATH_BRANCH_STROKE_MAX - OVERLAY_PATH_BRANCH_STROKE_MIN) * clamped
+  );
+}
+
+function paintOverallBranches(
+  ctx: CanvasRenderingContext2D,
+  branches: PathBranch[],
+  toScreen: ToScreen,
+  zoom: number,
+) {
+  for (const branch of branches) {
+    ctx.strokeStyle = OVERALL_BRANCH_STROKE;
+    ctx.globalAlpha = OVERALL_BRANCH_ALPHA_MIN + OVERALL_BRANCH_ALPHA_SPAN * branch.share;
+    applyOverlayStrokeStyle(ctx, overlayStrokeWidth(branchStrokeWidth(branch.share), zoom));
+    ctx.beginPath();
+    branch.points.forEach((pt, i) => {
+      const s = toScreen(pt.x, pt.y);
+      if (i === 0) ctx.moveTo(s.x, s.y);
+      else ctx.lineTo(s.x, s.y);
+    });
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  const fontPx = overlayMarkerSize(OVERLAY_PATH_BRANCH_LABEL_FONT, zoom);
+  ctx.font = `600 ${fontPx}px ui-sans-serif, system-ui`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (const branch of branches) {
+    const s = toScreen(branch.labelAt.x, branch.labelAt.y);
+    ctx.lineJoin = "round";
+    ctx.lineWidth = overlayStrokeWidth(OVERLAY_PATH_BRANCH_LABEL_HALO, zoom);
+    ctx.strokeStyle = OVERALL_LABEL_HALO;
+    ctx.strokeText(branch.label, s.x, s.y);
+    ctx.fillStyle = OVERALL_LABEL_FILL;
+    ctx.fillText(branch.label, s.x, s.y);
+  }
+}
+
+/** Habits overlay: freeze-aligned paths, Overall path tree, util, and player arrows. */
 export function paintHabitsOverlay(
   ctx: CanvasRenderingContext2D,
   overlay: SeriesOverlay,
@@ -374,14 +427,8 @@ export function paintHabitsOverlay(
   const playSec = opts.playSec;
   const cal = opts.cal;
   const visible = playSec != null ? overlayAtPlaySec(overlay, playSec) : overlay;
-  if (showTrails && display === "heatmap") {
-    for (const dot of visible.heatDots) {
-      const s = toScreen(dot.x, dot.y);
-      ctx.fillStyle = `rgba(255, 210, 90, ${dot.alpha})`;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, 10, 0, Math.PI * 2);
-      ctx.fill();
-    }
+  if (showTrails && display === "overall") {
+    paintOverallBranches(ctx, visible.branches, toScreen, scale);
   } else if (showTrails && display === "trails") {
     for (const trail of visible.trails) {
       ctx.strokeStyle = trail.color;
@@ -427,7 +474,7 @@ export function paintHabitsOverlay(
         : habitsNadeViewTick(nade, overlay.windowSec);
     const render = nadeRenderAt(nade.grenade, viewTick, nade.tps, scale, nade.roundEndTick);
     if (!render) continue;
-    const opacity = (display === "heatmap" ? 0.28 : 1) * nadeOpacity;
+    const opacity = nadeOpacity;
     paintNade(ctx, render, toScreen, scale, opacity, opts.nadeIcons);
   }
   ctx.globalAlpha = 1;

@@ -130,6 +130,9 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     selectDemo: session.selectDemo,
     jump: playback.jump,
     trailWindowSec: settings.habitsTrailWindowSec,
+    pathBranchMergeDistance: settings.pathBranchMergeDistance,
+    pathBranchStepDistance: settings.pathBranchStepDistance,
+    pathBranchMinShare: settings.pathBranchMinShare,
   });
 
   const bucketActive = isBucketOverlayActive(session.series, habits);

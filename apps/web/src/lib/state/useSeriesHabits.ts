@@ -66,7 +66,7 @@ export interface SeriesHabitsState {
   setBucketPlaySec: (sec: number | ((prev: number) => number)) => void;
   /** Max seconds after freeze for the active bucket (longest matched round). */
   bucketWindowSec: number;
-  /** Player-path display: individual trails or a density heatmap. */
+  /** Player-path display: individual trails or the Overall path tree. */
   overlayDisplay: SeriesOverlayDisplay;
   setOverlayDisplay: (display: SeriesOverlayDisplay) => void;
   /** Freeze-relative path polylines (default off). */
@@ -108,6 +108,9 @@ export function useSeriesHabits(opts: {
   selectDemo: (id: string) => void;
   jump: (tick: number) => void;
   trailWindowSec?: number;
+  pathBranchMergeDistance?: number;
+  pathBranchStepDistance?: number;
+  pathBranchMinShare?: number;
 }): SeriesHabitsState {
   const { series, places, activeDemoId, selectDemo, jump } = opts;
   const trailWindowSec = clampSeriesTrailWindowSec(
@@ -147,8 +150,23 @@ export function useSeriesHabits(opts: {
 
   const overlay = useMemo(() => {
     if (!series || !aggregated || !overlayOn || !bucketOverlay) return null;
-    return buildSeriesOverlay(series, bucketFilter, playerKey, trailWindowSec);
-  }, [series, aggregated, overlayOn, bucketOverlay, bucketFilter, playerKey, trailWindowSec]);
+    return buildSeriesOverlay(series, bucketFilter, playerKey, trailWindowSec, {
+      mergeDistance: opts.pathBranchMergeDistance,
+      stepDistance: opts.pathBranchStepDistance,
+      minShare: opts.pathBranchMinShare,
+    });
+  }, [
+    series,
+    aggregated,
+    overlayOn,
+    bucketOverlay,
+    bucketFilter,
+    playerKey,
+    trailWindowSec,
+    opts.pathBranchMergeDistance,
+    opts.pathBranchStepDistance,
+    opts.pathBranchMinShare,
+  ]);
 
   const bucketWindowSec = overlay?.windowSec ?? 0;
 

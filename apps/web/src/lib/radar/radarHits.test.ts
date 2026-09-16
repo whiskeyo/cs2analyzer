@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canvasLocalPoint, habitsJumpAtScreen, nearestPlayerIndexAtScreen } from "./radarHits";
+import { DEFAULT_PATH_BRANCH_OPTIONS } from "@/lib/parse/pathBranches";
 import type { SampledPlayer } from "@/lib/replay/sample";
 
 function player(index: number, x: number, y: number, present = true): SampledPlayer {
@@ -51,7 +52,8 @@ describe("canvasLocalPoint", () => {
 describe("habitsJumpAtScreen", () => {
   const overlay = {
     trails: [],
-    heatDots: [],
+    branches: [],
+    branchOptions: DEFAULT_PATH_BRANCH_OPTIONS,
     nades: [],
     roundCount: 0,
     windowSec: 0,

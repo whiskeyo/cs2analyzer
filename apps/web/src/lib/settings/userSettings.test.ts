@@ -11,6 +11,15 @@ import {
   PARSE_POOL_HARD_MAX,
   PARSE_POOL_MAX,
   PARSE_POOL_MIN,
+  PATH_BRANCH_MERGE_DISTANCE,
+  PATH_BRANCH_MERGE_MAX,
+  PATH_BRANCH_MERGE_MIN,
+  PATH_BRANCH_MIN_SHARE,
+  PATH_BRANCH_MIN_SHARE_MAX,
+  PATH_BRANCH_MIN_SHARE_MIN,
+  PATH_BRANCH_STEP_DISTANCE,
+  PATH_BRANCH_STEP_GAP,
+  PATH_BRANCH_STEP_MIN,
   RADAR_GRAY_MAX,
   RADAR_GRAY_MIN,
   SAVED_NOTES_PAGE_SIZE,
@@ -52,6 +61,9 @@ describe("defaultUserSettings", () => {
       eventLeadInSec: DEFAULT_LEAD_IN_SEC,
       noteMomentSec: NOTE_MOMENT_SECONDS,
       habitsTrailWindowSec: SERIES_HABITS_WINDOW_SECONDS,
+      pathBranchMergeDistance: PATH_BRANCH_MERGE_DISTANCE,
+      pathBranchStepDistance: PATH_BRANCH_STEP_DISTANCE,
+      pathBranchMinShare: PATH_BRANCH_MIN_SHARE,
       skipKnifeOnOpen: true,
       seriesMaxFiles: SERIES_MAX_FILES,
       pdfTheme: "dark",
@@ -83,6 +95,9 @@ describe("parseUserSettings", () => {
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MAX);
     expect(parsed.eventLeadInSec).toBe(DEFAULT_LEAD_IN_SEC);
     expect(parsed.habitsTrailWindowSec).toBe(SERIES_HABITS_WINDOW_SECONDS);
+    expect(parsed.pathBranchMergeDistance).toBe(PATH_BRANCH_MERGE_DISTANCE);
+    expect(parsed.pathBranchStepDistance).toBe(PATH_BRANCH_STEP_DISTANCE);
+    expect(parsed.pathBranchMinShare).toBe(PATH_BRANCH_MIN_SHARE);
     expect(parsed.skipKnifeOnOpen).toBe(true);
     expect(parsed.pdfTheme).toBe("dark");
     expect(parsed.pdfPhotos).toBe("with");
@@ -107,6 +122,9 @@ describe("parseUserSettings", () => {
       eventLeadInSec: 9,
       noteMomentSec: 400,
       habitsTrailWindowSec: 90,
+      pathBranchMergeDistance: 9000,
+      pathBranchStepDistance: 9000,
+      pathBranchMinShare: 1,
       seriesMaxFiles: 1,
       pdfTheme: "sepia",
       pdfPhotos: "color",
@@ -125,6 +143,9 @@ describe("parseUserSettings", () => {
     expect(parsed.eventLeadInSec).toBe(5);
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MAX_SECONDS);
     expect(parsed.habitsTrailWindowSec).toBe(SERIES_HABITS_WINDOW_MAX_SECONDS);
+    expect(parsed.pathBranchMergeDistance).toBe(PATH_BRANCH_MERGE_MAX);
+    expect(parsed.pathBranchStepDistance).toBeLessThan(parsed.pathBranchMergeDistance);
+    expect(parsed.pathBranchMinShare).toBe(PATH_BRANCH_MIN_SHARE_MAX);
     expect(parsed.seriesMaxFiles).toBe(SERIES_MIN_FILES);
     expect(parsed.pdfTheme).toBe("dark");
     expect(parsed.pdfPhotos).toBe("with");
@@ -166,6 +187,9 @@ describe("parseUserSettings", () => {
       parsePoolMax: 0,
       noteMomentSec: 0,
       habitsTrailWindowSec: 1,
+      pathBranchMergeDistance: 1,
+      pathBranchStepDistance: 1,
+      pathBranchMinShare: -0.2,
       defaultPlaybackSpeed: 4,
       defaultFloorMode: "lower",
       defaultDrawTool: "pen",
@@ -174,6 +198,9 @@ describe("parseUserSettings", () => {
     expect(parsed.parsePoolMax).toBe(PARSE_POOL_MIN);
     expect(parsed.noteMomentSec).toBe(NOTE_MOMENT_MIN_SECONDS);
     expect(parsed.habitsTrailWindowSec).toBe(SERIES_HABITS_WINDOW_MIN_SECONDS);
+    expect(parsed.pathBranchMergeDistance).toBe(PATH_BRANCH_MERGE_MIN);
+    expect(parsed.pathBranchStepDistance).toBe(PATH_BRANCH_STEP_MIN);
+    expect(parsed.pathBranchMinShare).toBe(PATH_BRANCH_MIN_SHARE_MIN);
     expect(parsed.defaultPlaybackSpeed).toBe(4);
     expect(parsed.defaultFloorMode).toBe("lower");
     expect(parsed.defaultDrawTool).toBe("pen");
@@ -220,6 +247,25 @@ describe("parseUserSettings", () => {
 
   it("keeps skipKnifeOnOpen false when stored", () => {
     expect(parseUserSettings({ skipKnifeOnOpen: false }).skipKnifeOnOpen).toBe(false);
+  });
+
+  it("clamps Overall path knobs and keeps step below merge", () => {
+    const stored = parseUserSettings({
+      pathBranchMergeDistance: 400,
+      pathBranchStepDistance: 192,
+      pathBranchMinShare: 0.1,
+    });
+    expect(stored.pathBranchMergeDistance).toBe(400);
+    expect(stored.pathBranchStepDistance).toBe(192);
+    expect(stored.pathBranchMinShare).toBe(0.1);
+
+    const squeezed = parseUserSettings({
+      pathBranchMergeDistance: 128,
+      pathBranchStepDistance: 400,
+    });
+    expect(squeezed.pathBranchMergeDistance).toBe(128);
+    expect(squeezed.pathBranchStepDistance).toBe(128 - PATH_BRANCH_STEP_GAP);
+    expect(squeezed.pathBranchMinShare).toBe(PATH_BRANCH_MIN_SHARE);
   });
 
   it("drops a leftover livePawnLegend field", () => {

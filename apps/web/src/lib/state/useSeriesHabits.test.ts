@@ -28,7 +28,15 @@ function makeSeriesDemo(fileName: string) {
   return loadedDemo(replay, fileName, new File([], fileName));
 }
 
-function renderHabits(activeDemoId?: string, trailWindowSec?: number) {
+function renderHabits(
+  activeDemoId?: string,
+  trailWindowSec?: number,
+  pathBranch?: {
+    pathBranchMergeDistance?: number;
+    pathBranchStepDistance?: number;
+    pathBranchMinShare?: number;
+  },
+) {
   const demoA = makeSeriesDemo("a.dem");
   const demoB = makeSeriesDemo("b.dem");
   const series = buildSeries("de_mirage", [demoA, demoB], FOCAL);
@@ -44,6 +52,7 @@ function renderHabits(activeDemoId?: string, trailWindowSec?: number) {
         selectDemo,
         jump,
         trailWindowSec,
+        ...pathBranch,
       }),
     { initialProps: activeDemoId ?? demoA.id },
   );
@@ -160,5 +169,23 @@ describe("useSeriesHabits", () => {
       result.current.selectBucketOverlay("full", "CT");
     });
     expect(result.current.overlay?.windowSec).toBe(8);
+  });
+
+  it("applies Overall path knobs to the overlay tree", () => {
+    const { result } = renderHabits(undefined, 8, {
+      pathBranchMergeDistance: 400,
+      pathBranchStepDistance: 96,
+      pathBranchMinShare: 0.1,
+    });
+
+    act(() => {
+      result.current.setSeriesView("aggregated");
+      result.current.selectBucketOverlay("full", "CT");
+    });
+    expect(result.current.overlay?.branchOptions).toEqual({
+      mergeDistance: 400,
+      stepDistance: 96,
+      minShare: 0.1,
+    });
   });
 });

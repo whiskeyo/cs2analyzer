@@ -33,6 +33,7 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
+import { clampPathBranchOptions } from "@/lib/parse/pathBranches";
 import { isFiniteNumber, isRecord, isString } from "@/lib/validate/guards.ts";
 
 export const USER_SETTINGS_SCHEMA = 1;
@@ -82,6 +83,12 @@ export interface UserSettings {
   eventLeadInSec: number;
   noteMomentSec: number;
   habitsTrailWindowSec: number;
+  /** Aggregated Overall path-tree merge radius (world units). */
+  pathBranchMergeDistance: number;
+  /** Aggregated Overall resample step (world units, kept below merge). */
+  pathBranchStepDistance: number;
+  /** Hide Overall forks below this share of scoped runs (0–1). */
+  pathBranchMinShare: number;
   skipKnifeOnOpen: boolean;
   seriesMaxFiles: number;
   pdfTheme: PdfTheme;
@@ -119,6 +126,7 @@ export function cloneUserSettings(settings: UserSettings): UserSettings {
 
 /** Shipped defaults — reset writes this, not an empty document. */
 export function defaultUserSettings(now = Date.now()): UserSettings {
+  const pathBranch = clampPathBranchOptions();
   return {
     schema: USER_SETTINGS_SCHEMA,
     updatedAt: now,
@@ -136,6 +144,9 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     eventLeadInSec: DEFAULT_LEAD_IN_SEC,
     noteMomentSec: NOTE_MOMENT_SECONDS,
     habitsTrailWindowSec: SERIES_HABITS_WINDOW_SECONDS,
+    pathBranchMergeDistance: pathBranch.mergeDistance,
+    pathBranchStepDistance: pathBranch.stepDistance,
+    pathBranchMinShare: pathBranch.minShare,
     skipKnifeOnOpen: true,
     seriesMaxFiles: SERIES_MAX_FILES,
     pdfTheme: DEFAULT_PDF_THEME,
@@ -153,6 +164,28 @@ function parseClampedInt(value: unknown, min: number, max: number, fallback: num
     return fallback;
   }
   return clampInt(value, min, max);
+}
+
+function parsePathBranchKnobs(
+  raw: Record<string, unknown>,
+  defaults: UserSettings,
+): Pick<UserSettings, "pathBranchMergeDistance" | "pathBranchStepDistance" | "pathBranchMinShare"> {
+  const pathBranch = clampPathBranchOptions({
+    mergeDistance: isFiniteNumber(raw.pathBranchMergeDistance)
+      ? raw.pathBranchMergeDistance
+      : defaults.pathBranchMergeDistance,
+    stepDistance: isFiniteNumber(raw.pathBranchStepDistance)
+      ? raw.pathBranchStepDistance
+      : defaults.pathBranchStepDistance,
+    minShare: isFiniteNumber(raw.pathBranchMinShare)
+      ? raw.pathBranchMinShare
+      : defaults.pathBranchMinShare,
+  });
+  return {
+    pathBranchMergeDistance: pathBranch.mergeDistance,
+    pathBranchStepDistance: pathBranch.stepDistance,
+    pathBranchMinShare: pathBranch.minShare,
+  };
 }
 
 function parseClampedNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -288,6 +321,7 @@ export function parseUserSettings(raw: unknown): UserSettings {
       SERIES_HABITS_WINDOW_MAX_SECONDS,
       defaults.habitsTrailWindowSec,
     ),
+    ...parsePathBranchKnobs(raw, defaults),
     skipKnifeOnOpen: parseBoolean(raw.skipKnifeOnOpen, defaults.skipKnifeOnOpen),
     seriesMaxFiles: parseClampedInt(
       raw.seriesMaxFiles,
