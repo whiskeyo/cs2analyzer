@@ -11,7 +11,11 @@ import {
   type DefaultSidebarTab,
 } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
-import { UserSettingsPdfSection, UserSettingsResetDialog } from "./userSettingsPanels";
+import {
+  UserSettingsOverallFields,
+  UserSettingsPdfSection,
+  UserSettingsResetDialog,
+} from "./userSettingsPanels";
 import { UserSettingsStorageSection } from "./StorageUsageSection";
 import {
   DRAW_TOOL_LABELS,
@@ -28,22 +32,12 @@ import {
   PLAYBACK_SPEEDS,
   SAVED_NOTES_PAGE_SIZE_MAX,
   SAVED_NOTES_PAGE_SIZE_MIN,
-  SERIES_HABITS_WINDOW_MAX_SECONDS,
-  SERIES_HABITS_WINDOW_MIN_SECONDS,
   SERIES_MAX_FILES_HARD,
   SERIES_MAX_FILES_SOFT_WARN,
   SERIES_MIN_FILES,
   seriesRamWarning,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
-  PATH_BRANCH_MERGE_MAX,
-  PATH_BRANCH_MERGE_MIN,
-  PATH_BRANCH_MIN_SHARE_MAX,
-  PATH_BRANCH_MIN_SHARE_MIN,
-  PATH_BRANCH_PERCENT_SCALE,
-  PATH_BRANCH_STEP_GAP,
-  PATH_BRANCH_STEP_MAX,
-  PATH_BRANCH_STEP_MIN,
 } from "@/lib/shared/constants";
 
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
@@ -344,82 +338,13 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             />
             <span>s</span>
           </label>
-          <label className="settings-field">
-            <span>Habits trail</span>
-            <input
-              type="range"
-              min={SERIES_HABITS_WINDOW_MIN_SECONDS}
-              max={SERIES_HABITS_WINDOW_MAX_SECONDS}
-              step={1}
-              aria-label="Habits trail"
-              aria-valuetext={`${settings.habitsTrailWindowSec} seconds`}
-              value={settings.habitsTrailWindowSec}
-              onChange={(e) => void update({ habitsTrailWindowSec: Number(e.target.value) })}
-            />
-            <output>{settings.habitsTrailWindowSec}s</output>
-          </label>
-          <p className="settings-hint">
-            Seconds after freeze on the aggregated habits overlay. Applies immediately.
-          </p>
-          <p className="settings-field-label">Aggregated Overall</p>
-          <label className="settings-field">
-            <span title="How close samples stay one trunk">Merge</span>
-            <input
-              type="number"
-              min={PATH_BRANCH_MERGE_MIN}
-              max={PATH_BRANCH_MERGE_MAX}
-              step={16}
-              aria-label="Overall merge"
-              title="How close samples stay one trunk (world units)"
-              value={settings.pathBranchMergeDistance}
-              onChange={(e) => void update({ pathBranchMergeDistance: Number(e.target.value) })}
-            />
-            <span>u</span>
-          </label>
-          <p className="settings-hint">How close samples stay one trunk (world units).</p>
-          <label className="settings-field">
-            <span title="Resample distance along each run">Step</span>
-            <input
-              type="number"
-              min={PATH_BRANCH_STEP_MIN}
-              max={Math.min(
-                PATH_BRANCH_STEP_MAX,
-                Math.max(
-                  PATH_BRANCH_STEP_MIN,
-                  settings.pathBranchMergeDistance - PATH_BRANCH_STEP_GAP,
-                ),
-              )}
-              step={16}
-              aria-label="Overall step"
-              title="Resample along each run. Kept below merge so forks can still split."
-              value={settings.pathBranchStepDistance}
-              onChange={(e) => void update({ pathBranchStepDistance: Number(e.target.value) })}
-            />
-            <span>u</span>
-          </label>
-          <p className="settings-hint">
-            Resample along each run. Step stays below merge so overlapping samples can still split.
-          </p>
-          <label className="settings-field">
-            <span title="Hide rare forks">Min share</span>
-            <input
-              type="range"
-              min={PATH_BRANCH_MIN_SHARE_MIN * PATH_BRANCH_PERCENT_SCALE}
-              max={PATH_BRANCH_MIN_SHARE_MAX * PATH_BRANCH_PERCENT_SCALE}
-              step={1}
-              aria-label="Overall min share"
-              aria-valuetext={`${Math.round(settings.pathBranchMinShare * PATH_BRANCH_PERCENT_SCALE)} percent`}
-              title="Hide forks rarer than this percent of scoped runs"
-              value={Math.round(settings.pathBranchMinShare * PATH_BRANCH_PERCENT_SCALE)}
-              onChange={(e) =>
-                void update({
-                  pathBranchMinShare: Number(e.target.value) / PATH_BRANCH_PERCENT_SCALE,
-                })
-              }
-            />
-            <output>{Math.round(settings.pathBranchMinShare * PATH_BRANCH_PERCENT_SCALE)}%</output>
-          </label>
-          <p className="settings-hint">Hide rare Overall forks (percent of scoped runs).</p>
+          <UserSettingsOverallFields
+            trailWindowSec={settings.habitsTrailWindowSec}
+            mergeDistance={settings.pathBranchMergeDistance}
+            stepDistance={settings.pathBranchStepDistance}
+            minShare={settings.pathBranchMinShare}
+            onChange={(patch) => void update(patch)}
+          />
           <label className="settings-check">
             <input
               type="checkbox"

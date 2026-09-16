@@ -31,27 +31,29 @@ function clampInt(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
+function finiteOr(value: number | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 /**
  * Sanitize Overall knobs. Missing values fall back to the shipped constants.
  * Step is always kept strictly below merge (`PATH_BRANCH_STEP_GAP`).
  */
 export function clampPathBranchOptions(partial?: Partial<PathBranchOptions>): PathBranchOptions {
-  const mergeRaw = partial?.mergeDistance;
-  const mergeSource = Number.isFinite(mergeRaw) ? mergeRaw : PATH_BRANCH_MERGE_DISTANCE;
-  const mergeDistance = clampInt(mergeSource, PATH_BRANCH_MERGE_MIN, PATH_BRANCH_MERGE_MAX);
-  const stepRaw = partial?.stepDistance;
-  const stepSource = Number.isFinite(stepRaw) ? stepRaw : PATH_BRANCH_STEP_DISTANCE;
+  const mergeDistance = clampInt(
+    finiteOr(partial?.mergeDistance, PATH_BRANCH_MERGE_DISTANCE),
+    PATH_BRANCH_MERGE_MIN,
+    PATH_BRANCH_MERGE_MAX,
+  );
   const stepCap = Math.min(PATH_BRANCH_STEP_MAX, mergeDistance - PATH_BRANCH_STEP_GAP);
   const stepDistance = clampInt(
-    stepSource,
+    finiteOr(partial?.stepDistance, PATH_BRANCH_STEP_DISTANCE),
     PATH_BRANCH_STEP_MIN,
     Math.max(PATH_BRANCH_STEP_MIN, stepCap),
   );
-  const shareRaw = partial?.minShare;
-  const shareSource = Number.isFinite(shareRaw) ? shareRaw : PATH_BRANCH_MIN_SHARE;
   const boundedShare = Math.min(
     PATH_BRANCH_MIN_SHARE_MAX,
-    Math.max(PATH_BRANCH_MIN_SHARE_MIN, shareSource),
+    Math.max(PATH_BRANCH_MIN_SHARE_MIN, finiteOr(partial?.minShare, PATH_BRANCH_MIN_SHARE)),
   );
   const minShare = Math.round(boundedShare * PATH_BRANCH_PERCENT_SCALE) / PATH_BRANCH_PERCENT_SCALE;
   return { mergeDistance, stepDistance, minShare };
