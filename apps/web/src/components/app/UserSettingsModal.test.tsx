@@ -7,6 +7,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_RADAR_GRAY,
+  PATH_BRANCH_MERGE_DISTANCE,
+  PATH_BRANCH_MIN_SHARE,
+  PATH_BRANCH_PERCENT_SCALE,
+  PATH_BRANCH_STEP_DISTANCE,
+  PATH_BRANCH_STEP_GAP,
   SERIES_MAX_FILES,
   SERIES_MAX_FILES_HARD,
   seriesRamWarning,
@@ -90,6 +95,45 @@ describe("UserSettingsModal", () => {
     expect(stored.sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
     expect(stored.eventLeadInSec).toBe(1.5);
     expect(stored.radarGray).toBe(DEFAULT_RADAR_GRAY);
+  });
+
+  it("round-trips Overall path knobs, clamps step below merge, and reset restores defaults", async () => {
+    renderModal();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Overall merge")).toHaveValue(PATH_BRANCH_MERGE_DISTANCE),
+    );
+    expect(screen.getByLabelText("Overall step")).toHaveValue(PATH_BRANCH_STEP_DISTANCE);
+    expect(screen.getByLabelText("Overall min share")).toHaveValue(
+      String(PATH_BRANCH_MIN_SHARE * PATH_BRANCH_PERCENT_SCALE),
+    );
+
+    fireEvent.change(screen.getByLabelText("Overall merge"), { target: { value: "128" } });
+    fireEvent.change(screen.getByLabelText("Overall step"), { target: { value: "400" } });
+    fireEvent.change(screen.getByLabelText("Overall min share"), { target: { value: "10" } });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Overall merge")).toHaveValue(128);
+      expect(screen.getByLabelText("Overall step")).toHaveValue(128 - PATH_BRANCH_STEP_GAP);
+      expect(screen.getByLabelText("Overall min share")).toHaveValue("10");
+    });
+    const stored = await loadUserSettings();
+    expect(stored.pathBranchMergeDistance).toBe(128);
+    expect(stored.pathBranchStepDistance).toBe(128 - PATH_BRANCH_STEP_GAP);
+    expect(stored.pathBranchMinShare).toBe(0.1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Reset all settings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Reset all" }));
+    await waitFor(() => {
+      expect(screen.getByLabelText("Overall merge")).toHaveValue(PATH_BRANCH_MERGE_DISTANCE);
+      expect(screen.getByLabelText("Overall step")).toHaveValue(PATH_BRANCH_STEP_DISTANCE);
+      expect(screen.getByLabelText("Overall min share")).toHaveValue(
+        String(PATH_BRANCH_MIN_SHARE * PATH_BRANCH_PERCENT_SCALE),
+      );
+    });
+    const reset = await loadUserSettings();
+    expect(reset.pathBranchMergeDistance).toBe(PATH_BRANCH_MERGE_DISTANCE);
+    expect(reset.pathBranchStepDistance).toBe(PATH_BRANCH_STEP_DISTANCE);
+    expect(reset.pathBranchMinShare).toBe(PATH_BRANCH_MIN_SHARE);
   });
 
   it("closes on Escape", async () => {
