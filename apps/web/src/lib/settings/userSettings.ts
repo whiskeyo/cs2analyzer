@@ -100,6 +100,17 @@ export interface UserSettings {
 
 export type UserSettingsRecord = UserSettings & { id: typeof USER_SETTINGS_ID };
 
+/** Object patch, or a function of the queued document so nested edits compose. */
+export type UserSettingsPatch =
+  Partial<UserSettings> | ((current: UserSettings) => Partial<UserSettings>);
+
+export function applyUserSettingsPatch(
+  current: UserSettings,
+  patch: UserSettingsPatch,
+): Partial<UserSettings> {
+  return typeof patch === "function" ? patch(current) : patch;
+}
+
 function defaultPaletteId(): string {
   return COLOR_PRESETS[0].id;
 }

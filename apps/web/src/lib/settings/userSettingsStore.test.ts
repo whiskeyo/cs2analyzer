@@ -91,6 +91,31 @@ describe("userSettingsStore without indexedDB", () => {
     expect(loaded.noteMomentSec).toBe(8);
   });
 
+  it("applies functional patches against the queued document so nested toggles compose", async () => {
+    await Promise.all([
+      saveUserSettings((current) => ({
+        defaultSummaryFilter: { ...current.defaultSummaryFilter, t: false },
+      })),
+      saveUserSettings((current) => ({
+        defaultSummaryFilter: {
+          ...current.defaultSummaryFilter,
+          kinds: { ...current.defaultSummaryFilter.kinds, he: false },
+        },
+      })),
+      saveUserSettings((current) => ({
+        defaultSummaryFilter: {
+          ...current.defaultSummaryFilter,
+          kinds: { ...current.defaultSummaryFilter.kinds, decoy: false },
+        },
+      })),
+    ]);
+    const loaded = await loadUserSettings();
+    expect(loaded.defaultSummaryFilter.t).toBe(false);
+    expect(loaded.defaultSummaryFilter.kinds.he).toBe(false);
+    expect(loaded.defaultSummaryFilter.kinds.decoy).toBe(false);
+    expect(loaded.defaultSummaryFilter.kinds.smoke).toBe(true);
+  });
+
   it("reset restores shipped defaults without wiping the patch source", async () => {
     await saveUserSettings({ sidebarWidth: 560, savedNotesPageSize: 10 });
     const reset = await resetUserSettings();
