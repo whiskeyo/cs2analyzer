@@ -3,6 +3,7 @@ export const ROUTES = {
   analyzer: "/analyzer",
   playbook: "/playbook",
   faq: "/faq",
+  rating: "/rating",
   contact: "/contact",
   layouts: "/layouts",
 } as const;
@@ -26,6 +27,10 @@ export function isPlaybookPath(pathname: string): boolean {
 
 export function isFaqPath(pathname: string): boolean {
   return normalizePath(pathname) === ROUTES.faq;
+}
+
+export function isRatingPath(pathname: string): boolean {
+  return normalizePath(pathname) === ROUTES.rating;
 }
 
 export function isContactPath(pathname: string): boolean {

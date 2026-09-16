@@ -28,6 +28,10 @@ const PAGE_META: Record<string, PageMeta> = {
     title: `${SITE_NAME} — FAQ`,
     description: "Short answers for the local-first CS2 GOTV viewer.",
   },
+  [ROUTES.rating]: {
+    title: `${SITE_NAME} — Rating`,
+    description: "Proprietary match rating formulas: 1.00–10.00+ scale, developed by whiskeyo.",
+  },
   [ROUTES.contact]: {
     title: `${SITE_NAME} — Contact`,
     description: "Email, Steam, and GitHub for the local-first CS2 GOTV viewer.",

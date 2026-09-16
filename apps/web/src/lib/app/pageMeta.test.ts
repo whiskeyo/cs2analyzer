@@ -8,11 +8,13 @@ describe("pageMeta", () => {
     expect(pageTitle("/playbook")).toBe("CS2 Analyzer — Playbook");
     expect(pageTitle("/faq")).toBe("CS2 Analyzer — FAQ");
     expect(pageTitle("/faq/")).toBe("CS2 Analyzer — FAQ");
+    expect(pageTitle("/rating")).toBe("CS2 Analyzer — Rating");
     expect(pageTitle("/contact")).toBe("CS2 Analyzer — Contact");
     expect(pageMeta("/").description).toMatch(/Local-first CS2 GOTV viewer/);
     expect(pageMeta("/analyzer").description).toMatch(/demo/);
     expect(pageMeta("/playbook").description).toMatch(/playbook/i);
     expect(pageMeta("/faq").description).toMatch(/FAQ|answers/i);
+    expect(pageMeta("/rating").description).toMatch(/rating/i);
     expect(pageMeta("/contact").description).toMatch(/Email|Steam|GitHub/);
   });
 

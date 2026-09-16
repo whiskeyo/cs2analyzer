@@ -10,6 +10,7 @@ import { Analyzer } from "@/pages/Analyzer";
 import { Contact } from "@/pages/Contact";
 import { Faq } from "@/pages/Faq";
 import { Home } from "@/pages/Home";
+import { Rating } from "@/pages/Rating";
 import { NotFound } from "@/pages/NotFound";
 import { Playbook } from "@/pages/Playbook";
 
@@ -56,6 +57,7 @@ function AppRoutes() {
         <Route path={ROUTES.analyzer.slice(1)} element={<Analyzer />} />
         <Route path={ROUTES.playbook.slice(1)} element={<Playbook />} />
         <Route path={ROUTES.faq.slice(1)} element={<Faq />} />
+        <Route path={ROUTES.rating.slice(1)} element={<Rating />} />
         <Route path={ROUTES.contact.slice(1)} element={<Contact />} />
         {import.meta.env.DEV && LayoutsApp != null ? (
           <Route

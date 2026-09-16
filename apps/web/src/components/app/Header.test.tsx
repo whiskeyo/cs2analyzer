@@ -100,6 +100,7 @@ describe("Header", () => {
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
     expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("href", "/playbook");
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("href", "/faq");
+    expect(screen.getByRole("link", { name: "Rating" })).toHaveAttribute("href", "/rating");
     expect(screen.getByRole("link", { name: "Contact" })).toHaveAttribute("href", "/contact");
     expect(screen.getByText("[pre-release testing]")).toBeInTheDocument();
     expect(screen.getByRole("tooltip")).toHaveTextContent(/backward compatible/);
@@ -230,6 +231,16 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("hides viewer actions on the Rating page even with a loaded replay", () => {
+    vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
+    renderHeader("/rating");
+    expect(screen.queryByRole("button", { name: "Add demo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Rating" })).toHaveAttribute("aria-current", "page");
   });
 
   it("hides viewer actions on the FAQ page even with a loaded replay", () => {

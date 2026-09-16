@@ -22,6 +22,7 @@ export {
   isHomePath,
   isLayoutsPath,
   isPlaybookPath,
+  isRatingPath,
   normalizePath,
   ROUTES,
 } from "./routes";
