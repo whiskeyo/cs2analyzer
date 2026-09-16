@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { PATH_BRANCH_MIN_SHARE, PATH_BRANCH_PERCENT_SCALE } from "@/lib/shared/constants";
+import {
+  PATH_BRANCH_MERGE_DISTANCE,
+  PATH_BRANCH_MERGE_MAX,
+  PATH_BRANCH_MERGE_MIN,
+  PATH_BRANCH_MIN_SHARE,
+  PATH_BRANCH_MIN_SHARE_MAX,
+  PATH_BRANCH_MIN_SHARE_MIN,
+  PATH_BRANCH_PERCENT_SCALE,
+  PATH_BRANCH_STEP_DISTANCE,
+  PATH_BRANCH_STEP_GAP,
+  PATH_BRANCH_STEP_MIN,
+} from "@/lib/shared/constants";
 import {
   branchShare,
   buildPathBranches,
+  clampPathBranchOptions,
   formatBranchShareLabel,
   resamplePath,
   shareToPercent,
@@ -147,5 +159,43 @@ describe("buildPathBranches", () => {
     const branches = buildPathBranches([...repeats(4, a), ...repeats(4, b)], TIGHT);
     expect(branches).toHaveLength(2);
     expect(branches.every((row) => row.label === "50% (4/8)")).toBe(true);
+  });
+});
+
+describe("clampPathBranchOptions", () => {
+  it("returns shipped defaults when prefs are missing", () => {
+    expect(clampPathBranchOptions()).toEqual({
+      mergeDistance: PATH_BRANCH_MERGE_DISTANCE,
+      stepDistance: PATH_BRANCH_STEP_DISTANCE,
+      minShare: PATH_BRANCH_MIN_SHARE,
+    });
+    expect(clampPathBranchOptions({})).toEqual(clampPathBranchOptions());
+  });
+
+  it("clamps each knob to its named range", () => {
+    const low = clampPathBranchOptions({
+      mergeDistance: 1,
+      stepDistance: 1,
+      minShare: -1,
+    });
+    expect(low.mergeDistance).toBe(PATH_BRANCH_MERGE_MIN);
+    expect(low.stepDistance).toBe(PATH_BRANCH_STEP_MIN);
+    expect(low.minShare).toBe(PATH_BRANCH_MIN_SHARE_MIN);
+
+    const high = clampPathBranchOptions({
+      mergeDistance: 9000,
+      stepDistance: 9000,
+      minShare: 1,
+    });
+    expect(high.mergeDistance).toBe(PATH_BRANCH_MERGE_MAX);
+    expect(high.stepDistance).toBeLessThan(high.mergeDistance);
+    expect(high.minShare).toBe(PATH_BRANCH_MIN_SHARE_MAX);
+  });
+
+  it("keeps step strictly below merge when both are user-set", () => {
+    const opts = clampPathBranchOptions({ mergeDistance: 128, stepDistance: 400 });
+    expect(opts.mergeDistance).toBe(128);
+    expect(opts.stepDistance).toBe(128 - PATH_BRANCH_STEP_GAP);
+    expect(opts.stepDistance).toBeLessThan(opts.mergeDistance);
   });
 });

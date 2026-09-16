@@ -120,14 +120,24 @@ export const SERIES_HABITS_WINDOW_MAX_SECONDS = 60;
 /**
  * Aggregated Overall: merge overlapping samples within this world-unit radius.
  * ~2–3 player widths / a tight corridor so spawn scatter stays one trunk.
+ * Preferences clamp: PATH_BRANCH_MERGE_MIN … PATH_BRANCH_MERGE_MAX.
  */
 export const PATH_BRANCH_MERGE_DISTANCE = 256;
+export const PATH_BRANCH_MERGE_MIN = 64;
+export const PATH_BRANCH_MERGE_MAX = 1024;
 
 /** Overall resample step along each run (world units), smaller than merge distance. */
 export const PATH_BRANCH_STEP_DISTANCE = 192;
+export const PATH_BRANCH_STEP_MIN = 32;
+export const PATH_BRANCH_STEP_MAX = 768;
+/** Step stays at least this many world units below merge after clamp. */
+export const PATH_BRANCH_STEP_GAP = 32;
 
 /** Hide Overall forks taken by fewer than this share of scoped runs. */
 export const PATH_BRANCH_MIN_SHARE = 0.05;
+export const PATH_BRANCH_MIN_SHARE_MIN = 0;
+/** 25% — hiding more than a quarter of forks is rarely useful. */
+export const PATH_BRANCH_MIN_SHARE_MAX = 0.25;
 
 /** Integer percent scale for Overall labels (`25% (5/20)`). */
 export const PATH_BRANCH_PERCENT_SCALE = 100;

@@ -10,6 +10,7 @@ import {
 } from "@/lib/testing/fixtures";
 import { playerIdentityKey } from "./seriesRoster";
 import { buildSeries, loadedDemo } from "./session";
+import { DEFAULT_PATH_BRANCH_OPTIONS } from "./pathBranches";
 import {
   bucketWindowSecForTag,
   buildSeriesOverlay,
@@ -345,6 +346,38 @@ describe("buildSeriesOverlay", () => {
     expect(one.branches[0]?.totalRuns).toBe(one.trails.length);
   });
 
+  it("builds Overall branches with the caller-supplied path knobs", () => {
+    const focal = "Team A";
+    const replay = makeReplay({
+      header: { team_ct: focal, team_t: "B" },
+      ticks: makeTrailTicks(),
+      rounds: [
+        makeRound({
+          number: 1,
+          team_ct: focal,
+          team_t: "B",
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 2000,
+        }),
+      ],
+    });
+    const demo = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const series = buildSeries("de_mirage", [demo], focal);
+    const overlay = buildSeriesOverlay(series, { side: "CT", kind: "pistol" }, null, 8, {
+      mergeDistance: 400,
+      stepDistance: 96,
+      minShare: 0.1,
+    });
+    expect(overlay.branchOptions).toEqual({
+      mergeDistance: 400,
+      stepDistance: 96,
+      minShare: 0.1,
+    });
+    const clipped = overlayAtPlaySec(overlay, 2);
+    expect(clipped.branchOptions).toEqual(overlay.branchOptions);
+  });
+
   it("renders in-flight nades with a partial arc at the playhead", () => {
     const focal = "Team A";
     const replay = makeReplay({
@@ -425,6 +458,7 @@ describe("habitsArrowAtScreen", () => {
         },
       ],
       branches: [],
+      branchOptions: DEFAULT_PATH_BRANCH_OPTIONS,
       nades: [],
       roundCount: 1,
       windowSec: 20,

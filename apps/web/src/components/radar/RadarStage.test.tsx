@@ -9,6 +9,7 @@ import type { Note } from "@/lib/notes/types";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { DEFAULT_HABITS_NADE_FILTER, type SeriesOverlay } from "@/lib/parse/seriesOverlay";
+import { DEFAULT_PATH_BRANCH_OPTIONS } from "@/lib/parse/pathBranches";
 import type { RoundKind } from "@/lib/parse/roundTags";
 import type { Side } from "@/lib/replay/replayTypes";
 import { makeReplay, makeRound } from "@/lib/testing/fixtures";
@@ -277,6 +278,7 @@ describe("RadarStage", () => {
     state.habits.overlay = {
       trails: [],
       branches: [],
+      branchOptions: DEFAULT_PATH_BRANCH_OPTIONS,
       nades: [],
       roundCount: 0,
       windowSec: 5,
@@ -301,6 +303,7 @@ describe("RadarStage", () => {
     state.habits.overlay = {
       trails: [],
       branches: [],
+      branchOptions: DEFAULT_PATH_BRANCH_OPTIONS,
       nades: [],
       roundCount: 4,
       windowSec: 30,
@@ -373,6 +376,7 @@ describe("RadarStage", () => {
         },
       ],
       branches: [],
+      branchOptions: DEFAULT_PATH_BRANCH_OPTIONS,
       nades: [],
       roundCount: 2,
       windowSec: 20,

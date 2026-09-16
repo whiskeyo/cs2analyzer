@@ -5,6 +5,7 @@ import { useApp } from "@/lib/state/appState";
 import type { RoundKind } from "@/lib/parse/roundTags";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import type { SeriesOverlay } from "@/lib/parse/seriesOverlay";
+import { DEFAULT_PATH_BRANCH_OPTIONS } from "@/lib/parse/pathBranches";
 import type { Side } from "@/lib/replay/replayTypes";
 import { makeReplay } from "@/lib/testing/fixtures";
 import { SeriesFilters } from "./SeriesFilters";
@@ -140,6 +141,7 @@ describe("SeriesFilters", () => {
     habits.overlay = {
       trails: [],
       branches: [],
+      branchOptions: DEFAULT_PATH_BRANCH_OPTIONS,
       nades: [],
       roundCount: 4,
       windowSec: 20,

@@ -2,6 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_RADAR_GRAY,
   PARSE_POOL_MAX,
+  PATH_BRANCH_MERGE_DISTANCE,
+  PATH_BRANCH_MIN_SHARE,
+  PATH_BRANCH_STEP_DISTANCE,
+  PATH_BRANCH_STEP_GAP,
   RADAR_GRAY_MIN,
   SAVED_NOTES_PAGE_SIZE,
   SIDEBAR_DEFAULT_WIDTH,
@@ -94,7 +98,27 @@ describe("userSettingsStore without indexedDB", () => {
     expect(reset.savedNotesPageSize).toBe(SAVED_NOTES_PAGE_SIZE);
     expect(reset.pdfTheme).toBe("dark");
     expect(reset.radarGray).toBe(DEFAULT_RADAR_GRAY);
+    expect(reset.pathBranchMergeDistance).toBe(PATH_BRANCH_MERGE_DISTANCE);
+    expect(reset.pathBranchStepDistance).toBe(PATH_BRANCH_STEP_DISTANCE);
+    expect(reset.pathBranchMinShare).toBe(PATH_BRANCH_MIN_SHARE);
     expect((await loadUserSettings()).sidebarWidth).toBe(SIDEBAR_DEFAULT_WIDTH);
+  });
+
+  it("round-trips Overall path knobs and clamps step below merge", async () => {
+    const saved = await saveUserSettings({
+      pathBranchMergeDistance: 128,
+      pathBranchStepDistance: 400,
+      pathBranchMinShare: 0.1,
+    });
+    expect(saved.pathBranchMergeDistance).toBe(128);
+    expect(saved.pathBranchStepDistance).toBe(128 - PATH_BRANCH_STEP_GAP);
+    expect(saved.pathBranchMinShare).toBe(0.1);
+    const loaded = await loadUserSettings();
+    expect(loaded.pathBranchMergeDistance).toBe(128);
+    expect(loaded.pathBranchStepDistance).toBe(128 - PATH_BRANCH_STEP_GAP);
+    expect((await resetUserSettings()).pathBranchMergeDistance).toBe(PATH_BRANCH_MERGE_DISTANCE);
+    expect((await loadUserSettings()).pathBranchStepDistance).toBe(PATH_BRANCH_STEP_DISTANCE);
+    expect((await loadUserSettings()).pathBranchMinShare).toBe(PATH_BRANCH_MIN_SHARE);
   });
 
   it("applies live localStorage keys when memory is empty", async () => {

@@ -7,6 +7,7 @@ import {
   type HabitsTrail,
   type SeriesOverlay,
 } from "@/lib/parse/seriesOverlay";
+import { DEFAULT_PATH_BRANCH_OPTIONS } from "@/lib/parse/pathBranches";
 import { DEFAULT_TICK_RATE } from "@/lib/shared/constants";
 import { makeGrenade, makeReplay, makeRound } from "@/lib/testing/fixtures";
 import { pawnLegend, shouldShowPawnLegend } from "./legend";
@@ -289,6 +290,7 @@ function overlayOf(partial: Partial<SeriesOverlay> = {}): SeriesOverlay {
   return {
     trails: [],
     branches: [],
+    branchOptions: DEFAULT_PATH_BRANCH_OPTIONS,
     nades: [],
     roundCount: 1,
     windowSec: 10,

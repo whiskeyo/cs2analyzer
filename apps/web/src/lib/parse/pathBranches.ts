@@ -1,8 +1,15 @@
 import {
   PATH_BRANCH_MERGE_DISTANCE,
+  PATH_BRANCH_MERGE_MAX,
+  PATH_BRANCH_MERGE_MIN,
   PATH_BRANCH_MIN_SHARE,
+  PATH_BRANCH_MIN_SHARE_MAX,
+  PATH_BRANCH_MIN_SHARE_MIN,
   PATH_BRANCH_PERCENT_SCALE,
   PATH_BRANCH_STEP_DISTANCE,
+  PATH_BRANCH_STEP_GAP,
+  PATH_BRANCH_STEP_MAX,
+  PATH_BRANCH_STEP_MIN,
 } from "@/lib/shared/constants";
 
 /** World XY sample along a player run. */
@@ -20,11 +27,37 @@ export interface PathBranchOptions {
   stepDistance: number;
 }
 
-export const DEFAULT_PATH_BRANCH_OPTIONS: PathBranchOptions = {
-  mergeDistance: PATH_BRANCH_MERGE_DISTANCE,
-  minShare: PATH_BRANCH_MIN_SHARE,
-  stepDistance: PATH_BRANCH_STEP_DISTANCE,
-};
+function clampInt(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/**
+ * Sanitize Overall knobs. Missing values fall back to the shipped constants.
+ * Step is always kept strictly below merge (`PATH_BRANCH_STEP_GAP`).
+ */
+export function clampPathBranchOptions(partial?: Partial<PathBranchOptions>): PathBranchOptions {
+  const mergeRaw = partial?.mergeDistance;
+  const mergeSource = Number.isFinite(mergeRaw) ? mergeRaw : PATH_BRANCH_MERGE_DISTANCE;
+  const mergeDistance = clampInt(mergeSource, PATH_BRANCH_MERGE_MIN, PATH_BRANCH_MERGE_MAX);
+  const stepRaw = partial?.stepDistance;
+  const stepSource = Number.isFinite(stepRaw) ? stepRaw : PATH_BRANCH_STEP_DISTANCE;
+  const stepCap = Math.min(PATH_BRANCH_STEP_MAX, mergeDistance - PATH_BRANCH_STEP_GAP);
+  const stepDistance = clampInt(
+    stepSource,
+    PATH_BRANCH_STEP_MIN,
+    Math.max(PATH_BRANCH_STEP_MIN, stepCap),
+  );
+  const shareRaw = partial?.minShare;
+  const shareSource = Number.isFinite(shareRaw) ? shareRaw : PATH_BRANCH_MIN_SHARE;
+  const boundedShare = Math.min(
+    PATH_BRANCH_MIN_SHARE_MAX,
+    Math.max(PATH_BRANCH_MIN_SHARE_MIN, shareSource),
+  );
+  const minShare = Math.round(boundedShare * PATH_BRANCH_PERCENT_SCALE) / PATH_BRANCH_PERCENT_SCALE;
+  return { mergeDistance, stepDistance, minShare };
+}
+
+export const DEFAULT_PATH_BRANCH_OPTIONS: PathBranchOptions = clampPathBranchOptions();
 
 export interface PathBranch {
   /** Centroid polyline of this merged segment. */

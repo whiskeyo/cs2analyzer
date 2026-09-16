@@ -14,7 +14,12 @@ import { SERIES_TRAIL_WINDOW_STORAGE_KEY } from "@/lib/shared/storageKeys";
 import { matchingTags, type SeriesFilter } from "./seriesAnalysis";
 import type { RoundTag } from "./roundTags";
 import { playerIdentityKey } from "./seriesRoster";
-import { buildPathBranches, type PathBranch } from "./pathBranches";
+import {
+  buildPathBranches,
+  clampPathBranchOptions,
+  type PathBranch,
+  type PathBranchOptions,
+} from "./pathBranches";
 import { steamColor } from "./seriesSteamColor";
 
 export type SeriesOverlayDisplay = "trails" | "overall";
@@ -82,6 +87,8 @@ export interface SeriesOverlay {
   trails: HabitsTrail[];
   /** Aggregated Overall path tree (heatmap replacement). */
   branches: PathBranch[];
+  /** Knobs used to build `branches` (playhead clip must reuse these). */
+  branchOptions: PathBranchOptions;
   nades: HabitsNade[];
   roundCount: number;
   /** Max freeze-relative seconds across matched rounds (full round length). */
@@ -201,10 +208,13 @@ function overlayFromTrails(
   nades: HabitsNade[],
   roundCount: number,
   windowSec: number,
+  branchOptions?: Partial<PathBranchOptions>,
 ): SeriesOverlay {
+  const options = clampPathBranchOptions(branchOptions);
   return {
     trails,
-    branches: buildPathBranches(trails),
+    branches: buildPathBranches(trails, options),
+    branchOptions: options,
     nades,
     roundCount,
     windowSec,
@@ -257,6 +267,7 @@ export function buildSeriesOverlay(
   filter: SeriesFilter,
   playerKey: string | null = null,
   windowSeconds?: number,
+  branchOptions?: Partial<PathBranchOptions>,
 ): SeriesOverlay {
   const windowSec = windowSeconds ?? bucketWindowSecForFilter(series, filter);
   const trails: HabitsTrail[] = [];
@@ -308,7 +319,7 @@ export function buildSeriesOverlay(
     }
   }
 
-  return overlayFromTrails(trails, nades, roundCount, windowSec);
+  return overlayFromTrails(trails, nades, roundCount, windowSec, branchOptions);
 }
 
 function clipTrailsForPlaySec(trails: HabitsTrail[], playSec: number): HabitsTrail[] {
@@ -350,6 +361,7 @@ export function overlayAtPlaySec(overlay: SeriesOverlay, playSec: number): Serie
     clipNadesForPlaySec(overlay.nades, playSec),
     overlay.roundCount,
     overlay.windowSec,
+    overlay.branchOptions,
   );
 }
 
