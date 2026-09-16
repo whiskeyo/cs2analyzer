@@ -1,21 +1,9 @@
-import {
-  FULL_HEALTH,
-  HLTV_IMPACT_ASSISTS_PER_ROUND,
-  HLTV_IMPACT_KILLS_PER_ROUND,
-  HLTV_IMPACT_OFFSET,
-  HLTV_RATING_ADR,
-  HLTV_RATING_DEATHS_PER_ROUND,
-  HLTV_RATING_IMPACT,
-  HLTV_RATING_KAST,
-  HLTV_RATING_KILLS_PER_ROUND,
-  HLTV_RATING_OFFSET,
-  TRADE_SECONDS,
-  tickRate,
-} from "@/lib/shared/constants";
+import { FULL_HEALTH, TRADE_SECONDS, tickRate } from "@/lib/shared/constants";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { Kill, PlayerStats, Replay, Round, Side } from "@/lib/replay/replayTypes";
 import { currentSide } from "./liveScore";
 import { inKnifeRound, isEnemy, isEnemyKill, isSuicide } from "./combat";
+import { matchRating } from "./rating";
 
 function empty(player: number): PlayerStats {
   return {
@@ -58,7 +46,10 @@ function empty(player: number): PlayerStats {
     adr_t: 0,
     kills_per_round: 0,
     deaths_per_round: 0,
-    impact: 0,
+    rating_firepower: 0,
+    rating_impact: 0,
+    rating_support: 0,
+    rating_clutch: 0,
     rating: 0,
     flash_time: 0,
     nades: 0,
@@ -94,22 +85,16 @@ function isHe(weapon: string): boolean {
   return weapon.toLowerCase().includes("hegrenade");
 }
 
-function hltvRating(s: PlayerStats): void {
-  const r = s.rounds || 1;
+function applyMatchRating(s: PlayerStats): void {
+  const r = Math.max(s.rounds, 1);
   s.kills_per_round = s.kills / r;
   s.deaths_per_round = s.deaths / r;
-  const assistsPerRound = s.assists / r;
-  s.impact =
-    HLTV_IMPACT_KILLS_PER_ROUND * s.kills_per_round +
-    HLTV_IMPACT_ASSISTS_PER_ROUND * assistsPerRound -
-    HLTV_IMPACT_OFFSET;
-  s.rating =
-    HLTV_RATING_KAST * s.kast +
-    HLTV_RATING_KILLS_PER_ROUND * s.kills_per_round +
-    HLTV_RATING_DEATHS_PER_ROUND * s.deaths_per_round +
-    HLTV_RATING_IMPACT * s.impact +
-    HLTV_RATING_ADR * s.adr +
-    HLTV_RATING_OFFSET;
+  const rated = matchRating(s);
+  s.rating = rated.rating;
+  s.rating_firepower = rated.firepower;
+  s.rating_impact = rated.impact;
+  s.rating_support = rated.support;
+  s.rating_clutch = rated.clutch;
 }
 
 let statsCache: { replay: Replay; tick: number; stats: PlayerStats[] } | null = null;
@@ -299,7 +284,7 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
     s.entry_success = s.entry_attempts > 0 ? (100 * s.first_kills) / s.entry_attempts : 0;
     s.adr_ct = s.rounds_ct > 0 ? s.damage_ct / s.rounds_ct : 0;
     s.adr_t = s.rounds_t > 0 ? s.damage_t / s.rounds_t : 0;
-    hltvRating(s);
+    applyMatchRating(s);
   }
   statsCache = { replay, tick: t, stats };
   return stats;

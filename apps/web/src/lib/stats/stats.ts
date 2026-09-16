@@ -7,6 +7,7 @@ import type { SavedPlayerSnapshot } from "./scorecard";
 
 export { inKnifeRound, isEnemy, isEnemyKill, isSuicide } from "./combat";
 export { computeStats } from "./computeStats";
+export { matchRating } from "./rating";
 export { formatAdr, formatKast, exportStatsCsv } from "./format";
 export {
   activeBomb,

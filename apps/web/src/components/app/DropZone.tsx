@@ -14,6 +14,7 @@ import {
   rememberDemoFileHandles,
   type ReviewProject,
 } from "@/lib/notes/projectStore";
+import { RatingValue } from "@/components/stats/RatingValue";
 import { formatAdr, formatKast, type SavedPlayerSnapshot } from "@/lib/stats/stats";
 import { prettyMap } from "@/lib/weapons/weapons";
 import { ScorecardLabel } from "./ScorecardLabel";
@@ -227,7 +228,9 @@ export function DropZone({
                                   <td>{s.deaths}</td>
                                   <td>{formatAdr(s.adr)}</td>
                                   <td>{formatKast(s.kast)}</td>
-                                  <td>{s.rating.toFixed(2)}</td>
+                                  <td>
+                                    <RatingValue value={s.rating} />
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>

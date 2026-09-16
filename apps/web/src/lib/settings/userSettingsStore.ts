@@ -8,10 +8,12 @@ import { isRecord } from "@/lib/validate/guards.ts";
 import {
   USER_SETTINGS_ID,
   USER_SETTINGS_SCHEMA,
+  applyUserSettingsPatch,
   cloneUserSettings,
   defaultUserSettings,
   parseUserSettings,
   type UserSettings,
+  type UserSettingsPatch,
   type UserSettingsRecord,
 } from "./userSettings";
 
@@ -148,12 +150,12 @@ export async function loadUserSettings(): Promise<UserSettings> {
   }
 }
 
-export async function saveUserSettings(patch: Partial<UserSettings>): Promise<UserSettings> {
+export async function saveUserSettings(patch: UserSettingsPatch): Promise<UserSettings> {
   return enqueueWrite(async () => {
     const current = await loadUserSettings();
     const next = parseUserSettings({
       ...current,
-      ...patch,
+      ...applyUserSettingsPatch(current, patch),
       schema: USER_SETTINGS_SCHEMA,
       updatedAt: Date.now(),
     });

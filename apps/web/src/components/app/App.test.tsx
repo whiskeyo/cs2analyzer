@@ -324,6 +324,18 @@ describe("App", () => {
     expect(document.title).toBe("CS2 Analyzer — Analyzer");
   });
 
+  it("shows Rating when opened at /rating", () => {
+    window.history.replaceState({}, "", "/rating");
+    const { container } = render(
+      <App createWorker={() => new FakeWorker() as unknown as Worker} />,
+    );
+    expect(screen.getByRole("heading", { level: 2, name: "Rating" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Rating" })).toHaveAttribute("aria-current", "page");
+    expect(container.querySelector("math[display='block']")).toBeTruthy();
+    expect(document.title).toBe("CS2 Analyzer — Rating");
+    expect(container.querySelector(".app-backdrop")).toBeTruthy();
+  });
+
   it("shows FAQ when opened at /faq", () => {
     window.history.replaceState({}, "", "/faq");
     const { container } = render(

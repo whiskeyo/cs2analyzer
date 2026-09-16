@@ -11,7 +11,7 @@ crates/cs2analyzer       Parse, assemble Match, stats, radar math
 crates/cs2analyzer-cli   `cs2analyzer` binary: dump a demo as JSON (fixtures, cross-checks)
 crates/cs2analyzer-wasm  wasm-bindgen wrapper (no mimalloc)
 apps/web                 Vite + React viewer (dev: http://localhost:5173/; layouts editor: /layouts via Settings)
-                         pages: `/` home, `/analyzer`, `/faq`, `/contact`, `/playbook` (React Router; share `?map=&playbook=&strat=`)
+                         pages: `/` home, `/analyzer`, `/faq`, `/rating`, `/contact`, `/playbook` (React Router; share `?map=&playbook=&strat=`)
                          FAQ articles: `apps/web/src/content/faq/*.md`
 scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored; never commit)
@@ -62,6 +62,7 @@ Web `src/` is pages vs pieces vs logic: `pages/` (route screens), `components/` 
 |---|---|
 | Demo events, hurts, rounds, knife detect | `crates/cs2analyzer/src/observer.rs`, `assemble.rs` |
 | ADR, KAST, trades, team scores | `analysis.rs` **and** `apps/web/src/lib/stats/stats.ts` (keep them aligned) |
+| Match rating (1.00–10.00+) | `apps/web/src/lib/stats/rating.ts` (TS-only; proprietary) |
 | Tick sampling, `currentRound` | `apps/web/src/lib/replay/sample.ts` |
 | Radar, yaw, nades, shots | `apps/web/src/components/radar/RadarCanvas.tsx`, `lib/radar/` |
 | HUD / scoreboard labels | `components/radar/Hud.tsx`, `components/sidebar/Scoreboard.tsx`, `liveTeams()` in `lib/stats/stats.ts` |
@@ -69,7 +70,7 @@ Web `src/` is pages vs pieces vs logic: `pages/` (route screens), `components/` 
 | Weapon icons / def indices | `inventory.rs` + `apps/web/src/lib/weapons/weapons.ts` + `public/weapons/*.svg` |
 | Review tab | `apps/web/src/lib/match/review.ts` |
 | Playhead, hotkeys, round scrubber | `lib/playback/`, `components/playback/` |
-| Home, Analyzer, FAQ, Contact | `apps/web/src/pages/` (`/`, `/analyzer`, `/faq`, `/contact`); FAQ copy in `src/content/faq/*.md` |
+| Home, Analyzer, FAQ, Rating, Contact | `apps/web/src/pages/` (`/`, `/analyzer`, `/faq`, `/rating`, `/contact`); FAQ copy in `src/content/faq/*.md`; rating MathML in `pages/Rating.tsx` |
 | Parse worker / drop | `lib/parse/`, `components/app/DropZone.tsx` |
 | Executes, clutches, util, round story | `lib/match/` (site labels from layout JSON in `sites.ts`; empty layout → hide positions), matching tab in `components/sidebar/` |
 | Map callout overlays | Three “layout” packages — do not mix them: `lib/layout/` = shared callout JSON schema (`mapLayout`); DEV editor = `lib/layouts/` + `components/layouts/` (`layoutEditor`); viewer fetch = `lib/radar/layouts.ts` (`public/layouts/{map}.json`) |
@@ -80,7 +81,7 @@ Tick buffers are structure-of-arrays: index = `frame * playerCount + player`. Fl
 
 Do not drop unexplained numeric literals into parser, stats, or UI logic. Put CS2 / FACEIT values in `apps/web/src/lib/shared/constants.ts` and `crates/cs2analyzer/src/constants.rs` (keep both sides aligned when the number is shared) and use the name.
 
-Examples: tick rate `64`, full HP `100`, knife-round equipment `200`, eco `2000`, MR12 `12`/`24`/`3`, trade window `5s`, bomb `40s`, defuse `5`/`10s`, grenade linger times, HLTV rating weights, round-win reason codes.
+Examples: tick rate `64`, full HP `100`, knife-round equipment `200`, eco `2000`, MR12 `12`/`24`/`3`, trade window `5s`, bomb `40s`, defuse `5`/`10s`, grenade linger times, match rating weights, round-win reason codes.
 
 OK as raw literals: `0` / `1` / `-1` sentinels, loop indexes, `x` / `y` / `z`, test fixture ticks, and purely visual canvas/CSS pixels.
 
@@ -95,6 +96,7 @@ Prefer full words in identifiers (`entry`, `headshots`, `entity`, `kills_per_rou
 - **C4 HUD**: hide on defuse/explode, 40s timeout, next round, **or all CTs dead with bomb planted**. Round `end_tick` prefers `m_iRoundWinStatus` (synth win), not `round_officially_ended` (that tick is often the next freeze). Defuse timer needs `bomb_begindefuse` / `bomb_abortdefuse` (kit 5s, no kit 10s).
 - **Freeze**: `start_tick` is round start / freeze; `freeze_end_tick` is `round_freeze_end`. Demos include freeze; playback and round jumps land on freeze end. HUD freeze countdown + “Skip freeze” while `tick < freeze_end_tick`. Home also jumps to freeze end.
 - **ADR**: enemy-only health damage, capped at remaining HP (reset to 100 each competitive round). Not raw `dmg_health` sums.
+- **Rating**: proprietary 1.00 floor, no ceiling, ~5.25 for a typical line. Pillars and weights in `lib/stats/rating.ts`.
 - **Trades / KAST**: a trade is a *teammate of the victim* killing the attacker within **5s**. The killer’s next frag is **not** a trade. Survive-KAST only if the player was present at freeze.
 - **Score / OT**: do not tally CT vs T round wins as team score. Track starting-side team wins, detect swaps from pawn `FLAG_CT` vs `start_side` (MR12 + OT blocks of 3 as fallback). Header `team_ct` / `team_t` are **starting** sides (first non-knife freeze). `Round.team_ct` / `team_t` are names at that freeze (follow swaps). HUD uses `liveTeams()`.
 - Tracers are look-direction from `weapon_fire`, not bullet physics. GOTV ≠ hit registration; pitch is not stored.

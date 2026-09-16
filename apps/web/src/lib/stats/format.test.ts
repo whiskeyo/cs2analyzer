@@ -51,8 +51,11 @@ function sampleStats(overrides: Partial<PlayerStats> = {}): PlayerStats {
     adr_t: 83,
     kills_per_round: 0.83,
     deaths_per_round: 0.63,
-    impact: 1.1,
-    rating: 1.15,
+    rating_firepower: 0.6,
+    rating_impact: 1.35,
+    rating_support: -0.34,
+    rating_clutch: 0.54,
+    rating: 6.54,
     flash_time: 12,
     nades: 40,
     he_kills: 1,
@@ -92,6 +95,7 @@ describe("exportStatsCsv", () => {
         "Assists",
         "KAST%",
         "ADR",
+        "Rating",
         "First Kills",
         "First Deaths",
         "Entry Success",
@@ -113,7 +117,7 @@ describe("exportStatsCsv", () => {
       ].join(","),
     );
     expect(lines[1]).toBe(
-      "Alpha,111,24,20,15,4,75.00%,83.33,5,2,83%,1,0,0,0,0,4,2,1,0,3,1,5.0,1,2,1",
+      "Alpha,111,24,20,15,4,75.00%,83.33,6.54,5,2,83%,1,0,0,0,0,4,2,1,0,3,1,5.0,1,2,1",
     );
   });
 

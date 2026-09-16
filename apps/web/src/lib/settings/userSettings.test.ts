@@ -35,6 +35,7 @@ import {
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
 import {
+  applyUserSettingsPatch,
   USER_SETTINGS_SCHEMA,
   cloneUserSettings,
   defaultUserSettings,
@@ -239,6 +240,16 @@ describe("parseUserSettings", () => {
     copy.defaultSummaryFilter.ct = false;
     expect(original.defaultLayers.cone).toBe(true);
     expect(original.defaultSummaryFilter.ct).toBe(true);
+  });
+
+  it("applyUserSettingsPatch resolves a function against the current document", () => {
+    const current = defaultUserSettings();
+    const fromFn = applyUserSettingsPatch(current, (settings) => ({
+      defaultSummaryFilter: { ...settings.defaultSummaryFilter, t: false },
+    }));
+    expect(fromFn.defaultSummaryFilter?.t).toBe(false);
+    expect(fromFn.defaultSummaryFilter?.ct).toBe(true);
+    expect(applyUserSettingsPatch(current, { sidebarWidth: 520 }).sidebarWidth).toBe(520);
   });
 
   it("widens sidebar to the named max", () => {

@@ -156,7 +156,7 @@ describe("UserSettingsModal", () => {
     expect(within(dialog).getByText("Default nade summary")).toBeInTheDocument();
     expect(within(chips).getByRole("button", { name: "Smoke" })).toBeInTheDocument();
 
-    await userEvent.click(within(chips).getByRole("button", { name: "T" }));
+    await userEvent.click(within(chips).getByRole("button", { name: /^T$/ }));
     await userEvent.click(within(chips).getByRole("button", { name: "HE" }));
     await userEvent.click(within(chips).getByRole("button", { name: "Decoy" }));
     await waitFor(async () => {

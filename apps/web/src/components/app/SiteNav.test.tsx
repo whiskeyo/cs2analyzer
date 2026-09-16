@@ -23,10 +23,12 @@ describe("SiteNav", () => {
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Playbook" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "FAQ" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Rating" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Contact" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("href", "/analyzer");
     expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("href", "/playbook");
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("href", "/faq");
+    expect(screen.getByRole("link", { name: "Rating" })).toHaveAttribute("href", "/rating");
     expect(screen.getByRole("link", { name: "Contact" })).toHaveAttribute("href", "/contact");
   });
 
@@ -40,9 +42,17 @@ describe("SiteNav", () => {
   it("marks FAQ as the current page on /faq", () => {
     renderNav("/faq");
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Rating" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Contact" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Playbook" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("marks Rating as the current page on /rating", () => {
+    renderNav("/rating");
+    expect(screen.getByRole("link", { name: "Rating" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "FAQ" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Contact" })).not.toHaveAttribute("aria-current");
   });
 
   it("marks Contact as the current page on /contact", () => {
@@ -56,6 +66,12 @@ describe("SiteNav", () => {
     renderNav("/playbook");
     expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Analyzer" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("navigates to Rating without a full reload", async () => {
+    renderNav("/");
+    await userEvent.click(screen.getByRole("link", { name: "Rating" }));
+    expect(screen.getByRole("link", { name: "Rating" })).toHaveAttribute("aria-current", "page");
   });
 
   it("navigates to FAQ without a full reload", async () => {

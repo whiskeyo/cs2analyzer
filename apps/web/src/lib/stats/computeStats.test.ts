@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeStats } from "./computeStats";
+import { matchRating } from "./rating";
 import {
   makeBlind,
   makeBombEvent,
@@ -217,6 +218,18 @@ describe("computeStats", () => {
     expect(s.clutch_1v2_attempts).toBe(1);
     expect(s.clutch_wins).toBe(0);
     expect(s.clutch_attempts).toBe(1);
+  });
+
+  it("assigns a 1.00-floor match rating from live board stats", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+      kills: [makeKill(100, 0, 1)],
+    });
+    const stats = computeStats(m, 640);
+    expect(stats[0].rating).toBeGreaterThanOrEqual(1);
+    expect(stats[0].rating).toBe(matchRating(stats[0]).rating);
+    expect(stats[0].rating_firepower).not.toBe(0);
   });
 
   it("reuses cached stats for the same replay and tick", () => {

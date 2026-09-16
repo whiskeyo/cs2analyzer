@@ -130,9 +130,9 @@ function copyHtaccess() {
   };
 }
 
-const SPA_ROUTES = ["analyzer", "playbook", "faq", "contact", "layouts"] as const;
+const SPA_ROUTES = ["analyzer", "playbook", "faq", "rating", "contact", "layouts"] as const;
 
-/** Duplicate index.html so /playbook, /faq, and /contact resolve without a rewrite (OVH 404). */
+/** Duplicate index.html so /playbook, /faq, /rating, and /contact resolve without a rewrite (OVH 404). */
 function spaFallbackPages() {
   return {
     name: "spa-fallback-pages",

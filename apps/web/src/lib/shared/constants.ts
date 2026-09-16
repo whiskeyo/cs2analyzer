@@ -368,16 +368,63 @@ export const WIN_REASON_TIME = 12;
 export const WIN_REASON_T_SURRENDER = 17;
 export const WIN_REASON_CT_SURRENDER = 18;
 
-/** Published HLTV 2.0 rating weights. */
-export const HLTV_IMPACT_KILLS_PER_ROUND = 2.13;
-export const HLTV_IMPACT_ASSISTS_PER_ROUND = 0.42;
-export const HLTV_IMPACT_OFFSET = 0.41;
-export const HLTV_RATING_KAST = 0.0073;
-export const HLTV_RATING_KILLS_PER_ROUND = 0.3591;
-export const HLTV_RATING_DEATHS_PER_ROUND = -0.5329;
-export const HLTV_RATING_IMPACT = 0.2372;
-export const HLTV_RATING_ADR = 0.0032;
-export const HLTV_RATING_OFFSET = 0.1587;
+/**
+ * Match rating (proprietary, whiskeyo): z-score pillars, then 5.25 + 2.10 × z_total.
+ * Floor 1.00, no ceiling. Keep aligned with `.demos/rating/rating.py` v8_unclipped.
+ */
+export const RATING_KD_DIFF_STD = 0.3;
+export const RATING_ADR_MEAN = 75;
+export const RATING_ADR_STD = 18;
+export const RATING_FIREPOWER_KD_WEIGHT = 0.6;
+export const RATING_FIREPOWER_ADR_WEIGHT = 0.4;
+
+export const RATING_ENTRY_DIFF_STD = 0.12;
+export const RATING_MULTI_2K_WEIGHT = 1;
+export const RATING_MULTI_3K_WEIGHT = 2.5;
+export const RATING_MULTI_4K_WEIGHT = 5;
+export const RATING_MULTI_5K_WEIGHT = 8;
+export const RATING_MULTI_MEAN = 0.25;
+export const RATING_MULTI_STD = 0.2;
+export const RATING_IMPACT_ENTRY_WEIGHT = 0.5;
+export const RATING_IMPACT_MULTI_WEIGHT = 0.5;
+
+export const RATING_KAST_MEAN = 70;
+export const RATING_KAST_STD = 12;
+export const RATING_TRADE_RATE_MEAN = 0.35;
+export const RATING_TRADE_RATE_STD = 0.15;
+export const RATING_UDPR_SCALE = 10;
+export const RATING_UTIL_MEAN = 0.7;
+export const RATING_UTIL_STD = 0.4;
+export const RATING_SUPPORT_KAST_WEIGHT = 0.5;
+export const RATING_SUPPORT_TRADE_WEIGHT = 0.3;
+export const RATING_SUPPORT_UTIL_WEIGHT = 0.2;
+
+export const RATING_CLUTCH_1V1_WEIGHT = 1;
+export const RATING_CLUTCH_1V2_WEIGHT = 2;
+export const RATING_CLUTCH_1V3_WEIGHT = 3.5;
+export const RATING_CLUTCH_1V4_WEIGHT = 5.5;
+export const RATING_CLUTCH_1V5_WEIGHT = 8;
+export const RATING_CLUTCH_STD = 0.06;
+export const RATING_OBJ_PLANT_WEIGHT = 0.8;
+export const RATING_OBJ_DEFUSE_WEIGHT = 1.2;
+export const RATING_OBJ_MEAN = 0.1;
+export const RATING_OBJ_STD = 0.1;
+export const RATING_CLUTCH_PILLAR_CLUTCH_WEIGHT = 0.7;
+export const RATING_CLUTCH_PILLAR_OBJ_WEIGHT = 0.3;
+
+export const RATING_PILLAR_FIREPOWER_WEIGHT = 0.45;
+export const RATING_PILLAR_IMPACT_WEIGHT = 0.25;
+export const RATING_PILLAR_SUPPORT_WEIGHT = 0.18;
+export const RATING_PILLAR_CLUTCH_WEIGHT = 0.12;
+export const RATING_CENTER = 5.25;
+export const RATING_Z_SCALE = 2.1;
+export const RATING_FLOOR = 1;
+/** Designed rating spread (σ) around `RATING_CENTER`. */
+export const RATING_SPREAD_STD = 1.7;
+/** Printed 1–10 chart high; unclipped lines can print above this. */
+export const RATING_CHART_HIGH = 10;
+/** Right edge of the rating-range graph (outstanding tail). */
+export const RATING_GRAPH_MAX = 12;
 
 export function tickRate(replay: { header: { tick_rate: number } }): number {
   return replay.header.tick_rate || DEFAULT_TICK_RATE;

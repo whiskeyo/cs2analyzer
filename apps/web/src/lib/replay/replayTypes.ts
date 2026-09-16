@@ -226,7 +226,15 @@ export interface PlayerStats {
   adr_t: number;
   kills_per_round: number;
   deaths_per_round: number;
-  impact: number;
+  /** Standardized firepower pillar (K/D diff + ADR). */
+  rating_firepower: number;
+  /** Standardized impact pillar (entry + multikills). */
+  rating_impact: number;
+  /** Standardized support pillar (KAST + trades + utility). */
+  rating_support: number;
+  /** Standardized clutch/objective pillar. */
+  rating_clutch: number;
+  /** 1.00 floor, unclipped high; ~5.25 is a typical game. */
   rating: number;
   flash_time: number;
   nades: number;

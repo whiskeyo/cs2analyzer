@@ -9,13 +9,19 @@ import {
 } from "react";
 import { IDB_QUOTA_MESSAGE, isQuotaExceededError } from "@/lib/storage/quota";
 import { loadUserSettings, resetUserSettings, saveUserSettings } from "./userSettingsStore";
-import { defaultUserSettings, parseUserSettings, type UserSettings } from "./userSettings";
+import {
+  applyUserSettingsPatch,
+  defaultUserSettings,
+  parseUserSettings,
+  type UserSettings,
+  type UserSettingsPatch,
+} from "./userSettings";
 
 export interface UserSettingsApi {
   settings: UserSettings;
   ready: boolean;
   saveError: string | null;
-  update: (patch: Partial<UserSettings>) => Promise<UserSettings>;
+  update: (patch: UserSettingsPatch) => Promise<UserSettings>;
   reset: () => Promise<UserSettings>;
 }
 
@@ -43,7 +49,7 @@ function useUserSettingsState(): UserSettingsApi {
     };
   }, []);
 
-  const update = useCallback(async (patch: Partial<UserSettings>) => {
+  const update = useCallback(async (patch: UserSettingsPatch) => {
     dirtyRef.current = true;
     try {
       const next = await saveUserSettings(patch);
@@ -101,7 +107,10 @@ export function useUserSettings(): UserSettingsApi {
     settings: defaultUserSettings(),
     ready: true,
     saveError: null,
-    update: async (patch) => parseUserSettings({ ...defaultUserSettings(), ...patch }),
+    update: async (patch) => {
+      const current = defaultUserSettings();
+      return parseUserSettings({ ...current, ...applyUserSettingsPatch(current, patch) });
+    },
     reset: async () => defaultUserSettings(),
   };
 }

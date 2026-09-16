@@ -280,9 +280,10 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
               embedded
               filter={settings.defaultSummaryFilter}
               onFilter={(next) => {
-                const value =
-                  typeof next === "function" ? next(settings.defaultSummaryFilter) : next;
-                void update({ defaultSummaryFilter: value });
+                void update((current) => ({
+                  defaultSummaryFilter:
+                    typeof next === "function" ? next(current.defaultSummaryFilter) : next,
+                }));
               }}
             />
           </div>
