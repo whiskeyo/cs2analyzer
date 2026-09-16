@@ -22,7 +22,7 @@ function series(demoCount: number): DemoSeries {
 function overlay(trails: SeriesOverlay["trails"]): SeriesOverlay {
   return {
     trails,
-    heatDots: [],
+    branches: [],
     nades: [],
     roundCount: trails.length,
     windowSec: 20,

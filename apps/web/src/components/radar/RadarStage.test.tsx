@@ -372,7 +372,7 @@ describe("RadarStage", () => {
           survivedTick: null,
         },
       ],
-      heatDots: [],
+      branches: [],
       nades: [],
       roundCount: 2,
       windowSec: 20,
