@@ -32,8 +32,13 @@ vi.mock("@/components/playback/SeriesAggregatedRoundStrip", () => ({
 vi.mock("@/components/playback/BucketControls", () => ({
   BucketControls: () => <div data-testid="bucket-controls" />,
 }));
+const controlsProbe = { notes: [] as unknown[] };
+
 vi.mock("@/components/playback/Controls", () => ({
-  Controls: () => <div data-testid="controls" />,
+  Controls: (props: { notes: unknown[] }) => {
+    controlsProbe.notes = props.notes;
+    return <div data-testid="controls" />;
+  },
 }));
 
 function viewerState(replay = makeReplay()) {
@@ -61,7 +66,7 @@ function viewerState(replay = makeReplay()) {
       roundAutoplay: false,
       setRoundAutoplay: vi.fn(),
     },
-    review: { notes: [], commitNotes: vi.fn() },
+    review: { notes: [], notesDemoId: null as string | null, commitNotes: vi.fn() },
     view: { selected: null, select: vi.fn() },
     places: null,
     habits: {
@@ -84,6 +89,7 @@ function viewerState(replay = makeReplay()) {
 describe("Viewer", () => {
   beforeEach(() => {
     vi.mocked(useApp).mockReset();
+    controlsProbe.notes = [];
   });
 
   it("renders nothing without a loaded replay", () => {
@@ -132,6 +138,51 @@ describe("Viewer", () => {
     expect(screen.getByTestId("bucket-controls")).toBeInTheDocument();
     expect(screen.queryByTestId("round-strip")).not.toBeInTheDocument();
     expect(screen.queryByTestId("controls")).not.toBeInTheDocument();
+  });
+
+  it("hides live-round notes on the Aggregated transport and after a demo mismatch", () => {
+    const replay = makeReplay();
+    const series = buildSeries("de_mirage", [
+      loadedDemo(replay, "a.dem", new File([], "a.dem")),
+      loadedDemo(replay, "b.dem", new File([], "b.dem")),
+    ]);
+    const noted = [
+      {
+        round: 1,
+        note: {
+          groups: [],
+          drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+          pieces: [],
+          bookmarks: [{ color: "#fff", text: "Peek", tick: 1 }],
+        },
+      },
+    ];
+    const base = viewerState(replay);
+    vi.mocked(useApp).mockReturnValue({
+      ...base,
+      session: { ...base.session, series, demo: series.demos[0] },
+      review: { notes: noted, notesDemoId: series.demos[0]?.id ?? null, commitNotes: vi.fn() },
+    } as unknown as ReturnType<typeof useApp>);
+    const { rerender } = render(<Viewer />);
+    expect(controlsProbe.notes).toEqual(noted);
+
+    vi.mocked(useApp).mockReturnValue({
+      ...base,
+      session: { ...base.session, series, demo: series.demos[0] },
+      review: { notes: noted, notesDemoId: series.demos[0]?.id ?? null, commitNotes: vi.fn() },
+      habits: { ...base.habits, aggregated: true },
+    } as unknown as ReturnType<typeof useApp>);
+    rerender(<Viewer />);
+    expect(controlsProbe.notes).toEqual([]);
+
+    vi.mocked(useApp).mockReturnValue({
+      ...base,
+      session: { ...base.session, series, demo: series.demos[1] },
+      review: { notes: noted, notesDemoId: series.demos[0]?.id ?? null, commitNotes: vi.fn() },
+      habits: { ...base.habits, aggregated: false },
+    } as unknown as ReturnType<typeof useApp>);
+    rerender(<Viewer />);
+    expect(controlsProbe.notes).toEqual([]);
   });
 
   it("shows series chrome when a multi-demo series is loaded", () => {

@@ -3,6 +3,7 @@ import { SnapshotDialog } from "@/components/playbook/SnapshotDialog";
 import { SnapshotToast, type SnapshotToastInfo } from "@/components/playbook/SnapshotToast";
 import {
   addBookmark,
+  analyzerNotesLive,
   clearRoundDrawings,
   makeBookmark,
   noteForAnalyzerBoard,
@@ -39,7 +40,13 @@ export function RadarStage() {
   const habitsOnly = habits.overlay != null;
   const aggregated = isAggregatedView(session.series, habits);
   const round = currentRound(replay, tick);
-  const boardNote = noteForAnalyzerBoard(review.notes, round?.number ?? 0, aggregated);
+  const notesQuery = {
+    aggregated,
+    notesDemoId: review.notesDemoId ?? null,
+    boardDemoId: session.demo?.id ?? null,
+  };
+  const notesLive = analyzerNotesLive(notesQuery);
+  const boardNote = noteForAnalyzerBoard(review.notes, round?.number ?? 0, notesQuery);
   const pawnLegend = analyzerPawnLegend(session.series, habits, habits.overlay);
 
   return (
@@ -51,8 +58,8 @@ export function RadarStage() {
           paletteId: review.paletteId,
           floorMode: review.floorMode,
           hasFloors: Boolean(cal?.lower_radar),
-          canUndo: review.canUndo,
-          canRedo: review.canRedo,
+          canUndo: notesLive && review.canUndo,
+          canRedo: notesLive && review.canRedo,
         }}
         view={{
           follow: view.follow,
@@ -72,10 +79,16 @@ export function RadarStage() {
             }
           },
           onFloorMode: review.setFloorMode,
-          onUndo: review.undo,
-          onRedo: review.redo,
+          onUndo: () => {
+            if (!notesLive) return;
+            review.undo();
+          },
+          onRedo: () => {
+            if (!notesLive) return;
+            review.redo();
+          },
           onClear: () => {
-            if (aggregated) return;
+            if (!notesLive) return;
             if (round == null) {
               review.commitNotes([]);
               return;
@@ -83,7 +96,7 @@ export function RadarStage() {
             review.commitNotes(updateRoundNote(review.notes, round.number, clearRoundDrawings));
           },
           onStampBookmark: () => {
-            if (aggregated || !round) {
+            if (!notesLive || !round) {
               return;
             }
             review.commitNotes(
@@ -149,11 +162,11 @@ export function RadarStage() {
           onSelect={view.select}
           follow={view.follow}
           trails={view.trails}
-          tool={view.tool}
+          tool={notesLive ? view.tool : "pan"}
           color={review.color}
           note={boardNote}
           onNote={(next) => {
-            if (aggregated || round == null) return;
+            if (!notesLive || round == null) return;
             review.commitNotes(updateRoundNote(review.notes, round.number, () => next));
           }}
           onPan={() => view.setFollow(false)}

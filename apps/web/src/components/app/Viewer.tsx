@@ -9,6 +9,7 @@ import { ParseProgressPanel } from "@/components/app/ParseProgressPanel";
 import { useApp } from "@/lib/state/appState";
 import { prefetchParser } from "@/lib/parse/ensureParser";
 import { takeDroppedDemoFiles } from "@/lib/parse/demoDrop";
+import { notesForAnalyzerSession } from "@/lib/notes";
 import { isAggregatedView, isBucketOverlayActive } from "@/lib/parse/seriesMode";
 import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
@@ -29,6 +30,11 @@ export function Viewer() {
   if (!replay) return null;
   const { tick } = playback;
   const switching = session.switching;
+  const chromeNotes = notesForAnalyzerSession(review.notes, {
+    aggregated,
+    notesDemoId: review.notesDemoId ?? null,
+    boardDemoId: session.demo?.id ?? null,
+  });
 
   return (
     <div
@@ -87,7 +93,7 @@ export function Viewer() {
               <RoundStrip
                 replay={replay}
                 tick={tick}
-                notes={review.notes}
+                notes={chromeNotes}
                 places={places}
                 activeRound={playback.activeRound}
               />
@@ -118,7 +124,7 @@ export function Viewer() {
               <Controls
                 replay={replay}
                 tick={tick}
-                notes={review.notes}
+                notes={chromeNotes}
                 playing={playback.playing}
                 speed={playback.speed}
                 roundAutoplay={playback.roundAutoplay}

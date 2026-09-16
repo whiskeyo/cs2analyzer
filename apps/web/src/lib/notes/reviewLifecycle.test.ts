@@ -108,6 +108,33 @@ describe("reviewLifecycle", () => {
     expect(shouldDebouncePersist({ hasDemo: false, restored: true })).toBe(false);
   });
 
+  it("does not persist notes that still belong to another demo", () => {
+    expect(
+      shouldDebouncePersist({
+        hasDemo: true,
+        restored: true,
+        notesDemoId: "a",
+        boardDemoId: "b",
+      }),
+    ).toBe(false);
+    expect(
+      shouldDebouncePersist({
+        hasDemo: true,
+        restored: true,
+        notesDemoId: "b",
+        boardDemoId: "b",
+      }),
+    ).toBe(true);
+    expect(
+      shouldDebouncePersist({
+        hasDemo: true,
+        restored: true,
+        notesDemoId: null,
+        boardDemoId: "b",
+      }),
+    ).toBe(false);
+  });
+
   it("flushes the series cache when the series identity goes away", () => {
     expect(shouldFlushSeriesCache(true)).toBe(false);
     expect(shouldFlushSeriesCache(false)).toBe(true);

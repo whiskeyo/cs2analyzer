@@ -46,9 +46,12 @@ export { strokesToRoundNotes, strokesToNote } from "./migrate";
 export {
   noteForRound,
   noteForAnalyzerBoard,
+  notesForAnalyzerSession,
+  analyzerNotesLive,
   upsertRoundNote,
   updateRoundNote,
   noteRoundNumbers,
+  type AnalyzerNotesQuery,
 } from "./roundNotes";
 export {
   nextGroupId,

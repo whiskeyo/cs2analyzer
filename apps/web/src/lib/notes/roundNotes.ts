@@ -1,18 +1,51 @@
 import { cloneNote, emptyNote } from "./note";
 import type { Note, RoundNote } from "./types";
 
+/** Which in-memory note document the Analyzer board / chrome may show. */
+export interface AnalyzerNotesQuery {
+  /** Multi-demo Aggregated overlay — never a notes document. */
+  aggregated: boolean;
+  /** Demo the current `review.notes` array belongs to. */
+  notesDemoId?: string | null;
+  /** Demo on the radar / round strip now. */
+  boardDemoId?: string | null;
+}
+
+const HIDDEN_BOARD_NOTE: Note = emptyNote();
+
 export function noteForRound(notes: readonly RoundNote[], round: number): Note {
   return notes.find((row) => row.round === round)?.note ?? emptyNote();
 }
 
-/** Aggregated boards have no notes; a live round keeps that round's ink. */
+/**
+ * Live when Aggregated is off and the in-memory notes belong to the board demo.
+ * A missing owner is treated as stale so a series hop cannot paint demo A's ink
+ * on demo B before restore settles.
+ */
+export function analyzerNotesLive(query: AnalyzerNotesQuery): boolean {
+  if (query.aggregated) return false;
+  const boardDemoId = query.boardDemoId ?? null;
+  const notesDemoId = query.notesDemoId ?? null;
+  if (boardDemoId != null && notesDemoId !== boardDemoId) return false;
+  return true;
+}
+
+/** Aggregated / mismatched-demo boards have no notes; a live round keeps that round's ink. */
 export function noteForAnalyzerBoard(
   notes: readonly RoundNote[],
   round: number,
-  aggregated: boolean,
+  query: AnalyzerNotesQuery,
 ): Note {
-  if (aggregated) return emptyNote();
+  if (!analyzerNotesLive(query)) return HIDDEN_BOARD_NOTE;
   return noteForRound(notes, round);
+}
+
+/** Round-strip / scrubber notes: hide the same documents the radar hides. */
+export function notesForAnalyzerSession(
+  notes: readonly RoundNote[],
+  query: AnalyzerNotesQuery,
+): RoundNote[] {
+  return analyzerNotesLive(query) ? [...notes] : [];
 }
 
 function noteIsEmpty(note: Note): boolean {

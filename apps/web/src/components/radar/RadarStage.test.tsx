@@ -44,6 +44,7 @@ function radarState(replay = makeReplay()) {
     session: {
       replay,
       fileName: "match.dem",
+      demo: { id: "d1" } as { id: string } | null,
       series: null as {
         mapName: string;
         focalTeam: string;
@@ -66,6 +67,7 @@ function radarState(replay = makeReplay()) {
           },
         },
       ],
+      notesDemoId: "d1",
       canUndo: true,
       canRedo: false,
       setColor,
@@ -153,65 +155,6 @@ describe("RadarStage", () => {
     expect(container.querySelector(".radar-col")).toBeInTheDocument();
     expect(screen.getByTestId("radar-canvas")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Draw" })).toBeInTheDocument();
-  });
-
-  it("clears the prior round's notes on Aggregated and restores them on a live round", () => {
-    const series = {
-      mapName: "de_dust2",
-      focalTeam: "Spirit",
-      demos: [{ id: "d1" }, { id: "d2" }],
-    };
-    const noted = radarState(
-      makeReplay({
-        rounds: [
-          makeRound({
-            number: 1,
-            start_tick: 0,
-            freeze_end_tick: 64,
-            end_tick: 640,
-          }),
-        ],
-      }),
-    );
-    noted.session.series = series;
-    vi.mocked(useApp).mockReturnValue(noted as unknown as ReturnType<typeof useApp>);
-    const { rerender } = renderStage();
-    expect(canvasProbe.note?.drawings).toHaveLength(1);
-    expect(canvasProbe.note?.bookmarks).toHaveLength(1);
-
-    const aggregated = radarState(
-      makeReplay({
-        rounds: [
-          makeRound({
-            number: 1,
-            start_tick: 0,
-            freeze_end_tick: 64,
-            end_tick: 640,
-          }),
-        ],
-      }),
-    );
-    aggregated.session.series = series;
-    aggregated.review.notes = noted.review.notes;
-    aggregated.habits.aggregated = true;
-    vi.mocked(useApp).mockReturnValue(aggregated as unknown as ReturnType<typeof useApp>);
-    rerender(
-      <TestRouter>
-        <RadarStage />
-      </TestRouter>,
-    );
-    expect(canvasProbe.note?.drawings).toEqual([]);
-    expect(canvasProbe.note?.bookmarks).toEqual([]);
-    expect(canvasProbe.note?.pieces).toEqual([]);
-
-    vi.mocked(useApp).mockReturnValue(noted as unknown as ReturnType<typeof useApp>);
-    rerender(
-      <TestRouter>
-        <RadarStage />
-      </TestRouter>,
-    );
-    expect(canvasProbe.note?.drawings).toHaveLength(1);
-    expect(canvasProbe.note?.bookmarks).toHaveLength(1);
   });
 
   it("wires undo, clear, and bookmark actions from the toolbar", async () => {
