@@ -9,27 +9,29 @@ export const STEAM_GROUP_URL = "https://steamcommunity.com/groups/cs2analyzer-wh
 
 export const CONTACT_CHANNELS = [
   {
+    id: "email",
     href: CONTACT_MAILTO,
     label: "Email",
-    detail: CONTACT_EMAIL,
     external: false,
   },
   {
+    id: "steam",
     href: STEAM_PROFILE_URL,
     label: "Steam profile",
-    detail: "steamcommunity.com/id/whiskeyo",
     external: true,
   },
   {
+    id: "steam-group",
     href: STEAM_GROUP_URL,
     label: "Steam group",
-    detail: "steamcommunity.com/groups/cs2analyzer-whiskeyo",
     external: true,
   },
   {
+    id: "github",
     href: REPO_URL,
     label: "GitHub",
-    detail: "github.com/whiskeyo/cs2analyzer",
     external: true,
   },
 ] as const;
+
+export type ContactChannelId = (typeof CONTACT_CHANNELS)[number]["id"];
