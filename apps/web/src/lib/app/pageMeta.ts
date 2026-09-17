@@ -7,10 +7,19 @@ export const OG_TYPE = "website";
 export const OG_LOCALE = "en_US";
 export const TWITTER_CARD = "summary_large_image";
 
+/** `data-seo` on JSON-LD scripts so client navigations upsert without clobbering. */
+export const JSON_LD_SOFTWARE = "software-application";
+export const JSON_LD_BREADCRUMB = "breadcrumb-list";
+
 export type PageMeta = {
   title: string;
   description: string;
   canonical: string;
+};
+
+export type BreadcrumbCrumb = {
+  name: string;
+  path: string;
 };
 
 export type SiteJsonLd = {
@@ -29,6 +38,41 @@ export type SiteJsonLd = {
     priceCurrency: "USD";
   };
   featureList: string;
+};
+
+export type BreadcrumbListJsonLd = {
+  "@context": "https://schema.org";
+  "@type": "BreadcrumbList";
+  itemListElement: {
+    "@type": "ListItem";
+    position: number;
+    name: string;
+    item: string;
+  }[];
+};
+
+export type JsonLdGraph = SiteJsonLd | BreadcrumbListJsonLd;
+
+export type JsonLdBlock = {
+  id: string;
+  payload: JsonLdGraph | null;
+};
+
+export type PageHead = {
+  title: string;
+  description: string;
+  canonical: string;
+  openGraph: Record<string, string>;
+  twitter: Record<string, string>;
+  jsonLd: JsonLdBlock[];
+};
+
+const CRUMB_LABELS: Record<string, string> = {
+  [ROUTES.analyzer]: "Analyzer",
+  [ROUTES.playbook]: "Playbook",
+  [ROUTES.faq]: "FAQ",
+  [ROUTES.rating]: "Rating",
+  [ROUTES.contact]: "Contact",
 };
 
 const HOME_DESCRIPTION =
@@ -117,6 +161,68 @@ export function siteJsonLd(): SiteJsonLd {
   };
 }
 
+/**
+ * Logical trail for public routes. No on-screen breadcrumbs, and FAQ articles
+ * share `/faq` (no nested article URLs). Home and unknown paths have none.
+ */
+export function breadcrumbTrail(pathname: string): BreadcrumbCrumb[] | null {
+  const path = normalizePath(pathname);
+  const label = CRUMB_LABELS[path];
+  if (!label) {
+    return null;
+  }
+  return [
+    { name: "Home", path: ROUTES.home },
+    { name: label, path },
+  ];
+}
+
+export function breadcrumbJsonLd(pathname: string): BreadcrumbListJsonLd | null {
+  const trail = breadcrumbTrail(pathname);
+  if (!trail) {
+    return null;
+  }
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: trail.map((crumb, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: crumb.name,
+      item: canonicalUrl(crumb.path),
+    })),
+  };
+}
+
+/** Title, social tags, and JSON-LD graphs for a pathname (prerender + client). */
+export function pageHead(pathname: string): PageHead {
+  const { title, description, canonical } = pageMeta(pathname);
+  return {
+    title,
+    description,
+    canonical,
+    openGraph: {
+      type: OG_TYPE,
+      site_name: SITE_NAME,
+      title,
+      description,
+      url: canonical,
+      image: OG_IMAGE_URL,
+      locale: OG_LOCALE,
+    },
+    twitter: {
+      card: TWITTER_CARD,
+      title,
+      description,
+      image: OG_IMAGE_URL,
+    },
+    jsonLd: [
+      { id: JSON_LD_SOFTWARE, payload: siteJsonLd() },
+      { id: JSON_LD_BREADCRUMB, payload: breadcrumbJsonLd(pathname) },
+    ],
+  };
+}
+
 function upsertMeta(kind: "name" | "property", key: string, content: string): void {
   const selector = `meta[${kind}="${key}"]`;
   let tag = document.head.querySelector(selector);
@@ -139,44 +245,44 @@ function upsertLink(rel: string, href: string): void {
   tag.setAttribute("href", href);
 }
 
-function upsertJsonLd(payload: SiteJsonLd): void {
-  let tag = document.head.querySelector('script[type="application/ld+json"]');
+function upsertJsonLd(id: string, payload: JsonLdGraph | null): void {
+  const selector = `script[type="application/ld+json"][data-seo="${id}"]`;
+  let tag = document.head.querySelector(selector);
+  if (payload == null) {
+    tag?.remove();
+    return;
+  }
+  if (!(tag instanceof HTMLScriptElement) && id === JSON_LD_SOFTWARE) {
+    const unlabeled = [
+      ...document.head.querySelectorAll('script[type="application/ld+json"]'),
+    ].find((el) => !el.hasAttribute("data-seo"));
+    if (unlabeled instanceof HTMLScriptElement) {
+      tag = unlabeled;
+      tag.setAttribute("data-seo", id);
+    }
+  }
   if (!(tag instanceof HTMLScriptElement)) {
     tag = document.createElement("script");
     tag.setAttribute("type", "application/ld+json");
+    tag.setAttribute("data-seo", id);
     document.head.appendChild(tag);
   }
   tag.textContent = JSON.stringify(payload);
 }
 
 export function applyPageMeta(pathname: string): void {
-  const { title, description, canonical } = pageMeta(pathname);
-  document.title = title;
-  upsertMeta("name", "description", description);
-  upsertLink("canonical", canonical);
+  const head = pageHead(pathname);
+  document.title = head.title;
+  upsertMeta("name", "description", head.description);
+  upsertLink("canonical", head.canonical);
 
-  const openGraph: Record<string, string> = {
-    type: OG_TYPE,
-    site_name: SITE_NAME,
-    title,
-    description,
-    url: canonical,
-    image: OG_IMAGE_URL,
-    locale: OG_LOCALE,
-  };
-  for (const [key, value] of Object.entries(openGraph)) {
+  for (const [key, value] of Object.entries(head.openGraph)) {
     upsertMeta("property", `og:${key}`, value);
   }
-
-  upsertMeta("name", "twitter:card", TWITTER_CARD);
-  const twitter: Record<string, string> = {
-    title,
-    description,
-    image: OG_IMAGE_URL,
-  };
-  for (const [key, value] of Object.entries(twitter)) {
+  for (const [key, value] of Object.entries(head.twitter)) {
     upsertMeta("name", `twitter:${key}`, value);
   }
-
-  upsertJsonLd(siteJsonLd());
+  for (const block of head.jsonLd) {
+    upsertJsonLd(block.id, block.payload);
+  }
 }
