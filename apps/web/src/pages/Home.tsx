@@ -7,11 +7,11 @@ import { FEATURE_LIST_CLASS } from "@/lib/markdown/featureList";
 function HomeIntro() {
   return (
     <div className="home-intro">
-      <p className="home-kicker">Local-first GOTV viewer</p>
+      <p className="home-kicker">Local-first GOTV analyzer</p>
       <h2>Watch Counter-Strike 2 demos on a 2D radar</h2>
       <p className="home-intro-lead">
-        Drop a replay and start reviewing on this machine. Parse, playback, stats, and drawings all
-        run in the browser.
+        Drop a replay and start reviewing on this machine. Parse, playback, stats, and playbook
+        drawings all run in the browser.
       </p>
       <ul className={FEATURE_LIST_CLASS}>
         <li>Live radar, nades, tracking, and drawing.</li>
@@ -27,8 +27,9 @@ function HomeIntro() {
 function HomeFaqHint() {
   return (
     <p className="home-faq-hint muted">
-      If you have questions, <Link to={ROUTES.faq}>see the FAQ</Link>. To reach the author,{" "}
-      <Link to={ROUTES.contact}>Contact</Link>.
+      If you have questions, <Link to={ROUTES.faq}>see the FAQ</Link>.{" "}
+      <Link to={ROUTES.rating}>Match rating formulas</Link> live on their own page. To reach the
+      author, <Link to={ROUTES.contact}>Contact</Link>.
     </p>
   );
 }

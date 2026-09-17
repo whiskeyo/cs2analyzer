@@ -75,13 +75,20 @@ function AppRoutes() {
   );
 }
 
+/** Router-agnostic tree. Browser hydrates this; prerender wraps it in `StaticRouter`. */
+export function AppShell({ createWorker }: { createWorker?: CreateWorker } = {}) {
+  return (
+    <AppStateProvider createWorker={createWorker}>
+      <AppRoutes />
+    </AppStateProvider>
+  );
+}
+
 /** `createWorker` is injectable so tests can drive the app without WASM. */
 export function App({ createWorker }: { createWorker?: CreateWorker } = {}) {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
-      <AppStateProvider createWorker={createWorker}>
-        <AppRoutes />
-      </AppStateProvider>
+      <AppShell createWorker={createWorker} />
     </BrowserRouter>
   );
 }

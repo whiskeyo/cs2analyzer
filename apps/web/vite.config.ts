@@ -130,21 +130,53 @@ function copyHtaccess() {
   };
 }
 
-const SPA_ROUTES = ["analyzer", "playbook", "faq", "rating", "contact", "layouts"] as const;
+type PrerenderModule = {
+  render: (url: string) => string;
+  injectPrerenderedPage: (template: string, pathname: string, markup: string) => string;
+  PRERENDER_PATHS: readonly string[];
+  prerenderFilePath: (pathname: string) => string;
+};
 
-/** Duplicate index.html so /playbook, /faq, /rating, and /contact resolve without a rewrite (OVH 404). */
-function spaFallbackPages() {
+/**
+ * After the client SPA build, SSR each public route into `dist/{route}/index.html`
+ * so crawlers get real markup. `/layouts` stays off this list (DEV-only).
+ */
+function prerenderPages(): Plugin {
+  let outDir = path.join(root, "dist");
   return {
-    name: "spa-fallback-pages",
-    closeBundle() {
-      const index = `${root}dist/index.html`;
-      if (!existsSync(index)) return;
-      const html = readFileSync(index);
-      writeFileSync(`${root}dist/404.html`, html);
-      for (const route of SPA_ROUTES) {
-        const dir = `${root}dist/${route}`;
-        mkdirSync(dir, { recursive: true });
-        writeFileSync(`${dir}/index.html`, html);
+    name: "prerender-pages",
+    apply: "build",
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    async closeBundle() {
+      const indexPath = path.join(outDir, "index.html");
+      if (!existsSync(indexPath)) {
+        return;
+      }
+      const { createServer } = await import("vite");
+      const server = await createServer({
+        root,
+        configFile: path.join(root, "vite.config.ts"),
+        server: { middlewareMode: true, hmr: false },
+        appType: "custom",
+        mode: "production",
+      });
+      try {
+        const mod = (await server.ssrLoadModule("/src/entry-server.tsx")) as PrerenderModule;
+        const template = readFileSync(indexPath, "utf8");
+        for (const route of mod.PRERENDER_PATHS) {
+          const html = mod.injectPrerenderedPage(template, route, mod.render(route));
+          const dest = path.join(outDir, mod.prerenderFilePath(route));
+          mkdirSync(path.dirname(dest), { recursive: true });
+          writeFileSync(dest, html);
+        }
+        copyFileSync(path.join(outDir, "index.html"), path.join(outDir, "404.html"));
+        console.info(
+          `[prerender] wrote ${mod.PRERENDER_PATHS.length} routes under ${path.relative(root, outDir)}`,
+        );
+      } finally {
+        await server.close();
       }
     },
   };
@@ -155,7 +187,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(gitShortHash()),
   },
-  plugins: [react(), faqMarkdownPlugin(), copyHtaccess(), spaFallbackPages(), writeLayoutPlugin()],
+  plugins: [react(), faqMarkdownPlugin(), copyHtaccess(), prerenderPages(), writeLayoutPlugin()],
   resolve: {
     alias: {
       "@": src,
