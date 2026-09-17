@@ -59,6 +59,12 @@ export function useReviewProject(opts: {
   playback: Playback;
   /** Global defaults for a demo with no saved project. */
   overlayDefaults?: ReviewOverlay;
+  /**
+   * Shell-owned saved-notes list. When set, persist/seed/refresh write that
+   * copy so Home → Analyzer still sees rows after AnalyzerRuntime unmounts.
+   */
+  saved?: ReviewProject[];
+  refreshSaved?: () => void;
 }) {
   const { demo, series, parsedDemos, status, playback } = opts;
   const overlayDefaultsRef = useRef<ReviewOverlay>({
@@ -68,7 +74,7 @@ export function useReviewProject(opts: {
     summaryFilter: DEFAULT_SUMMARY_FILTER,
   });
   overlayDefaultsRef.current = opts.overlayDefaults ?? overlayDefaultsRef.current;
-  const [saved, setSaved] = useState<ReviewProject[]>([]);
+  const [localSaved, setLocalSaved] = useState<ReviewProject[]>([]);
   const { notes, notesRef, canUndo, canRedo, commitNotes, undo, redo } = useRoundNoteHistory();
   const notesDemoIdRef = useRef<string | null>(null);
   const [notesDemoId, setNotesDemoIdState] = useState<string | null>(null);
@@ -95,14 +101,16 @@ export function useReviewProject(opts: {
   /** Blocks the debounced save until a restore attempt has settled. */
   const restoredRef = useRef(false);
 
-  const refreshSaved = useCallback(() => {
+  const localRefreshSaved = useCallback(() => {
     void loadAllProjects()
       .then((list) => {
         list.sort((a, b) => b.savedAt - a.savedAt);
-        setSaved(list);
+        setLocalSaved(list);
       })
       .catch(() => undefined);
   }, []);
+  const refreshSaved = opts.refreshSaved ?? localRefreshSaved;
+  const saved = opts.saved ?? localSaved;
 
   const applySnapshot = useCallback(
     (snap: SeriesReviewSnapshot, jumpTick: boolean) => {
@@ -399,6 +407,37 @@ export function useReviewProject(opts: {
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [persistNow]);
+
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+  const snapshotNowRef = useRef(snapshotNow);
+  snapshotNowRef.current = snapshotNow;
+  const refreshSavedRef = useRef(refreshSaved);
+  refreshSavedRef.current = refreshSaved;
+
+  // Series hops skip persist-on-leave; closing the session unmounts this hook
+  // without a series=null flush. Stash + write so IndexedDB matches RAM.
+  useEffect(() => {
+    return () => {
+      if (!restoredRef.current) {
+        return;
+      }
+      const snap = snapshotNowRef.current();
+      if (snap) {
+        stashSeriesReview(snap);
+      }
+      const target = demoRef.current;
+      void (async () => {
+        if (target) {
+          await persistRef.current(target, { stats: false, refreshList: false });
+        }
+        await flushSeriesReviewCache();
+        refreshSavedRef.current();
+      })().catch((err) => {
+        reportQuotaError(err, (message) => statusRef.current.setError(message));
+      });
+    };
+  }, []);
 
   const tryOpenSaved = useCallback(
     async (project: ReviewProject) => tryOpenLinkedDemo(project, statusRef.current),

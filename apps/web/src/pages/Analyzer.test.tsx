@@ -86,6 +86,30 @@ describe("Analyzer", () => {
     expect(screen.queryByRole("link", { name: "see the FAQ" })).not.toBeInTheDocument();
   });
 
+  it("reloads saved notes when Analyzer remounts after leaving for Home", () => {
+    const first = analyzerState([]);
+    vi.mocked(useApp).mockReturnValue(first as unknown as ReturnType<typeof useApp>);
+    const { unmount } = render(
+      <TestRouter path="/analyzer">
+        <Analyzer />
+      </TestRouter>,
+    );
+    expect(first.review.refreshSaved).toHaveBeenCalled();
+    expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
+    unmount();
+
+    const again = analyzerState([savedProject()]);
+    vi.mocked(useApp).mockReturnValue(again as unknown as ReturnType<typeof useApp>);
+    render(
+      <TestRouter path="/analyzer">
+        <Analyzer />
+      </TestRouter>,
+    );
+    expect(again.review.refreshSaved).toHaveBeenCalled();
+    expect(screen.getByText("Saved notes")).toBeInTheDocument();
+    expect(screen.getByText("match.dem")).toBeInTheDocument();
+  });
+
   it("deletes saved notes and refreshes the list", async () => {
     const state = analyzerState([savedProject("notes-key")]);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
@@ -97,7 +121,7 @@ describe("Analyzer", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(deleteProject).toHaveBeenCalledWith("notes-key");
-    await waitFor(() => expect(state.refreshSaved).toHaveBeenCalled());
+    await waitFor(() => expect(state.review.refreshSaved).toHaveBeenCalledTimes(2));
   });
 
   it("shows series parse progress and Cancel on the analyzer drop", async () => {

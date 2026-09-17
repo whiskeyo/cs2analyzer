@@ -227,15 +227,18 @@ describe("useDemoSession", () => {
   });
 
   it("resets session state on close", async () => {
-    const { result, workers } = renderSession();
+    const { result, workers, status } = renderSession();
     await parseSingle(result, workers);
 
     expect(workers[0].terminate).not.toHaveBeenCalled();
 
+    const clear = status.clear as unknown as ReturnType<typeof vi.fn>;
+    clear.mockClear();
     act(() => {
       result.current.close();
     });
 
+    expect(clear).toHaveBeenCalled();
     expect(workers[0].terminate).toHaveBeenCalledOnce();
     expect(parserMocks.discardParserWarmup).toHaveBeenCalled();
     expect(result.current.demo).toBeNull();
