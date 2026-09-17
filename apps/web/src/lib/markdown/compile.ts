@@ -44,9 +44,6 @@ function classNames(value: Element["properties"]["className"]): string[] {
   if (Array.isArray(value)) {
     return value.map(String);
   }
-  if (typeof value === "string") {
-    return value.split(/\s+/).filter(Boolean);
-  }
   return [];
 }
 

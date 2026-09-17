@@ -2,6 +2,8 @@ dist
 coverage
 node_modules
 src/parser
+# Hand-written FAQ articles (nested `-` lists; Prettier rewrites indent/emphasis).
+src/content/faq
 *.tsbuildinfo
 package-lock.json
 public/maps
