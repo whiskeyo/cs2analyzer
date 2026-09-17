@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://cs2analyzer.whiskeyo.pl/</loc>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://cs2analyzer.whiskeyo.pl/faq</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://cs2analyzer.whiskeyo.pl/rating</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://cs2analyzer.whiskeyo.pl/contact</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://cs2analyzer.whiskeyo.pl/analyzer</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://cs2analyzer.whiskeyo.pl/playbook</loc>
+    <priority>0.8</priority>
+  </url>
+</urlset>

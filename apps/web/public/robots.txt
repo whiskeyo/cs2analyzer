@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /layouts
+
+Sitemap: https://cs2analyzer.whiskeyo.pl/sitemap.xml
