@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FEATURE_LIST_CLASS } from "@/lib/markdown/featureList";
 import { FAQ_ITEMS, parseFaqMarkdown } from "./faq";
 
 describe("parseFaqMarkdown", () => {
@@ -19,19 +20,22 @@ describe("FAQ_ITEMS", () => {
   it("loads numbered articles from content/faq as precompiled HTML", () => {
     expect(FAQ_ITEMS.map((item) => item.question)).toEqual([
       "What is CS2 Analyzer?",
-      "Do my demos leave this computer?",
-      "What can I drop?",
-      "How do saved notes work?",
-      "What kind of stats are these?",
-      "GOTV or POV?",
+      "How safe is it?",
+      "Why is it free?",
+      "How do saved analyses and playbooks work?",
+      "GOTV or POV? What is the difference?",
       "Which browsers work?",
-      "Is this affiliated with Valve or FACEIT?",
-      "The site says pre-release — should I worry?",
+      "What does pre-release mean?",
       "How do I report a bug or request a feature?",
     ]);
     for (const item of FAQ_ITEMS) {
       expect(item.html).toContain(`<h3>${item.question}</h3>`);
       expect(item.html).not.toContain("react-markdown");
     }
+    const overview = FAQ_ITEMS[0];
+    expect(overview?.html).toContain(`<ul class="${FEATURE_LIST_CLASS}">`);
+    expect(
+      overview?.html.match(new RegExp(`<ul class="${FEATURE_LIST_CLASS}">`, "g")),
+    ).toHaveLength(4);
   });
 });

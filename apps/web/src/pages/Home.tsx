@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { DemoDrop } from "@/components/app/DemoDrop";
 import { CreatePlaybookCard } from "@/components/playbook/CreatePlaybookCard";
 import { ROUTES } from "@/lib/app/routes";
+import { FEATURE_LIST_CLASS } from "@/lib/markdown/featureList";
 
 function HomeIntro() {
   return (
@@ -12,7 +13,7 @@ function HomeIntro() {
         Drop a replay and start reviewing on this machine. Parse, playback, stats, and drawings all
         run in the browser.
       </p>
-      <ul className="feature-list">
+      <ul className={FEATURE_LIST_CLASS}>
         <li>Live radar, nades, tracking, and drawing.</li>
         <li>FACEIT-style scoreboard, clutches, utility, and round history.</li>
         <li>Habits mode: several demos, same map or mixed maps.</li>
