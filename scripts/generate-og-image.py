@@ -36,7 +36,7 @@ MUTED = (0x8B, 0x98, 0xA5)
 ACCENT = (0x6A, 0xA4, 0xD8)
 
 TITLE = "CS2 Analyzer"
-TAGLINE = "Local-first CS2 GOTV demo viewer"
+TAGLINE = "Local-first analyzer and playbook"
 
 MARK_SIZE = 280
 PAD_X = 96

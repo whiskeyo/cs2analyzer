@@ -32,7 +32,7 @@ export type SiteJsonLd = {
 };
 
 const HOME_DESCRIPTION =
-  "Free local-first Counter-Strike 2 GOTV demo viewer. Parse a CS2 demo in the browser; the file stays on this machine.";
+  "Free local-first Counter-Strike 2 GOTV demo analyzer and playbook. Parse a CS2 demo in the browser, or draw and export strats; files stay on this machine.";
 
 /** Titles use an em dash, e.g. `CS2 Analyzer — Playbook`. */
 const PAGE_META: Record<string, Omit<PageMeta, "canonical">> = {
@@ -50,7 +50,7 @@ const PAGE_META: Record<string, Omit<PageMeta, "canonical">> = {
   },
   [ROUTES.faq]: {
     title: `${SITE_NAME} — FAQ`,
-    description: "Short answers for the local-first CS2 GOTV viewer.",
+    description: "Short answers for the local-first CS2 GOTV analyzer.",
   },
   [ROUTES.rating]: {
     title: `${SITE_NAME} — Rating`,
@@ -58,13 +58,13 @@ const PAGE_META: Record<string, Omit<PageMeta, "canonical">> = {
   },
   [ROUTES.contact]: {
     title: `${SITE_NAME} — Contact`,
-    description: "Email, Steam, and GitHub for the local-first CS2 GOTV viewer.",
+    description: "Email, Steam, and GitHub for the local-first CS2 GOTV analyzer.",
   },
 };
 
 const LAYOUTS_META: Omit<PageMeta, "canonical"> = {
   title: `${SITE_NAME} — Layouts`,
-  description: "Edit radar callout layouts for the local CS2 viewer.",
+  description: "Edit radar callout layouts for the local CS2 analyzer.",
 };
 
 const NOT_FOUND_META: Omit<PageMeta, "canonical"> = {
@@ -113,7 +113,7 @@ export function siteJsonLd(): SiteJsonLd {
       priceCurrency: "USD",
     },
     featureList:
-      "Local-first: Counter-Strike 2 GOTV demos are parsed in the browser and stay on this device.",
+      "Local-first: parse Counter-Strike 2 GOTV demos in the browser and draw or export playbook strats; files stay on this device.",
   };
 }
 

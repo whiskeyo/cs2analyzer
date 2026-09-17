@@ -31,9 +31,13 @@ describe("pageMeta", () => {
     expect(pageTitle("/faq/")).toBe("CS2 Analyzer — FAQ");
     expect(pageTitle("/rating")).toBe("CS2 Analyzer — Rating");
     expect(pageTitle("/contact")).toBe("CS2 Analyzer — Contact");
-    expect(pageMeta("/").description).toMatch(/Free local-first Counter-Strike 2 GOTV demo/);
+    expect(pageMeta("/").description).toMatch(
+      /Free local-first Counter-Strike 2 GOTV demo analyzer/,
+    );
+    expect(pageMeta("/").description).toMatch(/playbook/i);
     expect(pageMeta("/").description).toMatch(/CS2 demo/);
     expect(pageMeta("/").description).toMatch(/browser/);
+    expect(pageMeta("/").description).not.toMatch(/viewer/i);
     expect(pageMeta("/analyzer").description).toMatch(/demo/);
     expect(pageMeta("/playbook").description).toMatch(/playbook/i);
     expect(pageMeta("/faq").description).toMatch(/FAQ|answers/i);
@@ -128,6 +132,8 @@ describe("siteJsonLd", () => {
     expect(payload.offers.price).toBe("0");
     expect(payload.operatingSystem).toMatch(/browser/i);
     expect(payload.featureList).toMatch(/local-first/i);
+    expect(payload.featureList).toMatch(/playbook/i);
+    expect(JSON.stringify(payload)).not.toMatch(/viewer/i);
     const script = document.head.querySelector('script[type="application/ld+json"]');
     expect(script).toBeTruthy();
     expect(JSON.parse(script?.textContent ?? "")).toEqual(payload);
