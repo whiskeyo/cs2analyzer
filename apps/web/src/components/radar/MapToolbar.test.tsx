@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MATCH_PDF_BOOKMARK_TOOLTIP } from "@/lib/export/constants";
 import { DEFAULT_LAYERS } from "@/lib/notes/types";
 import type { MapToolbarProps } from "./mapToolbarTypes";
 import { MapToolbar } from "./MapToolbar";
@@ -62,7 +63,9 @@ describe("MapToolbar", () => {
   it("stamps a bookmark when the bookmark tool is chosen", async () => {
     const props = toolbarProps();
     render(<MapToolbar {...props} />);
-    await userEvent.click(screen.getByRole("button", { name: /Bookmark this tick/ }));
+    const bookmark = screen.getByRole("button", { name: MATCH_PDF_BOOKMARK_TOOLTIP });
+    expect(bookmark).toHaveAttribute("title", MATCH_PDF_BOOKMARK_TOOLTIP);
+    await userEvent.click(bookmark);
     expect(props.reviewActions.onTool).toHaveBeenCalledWith("bookmark");
     expect(props.reviewActions.onStampBookmark).toHaveBeenCalled();
   });

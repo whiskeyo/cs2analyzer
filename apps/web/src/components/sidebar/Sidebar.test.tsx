@@ -66,9 +66,9 @@ function sidebarAppState({
   habits?: Record<string, unknown>;
 } = {}) {
   return {
-    session: { series: null, replay, ...session },
+    session: { series: null, replay, fileName: "match.dem", ...session },
     playback: { tick: 640, jump: vi.fn(), activeRound: null },
-    review: { notes: [], commitNotes: vi.fn() },
+    review: { notes: [], commitNotes: vi.fn(), floorMode: "auto" },
     view: { selected, select: onSelect, setFollow: vi.fn() },
     places: null,
     habits: {
@@ -126,6 +126,7 @@ describe("Sidebar", () => {
     await userEvent.click(screen.getByRole("button", { name: "Notes" }));
     expect(screen.getByRole("button", { name: "Notes" })).toHaveClass("on");
     expect(screen.getByText(/Draw or add a text box/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export PDF" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Weapons" }));
     expect(screen.getByRole("button", { name: "Weapons" })).toHaveClass("on");

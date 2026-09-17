@@ -27,7 +27,12 @@ vi.mock("@/lib/shared/download", () => ({
   downloadBlob: vi.fn(),
 }));
 
+vi.mock("@/lib/export/exportMatch", () => ({
+  downloadMatchPdf: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { downloadBlob } from "@/lib/shared/download";
+import { downloadMatchPdf } from "@/lib/export/exportMatch";
 
 function viewerState(aggregated = false) {
   const replay = makeReplay({
@@ -48,8 +53,9 @@ function viewerState(aggregated = false) {
       series: buildSeries("de_mirage", [demo, loadedDemo(replay, "b.dem", new File([], "b.dem"))]),
     },
     playback: { tick: 200 },
-    review: { exportNotes, removeAllNotes, saved: [] },
+    review: { exportNotes, removeAllNotes, saved: [], notes: [] },
     habits: { aggregated },
+    cal: undefined,
     onFiles,
     close,
     exportNotes,
@@ -107,6 +113,7 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Add demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export notes" })).not.toBeInTheDocument();
 
     await openSettings();
@@ -160,6 +167,7 @@ describe("Header", () => {
     expect(screen.getByRole("button", { name: "Add demo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export PDF" })).toBeInTheDocument();
     await openSettings();
     expect(screen.getByRole("button", { name: "Export notes" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Import notes" })).toBeInTheDocument();
@@ -180,6 +188,7 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderHeader();
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export PDF" })).toBeDisabled();
   });
 
   it("downloads per-demo stats as CSV", async () => {
@@ -191,6 +200,22 @@ describe("Header", () => {
       "match-stats.csv",
       "text/csv",
       expect.stringContaining("Player"),
+    );
+  });
+
+  it("downloads a match PDF from the viewer header", async () => {
+    const state = viewerState(false);
+    vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
+    vi.mocked(downloadMatchPdf).mockClear();
+    renderHeader();
+    await userEvent.click(screen.getByRole("button", { name: "Export PDF" }));
+    await waitFor(() => expect(downloadMatchPdf).toHaveBeenCalledTimes(1));
+    expect(downloadMatchPdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replay: state.session.replay,
+        fileName: "match.dem",
+        notes: [],
+      }),
     );
   });
 
@@ -229,6 +254,7 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Add demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("aria-current", "page");
   });
@@ -249,6 +275,7 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Add demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
   });
@@ -259,6 +286,7 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Add demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Contact" })).toHaveAttribute("aria-current", "page");
   });

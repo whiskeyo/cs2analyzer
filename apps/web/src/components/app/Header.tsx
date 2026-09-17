@@ -1,3 +1,4 @@
+import { useMatchPdfExport } from "@/lib/export/useMatchPdfExport";
 import { downloadBlob } from "@/lib/shared/download";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { computeStats, exportStatsCsv, matchEndTick } from "@/lib/stats/stats";
@@ -27,6 +28,7 @@ function downloadCsv(replay: Replay, fileName: string) {
 /** Shared top bar: brand, nav, match chrome, and the settings gear. */
 export function Header() {
   const { session, habits } = useApp();
+  const matchPdf = useMatchPdfExport();
   const replay = session.replay;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
 
@@ -102,6 +104,21 @@ export function Header() {
             onClick={() => downloadCsv(replay, session.fileName)}
           >
             Export CSV
+          </button>
+        ) : null}
+        {replay && showMatchChrome ? (
+          <button
+            type="button"
+            className="ghost"
+            disabled={!matchPdf.canExport || matchPdf.busy}
+            title={
+              matchPdf.aggregated
+                ? "Export PDF is per-demo; switch off Aggregated"
+                : (matchPdf.error ?? undefined)
+            }
+            onClick={() => void matchPdf.exportPdf()}
+          >
+            {matchPdf.busy ? "Exporting…" : "Export PDF"}
           </button>
         ) : null}
         <SettingsMenu />

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { emptyNote } from "@/lib/notes/note";
 import { makeReplay } from "@/lib/testing/fixtures";
 import { Notes } from "./Notes";
@@ -10,6 +11,23 @@ describe("Notes", () => {
       <Notes replay={makeReplay()} tick={0} notes={[]} onJump={() => {}} onNotes={() => {}} />,
     );
     expect(screen.getByText(/Draw or add a text box/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
+  });
+
+  it("exports a match PDF from the empty notes pane", async () => {
+    const onExportPdf = vi.fn();
+    render(
+      <Notes
+        replay={makeReplay()}
+        tick={0}
+        notes={[]}
+        onJump={() => {}}
+        onNotes={() => {}}
+        onExportPdf={onExportPdf}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Export PDF" }));
+    expect(onExportPdf).toHaveBeenCalledTimes(1);
   });
 
   it("renders the note list when notes exist", () => {
@@ -49,5 +67,6 @@ describe("Notes", () => {
     expect(screen.getByText(/Drag a layer/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Squash" })).toBeInTheDocument();
     expect(screen.getByText("Round 1")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
   });
 });

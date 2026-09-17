@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { useMatchPdfExport } from "@/lib/export/useMatchPdfExport";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
 import { type DefaultSidebarTab } from "@/lib/settings/userSettings";
@@ -39,6 +40,7 @@ const TAB_LABEL: Record<Tab, string> = {
 export const Sidebar = memo(function Sidebar() {
   const { session, playback, review, view, places, habits } = useApp();
   const { settings, update } = useUserSettings();
+  const matchPdf = useMatchPdfExport();
   const replay = session.replay;
   const tick = playback.tick;
   const multiDemo = isMultiDemoSeries(session.series);
@@ -129,7 +131,21 @@ export const Sidebar = memo(function Sidebar() {
             />
           ))}
         {activeTab === "notes" && (
-          <Notes replay={replay} tick={tick} notes={notes} onJump={onJump} onNotes={onNotes} />
+          <Notes
+            replay={replay}
+            tick={tick}
+            notes={notes}
+            onJump={onJump}
+            onNotes={onNotes}
+            onExportPdf={() => void matchPdf.exportPdf()}
+            exportBusy={matchPdf.busy}
+            exportDisabled={!matchPdf.canExport}
+            exportTitle={
+              matchPdf.aggregated
+                ? "Export PDF is per-demo; switch off Aggregated"
+                : (matchPdf.error ?? undefined)
+            }
+          />
         )}
         {activeTab === "action" && (
           <>

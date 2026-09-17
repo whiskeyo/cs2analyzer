@@ -66,3 +66,28 @@ export const PLAYBOOK_PDF_PHOTO_BACK = "Go back to strat";
 /** Vector arrow beside the margin label — Liberation subset has no ↑. */
 export const PLAYBOOK_PDF_PHOTO_BACK_ARROW_SIZE = 5;
 export const PLAYBOOK_PDF_PHOTO_BACK_ARROW_GAP = 3;
+
+export const MATCH_PDF_KICKER = "cs2analyzer match";
+export const MATCH_PDF_SCOREBOARD = "Scoreboard";
+export const MATCH_PDF_NOTES = "Notes";
+export const MATCH_PDF_BOOKMARKS = "Bookmarks";
+export const MATCH_PDF_NO_NOTES = "No notes on this match.";
+export const MATCH_PDF_REOPEN = "Re-open the .dem in cs2analyzer to scrub.";
+export const MATCH_PDF_FILE_FALLBACK = "match";
+export const MATCH_PDF_BOOKMARK_TOOLTIP =
+  "Bookmark this tick (Moment: a few seconds). Nothing is drawn on the radar. Only bookmarked rounds appear as pages in Export PDF.";
+export const MATCH_PDF_COL_PLAYER = "Player";
+export const MATCH_PDF_COL_K = "K";
+export const MATCH_PDF_COL_D = "D";
+export const MATCH_PDF_COL_A = "A";
+export const MATCH_PDF_COL_ADR = "ADR";
+export const MATCH_PDF_COL_KAST = "KAST";
+export const MATCH_PDF_COL_RATING = "Rating";
+export const MATCH_PDF_COL_ENTRY = "Entry";
+export const MATCH_PDF_ENTRY_EMPTY = "—";
+export const MATCH_PDF_ECO_PISTOL = "Pistol";
+export const MATCH_PDF_ECO_ECO = "Eco";
+export const MATCH_PDF_ECO_FORCE = "Force";
+export const MATCH_PDF_ECO_FULL = "Full buy";
+export const MATCH_PDF_ECO_KNIFE = "Knife";
+export const MATCH_PDF_EXPORT_ERROR = "Could not export PDF.";
