@@ -50,7 +50,7 @@ function AnalyzerRuntime({ children }: { children: ReactNode }) {
 }
 
 function AnalyzerPlayback({ children }: { children: ReactNode }) {
-  const { status, session, bridgeRef } = useSession();
+  const { status, session, notes, bridgeRef } = useSession();
   const { settings } = useUserSettings();
   const bucketTransportRef = useRef(false);
   const playback = usePlaybackClock(
@@ -66,6 +66,8 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     parsedDemos: session.parsedDemos,
     status,
     playback,
+    saved: notes.saved,
+    refreshSaved: notes.refreshSaved,
     overlayDefaults: {
       paletteId: settings.defaultPaletteId,
       color: settings.defaultColor,

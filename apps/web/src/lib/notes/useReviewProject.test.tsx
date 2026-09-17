@@ -499,6 +499,82 @@ describe("useReviewProject", () => {
     expect(mocks.saveProject).not.toHaveBeenCalled();
   });
 
+  it("restores saved notes after unmount with the same series still loaded", async () => {
+    const d = demo();
+    const series: DemoSeries = {
+      mapName: "de_mirage",
+      demos: [d, demo("b.dem")],
+      focalTeam: "A",
+      focalTeamNames: ["A"],
+      tagsByDemo: new Map(),
+    };
+    mocks.loadProject.mockResolvedValue(project());
+    const { result, unmount } = renderHook(() =>
+      useReviewProject({
+        demo: d,
+        series,
+        parsedDemos: series.demos,
+        status: status(),
+        playback: playback(),
+      }),
+    );
+
+    await waitFor(() => expect(result.current.notes[0]?.note.drawings).toHaveLength(1));
+    expect(result.current.notesDemoId).toBe(d.id);
+    unmount();
+
+    const again = renderHook(() =>
+      useReviewProject({
+        demo: d,
+        series,
+        parsedDemos: series.demos,
+        status: status(),
+        playback: playback(),
+      }),
+    );
+    await waitFor(() => expect(again.result.current.notes[0]?.note.drawings).toHaveLength(1));
+    expect(again.result.current.notesDemoId).toBe(d.id);
+  });
+
+  it("persists a series review and refreshes the shell list on unmount", async () => {
+    const first = demo("a.dem");
+    const series: DemoSeries = {
+      mapName: "de_mirage",
+      demos: [first, demo("b.dem")],
+      focalTeam: "A",
+      focalTeamNames: ["A"],
+      tagsByDemo: new Map(),
+    };
+    const refreshSaved = vi.fn();
+    const drawing = {
+      type: "pen" as const,
+      color: "#fff",
+      points: [{ x: 1, y: 2 }],
+    };
+    const { result, unmount } = renderHook(() =>
+      useReviewProject({
+        demo: first,
+        series,
+        parsedDemos: [],
+        status: status(),
+        playback: playback(),
+        saved: [],
+        refreshSaved,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.notesDemoId).toBe(first.id));
+    act(() => {
+      result.current.commitNotes([{ round: 1, note: { ...emptyNote(), drawings: [drawing] } }]);
+    });
+    mocks.saveProject.mockClear();
+    refreshSaved.mockClear();
+    unmount();
+
+    await waitFor(() => expect(mocks.saveProject).toHaveBeenCalled());
+    await waitFor(() => expect(refreshSaved).toHaveBeenCalled());
+  });
+
   it("reports quota when auto-save cannot write", async () => {
     const st = status();
     const quota = new Error("full");

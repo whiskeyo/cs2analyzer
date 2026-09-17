@@ -549,6 +549,7 @@ export function useDemoSession(opts: {
     setProgress(null);
     setParseFiles(null);
     setSwitching(false);
+    statusRef.current.clear();
   }, []);
 
   return {
