@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { compileMarkdown } from "@/lib/markdown/compile";
+import { FEATURE_LIST_CLASS } from "@/lib/markdown/featureList";
 import { Markdown } from "./Markdown";
 
 describe("Markdown", () => {
@@ -57,5 +58,19 @@ describe("Markdown", () => {
     expect(screen.getByRole("heading", { level: 3, name: "Question" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 4, name: "Subsection" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 5, name: "Detail" })).toBeInTheDocument();
+  });
+
+  it("renders nested dash lists with the homepage feature-list class", () => {
+    const { container } = render(
+      <Markdown html={compileMarkdown(`- parent item\n    - nested item\n\n1. numbered`)} />,
+    );
+    const lists = container.querySelectorAll(`ul.${FEATURE_LIST_CLASS}`);
+    expect(lists).toHaveLength(2);
+    expect(lists[1]?.parentElement?.closest("ul")).toBe(lists[0]);
+    expect(screen.getByText("parent item")).toBeInTheDocument();
+    expect(screen.getByText("nested item")).toBeInTheDocument();
+    const ordered = container.querySelector("ol");
+    expect(ordered).toBeTruthy();
+    expect(ordered?.classList.contains(FEATURE_LIST_CLASS)).toBe(false);
   });
 });

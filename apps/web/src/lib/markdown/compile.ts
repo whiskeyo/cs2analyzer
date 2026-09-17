@@ -10,6 +10,7 @@ import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
+import { FEATURE_LIST_CLASS } from "./featureList";
 
 function remarkShiftHeadings(offset: number) {
   return (tree: MdastRoot) => {
@@ -39,6 +40,31 @@ function rehypeExternalLinks() {
   };
 }
 
+function classNames(value: Element["properties"]["className"]): string[] {
+  if (Array.isArray(value)) {
+    return value.map(String);
+  }
+  if (typeof value === "string") {
+    return value.split(/\s+/).filter(Boolean);
+  }
+  return [];
+}
+
+function rehypeFeatureLists() {
+  return (tree: HastRoot) => {
+    visit(tree, "element", (node: Element) => {
+      if (node.tagName !== "ul") {
+        return;
+      }
+      const classes = classNames(node.properties.className);
+      if (!classes.includes(FEATURE_LIST_CLASS)) {
+        classes.push(FEATURE_LIST_CLASS);
+      }
+      node.properties.className = classes;
+    });
+  };
+}
+
 /** GFM HTML. Raw HTML in the source is dropped. `$…$` stays ordinary text. */
 export function compileMarkdown(source: string, headingOffset = 0): string {
   const file = unified()
@@ -47,6 +73,7 @@ export function compileMarkdown(source: string, headingOffset = 0): string {
     .use(remarkShiftHeadings, headingOffset)
     .use(remarkRehype)
     .use(rehypeExternalLinks)
+    .use(rehypeFeatureLists)
     .use(rehypeStringify)
     .processSync(source);
   return String(file);

@@ -249,6 +249,18 @@ button.home-card {
   content: "▸ ";
   color: var(--accent);
 }
+.feature-list .feature-list {
+  margin: 0.15rem 0 0.1rem;
+  padding-left: 1.2rem;
+}
+.feature-list ol {
+  margin: 0.15rem 0 0.1rem;
+  padding-left: 1.2rem;
+  list-style: decimal;
+}
+.feature-list ol > li::before {
+  content: none;
+}
 .faq-item {
   padding: 1.05rem 0;
   border-top: 1px solid #1e2732;
@@ -287,7 +299,6 @@ button.home-card {
 .faq-item a:hover {
   color: var(--text);
 }
-.faq-item .md ul,
 .faq-item .md ol {
   margin: 0 0 0.5rem;
   padding-left: 1.2rem;
@@ -295,7 +306,7 @@ button.home-card {
   font-size: var(--page-body-size);
   line-height: 1.5;
 }
-.faq-item .md li {
+.faq-item .md ol > li {
   margin: 0.15rem 0;
 }
 .faq-item .md code {

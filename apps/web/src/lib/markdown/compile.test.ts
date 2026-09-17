@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compileMarkdown } from "./compile";
+import { FEATURE_LIST_CLASS } from "./featureList";
 
 describe("compileMarkdown", () => {
   it("emits GFM tables, strikethrough, and autolinks", () => {
@@ -23,5 +24,13 @@ describe("compileMarkdown", () => {
     const html = compileMarkdown(`<img src=x onerror=alert(1)>\n\nparagraph`);
     expect(html).not.toContain("<img");
     expect(html).toContain("<p>paragraph</p>");
+  });
+
+  it("marks dash lists as feature-list, including nested levels, and leaves ol alone", () => {
+    const html = compileMarkdown(`- parent\n    - child\n\n1. first\n2. second`);
+    expect(html).toContain(`<ul class="${FEATURE_LIST_CLASS}">`);
+    expect(html.match(new RegExp(`<ul class="${FEATURE_LIST_CLASS}">`, "g"))).toHaveLength(2);
+    expect(html).toContain("<ol>");
+    expect(html).not.toMatch(/<ol[^>]*class=/);
   });
 });
