@@ -118,6 +118,21 @@ describe("applyPageMeta", () => {
     expect(document.head.querySelectorAll('script[type="application/ld+json"]')).toHaveLength(1);
     expect(canonicalHref()).toBe(`${SITE_ORIGIN}/faq`);
   });
+
+  it("leaves Google Search Console verification meta in place", () => {
+    const content = "zLjjGebtZb-zTUPWAiRjiW0VFzHq23AS6aGbM0L9Spw";
+    const existing = document.createElement("meta");
+    existing.setAttribute("name", "google-site-verification");
+    existing.setAttribute("content", content);
+    document.head.appendChild(existing);
+
+    applyPageMeta("/");
+    applyPageMeta("/faq");
+
+    const tags = document.head.querySelectorAll('meta[name="google-site-verification"]');
+    expect(tags).toHaveLength(1);
+    expect(tags[0]?.getAttribute("content")).toBe(content);
+  });
 });
 
 describe("siteJsonLd", () => {
