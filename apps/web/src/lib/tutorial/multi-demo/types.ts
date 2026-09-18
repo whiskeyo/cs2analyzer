@@ -1,5 +1,7 @@
 /** Checked-in Aggregated tutorial identity (no `.dem` in git). */
 
+import type { TutorialEventJson, TutorialTickArrays } from "../hydrateCore";
+
 export interface TutorialSeriesMatchMeta {
   id: string;
   fileName: string;
@@ -14,6 +16,14 @@ export interface TutorialSeriesManifest {
   tickStride: number;
   matches: TutorialSeriesMatchMeta[];
 }
+
+/** Shared match payload so generated modules with different lengths still typecheck. */
+export type SeriesMatchPayload = TutorialTickArrays &
+  TutorialEventJson & {
+    header: unknown;
+    players: unknown;
+    rounds: unknown;
+  };
 
 export function tutorialSeriesDemoId(
   meta: Pick<TutorialSeriesMatchMeta, "id" | "mapName">,

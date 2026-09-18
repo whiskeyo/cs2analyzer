@@ -190,7 +190,7 @@ fn emit_manifest(
 
 fn emit_loaders(matches: &[SeriesMatchSlice]) -> Result<GeneratedFile, String> {
     let mut body = String::from(
-        "export type SeriesMatchPayload = typeof import(\"./matches/match-0/payload\");\n\n\
+        "import type { SeriesMatchPayload } from \"./types\";\n\n\
          export const seriesMatchLoaders: Record<string, () => Promise<SeriesMatchPayload>> = {\n",
     );
     if matches.is_empty() {
@@ -564,6 +564,9 @@ mod tests {
         assert!(manifest.contents.contains("TutorialSeriesManifest"));
         assert!(manifest.contents.contains("activeRounds: [1,2]"));
         assert!(manifest.contents.contains("match-0"));
+        assert!(files[1]
+            .contents
+            .contains("import type { SeriesMatchPayload } from \"./types\""));
         assert!(files[1]
             .contents
             .contains("() => import(\"./matches/match-0/payload\")"));
