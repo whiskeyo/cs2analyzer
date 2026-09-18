@@ -1,17 +1,24 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { parsePlaybookQuery } from "@/lib/app/playbookSearch";
 import { isAnalyzerPath, isHomePath, isPlaybookPath, ROUTES } from "@/lib/app/routes";
 import { isMultiDemoSeries } from "@/lib/parse/seriesMode";
-import { emitPlaybooksChanged } from "@/lib/playbook/events";
-import { loadPlaybook, savePlaybook } from "@/lib/playbook/playbookStore";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { useOptionalAnalyzer } from "@/lib/state/analyzerState";
 import { useSession } from "@/lib/state/sessionState";
 import { errorMessage } from "@/lib/validate/json.ts";
 import { isTutorialDemoId, tutorialReplayDemo } from "./identity";
-import { loadTutorialPlaybook, loadTutorialReplay, loadTutorialSeries } from "./load";
-import { prefetchNextTutorialStep, scheduleHomeTutorialPrefetch } from "./prefetch";
+import {
+  isTutorialSeriesReady,
+  loadTutorialPlaybook,
+  loadTutorialReplay,
+  loadTutorialSeries,
+} from "./load";
+import {
+  prefetchNextTutorialStep,
+  scheduleHomeTutorialPrefetch,
+  warmupTutorialSession,
+} from "./prefetch";
 import { parseTutorialQuery, tutorialHref, type TutorialStep } from "./query";
 
 const LOADING_NOTICE = "Loading tutorial…";
@@ -39,11 +46,7 @@ function sessionMatchesStep(
 }
 
 async function ensureTutorialPlaybook(): Promise<void> {
-  const book = await loadTutorialPlaybook();
-  const existing = await loadPlaybook(book.key);
-  if (existing) return;
-  await savePlaybook(book);
-  emitPlaybooksChanged();
+  await loadTutorialPlaybook();
 }
 
 /**
@@ -65,17 +68,20 @@ export function useTutorial(): void {
   const loadingRef = useRef(false);
   const installedStepRef = useRef<TutorialStep | null>(null);
 
+  useLayoutEffect(() => {
+    if (step == null) return;
+    if (isHomePath(pathname) || isAnalyzerPath(pathname)) {
+      if (step === "replay" || step === "aggregated") warmupTutorialSession();
+      return;
+    }
+    if (isPlaybookPath(pathname)) prefetchNextTutorialStep(step);
+  }, [pathname, step]);
+
   useEffect(() => {
     if (!ready || settings.tutorialCompleted) return;
     if (!isHomePath(pathname)) return;
     return scheduleHomeTutorialPrefetch();
   }, [pathname, ready, settings.tutorialCompleted]);
-
-  useEffect(() => {
-    if (step == null || isHomePath(pathname)) return;
-    if (!isAnalyzerPath(pathname) && !isPlaybookPath(pathname)) return;
-    prefetchNextTutorialStep(step);
-  }, [pathname, step]);
 
   useEffect(() => {
     if (step == null) {
@@ -84,6 +90,7 @@ export function useTutorial(): void {
       return;
     }
     if (isHomePath(pathname)) {
+      if (step === "replay" || step === "aggregated") warmupTutorialSession();
       navigate(tutorialHref(step), { replace: true });
       return;
     }
@@ -155,9 +162,16 @@ export function useTutorial(): void {
     let finished = false;
     loadingRef.current = true;
     statusRef.current.clear();
-    statusRef.current.setNotice(
-      step === "aggregated" ? "Loading Aggregated series…" : LOADING_NOTICE,
-    );
+    if (step === "replay") {
+      warmupTutorialSession();
+      statusRef.current.setNotice(LOADING_NOTICE);
+    } else {
+      const seriesPromise = loadTutorialSeries();
+      if (!isTutorialSeriesReady()) {
+        statusRef.current.setNotice("Loading Aggregated series…");
+      }
+      void seriesPromise;
+    }
     prefetchNextTutorialStep(step);
 
     void (async () => {

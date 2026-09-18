@@ -20,6 +20,7 @@ import {
   prefetchNextTutorialStep,
   prefetchTutorialReplay,
   scheduleHomeTutorialPrefetch,
+  warmupTutorialSession,
   TUTORIAL_HOME_PREFETCH_TIMEOUT_MS,
 } from "./prefetch";
 
@@ -65,6 +66,12 @@ describe("tutorial prefetch", () => {
     vi.advanceTimersByTime(TUTORIAL_HOME_PREFETCH_TIMEOUT_MS);
     expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+
+  it("starts Replay and Aggregated hydrates together", () => {
+    warmupTutorialSession();
+    expect(loadMocks.loadTutorialReplay).toHaveBeenCalledOnce();
+    expect(loadMocks.loadTutorialSeries).toHaveBeenCalledOnce();
   });
 
   it("warms multi-demo on Replay and the playbook sample on Aggregated", () => {

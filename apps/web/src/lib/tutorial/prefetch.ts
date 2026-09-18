@@ -20,7 +20,9 @@ export function prefersSaveData(): boolean {
 
 function scheduleIdle(run: () => void): () => void {
   if (typeof requestIdleCallback === "function") {
-    const id = requestIdleCallback(run, { timeout: TUTORIAL_HOME_PREFETCH_TIMEOUT_MS });
+    const id = requestIdleCallback(run, {
+      timeout: TUTORIAL_HOME_PREFETCH_TIMEOUT_MS,
+    });
     return () => cancelIdleCallback(id);
   }
   const id = window.setTimeout(run, TUTORIAL_HOME_PREFETCH_TIMEOUT_MS);
@@ -37,12 +39,18 @@ export function prefetchTutorialSeries(): void {
   void loadTutorialSeries();
 }
 
+/** Home CTA / `?tutorial=1`: start Replay and Aggregated hydrates together. */
+export function warmupTutorialSession(): void {
+  void loadTutorialReplay();
+  void loadTutorialSeries();
+}
+
 export function prefetchTutorialPlaybook(): void {
   void loadTutorialPlaybook();
 }
 
-/** Home-only: wait for idle (or a short timeout) then pull the Replay chunk.
- * Does not import the Aggregated series — that starts on the Replay step.
+/** Home-only: wait for idle then pull the Replay chunk.
+ * Aggregated series starts on CTA / `?tutorial=1`, in parallel with Replay.
  * Caller must skip when `tutorialCompleted` is already true.
  */
 export function scheduleHomeTutorialPrefetch(): () => void {

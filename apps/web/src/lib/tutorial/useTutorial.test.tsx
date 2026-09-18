@@ -16,6 +16,7 @@ const loadMocks = vi.hoisted(() => ({
   loadTutorialReplay: vi.fn(),
   loadTutorialSeries: vi.fn(),
   loadTutorialPlaybook: vi.fn(),
+  isTutorialSeriesReady: vi.fn(() => false),
 }));
 
 const playbookMocks = vi.hoisted(() => ({
@@ -38,6 +39,7 @@ vi.mock("./load", () => ({
   loadTutorialReplay: loadMocks.loadTutorialReplay,
   loadTutorialSeries: loadMocks.loadTutorialSeries,
   loadTutorialPlaybook: loadMocks.loadTutorialPlaybook,
+  isTutorialSeriesReady: loadMocks.isTutorialSeriesReady,
 }));
 
 vi.mock("@/lib/playbook/playbookStore", () => ({
@@ -108,6 +110,7 @@ describe("useTutorial", () => {
     loadMocks.loadTutorialReplay.mockReset();
     loadMocks.loadTutorialSeries.mockReset();
     loadMocks.loadTutorialPlaybook.mockReset();
+    loadMocks.isTutorialSeriesReady.mockReset().mockReturnValue(false);
     playbookMocks.loadPlaybook.mockReset();
     playbookMocks.savePlaybook.mockReset();
     playbookMocks.emitPlaybooksChanged.mockReset();
@@ -128,10 +131,12 @@ describe("useTutorial", () => {
 
   it("installs the single-demo fixture from ?tutorial=1", async () => {
     const { installDemo, status } = mockSession();
-    renderHook(() => useTutorial(), { wrapper: wrapper("/analyzer?tutorial=1") });
+    renderHook(() => useTutorial(), {
+      wrapper: wrapper("/analyzer?tutorial=1"),
+    });
 
     await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
-    expect(loadMocks.loadTutorialReplay).toHaveBeenCalledOnce();
+    expect(loadMocks.loadTutorialReplay).toHaveBeenCalled();
     expect(loadMocks.loadTutorialSeries).toHaveBeenCalled();
     expect(status.setNotice).toHaveBeenCalledWith("Loading tutorial…");
     expect(installDemo).toHaveBeenCalledWith(
@@ -152,7 +157,9 @@ describe("useTutorial", () => {
       }),
     );
     const { installDemo, status } = mockSession();
-    renderHook(() => useTutorial(), { wrapper: wrapper("/analyzer?tutorial=1") });
+    renderHook(() => useTutorial(), {
+      wrapper: wrapper("/analyzer?tutorial=1"),
+    });
 
     await waitFor(() => expect(loadMocks.loadTutorialSeries).toHaveBeenCalled());
     expect(installDemo).not.toHaveBeenCalled();
@@ -176,9 +183,24 @@ describe("useTutorial", () => {
 
     await waitFor(() => expect(installSeries).toHaveBeenCalledWith(series));
     expect(installDemo).not.toHaveBeenCalled();
-    expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
+    expect(loadMocks.loadTutorialReplay).toHaveBeenCalled();
     expect(status.setNotice).toHaveBeenCalledWith("Loading Aggregated series…");
     expect(loadMocks.loadTutorialPlaybook).toHaveBeenCalled();
+  });
+
+  it("skips Aggregated loading chrome when the series promise is already ready", async () => {
+    const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
+    const series = buildSeries("de_dust2", [a, b]);
+    loadMocks.loadTutorialSeries.mockResolvedValue(series);
+    loadMocks.isTutorialSeriesReady.mockReturnValue(true);
+    const { installSeries, status } = mockSession();
+    renderHook(() => useTutorial(), {
+      wrapper: wrapper("/analyzer?tutorial=aggregated"),
+    });
+
+    await waitFor(() => expect(installSeries).toHaveBeenCalledWith(series));
+    expect(status.setNotice).not.toHaveBeenCalledWith("Loading Aggregated series…");
   });
 
   it("opens Aggregated view on the full-buy overlay", async () => {
@@ -206,25 +228,24 @@ describe("useTutorial", () => {
     });
   });
 
-  it("saves the sample playbook from ?tutorial=playbook", async () => {
+  it("loads the sample playbook in-memory from ?tutorial=playbook", async () => {
     const { installDemo, close } = mockSession();
     renderHook(() => useTutorial(), {
       wrapper: wrapper("/playbook?tutorial=playbook"),
     });
-    await waitFor(() => expect(playbookMocks.savePlaybook).toHaveBeenCalledWith(book));
-    expect(playbookMocks.emitPlaybooksChanged).toHaveBeenCalledOnce();
+    await waitFor(() => expect(loadMocks.loadTutorialPlaybook).toHaveBeenCalled());
     expect(installDemo).not.toHaveBeenCalled();
     expect(close).not.toHaveBeenCalled();
   });
 
-  it("does not overwrite an existing sample playbook", async () => {
-    playbookMocks.loadPlaybook.mockResolvedValue(book);
+  it("does not write the sample playbook into IndexedDB", async () => {
     mockSession();
     renderHook(() => useTutorial(), {
       wrapper: wrapper("/playbook?tutorial=playbook"),
     });
-    await waitFor(() => expect(playbookMocks.loadPlaybook).toHaveBeenCalled());
+    await waitFor(() => expect(loadMocks.loadTutorialPlaybook).toHaveBeenCalled());
     expect(playbookMocks.savePlaybook).not.toHaveBeenCalled();
+    expect(playbookMocks.loadPlaybook).not.toHaveBeenCalled();
   });
 
   it("idles a Home Replay prefetch when the tour is not completed", () => {
@@ -259,7 +280,8 @@ describe("useTutorial", () => {
     const { installDemo } = mockSession();
     renderHook(() => useTutorial(), { wrapper: wrapper("/?tutorial=1") });
     await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
-    expect(loadMocks.loadTutorialReplay).toHaveBeenCalledOnce();
+    expect(loadMocks.loadTutorialReplay).toHaveBeenCalled();
+    expect(loadMocks.loadTutorialSeries).toHaveBeenCalled();
   });
 
   it("ignores a tutorial query on FAQ", async () => {
@@ -288,12 +310,14 @@ describe("useTutorial", () => {
     const { installDemo, session } = mockSession();
     session.demo = demo;
     session.replay = replay;
-    renderHook(() => useTutorial(), { wrapper: wrapper("/analyzer?tutorial=1") });
+    renderHook(() => useTutorial(), {
+      wrapper: wrapper("/analyzer?tutorial=1"),
+    });
     await act(async () => {
       await Promise.resolve();
     });
     expect(installDemo).not.toHaveBeenCalled();
-    expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
+    expect(loadMocks.loadTutorialReplay).toHaveBeenCalled();
     expect(loadMocks.loadTutorialSeries).toHaveBeenCalled();
   });
 
@@ -313,11 +337,12 @@ describe("useTutorial", () => {
     status.setNotice.mockClear();
     session.demo = null;
     session.replay = null;
-    renderHook(() => useTutorial(), { wrapper: wrapper("/analyzer?tutorial=1") });
+    renderHook(() => useTutorial(), {
+      wrapper: wrapper("/analyzer?tutorial=1"),
+    });
     await act(async () => {
       await Promise.resolve();
     });
-    expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
     expect(installDemo).not.toHaveBeenCalled();
     expect(status.setNotice).not.toHaveBeenCalled();
   });

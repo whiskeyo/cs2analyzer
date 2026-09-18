@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TestRouter } from "@/lib/testing/router";
 import { tutorialHref } from "@/lib/tutorial/query";
@@ -9,6 +9,12 @@ const settingsMocks = vi.hoisted(() => ({
   tutorialCompleted: false,
   ready: true,
   update: vi.fn(),
+}));
+
+const warmup = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/tutorial/prefetch", () => ({
+  warmupTutorialSession: warmup,
 }));
 
 vi.mock("@/lib/settings/useUserSettings", () => ({
@@ -26,6 +32,7 @@ describe("TutorialStart", () => {
     settingsMocks.tutorialCompleted = false;
     settingsMocks.ready = true;
     settingsMocks.update.mockReset();
+    warmup.mockReset();
   });
 
   it("links Home and Analyzer empty states at ?tutorial=1", () => {
@@ -40,6 +47,16 @@ describe("TutorialStart", () => {
     expect(screen.getByText(/Mirage sample/)).toBeInTheDocument();
   });
 
+  it("warms Replay and Aggregated fixtures on pointer down", () => {
+    render(
+      <TestRouter>
+        <TutorialStart />
+      </TestRouter>,
+    );
+    fireEvent.pointerDown(screen.getByRole("link", { name: "Try without a demo" }));
+    expect(warmup).toHaveBeenCalledOnce();
+  });
+
   it("marks the tour completed from Don't show again", async () => {
     render(
       <TestRouter>
@@ -47,7 +64,9 @@ describe("TutorialStart", () => {
       </TestRouter>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Don't show again" }));
-    expect(settingsMocks.update).toHaveBeenCalledWith({ tutorialCompleted: true });
+    expect(settingsMocks.update).toHaveBeenCalledWith({
+      tutorialCompleted: true,
+    });
   });
 
   it("hides Don't show again after the tour is completed", () => {

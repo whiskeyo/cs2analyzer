@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isTutorialSeriesReady,
   loadTutorialPlaybook,
   loadTutorialReplay,
   loadTutorialSeries,
@@ -20,11 +21,14 @@ describe("tutorial load entry", () => {
 
   it("reuses the cached series hydrate promise", async () => {
     resetTutorialLoadCache();
+    expect(isTutorialSeriesReady()).toBe(false);
     const first = loadTutorialSeries();
     const second = loadTutorialSeries();
     expect(second).toBe(first);
+    expect(isTutorialSeriesReady()).toBe(false);
     const series = await first;
     expect(await second).toBe(series);
+    expect(isTutorialSeriesReady()).toBe(true);
     expect(loadTutorialSeries()).toBe(first);
   });
 });
