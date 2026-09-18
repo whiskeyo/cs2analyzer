@@ -12,7 +12,12 @@ import { COPY_SUFFIX, UNTITLED_STRAT } from "@/lib/playbook/types";
 import { PLAYBOOK_FOCUS_KEY, rememberPlaybookFocus } from "@/lib/playbook/focus";
 import { DEFAULT_RADAR_GRAY } from "@/lib/shared/constants";
 import { makePiece } from "@/lib/playbook/pieces";
-import { createPlaybook, deleteAllPlaybooks, savePlaybook } from "@/lib/playbook/playbookStore";
+import {
+  createPlaybook,
+  deleteAllPlaybooks,
+  loadPlaybook,
+  savePlaybook,
+} from "@/lib/playbook/playbookStore";
 import { TestRouter } from "@/lib/testing/router";
 import { Playbook } from "./Playbook";
 
@@ -449,5 +454,26 @@ describe("Playbook", () => {
     unmount();
     resolve({ de_mirage: UNIT_CALIBRATION });
     await waitFor(() => expect(loadCalibrations).toHaveBeenCalled());
+  });
+
+  it("keeps the tutorial Playbook step on the sample book only", async () => {
+    const real = await createPlaybook("de_mirage", "My real book");
+    await createPlaybook("de_inferno", "Other map book");
+    const { unmount } = renderBoard("/playbook?tutorial=playbook");
+    expect(await screen.findByRole("button", { name: "Tutorial" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "My real book" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Other map book" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Inferno" })).not.toBeInTheDocument();
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Tutorial" }));
+    expect(screen.queryByRole("menuitem", { name: "Duplicate playbook" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Delete playbook" })).not.toBeInTheDocument();
+    expect(await loadPlaybook(real.key)).toMatchObject({
+      title: "My real book",
+    });
+    unmount();
+    renderBoard("/playbook");
+    expect(await screen.findByRole("button", { name: "My real book" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Inferno" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Tutorial" })).not.toBeInTheDocument();
   });
 });

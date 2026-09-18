@@ -34,10 +34,12 @@ import {
 } from "@/lib/playbook/pages";
 import { booksWithDraft } from "@/lib/playbook/tree";
 import type { Playbook as PlaybookDoc } from "@/lib/playbook/types";
-import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
+import { PLAYBOOK_PREFERRED_MAP, UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
 import { usePlaybookBoard } from "@/lib/playbook/usePlaybookBoard";
 import { usePlaybooks } from "@/lib/playbook/usePlaybooks";
 import { loadCalibrations } from "@/lib/radar/maps";
+import { loadTutorialPlaybook } from "@/lib/tutorial/load";
+import { parseTutorialQuery, TUTORIAL_QUERY } from "@/lib/tutorial/query";
 import {
   PLAYBOOK_DETAIL_DEFAULT_WIDTH,
   PLAYBOOK_DETAIL_MAX_WIDTH,
@@ -49,7 +51,6 @@ import {
   PLAYBOOK_TREE_WIDTH_STORAGE_KEY,
 } from "@/lib/shared/constants";
 import { usePanelResize } from "@/lib/shared/usePanelResize";
-import { TUTORIAL_QUERY } from "@/lib/tutorial/query";
 import { errorMessage } from "@/lib/validate/json.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
@@ -58,12 +59,16 @@ export function Playbook() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchKey = searchParams.toString();
   const query = useMemo(() => parsePlaybookQuery(searchKey), [searchKey]);
+  const tutorialPlaybook = parseTutorialQuery(searchKey) === "playbook";
+  const [loadedSample, setLoadedSample] = useState<PlaybookDoc | null>(null);
   const incomingSearch = useMemo(() => canonicalPlaybookSearch(query), [query]);
   const initialMapFromUrl = useRef(query.map);
   const appliedSearchRef = useRef<string | null>(null);
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapName, setMapName] = useState<string | null>(null);
+  const boardMap = tutorialPlaybook ? PLAYBOOK_PREFERRED_MAP : mapName;
+  const sandboxBook = tutorialPlaybook ? loadedSample : null;
   const [videoPageId, setVideoPageId] = useState<string | null>(null);
   const [openVideoIdState, setOpenVideoIdState] = useState<string | null>(null);
   const [imagePageId, setImagePageId] = useState<string | null>(null);
@@ -112,11 +117,14 @@ export function Playbook() {
     movePlaybook,
     moveStrat,
     saveError,
-  } = usePlaybooks(mapName);
+  } = usePlaybooks(
+    boardMap,
+    tutorialPlaybook ? { mode: "sandbox", book: sandboxBook } : { mode: "idb" },
+  );
 
   const treeWidthRef = useRef(PLAYBOOK_TREE_DEFAULT_WIDTH);
   const detailWidthRef = useRef(PLAYBOOK_DETAIL_DEFAULT_WIDTH);
-  const cal = mapName && maps ? maps[mapName] : undefined;
+  const cal = boardMap && maps ? maps[boardMap] : undefined;
   const page = book ? activePage(book) : null;
   const floorLayer = playbookFloorLayer(playbookUsesLower(cal, page?.floor ?? "auto"));
   const floorNote = page ? playbookFloorNote(page, floorLayer) : null;
@@ -174,12 +182,24 @@ export function Playbook() {
   detailWidthRef.current = detailResize.width;
 
   useEffect(() => {
+    if (!tutorialPlaybook) return;
+    let cancelled = false;
+    void loadTutorialPlaybook().then((sample) => {
+      if (!cancelled) setLoadedSample(structuredClone(sample));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tutorialPlaybook]);
+
+  useEffect(() => {
     let cancelled = false;
     void loadCalibrations()
       .then((cals) => {
         if (cancelled) return;
         setMaps(cals);
         setMapName((current) => {
+          if (tutorialPlaybook) return PLAYBOOK_PREFERRED_MAP;
           if (current) return current;
           const mapFromUrl = initialMapFromUrl.current;
           if (mapFromUrl && cals[mapFromUrl]) return mapFromUrl;
@@ -195,13 +215,13 @@ export function Playbook() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tutorialPlaybook]);
 
   useEffect(() => {
-    if (!mapName) return;
+    if (!boardMap) return;
     if (appliedSearchRef.current === incomingSearch) return;
     if (query.playbook) {
-      const match = findPlaybook(allBooks, mapName, query.playbook);
+      const match = findPlaybook(allBooks, boardMap, query.playbook);
       if (!match) return;
       appliedSearchRef.current = incomingSearch;
       select(match.key);
@@ -213,11 +233,16 @@ export function Playbook() {
     }
     appliedSearchRef.current = incomingSearch;
     const focus = pendingFocus.current;
-    if (focus && mapName === focus.mapName && allBooks.some((row) => row.key === focus.bookKey)) {
+    if (
+      !tutorialPlaybook &&
+      focus &&
+      boardMap === focus.mapName &&
+      allBooks.some((row) => row.key === focus.bookKey)
+    ) {
       select(focus.bookKey);
       pendingFocus.current = null;
     }
-  }, [allBooks, incomingSearch, mapName, query.playbook, query.strat, select]);
+  }, [allBooks, incomingSearch, boardMap, query.playbook, query.strat, select, tutorialPlaybook]);
 
   useEffect(() => {
     if (!book) return;
@@ -228,11 +253,11 @@ export function Playbook() {
   }, [book, selectStrat]);
 
   useEffect(() => {
-    if (!mapName) return;
+    if (!boardMap) return;
     if (activeKey && !book) return;
     if (query.playbook && appliedSearchRef.current !== incomingSearch) return;
     const next = playbookSearch({
-      map: mapName,
+      map: boardMap,
       playbook: book ? playbookQueryLabel(allBooks, book) : null,
       strat: book && page ? stratQueryLabel(book.pages, page) : null,
     });
@@ -247,7 +272,7 @@ export function Playbook() {
     allBooks,
     book,
     incomingSearch,
-    mapName,
+    boardMap,
     page,
     query.playbook,
     searchKey,
@@ -317,7 +342,7 @@ export function Playbook() {
     <div className="playbook-page">
       <div className="playbook">
         <div className="playbook-stage">
-          {page && book && mapName ? (
+          {page && book && boardMap ? (
             <>
               <TokenPalette
                 tool={board.tool}
@@ -442,14 +467,14 @@ export function Playbook() {
             </p>
           ) : null}
           <PlaybookTree
-            mapNames={names}
+            mapNames={tutorialPlaybook ? [PLAYBOOK_PREFERRED_MAP] : names}
             books={treeBooks}
-            mapName={mapName}
+            mapName={boardMap}
             activeKey={activeKey}
             activePageId={book?.activePageId ?? null}
             expandedBooks={treeExpandedBooks}
             collapsedMaps={collapsedMaps}
-            onSelectMap={setMapName}
+            onSelectMap={tutorialPlaybook ? () => undefined : setMapName}
             onToggleMap={(map) => {
               setCollapsedMaps((prev) => {
                 const next = new Set(prev);
@@ -479,7 +504,7 @@ export function Playbook() {
             }
             onMoveBook={(row, toIndex) => void movePlaybook(row.key, toIndex)}
             onMoveStrat={(row, pageId, toIndex) => void moveStrat(row.key, pageId, toIndex)}
-            onNewPlaybook={createBookOnMap}
+            onNewPlaybook={tutorialPlaybook ? () => undefined : createBookOnMap}
             onNewStrat={(row) => {
               setExpandedBooks((prev) => new Set(prev).add(row.key));
               if (row.key === activeKey) addStrat();
@@ -487,6 +512,7 @@ export function Playbook() {
             }}
             onExportPdf={requestExport}
             onDuplicateBook={(row) => {
+              if (tutorialPlaybook) return;
               void duplicateBook(row.key).then((copy) => {
                 if (copy) {
                   setMapName(copy.mapName);
@@ -499,11 +525,15 @@ export function Playbook() {
               if (row.key === activeKey) duplicateStrat(pageId);
               else void duplicateStratOn(row.key, pageId);
             }}
-            onDeleteBook={(row) => void removeBook(row.key)}
+            onDeleteBook={(row) => {
+              if (tutorialPlaybook) return;
+              void removeBook(row.key);
+            }}
             onDeleteStrat={(row, pageId) => {
               if (row.key === activeKey) removeStrat(pageId);
               else void removeStratFrom(row.key, pageId);
             }}
+            sandbox={tutorialPlaybook}
           />
         </aside>
       </div>

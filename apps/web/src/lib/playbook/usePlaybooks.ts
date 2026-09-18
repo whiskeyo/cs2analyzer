@@ -37,34 +37,60 @@ import {
 } from "./playbookStore";
 import { booksWithDraft, movePlaybookTo, nextPlaybookSort } from "./tree";
 
-export function usePlaybooks(mapName: string | null) {
+export function usePlaybooks(
+  mapName: string | null,
+  source: { mode: "idb" } | { mode: "sandbox"; book: Playbook | null } = {
+    mode: "idb",
+  },
+) {
+  const sandboxMode = source.mode === "sandbox";
+  const sandboxBook = source.mode === "sandbox" ? source.book : null;
   const [allBooks, setAllBooks] = useState<Playbook[]>([]);
   const [activeByMap, setActiveByMap] = useState<Record<string, string | null>>({});
   const [draft, setDraft] = useState<Playbook | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const skipSaveRef = useRef(true);
+  const [sandboxSeed, setSandboxSeed] = useState<Playbook | null | "idb">("idb");
+  if (sandboxMode) {
+    if (sandboxSeed !== sandboxBook) {
+      setSandboxSeed(sandboxBook);
+      skipSaveRef.current = true;
+      setAllBooks(sandboxBook ? [sandboxBook] : []);
+      setDraft(sandboxBook);
+      setActiveByMap(sandboxBook ? { [sandboxBook.mapName]: sandboxBook.key } : {});
+    }
+  } else if (sandboxSeed !== "idb") {
+    setSandboxSeed("idb");
+    skipSaveRef.current = true;
+    setAllBooks([]);
+    setDraft(null);
+    setActiveByMap({});
+  }
   const activeKey = mapName ? (activeByMap[mapName] ?? null) : null;
   const book =
     draft && mapName && draft.mapName === mapName && draft.key === activeKey ? draft : null;
 
   const refresh = useCallback(async () => {
+    if (sandboxMode) return;
     setAllBooks(await loadAllPlaybooks());
-  }, []);
+  }, [sandboxMode]);
 
   useEffect(() => {
+    if (sandboxMode) return;
     void loadAllPlaybooks().then(setAllBooks);
-  }, []);
+  }, [sandboxMode]);
 
   useEffect(() => {
+    if (sandboxMode) return;
     const onChanged = () => {
       void refresh();
     };
     window.addEventListener(PLAYBOOKS_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(PLAYBOOKS_CHANGED_EVENT, onChanged);
-  }, [refresh]);
+  }, [refresh, sandboxMode]);
 
   useEffect(() => {
-    if (!activeKey) return;
+    if (sandboxMode || !activeKey) return;
     let cancelled = false;
     skipSaveRef.current = true;
     void loadPlaybook(activeKey).then((loaded) => {
@@ -74,10 +100,10 @@ export function usePlaybooks(mapName: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [activeKey]);
+  }, [activeKey, sandboxMode]);
 
   useEffect(() => {
-    if (!book) return;
+    if (sandboxMode || !book) return;
     if (skipSaveRef.current) {
       skipSaveRef.current = false;
       return;
@@ -93,7 +119,7 @@ export function usePlaybooks(mapName: string | null) {
         });
     }, PROJECT_SAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [book, refresh]);
+  }, [book, refresh, sandboxMode]);
 
   const select = useCallback(
     (key: string | null, map = mapName) => {
@@ -105,7 +131,7 @@ export function usePlaybooks(mapName: string | null) {
 
   const create = useCallback(
     async (title: string, map = mapName) => {
-      if (!map) return null;
+      if (sandboxMode || !map) return null;
       const next = await createPlaybook(map, title);
       skipSaveRef.current = true;
       setDraft(next);
@@ -113,7 +139,7 @@ export function usePlaybooks(mapName: string | null) {
       await refresh();
       return next;
     },
-    [mapName, refresh],
+    [mapName, refresh, sandboxMode],
   );
 
   const patch = useCallback((fn: (current: Playbook) => Playbook) => {
@@ -156,12 +182,13 @@ export function usePlaybooks(mapName: string | null) {
         patch(apply);
         return;
       }
+      if (sandboxMode) return;
       const loaded = await loadPlaybook(key);
       if (!loaded) return;
       await savePlaybook(apply(loaded));
       await refresh();
     },
-    [draft?.key, patch, refresh],
+    [draft?.key, patch, refresh, sandboxMode],
   );
 
   const commitStratTitle = useCallback(
@@ -172,12 +199,13 @@ export function usePlaybooks(mapName: string | null) {
         patch(apply);
         return;
       }
+      if (sandboxMode) return;
       const loaded = await loadPlaybook(key);
       if (!loaded) return;
       await savePlaybook(apply(loaded));
       await refresh();
     },
-    [draft?.key, patch, refresh],
+    [draft?.key, patch, refresh, sandboxMode],
   );
 
   const setBody = useCallback(
@@ -267,17 +295,18 @@ export function usePlaybooks(mapName: string | null) {
   );
 
   const remove = useCallback(async () => {
-    if (!book || !mapName) return;
+    if (sandboxMode || !book || !mapName) return;
     const key = book.key;
     skipSaveRef.current = true;
     setDraft(null);
     setActiveByMap((prev) => ({ ...prev, [mapName]: null }));
     await deletePlaybook(key);
     await refresh();
-  }, [book, mapName, refresh]);
+  }, [book, mapName, refresh, sandboxMode]);
 
   const removeBook = useCallback(
     async (key: string) => {
+      if (sandboxMode) return;
       if (draft?.key === key) {
         await remove();
         return;
@@ -285,11 +314,12 @@ export function usePlaybooks(mapName: string | null) {
       await deletePlaybook(key);
       await refresh();
     },
-    [draft?.key, refresh, remove],
+    [draft?.key, refresh, remove, sandboxMode],
   );
 
   const duplicateBook = useCallback(
     async (key: string) => {
+      if (sandboxMode) return null;
       const loaded = draft?.key === key ? draft : await loadPlaybook(key);
       if (!loaded) return null;
       const duplicated = duplicatePlaybook(loaded);
@@ -323,7 +353,7 @@ export function usePlaybooks(mapName: string | null) {
         return null;
       }
     },
-    [allBooks, draft, refresh],
+    [allBooks, draft, refresh, sandboxMode],
   );
 
   const addStratTo = useCallback(
@@ -333,12 +363,13 @@ export function usePlaybooks(mapName: string | null) {
         patch(apply);
         return;
       }
+      if (sandboxMode) return;
       const loaded = await loadPlaybook(key);
       if (!loaded) return;
       await savePlaybook(apply(loaded));
       await refresh();
     },
-    [draft?.key, patch, refresh],
+    [draft?.key, patch, refresh, sandboxMode],
   );
 
   const removeStratFrom = useCallback(
@@ -356,12 +387,13 @@ export function usePlaybooks(mapName: string | null) {
         patch(apply);
         return;
       }
+      if (sandboxMode) return;
       const loaded = await loadPlaybook(key);
       if (!loaded) return;
       await savePlaybook(apply(loaded));
       await refresh();
     },
-    [draft?.key, patch, refresh],
+    [draft?.key, patch, refresh, sandboxMode],
   );
 
   const duplicateStratOn = useCallback(
@@ -381,12 +413,13 @@ export function usePlaybooks(mapName: string | null) {
         patch(apply);
         return;
       }
+      if (sandboxMode) return;
       const loaded = await loadPlaybook(key);
       if (!loaded) return;
       await savePlaybook(apply(loaded));
       await refresh();
     },
-    [draft?.key, patch, refresh],
+    [draft?.key, patch, refresh, sandboxMode],
   );
 
   const setPalette = useCallback(
@@ -398,6 +431,7 @@ export function usePlaybooks(mapName: string | null) {
 
   const movePlaybook = useCallback(
     async (key: string, toIndex: number) => {
+      if (sandboxMode) return;
       const merged = booksWithDraft(allBooks, draft);
       const target = merged.find((row) => row.key === key);
       if (!target) return;
@@ -414,7 +448,7 @@ export function usePlaybooks(mapName: string | null) {
       }
       await refresh();
     },
-    [allBooks, draft, refresh],
+    [allBooks, draft, refresh, sandboxMode],
   );
 
   const moveStrat = useCallback(
@@ -427,15 +461,17 @@ export function usePlaybooks(mapName: string | null) {
         patch(apply);
         return;
       }
+      if (sandboxMode) return;
       const loaded = await loadPlaybook(key);
       if (!loaded) return;
       await savePlaybook(apply(loaded));
       await refresh();
     },
-    [draft?.key, patch, refresh],
+    [draft?.key, patch, refresh, sandboxMode],
   );
 
   const reload = useCallback(async () => {
+    if (sandboxMode) return;
     await refresh();
     if (!activeKey) {
       setDraft(null);
@@ -447,7 +483,7 @@ export function usePlaybooks(mapName: string | null) {
     if (!loaded && mapName) {
       setActiveByMap((prev) => ({ ...prev, [mapName]: null }));
     }
-  }, [refresh, activeKey, mapName]);
+  }, [refresh, activeKey, mapName, sandboxMode]);
 
   return {
     allBooks,
