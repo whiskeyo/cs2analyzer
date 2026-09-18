@@ -53,6 +53,7 @@ describe("tutorial prefetch", () => {
     expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
     vi.advanceTimersByTime(TUTORIAL_HOME_PREFETCH_TIMEOUT_MS);
     expect(loadMocks.loadTutorialReplay).toHaveBeenCalledOnce();
+    expect(loadMocks.loadTutorialSeries).not.toHaveBeenCalled();
     cancel();
     vi.useRealTimers();
   });

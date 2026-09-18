@@ -9,17 +9,13 @@ import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { makeReplay } from "@/lib/testing/fixtures";
 import { TUTORIAL_FILENAME, TUTORIAL_ID, tutorialReplayDemo } from "./identity";
 import { TUTORIAL_PLAYBOOK_KEY } from "./playbook/constants";
+import { TUTORIAL_HOME_PREFETCH_TIMEOUT_MS } from "./prefetch";
 import { resetTutorialInstallState, useTutorial } from "./useTutorial";
 
 const loadMocks = vi.hoisted(() => ({
   loadTutorialReplay: vi.fn(),
   loadTutorialSeries: vi.fn(),
   loadTutorialPlaybook: vi.fn(),
-}));
-
-const prefetchMocks = vi.hoisted(() => ({
-  scheduleHomeTutorialPrefetch: vi.fn(() => () => {}),
-  prefetchNextTutorialStep: vi.fn(),
 }));
 
 const playbookMocks = vi.hoisted(() => ({
@@ -42,11 +38,6 @@ vi.mock("./load", () => ({
   loadTutorialReplay: loadMocks.loadTutorialReplay,
   loadTutorialSeries: loadMocks.loadTutorialSeries,
   loadTutorialPlaybook: loadMocks.loadTutorialPlaybook,
-}));
-
-vi.mock("./prefetch", () => ({
-  scheduleHomeTutorialPrefetch: prefetchMocks.scheduleHomeTutorialPrefetch,
-  prefetchNextTutorialStep: prefetchMocks.prefetchNextTutorialStep,
 }));
 
 vi.mock("@/lib/playbook/playbookStore", () => ({
@@ -117,8 +108,6 @@ describe("useTutorial", () => {
     loadMocks.loadTutorialReplay.mockReset();
     loadMocks.loadTutorialSeries.mockReset();
     loadMocks.loadTutorialPlaybook.mockReset();
-    prefetchMocks.scheduleHomeTutorialPrefetch.mockClear();
-    prefetchMocks.prefetchNextTutorialStep.mockClear();
     playbookMocks.loadPlaybook.mockReset();
     playbookMocks.savePlaybook.mockReset();
     playbookMocks.emitPlaybooksChanged.mockReset();
@@ -132,6 +121,8 @@ describe("useTutorial", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -141,8 +132,7 @@ describe("useTutorial", () => {
 
     await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
     expect(loadMocks.loadTutorialReplay).toHaveBeenCalledOnce();
-    expect(loadMocks.loadTutorialSeries).not.toHaveBeenCalled();
-    expect(prefetchMocks.prefetchNextTutorialStep).toHaveBeenCalledWith("replay");
+    expect(loadMocks.loadTutorialSeries).toHaveBeenCalled();
     expect(status.setNotice).toHaveBeenCalledWith("Loading tutorial…");
     expect(installDemo).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -154,12 +144,32 @@ describe("useTutorial", () => {
     expect(status.clear).toHaveBeenCalled();
   });
 
+  it("starts series prefetch immediately while Replay is still hydrating", async () => {
+    let resolveReplay!: (value: typeof replay) => void;
+    loadMocks.loadTutorialReplay.mockReturnValue(
+      new Promise((resolve) => {
+        resolveReplay = resolve;
+      }),
+    );
+    const { installDemo, status } = mockSession();
+    renderHook(() => useTutorial(), { wrapper: wrapper("/analyzer?tutorial=1") });
+
+    await waitFor(() => expect(loadMocks.loadTutorialSeries).toHaveBeenCalled());
+    expect(installDemo).not.toHaveBeenCalled();
+    expect(status.setNotice).toHaveBeenCalledWith("Loading tutorial…");
+
+    await act(async () => {
+      resolveReplay(replay);
+    });
+    await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
+  });
+
   it("installs the Aggregated series from ?tutorial=aggregated", async () => {
     const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
     const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
     const series = buildSeries("de_dust2", [a, b]);
     loadMocks.loadTutorialSeries.mockResolvedValue(series);
-    const { installSeries, installDemo } = mockSession();
+    const { installSeries, installDemo, status } = mockSession();
     renderHook(() => useTutorial(), {
       wrapper: wrapper("/analyzer?tutorial=aggregated"),
     });
@@ -167,7 +177,8 @@ describe("useTutorial", () => {
     await waitFor(() => expect(installSeries).toHaveBeenCalledWith(series));
     expect(installDemo).not.toHaveBeenCalled();
     expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
-    expect(prefetchMocks.prefetchNextTutorialStep).toHaveBeenCalledWith("aggregated");
+    expect(status.setNotice).toHaveBeenCalledWith("Loading Aggregated series…");
+    expect(loadMocks.loadTutorialPlaybook).toHaveBeenCalled();
   });
 
   it("opens Aggregated view on the full-buy overlay", async () => {
@@ -204,7 +215,6 @@ describe("useTutorial", () => {
     expect(playbookMocks.emitPlaybooksChanged).toHaveBeenCalledOnce();
     expect(installDemo).not.toHaveBeenCalled();
     expect(close).not.toHaveBeenCalled();
-    expect(prefetchMocks.prefetchNextTutorialStep).toHaveBeenCalledWith("playbook");
   });
 
   it("does not overwrite an existing sample playbook", async () => {
@@ -218,16 +228,31 @@ describe("useTutorial", () => {
   });
 
   it("idles a Home Replay prefetch when the tour is not completed", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestIdleCallback", undefined);
+    vi.stubGlobal("cancelIdleCallback", undefined);
     mockSession();
     renderHook(() => useTutorial(), { wrapper: wrapper("/") });
-    expect(prefetchMocks.scheduleHomeTutorialPrefetch).toHaveBeenCalledOnce();
+    expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
+    expect(loadMocks.loadTutorialSeries).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(TUTORIAL_HOME_PREFETCH_TIMEOUT_MS);
+    });
+    expect(loadMocks.loadTutorialReplay).toHaveBeenCalledOnce();
+    expect(loadMocks.loadTutorialSeries).not.toHaveBeenCalled();
   });
 
   it("skips Home Replay prefetch after tutorialCompleted", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestIdleCallback", undefined);
     settingsMocks.tutorialCompleted = true;
     mockSession();
     renderHook(() => useTutorial(), { wrapper: wrapper("/") });
-    expect(prefetchMocks.scheduleHomeTutorialPrefetch).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(TUTORIAL_HOME_PREFETCH_TIMEOUT_MS);
+    });
+    expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
+    expect(loadMocks.loadTutorialSeries).not.toHaveBeenCalled();
   });
 
   it("redirects Home ?tutorial=1 onto Analyzer and installs the sample", async () => {
@@ -255,7 +280,7 @@ describe("useTutorial", () => {
     });
     expect(installDemo).not.toHaveBeenCalled();
     expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
-    expect(prefetchMocks.scheduleHomeTutorialPrefetch).not.toHaveBeenCalled();
+    expect(loadMocks.loadTutorialSeries).not.toHaveBeenCalled();
   });
 
   it("does not reload when the open session already matches the query", async () => {
@@ -269,6 +294,7 @@ describe("useTutorial", () => {
     });
     expect(installDemo).not.toHaveBeenCalled();
     expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
+    expect(loadMocks.loadTutorialSeries).toHaveBeenCalled();
   });
 
   it("does not reload after the session is closed with the query still present", async () => {
@@ -282,6 +308,7 @@ describe("useTutorial", () => {
     unmount();
 
     loadMocks.loadTutorialReplay.mockClear();
+    loadMocks.loadTutorialSeries.mockClear();
     installDemo.mockClear();
     status.setNotice.mockClear();
     session.demo = null;

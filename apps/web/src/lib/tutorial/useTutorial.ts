@@ -155,7 +155,10 @@ export function useTutorial(): void {
     let finished = false;
     loadingRef.current = true;
     statusRef.current.clear();
-    statusRef.current.setNotice(LOADING_NOTICE);
+    statusRef.current.setNotice(
+      step === "aggregated" ? "Loading Aggregated series…" : LOADING_NOTICE,
+    );
+    prefetchNextTutorialStep(step);
 
     void (async () => {
       try {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { loadTutorialPlaybook, loadTutorialReplay, loadTutorialSeries } from "./load";
+import {
+  loadTutorialPlaybook,
+  loadTutorialReplay,
+  loadTutorialSeries,
+  resetTutorialLoadCache,
+} from "./load";
 
 describe("tutorial load entry", () => {
   it("lazy-loads the three fixture loaders", async () => {
@@ -11,5 +16,15 @@ describe("tutorial load entry", () => {
     expect(series).not.toBeNull();
     expect(series?.demos.length).toBeGreaterThan(1);
     expect(book.title).toBe("Tutorial");
+  });
+
+  it("reuses the cached series hydrate promise", async () => {
+    resetTutorialLoadCache();
+    const first = loadTutorialSeries();
+    const second = loadTutorialSeries();
+    expect(second).toBe(first);
+    const series = await first;
+    expect(await second).toBe(series);
+    expect(loadTutorialSeries()).toBe(first);
   });
 });

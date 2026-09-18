@@ -41,8 +41,8 @@ export function prefetchTutorialPlaybook(): void {
   void loadTutorialPlaybook();
 }
 
-/**
- * Home-only: wait for idle (or a short timeout) then pull the Replay chunk.
+/** Home-only: wait for idle (or a short timeout) then pull the Replay chunk.
+ * Does not import the Aggregated series — that starts on the Replay step.
  * Caller must skip when `tutorialCompleted` is already true.
  */
 export function scheduleHomeTutorialPrefetch(): () => void {
