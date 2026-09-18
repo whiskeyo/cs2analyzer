@@ -42,6 +42,9 @@ cargo run --release -p cs2analyzer-cli -- .demos/your.dem -s replay  # everythin
 cargo run --release -p cs2analyzer-cli -- .demos/your.dem --generate-ts-fixture
         # two-round tutorial TS under apps/web/src/lib/tutorial/
         # (walks up from cwd to apps/web/src/lib, or uses the cargo workspace)
+cargo run --release -p cs2analyzer-cli -- --generate-ts-series .demos/a.dem .demos/b.dem ...
+        # same-map Aggregated tutorial under apps/web/src/lib/tutorial/series/
+        # habits-window ticks only (default 20s; --habits-window / --series-rounds)
 
 # Rust vs TS stats parity on a real demo (opt-in; needs the release CLI built)
 cd apps/web && CS2_DEMO=.demos/your.dem npx vitest run src/lib/stats/parity.test.ts

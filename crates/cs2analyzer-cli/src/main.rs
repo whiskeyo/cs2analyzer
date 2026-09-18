@@ -11,22 +11,33 @@ use std::process::ExitCode;
 use cs2analyzer::{compute_stats_until, parse_demo_with_progress, Match, ParseOptions};
 
 mod fixture;
+mod series;
 
 const USAGE: &str = "\
 cs2analyzer — dump a CS2 demo as JSON
 
 USAGE:
     cs2analyzer <demo.dem> [OPTIONS]
+    cs2analyzer --generate-ts-series <a.dem> <b.dem> [...]
 
 OPTIONS:
     -s, --section <NAME>  What to print (default: summary)
     -t, --tick <TICK>     Only count events up to this tick (sections: stats, replay)
         --stride <N>      Keep one tick snapshot every N demo ticks
-                          (default: 4; 6 ≈ 10 Hz when --generate-ts-fixture)
+                          (default: 4; 6 ≈ 10 Hz for tutorial TypeScript)
         --generate-ts-fixture
                           Two-round tutorial TypeScript under
                           apps/web/src/lib/tutorial/ (walks up from cwd, or the
                           cargo workspace). No match JSON on stdout.
+        --generate-ts-series
+                          Same-map Aggregated tutorial under
+                          apps/web/src/lib/tutorial/series/. Habits-window ticks
+                          only (default 20s, --habits-window to override).
+        --habits-window <SEC>
+                          Series habits window after freeze (default 20; 5–60).
+        --series-rounds <N>
+                          Live regulation rounds per series match that keep
+                          ticks (default 2).
         --pretty          Indent the JSON
     -q, --quiet           No progress on stderr
     -h, --help            Show this help
@@ -56,7 +67,7 @@ const SECTIONS: [&str; 14] = [
 ];
 
 struct Args {
-    path: String,
+    paths: Vec<String>,
     section: String,
     tick: u32,
     stride: u32,
@@ -64,6 +75,9 @@ struct Args {
     pretty: bool,
     quiet: bool,
     generate_ts_fixture: bool,
+    generate_ts_series: bool,
+    habits_window_sec: u32,
+    series_rounds: u32,
 }
 
 fn main() -> ExitCode {
@@ -94,7 +108,7 @@ fn main() -> ExitCode {
 
 /// `Ok(None)` means help was asked for.
 fn parse_args() -> Result<Option<Args>, String> {
-    let mut path: Option<String> = None;
+    let mut paths: Vec<String> = Vec::new();
     let mut section = "summary".to_string();
     let mut tick = u32::MAX;
     let mut stride = cs2analyzer::DEFAULT_TICK_STRIDE;
@@ -102,6 +116,9 @@ fn parse_args() -> Result<Option<Args>, String> {
     let mut pretty = false;
     let mut quiet = false;
     let mut generate_ts_fixture = false;
+    let mut generate_ts_series = false;
+    let mut habits_window_sec = series::default_habits_window_sec();
+    let mut series_rounds = series::TUTORIAL_SERIES_ACTIVE_ROUNDS;
 
     let mut argv = std::env::args().skip(1);
     while let Some(arg) = argv.next() {
@@ -110,26 +127,51 @@ fn parse_args() -> Result<Option<Args>, String> {
             "--pretty" => pretty = true,
             "-q" | "--quiet" => quiet = true,
             "--generate-ts-fixture" => generate_ts_fixture = true,
+            "--generate-ts-series" => generate_ts_series = true,
             "-s" | "--section" => section = next_value(&mut argv, &arg)?,
             "-t" | "--tick" => tick = parse_number(&next_value(&mut argv, &arg)?, &arg)?,
             "--stride" => {
                 stride = parse_number(&next_value(&mut argv, &arg)?, &arg)?.max(1);
                 stride_explicit = true;
             }
+            "--habits-window" => {
+                habits_window_sec = fixture::clamp_habits_window_sec(parse_number(
+                    &next_value(&mut argv, &arg)?,
+                    &arg,
+                )?);
+            }
+            "--series-rounds" => {
+                series_rounds = parse_number(&next_value(&mut argv, &arg)?, &arg)?.max(1);
+            }
             other if other.starts_with('-') => return Err(format!("unknown option {other}")),
-            other if path.is_none() => path = Some(other.to_string()),
-            other => return Err(format!("unexpected argument {other}")),
+            other => paths.push(other.to_string()),
         }
     }
 
-    let Some(path) = path else {
+    if generate_ts_fixture && generate_ts_series {
+        return Err("use only one of --generate-ts-fixture or --generate-ts-series".to_string());
+    }
+    if paths.is_empty() {
         return Err("no demo given".to_string());
-    };
+    }
+    if generate_ts_series {
+        if paths.len() > series::TUTORIAL_SERIES_MAX_MATCHES {
+            return Err(format!(
+                "series fixture accepts at most {} demos (got {})",
+                series::TUTORIAL_SERIES_MAX_MATCHES,
+                paths.len()
+            ));
+        }
+    } else if paths.len() != 1 {
+        return Err(
+            "unexpected extra demo path (use --generate-ts-series for several)".to_string(),
+        );
+    }
     if !SECTIONS.contains(&section.as_str()) {
         return Err(format!("unknown section {section}"));
     }
     Ok(Some(Args {
-        path,
+        paths,
         section,
         tick,
         stride,
@@ -137,6 +179,9 @@ fn parse_args() -> Result<Option<Args>, String> {
         pretty,
         quiet,
         generate_ts_fixture,
+        generate_ts_series,
+        habits_window_sec,
+        series_rounds,
     }))
 }
 
@@ -150,14 +195,17 @@ fn parse_number(value: &str, flag: &str) -> Result<u32, String> {
         .map_err(|_| format!("{flag} wants a whole number, got {value}"))
 }
 
-fn run(args: &Args) -> Result<String, String> {
-    let bytes = std::fs::read(&args.path).map_err(|e| format!("cannot read {}: {e}", args.path))?;
-    let progress = progress_reporter(args.quiet);
-    let tick_stride = if args.generate_ts_fixture && !args.stride_explicit {
+fn tutorial_tick_stride(args: &Args) -> u32 {
+    if (args.generate_ts_fixture || args.generate_ts_series) && !args.stride_explicit {
         fixture::TUTORIAL_TICK_STRIDE
     } else {
         args.stride
-    };
+    }
+}
+
+fn parse_one_demo(path: &str, tick_stride: u32, quiet: bool) -> Result<Match, String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    let progress = progress_reporter(quiet);
     let parsed = parse_demo_with_progress(
         &bytes,
         ParseOptions {
@@ -167,9 +215,22 @@ fn run(args: &Args) -> Result<String, String> {
         progress,
     )
     .map_err(|e| e.to_string())?;
-    if !args.quiet {
+    if !quiet {
         eprintln!();
     }
+    Ok(parsed)
+}
+
+fn run(args: &Args) -> Result<String, String> {
+    let tick_stride = tutorial_tick_stride(args);
+    if args.generate_ts_series {
+        return write_ts_series(args, tick_stride);
+    }
+    let path = args
+        .paths
+        .first()
+        .ok_or_else(|| "no demo given".to_string())?;
+    let parsed = parse_one_demo(path, tick_stride, args.quiet)?;
     if args.generate_ts_fixture {
         return write_ts_fixture(&parsed, args.quiet);
     }
@@ -206,6 +267,65 @@ fn write_ts_fixture(parsed: &Match, quiet: bool) -> Result<String, String> {
             summary.map_name,
             summary.origin_tick
         );
+    }
+    Ok(String::new())
+}
+
+/// Slice habits windows from each demo and write `tutorial/series/`.
+fn write_ts_series(args: &Args, tick_stride: u32) -> Result<String, String> {
+    let mut matches = Vec::new();
+    for (index, path) in args.paths.iter().enumerate() {
+        if !args.quiet {
+            eprintln!(
+                "parsing series demo {} / {}: {path}",
+                index + 1,
+                args.paths.len()
+            );
+        }
+        let parsed = parse_one_demo(path, tick_stride, args.quiet)?;
+        matches.push(series::series_match_from_parsed(
+            &parsed,
+            index,
+            args.series_rounds,
+            args.habits_window_sec,
+        )?);
+    }
+    let dir = series::discover_series_dir(Path::new("."))?;
+    if !args.quiet {
+        eprintln!(
+            "writing Aggregated tutorial (habits window {}s) under {}",
+            args.habits_window_sec,
+            dir.display()
+        );
+    }
+    let summary = series::write_tutorial_series(
+        &dir,
+        &matches,
+        args.habits_window_sec,
+        series::shard_threshold(),
+    )?;
+    if !args.quiet {
+        eprintln!("wrote tutorial series:");
+        for (name, bytes) in &summary.files {
+            eprintln!("  {name} ({})", format_bytes(*bytes));
+        }
+        eprintln!(
+            "  {} matches (target {}), {} frames, {} players, map {}, habits {}s, {} total ({:.1} KiB)",
+            summary.match_count,
+            series::TUTORIAL_SERIES_TARGET_MATCHES,
+            summary.frame_count,
+            summary.player_count,
+            summary.map_name,
+            summary.habits_window_sec,
+            format_bytes(summary.total_bytes),
+            summary.total_bytes as f64 / 1024.0
+        );
+        if summary.total_bytes > series::SERIES_FIXTURE_BUDGET_BYTES {
+            eprintln!(
+                "  warning: uncompressed series TS is above the {:.0} MiB soft budget",
+                series::SERIES_FIXTURE_BUDGET_BYTES as f64 / (1024.0 * 1024.0)
+            );
+        }
     }
     Ok(String::new())
 }
@@ -354,5 +474,8 @@ mod tests {
     fn help_mentions_generate_ts_fixture() {
         assert!(USAGE.contains("--generate-ts-fixture"));
         assert!(USAGE.contains("apps/web/src/lib/tutorial"));
+        assert!(USAGE.contains("--generate-ts-series"));
+        assert!(USAGE.contains("--habits-window"));
+        assert!(USAGE.contains("apps/web/src/lib/tutorial/series"));
     }
 }

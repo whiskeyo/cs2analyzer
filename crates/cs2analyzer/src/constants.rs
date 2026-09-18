@@ -44,6 +44,14 @@ pub const OVERTIME_BLOCK_ROUNDS: u32 = 3;
 /// KAST / trade window: teammate kills the attacker.
 pub const TRADE_SECONDS: f32 = 5.0;
 
+/// Habits overlay: default seconds after freeze end when round length is unknown.
+/// Keep aligned with `apps/web/src/lib/shared/constants.ts`.
+pub const SERIES_HABITS_WINDOW_SECONDS: u32 = 20;
+
+/// Habits overlay trail window clamp when round length is known.
+pub const SERIES_HABITS_WINDOW_MIN_SECONDS: u32 = 5;
+pub const SERIES_HABITS_WINDOW_MAX_SECONDS: u32 = 60;
+
 /// C4 arm time (hold E). GOTV completed plants are ~3.12s.
 pub const PLANT_SECONDS: f32 = 3.2;
 
