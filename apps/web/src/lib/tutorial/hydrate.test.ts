@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TUTORIAL_FILENAME, TUTORIAL_ID } from "./constants";
 import { hydrateTutorialReplay, tutorialFileStub } from "./hydrate";
+import { loadTutorialReplay } from "./load";
 
 describe("tutorial fixture", () => {
   it("uses a stable id and a name-only File stub", () => {
@@ -34,5 +35,10 @@ describe("tutorial fixture", () => {
     expect(ticks.active.length).toBe(n);
     expect(ticks.clip.length).toBe(n);
     expect(ticks.reserve.length).toBe(n);
+  });
+
+  it("lazy-loads through loadTutorialReplay", async () => {
+    const replay = await loadTutorialReplay();
+    expect(replay.header.map_name.length).toBeGreaterThan(0);
   });
 });

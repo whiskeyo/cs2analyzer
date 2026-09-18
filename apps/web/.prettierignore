@@ -10,6 +10,15 @@ src/lib/tutorial/rounds.ts
 src/lib/tutorial/events.ts
 src/lib/tutorial/ticks.ts
 src/lib/tutorial/ticks_*.ts
+src/lib/tutorial/series/manifest.ts
+src/lib/tutorial/series/loaders.ts
+src/lib/tutorial/series/matches/**/header.ts
+src/lib/tutorial/series/matches/**/players.ts
+src/lib/tutorial/series/matches/**/rounds.ts
+src/lib/tutorial/series/matches/**/events.ts
+src/lib/tutorial/series/matches/**/ticks.ts
+src/lib/tutorial/series/matches/**/ticks_*.ts
+src/lib/tutorial/series/matches/**/payload.ts
 *.tsbuildinfo
 package-lock.json
 public/maps
