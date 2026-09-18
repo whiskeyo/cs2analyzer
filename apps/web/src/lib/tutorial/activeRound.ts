@@ -53,7 +53,13 @@ export function isTutorialSeriesChipEnabled(demoId: string | null | undefined): 
   return !isTutorialSeriesSession(demoId);
 }
 
-/** Overlay / util only the habits-window full-buy set (`activeRounds`). */
+/**
+ * Overlay / util for the habits-window set (`activeRounds`).
+ *
+ * CLI windows keep both teams’ ticks. Tagging by focal-team buy would leave
+ * CT full empty when those rounds were T-side full buys (or the reverse).
+ * Duplicate each active round as `full` for CT and T so both filters bind.
+ */
 export function tutorialSeriesHabitsTags(series: DemoSeries): Map<string, RoundTag[]> {
   if (!series.demos.some((demo) => isTutorialSeriesSession(demo.id))) {
     return series.tagsByDemo;
@@ -64,7 +70,28 @@ export function tutorialSeriesHabitsTags(series: DemoSeries): Map<string, RoundT
   const tagsByDemo = new Map(series.tagsByDemo);
   for (const demo of series.demos) {
     const active = new Set<number>(byId.get(demo.id)?.activeRounds ?? []);
-    const tags = (tagsByDemo.get(demo.id) ?? []).filter((tag) => active.has(tag.roundNumber));
+    const existing = tagsByDemo.get(demo.id) ?? [];
+    const byRound = new Map(existing.map((tag) => [tag.roundNumber, tag]));
+    const tags: RoundTag[] = [];
+    for (const roundNumber of active) {
+      const round = demo.replay.rounds.find((row) => row.number === roundNumber);
+      const base = byRound.get(roundNumber);
+      if (!round && !base) continue;
+      const startTick = base?.startTick ?? round?.start_tick ?? 0;
+      const freezeEndTick = base?.freezeEndTick ?? round?.freeze_end_tick ?? startTick;
+      const isOt = base?.isOt ?? false;
+      for (const side of ["CT", "T"] as const) {
+        tags.push({
+          demoId: demo.id,
+          roundNumber,
+          startTick,
+          freezeEndTick,
+          sideForFocal: side,
+          kind: "full",
+          isOt,
+        });
+      }
+    }
     tagsByDemo.set(demo.id, tags);
   }
   return tagsByDemo;
