@@ -14,6 +14,17 @@ describe("Faq", () => {
       </TestRouter>,
     );
     expect(screen.getByRole("heading", { level: 2, name: "FAQ" })).toBeInTheDocument();
+    expect(screen.getByText(/local-first GOTV analyzer and playbook/i)).toBeInTheDocument();
+    expect(screen.queryByText(/GOTV viewer/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "home page" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "open Analyzer for saved notes" })).toHaveAttribute(
+      "href",
+      "/analyzer",
+    );
+    expect(screen.getByRole("link", { name: "start a Playbook" })).toHaveAttribute(
+      "href",
+      "/playbook",
+    );
     for (const item of FAQ_ITEMS) {
       expect(screen.getByRole("heading", { level: 3, name: item.question })).toBeInTheDocument();
     }

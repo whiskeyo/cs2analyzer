@@ -2,6 +2,10 @@
 import { describe, expect, it } from "vitest";
 import {
   applyPageMeta,
+  breadcrumbJsonLd,
+  breadcrumbTrail,
+  JSON_LD_BREADCRUMB,
+  JSON_LD_SOFTWARE,
   OG_IMAGE_URL,
   OG_LOCALE,
   OG_TYPE,
@@ -9,6 +13,7 @@ import {
   SITE_ORIGIN,
   TWITTER_CARD,
   canonicalUrl,
+  pageHead,
   pageMeta,
   pageTitle,
   siteJsonLd,
@@ -20,6 +25,16 @@ function metaContent(kind: "name" | "property", key: string): string | null {
 
 function canonicalHref(): string | null {
   return document.head.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? null;
+}
+
+function jsonLdPayload(id: string): unknown {
+  const script = document.head.querySelector(
+    `script[type="application/ld+json"][data-seo="${id}"]`,
+  );
+  if (!script?.textContent) {
+    return null;
+  }
+  return JSON.parse(script.textContent);
 }
 
 describe("pageMeta", () => {
@@ -115,7 +130,7 @@ describe("applyPageMeta", () => {
     expect(document.head.querySelectorAll('link[rel="canonical"]')).toHaveLength(1);
     expect(document.head.querySelectorAll('meta[property="og:title"]')).toHaveLength(1);
     expect(document.head.querySelectorAll('meta[name="twitter:card"]')).toHaveLength(1);
-    expect(document.head.querySelectorAll('script[type="application/ld+json"]')).toHaveLength(1);
+    expect(document.head.querySelectorAll('script[type="application/ld+json"]')).toHaveLength(2);
     expect(canonicalHref()).toBe(`${SITE_ORIGIN}/faq`);
   });
 
@@ -133,6 +148,22 @@ describe("applyPageMeta", () => {
     expect(tags).toHaveLength(1);
     expect(tags[0]?.getAttribute("content")).toBe(content);
   });
+
+  it("keeps SoftwareApplication JSON-LD and swaps BreadcrumbList on navigation", () => {
+    applyPageMeta("/");
+    expect(document.head.querySelectorAll('script[type="application/ld+json"]')).toHaveLength(1);
+    expect(jsonLdPayload(JSON_LD_SOFTWARE)).toEqual(siteJsonLd());
+    expect(jsonLdPayload(JSON_LD_BREADCRUMB)).toBeNull();
+
+    applyPageMeta("/faq");
+    expect(document.head.querySelectorAll('script[type="application/ld+json"]')).toHaveLength(2);
+    expect(jsonLdPayload(JSON_LD_SOFTWARE)).toEqual(siteJsonLd());
+    expect(jsonLdPayload(JSON_LD_BREADCRUMB)).toEqual(breadcrumbJsonLd("/faq"));
+
+    applyPageMeta("/");
+    expect(document.head.querySelectorAll('script[type="application/ld+json"]')).toHaveLength(1);
+    expect(jsonLdPayload(JSON_LD_BREADCRUMB)).toBeNull();
+  });
 });
 
 describe("siteJsonLd", () => {
@@ -149,8 +180,61 @@ describe("siteJsonLd", () => {
     expect(payload.featureList).toMatch(/local-first/i);
     expect(payload.featureList).toMatch(/playbook/i);
     expect(JSON.stringify(payload)).not.toMatch(/viewer/i);
-    const script = document.head.querySelector('script[type="application/ld+json"]');
+    const script = document.head.querySelector(
+      `script[type="application/ld+json"][data-seo="${JSON_LD_SOFTWARE}"]`,
+    );
     expect(script).toBeTruthy();
     expect(JSON.parse(script?.textContent ?? "")).toEqual(payload);
+  });
+});
+
+describe("breadcrumbTrail", () => {
+  it("builds Home → page trails for public routes and skips home, 404, and layouts", () => {
+    expect(breadcrumbTrail("/")).toBeNull();
+    expect(breadcrumbTrail("/missing")).toBeNull();
+    expect(breadcrumbTrail("/layouts")).toBeNull();
+    expect(breadcrumbTrail("/faq")).toEqual([
+      { name: "Home", path: "/" },
+      { name: "FAQ", path: "/faq" },
+    ]);
+    expect(breadcrumbTrail("/faq/")).toEqual(breadcrumbTrail("/faq"));
+    expect(breadcrumbTrail("/analyzer")?.[1]).toEqual({ name: "Analyzer", path: "/analyzer" });
+    expect(breadcrumbTrail("/playbook")?.[1]).toEqual({ name: "Playbook", path: "/playbook" });
+    expect(breadcrumbTrail("/rating")?.[1]).toEqual({ name: "Rating", path: "/rating" });
+    expect(breadcrumbTrail("/contact")?.[1]).toEqual({ name: "Contact", path: "/contact" });
+  });
+});
+
+describe("breadcrumbJsonLd", () => {
+  it("emits absolute item URLs for FAQ", () => {
+    const payload = breadcrumbJsonLd("/faq");
+    expect(payload).not.toBeNull();
+    expect(payload?.["@type"]).toBe("BreadcrumbList");
+    expect(payload?.itemListElement).toEqual([
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: `${SITE_ORIGIN}/`,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "FAQ",
+        item: `${SITE_ORIGIN}/faq`,
+      },
+    ]);
+    expect(JSON.stringify(payload)).not.toMatch(/viewer/i);
+    expect(JSON.stringify(payload)).not.toMatch(/layouts/i);
+  });
+
+  it("is omitted on home", () => {
+    expect(breadcrumbJsonLd("/")).toBeNull();
+    expect(pageHead("/").jsonLd.map((block) => block.id)).toEqual([
+      JSON_LD_SOFTWARE,
+      JSON_LD_BREADCRUMB,
+    ]);
+    expect(pageHead("/").jsonLd[1]?.payload).toBeNull();
+    expect(pageHead("/contact").jsonLd[1]?.payload).toEqual(breadcrumbJsonLd("/contact"));
   });
 });

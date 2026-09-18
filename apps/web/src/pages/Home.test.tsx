@@ -74,6 +74,9 @@ describe("Home", () => {
     expect(
       screen.getByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Local-first GOTV analyzer/)).toBeInTheDocument();
+    expect(screen.getByText(/playbook drawings/i)).toBeInTheDocument();
+    expect(screen.queryByText(/GOTV viewer/i)).not.toBeInTheDocument();
     expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
     const drop = container.querySelector(".drop");
     const intro = container.querySelector(".home-intro");
@@ -112,6 +115,10 @@ describe("Home", () => {
     expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
+    expect(screen.getByRole("link", { name: "Match rating formulas" })).toHaveAttribute(
+      "href",
+      "/rating",
+    );
     const contactLinks = screen.getAllByRole("link", { name: "Contact" });
     expect(contactLinks.length).toBeGreaterThan(0);
     for (const link of contactLinks) {
