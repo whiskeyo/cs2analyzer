@@ -1,5 +1,5 @@
 /**
- * Build a viewer `Replay` from the checked-in tutorial modules.
+ * Build an Analyzer `Replay` from the checked-in single-demo tutorial modules.
  *
  * Payload objects go through the same named `decode.ts` checks as a WASM drop.
  * Tick SoA arrays become TypedArrays. The CLI writes the data modules; this
@@ -40,7 +40,7 @@ import {
   yaw,
   z,
 } from "./ticks";
-import { hydrateReplayFromModules } from "./hydrateCore";
+import { hydrateReplayFromModules } from "../hydrateCore";
 import type { Replay } from "@/lib/replay/replayTypes";
 
 /** Name-only handle so `LoadedDemo.file` stays typed without a real `.dem`. */

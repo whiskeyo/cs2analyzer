@@ -1,5 +1,5 @@
 /**
- * Shared Replay assembly for single-match and series tutorial fixtures.
+ * Shared Replay assembly for single-demo and multi-demo tutorial fixtures.
  * Generated modules stay out of this file so a dynamic `import()` can split them.
  */
 

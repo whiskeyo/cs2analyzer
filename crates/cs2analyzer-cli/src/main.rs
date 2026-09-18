@@ -27,12 +27,12 @@ OPTIONS:
                           (default: 4; 6 ≈ 10 Hz for tutorial TypeScript)
         --generate-ts-fixture
                           Two-round tutorial TypeScript under
-                          apps/web/src/lib/tutorial/ (walks up from cwd, or the
-                          cargo workspace). No match JSON on stdout.
+                          apps/web/src/lib/tutorial/single-demo/ (walks up from
+                          cwd, or the cargo workspace). No match JSON on stdout.
         --generate-ts-series
                           Same-map Aggregated tutorial under
-                          apps/web/src/lib/tutorial/series/. Habits-window ticks
-                          only (default 20s, --habits-window to override).
+                          apps/web/src/lib/tutorial/multi-demo/. Habits-window
+                          ticks only (default 20s, --habits-window to override).
         --habits-window <SEC>
                           Series habits window after freeze (default 20; 5–60).
         --series-rounds <N>
@@ -247,7 +247,7 @@ fn write_ts_fixture(parsed: &Match, quiet: bool) -> Result<String, String> {
         );
     }
     let slice = fixture::slice_tutorial_match(parsed, fixture::TUTORIAL_LIVE_ROUNDS)?;
-    let dir = fixture::discover_tutorial_dir(Path::new("."))?;
+    let dir = fixture::discover_single_demo_dir(Path::new("."))?;
     if !quiet {
         eprintln!("writing TypeScript under {}", dir.display());
     }
@@ -271,7 +271,7 @@ fn write_ts_fixture(parsed: &Match, quiet: bool) -> Result<String, String> {
     Ok(String::new())
 }
 
-/// Slice habits windows from each demo and write `tutorial/series/`.
+/// Slice habits windows from each demo and write `tutorial/multi-demo/`.
 fn write_ts_series(args: &Args, tick_stride: u32) -> Result<String, String> {
     let mut matches = Vec::new();
     for (index, path) in args.paths.iter().enumerate() {
@@ -332,7 +332,7 @@ fn write_ts_series(args: &Args, tick_stride: u32) -> Result<String, String> {
 
 fn tutorial_hydrate_source() -> Option<&'static str> {
     Some(include_str!(
-        "../../../apps/web/src/lib/tutorial/hydrate.ts"
+        "../../../apps/web/src/lib/tutorial/single-demo/hydrate.ts"
     ))
 }
 
@@ -473,9 +473,9 @@ mod tests {
     #[test]
     fn help_mentions_generate_ts_fixture() {
         assert!(USAGE.contains("--generate-ts-fixture"));
-        assert!(USAGE.contains("apps/web/src/lib/tutorial"));
+        assert!(USAGE.contains("apps/web/src/lib/tutorial/single-demo"));
         assert!(USAGE.contains("--generate-ts-series"));
         assert!(USAGE.contains("--habits-window"));
-        assert!(USAGE.contains("apps/web/src/lib/tutorial/series"));
+        assert!(USAGE.contains("apps/web/src/lib/tutorial/multi-demo"));
     }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TUTORIAL_FILENAME, TUTORIAL_ID } from "./constants";
 import { hydrateTutorialReplay, tutorialFileStub } from "./hydrate";
-import { loadTutorialReplay } from "./load";
+import { loadTutorialReplay } from "../load";
 
 describe("tutorial fixture", () => {
   it("uses a stable id and a name-only File stub", () => {

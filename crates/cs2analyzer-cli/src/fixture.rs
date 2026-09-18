@@ -1,4 +1,4 @@
-//! Compact two-round tutorial Replay → TypeScript under `apps/web/src/lib/tutorial/`.
+//! Compact two-round tutorial Replay → TypeScript under `apps/web/src/lib/tutorial/single-demo/`.
 //!
 //! Post-process of the same [`Match`] the JSON dump uses: pick the first live
 //! regulation rounds, remap ticks so the slice starts near 0, and emit modules
@@ -224,7 +224,7 @@ pub(crate) fn in_any_window(tick: u32, windows: &[(u32, u32)]) -> bool {
         .any(|&(start_tick, end_tick)| in_window(tick, start_tick, end_tick))
 }
 
-/// Seconds after freeze end, clamped to the same prefs range as the viewer.
+/// Seconds after freeze end, clamped to the same prefs range as the Analyzer.
 pub fn clamp_habits_window_sec(value: u32) -> u32 {
     value.clamp(
         cs2analyzer::SERIES_HABITS_WINDOW_MIN_SECONDS,
@@ -655,6 +655,11 @@ pub fn discover_tutorial_dir(start: &Path) -> Result<PathBuf, String> {
     )
 }
 
+/// `--generate-ts-fixture` output: `tutorial/single-demo/`.
+pub fn discover_single_demo_dir(start: &Path) -> Result<PathBuf, String> {
+    Ok(discover_tutorial_dir(start)?.join("single-demo"))
+}
+
 fn tutorial_dir_under(root: &Path) -> Option<PathBuf> {
     let lib = root.join("apps/web/src/lib");
     lib.is_dir().then(|| lib.join("tutorial"))
@@ -949,23 +954,25 @@ mod tests {
         std::fs::create_dir_all(&nested).unwrap();
         let found = discover_tutorial_dir(&nested).unwrap();
         assert_eq!(found, lib.join("tutorial"));
+        let single = discover_single_demo_dir(&nested).unwrap();
+        assert_eq!(single, lib.join("tutorial/single-demo"));
 
         let slice = slice_tutorial_match(&test_match(), 2).unwrap();
         let summary = write_tutorial_fixture(
-            &found,
+            &single,
             &slice,
             10_000,
             Some("export function hydrate() {}\n"),
         )
         .unwrap();
-        assert!(found.join("header.ts").is_file());
-        assert!(found.join("hydrate.ts").is_file());
+        assert!(single.join("header.ts").is_file());
+        assert!(single.join("hydrate.ts").is_file());
         assert_eq!(summary.round_count, 2);
         assert_eq!(summary.map_name, "de_mirage");
         assert_eq!(summary.origin_tick, 100);
-        std::fs::write(found.join("ticks_a.ts"), "stale\n").unwrap();
-        write_tutorial_fixture(&found, &slice, 10_000, None).unwrap();
-        assert!(!found.join("ticks_a.ts").exists());
+        std::fs::write(single.join("ticks_a.ts"), "stale\n").unwrap();
+        write_tutorial_fixture(&single, &slice, 10_000, None).unwrap();
+        assert!(!single.join("ticks_a.ts").exists());
         std::fs::remove_dir_all(&root).ok();
     }
 }

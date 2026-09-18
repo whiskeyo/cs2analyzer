@@ -6,7 +6,7 @@ import { tutorialSeriesManifest } from "./manifest";
 import { isTutorialSeriesActiveRound, tutorialSeriesDemoId } from "./types";
 import { loadTutorialSeries } from "../load";
 
-describe("tutorial series fixture", () => {
+describe("tutorial multi-demo fixture", () => {
   it("ships a same-map manifest with habits-window metadata", () => {
     expect(tutorialSeriesManifest.mapName).toBe("de_mirage");
     expect(tutorialSeriesManifest.habitsWindowSec).toBe(SERIES_HABITS_WINDOW_SECONDS);

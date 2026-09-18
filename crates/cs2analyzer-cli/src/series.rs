@@ -1,4 +1,4 @@
-//! Aggregated / habits tutorial series → TypeScript under `tutorial/series/`.
+//! Aggregated / habits tutorial series → TypeScript under `tutorial/multi-demo/`.
 //!
 //! Each GOTV is a same-map match. Round headers stay for the Analyzer shell;
 //! heavy SoA ticks and util/events are only the habits window of the live
@@ -329,9 +329,9 @@ pub fn write_tutorial_series(
     })
 }
 
-/// `apps/web/src/lib/tutorial/series` next to the single-tutorial folder.
+/// `apps/web/src/lib/tutorial/multi-demo` next to the single-demo folder.
 pub fn discover_series_dir(start: &Path) -> Result<PathBuf, String> {
-    Ok(discover_tutorial_dir(start)?.join("series"))
+    Ok(discover_tutorial_dir(start)?.join("multi-demo"))
 }
 
 /// Soft uncompressed budget for the lazy Aggregated tutorial chunk.
@@ -576,7 +576,7 @@ mod tests {
         let lib = root.join("apps/web/src/lib");
         std::fs::create_dir_all(&lib).unwrap();
         let dir = discover_series_dir(&root).unwrap();
-        assert_eq!(dir, lib.join("tutorial/series"));
+        assert_eq!(dir, lib.join("tutorial/multi-demo"));
 
         let parsed = series_test_match();
         let one = series_match_from_parsed(&parsed, 0, 2, SERIES_HABITS_WINDOW_SECONDS).unwrap();
