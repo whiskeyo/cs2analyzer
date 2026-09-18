@@ -7,5 +7,4 @@ export const seriesMatchLoaders: Record<string, () => Promise<SeriesMatchPayload
   "match-1": () => import("./matches/match-1/payload"),
   "match-2": () => import("./matches/match-2/payload"),
   "match-3": () => import("./matches/match-3/payload"),
-  "match-4": () => import("./matches/match-4/payload"),
 };

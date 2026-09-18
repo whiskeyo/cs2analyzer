@@ -3,14 +3,13 @@
 import type { TutorialSeriesManifest } from "./types";
 
 export const tutorialSeriesManifest: TutorialSeriesManifest = {
-  mapName: "de_mirage",
-  habitsWindowSec: 20,
-  tickStride: 6,
-  matches: [
-    { id: "match-0", fileName: "tutorial-series-0.dem", mapName: "de_mirage", activeRounds: [] },
-    { id: "match-1", fileName: "tutorial-series-1.dem", mapName: "de_mirage", activeRounds: [] },
-    { id: "match-2", fileName: "tutorial-series-2.dem", mapName: "de_mirage", activeRounds: [] },
-    { id: "match-3", fileName: "tutorial-series-3.dem", mapName: "de_mirage", activeRounds: [] },
-    { id: "match-4", fileName: "tutorial-series-4.dem", mapName: "de_mirage", activeRounds: [] },
+mapName: "de_dust2",
+habitsWindowSec: 20,
+tickStride: 6,
+matches: [
+    { id: "match-0", fileName: "tutorial-series-0.dem", mapName: "de_dust2", activeRounds: [1,2] },
+    { id: "match-1", fileName: "tutorial-series-1.dem", mapName: "de_dust2", activeRounds: [1,2] },
+    { id: "match-2", fileName: "tutorial-series-2.dem", mapName: "de_dust2", activeRounds: [1,2] },
+    { id: "match-3", fileName: "tutorial-series-3.dem", mapName: "de_dust2", activeRounds: [1,2] },
   ],
 };
