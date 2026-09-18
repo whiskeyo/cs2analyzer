@@ -8,7 +8,27 @@ import { sharedRules } from "./config/eslint.base.js";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "coverage/**", "src/parser/**", "*.tsbuildinfo"],
+    ignores: [
+      "dist/**",
+      "coverage/**",
+      "src/parser/**",
+      "src/lib/tutorial/single-demo/header.ts",
+      "src/lib/tutorial/single-demo/players.ts",
+      "src/lib/tutorial/single-demo/rounds.ts",
+      "src/lib/tutorial/single-demo/events.ts",
+      "src/lib/tutorial/single-demo/ticks.ts",
+      "src/lib/tutorial/single-demo/ticks_*.ts",
+      "src/lib/tutorial/multi-demo/manifest.ts",
+      "src/lib/tutorial/multi-demo/loaders.ts",
+      "src/lib/tutorial/multi-demo/matches/**/header.ts",
+      "src/lib/tutorial/multi-demo/matches/**/players.ts",
+      "src/lib/tutorial/multi-demo/matches/**/rounds.ts",
+      "src/lib/tutorial/multi-demo/matches/**/events.ts",
+      "src/lib/tutorial/multi-demo/matches/**/ticks.ts",
+      "src/lib/tutorial/multi-demo/matches/**/ticks_*.ts",
+      "src/lib/tutorial/multi-demo/matches/**/payload.ts",
+      "*.tsbuildinfo",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -39,6 +39,12 @@ cargo test --workspace
 # Native CLI: JSON to stdout, progress to stderr
 cargo run --release -p cs2analyzer-cli -- .demos/your.dem            # summary
 cargo run --release -p cs2analyzer-cli -- .demos/your.dem -s replay  # everything, for fixtures
+cargo run --release -p cs2analyzer-cli -- .demos/your.dem --generate-ts-fixture
+        # two-round tutorial TS under apps/web/src/lib/tutorial/single-demo/
+        # (walks up from cwd to apps/web/src/lib, or uses the cargo workspace)
+cargo run --release -p cs2analyzer-cli -- --generate-ts-series .demos/a.dem .demos/b.dem ...
+        # same-map Aggregated tutorial under apps/web/src/lib/tutorial/multi-demo/
+        # habits-window ticks only (default 20s; --habits-window / --series-rounds)
 
 # Rust vs TS stats parity on a real demo (opt-in; needs the release CLI built)
 cd apps/web && CS2_DEMO=.demos/your.dem npx vitest run src/lib/stats/parity.test.ts
@@ -72,6 +78,8 @@ Web `src/` is pages vs pieces vs logic: `pages/` (route screens), `components/` 
 | Playhead, hotkeys, round scrubber | `lib/playback/`, `components/playback/` |
 | Home, Analyzer, FAQ, Rating, Contact | `apps/web/src/pages/` (`/`, `/analyzer`, `/faq`, `/rating`, `/contact`); FAQ copy in `src/content/faq/*.md`; rating MathML in `pages/Rating.tsx` |
 | Parse worker / drop | `lib/parse/`, `components/app/DropZone.tsx` |
+| Tutorial fixtures | `lib/tutorial/` (`single-demo/`, `multi-demo/`, `playbook/`); CLI `--generate-ts-fixture` / `--generate-ts-series` |
+| Executes, clutches, util, round story | `lib/match/` (site labels from layout JSON in `sites.ts`; empty layout → hide positions), matching tab in `components/sidebar/` |
 | Executes, clutches, util, round story | `lib/match/` (site labels from layout JSON in `sites.ts`; empty layout → hide positions), matching tab in `components/sidebar/` |
 | Map callout overlays | Three “layout” packages — do not mix them: `lib/layout/` = shared callout JSON schema (`mapLayout`); DEV editor = `lib/layouts/` + `components/layouts/` (`layoutEditor`); viewer fetch = `lib/radar/layouts.ts` (`public/layouts/{map}.json`) |
 
