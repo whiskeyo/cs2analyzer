@@ -22,10 +22,7 @@ import { calibrationFor, loadCalibrations } from "@/lib/radar/maps";
 import { loadMapLayout, mapKey, type MapLayout } from "@/lib/radar/layouts";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
-import {
-  tutorialLocksSeriesToAggregatedFull,
-  TUTORIAL_AGGREGATED_LOCK_NOTICE,
-} from "@/lib/tutorial/activeRound";
+import { tutorialLocksSeriesToAggregatedFull } from "@/lib/tutorial/activeRound";
 import { habitsKeyPatch, radarSelectPatch } from "./playerSelection";
 import { usePlayerSync } from "./usePlayerSync";
 import { useSession } from "./sessionState";
@@ -132,13 +129,10 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
 
   const jump = useCallback<Playback["jump"]>(
     (t, pause, round) => {
-      if (tutorialLocksSeriesToAggregatedFull(session.series)) {
-        status.setNotice(TUTORIAL_AGGREGATED_LOCK_NOTICE);
-        return;
-      }
+      if (tutorialLocksSeriesToAggregatedFull(session.series)) return;
       playback.jump(t, pause, round);
     },
-    [playback, session.series, status],
+    [playback, session.series],
   );
 
   const habits = useSeriesHabits({
@@ -151,7 +145,6 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     pathBranchMergeDistance: settings.pathBranchMergeDistance,
     pathBranchStepDistance: settings.pathBranchStepDistance,
     pathBranchMinShare: settings.pathBranchMinShare,
-    onLockedNavigation: status.setNotice,
   });
 
   const bucketActive = isBucketOverlayActive(session.series, habits);

@@ -6,7 +6,6 @@ import { act, renderHook } from "@testing-library/react";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { playerIdentityKey } from "@/lib/parse/seriesRoster";
 import { makeFreezeTicks, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
-import { TUTORIAL_AGGREGATED_LOCK_NOTICE } from "@/lib/tutorial/activeRound";
 import { tutorialSeriesManifest } from "@/lib/tutorial/multi-demo/manifest";
 import { tutorialSeriesDemoId } from "@/lib/tutorial/multi-demo/types";
 import { useSeriesHabits } from "./useSeriesHabits";
@@ -74,7 +73,11 @@ function renderHabits(
 describe("useSeriesHabits", () => {
   it("starts with CT full-buy filter and per-demo view", () => {
     const { result } = renderHabits();
-    expect(result.current.filter).toEqual({ side: "CT", kind: "full", playerKey: null });
+    expect(result.current.filter).toEqual({
+      side: "CT",
+      kind: "full",
+      playerKey: null,
+    });
     expect(result.current.seriesView).toBe("demos");
     expect(result.current.aggregated).toBe(false);
     expect(result.current.bucketOverlay).toBeNull();
@@ -87,7 +90,10 @@ describe("useSeriesHabits", () => {
       result.current.setSeriesView("aggregated");
       result.current.selectBucketOverlay("pistol", "CT");
     });
-    expect(result.current.bucketOverlay).toEqual({ kind: "pistol", side: "CT" });
+    expect(result.current.bucketOverlay).toEqual({
+      kind: "pistol",
+      side: "CT",
+    });
 
     act(() => result.current.setSide("T"));
     expect(result.current.bucketOverlay).toBeNull();
@@ -110,7 +116,11 @@ describe("useSeriesHabits", () => {
       result.current.setSeriesView("aggregated");
       result.current.ensureBucketOverlay("full", "CT");
     });
-    expect(result.current.filter).toEqual({ side: "CT", kind: "full", playerKey: null });
+    expect(result.current.filter).toEqual({
+      side: "CT",
+      kind: "full",
+      playerKey: null,
+    });
     expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
 
     act(() => result.current.ensureBucketOverlay("full", "CT"));
@@ -124,7 +134,10 @@ describe("useSeriesHabits", () => {
       result.current.setSeriesView("aggregated");
       result.current.selectBucketOverlay("pistol", "CT");
     });
-    expect(result.current.bucketOverlay).toEqual({ kind: "pistol", side: "CT" });
+    expect(result.current.bucketOverlay).toEqual({
+      kind: "pistol",
+      side: "CT",
+    });
 
     act(() => result.current.selectBucketOverlay("pistol", "CT"));
     expect(result.current.bucketOverlay).toBeNull();
@@ -216,7 +229,6 @@ describe("useSeriesHabits", () => {
     const series = buildSeries("de_dust2", [demoA, demoB], FOCAL);
     const selectDemo = vi.fn();
     const jump = vi.fn();
-    const onLockedNavigation = vi.fn();
     const { result } = renderHook(() =>
       useSeriesHabits({
         series,
@@ -224,7 +236,6 @@ describe("useSeriesHabits", () => {
         activeDemoId: demoA.id,
         selectDemo,
         jump,
-        onLockedNavigation,
       }),
     );
 
@@ -238,38 +249,27 @@ describe("useSeriesHabits", () => {
     act(() => result.current.playRound({ demoId: demoA.id, jumpTick: 264 }));
     expect(jump).not.toHaveBeenCalled();
     expect(selectDemo).not.toHaveBeenCalled();
-    expect(onLockedNavigation).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
     expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
 
-    onLockedNavigation.mockClear();
     act(() => result.current.setSeriesView("demos"));
     expect(result.current.seriesView).toBe("aggregated");
-    expect(onLockedNavigation).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
 
-    onLockedNavigation.mockClear();
     act(() => result.current.selectBucketOverlay("pistol", "CT"));
     expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
-    expect(onLockedNavigation).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
-
-    onLockedNavigation.mockClear();
-    act(() => result.current.selectBucketOverlay("full", "T"));
-    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
-    expect(onLockedNavigation).not.toHaveBeenCalled();
 
     act(() => result.current.selectBucketOverlay("full", "T"));
     expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
 
-    onLockedNavigation.mockClear();
+    act(() => result.current.selectBucketOverlay("full", "T"));
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
+
     act(() => result.current.setKind("eco"));
     expect(result.current.filter.kind).toBe("full");
-    expect(onLockedNavigation).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
 
     act(() => result.current.setSide("CT"));
     expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
 
-    onLockedNavigation.mockClear();
     act(() => result.current.setOverlayOn(false));
     expect(result.current.overlayOn).toBe(true);
-    expect(onLockedNavigation).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
   });
 });

@@ -1,15 +1,12 @@
 import type { CSSProperties } from "react";
 import { useApp } from "@/lib/state/appState";
 import { showSeriesBar } from "@/lib/parse/seriesMode";
-import {
-  tutorialLocksSeriesToAggregatedFull,
-  TUTORIAL_AGGREGATED_LOCK_NOTICE,
-} from "@/lib/tutorial/activeRound";
+import { tutorialLocksSeriesToAggregatedFull } from "@/lib/tutorial/activeRound";
 import { prettyMap } from "@/lib/weapons/weapons";
 
 /** File list + focal team when several demos are loaded for habits. */
 export function SeriesBar() {
-  const { session, habits, status } = useApp();
+  const { session, habits } = useApp();
   if (!showSeriesBar(session)) return null;
 
   const series = session.series;
@@ -45,10 +42,7 @@ export function SeriesBar() {
           className={`filter${aggregated ? " on" : ""}`}
           data-tutorial="aggregated"
           onClick={() => {
-            if (tutorialLock && aggregated) {
-              status.setNotice(TUTORIAL_AGGREGATED_LOCK_NOTICE);
-              return;
-            }
+            if (tutorialLock && aggregated) return;
             habits.setSeriesView(aggregated ? "demos" : "aggregated");
           }}
         >
@@ -67,10 +61,7 @@ export function SeriesBar() {
                 style={demoColor ? ({ "--demo-color": demoColor } as CSSProperties) : undefined}
                 title={`${roundCount} tagged rounds · already parsed`}
                 onClick={() => {
-                  if (tutorialLock) {
-                    status.setNotice(TUTORIAL_AGGREGATED_LOCK_NOTICE);
-                    return;
-                  }
+                  if (tutorialLock) return;
                   if (aggregated) habits.setSeriesView("demos");
                   session.selectDemo(demo.id);
                 }}

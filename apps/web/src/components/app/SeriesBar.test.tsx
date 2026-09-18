@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { makeReplay } from "@/lib/testing/fixtures";
-import { TUTORIAL_AGGREGATED_LOCK_NOTICE } from "@/lib/tutorial/activeRound";
 import { tutorialSeriesManifest } from "@/lib/tutorial/multi-demo/manifest";
 import { tutorialSeriesDemoId } from "@/lib/tutorial/multi-demo/types";
 import { SeriesBar } from "./SeriesBar";
@@ -15,12 +14,16 @@ vi.mock("@/lib/state/appState", () => ({
 
 function seriesSession() {
   const a = loadedDemo(
-    makeReplay({ header: { map_name: "de_mirage", team_ct: "A", team_t: "B" } }),
+    makeReplay({
+      header: { map_name: "de_mirage", team_ct: "A", team_t: "B" },
+    }),
     "a.dem",
     new File([], "a.dem"),
   );
   const b = loadedDemo(
-    makeReplay({ header: { map_name: "de_mirage", team_ct: "A", team_t: "B" } }),
+    makeReplay({
+      header: { map_name: "de_mirage", team_ct: "A", team_t: "B" },
+    }),
     "b.dem",
     new File([], "b.dem"),
   );
@@ -57,7 +60,11 @@ describe("SeriesBar", () => {
   it("renders nothing without a series bar context", () => {
     vi.mocked(useApp).mockReturnValue({
       session: { series: null, mapGroups: [] },
-      habits: { aggregated: false, setSeriesView: vi.fn(), demoColors: new Map() },
+      habits: {
+        aggregated: false,
+        setSeriesView: vi.fn(),
+        demoColors: new Map(),
+      },
     } as unknown as ReturnType<typeof useApp>);
     const { container } = render(<SeriesBar />);
     expect(container).toBeEmptyDOMElement();
@@ -110,11 +117,10 @@ describe("SeriesBar", () => {
     await userEvent.click(screen.getByRole("button", { name: "b.dem" }));
     expect(ctx.selectDemo).not.toHaveBeenCalled();
     expect(ctx.setSeriesView).not.toHaveBeenCalled();
-    expect(ctx.setNotice).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
+    expect(ctx.setNotice).not.toHaveBeenCalled();
 
-    ctx.setNotice.mockClear();
     await userEvent.click(screen.getByRole("button", { name: "Aggregated" }));
     expect(ctx.setSeriesView).not.toHaveBeenCalled();
-    expect(ctx.setNotice).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
+    expect(ctx.setNotice).not.toHaveBeenCalled();
   });
 });

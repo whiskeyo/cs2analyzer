@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
+import { isTutorialDemoId } from "@/lib/tutorial/identity";
 import type { LoadedDemo, DemoSeries } from "@/lib/parse/session";
 import type { Playback } from "@/lib/playback/usePlayback";
 import type { Status } from "@/lib/state/status";
@@ -277,7 +278,10 @@ export function useReviewProject(opts: {
     setNotesDemoId(demo.id);
     if (enter.resetOverlay) {
       const defaults = overlayDefaultsRef.current;
-      setSummaryFilter({ ...defaults.summaryFilter, kinds: { ...defaults.summaryFilter.kinds } });
+      setSummaryFilter({
+        ...defaults.summaryFilter,
+        kinds: { ...defaults.summaryFilter.kinds },
+      });
       setFloorMode(defaults.floorMode);
       setPaletteId(defaults.paletteId);
       setColor(defaults.color);
@@ -347,7 +351,7 @@ export function useReviewProject(opts: {
       if (plan.pauseOnRestore) {
         playbackRef.current.setPlaying(false);
       }
-      if (plan.noticeOnRestore) {
+      if (plan.noticeOnRestore && !isTutorialDemoId(demo.id)) {
         statusRef.current.setNotice((prev) =>
           prev ? `${prev}. Restored drawings for this match.` : "Restored drawings for this match.",
         );
@@ -429,7 +433,10 @@ export function useReviewProject(opts: {
       const target = demoRef.current;
       void (async () => {
         if (target) {
-          await persistRef.current(target, { stats: false, refreshList: false });
+          await persistRef.current(target, {
+            stats: false,
+            refreshList: false,
+          });
         }
         await flushSeriesReviewCache();
         refreshSavedRef.current();
