@@ -8,7 +8,7 @@ import { seriesRamWarning } from "@/lib/shared/constants";
 import { makeReplay } from "@/lib/testing/fixtures";
 import { runParsePool } from "./parsePool";
 import { CS2_DEMO_MAGIC } from "./demoFile";
-import { loadedDemo } from "./session";
+import { buildSeries, loadedDemo } from "./session";
 import type { Status } from "@/lib/state/status";
 import { useDemoSession } from "./useDemoSession";
 
@@ -604,5 +604,52 @@ describe("useDemoSession", () => {
     });
     expect(status.setError).toHaveBeenCalledWith("failed to fetch Wasm");
     expect(result.current.parsing).toBe(false);
+  });
+
+  it("installs a demo without WASM and replaces an open session", () => {
+    const onBeforeSelectDemo = vi.fn();
+    const { result, status } = renderSession({ onBeforeSelectDemo });
+    const first = loadedDemo(makeReplay(), "a.dem", new File([], "a.dem"));
+    const next = loadedDemo(
+      makeReplay({ header: { map_name: "de_mirage" } }),
+      "tutorial.dem",
+      new File([], "tutorial.dem"),
+    );
+
+    act(() => {
+      result.current.installDemo(first);
+    });
+    expect(result.current.fileName).toBe("a.dem");
+    expect(result.current.series).toBeNull();
+
+    act(() => {
+      result.current.installDemo(next);
+    });
+    expect(onBeforeSelectDemo).toHaveBeenCalledOnce();
+    expect(status.clear).toHaveBeenCalled();
+    expect(result.current.fileName).toBe("tutorial.dem");
+    expect(result.current.replay?.header.map_name).toBe("de_mirage");
+    expect(result.current.series).toBeNull();
+    expect(result.current.parsedDemos).toEqual([]);
+    expect(result.current.parsing).toBe(false);
+  });
+
+  it("installs a series the Aggregated session can consume", () => {
+    const { result } = renderSession();
+    const replay = makeReplay({ header: { map_name: "de_dust2", team_ct: "A", team_t: "B" } });
+    const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
+    const series = buildSeries("de_dust2", [a, b]);
+
+    act(() => {
+      result.current.installSeries(series);
+    });
+
+    expect(result.current.demo?.id).toBe(a.id);
+    expect(result.current.series?.demos).toHaveLength(2);
+    expect(result.current.selectedMapName).toBe("de_dust2");
+    expect(result.current.mapGroups).toEqual([{ mapName: "de_dust2", demos: [a, b] }]);
+    expect(result.current.parsedDemos).toEqual([a, b]);
+    expect(result.current.fileName).toBe("a.dem");
   });
 });

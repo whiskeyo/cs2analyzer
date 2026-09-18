@@ -35,6 +35,7 @@ interface Props {
   onDuplicateStrat: (book: Playbook, pageId: string) => void;
   onDeleteBook: (book: Playbook) => void;
   onDeleteStrat: (book: Playbook, pageId: string) => void;
+  sandbox?: boolean;
 }
 
 export function PlaybookTree({
@@ -61,11 +62,16 @@ export function PlaybookTree({
   onDuplicateStrat,
   onDeleteBook,
   onDeleteStrat,
+  sandbox = false,
 }: Props) {
   const grouped = groupPlaybooksByMap(books);
   const maps = mapsForTree(mapNames, books);
   const [rename, setRename] = useState<RenameTarget | null>(null);
-  const [menu, setMenu] = useState<{ target: TreeMenuTarget; x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{
+    target: TreeMenuTarget;
+    x: number;
+    y: number;
+  } | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
 
   const editingBook = (key: string) => rename?.kind === "book" && rename.key === key;
@@ -103,6 +109,7 @@ export function PlaybookTree({
   };
 
   const openMenu = (e: MouseEvent, target: TreeMenuTarget) => {
+    if (sandbox && target.kind === "map") return;
     e.preventDefault();
     e.stopPropagation();
     setMenu({ target, x: e.clientX, y: e.clientY });
@@ -112,13 +119,21 @@ export function PlaybookTree({
 
   const startBookDrag = (e: DragEvent, book: Playbook) => {
     e.dataTransfer.effectAllowed = "move";
-    writePlaybookTreeDrag(e.dataTransfer, { kind: "book", mapName: book.mapName, key: book.key });
+    writePlaybookTreeDrag(e.dataTransfer, {
+      kind: "book",
+      mapName: book.mapName,
+      key: book.key,
+    });
   };
 
   const startStratDrag = (e: DragEvent, book: Playbook, pageId: string) => {
     e.stopPropagation();
     e.dataTransfer.effectAllowed = "move";
-    writePlaybookTreeDrag(e.dataTransfer, { kind: "strat", bookKey: book.key, pageId });
+    writePlaybookTreeDrag(e.dataTransfer, {
+      kind: "strat",
+      bookKey: book.key,
+      pageId,
+    });
   };
 
   const dropBook = (e: DragEvent, book: Playbook, toIndex: number) => {
@@ -207,7 +222,11 @@ export function PlaybookTree({
                                 value={rename.value}
                                 autoFocus
                                 onChange={(e) =>
-                                  setRename({ kind: "book", key: book.key, value: e.target.value })
+                                  setRename({
+                                    kind: "book",
+                                    key: book.key,
+                                    value: e.target.value,
+                                  })
                                 }
                                 onBlur={commitRename}
                                 onKeyDown={onRenameKey}
@@ -334,6 +353,7 @@ export function PlaybookTree({
           x={menu.x}
           y={menu.y}
           onClose={() => setMenu(null)}
+          sandbox={sandbox}
           onNewPlaybook={onNewPlaybook}
           onNewStrat={(bookKey) => {
             const book = bookByKey(bookKey);

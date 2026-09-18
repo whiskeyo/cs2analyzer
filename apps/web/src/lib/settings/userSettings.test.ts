@@ -70,6 +70,7 @@ describe("defaultUserSettings", () => {
       pdfTheme: "dark",
       pdfPhotos: "with",
       radarGray: DEFAULT_RADAR_GRAY,
+      tutorialCompleted: false,
     });
     expect(settings.defaultPaletteId).toBe(COLOR_PRESETS[0].id);
     expect(settings.defaultColor).toBe(COLOR_PRESETS[0].colors[0]);
@@ -103,6 +104,7 @@ describe("parseUserSettings", () => {
     expect(parsed.pdfTheme).toBe("dark");
     expect(parsed.pdfPhotos).toBe("with");
     expect(parsed.radarGray).toBe(DEFAULT_RADAR_GRAY);
+    expect(parsed.tutorialCompleted).toBe(false);
     expect(parsed.schema).toBe(USER_SETTINGS_SCHEMA);
     expect("roundAutoplay" in parsed).toBe(false);
     expect("id" in parsed).toBe(false);
@@ -258,6 +260,12 @@ describe("parseUserSettings", () => {
 
   it("keeps skipKnifeOnOpen false when stored", () => {
     expect(parseUserSettings({ skipKnifeOnOpen: false }).skipKnifeOnOpen).toBe(false);
+  });
+
+  it("treats a missing tutorialCompleted key as not completed", () => {
+    expect(parseUserSettings({}).tutorialCompleted).toBe(false);
+    expect(parseUserSettings({ tutorialCompleted: true }).tutorialCompleted).toBe(true);
+    expect(parseUserSettings({ tutorialCompleted: "yes" }).tutorialCompleted).toBe(false);
   });
 
   it("clamps Overall path knobs and keeps step below merge", () => {

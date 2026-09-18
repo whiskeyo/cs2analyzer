@@ -2,7 +2,14 @@ import { useEffect, useRef } from "react";
 
 export type TreeMenuTarget =
   | { kind: "map"; mapName: string }
-  | { kind: "book"; mapName: string; bookKey: string; title: string; index: number; last: boolean }
+  | {
+      kind: "book";
+      mapName: string;
+      bookKey: string;
+      title: string;
+      index: number;
+      last: boolean;
+    }
   | {
       kind: "strat";
       mapName: string;
@@ -36,6 +43,7 @@ interface Props {
   onDeleteStrat: (bookKey: string, pageId: string) => void;
   onMoveBook: (bookKey: string, toIndex: number) => void;
   onMoveStrat: (bookKey: string, pageId: string, toIndex: number) => void;
+  sandbox?: boolean;
 }
 
 export function PlaybookTreeMenu({
@@ -54,6 +62,7 @@ export function PlaybookTreeMenu({
   onDeleteStrat,
   onMoveBook,
   onMoveStrat,
+  sandbox = false,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -73,55 +82,93 @@ export function PlaybookTreeMenu({
 
   const items: Item[] =
     target.kind === "map"
-      ? [{ label: "New playbook", onSelect: () => onNewPlaybook(target.mapName) }]
-      : target.kind === "book"
-        ? [
-            { label: "New strat", onSelect: () => onNewStrat(target.bookKey) },
-            { label: "Rename", onSelect: () => onRenameBook(target.bookKey) },
-            { label: "Duplicate playbook", onSelect: () => onDuplicateBook(target.bookKey) },
-            { label: "Export PDF", onSelect: () => onExportPdf(target.bookKey) },
+      ? sandbox
+        ? []
+        : [
             {
-              label: "Move up",
-              disabled: target.index === 0,
-              onSelect: () => onMoveBook(target.bookKey, target.index - 1),
-            },
-            {
-              label: "Move down",
-              disabled: target.last,
-              onSelect: () => onMoveBook(target.bookKey, target.index + 1),
-            },
-            {
-              label: "Delete playbook",
-              danger: true,
-              onSelect: () => onDeleteBook(target.bookKey),
+              label: "New playbook",
+              onSelect: () => onNewPlaybook(target.mapName),
             },
           ]
-        : [
-            { label: "New strat", onSelect: () => onNewStrat(target.bookKey) },
-            {
-              label: "Rename",
-              onSelect: () => onRenameStrat(target.bookKey, target.pageId),
-            },
-            {
-              label: "Duplicate strat",
-              onSelect: () => onDuplicateStrat(target.bookKey, target.pageId),
-            },
-            {
-              label: "Move up",
-              disabled: target.index === 0,
-              onSelect: () => onMoveStrat(target.bookKey, target.pageId, target.index - 1),
-            },
-            {
-              label: "Move down",
-              disabled: target.last,
-              onSelect: () => onMoveStrat(target.bookKey, target.pageId, target.index + 1),
-            },
-            {
-              label: "Delete strat",
-              danger: true,
-              onSelect: () => onDeleteStrat(target.bookKey, target.pageId),
-            },
-          ];
+      : target.kind === "book"
+        ? sandbox
+          ? [
+              {
+                label: "New strat",
+                onSelect: () => onNewStrat(target.bookKey),
+              },
+              { label: "Rename", onSelect: () => onRenameBook(target.bookKey) },
+            ]
+          : [
+              {
+                label: "New strat",
+                onSelect: () => onNewStrat(target.bookKey),
+              },
+              { label: "Rename", onSelect: () => onRenameBook(target.bookKey) },
+              {
+                label: "Duplicate playbook",
+                onSelect: () => onDuplicateBook(target.bookKey),
+              },
+              {
+                label: "Export PDF",
+                onSelect: () => onExportPdf(target.bookKey),
+              },
+              {
+                label: "Move up",
+                disabled: target.index === 0,
+                onSelect: () => onMoveBook(target.bookKey, target.index - 1),
+              },
+              {
+                label: "Move down",
+                disabled: target.last,
+                onSelect: () => onMoveBook(target.bookKey, target.index + 1),
+              },
+              {
+                label: "Delete playbook",
+                danger: true,
+                onSelect: () => onDeleteBook(target.bookKey),
+              },
+            ]
+        : sandbox
+          ? [
+              {
+                label: "New strat",
+                onSelect: () => onNewStrat(target.bookKey),
+              },
+              {
+                label: "Rename",
+                onSelect: () => onRenameStrat(target.bookKey, target.pageId),
+              },
+            ]
+          : [
+              {
+                label: "New strat",
+                onSelect: () => onNewStrat(target.bookKey),
+              },
+              {
+                label: "Rename",
+                onSelect: () => onRenameStrat(target.bookKey, target.pageId),
+              },
+              {
+                label: "Duplicate strat",
+                onSelect: () => onDuplicateStrat(target.bookKey, target.pageId),
+              },
+              {
+                label: "Move up",
+                disabled: target.index === 0,
+                onSelect: () => onMoveStrat(target.bookKey, target.pageId, target.index - 1),
+              },
+              {
+                label: "Move down",
+                disabled: target.last,
+                onSelect: () => onMoveStrat(target.bookKey, target.pageId, target.index + 1),
+              },
+              {
+                label: "Delete strat",
+                danger: true,
+                onSelect: () => onDeleteStrat(target.bookKey, target.pageId),
+              },
+            ];
 
   return (
     <div

@@ -8,6 +8,7 @@ import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { addPiece, makePiece } from "./pieces";
 import { deleteAllPlaybooks, loadPlaybook } from "./playbookStore";
 import * as playbookStore from "./playbookStore";
+import { tutorialPlaybook } from "@/lib/tutorial/playbook/sample";
 import { COPY_SUFFIX, UNTITLED_PLAYBOOK } from "./types";
 import { usePlaybooks } from "./usePlaybooks";
 import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
@@ -212,6 +213,35 @@ describe("usePlaybooks", () => {
       await result.current.reload();
     });
     await waitFor(() => expect(result.current.books.some((row) => row.key === key)).toBe(true));
+  });
+
+  it("keeps a sandbox book in memory without touching IndexedDB", async () => {
+    const real = await playbookStore.createPlaybook("de_mirage", "My real book");
+    const sample = structuredClone(tutorialPlaybook);
+    const saveSpy = vi.spyOn(playbookStore, "savePlaybook");
+    const loadAllSpy = vi.spyOn(playbookStore, "loadAllPlaybooks");
+    const { result } = renderHook(() =>
+      usePlaybooks("de_mirage", { mode: "sandbox", book: sample }),
+    );
+    await waitFor(() => expect(result.current.book?.title).toBe("Tutorial"));
+    expect(result.current.books).toHaveLength(1);
+    expect(result.current.books[0]?.key).toBe(sample.key);
+
+    await act(async () => {
+      result.current.rename("Tour notes");
+      await result.current.create("Should not persist");
+      await result.current.duplicateBook(sample.key);
+    });
+    act(() => {
+      vi.advanceTimersByTime(PROJECT_SAVE_DEBOUNCE_MS);
+    });
+    expect(result.current.book?.title).toBe("Tour notes");
+    expect(saveSpy).not.toHaveBeenCalled();
+    expect(loadAllSpy).not.toHaveBeenCalled();
+    expect(await loadPlaybook(real.key)).toMatchObject({
+      title: "My real book",
+    });
+    expect(await loadPlaybook(sample.key)).toBeNull();
   });
 
   it("surfaces quota when a draft cannot persist", async () => {

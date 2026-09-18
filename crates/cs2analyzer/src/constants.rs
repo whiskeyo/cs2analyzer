@@ -23,6 +23,14 @@ pub const HITGROUP_GEAR: u8 = 8;
 /// FACEIT knife round: max freeze equipment and no gun kill.
 pub const KNIFE_ROUND_MAX_EQUIPMENT: i32 = 200;
 
+/// Average freeze equipment treated as an eco.
+/// Keep aligned with `apps/web/src/lib/shared/constants.ts`.
+pub const ECO_MAX_EQUIPMENT: i32 = 2000;
+
+/// Average freeze equipment still a force-buy (below this is not a full buy).
+/// Keep aligned with `apps/web/src/lib/shared/constants.ts`.
+pub const FORCE_BUY_MAX_EQUIPMENT: i32 = 3700;
+
 /// Fallback when the next freeze is still 0–0 (FACEIT knife reset). Kevlar is 650.
 pub const KNIFE_ROUND_RESET_MAX_EQUIPMENT: i32 = 1000;
 

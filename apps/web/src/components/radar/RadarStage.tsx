@@ -50,7 +50,7 @@ export function RadarStage() {
   const pawnLegend = analyzerPawnLegend(session.series, habits, habits.overlay);
 
   return (
-    <div className="radar-col">
+    <div className="radar-col" data-tutorial="radar">
       <MapToolbar
         review={{
           tool: view.tool,

@@ -78,6 +78,10 @@ describe("Home", () => {
     expect(screen.getByText(/playbook drawings/i)).toBeInTheDocument();
     expect(screen.queryByText(/GOTV viewer/i)).not.toBeInTheDocument();
     expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Try without a demo" })).toHaveAttribute(
+      "href",
+      "/analyzer?tutorial=1",
+    );
     const drop = container.querySelector(".drop");
     const intro = container.querySelector(".home-intro");
     expect(drop).toBeTruthy();
