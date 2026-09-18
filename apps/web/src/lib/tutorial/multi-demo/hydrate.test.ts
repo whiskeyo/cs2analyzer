@@ -33,6 +33,12 @@ describe("tutorial multi-demo fixture", () => {
       expect(ticks.ticks.length).toBe(ticks.frameCount);
     }
     expect(Array.isArray(collectSeriesRoundsByKind(series))).toBe(true);
+    const chips = collectSeriesRoundsByKind(series).flatMap((group) => group.rounds);
+    const activeCap = tutorialSeriesManifest.matches.reduce(
+      (n, meta) => n + meta.activeRounds.length,
+      0,
+    );
+    expect(chips.length).toBeGreaterThan(activeCap);
   });
 
   it("lazy-loads through loadTutorialSeries", async () => {

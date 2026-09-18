@@ -170,6 +170,31 @@ describe("useTutorial", () => {
     expect(prefetchMocks.prefetchNextTutorialStep).toHaveBeenCalledWith("aggregated");
   });
 
+  it("opens Aggregated view on the full-buy overlay", async () => {
+    const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
+    const series = buildSeries("de_dust2", [a, b]);
+    loadMocks.loadTutorialSeries.mockResolvedValue(series);
+    const { installSeries, session } = mockSession();
+    const setSeriesView = vi.fn();
+    const ensureBucketOverlay = vi.fn();
+    sessionMocks.useOptionalAnalyzer.mockReturnValue({
+      habits: { aggregated: false, setSeriesView, ensureBucketOverlay },
+    });
+    const { rerender } = renderHook(() => useTutorial(), {
+      wrapper: wrapper("/analyzer?tutorial=aggregated"),
+    });
+    await waitFor(() => expect(installSeries).toHaveBeenCalledWith(series));
+    session.series = series;
+    session.demo = series.demos[0];
+    session.replay = series.demos[0].replay;
+    rerender();
+    await waitFor(() => {
+      expect(setSeriesView).toHaveBeenCalledWith("aggregated");
+      expect(ensureBucketOverlay).toHaveBeenCalledWith("full", "CT");
+    });
+  });
+
   it("saves the sample playbook from ?tutorial=playbook", async () => {
     const { installDemo, close } = mockSession();
     renderHook(() => useTutorial(), {

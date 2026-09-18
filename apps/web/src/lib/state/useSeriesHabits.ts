@@ -29,6 +29,7 @@ import type { RoundKind } from "@/lib/parse/roundTags";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { Side } from "@/lib/replay/replayTypes";
 import { SERIES_HABITS_WINDOW_SECONDS } from "@/lib/shared/constants";
+import { tutorialSeriesHabitsTags } from "@/lib/tutorial/activeRound";
 
 export type SeriesViewMode = "demos" | "aggregated";
 
@@ -60,6 +61,8 @@ export interface SeriesHabitsState {
   /** Active bucket overlay (all rounds of one buy + side). Null = GOTV playback. */
   bucketOverlay: BucketOverlaySelection | null;
   selectBucketOverlay: (kind: RoundKind, side: Side) => void;
+  /** Set bucket overlay without toggling off (tutorial enter, StrictMode). */
+  ensureBucketOverlay: (kind: RoundKind, side: Side) => void;
   /** Freeze-relative playhead for bucket overlay (0 … bucketWindowSec). */
   bucketPlaySec: number;
   bucketPlaySecRef: MutableRefObject<number>;
@@ -148,15 +151,22 @@ export function useSeriesHabits(opts: {
     return focalRosterForSeries(series);
   }, [series]);
 
+  const overlaySeries = useMemo(() => {
+    if (!series) return null;
+    const tagsByDemo = tutorialSeriesHabitsTags(series);
+    if (tagsByDemo === series.tagsByDemo) return series;
+    return { ...series, tagsByDemo };
+  }, [series]);
+
   const overlay = useMemo(() => {
-    if (!series || !aggregated || !overlayOn || !bucketOverlay) return null;
-    return buildSeriesOverlay(series, bucketFilter, playerKey, trailWindowSec, {
+    if (!overlaySeries || !aggregated || !overlayOn || !bucketOverlay) return null;
+    return buildSeriesOverlay(overlaySeries, bucketFilter, playerKey, trailWindowSec, {
       mergeDistance: opts.pathBranchMergeDistance,
       stepDistance: opts.pathBranchStepDistance,
       minShare: opts.pathBranchMinShare,
     });
   }, [
-    series,
+    overlaySeries,
     aggregated,
     overlayOn,
     bucketOverlay,
@@ -179,24 +189,36 @@ export function useSeriesHabits(opts: {
   }, [bucketWindowSec]);
 
   const util = useMemo(() => {
-    if (!series || !aggregated) return null;
-    return aggregateSeriesUtil(series, series.tagsByDemo, bucketFilter, places, playerKey);
-  }, [series, aggregated, bucketFilter, places, playerKey]);
+    if (!overlaySeries || !aggregated) return null;
+    return aggregateSeriesUtil(
+      overlaySeries,
+      overlaySeries.tagsByDemo,
+      bucketFilter,
+      places,
+      playerKey,
+    );
+  }, [overlaySeries, aggregated, bucketFilter, places, playerKey]);
 
   const action = useMemo(() => {
-    if (!series || !aggregated) return null;
-    return aggregateSeriesAction(series, series.tagsByDemo, bucketFilter, places);
-  }, [series, aggregated, bucketFilter, places]);
+    if (!overlaySeries || !aggregated) return null;
+    return aggregateSeriesAction(overlaySeries, overlaySeries.tagsByDemo, bucketFilter, places);
+  }, [overlaySeries, aggregated, bucketFilter, places]);
 
   const seriesUtilThrows = useMemo(() => {
-    if (!series || !aggregated) return [];
-    return collectSeriesUtilThrows(series, series.tagsByDemo, bucketFilter, places, playerKey);
-  }, [series, aggregated, bucketFilter, places, playerKey]);
+    if (!overlaySeries || !aggregated) return [];
+    return collectSeriesUtilThrows(
+      overlaySeries,
+      overlaySeries.tagsByDemo,
+      bucketFilter,
+      places,
+      playerKey,
+    );
+  }, [overlaySeries, aggregated, bucketFilter, places, playerKey]);
 
   const seriesActionBeats = useMemo(() => {
-    if (!series || !aggregated) return [];
-    return collectSeriesActionBeats(series, series.tagsByDemo, bucketFilter, places);
-  }, [series, aggregated, bucketFilter, places]);
+    if (!overlaySeries || !aggregated) return [];
+    return collectSeriesActionBeats(overlaySeries, overlaySeries.tagsByDemo, bucketFilter, places);
+  }, [overlaySeries, aggregated, bucketFilter, places]);
 
   const seriesRoundsByKind = useMemo(() => {
     if (!series) return [];
@@ -209,9 +231,9 @@ export function useSeriesHabits(opts: {
   }, [series]);
 
   const utilSets = useMemo(() => {
-    if (!series || !aggregated) return null;
-    return aggregateUtilSets(series, bucketFilter, places);
-  }, [series, aggregated, bucketFilter, places]);
+    if (!overlaySeries || !aggregated) return null;
+    return aggregateUtilSets(overlaySeries, bucketFilter, places);
+  }, [overlaySeries, aggregated, bucketFilter, places]);
 
   useLayoutEffect(() => {
     const pending = pendingJumpRef.current;
@@ -260,6 +282,17 @@ export function useSeriesHabits(opts: {
     [resetBucketPlaySec],
   );
 
+  const ensureBucketOverlay = useCallback((kind: RoundKind, side: Side) => {
+    setFilter((prev) =>
+      prev.kind === kind && prev.side === side ? prev : { ...prev, kind, side },
+    );
+    setBucketOverlay((prev) => {
+      if (prev?.kind === kind && prev.side === side) return prev;
+      return { kind, side };
+    });
+    setOverlayOn(true);
+  }, []);
+
   const setSide = useCallback((side: Side) => {
     setFilter((prev) => ({ ...prev, side }));
     setBucketOverlay(null);
@@ -306,6 +339,7 @@ export function useSeriesHabits(opts: {
     setOverlayOn,
     bucketOverlay,
     selectBucketOverlay,
+    ensureBucketOverlay,
     bucketPlaySec,
     bucketPlaySecRef,
     setBucketPlaySec,

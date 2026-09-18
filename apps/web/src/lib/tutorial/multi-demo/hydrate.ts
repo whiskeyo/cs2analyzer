@@ -2,8 +2,9 @@
  * Build a `DemoSeries` from the checked-in Aggregated tutorial modules.
  *
  * Match payloads are loaded through `seriesMatchLoaders` so Vite splits each
- * match into its own chunk. Tags are restricted to `activeRounds` — other
- * round headers stay on the replay for a follow-up greyed-round tour.
+ * match into its own chunk. Tags keep every economy class so the strip can
+ * print pistol / eco / force / full; habits overlay later filters to
+ * `activeRounds`.
  */
 
 import { buildSeries, type DemoSeries, type LoadedDemo } from "@/lib/parse/session";
@@ -11,19 +12,6 @@ import { hydrateReplayFromModules } from "../hydrateCore";
 import { seriesMatchLoaders } from "./loaders";
 import { tutorialSeriesManifest } from "./manifest";
 import { tutorialSeriesDemoId } from "./types";
-
-function restrictTagsToActiveRounds(series: DemoSeries): DemoSeries {
-  const byId = new Map(
-    tutorialSeriesManifest.matches.map((meta) => [tutorialSeriesDemoId(meta), meta]),
-  );
-  const tagsByDemo = new Map(series.tagsByDemo);
-  for (const demo of series.demos) {
-    const active = new Set<number>(byId.get(demo.id)?.activeRounds ?? []);
-    const tags = (tagsByDemo.get(demo.id) ?? []).filter((tag) => active.has(tag.roundNumber));
-    tagsByDemo.set(demo.id, tags);
-  }
-  return { ...series, tagsByDemo };
-}
 
 export async function hydrateTutorialSeries(): Promise<DemoSeries | null> {
   if (tutorialSeriesManifest.matches.length === 0) return null;
@@ -59,5 +47,5 @@ export async function hydrateTutorialSeries(): Promise<DemoSeries | null> {
     });
   }
 
-  return restrictTagsToActiveRounds(buildSeries(tutorialSeriesManifest.mapName, demos));
+  return buildSeries(tutorialSeriesManifest.mapName, demos);
 }

@@ -100,6 +100,20 @@ describe("useSeriesHabits", () => {
     expect(result.current.filter.kind).toBe("full");
   });
 
+  it("ensureBucketOverlay sets full overlay without toggling off", () => {
+    const { result } = renderHabits();
+
+    act(() => {
+      result.current.setSeriesView("aggregated");
+      result.current.ensureBucketOverlay("full", "CT");
+    });
+    expect(result.current.filter).toEqual({ side: "CT", kind: "full", playerKey: null });
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
+
+    act(() => result.current.ensureBucketOverlay("full", "CT"));
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
+  });
+
   it("toggles bucket overlay for the same bucket", () => {
     const { result } = renderHabits();
 

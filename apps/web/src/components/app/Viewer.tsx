@@ -11,7 +11,11 @@ import { prefetchParser } from "@/lib/parse/ensureParser";
 import { takeDroppedDemoFiles } from "@/lib/parse/demoDrop";
 import { notesForAnalyzerSession } from "@/lib/notes";
 import { isAggregatedView, isBucketOverlayActive } from "@/lib/parse/seriesMode";
-import { isTutorialSeriesRoundEnabled } from "@/lib/tutorial/activeRound";
+import {
+  isTutorialSeriesBucketEnabled,
+  isTutorialSeriesChipEnabled,
+  isTutorialSeriesRoundEnabled,
+} from "@/lib/tutorial/activeRound";
 import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
 
@@ -97,9 +101,7 @@ export function Viewer() {
                 notes={chromeNotes}
                 places={places}
                 activeRound={playback.activeRound}
-                roundEnabled={(round) =>
-                  isTutorialSeriesRoundEnabled(session.demo?.id, round.number)
-                }
+                roundEnabled={() => isTutorialSeriesRoundEnabled(session.demo?.id)}
               />
             ) : (
               <SeriesAggregatedRoundStrip
@@ -111,6 +113,8 @@ export function Viewer() {
                 tick={tick}
                 onBucketOverlay={habits.selectBucketOverlay}
                 onRoundJump={habits.playRound}
+                bucketEnabled={(kind) => isTutorialSeriesBucketEnabled(session.demo?.id, kind)}
+                roundJumpEnabled={isTutorialSeriesChipEnabled(session.demo?.id)}
               />
             )}
             {bucketMode ? (

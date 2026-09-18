@@ -6,7 +6,7 @@ export interface TutorialSeriesMatchMeta {
   id: string;
   fileName: string;
   mapName: string;
-  /** Round numbers that keep habits-window ticks / participate in Aggregated. */
+  /** Round numbers that keep habits-window ticks for Aggregated full. */
   activeRounds: number[];
 }
 
@@ -31,7 +31,7 @@ export function tutorialSeriesDemoId(
   return `tutorial-series|${meta.mapName}|${meta.id}`;
 }
 
-/** Follow-up tour hook: grey rounds that are not in `activeRounds`. */
+/** Grey unused rounds; Aggregated full uses `activeRounds` habits windows. */
 export function isTutorialSeriesActiveRound(
   meta: TutorialSeriesMatchMeta | undefined,
   roundNumber: number,

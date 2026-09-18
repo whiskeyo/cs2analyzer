@@ -205,11 +205,13 @@ export function useTutorial(): void {
   }, [navigate, pathname, session.replay, step]);
 
   const setSeriesView = analyzer?.habits.setSeriesView;
+  const ensureBucketOverlay = analyzer?.habits.ensureBucketOverlay;
   const aggregatedOn = analyzer?.habits.aggregated ?? false;
   const seriesReady = isMultiDemoSeries(session.series);
 
   useEffect(() => {
-    if (step !== "aggregated" || aggregatedOn || !seriesReady) return;
-    setSeriesView?.("aggregated");
-  }, [aggregatedOn, seriesReady, setSeriesView, step]);
+    if (step !== "aggregated" || !seriesReady) return;
+    if (!aggregatedOn) setSeriesView?.("aggregated");
+    ensureBucketOverlay?.("full", "CT");
+  }, [aggregatedOn, ensureBucketOverlay, seriesReady, setSeriesView, step]);
 }

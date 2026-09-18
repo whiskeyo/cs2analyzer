@@ -3,6 +3,7 @@ import { seriesTeamCandidates } from "@/lib/parse/session";
 import { isBucketOverlayActive, isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import type { RoundKind } from "@/lib/parse/roundTags";
 import { filterHabitsNades } from "@/lib/parse/seriesOverlay";
+import { isTutorialSeriesSession } from "@/lib/tutorial/activeRound";
 import { HabitsNadeLegend } from "./HabitsNadeLegend";
 
 const KINDS: { id: RoundKind; label: string }[] = [
@@ -21,6 +22,7 @@ export function SeriesFilters() {
   const teams = seriesTeamCandidates(series.demos);
   const { filter, overlayOn, focalPlayers, playerKey, aggregated } = habits;
   const overlayActive = isBucketOverlayActive(series, habits);
+  const tutorialSeries = series.demos.some((demo) => isTutorialSeriesSession(demo.id));
   const visibleNades =
     habits.overlay == null ? 0 : filterHabitsNades(habits.overlay.nades, habits.nadeFilter).length;
 
@@ -54,16 +56,21 @@ export function SeriesFilters() {
       </div>
       <span className="series-filters-label">Buy</span>
       <div className="filters" role="toolbar" aria-label="Habits buy type">
-        {KINDS.map((k) => (
-          <button
-            key={k.id}
-            type="button"
-            className={`filter${filter.kind === k.id ? " on" : ""}`}
-            onClick={() => habits.setKind(k.id)}
-          >
-            {k.label}
-          </button>
-        ))}
+        {KINDS.map((k) => {
+          const enabled = !tutorialSeries || k.id === "full";
+          return (
+            <button
+              key={k.id}
+              type="button"
+              className={`filter${filter.kind === k.id ? " on" : ""}${enabled ? "" : " is-inactive"}`}
+              disabled={!enabled}
+              title={enabled ? undefined : "Tutorial uses Aggregated full only"}
+              onClick={() => habits.setKind(k.id)}
+            >
+              {k.label}
+            </button>
+          );
+        })}
       </div>
       {focalPlayers.length > 0 && (
         <>

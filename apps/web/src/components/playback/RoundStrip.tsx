@@ -15,7 +15,7 @@ interface Props {
   notes: RoundNote[];
   places: MapPlaces | null;
   activeRound?: Round | null;
-  /** Tutorial series greys habits-window-only rounds; omitted = every chip stays clickable. */
+  /** Tutorial series greys unused rounds; omitted = every chip stays clickable. */
   roundEnabled?: (round: Round) => boolean;
 }
 
@@ -75,7 +75,7 @@ export const RoundStrip = memo(function RoundStrip({
             className={`rs${current?.start_tick === r.start_tick ? " on" : ""}${hasAction ? " has-action" : ""}${hasNotes ? " has-notes" : ""}${liveAction ? " live-action" : ""}${enabled ? "" : " is-inactive"} ${
               r.winner === "CT" ? "ct" : r.winner === "T" ? "t" : "none"
             }`}
-            title={enabled ? title : `${title} · outside tutorial habits window`}
+            title={enabled ? title : `${title} · not playable in the tutorial`}
             onMouseDown={blockTransportFocus}
             onClick={() => {
               if (!enabled) return;

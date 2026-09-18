@@ -33,7 +33,7 @@ const AGGREGATED_STEPS: TutorialCoachStep[] = [
   {
     id: "welcome",
     title: "Habits series",
-    body: "Four Dust II demos in the same session as a multi-demo drop. Only the habits-window rounds keep ticks.",
+    body: "Four Dust II demos in the same session as a multi-demo drop. The strip lists every round; Aggregated full is the playable overlay.",
   },
   {
     id: "radar",
@@ -42,13 +42,13 @@ const AGGREGATED_STEPS: TutorialCoachStep[] = [
   },
   {
     id: "rounds",
-    title: "Active rounds",
-    body: "Grey chips are outside the habits window. Click a demo tab to see them disabled on the strip.",
+    title: "Round strip",
+    body: "Pistol, eco, and force stay visible but grey. Only the Full Aggregated chip is live.",
   },
   {
     id: "aggregated",
     title: "Playbook next",
-    body: "Next on the banner opens a sample playbook. Grey rounds stay inactive on this series.",
+    body: "Next on the banner opens a sample playbook. Grey rounds stay listed on this series.",
   },
 ];
 

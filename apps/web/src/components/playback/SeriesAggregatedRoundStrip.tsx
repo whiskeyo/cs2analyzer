@@ -16,6 +16,8 @@ interface Props {
   tick: number;
   onBucketOverlay: (kind: RoundKind, side: Side) => void;
   onRoundJump: (target: Pick<HabitsTrail, "demoId" | "jumpTick">) => void;
+  bucketEnabled?: (kind: RoundKind) => boolean;
+  roundJumpEnabled?: boolean;
 }
 
 function SideBlock({
@@ -29,6 +31,8 @@ function SideBlock({
   bucketOverlay,
   onBucketOverlay,
   onRoundJump,
+  bucketEnabled,
+  roundJumpEnabled = true,
 }: {
   kind: RoundKind;
   side: Side;
@@ -40,10 +44,13 @@ function SideBlock({
   bucketOverlay: BucketOverlaySelection | null;
   onBucketOverlay: Props["onBucketOverlay"];
   onRoundJump: Props["onRoundJump"];
+  bucketEnabled?: (kind: RoundKind) => boolean;
+  roundJumpEnabled?: boolean;
 }) {
   if (rounds.length === 0) return null;
   const icon = side === "CT" ? "defuser" : "c4";
   const bucketOn = bucketOverlay?.kind === kind && bucketOverlay.side === side;
+  const bucketLive = bucketEnabled?.(kind) ?? true;
   return (
     <div className="series-round-side-group">
       <span className="series-round-side" aria-hidden="true">
@@ -51,8 +58,13 @@ function SideBlock({
       </span>
       <button
         type="button"
-        className={`rs series-round-chip bucket ${side === "CT" ? "ct" : "t"}${bucketOn ? " on" : ""}`}
-        title={`${groupLabel} · ${side} · all rounds overlay`}
+        className={`rs series-round-chip bucket ${side === "CT" ? "ct" : "t"}${bucketOn ? " on" : ""}${bucketLive ? "" : " is-inactive"}`}
+        title={
+          bucketLive
+            ? `${groupLabel} · ${side} · all rounds overlay`
+            : `${groupLabel} · ${side} · not playable in the tutorial`
+        }
+        disabled={!bucketLive}
         onClick={() => onBucketOverlay(kind, side)}
       >
         A
@@ -68,9 +80,14 @@ function SideBlock({
           <button
             key={`${chip.demoId}-${chip.roundNumber}`}
             type="button"
-            className={`rs series-round-chip ${chip.side === "CT" ? "ct" : "t"}${on ? " on" : ""}`}
+            className={`rs series-round-chip ${chip.side === "CT" ? "ct" : "t"}${on ? " on" : ""}${roundJumpEnabled ? "" : " is-inactive"}`}
             style={demoColor ? ({ "--demo-color": demoColor } as CSSProperties) : undefined}
-            title={`${groupLabel} · ${chip.side} #${chip.indexInKind}`}
+            title={
+              roundJumpEnabled
+                ? `${groupLabel} · ${chip.side} #${chip.indexInKind}`
+                : `${groupLabel} · ${chip.side} #${chip.indexInKind} · not playable in the tutorial`
+            }
+            disabled={!roundJumpEnabled}
             onClick={() => onRoundJump({ demoId: chip.demoId, jumpTick: chip.jumpTick })}
           >
             {chip.indexInKind}
@@ -91,6 +108,8 @@ export const SeriesAggregatedRoundStrip = memo(function SeriesAggregatedRoundStr
   tick,
   onBucketOverlay,
   onRoundJump,
+  bucketEnabled,
+  roundJumpEnabled = true,
 }: Props) {
   const live = currentRound(replay, tick);
   const liveRoundNumber = live != null && !live.is_knife ? live.number : null;
@@ -115,6 +134,8 @@ export const SeriesAggregatedRoundStrip = memo(function SeriesAggregatedRoundStr
                 bucketOverlay={bucketOverlay}
                 onBucketOverlay={onBucketOverlay}
                 onRoundJump={onRoundJump}
+                bucketEnabled={bucketEnabled}
+                roundJumpEnabled={roundJumpEnabled}
               />
               {ctRounds.length > 0 && tRounds.length > 0 && (
                 <span className="series-round-side-gap" aria-hidden="true" />
@@ -130,6 +151,8 @@ export const SeriesAggregatedRoundStrip = memo(function SeriesAggregatedRoundStr
                 bucketOverlay={bucketOverlay}
                 onBucketOverlay={onBucketOverlay}
                 onRoundJump={onRoundJump}
+                bucketEnabled={bucketEnabled}
+                roundJumpEnabled={roundJumpEnabled}
               />
             </div>
           </div>

@@ -4,28 +4,34 @@ import { tutorialSeriesManifest } from "./multi-demo/manifest";
 import { tutorialSeriesDemoId } from "./multi-demo/types";
 import {
   isTutorialSeriesActiveRound,
+  isTutorialSeriesBucketEnabled,
+  isTutorialSeriesChipEnabled,
   isTutorialSeriesRoundEnabled,
+  isTutorialSeriesSession,
   tutorialSeriesMetaForDemoId,
 } from "./activeRound";
 
 describe("tutorial series round greying", () => {
   it("enables every round on a non-series (or missing) demo id", () => {
-    expect(isTutorialSeriesRoundEnabled(undefined, 12)).toBe(true);
-    expect(isTutorialSeriesRoundEnabled("de_mirage|match.dem", 12)).toBe(true);
-    expect(isTutorialSeriesRoundEnabled(TUTORIAL_ID, 2)).toBe(true);
+    expect(isTutorialSeriesRoundEnabled(undefined)).toBe(true);
+    expect(isTutorialSeriesRoundEnabled("de_mirage|match.dem")).toBe(true);
+    expect(isTutorialSeriesRoundEnabled(TUTORIAL_ID)).toBe(true);
+    expect(isTutorialSeriesBucketEnabled("de_mirage|match.dem", "eco")).toBe(true);
+    expect(isTutorialSeriesChipEnabled("de_mirage|match.dem")).toBe(true);
   });
 
-  it("uses isTutorialSeriesActiveRound for habits-window rounds only", () => {
+  it("disables per-demo jumps; only Aggregated full stays interactive", () => {
     const meta = tutorialSeriesManifest.matches[0];
     const demoId = tutorialSeriesDemoId(meta);
     expect(tutorialSeriesMetaForDemoId(demoId)).toEqual(meta);
-    expect(meta.activeRounds).toEqual([1, 2]);
-    expect(isTutorialSeriesActiveRound(meta, 1)).toBe(true);
-    expect(isTutorialSeriesActiveRound(meta, 2)).toBe(true);
-    expect(isTutorialSeriesActiveRound(meta, 3)).toBe(false);
-    expect(isTutorialSeriesRoundEnabled(demoId, 1)).toBe(true);
-    expect(isTutorialSeriesRoundEnabled(demoId, 2)).toBe(true);
-    expect(isTutorialSeriesRoundEnabled(demoId, 3)).toBe(false);
-    expect(isTutorialSeriesRoundEnabled(demoId, 0)).toBe(false);
+    expect(isTutorialSeriesSession(demoId)).toBe(true);
+    expect(isTutorialSeriesActiveRound(meta, meta.activeRounds[0] ?? 1)).toBe(true);
+    expect(isTutorialSeriesActiveRound(meta, 99)).toBe(false);
+    expect(isTutorialSeriesRoundEnabled(demoId)).toBe(false);
+    expect(isTutorialSeriesBucketEnabled(demoId, "full")).toBe(true);
+    expect(isTutorialSeriesBucketEnabled(demoId, "pistol")).toBe(false);
+    expect(isTutorialSeriesBucketEnabled(demoId, "eco")).toBe(false);
+    expect(isTutorialSeriesBucketEnabled(demoId, "force")).toBe(false);
+    expect(isTutorialSeriesChipEnabled(demoId)).toBe(false);
   });
 });

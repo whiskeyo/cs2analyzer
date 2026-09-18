@@ -215,7 +215,7 @@ describe("RoundStrip", () => {
     );
 
     await waitFor(() => expect(screen.getByTitle("Round 1")).toBeEnabled());
-    const inactive = screen.getByTitle("Round 3 · outside tutorial habits window");
+    const inactive = screen.getByTitle("Round 3 · not playable in the tutorial");
     expect(inactive).toBeDisabled();
     expect(inactive).toHaveClass("is-inactive");
     await userEvent.click(inactive);

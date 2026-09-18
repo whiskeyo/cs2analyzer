@@ -13,7 +13,7 @@ import {
 
 function stepCopy(step: TutorialStep): string {
   if (step === "aggregated") {
-    return "Sample habits series on Dust II. Grey rounds sit outside the habits window.";
+    return "Sample habits series on Dust II. Aggregated full is playable; other rounds stay listed but grey.";
   }
   if (step === "playbook") {
     return "Sample Mirage playbook. Empty notes on purpose — drawings stay on this machine.";
