@@ -6,11 +6,13 @@ import { BucketControls } from "@/components/playback/BucketControls";
 import { RadarStage } from "@/components/radar/RadarStage";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ParseProgressPanel } from "@/components/app/ParseProgressPanel";
+import { TutorialBanner } from "@/components/tutorial/TutorialBanner";
 import { useApp } from "@/lib/state/appState";
 import { prefetchParser } from "@/lib/parse/ensureParser";
 import { takeDroppedDemoFiles } from "@/lib/parse/demoDrop";
 import { notesForAnalyzerSession } from "@/lib/notes";
 import { isAggregatedView, isBucketOverlayActive } from "@/lib/parse/seriesMode";
+import { isTutorialSeriesRoundEnabled } from "@/lib/tutorial/activeRound";
 import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
 
@@ -76,6 +78,7 @@ export function Viewer() {
           Drop to add this demo to the open session
         </p>
       ) : null}
+      <TutorialBanner />
       <SeriesBar />
       <SeriesFilters />
       <div className="viewer-body">
@@ -96,6 +99,9 @@ export function Viewer() {
                 notes={chromeNotes}
                 places={places}
                 activeRound={playback.activeRound}
+                roundEnabled={(round) =>
+                  isTutorialSeriesRoundEnabled(session.demo?.id, round.number)
+                }
               />
             ) : (
               <SeriesAggregatedRoundStrip

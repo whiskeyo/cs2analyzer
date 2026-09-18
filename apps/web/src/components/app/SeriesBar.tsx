@@ -38,6 +38,7 @@ export function SeriesBar() {
         <button
           type="button"
           className={`filter${aggregated ? " on" : ""}`}
+          data-tutorial="aggregated"
           onClick={() => habits.setSeriesView(aggregated ? "demos" : "aggregated")}
         >
           Aggregated

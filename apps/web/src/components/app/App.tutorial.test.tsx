@@ -1,0 +1,109 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { Replay } from "@/lib/replay/replayTypes";
+import {
+  makeFreezeTicks,
+  makeKill,
+  makePlayer,
+  makeReplay,
+  makeRound,
+  UNIT_CALIBRATION,
+} from "@/lib/testing/fixtures";
+import { TUTORIAL_FILENAME } from "@/lib/tutorial/identity";
+import { App } from "./App";
+
+const loadMocks = vi.hoisted(() => ({
+  loadTutorialReplay: vi.fn(),
+  loadTutorialSeries: vi.fn(),
+  loadTutorialPlaybook: vi.fn(),
+}));
+
+vi.mock("@/lib/tutorial/load", () => ({
+  loadTutorialReplay: loadMocks.loadTutorialReplay,
+  loadTutorialSeries: loadMocks.loadTutorialSeries,
+  loadTutorialPlaybook: loadMocks.loadTutorialPlaybook,
+}));
+
+vi.mock("@/lib/radar/maps", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/radar/maps")>();
+  return {
+    ...actual,
+    loadCalibrations: vi.fn(async () => ({ de_mirage: UNIT_CALIBRATION })),
+  };
+});
+
+vi.mock("@/lib/parse/ensureParser", () => ({
+  ensureParser: vi.fn(async () => () => ({ terminate() {} })),
+  parserFactory: vi.fn(() => null),
+  prefetchParser: vi.fn(),
+  discardParserWarmup: vi.fn(),
+}));
+
+function fixtureReplay(): Replay {
+  return makeReplay({
+    header: { map_name: "de_mirage", team_ct: "Astralis", team_t: "Vitality" },
+    players: [
+      makePlayer(0, "CT", "Alice"),
+      makePlayer(1, "CT", "Bob"),
+      makePlayer(2, "T", "Cara"),
+      makePlayer(3, "T", "Dan"),
+    ],
+    rounds: [
+      makeRound({
+        number: 1,
+        winner: "CT",
+        start_tick: 200,
+        freeze_end_tick: 264,
+        end_tick: 900,
+      }),
+      makeRound({
+        number: 2,
+        winner: "CT",
+        start_tick: 1000,
+        freeze_end_tick: 1064,
+        end_tick: 1600,
+      }),
+    ],
+    ticks: makeFreezeTicks(4, 2, 264),
+    kills: [makeKill(400, 0, 2)],
+  });
+}
+
+describe("App tutorial", () => {
+  const replay = fixtureReplay();
+
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/");
+    loadMocks.loadTutorialReplay.mockReset();
+    loadMocks.loadTutorialSeries.mockReset();
+    loadMocks.loadTutorialPlaybook.mockReset();
+    loadMocks.loadTutorialReplay.mockResolvedValue(replay);
+    loadMocks.loadTutorialSeries.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("installs the sample from Try without a demo without WASM", async () => {
+    render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
+    await userEvent.click(screen.getByRole("link", { name: "Try without a demo" }));
+    expect(await screen.findByText("Tutorial")).toBeInTheDocument();
+    await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
+    expect(screen.getByText(new RegExp(TUTORIAL_FILENAME))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Exit tutorial" })).toBeInTheDocument();
+    expect(loadMocks.loadTutorialSeries).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
+    expect(await screen.findByRole("link", { name: "Try without a demo" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Exit tutorial" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+  });
+
+  it("reloads the sample from ?tutorial=1 after a refresh", async () => {
+    window.history.replaceState({}, "", "/analyzer?tutorial=1");
+    render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
+    expect(await screen.findByText("Tutorial")).toBeInTheDocument();
+    expect(loadMocks.loadTutorialReplay).toHaveBeenCalled();
+  });
+});

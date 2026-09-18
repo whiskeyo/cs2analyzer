@@ -182,4 +182,43 @@ describe("RoundStrip", () => {
 
     await waitFor(() => expect(screen.getByTitle("Round 1 · notes")).toHaveClass("has-notes"));
   });
+
+  it("greys and disables rounds the tutorial series marks inactive", async () => {
+    const replay = makeReplay({
+      rounds: [
+        makeRound({
+          number: 1,
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 640,
+        }),
+        makeRound({
+          number: 3,
+          start_tick: 700,
+          freeze_end_tick: 764,
+          end_tick: 1200,
+        }),
+      ],
+    });
+    const onJump = vi.fn();
+    setPlaybackCommandSink((cmd) => {
+      if (cmd.type === "jump") onJump(cmd.round?.number);
+    });
+    render(
+      <RoundStrip
+        replay={replay}
+        tick={100}
+        notes={[]}
+        places={null}
+        roundEnabled={(round) => round.number === 1}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTitle("Round 1")).toBeEnabled());
+    const inactive = screen.getByTitle("Round 3 · outside tutorial habits window");
+    expect(inactive).toBeDisabled();
+    expect(inactive).toHaveClass("is-inactive");
+    await userEvent.click(inactive);
+    expect(onJump).not.toHaveBeenCalled();
+  });
 });

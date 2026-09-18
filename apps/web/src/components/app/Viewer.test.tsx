@@ -41,6 +41,10 @@ vi.mock("@/components/playback/Controls", () => ({
   },
 }));
 
+vi.mock("@/components/tutorial/TutorialBanner", () => ({
+  TutorialBanner: () => <div data-testid="tutorial-banner" />,
+}));
+
 function viewerState(replay = makeReplay()) {
   return {
     session: {

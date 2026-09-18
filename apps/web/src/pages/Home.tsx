@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { DemoDrop } from "@/components/app/DemoDrop";
 import { CreatePlaybookCard } from "@/components/playbook/CreatePlaybookCard";
+import { TutorialStart } from "@/components/tutorial/TutorialStart";
 import { ROUTES } from "@/lib/app/routes";
 import { FEATURE_LIST_CLASS } from "@/lib/markdown/featureList";
 
@@ -20,6 +21,7 @@ function HomeIntro() {
         <li>Kill feed, opening duels, nade summary, and CSV export.</li>
         <li>And way more!</li>
       </ul>
+      <TutorialStart />
     </div>
   );
 }

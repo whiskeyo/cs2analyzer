@@ -79,6 +79,10 @@ describe("Analyzer", () => {
     );
     expect(screen.getByText("Saved notes")).toBeInTheDocument();
     expect(screen.getByText("match.dem")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Try without a demo" })).toHaveAttribute(
+      "href",
+      "/analyzer?tutorial=1",
+    );
     expect(
       screen.queryByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
     ).not.toBeInTheDocument();
@@ -164,5 +168,6 @@ describe("Analyzer", () => {
     );
     expect(screen.getByTestId("viewer")).toBeInTheDocument();
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Try without a demo" })).not.toBeInTheDocument();
   });
 });

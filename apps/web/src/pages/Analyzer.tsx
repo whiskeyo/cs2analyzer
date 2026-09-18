@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { DemoDrop } from "@/components/app/DemoDrop";
 import { Viewer } from "@/components/app/Viewer";
+import { TutorialStart } from "@/components/tutorial/TutorialStart";
 import { useApp } from "@/lib/state/appState";
 
 export function Analyzer() {
@@ -12,5 +13,5 @@ export function Analyzer() {
     refreshSaved();
   }, [refreshSaved]);
   if (session.replay) return <Viewer />;
-  return <DemoDrop showSavedNotes />;
+  return <DemoDrop showSavedNotes below={<TutorialStart compact />} />;
 }

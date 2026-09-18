@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   layoutsSidebarWidth: "cs2analyzer.layoutsSidebarWidth",
   playbookFocus: "cs2analyzer.playbook.focus",
   snapshotRecentBooks: "cs2analyzer.snapshotRecentBooks",
+  tutorialSeen: "cs2analyzer.tutorialSeen",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
@@ -26,3 +27,4 @@ export const PLAYBOOK_DETAIL_WIDTH_STORAGE_KEY = STORAGE_KEYS.playbookDetailWidt
 export const LAYOUTS_SIDEBAR_WIDTH_STORAGE_KEY = STORAGE_KEYS.layoutsSidebarWidth;
 export const PLAYBOOK_FOCUS_KEY = STORAGE_KEYS.playbookFocus;
 export const SNAPSHOT_RECENT_BOOKS_KEY = STORAGE_KEYS.snapshotRecentBooks;
+export const TUTORIAL_SEEN_STORAGE_KEY = STORAGE_KEYS.tutorialSeen;

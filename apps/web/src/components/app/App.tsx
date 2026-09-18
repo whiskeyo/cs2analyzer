@@ -6,6 +6,7 @@ import { applyPageMeta } from "@/lib/app/pageMeta";
 import { isAnalyzerPath, isLayoutsPath, isPlaybookPath, ROUTES } from "@/lib/app/routes";
 import { AppBackdrop } from "@/components/app/AppBackdrop";
 import { Header } from "@/components/app/Header";
+import { TutorialController } from "@/components/tutorial/TutorialController";
 import { Analyzer } from "@/pages/Analyzer";
 import { Contact } from "@/pages/Contact";
 import { Faq } from "@/pages/Faq";
@@ -39,6 +40,7 @@ function AppLayout() {
     <div className={shellClass}>
       <AppBackdrop />
       <Header />
+      <TutorialController />
       {showStorageError ? (
         <p className="error status-banner" role="alert">
           {status.error}
