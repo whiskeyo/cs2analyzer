@@ -8,7 +8,9 @@ import {
   isTutorialSeriesChipEnabled,
   isTutorialSeriesRoundEnabled,
   isTutorialSeriesSession,
+  tutorialLocksSeriesToAggregatedFull,
   tutorialSeriesMetaForDemoId,
+  TUTORIAL_AGGREGATED_LOCK_NOTICE,
 } from "./activeRound";
 
 describe("tutorial series round greying", () => {
@@ -33,5 +35,13 @@ describe("tutorial series round greying", () => {
     expect(isTutorialSeriesBucketEnabled(demoId, "eco")).toBe(false);
     expect(isTutorialSeriesBucketEnabled(demoId, "force")).toBe(false);
     expect(isTutorialSeriesChipEnabled(demoId)).toBe(false);
+  });
+
+  it("locks a tutorial series session to Aggregated full", () => {
+    const demoId = tutorialSeriesDemoId(tutorialSeriesManifest.matches[0]);
+    expect(tutorialLocksSeriesToAggregatedFull({ demos: [{ id: demoId }] })).toBe(true);
+    expect(tutorialLocksSeriesToAggregatedFull({ demos: [{ id: TUTORIAL_ID }] })).toBe(false);
+    expect(tutorialLocksSeriesToAggregatedFull(null)).toBe(false);
+    expect(TUTORIAL_AGGREGATED_LOCK_NOTICE).toContain("Aggregated full");
   });
 });

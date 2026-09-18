@@ -4,7 +4,12 @@ import { tutorialSeriesManifest } from "./multi-demo/manifest";
 import { isTutorialSeriesActiveRound, tutorialSeriesDemoId } from "./multi-demo/types";
 import { TUTORIAL_SERIES_PREFIX } from "./identity";
 
+type SeriesDemoIds = { demos: readonly { id: string }[] };
+
 export { isTutorialSeriesActiveRound };
+
+/** Shown when a round jump / non-full bucket is blocked on the Aggregated tour. */
+export const TUTORIAL_AGGREGATED_LOCK_NOTICE = "Tutorial stays on Aggregated full.";
 
 export function tutorialSeriesMetaForDemoId(demoId: string | null | undefined) {
   if (!demoId?.startsWith(TUTORIAL_SERIES_PREFIX)) return undefined;
@@ -13,6 +18,16 @@ export function tutorialSeriesMetaForDemoId(demoId: string | null | undefined) {
 
 export function isTutorialSeriesSession(demoId: string | null | undefined): boolean {
   return tutorialSeriesMetaForDemoId(demoId) != null;
+}
+
+/**
+ * Tutorial Aggregated step: stay on Aggregated + full. Blocks live-round jumps,
+ * file-tab GOTV, pistol/eco/force buckets, and overlay off.
+ */
+export function tutorialLocksSeriesToAggregatedFull(
+  series: SeriesDemoIds | null | undefined,
+): boolean {
+  return Boolean(series?.demos.some((demo) => isTutorialSeriesSession(demo.id)));
 }
 
 /**

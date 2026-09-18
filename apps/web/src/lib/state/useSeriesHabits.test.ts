@@ -6,6 +6,9 @@ import { act, renderHook } from "@testing-library/react";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { playerIdentityKey } from "@/lib/parse/seriesRoster";
 import { makeFreezeTicks, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
+import { TUTORIAL_AGGREGATED_LOCK_NOTICE } from "@/lib/tutorial/activeRound";
+import { tutorialSeriesManifest } from "@/lib/tutorial/multi-demo/manifest";
+import { tutorialSeriesDemoId } from "@/lib/tutorial/multi-demo/types";
 import { useSeriesHabits } from "./useSeriesHabits";
 
 const FOCAL = "Team A";
@@ -201,5 +204,72 @@ describe("useSeriesHabits", () => {
       stepDistance: 96,
       minShare: 0.1,
     });
+  });
+
+  it("blocks live-round jumps and non-full buckets on a tutorial series", () => {
+    const demoA = makeSeriesDemo("a.dem");
+    const demoB = makeSeriesDemo("b.dem");
+    demoA.id = tutorialSeriesDemoId(tutorialSeriesManifest.matches[0]);
+    demoB.id = tutorialSeriesDemoId(
+      tutorialSeriesManifest.matches[1] ?? tutorialSeriesManifest.matches[0],
+    );
+    const series = buildSeries("de_dust2", [demoA, demoB], FOCAL);
+    const selectDemo = vi.fn();
+    const jump = vi.fn();
+    const onLockedNavigation = vi.fn();
+    const { result } = renderHook(() =>
+      useSeriesHabits({
+        series,
+        places: null,
+        activeDemoId: demoA.id,
+        selectDemo,
+        jump,
+        onLockedNavigation,
+      }),
+    );
+
+    act(() => {
+      result.current.setSeriesView("aggregated");
+      result.current.ensureBucketOverlay("full", "CT");
+    });
+    expect(result.current.seriesView).toBe("aggregated");
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
+
+    act(() => result.current.playRound({ demoId: demoA.id, jumpTick: 264 }));
+    expect(jump).not.toHaveBeenCalled();
+    expect(selectDemo).not.toHaveBeenCalled();
+    expect(onLockedNavigation).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
+
+    onLockedNavigation.mockClear();
+    act(() => result.current.setSeriesView("demos"));
+    expect(result.current.seriesView).toBe("aggregated");
+    expect(onLockedNavigation).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
+
+    onLockedNavigation.mockClear();
+    act(() => result.current.selectBucketOverlay("pistol", "CT"));
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
+    expect(onLockedNavigation).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
+
+    onLockedNavigation.mockClear();
+    act(() => result.current.selectBucketOverlay("full", "T"));
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
+    expect(onLockedNavigation).not.toHaveBeenCalled();
+
+    act(() => result.current.selectBucketOverlay("full", "T"));
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
+
+    onLockedNavigation.mockClear();
+    act(() => result.current.setKind("eco"));
+    expect(result.current.filter.kind).toBe("full");
+    expect(onLockedNavigation).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
+
+    act(() => result.current.setSide("CT"));
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
+
+    onLockedNavigation.mockClear();
+    act(() => result.current.setOverlayOn(false));
+    expect(result.current.overlayOn).toBe(true);
+    expect(onLockedNavigation).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
   });
 });

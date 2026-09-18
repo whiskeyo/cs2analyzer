@@ -22,6 +22,10 @@ import { calibrationFor, loadCalibrations } from "@/lib/radar/maps";
 import { loadMapLayout, mapKey, type MapLayout } from "@/lib/radar/layouts";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
+import {
+  tutorialLocksSeriesToAggregatedFull,
+  TUTORIAL_AGGREGATED_LOCK_NOTICE,
+} from "@/lib/tutorial/activeRound";
 import { habitsKeyPatch, radarSelectPatch } from "./playerSelection";
 import { usePlayerSync } from "./usePlayerSync";
 import { useSession } from "./sessionState";
@@ -126,16 +130,28 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     return { layout, cal };
   }, [replay, cal, layout]);
 
+  const jump = useCallback<Playback["jump"]>(
+    (t, pause, round) => {
+      if (tutorialLocksSeriesToAggregatedFull(session.series)) {
+        status.setNotice(TUTORIAL_AGGREGATED_LOCK_NOTICE);
+        return;
+      }
+      playback.jump(t, pause, round);
+    },
+    [playback, session.series, status],
+  );
+
   const habits = useSeriesHabits({
     series: session.series,
     places,
     activeDemoId: session.demo?.id ?? null,
     selectDemo: session.selectDemo,
-    jump: playback.jump,
+    jump,
     trailWindowSec: settings.habitsTrailWindowSec,
     pathBranchMergeDistance: settings.pathBranchMergeDistance,
     pathBranchStepDistance: settings.pathBranchStepDistance,
     pathBranchMinShare: settings.pathBranchMinShare,
+    onLockedNavigation: status.setNotice,
   });
 
   const bucketActive = isBucketOverlayActive(session.series, habits);
@@ -209,7 +225,7 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     tickRef: playback.tickRef,
     playingRef: playback.playingRef,
     selectedRef: view.selectedRef,
-    jump: playback.jump,
+    jump,
     undo: notesLive ? review.undo : () => undefined,
     redo: notesLive ? review.redo : () => undefined,
     setPlaying: playback.setPlaying,
@@ -219,9 +235,17 @@ function AnalyzerPlayback({ children }: { children: ReactNode }) {
     setSelected: select,
   });
 
+  const playbackOut = useMemo((): Playback => ({ ...playback, jump }), [playback, jump]);
   const value = useMemo(
-    (): AnalyzerState => ({ playback, review, view: viewOut, habits: habitsOut, cal, places }),
-    [playback, review, viewOut, habitsOut, cal, places],
+    (): AnalyzerState => ({
+      playback: playbackOut,
+      review,
+      view: viewOut,
+      habits: habitsOut,
+      cal,
+      places,
+    }),
+    [playbackOut, review, viewOut, habitsOut, cal, places],
   );
 
   return <AnalyzerContext.Provider value={value}>{children}</AnalyzerContext.Provider>;

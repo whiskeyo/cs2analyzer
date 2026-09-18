@@ -29,7 +29,11 @@ import type { RoundKind } from "@/lib/parse/roundTags";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { Side } from "@/lib/replay/replayTypes";
 import { SERIES_HABITS_WINDOW_SECONDS } from "@/lib/shared/constants";
-import { tutorialSeriesHabitsTags } from "@/lib/tutorial/activeRound";
+import {
+  tutorialLocksSeriesToAggregatedFull,
+  tutorialSeriesHabitsTags,
+  TUTORIAL_AGGREGATED_LOCK_NOTICE,
+} from "@/lib/tutorial/activeRound";
 
 export type SeriesViewMode = "demos" | "aggregated";
 
@@ -114,8 +118,10 @@ export function useSeriesHabits(opts: {
   pathBranchMergeDistance?: number;
   pathBranchStepDistance?: number;
   pathBranchMinShare?: number;
+  onLockedNavigation?: (notice: string) => void;
 }): SeriesHabitsState {
-  const { series, places, activeDemoId, selectDemo, jump } = opts;
+  const { series, places, activeDemoId, selectDemo, jump, onLockedNavigation } = opts;
+  const locked = tutorialLocksSeriesToAggregatedFull(series);
   const trailWindowSec = clampSeriesTrailWindowSec(
     opts.trailWindowSec ?? SERIES_HABITS_WINDOW_SECONDS,
   );
@@ -255,6 +261,10 @@ export function useSeriesHabits(opts: {
     [series, activeDemoId, jump, selectDemo],
   );
 
+  const rejectLockedNav = useCallback(() => {
+    onLockedNavigation?.(TUTORIAL_AGGREGATED_LOCK_NOTICE);
+  }, [onLockedNavigation]);
+
   const resetBucketPlaySec = useCallback(() => {
     bucketPlaySecRef.current = 0;
     setBucketPlaySecState(0);
@@ -262,15 +272,29 @@ export function useSeriesHabits(opts: {
 
   const playRound = useCallback(
     (target: Pick<HabitsTrail, "demoId" | "jumpTick">) => {
+      if (locked) {
+        rejectLockedNav();
+        return;
+      }
       setBucketOverlay(null);
       resetBucketPlaySec();
       jumpToDemoRound(target);
     },
-    [jumpToDemoRound, resetBucketPlaySec],
+    [jumpToDemoRound, locked, rejectLockedNav, resetBucketPlaySec],
   );
 
   const selectBucketOverlay = useCallback(
     (kind: RoundKind, side: Side) => {
+      if (locked) {
+        if (kind !== "full") {
+          rejectLockedNav();
+          return;
+        }
+        setFilter((prev) => ({ ...prev, kind, side }));
+        setBucketOverlay({ kind, side });
+        setOverlayOn(true);
+        return;
+      }
       setFilter((prev) => ({ ...prev, kind, side }));
       setBucketOverlay((prev) => {
         if (prev?.kind === kind && prev.side === side) return null;
@@ -279,7 +303,7 @@ export function useSeriesHabits(opts: {
       resetBucketPlaySec();
       setOverlayOn(true);
     },
-    [resetBucketPlaySec],
+    [locked, rejectLockedNav, resetBucketPlaySec],
   );
 
   const ensureBucketOverlay = useCallback((kind: RoundKind, side: Side) => {
@@ -293,15 +317,36 @@ export function useSeriesHabits(opts: {
     setOverlayOn(true);
   }, []);
 
-  const setSide = useCallback((side: Side) => {
-    setFilter((prev) => ({ ...prev, side }));
-    setBucketOverlay(null);
-  }, []);
+  const setSide = useCallback(
+    (side: Side) => {
+      setFilter((prev) => ({ ...prev, side }));
+      if (locked) {
+        setBucketOverlay({ kind: "full", side });
+        setOverlayOn(true);
+        return;
+      }
+      setBucketOverlay(null);
+    },
+    [locked],
+  );
 
-  const setKind = useCallback((kind: RoundKind) => {
-    setFilter((prev) => ({ ...prev, kind }));
-    setBucketOverlay(null);
-  }, []);
+  const setKind = useCallback(
+    (kind: RoundKind) => {
+      if (locked) {
+        if (kind !== "full") {
+          rejectLockedNav();
+          return;
+        }
+        setFilter((prev) => ({ ...prev, kind }));
+        setBucketOverlay((prev) => ({ kind: "full", side: prev?.side ?? "CT" }));
+        setOverlayOn(true);
+        return;
+      }
+      setFilter((prev) => ({ ...prev, kind }));
+      setBucketOverlay(null);
+    },
+    [locked, rejectLockedNav],
+  );
 
   const setPlayerKey = useCallback((playerKey: string | null) => {
     setFilter((prev) => ({ ...prev, playerKey }));
@@ -321,10 +366,28 @@ export function useSeriesHabits(opts: {
     setNadeFilter((prev) => ({ ...prev, [kind]: on }));
   }, []);
 
-  const setSeriesViewWrapped = useCallback((view: SeriesViewMode) => {
-    setSeriesView(view);
-    if (view !== "aggregated") setBucketOverlay(null);
-  }, []);
+  const setOverlayOnWrapped = useCallback(
+    (on: boolean) => {
+      if (locked && !on) {
+        rejectLockedNav();
+        return;
+      }
+      setOverlayOn(on);
+    },
+    [locked, rejectLockedNav],
+  );
+
+  const setSeriesViewWrapped = useCallback(
+    (view: SeriesViewMode) => {
+      if (locked && view !== "aggregated") {
+        rejectLockedNav();
+        return;
+      }
+      setSeriesView(view);
+      if (view !== "aggregated") setBucketOverlay(null);
+    },
+    [locked, rejectLockedNav],
+  );
 
   return {
     filter,
@@ -336,7 +399,7 @@ export function useSeriesHabits(opts: {
     setSeriesView: setSeriesViewWrapped,
     aggregated,
     overlayOn,
-    setOverlayOn,
+    setOverlayOn: setOverlayOnWrapped,
     bucketOverlay,
     selectBucketOverlay,
     ensureBucketOverlay,

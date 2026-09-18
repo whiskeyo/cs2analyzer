@@ -4,6 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { makeReplay } from "@/lib/testing/fixtures";
+import { TUTORIAL_AGGREGATED_LOCK_NOTICE } from "@/lib/tutorial/activeRound";
+import { tutorialSeriesManifest } from "@/lib/tutorial/multi-demo/manifest";
+import { tutorialSeriesDemoId } from "@/lib/tutorial/multi-demo/types";
 import { SeriesBar } from "./SeriesBar";
 
 vi.mock("@/lib/state/appState", () => ({
@@ -24,6 +27,7 @@ function seriesSession() {
   const series = buildSeries("de_mirage", [a, b]);
   const selectDemo = vi.fn();
   const setSeriesView = vi.fn();
+  const setNotice = vi.fn();
   return {
     session: {
       series,
@@ -38,8 +42,10 @@ function seriesSession() {
       setSeriesView,
       demoColors: new Map([[a.id, "#f00"]]),
     },
+    status: { setNotice },
     selectDemo,
     setSeriesView,
+    setNotice,
   };
 }
 
@@ -58,8 +64,12 @@ describe("SeriesBar", () => {
   });
 
   it("lists demo files and the focal team", () => {
-    const { session, habits } = seriesSession();
-    vi.mocked(useApp).mockReturnValue({ session, habits } as unknown as ReturnType<typeof useApp>);
+    const { session, habits, status } = seriesSession();
+    vi.mocked(useApp).mockReturnValue({
+      session,
+      habits,
+      status,
+    } as unknown as ReturnType<typeof useApp>);
     render(<SeriesBar />);
     expect(screen.getByText("Series")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "a.dem" })).toHaveClass("active");
@@ -71,6 +81,7 @@ describe("SeriesBar", () => {
     vi.mocked(useApp).mockReturnValue({
       session: ctx.session,
       habits: ctx.habits,
+      status: ctx.status,
     } as unknown as ReturnType<typeof useApp>);
     render(<SeriesBar />);
 
@@ -79,5 +90,31 @@ describe("SeriesBar", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Aggregated" }));
     expect(ctx.setSeriesView).toHaveBeenCalledWith("aggregated");
+  });
+
+  it("keeps tutorial series file tabs on Aggregated full", async () => {
+    const ctx = seriesSession();
+    ctx.session.series.demos[0].id = tutorialSeriesDemoId(tutorialSeriesManifest.matches[0]);
+    ctx.session.series.demos[1].id = tutorialSeriesDemoId(
+      tutorialSeriesManifest.matches[1] ?? tutorialSeriesManifest.matches[0],
+    );
+    ctx.session.demo = ctx.session.series.demos[0];
+    ctx.habits.aggregated = true;
+    vi.mocked(useApp).mockReturnValue({
+      session: ctx.session,
+      habits: ctx.habits,
+      status: ctx.status,
+    } as unknown as ReturnType<typeof useApp>);
+    render(<SeriesBar />);
+
+    await userEvent.click(screen.getByRole("button", { name: "b.dem" }));
+    expect(ctx.selectDemo).not.toHaveBeenCalled();
+    expect(ctx.setSeriesView).not.toHaveBeenCalled();
+    expect(ctx.setNotice).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
+
+    ctx.setNotice.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: "Aggregated" }));
+    expect(ctx.setSeriesView).not.toHaveBeenCalled();
+    expect(ctx.setNotice).toHaveBeenCalledWith(TUTORIAL_AGGREGATED_LOCK_NOTICE);
   });
 });
