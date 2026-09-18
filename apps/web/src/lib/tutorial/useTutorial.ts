@@ -11,6 +11,14 @@ import { parseTutorialQuery, tutorialSearch, type TutorialStep } from "./query";
 
 const LOADING_NOTICE = "Loading tutorial…";
 
+/** Survives AnalyzerHost remount when the user closes the session. */
+let lastInstalledStep: TutorialStep | null = null;
+
+/** Test hook: isolate query-install state across cases. */
+export function resetTutorialInstallState(): void {
+  lastInstalledStep = null;
+}
+
 function sessionMatchesStep(
   session: {
     demo?: { id: string } | null;
@@ -44,6 +52,7 @@ export function useTutorial(): void {
 
   useEffect(() => {
     if (step == null) {
+      lastInstalledStep = null;
       installedStepRef.current = null;
       return;
     }
@@ -55,11 +64,21 @@ export function useTutorial(): void {
 
     const live = sessionRef.current;
     if (sessionMatchesStep(live, step)) {
+      lastInstalledStep = step;
       installedStepRef.current = step;
       return;
     }
 
+    if (lastInstalledStep != null && live.replay == null) {
+      lastInstalledStep = null;
+      installedStepRef.current = null;
+      statusRef.current.clear();
+      navigate({ pathname: ROUTES.analyzer, search: "" }, { replace: true });
+      return;
+    }
+
     let cancelled = false;
+    let finished = false;
     loadingRef.current = true;
     statusRef.current.clear();
     statusRef.current.setNotice(LOADING_NOTICE);
@@ -79,11 +98,15 @@ export function useTutorial(): void {
           sessionRef.current.installSeries(series);
         }
         if (cancelled) return;
+        lastInstalledStep = step;
         installedStepRef.current = step;
+        finished = true;
         statusRef.current.clear();
       } catch (err: unknown) {
         if (cancelled) return;
+        lastInstalledStep = null;
         installedStepRef.current = null;
+        finished = true;
         statusRef.current.setError(errorMessage(err));
       } finally {
         if (!cancelled) loadingRef.current = false;
@@ -93,6 +116,7 @@ export function useTutorial(): void {
     return () => {
       cancelled = true;
       loadingRef.current = false;
+      if (!finished) statusRef.current.clear();
     };
   }, [navigate, pathname, step]);
 

@@ -11,6 +11,7 @@ import {
   UNIT_CALIBRATION,
 } from "@/lib/testing/fixtures";
 import { TUTORIAL_FILENAME } from "@/lib/tutorial/identity";
+import { resetTutorialInstallState } from "@/lib/tutorial/useTutorial";
 import { App } from "./App";
 
 const loadMocks = vi.hoisted(() => ({
@@ -74,6 +75,7 @@ describe("App tutorial", () => {
   const replay = fixtureReplay();
 
   beforeEach(() => {
+    resetTutorialInstallState();
     window.history.replaceState({}, "", "/");
     loadMocks.loadTutorialReplay.mockReset();
     loadMocks.loadTutorialSeries.mockReset();
@@ -98,6 +100,7 @@ describe("App tutorial", () => {
     expect(await screen.findByRole("link", { name: "Try without a demo" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Exit tutorial" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Loading tutorial…")).not.toBeInTheDocument();
   });
 
   it("reloads the sample from ?tutorial=1 after a refresh", async () => {

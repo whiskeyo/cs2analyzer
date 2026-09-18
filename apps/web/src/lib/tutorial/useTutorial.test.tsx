@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { makeReplay } from "@/lib/testing/fixtures";
 import { TUTORIAL_FILENAME, TUTORIAL_ID, tutorialReplayDemo } from "./identity";
-import { useTutorial } from "./useTutorial";
+import { resetTutorialInstallState, useTutorial } from "./useTutorial";
 
 const loadMocks = vi.hoisted(() => ({
   loadTutorialReplay: vi.fn(),
@@ -67,6 +67,7 @@ describe("useTutorial", () => {
   const replay = makeReplay({ header: { map_name: "de_mirage" } });
 
   beforeEach(() => {
+    resetTutorialInstallState();
     loadMocks.loadTutorialReplay.mockReset();
     loadMocks.loadTutorialSeries.mockReset();
     sessionMocks.useSession.mockReset();
@@ -150,5 +151,29 @@ describe("useTutorial", () => {
     });
     expect(installDemo).not.toHaveBeenCalled();
     expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
+  });
+
+  it("does not reload after the session is closed with the query still present", async () => {
+    const { installDemo, session, status } = mockSession();
+    const { unmount } = renderHook(() => useTutorial(), {
+      wrapper: wrapper("/analyzer?tutorial=1"),
+    });
+    await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
+    session.demo = tutorialReplayDemo(replay);
+    session.replay = replay;
+    unmount();
+
+    loadMocks.loadTutorialReplay.mockClear();
+    installDemo.mockClear();
+    status.setNotice.mockClear();
+    session.demo = null;
+    session.replay = null;
+    renderHook(() => useTutorial(), { wrapper: wrapper("/analyzer?tutorial=1") });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
+    expect(installDemo).not.toHaveBeenCalled();
+    expect(status.setNotice).not.toHaveBeenCalled();
   });
 });

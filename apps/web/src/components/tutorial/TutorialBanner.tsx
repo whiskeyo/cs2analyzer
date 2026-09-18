@@ -36,8 +36,8 @@ export function TutorialBanner() {
         type="button"
         className="ghost"
         onClick={() => {
-          session.close();
           navigate(ROUTES.home);
+          session.close();
         }}
       >
         Exit tutorial
