@@ -1,21 +1,25 @@
 /**
  * @vitest-environment jsdom
  */
-import { afterEach, describe, expect, it } from "vitest";
-import { TUTORIAL_SEEN_STORAGE_KEY } from "@/lib/shared/storageKeys";
-import { loadTutorialSeen, saveTutorialSeen } from "./prefs";
+import "fake-indexeddb/auto";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { clearUserSettingsForTests } from "@/lib/settings/userSettingsStore";
+import { loadTutorialCompleted, saveTutorialCompleted } from "./prefs";
 
-describe("tutorial seen pref", () => {
-  afterEach(() => {
-    localStorage.removeItem(TUTORIAL_SEEN_STORAGE_KEY);
+describe("tutorialCompleted pref", () => {
+  beforeEach(async () => {
+    await clearUserSettingsForTests();
   });
 
-  it("defaults to unseen and persists a skip", () => {
-    expect(loadTutorialSeen()).toBe(false);
-    saveTutorialSeen();
-    expect(localStorage.getItem(TUTORIAL_SEEN_STORAGE_KEY)).toBe("1");
-    expect(loadTutorialSeen()).toBe(true);
-    saveTutorialSeen(false);
-    expect(loadTutorialSeen()).toBe(false);
+  afterEach(async () => {
+    await clearUserSettingsForTests();
+  });
+
+  it("defaults to not completed and persists a skip", async () => {
+    expect(await loadTutorialCompleted()).toBe(false);
+    await saveTutorialCompleted();
+    expect(await loadTutorialCompleted()).toBe(true);
+    await saveTutorialCompleted(false);
+    expect(await loadTutorialCompleted()).toBe(false);
   });
 });

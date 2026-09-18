@@ -6,7 +6,6 @@ import { BucketControls } from "@/components/playback/BucketControls";
 import { RadarStage } from "@/components/radar/RadarStage";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ParseProgressPanel } from "@/components/app/ParseProgressPanel";
-import { TutorialBanner } from "@/components/tutorial/TutorialBanner";
 import { useApp } from "@/lib/state/appState";
 import { prefetchParser } from "@/lib/parse/ensureParser";
 import { takeDroppedDemoFiles } from "@/lib/parse/demoDrop";
@@ -78,7 +77,6 @@ export function Viewer() {
           Drop to add this demo to the open session
         </p>
       ) : null}
-      <TutorialBanner />
       <SeriesBar />
       <SeriesFilters />
       <div className="viewer-body">

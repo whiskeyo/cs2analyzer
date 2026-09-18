@@ -49,6 +49,7 @@ import {
   PLAYBOOK_TREE_WIDTH_STORAGE_KEY,
 } from "@/lib/shared/constants";
 import { usePanelResize } from "@/lib/shared/usePanelResize";
+import { TUTORIAL_QUERY } from "@/lib/tutorial/query";
 import { errorMessage } from "@/lib/validate/json.ts";
 import type { MapCalibration } from "@/lib/replay/replayTypes";
 
@@ -237,10 +238,21 @@ export function Playbook() {
     });
     if (next === incomingSearch) return;
     appliedSearchRef.current = next;
-    setSearchParams(next === "" ? {} : Object.fromEntries(new URLSearchParams(next.slice(1))), {
-      replace: true,
-    });
-  }, [activeKey, allBooks, book, incomingSearch, mapName, page, query.playbook, setSearchParams]);
+    const params = new URLSearchParams(next.startsWith("?") ? next.slice(1) : next);
+    const tutorial = new URLSearchParams(searchKey).get(TUTORIAL_QUERY);
+    if (tutorial != null) params.set(TUTORIAL_QUERY, tutorial);
+    setSearchParams(Object.fromEntries(params), { replace: true });
+  }, [
+    activeKey,
+    allBooks,
+    book,
+    incomingSearch,
+    mapName,
+    page,
+    query.playbook,
+    searchKey,
+    setSearchParams,
+  ]);
 
   const treeBooks = booksWithDraft(allBooks, book);
   if (activeKey) openedBooksRef.current.add(activeKey);
@@ -327,7 +339,7 @@ export function Playbook() {
                 hasFloors={Boolean(cal?.lower_radar)}
                 onFloorMode={(floor) => setFloor(page.id, floor)}
               />
-              <div className="playbook-board">
+              <div className="playbook-board" data-tutorial="board">
                 <PlaybookCanvas
                   cal={cal}
                   floorMode={page.floor}
@@ -414,7 +426,11 @@ export function Playbook() {
             />
           </aside>
         ) : null}
-        <aside className="playbook-sidebar playbook-tree-pane" style={{ width: treeResize.width }}>
+        <aside
+          className="playbook-sidebar playbook-tree-pane"
+          style={{ width: treeResize.width }}
+          data-tutorial="tree"
+        >
           <div {...treeResize.handleProps} />
           <h2>Playbooks</h2>
           <p className="playbook-lead">Maps, then named books. Drawings stay on this machine.</p>

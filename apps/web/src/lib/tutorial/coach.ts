@@ -1,7 +1,7 @@
 import type { TutorialStep } from "./query";
 
 export interface TutorialCoachStep {
-  id: "welcome" | "radar" | "rounds" | "aggregated";
+  id: "welcome" | "radar" | "rounds" | "aggregated" | "tree" | "board";
   title: string;
   body: string;
 }
@@ -25,7 +25,7 @@ const REPLAY_STEPS: TutorialCoachStep[] = [
   {
     id: "aggregated",
     title: "Aggregated next",
-    body: "Try Aggregated on the banner to load a Dust II habits series — several demos, same map.",
+    body: "Next on the banner loads a Dust II habits series — several demos, same map.",
   },
 ];
 
@@ -47,11 +47,31 @@ const AGGREGATED_STEPS: TutorialCoachStep[] = [
   },
   {
     id: "aggregated",
-    title: "Aggregated",
-    body: "The Aggregated toggle is the habits view. Per-demo playback is one click on a file name.",
+    title: "Playbook next",
+    body: "Next on the banner opens a sample playbook. Grey rounds stay inactive on this series.",
+  },
+];
+
+const PLAYBOOK_STEPS: TutorialCoachStep[] = [
+  {
+    id: "welcome",
+    title: "Sample playbook",
+    body: "A Mirage book with empty notes — no invented coordinates. Drawings stay on this machine.",
+  },
+  {
+    id: "tree",
+    title: "Playbook tree",
+    body: "Maps, then named books. This sample is titled Tutorial in the tree.",
+  },
+  {
+    id: "board",
+    title: "Board",
+    body: "Draw nades and tokens on the radar. Finish on the banner when you are done.",
   },
 ];
 
 export function tutorialCoachSteps(step: TutorialStep): TutorialCoachStep[] {
-  return step === "aggregated" ? AGGREGATED_STEPS : REPLAY_STEPS;
+  if (step === "aggregated") return AGGREGATED_STEPS;
+  if (step === "playbook") return PLAYBOOK_STEPS;
+  return REPLAY_STEPS;
 }

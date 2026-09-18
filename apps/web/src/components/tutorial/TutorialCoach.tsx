@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
+import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { tutorialCoachSteps } from "@/lib/tutorial/coach";
-import { loadTutorialSeen, saveTutorialSeen } from "@/lib/tutorial/prefs";
 import { parseTutorialQuery } from "@/lib/tutorial/query";
 
 function CoachRing({ target }: { target: string }) {
@@ -34,20 +34,21 @@ function CoachRing({ target }: { target: string }) {
   );
 }
 
-/** Dismissible 4-step callouts. Pointer-events stay off the page so power users are not blocked. */
+/** Dismissible callouts. Pointer-events stay off the page so power users are not blocked. */
 export function TutorialCoach() {
   const { search } = useLocation();
+  const { settings, ready, update } = useUserSettings();
   const step = parseTutorialQuery(search) ?? "replay";
   const steps = tutorialCoachSteps(step);
   const [index, setIndex] = useState(0);
-  const [open, setOpen] = useState(() => !loadTutorialSeen());
+  const [open, setOpen] = useState(true);
 
-  if (!open || steps.length === 0) return null;
+  if (!ready || settings.tutorialCompleted || !open || steps.length === 0) return null;
   const current = steps[Math.min(index, steps.length - 1)];
   const last = index >= steps.length - 1;
 
-  const dismiss = () => {
-    saveTutorialSeen();
+  const skip = () => {
+    void update({ tutorialCompleted: true });
     setOpen(false);
   };
 
@@ -61,11 +62,11 @@ export function TutorialCoach() {
         <h2>{current.title}</h2>
         <p>{current.body}</p>
         <div className="tutorial-coach-actions">
-          <button type="button" className="ghost" onClick={dismiss}>
+          <button type="button" className="ghost" onClick={skip}>
             Skip
           </button>
           {last ? (
-            <button type="button" className="ghost" onClick={dismiss}>
+            <button type="button" className="ghost" onClick={() => setOpen(false)}>
               Done
             </button>
           ) : (

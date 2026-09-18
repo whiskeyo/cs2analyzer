@@ -1,17 +1,10 @@
-import { TUTORIAL_SEEN_STORAGE_KEY } from "@/lib/shared/storageKeys";
+import { loadUserSettings, saveUserSettings } from "@/lib/settings/userSettingsStore";
 
-export function loadTutorialSeen(): boolean {
-  try {
-    return localStorage.getItem(TUTORIAL_SEEN_STORAGE_KEY) === "1";
-  } catch {
-    return false;
-  }
+/** Missing IndexedDB key ≡ not completed. */
+export async function loadTutorialCompleted(): Promise<boolean> {
+  return (await loadUserSettings()).tutorialCompleted;
 }
 
-export function saveTutorialSeen(seen = true): void {
-  try {
-    localStorage.setItem(TUTORIAL_SEEN_STORAGE_KEY, seen ? "1" : "0");
-  } catch {
-    /* ignore quota / private mode */
-  }
+export async function saveTutorialCompleted(completed = true): Promise<void> {
+  await saveUserSettings({ tutorialCompleted: completed });
 }

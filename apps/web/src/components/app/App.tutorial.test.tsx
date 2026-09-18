@@ -95,7 +95,9 @@ describe("App tutorial", () => {
     await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
     expect(screen.getByText(new RegExp(TUTORIAL_FILENAME))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Exit tutorial" })).toBeInTheDocument();
-    expect(loadMocks.loadTutorialSeries).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "Next: Aggregated" })).toBeInTheDocument();
+    await waitFor(() => expect(loadMocks.loadTutorialSeries).toHaveBeenCalled());
+    expect(loadMocks.loadTutorialPlaybook).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
     expect(await screen.findByRole("link", { name: "Try without a demo" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Exit tutorial" })).not.toBeInTheDocument();
