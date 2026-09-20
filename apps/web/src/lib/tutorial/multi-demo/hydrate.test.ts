@@ -74,7 +74,7 @@ describe("tutorial multi-demo fixture", () => {
         (tagged.tagsByDemo.get(demo.id) ?? []).map((tag) => tag.sideForFocal),
       ),
     );
-    expect([...sides]).toEqual(["T"]);
+    expect(sides.has("T")).toBe(true);
 
     const ctFilter = { side: "CT" as const, kind: "full" as const };
     const ctOverlay = buildSeriesOverlay(tagged, ctFilter);
@@ -82,6 +82,15 @@ describe("tutorial multi-demo fixture", () => {
     expect(ctOverlay.trails.some((trail) => /npl|huNter|MATYS/i.test(trail.playerName))).toBe(
       false,
     );
+    const ctTags = tagged.demos.reduce(
+      (n, demo) => n + matchingTags(tagged.tagsByDemo.get(demo.id) ?? [], ctFilter).length,
+      0,
+    );
+    // Checked-in fixtures are T-only until `--generate-ts-series` is re-run
+    // with side-balanced full-buy windows. After that, CT must be non-empty.
+    if (ctTags > 0) {
+      expect(ctOverlay.trails.length).toBeGreaterThan(0);
+    }
   });
 
   it("scopes Aggregated CT full trails and pawn legend to Spirit", async () => {

@@ -8,6 +8,7 @@ import {
   makeRound,
   makeTicks,
 } from "@/lib/testing/fixtures";
+import { analyzerPawnLegend } from "@/lib/radar/pawnLegend";
 import { buildSeries, loadedDemo } from "./session";
 import { buildSeriesOverlay, overlayRoster } from "./seriesOverlay";
 
@@ -96,5 +97,46 @@ describe("series overlay focal-team gate", () => {
     expect(ct.nades).toEqual([]);
     expect(t.trails.map((trail) => trail.playerName)).toEqual(["donk"]);
     expect(t.nades.map((nade) => nade.kind)).toEqual(["flash"]);
+  });
+
+  it("keeps a non-empty Spirit-only CT overlay when CT habits windows exist", () => {
+    const focal = "Team Spirit";
+    const ticks = makeTicks(2, 3);
+    for (let f = 0; f < 3; f++) {
+      ticks.ticks[f] = 64 + f * 64;
+      for (let i = 0; i < 2; i++) {
+        const slot = f * 2 + i;
+        ticks.flags[slot] = FLAG_PRESENT | FLAG_ALIVE | (i === 0 ? FLAG_CT : 0);
+      }
+    }
+    const replay = makeReplay({
+      header: { team_ct: focal, team_t: "Enemy" },
+      players: [makePlayer(0, "CT", "donk", 200), makePlayer(1, "T", "npl", 100)],
+      ticks,
+      rounds: [
+        makeRound({
+          number: 14,
+          team_ct: focal,
+          team_t: "Enemy",
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 2000,
+        }),
+      ],
+    });
+    const demo = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const series = buildSeries("de_dust2", [demo], focal);
+    const base = series.tagsByDemo.get(demo.id)?.[0];
+    expect(base).toBeTruthy();
+    series.tagsByDemo.set(demo.id, [{ ...base!, sideForFocal: "CT", kind: "full" }]);
+    const overlay = buildSeriesOverlay(series, { side: "CT", kind: "full" });
+    expect(overlay.trails.map((trail) => trail.playerName)).toEqual(["donk"]);
+    expect(overlay.trails.some((trail) => trail.playerName === "npl")).toBe(false);
+    const legend = analyzerPawnLegend(
+      { ...series, demos: [demo, { ...demo, id: "d2" }] },
+      { aggregated: true, overlayOn: true, bucketOverlay: { kind: "full", side: "CT" } },
+      overlay,
+    );
+    expect(legend.map((row) => row.label)).toEqual(["donk"]);
   });
 });
