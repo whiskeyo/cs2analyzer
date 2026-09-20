@@ -3,7 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useNavigate } from "react-router";
 import type { ReactNode } from "react";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { makeReplay } from "@/lib/testing/fixtures";
@@ -73,6 +73,24 @@ function wrapper(path: string) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return <MemoryRouter initialEntries={[path]}>{children}</MemoryRouter>;
   };
+}
+
+function navigableWrapper(path: string) {
+  const nav: { go: (to: string) => void } = { go() {} };
+  function Capture() {
+    const navigate = useNavigate();
+    nav.go = navigate;
+    return null;
+  }
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <MemoryRouter initialEntries={[path]}>
+        <Capture />
+        {children}
+      </MemoryRouter>
+    );
+  }
+  return { wrapper: Wrapper, nav };
 }
 
 function mockSession() {
@@ -297,14 +315,70 @@ describe("useTutorial", () => {
   });
 
   it("does nothing on /analyzer without a /tutorial path", async () => {
-    const { installDemo } = mockSession();
+    const { installDemo, close } = mockSession();
     renderHook(() => useTutorial(), { wrapper: wrapper("/analyzer?tutorial=1") });
     await act(async () => {
       await Promise.resolve();
     });
     expect(installDemo).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
     expect(loadMocks.loadTutorialReplay).not.toHaveBeenCalled();
     expect(loadMocks.loadTutorialSeries).not.toHaveBeenCalled();
+  });
+
+  it("closes a leftover tutorial session on /analyzer", async () => {
+    const demo = tutorialReplayDemo(replay);
+    const { close, installDemo, session } = mockSession();
+    session.demo = demo;
+    session.replay = replay;
+    renderHook(() => useTutorial(), { wrapper: wrapper("/analyzer") });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(close).toHaveBeenCalledOnce();
+    expect(installDemo).not.toHaveBeenCalled();
+  });
+
+  it("leaves a real Analyzer drop alone on /analyzer", async () => {
+    const demo = loadedDemo(replay, "match.dem", new File([], "match.dem"));
+    const { close, installDemo, session } = mockSession();
+    session.demo = demo;
+    session.replay = replay;
+    renderHook(() => useTutorial(), { wrapper: wrapper("/analyzer") });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(close).not.toHaveBeenCalled();
+    expect(installDemo).not.toHaveBeenCalled();
+  });
+
+  it("closes the tutorial session when navigating from /tutorial to /analyzer", async () => {
+    const demo = tutorialReplayDemo(replay);
+    const { close, installDemo, session } = mockSession();
+    session.demo = demo;
+    session.replay = replay;
+    const { wrapper: navWrapper, nav } = navigableWrapper("/tutorial");
+    renderHook(() => useTutorial(), { wrapper: navWrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(installDemo).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+    await act(async () => {
+      nav.go("/analyzer");
+    });
+    expect(close).toHaveBeenCalledOnce();
+    expect(installDemo).not.toHaveBeenCalled();
+  });
+
+  it("does not keep a live Analyzer drop when opening /tutorial", async () => {
+    const demo = loadedDemo(replay, "match.dem", new File([], "match.dem"));
+    const { close, installDemo, session } = mockSession();
+    session.demo = demo;
+    session.replay = replay;
+    renderHook(() => useTutorial(), { wrapper: wrapper("/tutorial") });
+    expect(close).toHaveBeenCalledOnce();
+    await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
   });
 
   it("does not reload when the open session already matches the query", async () => {

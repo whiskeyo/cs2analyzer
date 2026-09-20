@@ -4,7 +4,7 @@ import { AppStateProvider, useApp } from "@/lib/state/appState";
 import type { CreateWorker } from "@/lib/parse/useDemoSession";
 import { applyPageMeta } from "@/lib/app/pageMeta";
 import { isAnalyzerPath, isLayoutsPath, isPlaybookPath, ROUTES } from "@/lib/app/routes";
-import { parseTutorialPath } from "@/lib/tutorial/query";
+import { isAnalyzerSessionVisible, parseTutorialPath } from "@/lib/tutorial/query";
 import { AppBackdrop } from "@/components/app/AppBackdrop";
 import { Header } from "@/components/app/Header";
 import { TutorialController } from "@/components/tutorial/TutorialController";
@@ -28,8 +28,10 @@ function AppLayout() {
     isAnalyzerPath(pathname) || tutorialStep === "replay" || tutorialStep === "aggregated";
   const onPlaybook = isPlaybookPath(pathname) || tutorialStep === "playbook";
   const showLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
-  const fillBoard = onPlaybook || (onAnalyzer && session.replay != null);
-  const showStorageError = onAnalyzer && session.replay != null && status.error != null;
+  const analyzerReplay =
+    session.replay != null && isAnalyzerSessionVisible(pathname, session.demo?.id);
+  const fillBoard = onPlaybook || (onAnalyzer && analyzerReplay);
+  const showStorageError = onAnalyzer && analyzerReplay && status.error != null;
 
   useEffect(() => {
     applyPageMeta(pathname);

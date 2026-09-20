@@ -1,4 +1,5 @@
 import { normalizePath, ROUTES } from "@/lib/app/routes";
+import { isTutorialDemoId } from "./identity";
 
 export const TUTORIAL_STEPS = ["replay", "aggregated", "playbook"] as const;
 export type TutorialStep = (typeof TUTORIAL_STEPS)[number];
@@ -23,6 +24,17 @@ export function isTutorialAnalyzerPath(pathname: string): boolean {
 
 export function isTutorialPlaybookPath(pathname: string): boolean {
   return parseTutorialPath(pathname) === "playbook";
+}
+
+/**
+ * Tutorial fixtures are only a live Analyzer session on `/tutorial` analyzer
+ * routes. `/analyzer` never treats a tutorial demo id as a dropped demo.
+ */
+export function isAnalyzerSessionVisible(
+  pathname: string,
+  demoId: string | null | undefined,
+): boolean {
+  return !isTutorialDemoId(demoId) || isTutorialAnalyzerPath(pathname);
 }
 
 export function tutorialHref(step: TutorialStep = "replay"): string {

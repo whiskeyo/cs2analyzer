@@ -35,6 +35,26 @@ export function resetTutorialInstallState(): void {
   lastInstalledStep = null;
 }
 
+function closeIfTutorialSession(session: {
+  demo?: { id: string } | null;
+  replay: unknown;
+  close: () => void;
+}): void {
+  if (session.replay == null && session.demo == null) return;
+  if (!isTutorialDemoId(session.demo?.id)) return;
+  session.close();
+}
+
+function closeIfForeignSession(session: {
+  demo?: { id: string } | null;
+  replay: unknown;
+  close: () => void;
+}): void {
+  if (session.replay == null && session.demo == null) return;
+  if (isTutorialDemoId(session.demo?.id)) return;
+  session.close();
+}
+
 function sessionMatchesStep(
   session: {
     demo?: { id: string } | null;
@@ -72,7 +92,13 @@ export function useTutorial(): void {
   const installedStepRef = useRef<TutorialStep | null>(null);
 
   useLayoutEffect(() => {
-    if (step == null) return;
+    if (step == null) {
+      lastInstalledStep = null;
+      installedStepRef.current = null;
+      closeIfTutorialSession(sessionRef.current);
+      return;
+    }
+    closeIfForeignSession(sessionRef.current);
     if (isTutorialAnalyzerPath(pathname)) {
       if (step === "replay" || step === "aggregated") warmupTutorialSession();
       return;
@@ -87,11 +113,7 @@ export function useTutorial(): void {
   }, [pathname, ready, settings.tutorialCompleted]);
 
   useEffect(() => {
-    if (step == null) {
-      lastInstalledStep = null;
-      installedStepRef.current = null;
-      return;
-    }
+    if (step == null) return;
 
     if (step === "playbook") {
       if (!isTutorialPlaybookPath(pathname)) return;

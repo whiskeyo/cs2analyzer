@@ -98,7 +98,7 @@ describe("App tutorial", () => {
     await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
     expect(screen.getByText(new RegExp(TUTORIAL_FILENAME))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Exit tutorial" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Next: Aggregated" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Next: Multiple demos" })).toBeInTheDocument();
     await waitFor(() => expect(loadMocks.loadTutorialSeries).toHaveBeenCalled());
     expect(loadMocks.loadTutorialPlaybook).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
@@ -114,5 +114,18 @@ describe("App tutorial", () => {
     expect(document.title).toBe("CS2 Analyzer — Tutorial");
     expect(screen.getByRole("button", { name: "Exit tutorial" })).toBeInTheDocument();
     await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
+  });
+
+  it("opens the empty Analyzer drop zone after leaving /tutorial via site nav", async () => {
+    window.history.replaceState({}, "", "/tutorial");
+    render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
+    await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
+    expect(await screen.findByText(new RegExp(TUTORIAL_FILENAME))).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("link", { name: "Analyzer" }));
+    expect(await screen.findByText("Drop a demo")).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(TUTORIAL_FILENAME))).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Exit tutorial" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Try without a demo" })).toBeInTheDocument();
   });
 });

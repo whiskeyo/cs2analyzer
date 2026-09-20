@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { TUTORIAL_ID } from "./identity";
 import {
+  isAnalyzerSessionVisible,
   isTutorialAnalyzerPath,
   isTutorialPath,
   isTutorialPlaybookPath,
@@ -41,6 +43,15 @@ describe("tutorial path", () => {
     expect(isTutorialAnalyzerPath("/tutorial/playbook")).toBe(false);
     expect(isTutorialPlaybookPath("/tutorial/playbook")).toBe(true);
     expect(isTutorialPlaybookPath("/playbook")).toBe(false);
+  });
+
+  it("never treats a tutorial demo id as a live /analyzer session", () => {
+    expect(isAnalyzerSessionVisible("/tutorial", TUTORIAL_ID)).toBe(true);
+    expect(isAnalyzerSessionVisible("/tutorial/aggregated", TUTORIAL_ID)).toBe(true);
+    expect(isAnalyzerSessionVisible("/tutorial/playbook", TUTORIAL_ID)).toBe(false);
+    expect(isAnalyzerSessionVisible("/analyzer", TUTORIAL_ID)).toBe(false);
+    expect(isAnalyzerSessionVisible("/analyzer", "de_mirage|match.dem")).toBe(true);
+    expect(isAnalyzerSessionVisible("/analyzer", null)).toBe(true);
   });
 
   it("walks Replay → Aggregated → Playbook", () => {

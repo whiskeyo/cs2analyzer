@@ -37,9 +37,9 @@ describe("TutorialBanner", () => {
     updateSettings.mockReset();
   });
 
-  it("hides when the open demo is not a tutorial fixture", () => {
+  it("hides on /analyzer even if a tutorial demo id is still installed", () => {
     vi.mocked(useApp).mockReturnValue(
-      bannerState("de_mirage|match.dem") as unknown as ReturnType<typeof useApp>,
+      bannerState(TUTORIAL_ID) as unknown as ReturnType<typeof useApp>,
     );
     render(
       <TestRouter path="/analyzer">
@@ -49,7 +49,7 @@ describe("TutorialBanner", () => {
     expect(screen.queryByText("Tutorial")).not.toBeInTheDocument();
   });
 
-  it("offers Next Aggregated and Exit on the Mirage sample", async () => {
+  it("offers Next Multiple demos and Exit on the single-demo panel", async () => {
     const state = bannerState(TUTORIAL_ID);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     render(
@@ -58,8 +58,8 @@ describe("TutorialBanner", () => {
       </TestRouter>,
     );
     expect(screen.getByText("Tutorial")).toBeInTheDocument();
-    expect(screen.getByText(/Mirage/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Next: Aggregated" })).toHaveAttribute(
+    expect(screen.getByText("Sample of two rounds from GOTV demo")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Next: Multiple demos" })).toHaveAttribute(
       "href",
       "/tutorial/aggregated",
     );
@@ -69,7 +69,7 @@ describe("TutorialBanner", () => {
     expect(updateSettings).not.toHaveBeenCalled();
   });
 
-  it("offers Next Playbook on the habits series", () => {
+  it("offers previous Single demo and Next Playbook on the multiple-demos panel", () => {
     const state = bannerState("tutorial-series|de_dust2|0");
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     render(
@@ -81,7 +81,7 @@ describe("TutorialBanner", () => {
       "href",
       "/tutorial/playbook",
     );
-    expect(screen.getByRole("link", { name: "Mirage sample" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Previous: Single demo" })).toHaveAttribute(
       "href",
       "/tutorial",
     );
@@ -96,6 +96,10 @@ describe("TutorialBanner", () => {
       </TestRouter>,
     );
     expect(screen.getByText(/playbook/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Previous: Multiple demos" })).toHaveAttribute(
+      "href",
+      "/tutorial/aggregated",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Finish" }));
     expect(updateSettings).toHaveBeenCalledWith({ tutorialCompleted: true });
     expect(state.session.close).toHaveBeenCalledOnce();

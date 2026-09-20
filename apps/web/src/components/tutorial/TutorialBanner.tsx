@@ -2,7 +2,6 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { ROUTES } from "@/lib/app/routes";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { useApp } from "@/lib/state/appState";
-import { isTutorialDemoId } from "@/lib/tutorial/identity";
 import {
   nextTutorialStep,
   parseTutorialPath,
@@ -13,23 +12,23 @@ import {
 
 function stepCopy(step: TutorialStep): string {
   if (step === "aggregated") {
-    return "Sample habits series on Dust II. Aggregated full is playable; other rounds stay listed but grey.";
+    return "Sample of multiple GOTV demos. Aggregated full is playable; other rounds stay listed but grey.";
   }
   if (step === "playbook") {
-    return "Sample Mirage playbook. Empty notes on purpose — drawings stay on this machine.";
+    return "Sample Playbook. Empty notes on purpose — drawings stay on this machine.";
   }
-  return "Sample two-round Mirage match. No .dem on disk.";
+  return "Sample of two rounds from GOTV demo";
 }
 
 function nextLabel(step: TutorialStep): string {
-  if (step === "replay") return "Next: Aggregated";
+  if (step === "replay") return "Next: Multiple demos";
   if (step === "aggregated") return "Next: Playbook";
   return "Finish";
 }
 
 function backLabel(step: TutorialStep): string {
-  if (step === "aggregated") return "Mirage sample";
-  if (step === "playbook") return "Habits series";
+  if (step === "aggregated") return "Previous: Single demo";
+  if (step === "playbook") return "Previous: Multiple demos";
   return "Back";
 }
 
@@ -40,9 +39,8 @@ export function TutorialBanner() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const fromPath = parseTutorialPath(pathname);
-  const tutorialDemo = isTutorialDemoId(session.demo?.id);
-  const step: TutorialStep = fromPath ?? "replay";
-  if (fromPath == null && !tutorialDemo) return null;
+  if (fromPath == null) return null;
+  const step: TutorialStep = fromPath;
 
   const next = nextTutorialStep(step);
   const previous = previousTutorialStep(step);

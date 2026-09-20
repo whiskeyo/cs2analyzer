@@ -15,7 +15,7 @@ import {
   isPlaybookPath,
   isRatingPath,
 } from "@/lib/app/routes";
-import { isTutorialPlaybookPath } from "@/lib/tutorial/query";
+import { isAnalyzerSessionVisible, isTutorialPlaybookPath } from "@/lib/tutorial/query";
 import { AddDemoControl } from "./AddDemoControl";
 import { SettingsMenu } from "./SettingsMenu";
 import { SiteNav } from "./SiteNav";
@@ -30,11 +30,14 @@ function downloadCsv(replay: Replay, fileName: string) {
 export function Header() {
   const { session, habits } = useApp();
   const matchPdf = useMatchPdfExport();
-  const replay = session.replay;
+  const pathname = usePathname();
+  const replay =
+    session.replay != null && isAnalyzerSessionVisible(pathname, session.demo?.id)
+      ? session.replay
+      : null;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
 
   const navigate = useNavigate();
-  const pathname = usePathname();
   const onLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
   const onFaq = isFaqPath(pathname);
   const onRating = isRatingPath(pathname);
