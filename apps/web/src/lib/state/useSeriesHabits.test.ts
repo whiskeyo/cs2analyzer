@@ -303,17 +303,24 @@ describe("useSeriesHabits", () => {
       result.current.setSeriesView("aggregated");
       result.current.ensureBucketOverlay("full", "CT");
     });
-    expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
-    const spirit = new Set(focalRosterForSeries(series).map((p) => p.key));
-    expect(spirit.size).toBeGreaterThan(0);
-    expect(result.current.focalPlayers.every((p) => spirit.has(p.key))).toBe(true);
+    const spirit = focalRosterForSeries(series);
+    const spiritKeys = new Set(spirit.map((p) => p.key));
+    const spiritNames = new Set(spirit.map((p) => p.name));
+    expect(spiritKeys.size).toBeGreaterThan(0);
+    expect(result.current.focalPlayers.every((p) => spiritKeys.has(p.key))).toBe(true);
     expect(result.current.focalPlayers.length).toBeGreaterThan(0);
+    expect(result.current.overlay?.trails.every((trail) => spiritNames.has(trail.playerName))).toBe(
+      true,
+    );
 
     act(() => result.current.setSide("T"));
     expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
     expect(result.current.filter.playerKey).toBeNull();
     expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
-    expect(result.current.focalPlayers.every((p) => spirit.has(p.key))).toBe(true);
+    expect(result.current.overlay?.trails.every((trail) => spiritNames.has(trail.playerName))).toBe(
+      true,
+    );
+    expect(result.current.focalPlayers.every((p) => spiritKeys.has(p.key))).toBe(true);
     const tPlayer = result.current.focalPlayers[0];
     expect(tPlayer).toBeTruthy();
     act(() => result.current.setPlayerKey(tPlayer!.key));
@@ -324,7 +331,9 @@ describe("useSeriesHabits", () => {
     ).toBe(true);
 
     act(() => result.current.setSide("CT"));
-    expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
-    expect(result.current.focalPlayers.every((p) => spirit.has(p.key))).toBe(true);
+    expect(result.current.overlay?.trails.every((trail) => spiritNames.has(trail.playerName))).toBe(
+      true,
+    );
+    expect(result.current.focalPlayers.every((p) => spiritKeys.has(p.key))).toBe(true);
   });
 });

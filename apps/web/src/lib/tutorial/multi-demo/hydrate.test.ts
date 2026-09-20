@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { SERIES_HABITS_WINDOW_SECONDS } from "@/lib/shared/constants";
-import { collectSeriesRoundsByKind } from "@/lib/parse/seriesAnalysis";
+import { collectSeriesRoundsByKind, matchingTags } from "@/lib/parse/seriesAnalysis";
 import { buildSeriesOverlay, overlayAtPlaySec, overlayRoster } from "@/lib/parse/seriesOverlay";
-import { matchingTags } from "@/lib/parse/seriesAnalysis";
+import { analyzerPawnLegend } from "@/lib/radar/pawnLegend";
 import { focalRosterForSeries } from "@/lib/parse/seriesRoster";
 import { hydrateTutorialSeries } from "./hydrate";
 import { tutorialSeriesManifest } from "./manifest";
@@ -50,26 +50,41 @@ describe("tutorial multi-demo fixture", () => {
     expect(series?.demos.length).toBe(tutorialSeriesManifest.matches.length);
   });
 
-  it("binds Aggregated full overlay for both CT and T habits windows", async () => {
+  it("binds Aggregated full overlay for the focal team's real habits side", async () => {
     const series = await hydrateTutorialSeries();
     expect(series).not.toBeNull();
     if (!series) return;
     const tagged = { ...series, tagsByDemo: tutorialSeriesHabitsTags(series) };
-    for (const side of ["CT", "T"] as const) {
-      const filter = { side, kind: "full" as const };
-      const overlay = buildSeriesOverlay(tagged, filter);
-      expect(overlay.trails.length).toBeGreaterThan(0);
-      expect(overlayAtPlaySec(overlay, 0).trails.length).toBeGreaterThan(0);
-      expect(overlayAtPlaySec(overlay, 5).trails.length).toBeGreaterThan(0);
-      const tagCount = tagged.demos.reduce(
-        (n, demo) => n + matchingTags(tagged.tagsByDemo.get(demo.id) ?? [], filter).length,
-        0,
-      );
-      expect(tagCount).toBeGreaterThan(0);
-    }
+    const spiritNames = new Set(focalRosterForSeries(series).map((p) => p.name));
+    expect(spiritNames.size).toBeGreaterThan(0);
+
+    const tFilter = { side: "T" as const, kind: "full" as const };
+    const tOverlay = buildSeriesOverlay(tagged, tFilter);
+    expect(tOverlay.trails.length).toBeGreaterThan(0);
+    expect(overlayAtPlaySec(tOverlay, 0).trails.length).toBeGreaterThan(0);
+    expect(overlayAtPlaySec(tOverlay, 5).trails.length).toBeGreaterThan(0);
+    expect(tOverlay.trails.every((trail) => spiritNames.has(trail.playerName))).toBe(true);
+    const tTags = tagged.demos.reduce(
+      (n, demo) => n + matchingTags(tagged.tagsByDemo.get(demo.id) ?? [], tFilter).length,
+      0,
+    );
+    expect(tTags).toBeGreaterThan(0);
+    const sides = new Set(
+      tagged.demos.flatMap((demo) =>
+        (tagged.tagsByDemo.get(demo.id) ?? []).map((tag) => tag.sideForFocal),
+      ),
+    );
+    expect([...sides]).toEqual(["T"]);
+
+    const ctFilter = { side: "CT" as const, kind: "full" as const };
+    const ctOverlay = buildSeriesOverlay(tagged, ctFilter);
+    expect(ctOverlay.trails.every((trail) => spiritNames.has(trail.playerName))).toBe(true);
+    expect(ctOverlay.trails.some((trail) => /npl|huNter|MATYS/i.test(trail.playerName))).toBe(
+      false,
+    );
   });
 
-  it("scopes Aggregated CT full player options to the focal Spirit roster", async () => {
+  it("scopes Aggregated CT full trails and pawn legend to Spirit", async () => {
     const series = await hydrateTutorialSeries();
     expect(series).not.toBeNull();
     if (!series) return;
@@ -77,6 +92,7 @@ describe("tutorial multi-demo fixture", () => {
     const spirit = focalRosterForSeries(series);
     expect(spirit.length).toBeGreaterThan(0);
     const spiritKeys = new Set(spirit.map((p) => p.key));
+    const spiritNames = new Set(spirit.map((p) => p.name));
     const ctRoster = overlayRoster(tagged, { side: "CT", kind: "full" });
     const tRoster = overlayRoster(tagged, { side: "T", kind: "full" });
     expect(ctRoster.every((p) => spiritKeys.has(p.key))).toBe(true);
@@ -85,13 +101,29 @@ describe("tutorial multi-demo fixture", () => {
     expect(ctOptions.every((p) => spiritKeys.has(p.key))).toBe(true);
     expect(tRoster.length).toBeGreaterThan(0);
     expect(tRoster.every((p) => spiritKeys.has(p.key))).toBe(true);
+
     const allCt = buildSeriesOverlay(tagged, { side: "CT", kind: "full" });
-    expect(allCt.trails.length).toBeGreaterThan(0);
+    expect(allCt.trails.every((trail) => spiritNames.has(trail.playerName))).toBe(true);
+    const ctLegend = analyzerPawnLegend(
+      tagged,
+      { aggregated: true, overlayOn: true, bucketOverlay: { kind: "full", side: "CT" } },
+      allCt,
+    );
+    expect(ctLegend.every((row) => spiritNames.has(row.label))).toBe(true);
+    expect(ctLegend.some((row) => /npl|huNter|MATYS/i.test(row.label))).toBe(false);
+
     const tPlayer = tRoster[0]!;
     const oneT = buildSeriesOverlay(tagged, { side: "T", kind: "full" }, tPlayer.key);
     const allT = buildSeriesOverlay(tagged, { side: "T", kind: "full" });
     expect(oneT.trails.length).toBeGreaterThan(0);
     expect(oneT.trails.length).toBeLessThan(allT.trails.length);
     expect(oneT.trails.every((trail) => trail.playerName === tPlayer.name)).toBe(true);
+    const tLegend = analyzerPawnLegend(
+      tagged,
+      { aggregated: true, overlayOn: true, bucketOverlay: { kind: "full", side: "T" } },
+      allT,
+    );
+    expect(tLegend.length).toBeGreaterThan(0);
+    expect(tLegend.every((row) => spiritNames.has(row.label))).toBe(true);
   });
 });

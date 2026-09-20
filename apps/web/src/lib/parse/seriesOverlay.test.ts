@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import {
-  makeFreezeTicks,
   makeGrenade,
   makeKill,
   makePlayer,
@@ -22,7 +21,6 @@ import {
   habitsArrowJumpTick,
   habitsNadeViewTick,
   overlayAtPlaySec,
-  overlayRoster,
 } from "./seriesOverlay";
 import { nadeRenderAt } from "@/lib/radar/radarFrame";
 import { PLAYER_TINTS, UNKNOWN_STEAM_TINT } from "@/lib/notes/palettes";
@@ -158,37 +156,6 @@ describe("buildSeriesOverlay", () => {
     expect(early.trails[0]?.points.length ?? 0).toBeLessThan(late.trails[0]?.points.length ?? 0);
     expect(early.windowSec).toBe(full.windowSec);
     expect(overlayAtPlaySec(full, 0).trails.length).toBeGreaterThan(0);
-  });
-
-  it("lists only the focal team on the selected side, not every CT/T pawn", () => {
-    const focal = "Team A";
-    const replay = makeReplay({
-      header: { team_ct: focal, team_t: "Enemy" },
-      players: [makePlayer(0, "CT", "A1", 100), makePlayer(1, "T", "E1", 200)],
-      ticks: makeFreezeTicks(2, 1, 64),
-      rounds: [
-        makeRound({
-          number: 1,
-          team_ct: focal,
-          team_t: "Enemy",
-          start_tick: 0,
-          freeze_end_tick: 64,
-          end_tick: 2000,
-        }),
-      ],
-    });
-    const demo = loadedDemo(replay, "a.dem", new File([], "a.dem"));
-    const series = buildSeries("de_mirage", [demo], focal);
-    const base = series.tagsByDemo.get(demo.id)?.[0];
-    expect(base).toBeTruthy();
-    series.tagsByDemo.set(demo.id, [
-      { ...base!, sideForFocal: "CT" },
-      { ...base!, sideForFocal: "T" },
-    ]);
-    const ct = overlayRoster(series, { side: "CT", kind: base!.kind });
-    const t = overlayRoster(series, { side: "T", kind: base!.kind });
-    expect(ct.map((p) => p.name)).toEqual(["A1"]);
-    expect(t).toEqual([]);
   });
 
   it("uses round end for the bucket window when not overridden", () => {

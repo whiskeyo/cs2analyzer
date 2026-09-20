@@ -1,5 +1,5 @@
 import type { DemoSeries } from "@/lib/parse/session";
-import type { RoundKind, RoundTag } from "@/lib/parse/roundTags";
+import { focalSideAtFreeze, type RoundKind, type RoundTag } from "@/lib/parse/roundTags";
 import { tutorialSeriesManifest } from "./multi-demo/manifest";
 import { isTutorialSeriesActiveRound, tutorialSeriesDemoId } from "./multi-demo/types";
 import { TUTORIAL_SERIES_PREFIX } from "./identity";
@@ -56,9 +56,9 @@ export function isTutorialSeriesChipEnabled(demoId: string | null | undefined): 
 /**
  * Overlay / util for the habits-window set (`activeRounds`).
  *
- * CLI windows keep both teams’ ticks. Tagging by focal-team buy would leave
- * CT full empty when those rounds were T-side full buys (or the reverse).
- * Duplicate each active round as `full` for CT and T so both filters bind.
+ * Force `kind=full` so the tour bucket matches, but keep the focal team's
+ * real freeze side. Inventing the opposite `sideForFocal` sampled enemy CTs
+ * into the CT overlay (and PawnLegend) while Spirit was T.
  */
 export function tutorialSeriesHabitsTags(series: DemoSeries): Map<string, RoundTag[]> {
   if (!series.demos.some((demo) => isTutorialSeriesSession(demo.id))) {
@@ -80,17 +80,19 @@ export function tutorialSeriesHabitsTags(series: DemoSeries): Map<string, RoundT
       const startTick = base?.startTick ?? round?.start_tick ?? 0;
       const freezeEndTick = base?.freezeEndTick ?? round?.freeze_end_tick ?? startTick;
       const isOt = base?.isOt ?? false;
-      for (const side of ["CT", "T"] as const) {
-        tags.push({
-          demoId: demo.id,
-          roundNumber,
-          startTick,
-          freezeEndTick,
-          sideForFocal: side,
-          kind: "full",
-          isOt,
-        });
-      }
+      const side =
+        base?.sideForFocal ??
+        (round ? focalSideAtFreeze(demo.replay, round, series.focalTeamNames) : null);
+      if (!side) continue;
+      tags.push({
+        demoId: demo.id,
+        roundNumber,
+        startTick,
+        freezeEndTick,
+        sideForFocal: side,
+        kind: "full",
+        isOt,
+      });
     }
     tagsByDemo.set(demo.id, tags);
   }

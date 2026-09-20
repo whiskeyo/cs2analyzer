@@ -153,10 +153,27 @@ export function loadHabitsTrailWindowSec(): number {
   }
 }
 
-function focalSidePlayersAtFreeze(replay: Replay, tag: RoundTag): number[] {
+function playerOnFocalTeam(
+  replay: Replay,
+  player: number,
+  tick: number,
+  focal: ReadonlySet<string>,
+): boolean {
+  const team = playerTeamNameAt(replay, player, tick);
+  return Boolean(team && focal.has(team));
+}
+
+function focalSidePlayersAtFreeze(
+  replay: Replay,
+  tag: RoundTag,
+  focal: ReadonlySet<string>,
+): number[] {
   const wantCt = tag.sideForFocal === "CT";
   const players = samplePlayers(replay, tag.freezeEndTick);
-  return players.filter((p) => p.present && p.ct === wantCt).map((p) => p.index);
+  return players
+    .filter((p) => p.present && p.ct === wantCt)
+    .map((p) => p.index)
+    .filter((player) => playerOnFocalTeam(replay, player, tag.freezeEndTick, focal));
 }
 
 /**
@@ -172,9 +189,7 @@ export function overlayRoster(
   for (const demo of series.demos) {
     const tags = series.tagsByDemo.get(demo.id) ?? [];
     for (const tag of matchingTags(tags, filter)) {
-      for (const player of focalSidePlayersAtFreeze(demo.replay, tag)) {
-        const team = playerTeamNameAt(demo.replay, player, tag.freezeEndTick);
-        if (!team || !focal.has(team)) continue;
+      for (const player of focalSidePlayersAtFreeze(demo.replay, tag, focal)) {
         const key = playerIdentityKey(demo.replay, player);
         if (byKey.has(key)) continue;
         byKey.set(key, demo.replay.players[player]?.name ?? "?");
@@ -186,11 +201,17 @@ export function overlayRoster(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function throwerOnFocalSide(replay: Replay, tag: RoundTag, thrower: number): boolean {
+function throwerOnFocalTeam(
+  replay: Replay,
+  tag: RoundTag,
+  thrower: number,
+  focal: ReadonlySet<string>,
+): boolean {
   if (thrower < 0) return false;
   const wantCt = tag.sideForFocal === "CT";
   const snap = samplePlayer(replay, thrower, tag.freezeEndTick);
-  return Boolean(snap?.present && snap.ct === wantCt);
+  if (!snap?.present || snap.ct !== wantCt) return false;
+  return playerOnFocalTeam(replay, thrower, tag.freezeEndTick, focal);
 }
 
 /** Inclusive last tick to sample: this round only, never the next freeze/spawn. */
@@ -254,6 +275,7 @@ function habitsNadesInTaggedRound(
   windowSeconds: number,
   playerKey: string | null,
   demoId: string,
+  focal: ReadonlySet<string>,
 ): HabitsNade[] {
   const tps = tickRate(replay);
   const until = tag.freezeEndTick + Math.round(tps * windowSeconds);
@@ -265,7 +287,7 @@ function habitsNadesInTaggedRound(
     if (g.start_tick < tag.freezeEndTick || g.start_tick > until) continue;
     if (g.start_tick < round.start_tick || g.start_tick > round.end_tick) continue;
     if (inKnifeRound(replay, g.start_tick)) continue;
-    if (!throwerOnFocalSide(replay, tag, g.thrower)) continue;
+    if (!throwerOnFocalTeam(replay, tag, g.thrower, focal)) continue;
     if (playerKey != null && playerIdentityKey(replay, g.thrower) !== playerKey) continue;
     if (g.points.length === 0) continue;
     out.push({
@@ -300,6 +322,7 @@ export function buildSeriesOverlay(
   const trails: HabitsTrail[] = [];
   const nades: HabitsNade[] = [];
   const steamTints = new Map<string, string>();
+  const focal = new Set(series.focalTeamNames);
   let roundCount = 0;
 
   for (const demo of series.demos) {
@@ -312,8 +335,10 @@ export function buildSeriesOverlay(
       const round = demo.replay.rounds.find((r) => r.number === tag.roundNumber);
       if (!round) continue;
       const until = tag.freezeEndTick + Math.round(tps * windowSec);
-      nades.push(...habitsNadesInTaggedRound(demo.replay, tag, windowSec, playerKey, demo.id));
-      for (const player of focalSidePlayersAtFreeze(demo.replay, tag)) {
+      nades.push(
+        ...habitsNadesInTaggedRound(demo.replay, tag, windowSec, playerKey, demo.id, focal),
+      );
+      for (const player of focalSidePlayersAtFreeze(demo.replay, tag, focal)) {
         const meta = demo.replay.players[player];
         const key = playerIdentityKey(demo.replay, player);
         if (playerKey != null && key !== playerKey) continue;
