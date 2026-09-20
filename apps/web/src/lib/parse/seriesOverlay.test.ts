@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import {
+  makeFreezeTicks,
   makeGrenade,
   makeKill,
   makePlayer,
@@ -159,16 +160,17 @@ describe("buildSeriesOverlay", () => {
     expect(overlayAtPlaySec(full, 0).trails.length).toBeGreaterThan(0);
   });
 
-  it("lists overlay roster players for the selected side, not the whole focal team", () => {
+  it("lists only the focal team on the selected side, not every CT/T pawn", () => {
     const focal = "Team A";
     const replay = makeReplay({
-      header: { team_ct: focal, team_t: "B" },
-      ticks: makeTrailTicks(),
+      header: { team_ct: focal, team_t: "Enemy" },
+      players: [makePlayer(0, "CT", "A1", 100), makePlayer(1, "T", "E1", 200)],
+      ticks: makeFreezeTicks(2, 1, 64),
       rounds: [
         makeRound({
           number: 1,
           team_ct: focal,
-          team_t: "B",
+          team_t: "Enemy",
           start_tick: 0,
           freeze_end_tick: 64,
           end_tick: 2000,
@@ -185,9 +187,8 @@ describe("buildSeriesOverlay", () => {
     ]);
     const ct = overlayRoster(series, { side: "CT", kind: base!.kind });
     const t = overlayRoster(series, { side: "T", kind: base!.kind });
-    expect(ct.length).toBeGreaterThan(0);
-    expect(t.length).toBeGreaterThan(0);
-    expect(ct.some((p) => t.some((row) => row.key === p.key))).toBe(false);
+    expect(ct.map((p) => p.name)).toEqual(["A1"]);
+    expect(t).toEqual([]);
   });
 
   it("uses round end for the bucket window when not overridden", () => {

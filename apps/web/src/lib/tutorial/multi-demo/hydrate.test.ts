@@ -69,22 +69,29 @@ describe("tutorial multi-demo fixture", () => {
     }
   });
 
-  it("filters CT overlay players independently of the focal T roster", async () => {
+  it("scopes Aggregated CT full player options to the focal Spirit roster", async () => {
     const series = await hydrateTutorialSeries();
     expect(series).not.toBeNull();
     if (!series) return;
     const tagged = { ...series, tagsByDemo: tutorialSeriesHabitsTags(series) };
+    const spirit = focalRosterForSeries(series);
+    expect(spirit.length).toBeGreaterThan(0);
+    const spiritKeys = new Set(spirit.map((p) => p.key));
     const ctRoster = overlayRoster(tagged, { side: "CT", kind: "full" });
     const tRoster = overlayRoster(tagged, { side: "T", kind: "full" });
-    const focal = focalRosterForSeries(series);
-    expect(ctRoster.length).toBeGreaterThan(0);
+    expect(ctRoster.every((p) => spiritKeys.has(p.key))).toBe(true);
+    const ctOptions = ctRoster.length > 0 ? ctRoster : spirit;
+    expect(ctOptions.length).toBeGreaterThan(0);
+    expect(ctOptions.every((p) => spiritKeys.has(p.key))).toBe(true);
     expect(tRoster.length).toBeGreaterThan(0);
-    expect(ctRoster.some((p) => focal.every((row) => row.key !== p.key))).toBe(true);
-    const ctPlayer = ctRoster[0]!;
+    expect(tRoster.every((p) => spiritKeys.has(p.key))).toBe(true);
     const allCt = buildSeriesOverlay(tagged, { side: "CT", kind: "full" });
-    const oneCt = buildSeriesOverlay(tagged, { side: "CT", kind: "full" }, ctPlayer.key);
-    expect(oneCt.trails.length).toBeGreaterThan(0);
-    expect(oneCt.trails.length).toBeLessThan(allCt.trails.length);
-    expect(oneCt.trails.every((trail) => trail.playerName === ctPlayer.name)).toBe(true);
+    expect(allCt.trails.length).toBeGreaterThan(0);
+    const tPlayer = tRoster[0]!;
+    const oneT = buildSeriesOverlay(tagged, { side: "T", kind: "full" }, tPlayer.key);
+    const allT = buildSeriesOverlay(tagged, { side: "T", kind: "full" });
+    expect(oneT.trails.length).toBeGreaterThan(0);
+    expect(oneT.trails.length).toBeLessThan(allT.trails.length);
+    expect(oneT.trails.every((trail) => trail.playerName === tPlayer.name)).toBe(true);
   });
 });

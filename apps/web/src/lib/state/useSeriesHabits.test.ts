@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
-import { playerIdentityKey } from "@/lib/parse/seriesRoster";
+import { focalRosterForSeries, playerIdentityKey } from "@/lib/parse/seriesRoster";
 import { makeFreezeTicks, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
 import { tutorialSeriesManifest } from "@/lib/tutorial/multi-demo/manifest";
 import { tutorialSeriesDemoId } from "@/lib/tutorial/multi-demo/types";
@@ -304,33 +304,27 @@ describe("useSeriesHabits", () => {
       result.current.ensureBucketOverlay("full", "CT");
     });
     expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
-    const ctNames = new Set(result.current.focalPlayers.map((p) => p.name));
-    expect(result.current.overlay?.trails.every((trail) => ctNames.has(trail.playerName))).toBe(
-      true,
-    );
-
-    const ctPlayer = result.current.focalPlayers[0];
-    expect(ctPlayer).toBeTruthy();
-    act(() => result.current.setPlayerKey(ctPlayer!.key));
-    expect(result.current.playerKey).toBe(ctPlayer!.key);
-    expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
-    expect(
-      result.current.overlay?.trails.every((trail) => trail.playerName === ctPlayer!.name),
-    ).toBe(true);
+    const spirit = new Set(focalRosterForSeries(series).map((p) => p.key));
+    expect(spirit.size).toBeGreaterThan(0);
+    expect(result.current.focalPlayers.every((p) => spirit.has(p.key))).toBe(true);
+    expect(result.current.focalPlayers.length).toBeGreaterThan(0);
 
     act(() => result.current.setSide("T"));
     expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
     expect(result.current.filter.playerKey).toBeNull();
-    expect(result.current.playerKey).toBeNull();
     expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
-    const tNames = new Set(result.current.focalPlayers.map((p) => p.name));
-    expect(tNames.has(ctPlayer!.name)).toBe(false);
-    expect(result.current.overlay?.trails.every((trail) => tNames.has(trail.playerName))).toBe(
-      true,
-    );
+    expect(result.current.focalPlayers.every((p) => spirit.has(p.key))).toBe(true);
+    const tPlayer = result.current.focalPlayers[0];
+    expect(tPlayer).toBeTruthy();
+    act(() => result.current.setPlayerKey(tPlayer!.key));
+    expect(result.current.playerKey).toBe(tPlayer!.key);
+    expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
+    expect(
+      result.current.overlay?.trails.every((trail) => trail.playerName === tPlayer!.name),
+    ).toBe(true);
 
     act(() => result.current.setSide("CT"));
     expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
-    expect(result.current.focalPlayers.some((p) => p.key === ctPlayer!.key)).toBe(true);
+    expect(result.current.focalPlayers.every((p) => spirit.has(p.key))).toBe(true);
   });
 });

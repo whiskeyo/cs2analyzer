@@ -13,7 +13,7 @@ import {
 import { SERIES_TRAIL_WINDOW_STORAGE_KEY } from "@/lib/shared/storageKeys";
 import { matchingTags, type SeriesFilter } from "./seriesAnalysis";
 import type { RoundTag } from "./roundTags";
-import { playerIdentityKey } from "./seriesRoster";
+import { playerIdentityKey, playerTeamNameAt } from "./seriesRoster";
 import {
   buildPathBranches,
   clampPathBranchOptions,
@@ -159,16 +159,22 @@ function focalSidePlayersAtFreeze(replay: Replay, tag: RoundTag): number[] {
   return players.filter((p) => p.present && p.ct === wantCt).map((p) => p.index);
 }
 
-/** Players on the selected habits side/buy — the overlay roster, not the whole focal team. */
+/**
+ * Focal-team players on the selected habits side/buy.
+ * Same org as the team picker (`focalTeamNames`), not every pawn on that side.
+ */
 export function overlayRoster(
   series: DemoSeries,
   filter: SeriesFilter,
 ): { key: string; name: string }[] {
+  const focal = new Set(series.focalTeamNames);
   const byKey = new Map<string, string>();
   for (const demo of series.demos) {
     const tags = series.tagsByDemo.get(demo.id) ?? [];
     for (const tag of matchingTags(tags, filter)) {
       for (const player of focalSidePlayersAtFreeze(demo.replay, tag)) {
+        const team = playerTeamNameAt(demo.replay, player, tag.freezeEndTick);
+        if (!team || !focal.has(team)) continue;
         const key = playerIdentityKey(demo.replay, player);
         if (byKey.has(key)) continue;
         byKey.set(key, demo.replay.players[player]?.name ?? "?");
