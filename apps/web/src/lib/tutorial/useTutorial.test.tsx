@@ -212,7 +212,7 @@ describe("useTutorial", () => {
     const setSeriesView = vi.fn();
     const ensureBucketOverlay = vi.fn();
     sessionMocks.useOptionalAnalyzer.mockReturnValue({
-      habits: { aggregated: false, setSeriesView, ensureBucketOverlay },
+      habits: { aggregated: false, filter: { side: "T" }, setSeriesView, ensureBucketOverlay },
     });
     const { rerender } = renderHook(() => useTutorial(), {
       wrapper: wrapper("/analyzer?tutorial=aggregated"),
@@ -224,7 +224,7 @@ describe("useTutorial", () => {
     rerender();
     await waitFor(() => {
       expect(setSeriesView).toHaveBeenCalledWith("aggregated");
-      expect(ensureBucketOverlay).toHaveBeenCalledWith("full", "CT");
+      expect(ensureBucketOverlay).toHaveBeenCalledWith("full", "T");
     });
   });
 

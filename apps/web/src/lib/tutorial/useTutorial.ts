@@ -224,11 +224,12 @@ export function useTutorial(): void {
   const setSeriesView = analyzer?.habits.setSeriesView;
   const ensureBucketOverlay = analyzer?.habits.ensureBucketOverlay;
   const aggregatedOn = analyzer?.habits.aggregated ?? false;
+  const overlaySide = analyzer?.habits.filter.side ?? "CT";
   const seriesReady = isMultiDemoSeries(session.series);
 
   useEffect(() => {
     if (step !== "aggregated" || !seriesReady) return;
     if (!aggregatedOn) setSeriesView?.("aggregated");
-    ensureBucketOverlay?.("full", "CT");
-  }, [aggregatedOn, ensureBucketOverlay, seriesReady, setSeriesView, step]);
+    ensureBucketOverlay?.("full", overlaySide);
+  }, [aggregatedOn, ensureBucketOverlay, overlaySide, seriesReady, setSeriesView, step]);
 }

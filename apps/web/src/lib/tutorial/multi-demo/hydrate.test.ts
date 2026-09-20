@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { SERIES_HABITS_WINDOW_SECONDS } from "@/lib/shared/constants";
 import { collectSeriesRoundsByKind } from "@/lib/parse/seriesAnalysis";
-import { buildSeriesOverlay } from "@/lib/parse/seriesOverlay";
+import { buildSeriesOverlay, overlayAtPlaySec, overlayRoster } from "@/lib/parse/seriesOverlay";
 import { matchingTags } from "@/lib/parse/seriesAnalysis";
+import { focalRosterForSeries } from "@/lib/parse/seriesRoster";
 import { hydrateTutorialSeries } from "./hydrate";
 import { tutorialSeriesManifest } from "./manifest";
 import { isTutorialSeriesActiveRound, tutorialSeriesDemoId } from "./types";
@@ -58,11 +59,32 @@ describe("tutorial multi-demo fixture", () => {
       const filter = { side, kind: "full" as const };
       const overlay = buildSeriesOverlay(tagged, filter);
       expect(overlay.trails.length).toBeGreaterThan(0);
+      expect(overlayAtPlaySec(overlay, 0).trails.length).toBeGreaterThan(0);
+      expect(overlayAtPlaySec(overlay, 5).trails.length).toBeGreaterThan(0);
       const tagCount = tagged.demos.reduce(
         (n, demo) => n + matchingTags(tagged.tagsByDemo.get(demo.id) ?? [], filter).length,
         0,
       );
       expect(tagCount).toBeGreaterThan(0);
     }
+  });
+
+  it("filters CT overlay players independently of the focal T roster", async () => {
+    const series = await hydrateTutorialSeries();
+    expect(series).not.toBeNull();
+    if (!series) return;
+    const tagged = { ...series, tagsByDemo: tutorialSeriesHabitsTags(series) };
+    const ctRoster = overlayRoster(tagged, { side: "CT", kind: "full" });
+    const tRoster = overlayRoster(tagged, { side: "T", kind: "full" });
+    const focal = focalRosterForSeries(series);
+    expect(ctRoster.length).toBeGreaterThan(0);
+    expect(tRoster.length).toBeGreaterThan(0);
+    expect(ctRoster.some((p) => focal.every((row) => row.key !== p.key))).toBe(true);
+    const ctPlayer = ctRoster[0]!;
+    const allCt = buildSeriesOverlay(tagged, { side: "CT", kind: "full" });
+    const oneCt = buildSeriesOverlay(tagged, { side: "CT", kind: "full" }, ctPlayer.key);
+    expect(oneCt.trails.length).toBeGreaterThan(0);
+    expect(oneCt.trails.length).toBeLessThan(allCt.trails.length);
+    expect(oneCt.trails.every((trail) => trail.playerName === ctPlayer.name)).toBe(true);
   });
 });

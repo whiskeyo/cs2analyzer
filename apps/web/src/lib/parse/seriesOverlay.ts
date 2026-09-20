@@ -159,6 +159,27 @@ function focalSidePlayersAtFreeze(replay: Replay, tag: RoundTag): number[] {
   return players.filter((p) => p.present && p.ct === wantCt).map((p) => p.index);
 }
 
+/** Players on the selected habits side/buy — the overlay roster, not the whole focal team. */
+export function overlayRoster(
+  series: DemoSeries,
+  filter: SeriesFilter,
+): { key: string; name: string }[] {
+  const byKey = new Map<string, string>();
+  for (const demo of series.demos) {
+    const tags = series.tagsByDemo.get(demo.id) ?? [];
+    for (const tag of matchingTags(tags, filter)) {
+      for (const player of focalSidePlayersAtFreeze(demo.replay, tag)) {
+        const key = playerIdentityKey(demo.replay, player);
+        if (byKey.has(key)) continue;
+        byKey.set(key, demo.replay.players[player]?.name ?? "?");
+      }
+    }
+  }
+  return [...byKey.entries()]
+    .map(([key, name]) => ({ key, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function throwerOnFocalSide(replay: Replay, tag: RoundTag, thrower: number): boolean {
   if (thrower < 0) return false;
   const wantCt = tag.sideForFocal === "CT";
@@ -333,7 +354,8 @@ function clipTrailsForPlaySec(trails: HabitsTrail[], playSec: number): HabitsTra
       trail.survivedAt != null &&
       trail.survivedTick != null &&
       trail.survivedTick <= until;
-    if (points.length < 2 && !showDeath) continue;
+    // Keep a freeze-only head so arrows exist at playSec 0 (one sampled tick).
+    if (points.length < 1 && !showDeath) continue;
     out.push({
       ...trail,
       points,

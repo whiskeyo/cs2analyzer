@@ -21,6 +21,7 @@ import {
   habitsArrowJumpTick,
   habitsNadeViewTick,
   overlayAtPlaySec,
+  overlayRoster,
 } from "./seriesOverlay";
 import { nadeRenderAt } from "@/lib/radar/radarFrame";
 import { PLAYER_TINTS, UNKNOWN_STEAM_TINT } from "@/lib/notes/palettes";
@@ -155,6 +156,38 @@ describe("buildSeriesOverlay", () => {
     const late = overlayAtPlaySec(full, 20);
     expect(early.trails[0]?.points.length ?? 0).toBeLessThan(late.trails[0]?.points.length ?? 0);
     expect(early.windowSec).toBe(full.windowSec);
+    expect(overlayAtPlaySec(full, 0).trails.length).toBeGreaterThan(0);
+  });
+
+  it("lists overlay roster players for the selected side, not the whole focal team", () => {
+    const focal = "Team A";
+    const replay = makeReplay({
+      header: { team_ct: focal, team_t: "B" },
+      ticks: makeTrailTicks(),
+      rounds: [
+        makeRound({
+          number: 1,
+          team_ct: focal,
+          team_t: "B",
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 2000,
+        }),
+      ],
+    });
+    const demo = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const series = buildSeries("de_mirage", [demo], focal);
+    const base = series.tagsByDemo.get(demo.id)?.[0];
+    expect(base).toBeTruthy();
+    series.tagsByDemo.set(demo.id, [
+      { ...base!, sideForFocal: "CT" },
+      { ...base!, sideForFocal: "T" },
+    ]);
+    const ct = overlayRoster(series, { side: "CT", kind: base!.kind });
+    const t = overlayRoster(series, { side: "T", kind: base!.kind });
+    expect(ct.length).toBeGreaterThan(0);
+    expect(t.length).toBeGreaterThan(0);
+    expect(ct.some((p) => t.some((row) => row.key === p.key))).toBe(false);
   });
 
   it("uses round end for the bucket window when not overridden", () => {

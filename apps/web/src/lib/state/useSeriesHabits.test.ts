@@ -189,6 +189,11 @@ describe("useSeriesHabits", () => {
     act(() => result.current.setPlayerKey("steam:999"));
     expect(result.current.filter.playerKey).toBe("steam:999");
     expect(result.current.playerKey).toBeNull();
+
+    act(() => result.current.setPlayerKey(donkKey));
+    act(() => result.current.setSide("T"));
+    expect(result.current.filter.playerKey).toBeNull();
+    expect(result.current.filter.side).toBe("T");
   });
 
   it("applies the habits trail window to the overlay", () => {
@@ -269,7 +274,63 @@ describe("useSeriesHabits", () => {
     act(() => result.current.setSide("CT"));
     expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
 
+    act(() => result.current.setSide("T"));
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
+    expect(result.current.filter.side).toBe("T");
+    expect(result.current.filter.playerKey).toBeNull();
+
     act(() => result.current.setOverlayOn(false));
     expect(result.current.overlayOn).toBe(true);
+  });
+
+  it("tutorial Aggregated side switch keeps overlay trails and a CT player filter", async () => {
+    const { hydrateTutorialSeries } = await import("@/lib/tutorial/multi-demo/hydrate");
+    const series = await hydrateTutorialSeries();
+    expect(series).not.toBeNull();
+    if (!series) return;
+
+    const { result } = renderHook(() =>
+      useSeriesHabits({
+        series,
+        places: null,
+        activeDemoId: series.demos[0]?.id ?? null,
+        selectDemo: vi.fn(),
+        jump: vi.fn(),
+      }),
+    );
+
+    act(() => {
+      result.current.setSeriesView("aggregated");
+      result.current.ensureBucketOverlay("full", "CT");
+    });
+    expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
+    const ctNames = new Set(result.current.focalPlayers.map((p) => p.name));
+    expect(result.current.overlay?.trails.every((trail) => ctNames.has(trail.playerName))).toBe(
+      true,
+    );
+
+    const ctPlayer = result.current.focalPlayers[0];
+    expect(ctPlayer).toBeTruthy();
+    act(() => result.current.setPlayerKey(ctPlayer!.key));
+    expect(result.current.playerKey).toBe(ctPlayer!.key);
+    expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
+    expect(
+      result.current.overlay?.trails.every((trail) => trail.playerName === ctPlayer!.name),
+    ).toBe(true);
+
+    act(() => result.current.setSide("T"));
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
+    expect(result.current.filter.playerKey).toBeNull();
+    expect(result.current.playerKey).toBeNull();
+    expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
+    const tNames = new Set(result.current.focalPlayers.map((p) => p.name));
+    expect(tNames.has(ctPlayer!.name)).toBe(false);
+    expect(result.current.overlay?.trails.every((trail) => tNames.has(trail.playerName))).toBe(
+      true,
+    );
+
+    act(() => result.current.setSide("CT"));
+    expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
+    expect(result.current.focalPlayers.some((p) => p.key === ctPlayer!.key)).toBe(true);
   });
 });
