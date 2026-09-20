@@ -310,6 +310,62 @@ export function habitsNadeViewTick(nade: HabitsNade, playSec: number): number {
   return nade.freezeEndTick + Math.round(nade.tps * playSec);
 }
 
+function lerpNumber(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/** Shortest-path lerp on CS2 eye yaw (degrees). Same unwrap as replay `samplePlayer`. */
+function lerpYaw(a: number, b: number, t: number): number {
+  let delta = b - a;
+  while (delta > 180) delta -= 360;
+  while (delta < -180) delta += 360;
+  return a + delta * t;
+}
+
+/** Fractional freeze-relative tick. Tutorial `tickStride` 6 is ~10 Hz; the playhead is not. */
+export function habitsPlayheadTick(jumpTick: number, tps: number, playSec: number): number {
+  return jumpTick + tps * playSec;
+}
+
+function interpolateHabitsPoint(
+  from: HabitsTrailPoint,
+  to: HabitsTrailPoint,
+  untilTick: number,
+): HabitsTrailPoint {
+  const span = to.tick - from.tick;
+  const t = span === 0 ? 0 : (untilTick - from.tick) / span;
+  return {
+    x: lerpNumber(from.x, to.x, t),
+    y: lerpNumber(from.y, to.y, t),
+    z: lerpNumber(from.z, to.z, t),
+    tick: untilTick,
+    yaw: lerpYaw(from.yaw, to.yaw, t),
+  };
+}
+
+/**
+ * Samples at or before `untilTick`, plus a lerped head when the playhead sits
+ * between sparse stride snapshots. One-point freeze heads stay put; nothing is
+ * invented past the last sample (death / trail end).
+ */
+export function clipHabitsTrailPoints(
+  points: HabitsTrailPoint[],
+  untilTick: number,
+): HabitsTrailPoint[] {
+  if (points.length === 0) return [];
+  let lastAtOrBefore = -1;
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].tick <= untilTick) lastAtOrBefore = i;
+    else break;
+  }
+  if (lastAtOrBefore < 0) return [points[0]];
+  const kept = points.slice(0, lastAtOrBefore + 1);
+  const last = points[lastAtOrBefore];
+  const next = points[lastAtOrBefore + 1];
+  if (!next || last.tick === untilTick) return kept;
+  return [...kept, interpolateHabitsPoint(last, next, untilTick)];
+}
+
 /** Freeze-relative player paths and util arcs for one habits filter bucket. */
 export function buildSeriesOverlay(
   series: DemoSeries,
@@ -377,8 +433,8 @@ export function buildSeriesOverlay(
 function clipTrailsForPlaySec(trails: HabitsTrail[], playSec: number): HabitsTrail[] {
   const out: HabitsTrail[] = [];
   for (const trail of trails) {
-    const until = trail.jumpTick + Math.round(trail.tps * playSec);
-    const points = trail.points.filter((p) => p.tick <= until);
+    const until = habitsPlayheadTick(trail.jumpTick, trail.tps, playSec);
+    const points = clipHabitsTrailPoints(trail.points, until);
     const showDeath = trail.deathAt != null && trail.deathTick != null && trail.deathTick <= until;
     const showSurvived =
       !showDeath &&
