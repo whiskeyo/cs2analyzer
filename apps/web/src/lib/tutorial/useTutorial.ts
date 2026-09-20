@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router";
-import { parsePlaybookQuery } from "@/lib/app/playbookSearch";
-import { isAnalyzerPath, isHomePath, isPlaybookPath, ROUTES } from "@/lib/app/routes";
+import { useLocation } from "react-router";
+import { isHomePath } from "@/lib/app/routes";
 import { isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { useOptionalAnalyzer } from "@/lib/state/analyzerState";
@@ -19,14 +18,19 @@ import {
   scheduleHomeTutorialPrefetch,
   warmupTutorialSession,
 } from "./prefetch";
-import { parseTutorialQuery, tutorialHref, type TutorialStep } from "./query";
+import {
+  isTutorialAnalyzerPath,
+  isTutorialPlaybookPath,
+  parseTutorialPath,
+  type TutorialStep,
+} from "./query";
 
 const LOADING_NOTICE = "Loading tutorial…";
 
-/** Survives AnalyzerHost remount when the user closes the session. */
+/** Survives AnalyzerHost remount so a matching session is not installed twice. */
 let lastInstalledStep: TutorialStep | null = null;
 
-/** Test hook: isolate query-install state across cases. */
+/** Test hook: isolate path-install state across cases. */
 export function resetTutorialInstallState(): void {
   lastInstalledStep = null;
 }
@@ -50,16 +54,15 @@ async function ensureTutorialPlaybook(): Promise<void> {
 }
 
 /**
- * Deep-link + Home CTA installer. Puts tutorial fixtures on the same session
- * path as a successful demo drop. Lazy `load.ts` keeps ticks off the cold path.
+ * `/tutorial` installer. Puts tutorial fixtures on the same session path as a
+ * successful demo drop. Lazy `load.ts` keeps ticks off the cold path.
  */
 export function useTutorial(): void {
   const { session, status } = useSession();
   const analyzer = useOptionalAnalyzer();
   const { settings, ready } = useUserSettings();
-  const navigate = useNavigate();
-  const { pathname, search } = useLocation();
-  const step = parseTutorialQuery(search);
+  const { pathname } = useLocation();
+  const step = parseTutorialPath(pathname);
 
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -70,11 +73,11 @@ export function useTutorial(): void {
 
   useLayoutEffect(() => {
     if (step == null) return;
-    if (isHomePath(pathname) || isAnalyzerPath(pathname)) {
+    if (isTutorialAnalyzerPath(pathname)) {
       if (step === "replay" || step === "aggregated") warmupTutorialSession();
       return;
     }
-    if (isPlaybookPath(pathname)) prefetchNextTutorialStep(step);
+    if (isTutorialPlaybookPath(pathname)) prefetchNextTutorialStep(step);
   }, [pathname, step]);
 
   useEffect(() => {
@@ -89,17 +92,9 @@ export function useTutorial(): void {
       installedStepRef.current = null;
       return;
     }
-    if (isHomePath(pathname)) {
-      if (step === "replay" || step === "aggregated") warmupTutorialSession();
-      navigate(tutorialHref(step), { replace: true });
-      return;
-    }
 
     if (step === "playbook") {
-      if (!isPlaybookPath(pathname)) {
-        if (isAnalyzerPath(pathname)) navigate(tutorialHref("playbook"));
-        return;
-      }
+      if (!isTutorialPlaybookPath(pathname)) return;
 
       if (lastInstalledStep === "playbook") {
         installedStepRef.current = "playbook";
@@ -119,10 +114,6 @@ export function useTutorial(): void {
           installedStepRef.current = "playbook";
           finished = true;
           if (sessionRef.current.replay != null) sessionRef.current.close();
-          const playbookQuery = parsePlaybookQuery(search);
-          if (!playbookQuery.map || !playbookQuery.playbook) {
-            navigate(tutorialHref("playbook"), { replace: true });
-          }
         } catch (err: unknown) {
           if (cancelled) return;
           lastInstalledStep = null;
@@ -141,20 +132,12 @@ export function useTutorial(): void {
       };
     }
 
-    if (!isAnalyzerPath(pathname)) return;
+    if (!isTutorialAnalyzerPath(pathname)) return;
 
     const live = sessionRef.current;
     if (sessionMatchesStep(live, step)) {
       lastInstalledStep = step;
       installedStepRef.current = step;
-      return;
-    }
-
-    if (lastInstalledStep != null && live.replay == null) {
-      lastInstalledStep = null;
-      installedStepRef.current = null;
-      statusRef.current.clear();
-      navigate({ pathname: ROUTES.analyzer, search: "" }, { replace: true });
       return;
     }
 
@@ -209,17 +192,7 @@ export function useTutorial(): void {
       loadingRef.current = false;
       if (!finished) statusRef.current.clear();
     };
-  }, [navigate, pathname, search, step]);
-
-  useEffect(() => {
-    if (step == null || step === "playbook" || !isAnalyzerPath(pathname) || loadingRef.current) {
-      return;
-    }
-    if (installedStepRef.current == null) return;
-    if (session.replay != null) return;
-    installedStepRef.current = null;
-    navigate({ pathname: ROUTES.analyzer, search: "" }, { replace: true });
-  }, [navigate, pathname, session.replay, step]);
+  }, [pathname, session.replay, step]);
 
   const setSeriesView = analyzer?.habits.setSeriesView;
   const ensureBucketOverlay = analyzer?.habits.ensureBucketOverlay;

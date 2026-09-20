@@ -26,6 +26,9 @@ describe("PRERENDER_PATHS", () => {
     expect([...PRERENDER_PATHS]).toEqual([
       ROUTES.home,
       ROUTES.analyzer,
+      ROUTES.tutorial,
+      `${ROUTES.tutorial}/aggregated`,
+      `${ROUTES.tutorial}/playbook`,
       ROUTES.playbook,
       ROUTES.faq,
       ROUTES.rating,

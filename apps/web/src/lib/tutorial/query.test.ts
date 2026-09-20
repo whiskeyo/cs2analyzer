@@ -1,48 +1,46 @@
 import { describe, expect, it } from "vitest";
-import { PLAYBOOK_PREFERRED_MAP } from "@/lib/playbook/types";
-import { TUTORIAL_PLAYBOOK_KEY, TUTORIAL_PLAYBOOK_PAGE_ID } from "./playbook/constants";
 import {
+  isTutorialAnalyzerPath,
+  isTutorialPath,
+  isTutorialPlaybookPath,
   nextTutorialStep,
-  parseTutorialQuery,
+  parseTutorialPath,
   previousTutorialStep,
   tutorialHref,
-  tutorialSearch,
 } from "./query";
 
-describe("tutorial query", () => {
-  it("parses replay, aggregated, and playbook deep-links", () => {
-    expect(parseTutorialQuery("")).toBeNull();
-    expect(parseTutorialQuery("map=de_mirage")).toBeNull();
-    expect(parseTutorialQuery("?tutorial=1")).toBe("replay");
-    expect(parseTutorialQuery("tutorial=true")).toBe("replay");
-    expect(parseTutorialQuery("tutorial=replay")).toBe("replay");
-    expect(parseTutorialQuery("tutorial=")).toBe("replay");
-    expect(parseTutorialQuery("tutorial")).toBe("replay");
-    expect(parseTutorialQuery("?tutorial=aggregated")).toBe("aggregated");
-    expect(parseTutorialQuery("tutorial=series")).toBe("aggregated");
-    expect(parseTutorialQuery("tutorial=2")).toBe("aggregated");
-    expect(parseTutorialQuery("tutorial=playbook")).toBe("playbook");
-    expect(parseTutorialQuery("tutorial=3")).toBe("playbook");
-    expect(
-      parseTutorialQuery(
-        `?map=${PLAYBOOK_PREFERRED_MAP}&playbook=${TUTORIAL_PLAYBOOK_KEY}&tutorial=playbook`,
-      ),
-    ).toBe("playbook");
+describe("tutorial path", () => {
+  it("parses replay, aggregated, and playbook paths", () => {
+    expect(parseTutorialPath("/")).toBeNull();
+    expect(parseTutorialPath("/analyzer")).toBeNull();
+    expect(parseTutorialPath("/playbook")).toBeNull();
+    expect(parseTutorialPath("/tutorial")).toBe("replay");
+    expect(parseTutorialPath("/tutorial/")).toBe("replay");
+    expect(parseTutorialPath("/tutorial/aggregated")).toBe("aggregated");
+    expect(parseTutorialPath("/tutorial/playbook")).toBe("playbook");
+    expect(parseTutorialPath("/tutorial/other")).toBeNull();
   });
 
-  it("builds Analyzer and Playbook hrefs that survive a refresh", () => {
-    expect(tutorialSearch("replay")).toBe("?tutorial=1");
-    expect(tutorialSearch("aggregated")).toBe("?tutorial=aggregated");
-    expect(tutorialSearch("playbook")).toBe("?tutorial=playbook");
-    expect(tutorialHref("replay")).toBe("/analyzer?tutorial=1");
-    expect(tutorialHref("aggregated")).toBe("/analyzer?tutorial=aggregated");
-    expect(tutorialHref()).toBe("/analyzer?tutorial=1");
-    expect(tutorialHref("playbook")).toBe(
-      `/playbook?map=${PLAYBOOK_PREFERRED_MAP}&playbook=${TUTORIAL_PLAYBOOK_KEY}&strat=${TUTORIAL_PLAYBOOK_PAGE_ID}&tutorial=playbook`,
-    );
-    expect(parseTutorialQuery(tutorialSearch("replay"))).toBe("replay");
-    expect(parseTutorialQuery(tutorialSearch("aggregated"))).toBe("aggregated");
-    expect(parseTutorialQuery(tutorialHref("playbook").split("?")[1] ?? "")).toBe("playbook");
+  it("builds path hrefs that survive a refresh", () => {
+    expect(tutorialHref("replay")).toBe("/tutorial");
+    expect(tutorialHref("aggregated")).toBe("/tutorial/aggregated");
+    expect(tutorialHref()).toBe("/tutorial");
+    expect(tutorialHref("playbook")).toBe("/tutorial/playbook");
+    expect(parseTutorialPath(tutorialHref("replay"))).toBe("replay");
+    expect(parseTutorialPath(tutorialHref("aggregated"))).toBe("aggregated");
+    expect(parseTutorialPath(tutorialHref("playbook"))).toBe("playbook");
+  });
+
+  it("classifies tutorial analyzer vs playbook shells", () => {
+    expect(isTutorialPath("/tutorial")).toBe(true);
+    expect(isTutorialPath("/tutorial/aggregated")).toBe(true);
+    expect(isTutorialPath("/tutorial/playbook")).toBe(true);
+    expect(isTutorialPath("/analyzer")).toBe(false);
+    expect(isTutorialAnalyzerPath("/tutorial")).toBe(true);
+    expect(isTutorialAnalyzerPath("/tutorial/aggregated")).toBe(true);
+    expect(isTutorialAnalyzerPath("/tutorial/playbook")).toBe(false);
+    expect(isTutorialPlaybookPath("/tutorial/playbook")).toBe(true);
+    expect(isTutorialPlaybookPath("/playbook")).toBe(false);
   });
 
   it("walks Replay → Aggregated → Playbook", () => {

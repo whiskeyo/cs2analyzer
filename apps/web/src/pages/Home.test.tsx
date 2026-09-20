@@ -80,7 +80,7 @@ describe("Home", () => {
     expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Try without a demo" })).toHaveAttribute(
       "href",
-      "/analyzer?tutorial=1",
+      "/tutorial",
     );
     const drop = container.querySelector(".drop");
     const intro = container.querySelector(".home-intro");

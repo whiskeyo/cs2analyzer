@@ -81,7 +81,7 @@ describe("Analyzer", () => {
     expect(screen.getByText("match.dem")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Try without a demo" })).toHaveAttribute(
       "href",
-      "/analyzer?tutorial=1",
+      "/tutorial",
     );
     expect(
       screen.queryByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),

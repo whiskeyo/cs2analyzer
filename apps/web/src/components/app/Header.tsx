@@ -15,6 +15,7 @@ import {
   isPlaybookPath,
   isRatingPath,
 } from "@/lib/app/routes";
+import { isTutorialPlaybookPath } from "@/lib/tutorial/query";
 import { AddDemoControl } from "./AddDemoControl";
 import { SettingsMenu } from "./SettingsMenu";
 import { SiteNav } from "./SiteNav";
@@ -38,7 +39,7 @@ export function Header() {
   const onFaq = isFaqPath(pathname);
   const onRating = isRatingPath(pathname);
   const onContact = isContactPath(pathname);
-  const onPlaybook = isPlaybookPath(pathname);
+  const onPlaybook = isPlaybookPath(pathname) || isTutorialPlaybookPath(pathname);
   const showMatchChrome =
     replay != null && !onFaq && !onRating && !onContact && !onLayouts && !onPlaybook;
 

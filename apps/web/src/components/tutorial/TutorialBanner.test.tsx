@@ -53,7 +53,7 @@ describe("TutorialBanner", () => {
     const state = bannerState(TUTORIAL_ID);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     render(
-      <TestRouter path="/analyzer?tutorial=1">
+      <TestRouter path="/tutorial">
         <TutorialBanner />
       </TestRouter>,
     );
@@ -61,7 +61,7 @@ describe("TutorialBanner", () => {
     expect(screen.getByText(/Mirage/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Next: Aggregated" })).toHaveAttribute(
       "href",
-      "/analyzer?tutorial=aggregated",
+      "/tutorial/aggregated",
     );
     expect(screen.queryByRole("button", { name: "Finish" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
@@ -73,21 +73,17 @@ describe("TutorialBanner", () => {
     const state = bannerState("tutorial-series|de_dust2|0");
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     render(
-      <TestRouter path="/analyzer?tutorial=aggregated">
+      <TestRouter path="/tutorial/aggregated">
         <TutorialBanner />
       </TestRouter>,
     );
     expect(screen.getByRole("link", { name: "Next: Playbook" })).toHaveAttribute(
       "href",
-      expect.stringContaining("/playbook?"),
-    );
-    expect(screen.getByRole("link", { name: "Next: Playbook" })).toHaveAttribute(
-      "href",
-      expect.stringContaining("tutorial=playbook"),
+      "/tutorial/playbook",
     );
     expect(screen.getByRole("link", { name: "Mirage sample" })).toHaveAttribute(
       "href",
-      "/analyzer?tutorial=1",
+      "/tutorial",
     );
   });
 
@@ -95,7 +91,7 @@ describe("TutorialBanner", () => {
     const state = bannerState(null);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     render(
-      <TestRouter path="/playbook?tutorial=playbook">
+      <TestRouter path="/tutorial/playbook">
         <TutorialBanner />
       </TestRouter>,
     );

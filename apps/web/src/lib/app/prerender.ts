@@ -5,6 +5,9 @@ import { normalizePath, ROUTES } from "./routes";
 export const PRERENDER_PATHS = [
   ROUTES.home,
   ROUTES.analyzer,
+  ROUTES.tutorial,
+  `${ROUTES.tutorial}/aggregated`,
+  `${ROUTES.tutorial}/playbook`,
   ROUTES.playbook,
   ROUTES.faq,
   ROUTES.rating,

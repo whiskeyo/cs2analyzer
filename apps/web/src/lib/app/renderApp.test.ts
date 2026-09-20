@@ -34,6 +34,9 @@ describe("renderApp", () => {
     const snippets: Record<string, string> = {
       "/": "Watch Counter-Strike 2 demos",
       "/analyzer": "Drop a demo",
+      "/tutorial": "Drop a demo",
+      "/tutorial/aggregated": "Drop a demo",
+      "/tutorial/playbook": "Playbooks",
       "/playbook": "Create a playbook",
       "/faq": "What is CS2 Analyzer?",
       "/rating": "How it is calculated",

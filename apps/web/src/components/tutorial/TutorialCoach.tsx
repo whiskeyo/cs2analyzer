@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { tutorialCoachSteps } from "@/lib/tutorial/coach";
-import { parseTutorialQuery } from "@/lib/tutorial/query";
+import { parseTutorialPath } from "@/lib/tutorial/query";
 
 function CoachRing({ target }: { target: string }) {
   const [box, setBox] = useState<DOMRect | null>(null);
@@ -36,9 +36,9 @@ function CoachRing({ target }: { target: string }) {
 
 /** Dismissible callouts. Pointer-events stay off the page so power users are not blocked. */
 export function TutorialCoach() {
-  const { search } = useLocation();
+  const { pathname } = useLocation();
   const { settings, ready, update } = useUserSettings();
-  const step = parseTutorialQuery(search) ?? "replay";
+  const step = parseTutorialPath(pathname) ?? "replay";
   const steps = tutorialCoachSteps(step);
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(true);

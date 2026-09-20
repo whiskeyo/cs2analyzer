@@ -152,7 +152,7 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
     expect(screen.getByRole("link", { name: "Try without a demo" })).toHaveAttribute(
       "href",
-      "/analyzer?tutorial=1",
+      "/tutorial",
     );
     const contactLinks = screen.getAllByRole("link", { name: "Contact" });
     expect(contactLinks.length).toBeGreaterThan(0);

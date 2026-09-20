@@ -459,7 +459,7 @@ describe("Playbook", () => {
   it("keeps the tutorial Playbook step on the sample book only", async () => {
     const real = await createPlaybook("de_mirage", "My real book");
     await createPlaybook("de_inferno", "Other map book");
-    const { unmount } = renderBoard("/playbook?tutorial=playbook");
+    const { unmount } = renderBoard("/tutorial/playbook");
     expect(await screen.findByRole("button", { name: "Tutorial" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My real book" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Other map book" })).not.toBeInTheDocument();

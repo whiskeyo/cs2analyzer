@@ -4,6 +4,7 @@ import { AppStateProvider, useApp } from "@/lib/state/appState";
 import type { CreateWorker } from "@/lib/parse/useDemoSession";
 import { applyPageMeta } from "@/lib/app/pageMeta";
 import { isAnalyzerPath, isLayoutsPath, isPlaybookPath, ROUTES } from "@/lib/app/routes";
+import { parseTutorialPath } from "@/lib/tutorial/query";
 import { AppBackdrop } from "@/components/app/AppBackdrop";
 import { Header } from "@/components/app/Header";
 import { TutorialController } from "@/components/tutorial/TutorialController";
@@ -22,8 +23,10 @@ const LayoutsApp = import.meta.env.DEV
 function AppLayout() {
   const { session, status } = useApp();
   const { pathname } = useLocation();
-  const onAnalyzer = isAnalyzerPath(pathname);
-  const onPlaybook = isPlaybookPath(pathname);
+  const tutorialStep = parseTutorialPath(pathname);
+  const onAnalyzer =
+    isAnalyzerPath(pathname) || tutorialStep === "replay" || tutorialStep === "aggregated";
+  const onPlaybook = isPlaybookPath(pathname) || tutorialStep === "playbook";
   const showLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
   const fillBoard = onPlaybook || (onAnalyzer && session.replay != null);
   const showStorageError = onAnalyzer && session.replay != null && status.error != null;
@@ -57,6 +60,9 @@ function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route index element={<Home />} />
         <Route path={ROUTES.analyzer.slice(1)} element={<Analyzer />} />
+        <Route path={ROUTES.tutorial.slice(1)} element={<Analyzer />} />
+        <Route path={`${ROUTES.tutorial.slice(1)}/aggregated`} element={<Analyzer />} />
+        <Route path={`${ROUTES.tutorial.slice(1)}/playbook`} element={<Playbook />} />
         <Route path={ROUTES.playbook.slice(1)} element={<Playbook />} />
         <Route path={ROUTES.faq.slice(1)} element={<Faq />} />
         <Route path={ROUTES.rating.slice(1)} element={<Rating />} />

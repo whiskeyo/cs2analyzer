@@ -35,7 +35,7 @@ describe("TutorialStart", () => {
     warmup.mockReset();
   });
 
-  it("links Home and Analyzer empty states at ?tutorial=1", () => {
+  it("links Home and Analyzer empty states at /tutorial", () => {
     render(
       <TestRouter>
         <TutorialStart />
@@ -43,7 +43,7 @@ describe("TutorialStart", () => {
     );
     const link = screen.getByRole("link", { name: "Try without a demo" });
     expect(link).toHaveAttribute("href", tutorialHref("replay"));
-    expect(link).toHaveAttribute("href", "/analyzer?tutorial=1");
+    expect(link).toHaveAttribute("href", "/tutorial");
     expect(screen.getByText(/Mirage sample/)).toBeInTheDocument();
   });
 

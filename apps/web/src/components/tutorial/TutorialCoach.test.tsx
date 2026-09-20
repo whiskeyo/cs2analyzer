@@ -29,7 +29,7 @@ describe("TutorialCoach", () => {
 
   it("walks short callouts and persists a skip", async () => {
     render(
-      <TestRouter path="/analyzer?tutorial=1">
+      <TestRouter path="/tutorial">
         <TutorialCoach />
       </TestRouter>,
     );
@@ -45,7 +45,7 @@ describe("TutorialCoach", () => {
   it("stays dismissed after tutorialCompleted is stored", () => {
     settingsMocks.tutorialCompleted = true;
     render(
-      <TestRouter path="/analyzer?tutorial=1">
+      <TestRouter path="/tutorial">
         <TutorialCoach />
       </TestRouter>,
     );
@@ -55,7 +55,7 @@ describe("TutorialCoach", () => {
   it("waits for IndexedDB settings before showing callouts", () => {
     settingsMocks.ready = false;
     render(
-      <TestRouter path="/analyzer?tutorial=1">
+      <TestRouter path="/tutorial">
         <TutorialCoach />
       </TestRouter>,
     );

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 import {
   canonicalPlaybookSearch,
   findPlaybook,
@@ -39,7 +39,7 @@ import { usePlaybookBoard } from "@/lib/playbook/usePlaybookBoard";
 import { usePlaybooks } from "@/lib/playbook/usePlaybooks";
 import { loadCalibrations } from "@/lib/radar/maps";
 import { loadTutorialPlaybook } from "@/lib/tutorial/load";
-import { parseTutorialQuery, TUTORIAL_QUERY } from "@/lib/tutorial/query";
+import { isTutorialPlaybookPath } from "@/lib/tutorial/query";
 import {
   PLAYBOOK_DETAIL_DEFAULT_WIDTH,
   PLAYBOOK_DETAIL_MAX_WIDTH,
@@ -57,9 +57,10 @@ import type { MapCalibration } from "@/lib/replay/replayTypes";
 export function Playbook() {
   const { settings, update } = useUserSettings();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { pathname } = useLocation();
   const searchKey = searchParams.toString();
   const query = useMemo(() => parsePlaybookQuery(searchKey), [searchKey]);
-  const tutorialPlaybook = parseTutorialQuery(searchKey) === "playbook";
+  const tutorialPlaybook = isTutorialPlaybookPath(pathname);
   const [loadedSample, setLoadedSample] = useState<PlaybookDoc | null>(null);
   const incomingSearch = useMemo(() => canonicalPlaybookSearch(query), [query]);
   const initialMapFromUrl = useRef(query.map);
@@ -253,6 +254,7 @@ export function Playbook() {
   }, [book, selectStrat]);
 
   useEffect(() => {
+    if (tutorialPlaybook) return;
     if (!boardMap) return;
     if (activeKey && !book) return;
     if (query.playbook && appliedSearchRef.current !== incomingSearch) return;
@@ -264,8 +266,6 @@ export function Playbook() {
     if (next === incomingSearch) return;
     appliedSearchRef.current = next;
     const params = new URLSearchParams(next.startsWith("?") ? next.slice(1) : next);
-    const tutorial = new URLSearchParams(searchKey).get(TUTORIAL_QUERY);
-    if (tutorial != null) params.set(TUTORIAL_QUERY, tutorial);
     setSearchParams(Object.fromEntries(params), { replace: true });
   }, [
     activeKey,
@@ -277,6 +277,7 @@ export function Playbook() {
     query.playbook,
     searchKey,
     setSearchParams,
+    tutorialPlaybook,
   ]);
 
   const treeBooks = booksWithDraft(allBooks, book);

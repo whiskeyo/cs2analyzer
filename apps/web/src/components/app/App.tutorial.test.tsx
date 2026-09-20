@@ -18,12 +18,14 @@ const loadMocks = vi.hoisted(() => ({
   loadTutorialReplay: vi.fn(),
   loadTutorialSeries: vi.fn(),
   loadTutorialPlaybook: vi.fn(),
+  isTutorialSeriesReady: vi.fn(() => false),
 }));
 
 vi.mock("@/lib/tutorial/load", () => ({
   loadTutorialReplay: loadMocks.loadTutorialReplay,
   loadTutorialSeries: loadMocks.loadTutorialSeries,
   loadTutorialPlaybook: loadMocks.loadTutorialPlaybook,
+  isTutorialSeriesReady: loadMocks.isTutorialSeriesReady,
 }));
 
 vi.mock("@/lib/radar/maps", async (importOriginal) => {
@@ -106,10 +108,11 @@ describe("App tutorial", () => {
     expect(screen.queryByText("Loading tutorial…")).not.toBeInTheDocument();
   });
 
-  it("reloads the sample from ?tutorial=1 after a refresh", async () => {
-    window.history.replaceState({}, "", "/analyzer?tutorial=1");
+  it("reloads the sample from /tutorial after a refresh", async () => {
+    window.history.replaceState({}, "", "/tutorial");
     render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
-    expect(await screen.findByText("Tutorial")).toBeInTheDocument();
-    expect(loadMocks.loadTutorialReplay).toHaveBeenCalled();
+    expect(document.title).toBe("CS2 Analyzer — Tutorial");
+    expect(screen.getByRole("button", { name: "Exit tutorial" })).toBeInTheDocument();
+    await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
   });
 });

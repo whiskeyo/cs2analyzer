@@ -5,7 +5,7 @@ import { useApp } from "@/lib/state/appState";
 import { isTutorialDemoId } from "@/lib/tutorial/identity";
 import {
   nextTutorialStep,
-  parseTutorialQuery,
+  parseTutorialPath,
   previousTutorialStep,
   tutorialHref,
   type TutorialStep,
@@ -38,11 +38,11 @@ export function TutorialBanner() {
   const { session } = useApp();
   const { settings, update } = useUserSettings();
   const navigate = useNavigate();
-  const { search } = useLocation();
-  const fromQuery = parseTutorialQuery(search);
+  const { pathname } = useLocation();
+  const fromPath = parseTutorialPath(pathname);
   const tutorialDemo = isTutorialDemoId(session.demo?.id);
-  const step: TutorialStep = fromQuery ?? "replay";
-  if (fromQuery == null && !tutorialDemo) return null;
+  const step: TutorialStep = fromPath ?? "replay";
+  if (fromPath == null && !tutorialDemo) return null;
 
   const next = nextTutorialStep(step);
   const previous = previousTutorialStep(step);
