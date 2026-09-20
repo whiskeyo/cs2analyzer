@@ -43,4 +43,6 @@ export interface MapToolbarProps {
   reviewActions: MapToolbarReviewActions;
   viewActions: MapToolbarViewActions;
   onSnapshot?: () => void;
+  /** False on Aggregated — same `analyzerNotesLive` / `isAggregatedView` gate. */
+  drawingsEnabled?: boolean;
 }

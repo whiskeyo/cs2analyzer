@@ -68,8 +68,12 @@ export function RadarStage() {
           canFollow: view.selected != null,
           layers: view.layers,
         }}
+        drawingsEnabled={notesLive}
         reviewActions={{
-          onTool: view.setTool,
+          onTool: (next) => {
+            if (!notesLive && next !== "pan") return;
+            view.setTool(next);
+          },
           onColor: review.setColor,
           onPalette: (id) => {
             review.setPaletteId(id);

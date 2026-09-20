@@ -214,11 +214,15 @@ describe("RadarStage notes vs Aggregated", () => {
     renderStage();
 
     expect(canvasProbe.note?.drawings).toEqual([]);
+    expect(screen.getByRole("button", { name: "Draw" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Arrow" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Text note" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Undo drawing (Ctrl+Z)" }));
     await userEvent.click(screen.getByRole("button", { name: "Clear drawings on this round" }));
     await userEvent.click(screen.getByRole("button", { name: /Bookmark this tick/ }));
     expect(state._actions.undo).not.toHaveBeenCalled();
     expect(state._actions.commitNotes).not.toHaveBeenCalled();
+    expect(state.view.setTool).not.toHaveBeenCalled();
   });
 
   it("restores the playhead round's notes after Aggregated, not the round that entered it", () => {

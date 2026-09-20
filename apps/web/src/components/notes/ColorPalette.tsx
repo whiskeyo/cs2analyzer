@@ -5,9 +5,10 @@ interface Props {
   color: string;
   onPalette: (id: string) => void;
   onColor: (color: string) => void;
+  disabled?: boolean;
 }
 
-export function ColorPalette({ paletteId, color, onPalette, onColor }: Props) {
+export function ColorPalette({ paletteId, color, onPalette, onColor, disabled = false }: Props) {
   const preset = COLOR_PRESETS.find((row) => row.id === paletteId) ?? COLOR_PRESETS[0];
   return (
     <>
@@ -17,6 +18,7 @@ export function ColorPalette({ paletteId, color, onPalette, onColor }: Props) {
             key={row.id}
             type="button"
             className={row.id === preset.id ? "on" : ""}
+            disabled={disabled}
             onClick={() => onPalette(row.id)}
             title={`${row.label} ([ ])`}
           >
@@ -31,6 +33,7 @@ export function ColorPalette({ paletteId, color, onPalette, onColor }: Props) {
             type="button"
             className={`swatch${color === swatch ? " on" : ""}`}
             style={{ background: swatch }}
+            disabled={disabled}
             onClick={() => onColor(swatch)}
             aria-label={swatch}
             title={`${swatch} (${index === 4 ? "0" : String(index + 6)})`}
