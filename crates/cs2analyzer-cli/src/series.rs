@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use cs2analyzer::{
-    Match, MatchHeader, Round, TickBuffer, DEFAULT_TICK_RATE, FIRST_OVERTIME_ROUND, FLAG_CT,
+    Match, MatchHeader, Round, Side, TickBuffer, DEFAULT_TICK_RATE, FIRST_OVERTIME_ROUND, FLAG_CT,
     FLAG_PRESENT, FORCE_BUY_MAX_EQUIPMENT, REGULATION_ROUNDS_PER_HALF,
     SERIES_HABITS_WINDOW_SECONDS,
 };
@@ -121,30 +121,176 @@ pub fn full_buy_regulation_round_numbers(m: &Match) -> Vec<u32> {
         .collect()
 }
 
+/// Full-buy regulation round plus the focal team’s freeze side.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FullBuyCandidate {
+    pub number: u32,
+    pub side: Side,
+}
+
+fn team_prefix_pair(a: &str, b: &str) -> bool {
+    let (short, long) = if a.len() <= b.len() { (a, b) } else { (b, a) };
+    long == format!("Team {short}")
+}
+
+fn header_team_names(m: &Match) -> impl Iterator<Item = &str> {
+    [&m.header.team_ct, &m.header.team_t]
+        .into_iter()
+        .map(String::as_str)
+        .filter(|name| !name.is_empty())
+}
+
+fn round_team_names<'a>(m: &'a Match, round: &'a Round) -> [&'a str; 2] {
+    let ct = if round.team_ct.is_empty() {
+        m.header.team_ct.as_str()
+    } else {
+        round.team_ct.as_str()
+    };
+    let t = if round.team_t.is_empty() {
+        m.header.team_t.as_str()
+    } else {
+        round.team_t.as_str()
+    };
+    [ct, t]
+}
+
+fn name_in_focal(name: &str, focal: &[String]) -> bool {
+    focal
+        .iter()
+        .any(|alias| alias == name || team_prefix_pair(alias, name))
+}
+
+/// Header spellings for the team that appears in the most series demos.
+pub fn infer_series_focal_names(matches: &[&Match]) -> Vec<String> {
+    let mut groups: Vec<(Vec<String>, HashSet<usize>)> = Vec::new();
+    for (demo_index, m) in matches.iter().enumerate() {
+        for name in header_team_names(m) {
+            if let Some(group) = groups.iter_mut().find(|(aliases, _)| {
+                aliases
+                    .iter()
+                    .any(|alias| alias == name || team_prefix_pair(alias, name))
+            }) {
+                if !group.0.iter().any(|alias| alias == name) {
+                    group.0.push(name.to_string());
+                }
+                group.1.insert(demo_index);
+            } else {
+                groups.push((vec![name.to_string()], HashSet::from([demo_index])));
+            }
+        }
+    }
+    groups.sort_by(|a, b| {
+        b.1.len().cmp(&a.1.len()).then_with(|| {
+            let a_len = a.0.iter().map(String::len).max().unwrap_or(0);
+            let b_len = b.0.iter().map(String::len).max().unwrap_or(0);
+            b_len.cmp(&a_len)
+        })
+    });
+    groups
+        .first()
+        .map(|(aliases, _)| aliases.clone())
+        .unwrap_or_default()
+}
+
+fn focal_side_at_freeze(m: &Match, round: &Round, focal: &[String]) -> Option<Side> {
+    if focal.is_empty() {
+        return Some(Side::T);
+    }
+    let [ct, t] = round_team_names(m, round);
+    if name_in_focal(ct, focal) {
+        return Some(Side::Ct);
+    }
+    if name_in_focal(t, focal) {
+        return Some(Side::T);
+    }
+    None
+}
+
+/// Full-buy regulation rounds tagged with the focal team’s freeze side.
+pub fn full_buy_candidates(m: &Match, focal: &[String]) -> Vec<FullBuyCandidate> {
+    full_buy_regulation_round_numbers(m)
+        .into_iter()
+        .filter_map(|number| {
+            let round = m.rounds.iter().find(|row| row.number == number)?;
+            Some(FullBuyCandidate {
+                number,
+                side: focal_side_at_freeze(m, round, focal)?,
+            })
+        })
+        .collect()
+}
+
+fn take_next_of_side(
+    candidates: &[FullBuyCandidate],
+    cursor: &mut usize,
+    side: Side,
+    already: &[u32],
+) -> Option<u32> {
+    while *cursor < candidates.len() {
+        let next = candidates[*cursor];
+        *cursor += 1;
+        if next.side == side && !already.contains(&next.number) {
+            return Some(next.number);
+        }
+    }
+    None
+}
+
 /// Round-robin full-buy rounds across matches until `cap` (series-wide).
-pub fn assign_full_buy_active_rounds(per_match: &[Vec<u32>], cap: usize) -> Vec<Vec<u32>> {
+/// Prefers the underrepresented focal side so CT and T both keep habits windows
+/// when the demos have full buys on each side.
+pub fn assign_full_buy_active_rounds(
+    per_match: &[Vec<FullBuyCandidate>],
+    cap: usize,
+) -> Vec<Vec<u32>> {
     let mut out: Vec<Vec<u32>> = vec![Vec::new(); per_match.len()];
     if cap == 0 || per_match.is_empty() {
         return out;
     }
-    let mut cursor = vec![0usize; per_match.len()];
-    let mut total = 0usize;
+    let mut ct_cursor = vec![0usize; per_match.len()];
+    let mut t_cursor = vec![0usize; per_match.len()];
+    let mut n_ct = 0usize;
+    let mut n_t = 0usize;
+    let mut start = 0usize;
+
     loop {
-        let mut progressed = false;
-        for (index, candidates) in per_match.iter().enumerate() {
-            if total >= cap {
+        if n_ct + n_t >= cap {
+            break;
+        }
+        let prefer = if n_ct <= n_t { Side::Ct } else { Side::T };
+        let other = if prefer == Side::Ct {
+            Side::T
+        } else {
+            Side::Ct
+        };
+        let mut picked = false;
+        for &side in &[prefer, other] {
+            for step in 0..per_match.len() {
+                let index = (start + step) % per_match.len();
+                let cursor = if side == Side::Ct {
+                    &mut ct_cursor[index]
+                } else {
+                    &mut t_cursor[index]
+                };
+                if let Some(number) =
+                    take_next_of_side(&per_match[index], cursor, side, &out[index])
+                {
+                    out[index].push(number);
+                    if side == Side::Ct {
+                        n_ct += 1;
+                    } else {
+                        n_t += 1;
+                    }
+                    start = (index + 1) % per_match.len();
+                    picked = true;
+                    break;
+                }
+            }
+            if picked {
                 break;
             }
-            let next = cursor[index];
-            if next >= candidates.len() {
-                continue;
-            }
-            out[index].push(candidates[next]);
-            cursor[index] = next + 1;
-            total += 1;
-            progressed = true;
         }
-        if !progressed || total >= cap {
+        if !picked {
             break;
         }
     }
@@ -697,9 +843,17 @@ mod tests {
         assert_eq!(full_buy_regulation_round_numbers(&parsed), vec![3, 5]);
     }
 
+    fn cand(number: u32, side: Side) -> FullBuyCandidate {
+        FullBuyCandidate { number, side }
+    }
+
     #[test]
     fn assign_full_buy_round_robins_to_cap() {
-        let per_match = vec![vec![3, 5, 7], vec![2, 4, 6], vec![8]];
+        let per_match = vec![
+            vec![cand(3, Side::T), cand(5, Side::T), cand(7, Side::T)],
+            vec![cand(2, Side::T), cand(4, Side::T), cand(6, Side::T)],
+            vec![cand(8, Side::T)],
+        ];
         assert_eq!(
             assign_full_buy_active_rounds(&per_match, 4),
             vec![vec![3, 5], vec![2], vec![8]]
@@ -716,6 +870,62 @@ mod tests {
             assign_full_buy_active_rounds(&per_match, 0),
             vec![Vec::<u32>::new(), vec![], vec![]]
         );
+    }
+
+    #[test]
+    fn assign_full_buy_balances_focal_ct_and_t() {
+        let per_match = vec![
+            vec![
+                cand(2, Side::T),
+                cand(3, Side::T),
+                cand(4, Side::T),
+                cand(14, Side::Ct),
+                cand(15, Side::Ct),
+            ],
+            vec![cand(2, Side::T), cand(14, Side::Ct), cand(15, Side::Ct)],
+        ];
+        let allocated = assign_full_buy_active_rounds(&per_match, 4);
+        let flat: Vec<u32> = allocated.iter().flatten().copied().collect();
+        assert_eq!(flat.len(), 4);
+        let ct = allocated.iter().flatten().filter(|n| **n >= 14).count();
+        let t = allocated.iter().flatten().filter(|n| **n < 14).count();
+        assert_eq!(ct, 2);
+        assert_eq!(t, 2);
+        assert!(allocated[0].contains(&14) || allocated[1].contains(&14));
+        assert!(allocated[0].contains(&2) || allocated[1].contains(&2));
+    }
+
+    #[test]
+    fn full_buy_candidates_follow_focal_side() {
+        let mut parsed = mixed_buy_match();
+        parsed.header.team_ct = "Enemy".into();
+        parsed.header.team_t = "Spirit".into();
+        for (index, round) in parsed.rounds.iter_mut().enumerate() {
+            if index < 3 {
+                round.team_ct = "Enemy".into();
+                round.team_t = "Spirit".into();
+            } else {
+                round.team_ct = "Spirit".into();
+                round.team_t = "Enemy".into();
+            }
+        }
+        assert_eq!(
+            full_buy_candidates(&parsed, &["Spirit".into()]),
+            vec![cand(3, Side::T), cand(5, Side::Ct)]
+        );
+    }
+
+    #[test]
+    fn infer_focal_merges_spirit_aliases() {
+        let mut a = series_test_match();
+        a.header.team_ct = "G2".into();
+        a.header.team_t = "Spirit".into();
+        let mut b = series_test_match();
+        b.header.team_ct = "BIG".into();
+        b.header.team_t = "Team Spirit".into();
+        let names = infer_series_focal_names(&[&a, &b]);
+        assert!(names.iter().any(|n| n == "Spirit" || n == "Team Spirit"));
+        assert!(!names.iter().any(|n| n == "G2" || n == "BIG"));
     }
 
     #[test]

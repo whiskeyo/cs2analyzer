@@ -39,7 +39,8 @@ OPTIONS:
         --series-rounds <N>
                           Cap on full-buy regulation rounds that keep
                           habits-window ticks, counted across the whole
-                          series (default 20). Round-robin across demos.
+                          series (default 20). Round-robin across demos,
+                          balancing the focal team's CT and T sides.
                           Unused rounds still emit headers + a freeze
                           snapshot so the strip can label pistol/eco/force.
         --pretty          Indent the JSON
@@ -288,9 +289,11 @@ fn write_ts_series(args: &Args, tick_stride: u32) -> Result<String, String> {
         }
         parsed_matches.push(parse_one_demo(path, tick_stride, args.quiet)?);
     }
-    let candidates: Vec<Vec<u32>> = parsed_matches
+    let match_refs: Vec<&Match> = parsed_matches.iter().collect();
+    let focal = series::infer_series_focal_names(&match_refs);
+    let candidates: Vec<Vec<series::FullBuyCandidate>> = parsed_matches
         .iter()
-        .map(series::full_buy_regulation_round_numbers)
+        .map(|parsed| series::full_buy_candidates(parsed, &focal))
         .collect();
     let allocated = series::assign_full_buy_active_rounds(&candidates, args.series_rounds as usize);
     if allocated.iter().all(|rounds| rounds.is_empty()) {
@@ -299,10 +302,21 @@ fn write_ts_series(args: &Args, tick_stride: u32) -> Result<String, String> {
     let mut matches = Vec::new();
     for (index, parsed) in parsed_matches.iter().enumerate() {
         if !args.quiet {
+            let picked = &allocated[index];
+            let ct = candidates[index]
+                .iter()
+                .filter(|c| picked.contains(&c.number) && c.side == cs2analyzer::Side::Ct)
+                .count();
+            let t = candidates[index]
+                .iter()
+                .filter(|c| picked.contains(&c.number) && c.side == cs2analyzer::Side::T)
+                .count();
             eprintln!(
-                "  {} full-buy habits windows (of {} candidates)",
-                allocated[index].len(),
-                candidates[index].len()
+                "  {} full-buy habits windows (of {} candidates; {} CT / {} T)",
+                picked.len(),
+                candidates[index].len(),
+                ct,
+                t
             );
         }
         matches.push(series::series_match_from_parsed(
