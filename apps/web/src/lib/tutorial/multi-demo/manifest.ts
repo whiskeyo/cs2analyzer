@@ -7,9 +7,9 @@ mapName: "de_dust2",
 habitsWindowSec: 20,
 tickStride: 6,
 matches: [
-    { id: "match-0", fileName: "tutorial-series-0.dem", mapName: "de_dust2", activeRounds: [2,3,4,5,6] },
+    { id: "match-0", fileName: "tutorial-series-0.dem", mapName: "de_dust2", activeRounds: [14,15,16,17,18] },
     { id: "match-1", fileName: "tutorial-series-1.dem", mapName: "de_dust2", activeRounds: [2,3,4,5,6] },
-    { id: "match-2", fileName: "tutorial-series-2.dem", mapName: "de_dust2", activeRounds: [2,3,4,5,6] },
+    { id: "match-2", fileName: "tutorial-series-2.dem", mapName: "de_dust2", activeRounds: [14,15,16,17,18] },
     { id: "match-3", fileName: "tutorial-series-3.dem", mapName: "de_dust2", activeRounds: [2,3,4,5,6] },
   ],
 };
