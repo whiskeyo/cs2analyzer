@@ -34,10 +34,10 @@ import {
 } from "@/lib/playbook/pages";
 import { booksWithDraft } from "@/lib/playbook/tree";
 import type { Playbook as PlaybookDoc } from "@/lib/playbook/types";
-import { PLAYBOOK_PREFERRED_MAP, UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
+import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
 import { usePlaybookBoard } from "@/lib/playbook/usePlaybookBoard";
 import { usePlaybooks } from "@/lib/playbook/usePlaybooks";
-import { loadCalibrations } from "@/lib/radar/maps";
+import { calibrationFor, loadCalibrations } from "@/lib/radar/maps";
 import { loadTutorialPlaybook } from "@/lib/tutorial/load";
 import { isTutorialPlaybookPath } from "@/lib/tutorial/query";
 import {
@@ -61,15 +61,15 @@ export function Playbook() {
   const searchKey = searchParams.toString();
   const query = useMemo(() => parsePlaybookQuery(searchKey), [searchKey]);
   const tutorialPlaybook = isTutorialPlaybookPath(pathname);
-  const [loadedSample, setLoadedSample] = useState<PlaybookDoc | null>(null);
+  const [loadedSample, setLoadedSample] = useState<PlaybookDoc[]>([]);
   const incomingSearch = useMemo(() => canonicalPlaybookSearch(query), [query]);
   const initialMapFromUrl = useRef(query.map);
   const appliedSearchRef = useRef<string | null>(null);
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapName, setMapName] = useState<string | null>(null);
-  const boardMap = tutorialPlaybook ? PLAYBOOK_PREFERRED_MAP : mapName;
-  const sandboxBook = tutorialPlaybook ? loadedSample : null;
+  const sandboxBooks = tutorialPlaybook ? loadedSample : [];
+  const boardMap = mapName;
   const [videoPageId, setVideoPageId] = useState<string | null>(null);
   const [openVideoIdState, setOpenVideoIdState] = useState<string | null>(null);
   const [imagePageId, setImagePageId] = useState<string | null>(null);
@@ -120,7 +120,7 @@ export function Playbook() {
     saveError,
   } = usePlaybooks(
     boardMap,
-    tutorialPlaybook ? { mode: "sandbox", book: sandboxBook } : { mode: "idb" },
+    tutorialPlaybook ? { mode: "sandbox", books: sandboxBooks } : { mode: "idb" },
   );
 
   const treeWidthRef = useRef(PLAYBOOK_TREE_DEFAULT_WIDTH);
@@ -186,7 +186,7 @@ export function Playbook() {
     if (!tutorialPlaybook) return;
     let cancelled = false;
     void loadTutorialPlaybook().then((sample) => {
-      if (!cancelled) setLoadedSample(structuredClone(sample));
+      if (!cancelled) setLoadedSample(sample.map((book) => structuredClone(book)));
     });
     return () => {
       cancelled = true;
@@ -200,7 +200,6 @@ export function Playbook() {
         if (cancelled) return;
         setMaps(cals);
         setMapName((current) => {
-          if (tutorialPlaybook) return PLAYBOOK_PREFERRED_MAP;
           if (current) return current;
           const mapFromUrl = initialMapFromUrl.current;
           if (mapFromUrl && cals[mapFromUrl]) return mapFromUrl;
@@ -316,7 +315,7 @@ export function Playbook() {
       .then(() =>
         downloadPlaybookPdf(
           row,
-          maps?.[row.mapName],
+          maps ? calibrationFor(maps, row.mapName) : undefined,
           Date.now(),
           settings.pdfTheme,
           settings.radarGray,
@@ -365,7 +364,7 @@ export function Playbook() {
                 hasFloors={Boolean(cal?.lower_radar)}
                 onFloorMode={(floor) => setFloor(page.id, floor)}
               />
-              <div className="playbook-board" data-tutorial="board">
+              <div className="playbook-board">
                 <PlaybookCanvas
                   cal={cal}
                   floorMode={page.floor}
@@ -452,11 +451,7 @@ export function Playbook() {
             />
           </aside>
         ) : null}
-        <aside
-          className="playbook-sidebar playbook-tree-pane"
-          style={{ width: treeResize.width }}
-          data-tutorial="tree"
-        >
+        <aside className="playbook-sidebar playbook-tree-pane" style={{ width: treeResize.width }}>
           <div {...treeResize.handleProps} />
           <h2>Playbooks</h2>
           <p className="playbook-lead">Maps, then named books. Drawings stay on this machine.</p>
@@ -468,14 +463,14 @@ export function Playbook() {
             </p>
           ) : null}
           <PlaybookTree
-            mapNames={tutorialPlaybook ? [PLAYBOOK_PREFERRED_MAP] : names}
+            mapNames={names}
             books={treeBooks}
             mapName={boardMap}
             activeKey={activeKey}
             activePageId={book?.activePageId ?? null}
             expandedBooks={treeExpandedBooks}
             collapsedMaps={collapsedMaps}
-            onSelectMap={tutorialPlaybook ? () => undefined : setMapName}
+            onSelectMap={setMapName}
             onToggleMap={(map) => {
               setCollapsedMaps((prev) => {
                 const next = new Set(prev);

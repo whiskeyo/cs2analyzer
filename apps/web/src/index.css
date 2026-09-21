@@ -54,6 +54,7 @@ body,
 
 .home-hero,
 .faq,
+.tutorial,
 .rating,
 .contact,
 .not-found,
@@ -76,6 +77,7 @@ body,
 }
 .home-intro h2,
 .faq h2,
+.tutorial h2,
 .rating h2,
 .contact h2,
 .not-found h2,
@@ -99,6 +101,7 @@ body,
 }
 .home-intro-lead,
 .faq-lead,
+.tutorial-lead,
 .rating-lead,
 .not-found-lead {
   margin: 0 0 1.25rem;
@@ -190,26 +193,20 @@ button.home-card {
 .tutorial-banner-next {
   font-size: 0.78rem;
 }
-.tutorial-coach-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  pointer-events: none;
-}
 .tutorial-coach-ring {
   position: fixed;
+  z-index: var(--z-modal);
   border: 2px solid var(--accent);
   border-radius: 8px;
-  box-shadow: 0 0 0 1px #13202c;
+  box-shadow: 0 0 0 3px rgb(106 164 216 / 0.28);
   pointer-events: none;
 }
 .tutorial-coach {
   position: fixed;
-  left: 1rem;
-  bottom: 1rem;
-  width: min(22rem, calc(100vw - 2rem));
+  z-index: var(--z-modal);
+  width: min(18rem, calc(100vw - 2rem));
   pointer-events: auto;
-  padding: 0.85rem 0.95rem;
+  padding: 0.7rem 0.8rem;
   border: 1px solid #3d6f99;
   border-radius: 10px;
   background: #12171d;
@@ -224,11 +221,6 @@ button.home-card {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.tutorial-coach h2 {
-  margin: 0 0 0.35rem;
-  font-size: 0.95rem;
-  font-weight: 650;
-}
 .tutorial-coach p {
   margin: 0;
   color: var(--text-muted);
@@ -239,7 +231,21 @@ button.home-card {
   display: flex;
   justify-content: flex-end;
   gap: 0.45rem;
-  margin-top: 0.75rem;
+  margin-top: 0.6rem;
+}
+.tutorial-cta {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.35rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #0b1014;
+  font-weight: 650;
+  text-decoration: none;
+}
+.tutorial-cta:hover {
+  filter: brightness(1.08);
 }
 .contact-list {
   display: grid;
@@ -1199,6 +1205,12 @@ code {
   flex-direction: column;
   min-height: 0;
 }
+.series-filters [data-tutorial="trails"] {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+}
 .series-filters {
   --series-control-h: 26px;
   display: flex;
@@ -1718,6 +1730,10 @@ a.ghost {
   align-items: center;
   font-size: 0.9rem;
 }
+.snapshot-books label.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .snapshot-books {
   margin: 0 0 0.85rem;
   padding: 0.35rem 0 0;
@@ -1727,6 +1743,12 @@ a.ghost {
   gap: 0.4rem;
   max-height: 12rem;
   overflow: auto;
+}
+.snapshot-tutorial-hint {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
 }
 .snapshot-recent-hint {
   margin: 0.35rem 0 0;

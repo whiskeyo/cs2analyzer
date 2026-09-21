@@ -60,6 +60,7 @@ export function Notes({
     <div className="notes-actions">
       <button
         type="button"
+        data-tutorial="pdf"
         disabled={exportDisabled || exportBusy}
         title={exportTitle}
         onClick={onExportPdf}

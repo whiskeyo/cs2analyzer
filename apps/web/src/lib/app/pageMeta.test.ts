@@ -42,6 +42,7 @@ describe("pageMeta", () => {
     expect(pageTitle("/")).toBe(SITE_NAME);
     expect(pageTitle("/analyzer")).toBe("CS2 Analyzer — Analyzer");
     expect(pageTitle("/tutorial")).toBe("CS2 Analyzer — Tutorial");
+    expect(pageTitle("/tutorial/single")).toBe("CS2 Analyzer — Tutorial");
     expect(pageTitle("/tutorial/aggregated")).toBe("CS2 Analyzer — Tutorial");
     expect(pageTitle("/playbook")).toBe("CS2 Analyzer — Playbook");
     expect(pageTitle("/faq")).toBe("CS2 Analyzer — FAQ");
@@ -206,6 +207,10 @@ describe("breadcrumbTrail", () => {
       { name: "Home", path: "/" },
       { name: "Tutorial", path: "/tutorial" },
     ]);
+    expect(breadcrumbTrail("/tutorial/single")?.[2]).toEqual({
+      name: "Single",
+      path: "/tutorial/single",
+    });
     expect(breadcrumbTrail("/tutorial/playbook")?.[2]).toEqual({
       name: "Playbook",
       path: "/tutorial/playbook",

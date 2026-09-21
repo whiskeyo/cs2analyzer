@@ -241,6 +241,7 @@ export function PlaybookTree({
                                     : "playbook-tree-label"
                                 }
                                 aria-expanded={bookOpen}
+                                data-tutorial="playbook-pdf"
                                 title="Drag to reorder. Double-click to expand. F2 to rename."
                                 onClick={() => onOpenBook(book)}
                                 onDoubleClick={() => onToggleBook(book.key)}
@@ -316,6 +317,8 @@ export function PlaybookTree({
                                               : "playbook-tree-strat"
                                           }
                                           title="Drag to reorder. Double-click or F2 to rename."
+                                          data-tutorial="strat"
+                                          data-tutorial-action="open-strat"
                                           onClick={() => onSelectStrat(book, page.id)}
                                           onDoubleClick={(e) => {
                                             e.preventDefault();

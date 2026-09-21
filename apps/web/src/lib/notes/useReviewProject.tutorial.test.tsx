@@ -247,6 +247,23 @@ describe("useReviewProject tutorial isolation", () => {
     expect(mocks.saveProject).not.toHaveBeenCalled();
   });
 
+  it("does not autoplay the tutorial fixture so the Play coach-mark can run", async () => {
+    const pb = playback();
+    const d = tutorialDemo();
+    const { result } = renderHook(() =>
+      useReviewProject({
+        demo: d,
+        series: null,
+        parsedDemos: [],
+        status: status(),
+        playback: pb,
+      }),
+    );
+    await waitFor(() => expect(result.current.notesDemoId).toBe(d.id));
+    expect(pb.setPlaying).not.toHaveBeenCalled();
+    expect(mocks.loadProject).not.toHaveBeenCalled();
+  });
+
   it("still persists a real Analyzer demo", async () => {
     const d = realDemo();
     mocks.matchKey.mockReturnValue("de_mirage|1|50,100|match.dem");

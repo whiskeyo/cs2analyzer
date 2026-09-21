@@ -156,4 +156,26 @@ describe("PlaybookTree", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
     expect(props.onExportPdf).toHaveBeenCalledWith(mirage);
   });
+
+  it("still offers Export PDF on a sandbox tutorial book", () => {
+    const sample = newPlaybook("de_dust2", "Tutorial");
+    sample.pages[0]!.title = "Habits snapshot";
+    const props = treeProps({
+      mapNames: ["de_dust2"],
+      books: [sample],
+      mapName: "de_dust2",
+      activeKey: sample.key,
+      expandedBooks: new Set([sample.key]),
+      sandbox: true,
+    });
+    render(<PlaybookTree {...props} />);
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Tutorial" }));
+    expect(screen.getAllByRole("menuitem").map((el) => el.textContent)).toEqual([
+      "Export PDF",
+      "New strat",
+      "Rename",
+    ]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
+    expect(props.onExportPdf).toHaveBeenCalledWith(sample);
+  });
 });

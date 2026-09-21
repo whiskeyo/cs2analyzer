@@ -140,7 +140,7 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
     const eq = list.reduce((sum, r) => sum + r.p.equip, 0);
     const alive = list.filter((r) => r.p.alive).length;
     return (
-      <div className={`spec-eco ${side}`}>
+      <div className={`spec-eco ${side}`} data-tutorial="hud">
         <div className="spec-team">
           <span>
             {title} · {alive}

@@ -114,6 +114,7 @@ export function Header() {
           <button
             type="button"
             className="ghost"
+            data-tutorial="pdf"
             disabled={!matchPdf.canExport || matchPdf.busy}
             title={
               matchPdf.aggregated
