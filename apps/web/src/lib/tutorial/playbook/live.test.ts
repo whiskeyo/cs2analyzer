@@ -12,9 +12,17 @@ describe("tutorial playbook live", () => {
     resetTutorialPlaybookLive();
   });
 
-  it("starts empty until a snapshot appends a book for that map", () => {
-    expect(getTutorialPlaybooksLive()).toEqual([]);
-    expect(getTutorialPlaybookForMap("de_mirage")).toBeNull();
+  it("starts from the Mirage sample and appends snapshots to that map", () => {
+    const sample = getTutorialPlaybooksLive();
+    expect(sample).toHaveLength(1);
+    expect(sample[0]).toMatchObject({
+      key: tutorialPlaybookKey("de_mirage"),
+      title: TUTORIAL_PLAYBOOK_TITLE,
+      mapName: "de_mirage",
+    });
+    expect(sample[0]?.pages).toHaveLength(1);
+    expect(sample[0]?.pages[0]?.title).toBe("Fake A Smokes, B contact");
+    expect(getTutorialPlaybookForMap("de_dust2")).toBeNull();
 
     const { book, pageId } = writeTutorialSnapshot({
       mapName: "de_mirage",
@@ -24,6 +32,7 @@ describe("tutorial playbook live", () => {
     expect(book.mapName).toBe("de_mirage");
     expect(book.title).toBe(TUTORIAL_PLAYBOOK_TITLE);
     expect(book.key).toBe(tutorialPlaybookKey("de_mirage"));
+    expect(book.pages.some((page) => page.title === "Fake A Smokes, B contact")).toBe(true);
     expect(book.pages.some((page) => page.title === "My snapshot")).toBe(true);
     expect(getTutorialPlaybookForMap("de_mirage")?.activePageId).toBe(pageId);
     expect(getTutorialPlaybookForMap("de_dust2")).toBeNull();
@@ -32,7 +41,16 @@ describe("tutorial playbook live", () => {
   it("starts from the sample again after reset", () => {
     writeTutorialSnapshot({ mapName: "de_dust2", stratTitle: "Gone", pieces: [] });
     resetTutorialPlaybookLive();
-    expect(getTutorialPlaybooksLive()).toEqual([]);
+    const books = getTutorialPlaybooksLive();
+    expect(books).toHaveLength(1);
+    expect(books[0]).toMatchObject({
+      key: tutorialPlaybookKey("de_mirage"),
+      title: TUTORIAL_PLAYBOOK_TITLE,
+      mapName: "de_mirage",
+    });
+    expect(books[0]?.pages).toHaveLength(1);
+    expect(books[0]?.pages[0]?.title).toBe("Fake A Smokes, B contact");
+    expect(getTutorialPlaybookForMap("de_dust2")).toBeNull();
   });
 
   it("keeps Single and Aggregated snapshots on their own maps", () => {

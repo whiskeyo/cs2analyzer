@@ -467,8 +467,9 @@ describe("Playbook", () => {
     expect(await screen.findByRole("button", { name: "Mirage" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Dust II" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Inferno" })).toBeInTheDocument();
-    expect(screen.getAllByText("No playbooks").length).toBeGreaterThanOrEqual(3);
-    expect(screen.queryByRole("button", { name: "Tutorial" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tutorial" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fake A Smokes, B contact" })).toBeInTheDocument();
+    expect(screen.getAllByText("No playbooks")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "My real book" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Other map book" })).not.toBeInTheDocument();
     expect(await loadPlaybook(real.key)).toMatchObject({

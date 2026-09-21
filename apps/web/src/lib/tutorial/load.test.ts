@@ -9,6 +9,7 @@ import {
   resetTutorialLoadCache,
 } from "./load";
 import { seriesMatchLoaders } from "./multi-demo/loaders";
+import { TUTORIAL_PLAYBOOK_TITLE, tutorialPlaybookKey } from "./playbook/constants";
 
 describe("tutorial load entry", () => {
   it("lazy-loads the three fixture loaders", async () => {
@@ -20,7 +21,14 @@ describe("tutorial load entry", () => {
     expect(replay.rounds).toHaveLength(2);
     expect(series).not.toBeNull();
     expect(series?.demos.length).toBeGreaterThan(1);
-    expect(books).toEqual([]);
+    expect(books).toHaveLength(1);
+    expect(books[0]).toMatchObject({
+      key: tutorialPlaybookKey("de_mirage"),
+      title: TUTORIAL_PLAYBOOK_TITLE,
+      mapName: "de_mirage",
+    });
+    expect(books[0]?.pages).toHaveLength(1);
+    expect(books[0]?.pages[0]?.title).toBe("Fake A Smokes, B contact");
   });
 
   it("reuses the cached series hydrate promise", async () => {
