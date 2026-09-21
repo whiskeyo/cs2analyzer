@@ -199,6 +199,9 @@ describe("MapToolbar", () => {
     render(<MapToolbar {...toolbarProps({ onSnapshot })} />);
     await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
     expect(onSnapshot).toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Snapshot to playbook" }).closest("[data-tutorial]"),
+    ).toHaveAttribute("data-tutorial", "snapshot");
   });
 
   it("hides snapshot when the handler is omitted", () => {

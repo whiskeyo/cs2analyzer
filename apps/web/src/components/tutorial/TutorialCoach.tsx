@@ -1,12 +1,14 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import {
-  coachTargetBox,
+  coachTargetBoxes,
   placeCoachCallout,
+  sameBoxes,
   TUTORIAL_COACH_STEPS,
   tutorialCoachStepNumber,
+  tutorialCoachStepTargets,
   tutorialCoachSteps,
   tutorialTargetSelector,
   type Box,
@@ -17,41 +19,50 @@ import { parseTutorialPath } from "@/lib/tutorial/query";
 
 const CALLOUT_FALLBACK = { width: 280, height: 120 };
 
-function sameBox(a: Box | null, b: Box | null): boolean {
-  if (a == null || b == null) return a === b;
-  return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
-}
-
-function useCoachTarget(target: TutorialCoachTarget): Box | null {
-  const [box, setBox] = useState<Box | null>(null);
+function useCoachTargets(targets: readonly TutorialCoachTarget[]): Box[] {
+  const [boxes, setBoxes] = useState<Box[]>([]);
+  const key = targets.join("\0");
 
   useLayoutEffect(() => {
+    const targets = key.split("\0").filter(Boolean) as TutorialCoachTarget[];
     let cancelled = false;
-    let ro: ResizeObserver | null = null;
+    const observers: ResizeObserver[] = [];
     let raf = 0;
 
-    const observe = (el: Element | null) => {
-      ro?.disconnect();
-      ro = null;
-      if (!(el instanceof HTMLElement) || typeof ResizeObserver === "undefined") return;
-      ro = new ResizeObserver(() => {
-        if (cancelled) return;
-        const next = coachTargetBox(el);
-        setBox((prev) => (sameBox(prev, next) ? prev : next));
-      });
-      ro.observe(el);
+    const observe = () => {
+      for (const ro of observers) ro.disconnect();
+      observers.length = 0;
+      if (typeof ResizeObserver === "undefined" || typeof document === "undefined") return;
+      for (const target of targets) {
+        const nodes = document.querySelectorAll(tutorialTargetSelector(target));
+        for (const node of nodes) {
+          if (!(node instanceof HTMLElement)) continue;
+          const ro = new ResizeObserver(() => {
+            if (cancelled) return;
+            const next = coachTargetBoxes(targets);
+            setBoxes((prev) => (sameBoxes(prev, next) ? prev : next));
+          });
+          ro.observe(node);
+          observers.push(ro);
+        }
+      }
     };
 
     const read = (): boolean => {
       if (cancelled) return false;
-      const el = document.querySelector(tutorialTargetSelector(target));
-      if (el instanceof HTMLElement && typeof el.scrollIntoView === "function") {
-        el.scrollIntoView({ block: "nearest", inline: "nearest" });
+      if (typeof document !== "undefined") {
+        for (const target of targets) {
+          const el = document.querySelector(tutorialTargetSelector(target));
+          if (el instanceof HTMLElement && typeof el.scrollIntoView === "function") {
+            el.scrollIntoView({ block: "nearest", inline: "nearest" });
+            break;
+          }
+        }
       }
-      const next = coachTargetBox(el);
-      setBox((prev) => (sameBox(prev, next) ? prev : next));
-      observe(el);
-      return el instanceof HTMLElement;
+      const next = coachTargetBoxes(targets);
+      setBoxes((prev) => (sameBoxes(prev, next) ? prev : next));
+      observe();
+      return next.length > 0;
     };
 
     const poll = () => {
@@ -66,20 +77,22 @@ function useCoachTarget(target: TutorialCoachTarget): Box | null {
             read();
           })
         : null;
-    mo?.observe(document.body, { childList: true, subtree: true });
+    if (typeof document !== "undefined") {
+      mo?.observe(document.body, { childList: true, subtree: true });
+    }
     window.addEventListener("resize", read);
     window.addEventListener("scroll", read, true);
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
       mo?.disconnect();
-      ro?.disconnect();
+      for (const ro of observers) ro.disconnect();
       window.removeEventListener("resize", read);
       window.removeEventListener("scroll", read, true);
     };
-  }, [target]);
+  }, [key]);
 
-  return box;
+  return boxes;
 }
 
 function CoachRing({ box }: { box: Box }) {
@@ -148,7 +161,7 @@ function CoachCallout({
   );
 }
 
-/** Ring + callout beside one real control. Only Next advances. */
+/** Rings + callout beside real controls. Only Next advances. */
 export function TutorialCoach() {
   const { pathname } = useLocation();
   const { update } = useUserSettings();
@@ -156,17 +169,24 @@ export function TutorialCoach() {
   const steps = route ? tutorialCoachSteps(route) : [];
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(true);
+  const [routeEpoch, setRouteEpoch] = useState(route);
+  if (route !== routeEpoch) {
+    setRouteEpoch(route);
+    setIndex(0);
+  }
   const current = steps[index];
-  const box = useCoachTarget(current?.target ?? "play");
+  const targets = current ? tutorialCoachStepTargets(current) : (["play"] as const);
+  const boxes = useCoachTargets(targets);
+  const primary = boxes[0] ?? null;
 
-  const skip = useCallback(() => {
+  const skip = () => {
     void update({ tutorialCompleted: true });
     setOpen(false);
-  }, [update]);
+  };
 
-  const next = useCallback(() => {
+  const next = () => {
     setIndex((i) => i + 1);
-  }, []);
+  };
 
   // Playable tutorial routes always show marks. `tutorialCompleted` only skips
   // Home prefetch; IndexedDB `ready` must not hide the first callout. No DOM
@@ -177,10 +197,12 @@ export function TutorialCoach() {
 
   return createPortal(
     <>
-      {box ? <CoachRing box={box} /> : null}
+      {boxes.map((box, i) => (
+        <CoachRing key={`${box.top}-${box.left}-${i}`} box={box} />
+      ))}
       <CoachCallout
         step={current}
-        box={box}
+        box={primary}
         total={TUTORIAL_COACH_STEPS.length}
         onSkip={skip}
         onNext={next}

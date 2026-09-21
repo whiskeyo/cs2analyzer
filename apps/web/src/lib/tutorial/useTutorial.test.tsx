@@ -48,6 +48,7 @@ vi.mock("./load", () => ({
   loadTutorialPlaybook: loadMocks.loadTutorialPlaybook,
   isTutorialSeriesReady: loadMocks.isTutorialSeriesReady,
   peekTutorialSeries: loadMocks.peekTutorialSeries,
+  resetTutorialLoadCache: vi.fn(),
 }));
 
 vi.mock("./seriesWarmup", () => ({

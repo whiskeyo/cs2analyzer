@@ -17,6 +17,8 @@ import {
   rememberRecentPlaybook,
 } from "@/lib/playbook/snapshotRecent";
 import { UNTITLED_PLAYBOOK, type Playbook } from "@/lib/playbook/types";
+import { TUTORIAL_PLAYBOOK_KEY } from "@/lib/tutorial/playbook/constants";
+import { getTutorialPlaybookLive, writeTutorialSnapshot } from "@/lib/tutorial/playbook/live";
 import { errorMessage } from "@/lib/validate/json.ts";
 import type { SnapshotToastInfo } from "./SnapshotToast";
 
@@ -30,6 +32,8 @@ interface Props {
   radarFx?: NoteRadarFx;
   stratTitle: string;
   floor: FloorMode;
+  /** Tutorial analyzer: list every destination, but only the sample Playbook is active. */
+  lockToTutorial?: boolean;
   onClose: () => void;
   onSaved?: (saved: SnapshotToastInfo) => void;
 }
@@ -38,17 +42,20 @@ function BookOption({
   book,
   target,
   onPick,
+  disabled,
 }: {
   book: Playbook;
   target: string;
   onPick: (key: string) => void;
+  disabled?: boolean;
 }) {
   return (
-    <label>
+    <label className={disabled ? "is-disabled" : undefined}>
       <input
         type="radio"
         name="snapshot-book"
         checked={target === book.key}
+        disabled={disabled}
         onChange={() => onPick(book.key)}
       />
       {book.title}
@@ -64,12 +71,15 @@ export function SnapshotDialog({
   radarFx,
   stratTitle: initialTitle,
   floor,
+  lockToTutorial = false,
   onClose,
   onSaved,
 }: Props) {
   const titleId = useId();
-  const [books, setBooks] = useState<Playbook[] | null>(null);
-  const [target, setTarget] = useState(NEW_BOOK);
+  const [books, setBooks] = useState<Playbook[] | null>(() =>
+    lockToTutorial ? [getTutorialPlaybookLive()] : null,
+  );
+  const [target, setTarget] = useState(lockToTutorial ? TUTORIAL_PLAYBOOK_KEY : NEW_BOOK);
   const [newTitle, setNewTitle] = useState("");
   const [stratTitle, setStratTitle] = useState(initialTitle);
   const [layers, setLayers] = useState<SnapshotLayers>(DEFAULT_SNAPSHOT_LAYERS);
@@ -83,6 +93,13 @@ export function SnapshotDialog({
     void listPlaybooksForMap(mapName)
       .then((list) => {
         if (cancelled) return;
+        if (lockToTutorial) {
+          const sample = getTutorialPlaybookLive();
+          const rest = list.filter((book) => book.key !== sample.key);
+          setBooks([sample, ...rest]);
+          setTarget(TUTORIAL_PLAYBOOK_KEY);
+          return;
+        }
         setBooks(list);
         setTarget(defaultSnapshotBookKey(list, loadRecentPlaybookKeys()) ?? NEW_BOOK);
       })
@@ -92,7 +109,7 @@ export function SnapshotDialog({
     return () => {
       cancelled = true;
     };
-  }, [mapName]);
+  }, [mapName, lockToTutorial]);
 
   const save = async () => {
     if (!snapshotLayerSelected(layers)) {
@@ -103,23 +120,34 @@ export function SnapshotDialog({
     setError(null);
     try {
       const stamped = applySnapshotLayers({ pieces, groups, radarFx, drawings }, layers);
-      const { book } = await writeSnapshot({
-        mapName,
-        bookKey: target === NEW_BOOK ? null : target,
-        newBookTitle: newTitle,
-        stratTitle,
-        pieces: stamped.pieces,
-        radarFx: stamped.radarFx,
-        groups: stamped.groups,
-        drawings: stamped.drawings,
-        floor,
-      });
-      rememberPlaybookFocus({ mapName, bookKey: book.key });
-      rememberRecentPlaybook(book.key);
+      const savedBook = lockToTutorial
+        ? writeTutorialSnapshot({
+            stratTitle,
+            pieces: stamped.pieces,
+            radarFx: stamped.radarFx,
+            groups: stamped.groups,
+            drawings: stamped.drawings,
+            floor,
+          }).book
+        : (
+            await writeSnapshot({
+              mapName,
+              bookKey: target === NEW_BOOK ? null : target,
+              newBookTitle: newTitle,
+              stratTitle,
+              pieces: stamped.pieces,
+              radarFx: stamped.radarFx,
+              groups: stamped.groups,
+              drawings: stamped.drawings,
+              floor,
+            })
+          ).book;
+      rememberPlaybookFocus({ mapName, bookKey: savedBook.key });
+      if (!lockToTutorial) rememberRecentPlaybook(savedBook.key);
       onSaved?.({
         mapName,
-        bookTitle: book.title,
-        bookKey: book.key,
+        bookTitle: savedBook.title,
+        bookKey: savedBook.key,
         stratTitle,
       });
       onClose();
@@ -144,6 +172,12 @@ export function SnapshotDialog({
           Pick a playbook for this map, then a new named strat. Analyzer ink stays unless Drawings
           is on.
         </p>
+        {lockToTutorial ? (
+          <p className="snapshot-recent-hint">
+            During the tutorial, only the sample Playbook can receive a snapshot. Other destinations
+            stay listed but inactive.
+          </p>
+        ) : null}
         <fieldset className="snapshot-layers">
           <legend>Include</legend>
           {SNAPSHOT_LAYER_OPTIONS.map((option) => (
@@ -161,19 +195,32 @@ export function SnapshotDialog({
           <legend>Playbook</legend>
           {recent.length > 0 ? <p className="snapshot-recent-hint">Recent</p> : null}
           {recent.map((book) => (
-            <BookOption key={book.key} book={book} target={target} onPick={setTarget} />
+            <BookOption
+              key={book.key}
+              book={book}
+              target={target}
+              onPick={setTarget}
+              disabled={lockToTutorial && book.key !== TUTORIAL_PLAYBOOK_KEY}
+            />
           ))}
           {rest.length > 0 && recent.length > 0 ? (
             <p className="snapshot-recent-hint">All</p>
           ) : null}
           {rest.map((book) => (
-            <BookOption key={book.key} book={book} target={target} onPick={setTarget} />
+            <BookOption
+              key={book.key}
+              book={book}
+              target={target}
+              onPick={setTarget}
+              disabled={lockToTutorial && book.key !== TUTORIAL_PLAYBOOK_KEY}
+            />
           ))}
-          <label>
+          <label className={lockToTutorial ? "is-disabled" : undefined}>
             <input
               type="radio"
               name="snapshot-book"
               checked={target === NEW_BOOK}
+              disabled={lockToTutorial}
               onChange={() => setTarget(NEW_BOOK)}
             />
             New playbook

@@ -1,25 +1,38 @@
 import type { TutorialStep } from "./query";
 import type { TutorialCoachAction } from "./coachAction";
 
-/** `data-tutorial` id on the control the ring / spotlight should follow. */
+/** `data-tutorial` id on the control the ring should follow. */
 export type TutorialCoachTarget =
   | "play"
   | "draw"
   | "notes"
-  | "next-aggregated"
-  | "side"
+  | "review"
+  | "hud"
   | "util"
   | "util-throw"
-  | "buy"
+  | "snapshot"
+  | "bookmark"
+  | "pdf"
+  | "next-aggregated"
+  | "side"
+  | "rounds"
+  | "player-filter"
+  | "trails"
   | "next-playbook"
   | "strat"
+  | "playbook-tools"
+  | "strat-notes"
+  | "playbook-pdf"
   | "finish";
 
 export interface TutorialCoachStep {
-  id: TutorialCoachTarget;
+  id: string;
   route: TutorialStep;
+  /** Primary ring + callout anchor. */
   target: TutorialCoachTarget;
-  doneWhen: TutorialCoachAction;
+  /** Extra rings (same step). Callout still follows `target`. */
+  extraTargets?: TutorialCoachTarget[];
+  doneWhen?: TutorialCoachAction;
   body: string;
 }
 
@@ -46,6 +59,40 @@ export const TUTORIAL_COACH_STEPS: TutorialCoachStep[] = [
     body: "Open Notes to review what you marked. Tutorial drawings stay ephemeral — they are not saved.",
   },
   {
+    id: "review",
+    route: "replay",
+    target: "review",
+    extraTargets: ["hud"],
+    body: "Open the Review tab. Selecting a player in the HUD filters the right-side tabs, and Review summarizes that player's performance in the match.",
+  },
+  {
+    id: "util",
+    route: "replay",
+    target: "util",
+    doneWhen: "open-util",
+    body: "Switch to the Utility tab to see every grenade thrown in these two rounds.",
+  },
+  {
+    id: "util-throw",
+    route: "replay",
+    target: "util-throw",
+    doneWhen: "jump-grenade",
+    body: "Click a grenade in the list to jump playback to when it was thrown.",
+  },
+  {
+    id: "snapshot",
+    route: "replay",
+    target: "snapshot",
+    body: "Take a snapshot of this analyzer view. It appears as a new strat in the Playbook — an important place to keep executes next to your demos.",
+  },
+  {
+    id: "pdf",
+    route: "replay",
+    target: "pdf",
+    extraTargets: ["bookmark"],
+    body: "Notes can be exported to PDF from a single demo and from the Playbook. On a single demo the round must have a bookmark or the graphic will not appear in the saved PDF. Each textbox is saved under Notes for the selected round.",
+  },
+  {
     id: "next-aggregated",
     route: "replay",
     target: "next-aggregated",
@@ -56,29 +103,27 @@ export const TUTORIAL_COACH_STEPS: TutorialCoachStep[] = [
     id: "side",
     route: "aggregated",
     target: "side",
+    extraTargets: ["rounds"],
     doneWhen: "switch-side",
-    body: "Switch CT and T to analyze the same habits from the other side.",
+    body: "Switch CT and T to analyze the same habits from the other side. The round bar at the bottom follows that side. Outside the tutorial, in normal Aggregated mode, all rounds can be viewed — this sample only unlocks a subset.",
   },
   {
-    id: "util",
+    id: "player-filter",
     route: "aggregated",
-    target: "util",
-    doneWhen: "open-util",
-    body: "Switch to the Utility tab to see every grenade thrown in the match.",
+    target: "player-filter",
+    body: "Filter players from the selected team to study one player's movement in this multi-demo Aggregated analyzer.",
   },
   {
-    id: "util-throw",
+    id: "trails",
     route: "aggregated",
-    target: "util-throw",
-    doneWhen: "jump-grenade",
-    body: "Click a grenade in the list to jump the radar to that throw.",
+    target: "trails",
+    body: "Turn Trails on and set Paths to Overall for a summary of how often the player chooses locations during the game.",
   },
   {
-    id: "buy",
+    id: "snapshot-agg",
     route: "aggregated",
-    target: "buy",
-    doneWhen: "toggle-buy",
-    body: "Click Full — that chip is the playable Aggregated overlay. Pistol, eco, and force stay listed but grey.",
+    target: "snapshot",
+    body: "Snapshot this Aggregated overlay into the Playbook the same way as on a single demo. Only the tutorial Playbook is selectable in the destination list.",
   },
   {
     id: "next-playbook",
@@ -92,7 +137,25 @@ export const TUTORIAL_COACH_STEPS: TutorialCoachStep[] = [
     route: "playbook",
     target: "strat",
     doneWhen: "open-strat",
-    body: "Open the Tutorial strat in the tree to load that layer on the radar.",
+    body: "Open the sample strats in the tree. One is an Aggregated habits snapshot; the other is fully drawn by hand. Try both styles.",
+  },
+  {
+    id: "playbook-tools",
+    route: "playbook",
+    target: "playbook-tools",
+    body: "Add CT/T pawns and grenades — including nade trails — from the toolbar. You can also upload images and pin YouTube videos on the radar.",
+  },
+  {
+    id: "strat-notes",
+    route: "playbook",
+    target: "strat-notes",
+    body: "Fill Strat notes with callouts, timings, or utility. Type freely, then click Next.",
+  },
+  {
+    id: "playbook-pdf",
+    route: "playbook",
+    target: "playbook-pdf",
+    body: "Playbook notes export to PDF from the book menu (right-click the Playbook). Radar stills and strat notes go with the file.",
   },
   {
     id: "finish",
@@ -109,6 +172,10 @@ export function tutorialCoachSteps(route: TutorialStep): TutorialCoachStep[] {
 
 export function tutorialCoachStepNumber(step: TutorialCoachStep): number {
   return TUTORIAL_COACH_STEPS.findIndex((row) => row.id === step.id) + 1;
+}
+
+export function tutorialCoachStepTargets(step: TutorialCoachStep): TutorialCoachTarget[] {
+  return [step.target, ...(step.extraTargets ?? [])];
 }
 
 export function tutorialTargetSelector(target: TutorialCoachTarget): string {
@@ -198,4 +265,28 @@ export function coachTargetBox(el: Element | null): Box | null {
     width: rect.width,
     height: rect.height,
   };
+}
+
+export function sameBox(a: Box | null, b: Box | null): boolean {
+  if (a == null || b == null) return a === b;
+  return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
+}
+
+export function sameBoxes(a: Box[], b: Box[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((box, i) => sameBox(box, b[i] ?? null));
+}
+
+/** Every visible element matching the step's `data-tutorial` ids. */
+export function coachTargetBoxes(targets: readonly TutorialCoachTarget[]): Box[] {
+  if (typeof document === "undefined") return [];
+  const out: Box[] = [];
+  for (const target of targets) {
+    const nodes = document.querySelectorAll(tutorialTargetSelector(target));
+    for (const node of nodes) {
+      const box = coachTargetBox(node);
+      if (box) out.push(box);
+    }
+  }
+  return out;
 }

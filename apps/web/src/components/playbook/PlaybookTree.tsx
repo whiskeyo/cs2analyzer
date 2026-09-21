@@ -241,6 +241,7 @@ export function PlaybookTree({
                                     : "playbook-tree-label"
                                 }
                                 aria-expanded={bookOpen}
+                                data-tutorial="playbook-pdf"
                                 title="Drag to reorder. Double-click to expand. F2 to rename."
                                 onClick={() => onOpenBook(book)}
                                 onDoubleClick={() => onToggleBook(book.key)}

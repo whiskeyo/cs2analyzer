@@ -1205,6 +1205,12 @@ code {
   flex-direction: column;
   min-height: 0;
 }
+.series-filters [data-tutorial="trails"] {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+}
 .series-filters {
   --series-control-h: 26px;
   display: flex;
@@ -1723,6 +1729,10 @@ a.ghost {
   gap: 0.45rem;
   align-items: center;
   font-size: 0.9rem;
+}
+.snapshot-books label.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .snapshot-books {
   margin: 0 0 0.85rem;

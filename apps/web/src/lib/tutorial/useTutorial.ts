@@ -15,6 +15,7 @@ import {
   loadTutorialReplay,
   loadTutorialSeries,
   peekTutorialSeries,
+  resetTutorialLoadCache,
 } from "./load";
 import {
   prefetchNextTutorialStep,
@@ -149,6 +150,7 @@ export function useTutorial(): void {
       closeIfTutorialSession(live);
       if (wasTutorial) {
         clearSeriesReviewCache();
+        resetTutorialLoadCache();
         void purgeTutorialProjects();
       }
       return;

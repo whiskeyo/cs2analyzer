@@ -80,6 +80,7 @@ export function SeriesFilters() {
           <select
             className="series-player-select"
             aria-label="Filter habits by player"
+            data-tutorial="player-filter"
             value={playerKey ?? ""}
             onChange={(e) => {
               const v = e.target.value;
@@ -115,31 +116,33 @@ export function SeriesFilters() {
                 />
                 Arrows
               </label>
-              <label className="series-overlay-toggle">
-                <input
-                  type="checkbox"
-                  checked={habits.overlayTrails}
-                  onChange={(e) => habits.setOverlayTrails(e.target.checked)}
-                />
-                Trails
-              </label>
-              <div className="filters" role="toolbar" aria-label="Habits path display">
-                {(
-                  [
-                    { id: "trails", label: "Paths" },
-                    { id: "overall", label: "Overall" },
-                  ] as const
-                ).map((mode) => (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    className={`filter${habits.overlayDisplay === mode.id ? " on" : ""}`}
-                    onClick={() => habits.setOverlayDisplay(mode.id)}
-                  >
-                    {mode.label}
-                  </button>
-                ))}
-              </div>
+              <span data-tutorial="trails">
+                <label className="series-overlay-toggle">
+                  <input
+                    type="checkbox"
+                    checked={habits.overlayTrails}
+                    onChange={(e) => habits.setOverlayTrails(e.target.checked)}
+                  />
+                  Trails
+                </label>
+                <div className="filters" role="toolbar" aria-label="Habits path display">
+                  {(
+                    [
+                      { id: "trails", label: "Paths" },
+                      { id: "overall", label: "Overall" },
+                    ] as const
+                  ).map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      className={`filter${habits.overlayDisplay === mode.id ? " on" : ""}`}
+                      onClick={() => habits.setOverlayDisplay(mode.id)}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+              </span>
             </>
           )}
           {overlayActive && (

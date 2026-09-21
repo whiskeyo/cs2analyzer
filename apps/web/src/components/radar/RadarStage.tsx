@@ -1,3 +1,4 @@
+import { useLocation } from "react-router";
 import { useState } from "react";
 import { SnapshotDialog } from "@/components/playbook/SnapshotDialog";
 import { SnapshotToast, type SnapshotToastInfo } from "@/components/playbook/SnapshotToast";
@@ -18,6 +19,7 @@ import { tickRate } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { emitTutorialCoachAction } from "@/lib/tutorial/coachAction";
+import { isTutorialAnalyzerPath } from "@/lib/tutorial/query";
 import { Hud } from "./Hud";
 import { KillFeed } from "./KillFeed";
 import { MapToolbar } from "./MapToolbar";
@@ -33,6 +35,8 @@ import { SpectatorEconomy } from "./SpectatorEconomy";
 export function RadarStage() {
   const { session, playback, review, view, cal, habits } = useApp();
   const { settings } = useUserSettings();
+  const { pathname } = useLocation();
+  const tutorialSnapshot = isTutorialAnalyzerPath(pathname);
   const [snapshot, setSnapshot] = useState<ReturnType<typeof snapshotFromAnalyzer> | null>(null);
   const [toast, setToast] = useState<SnapshotToastInfo | null>(null);
   const replay = session.replay;
@@ -221,6 +225,7 @@ export function RadarStage() {
           radarFx={snapshot.radarFx}
           stratTitle={snapshot.stratTitle}
           floor={snapshot.floor}
+          lockToTutorial={tutorialSnapshot}
           onClose={() => setSnapshot(null)}
           onSaved={(saved) => {
             setSnapshot(null);

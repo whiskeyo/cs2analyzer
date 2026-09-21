@@ -49,16 +49,18 @@ export function MapToolbar({
           onClick={() => onTool("text")}
           path="text"
         />
-        <ToolbarIconBtn
-          title={MATCH_PDF_BOOKMARK_TOOLTIP}
-          on={tool === "bookmark"}
-          disabled={!draw}
-          onClick={() => {
-            onTool("bookmark");
-            onStampBookmark();
-          }}
-          path="bookmark"
-        />
+        <span data-tutorial="bookmark">
+          <ToolbarIconBtn
+            title={MATCH_PDF_BOOKMARK_TOOLTIP}
+            on={tool === "bookmark"}
+            disabled={!draw}
+            onClick={() => {
+              onTool("bookmark");
+              onStampBookmark();
+            }}
+            path="bookmark"
+          />
+        </span>
         <ToolbarIconBtn
           title="Erase"
           on={tool === "eraser"}
@@ -87,7 +89,9 @@ export function MapToolbar({
       />
       <ToolbarIconBtn title="Reset view" onClick={onResetView} path="reset" />
       {onSnapshot ? (
-        <ToolbarIconBtn title="Snapshot to playbook" onClick={onSnapshot} path="snapshot" />
+        <span data-tutorial="snapshot">
+          <ToolbarIconBtn title="Snapshot to playbook" onClick={onSnapshot} path="snapshot" />
+        </span>
       ) : null}
       <ColorPalette
         paletteId={paletteId}

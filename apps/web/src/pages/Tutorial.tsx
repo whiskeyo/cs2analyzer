@@ -17,8 +17,10 @@ export function Tutorial() {
         </p>
         <ul className={FEATURE_LIST_CLASS}>
           <li>Play and scrub a two-round GOTV sample, then draw on the radar.</li>
-          <li>Open Notes (tutorial drawings stay ephemeral).</li>
-          <li>Habits across several demos, then a sample playbook strat.</li>
+          <li>Review, grenade jump, snapshot to the Playbook, and PDF export.</li>
+          <li>
+            Habits across several demos, then a sample Playbook with snapshot and drawn strats.
+          </li>
         </ul>
         <Link
           className="tutorial-cta"

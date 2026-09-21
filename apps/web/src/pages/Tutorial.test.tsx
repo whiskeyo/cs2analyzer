@@ -21,8 +21,8 @@ describe("Tutorial intro hub", () => {
     expect(screen.getByText(/Coach marks highlight one Analyzer control/)).toBeInTheDocument();
     expect(screen.getByText(/click Next in the callout/)).toBeInTheDocument();
     expect(screen.getByText(/two-round GOTV sample/)).toBeInTheDocument();
-    expect(screen.getByText(/ephemeral/)).toBeInTheDocument();
-    expect(screen.getByText(/Habits across several demos/)).toBeInTheDocument();
+    expect(screen.getByText(/snapshot to the Playbook/)).toBeInTheDocument();
+    expect(screen.getByText(/sample Playbook with snapshot and drawn strats/)).toBeInTheDocument();
     const start = screen.getByRole("link", { name: "Start tutorial" });
     expect(start).toHaveAttribute("href", tutorialHref("replay"));
     expect(start).toHaveAttribute("href", "/tutorial/single");

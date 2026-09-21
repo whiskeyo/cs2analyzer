@@ -16,7 +16,7 @@ function stepCopy(step: TutorialStep): string {
     return "Sample of multiple GOTV demos. Aggregated full is playable; other rounds stay listed but grey.";
   }
   if (step === "playbook") {
-    return "Sample Playbook. Empty notes on purpose — drawings stay on this machine.";
+    return "Sample Playbook. Open a habits snapshot or a hand-drawn strat; notes stay on this machine.";
   }
   return "Sample of two rounds from GOTV demo";
 }

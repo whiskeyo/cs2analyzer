@@ -165,7 +165,12 @@ export function TokenPalette({
   onFloorMode,
 }: Props) {
   return (
-    <div className="playbook-toolbar map-toolbar" role="toolbar" aria-label="Playbook tools">
+    <div
+      className="playbook-toolbar map-toolbar"
+      role="toolbar"
+      aria-label="Playbook tools"
+      data-tutorial="playbook-tools"
+    >
       <ToolBtn label="Pan" title="Pan (V)" on={tool === "pan"} onClick={() => onTool("pan")}>
         <ToolbarIcon d={TOOL_PATHS.pan} />
       </ToolBtn>

@@ -4,35 +4,53 @@ import {
   placeCoachCallout,
   TUTORIAL_COACH_STEPS,
   tutorialCoachStepNumber,
+  tutorialCoachStepTargets,
   tutorialCoachSteps,
   tutorialTargetSelector,
 } from "./coach";
 
 describe("tutorial coach steps", () => {
-  it("covers Single, Aggregated, and Playbook with one control per step", () => {
+  it("covers Single, Aggregated, and Playbook in tour order", () => {
     expect(tutorialCoachSteps("replay").map((s) => s.id)).toEqual([
       "play",
       "draw",
       "notes",
+      "review",
+      "util",
+      "util-throw",
+      "snapshot",
+      "pdf",
       "next-aggregated",
     ]);
     expect(tutorialCoachSteps("aggregated").map((s) => s.id)).toEqual([
       "side",
-      "util",
-      "util-throw",
-      "buy",
+      "player-filter",
+      "trails",
+      "snapshot-agg",
       "next-playbook",
     ]);
-    expect(tutorialCoachSteps("playbook").map((s) => s.id)).toEqual(["strat", "finish"]);
-    expect(TUTORIAL_COACH_STEPS.every((step) => step.target === step.id)).toBe(true);
+    expect(tutorialCoachSteps("playbook").map((s) => s.id)).toEqual([
+      "strat",
+      "playbook-tools",
+      "strat-notes",
+      "playbook-pdf",
+      "finish",
+    ]);
     expect(new Set(TUTORIAL_COACH_STEPS.map((step) => step.id)).size).toBe(
       TUTORIAL_COACH_STEPS.length,
     );
   });
 
+  it("rings CT/T with the round bar and Review with the HUD", () => {
+    const side = tutorialCoachSteps("aggregated")[0]!;
+    expect(tutorialCoachStepTargets(side)).toEqual(["side", "rounds"]);
+    const review = tutorialCoachSteps("replay").find((step) => step.id === "review");
+    expect(tutorialCoachStepTargets(review!)).toEqual(["review", "hud"]);
+  });
+
   it("numbers steps across the whole tour", () => {
     const notes = tutorialCoachSteps("replay")[2]!;
-    const finish = tutorialCoachSteps("playbook")[1]!;
+    const finish = tutorialCoachSteps("playbook").at(-1)!;
     expect(tutorialCoachStepNumber(notes)).toBe(3);
     expect(tutorialCoachStepNumber(finish)).toBe(TUTORIAL_COACH_STEPS.length);
   });
