@@ -13,9 +13,9 @@ import { SERIES_GROUP_HIT_STEP_SECONDS, tickRate } from "@/lib/shared/constants"
 export interface SeriesGroupHitEntry {
   id: string;
   label: string;
-  /** Rounds in the bucket where this side entered the group. */
-  count: number;
-  /** `count / roundCount` (0–1). A round can sit in more than one group. */
+  /** Alive samples inside this group (one-second steps). */
+  samples: number;
+  /** `samples / sampleCount` (0–1). Samples outside playable groups are excluded. */
   share: number;
 }
 
@@ -23,6 +23,8 @@ export interface SeriesGroupHits {
   /** Layout-filter order (same chips as grenade groups), including zeros. */
   entries: SeriesGroupHitEntry[];
   roundCount: number;
+  /** Alive samples that landed in a playable layout group. */
+  sampleCount: number;
 }
 
 /** Team spawn rooms. "Outside CT Spawn" is a real area and still counts. */
@@ -57,15 +59,15 @@ function focalSidePlayers(replay: Replay, tag: RoundTag, focal: ReadonlySet<stri
   return indexes;
 }
 
-/** Layout groups this side entered between freeze end and round end. */
-function groupsEnteredInRound(
+/** Alive samples per layout group between freeze end and round end. */
+function groupSamplesInRound(
   replay: Replay,
   tag: RoundTag,
   places: MapPlaces,
   players: number[],
   wanted: ReadonlySet<string>,
-): Set<string> {
-  const hit = new Set<string>();
+): Map<string, number> {
+  const hit = new Map<string, number>();
   if (players.length === 0 || wanted.size === 0) return hit;
 
   const round = replay.rounds.find((candidate) => candidate.number === tag.roundNumber);
@@ -96,21 +98,20 @@ function groupsEnteredInRound(
       nextTick = tick + step;
       const group = groupAt(places, buf.x[slot] ?? 0, buf.y[slot] ?? 0, buf.z[slot] ?? 0);
       if (!group || !wanted.has(group)) continue;
-      hit.add(group);
-      if (hit.size === wanted.size) return hit;
+      hit.set(group, (hit.get(group) ?? 0) + 1);
     }
   }
   return hit;
 }
 
 /** `67%` — same rounding as Aggregated Overall path labels. */
-export function formatGroupHitPercent(count: number, roundCount: number): string {
-  return `${shareToPercent(branchShare(count, roundCount))}%`;
+export function formatGroupHitPercent(samples: number, sampleCount: number): string {
+  return `${shareToPercent(branchShare(samples, sampleCount))}%`;
 }
 
 /**
- * How often the focal side entered each layout filter group.
- * Fine callouts roll up (both Mid rooms count as Mid). Ungrouped rooms are ignored.
+ * Share of time the focal side spent in each layout filter group.
+ * Fine callouts roll up (both Mid rooms count as Mid). Ungrouped rooms and team spawns are ignored.
  */
 export function aggregateSeriesGroupHits(
   series: DemoSeries,
@@ -122,6 +123,7 @@ export function aggregateSeriesGroupHits(
   const counts = new Map<string, number>();
   const focal = new Set(series.focalTeamNames);
   let roundCount = 0;
+  let sampleCount = 0;
 
   for (const demo of series.demos) {
     const tags = series.tagsByDemo.get(demo.id) ?? [];
@@ -129,17 +131,30 @@ export function aggregateSeriesGroupHits(
       roundCount += 1;
       if (!placesReady(places) || wanted.size === 0) continue;
       const players = focalSidePlayers(demo.replay, tag, focal);
-      for (const group of groupsEnteredInRound(demo.replay, tag, places, players, wanted)) {
-        counts.set(group, (counts.get(group) ?? 0) + 1);
+      for (const [group, samples] of groupSamplesInRound(
+        demo.replay,
+        tag,
+        places,
+        players,
+        wanted,
+      )) {
+        counts.set(group, (counts.get(group) ?? 0) + samples);
+        sampleCount += samples;
       }
     }
   }
 
   return {
     entries: listed.map((group) => {
-      const count = counts.get(group.id) ?? 0;
-      return { id: group.id, label: group.label, count, share: branchShare(count, roundCount) };
+      const samples = counts.get(group.id) ?? 0;
+      return {
+        id: group.id,
+        label: group.label,
+        samples,
+        share: branchShare(samples, sampleCount),
+      };
     }),
     roundCount,
+    sampleCount,
   };
 }

@@ -79,29 +79,27 @@ export function SeriesBucketPanel() {
   );
 }
 
-/** Share of bucket rounds where this side entered each layout filter group. */
+/** Share of sampled time this side spent in each layout filter group. */
 function GroupHits({ hits }: { hits: SeriesGroupHits | null | undefined }) {
   if (!hits || hits.roundCount === 0 || hits.entries.length === 0) return null;
   return (
     <>
-      <p className="tab-hint">Share of rounds this side entered each layout group</p>
+      <p className="tab-hint">Share of time this side spent in each layout group</p>
       <ul className="series-group-list" aria-label="Layout group hits">
-        {hits.entries.map((entry) => (
-          <li key={entry.id} className="series-group-row">
-            <span className="series-group-label" title={entry.label}>
-              {entry.label}
-            </span>
-            <span className="series-group-track" aria-hidden="true">
-              <span className="series-group-fill" style={{ width: `${entry.share * 100}%` }} />
-            </span>
-            <span className="series-group-count">
-              {formatGroupHitPercent(entry.count, hits.roundCount)}
-              <span className="muted">
-                {entry.count}/{hits.roundCount}
+        {hits.entries.map((entry) => {
+          const percent = formatGroupHitPercent(entry.samples, hits.sampleCount);
+          return (
+            <li key={entry.id} className="series-group-row">
+              <span className="series-group-label" title={`${entry.label} ${percent}`}>
+                {entry.label}
               </span>
-            </span>
-          </li>
-        ))}
+              <span className="series-group-track" aria-hidden="true">
+                <span className="series-group-fill" style={{ width: `${entry.share * 100}%` }} />
+              </span>
+              <span className="series-group-count">{percent}</span>
+            </li>
+          );
+        })}
       </ul>
     </>
   );
