@@ -22,6 +22,7 @@ describe("BucketControls", () => {
     render(<BucketControls {...baseProps()} />);
     expect(screen.getByLabelText("Bucket overlay timeline")).toBeInTheDocument();
     expect(screen.getByText("+0:05")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export clip" })).not.toBeInTheDocument();
   });
 
   it("toggles play and steps by one second", async () => {

@@ -91,3 +91,22 @@ export const MATCH_PDF_ECO_FORCE = "Force";
 export const MATCH_PDF_ECO_FULL = "Full buy";
 export const MATCH_PDF_ECO_KNIFE = "Knife";
 export const MATCH_PDF_EXPORT_ERROR = "Could not export PDF.";
+
+/** Radar clip video frames per second of demo time. */
+export const CLIP_EXPORT_FPS = 60;
+
+/** Longest continuous radar clip, in seconds of demo time. */
+export const CLIP_EXPORT_MAX_SECONDS = 30;
+
+/** Preset length for “last N seconds” in single playback. */
+export const CLIP_EXPORT_DEFAULT_SECONDS = 15;
+
+/** MediaRecorder target bitrate for a sharp 2D radar. */
+export const CLIP_EXPORT_VIDEO_BITS_PER_SECOND = 8_000_000;
+
+export const CLIP_EXPORT_NOT_READY = "Radar is not ready to record.";
+export const CLIP_EXPORT_UNSUPPORTED = "This browser cannot record video.";
+export const CLIP_EXPORT_FAILED = "Could not export the clip.";
+export const CLIP_EXPORT_EMPTY = "The recording was empty.";
+export const CLIP_EXPORT_TOO_SHORT = "Clip is too short.";
+export const CLIP_EXPORT_NO_CANVAS = "This browser cannot record a canvas.";

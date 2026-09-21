@@ -15,6 +15,7 @@ import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { RoundNote } from "@/lib/notes/types";
 import { formatClock } from "@/lib/weapons/weapons";
 import { publicUrl } from "@/lib/shared/publicUrl";
+import { ClipExport } from "./ClipExport";
 import { TransportButton } from "./TransportButton";
 import { UnfocusableButton } from "./UnfocusableButton";
 
@@ -233,6 +234,15 @@ export const Controls = memo(function Controls({
           ))}
         </select>
       </label>
+      <ClipExport
+        replay={replay}
+        tick={tick}
+        round={round ?? null}
+        minTick={min}
+        maxTick={max}
+        onTick={onTick}
+        onPlaying={onPlaying}
+      />
       <div className="timeline-wrap">
         <div className="timeline-bar">
           <div className="timeline-track" aria-hidden="true">
