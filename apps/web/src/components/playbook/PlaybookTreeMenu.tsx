@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 export type TreeMenuTarget =
   | { kind: "map"; mapName: string }
@@ -80,6 +80,23 @@ export function PlaybookTreeMenu({
     };
   }, [onClose]);
 
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const pad = 8;
+    const rect = el.getBoundingClientRect();
+    let left = x;
+    let top = y;
+    const maxLeft = window.innerWidth - pad - rect.width;
+    const maxTop = window.innerHeight - pad - rect.height;
+    if (left > maxLeft) left = Math.max(pad, maxLeft);
+    if (top > maxTop) top = Math.max(pad, maxTop);
+    if (left < pad) left = pad;
+    if (top < pad) top = pad;
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+  }, [x, y]);
+
   const items: Item[] =
     target.kind === "map"
       ? sandbox
@@ -94,14 +111,14 @@ export function PlaybookTreeMenu({
         ? sandbox
           ? [
               {
+                label: "Export PDF",
+                onSelect: () => onExportPdf(target.bookKey),
+              },
+              {
                 label: "New strat",
                 onSelect: () => onNewStrat(target.bookKey),
               },
               { label: "Rename", onSelect: () => onRenameBook(target.bookKey) },
-              {
-                label: "Export PDF",
-                onSelect: () => onExportPdf(target.bookKey),
-              },
             ]
           : [
               {

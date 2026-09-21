@@ -170,8 +170,11 @@ describe("PlaybookTree", () => {
     });
     render(<PlaybookTree {...props} />);
     fireEvent.contextMenu(screen.getByRole("button", { name: "Tutorial" }));
-    expect(screen.getByRole("menuitem", { name: "New strat" })).toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: "Duplicate playbook" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("menuitem").map((el) => el.textContent)).toEqual([
+      "Export PDF",
+      "New strat",
+      "Rename",
+    ]);
     fireEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
     expect(props.onExportPdf).toHaveBeenCalledWith(sample);
   });
