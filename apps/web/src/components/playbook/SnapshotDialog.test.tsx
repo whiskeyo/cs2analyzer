@@ -260,6 +260,7 @@ describe("SnapshotDialog", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(write).not.toHaveBeenCalled();
     expect(sessionStorage.getItem(PLAYBOOK_FOCUS_KEY)).toBeNull();
+    expect(getTutorialPlaybookLive().mapName).toBe("de_anubis");
     expect(getTutorialPlaybookLive().pages.length).toBe(tutorialPlaybook.pages.length + 1);
     expect(getTutorialPlaybookLive().pages.some((page) => page.title === DEFAULT_TITLE)).toBe(true);
     write.mockRestore();

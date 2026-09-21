@@ -34,10 +34,10 @@ import {
 } from "@/lib/playbook/pages";
 import { booksWithDraft } from "@/lib/playbook/tree";
 import type { Playbook as PlaybookDoc } from "@/lib/playbook/types";
-import { PLAYBOOK_PREFERRED_MAP, UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
+import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
 import { usePlaybookBoard } from "@/lib/playbook/usePlaybookBoard";
 import { usePlaybooks } from "@/lib/playbook/usePlaybooks";
-import { loadCalibrations } from "@/lib/radar/maps";
+import { calibrationFor, loadCalibrations } from "@/lib/radar/maps";
 import { loadTutorialPlaybook } from "@/lib/tutorial/load";
 import { isTutorialPlaybookPath } from "@/lib/tutorial/query";
 import {
@@ -68,8 +68,8 @@ export function Playbook() {
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapName, setMapName] = useState<string | null>(null);
-  const boardMap = tutorialPlaybook ? PLAYBOOK_PREFERRED_MAP : mapName;
   const sandboxBook = tutorialPlaybook ? loadedSample : null;
+  const boardMap = tutorialPlaybook ? (sandboxBook?.mapName ?? null) : mapName;
   const [videoPageId, setVideoPageId] = useState<string | null>(null);
   const [openVideoIdState, setOpenVideoIdState] = useState<string | null>(null);
   const [imagePageId, setImagePageId] = useState<string | null>(null);
@@ -199,8 +199,8 @@ export function Playbook() {
       .then((cals) => {
         if (cancelled) return;
         setMaps(cals);
+        if (tutorialPlaybook) return;
         setMapName((current) => {
-          if (tutorialPlaybook) return PLAYBOOK_PREFERRED_MAP;
           if (current) return current;
           const mapFromUrl = initialMapFromUrl.current;
           if (mapFromUrl && cals[mapFromUrl]) return mapFromUrl;
@@ -316,7 +316,7 @@ export function Playbook() {
       .then(() =>
         downloadPlaybookPdf(
           row,
-          maps?.[row.mapName],
+          maps ? calibrationFor(maps, row.mapName) : undefined,
           Date.now(),
           settings.pdfTheme,
           settings.radarGray,
@@ -464,7 +464,7 @@ export function Playbook() {
             </p>
           ) : null}
           <PlaybookTree
-            mapNames={tutorialPlaybook ? [PLAYBOOK_PREFERRED_MAP] : names}
+            mapNames={tutorialPlaybook ? (boardMap ? [boardMap] : []) : names}
             books={treeBooks}
             mapName={boardMap}
             activeKey={activeKey}

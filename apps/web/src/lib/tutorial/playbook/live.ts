@@ -20,6 +20,7 @@ export function resetTutorialPlaybookLive(): void {
 }
 
 export function writeTutorialSnapshot(opts: {
+  mapName: string;
   stratTitle: string;
   pieces: Piece[];
   floor?: FloorMode;
@@ -27,8 +28,10 @@ export function writeTutorialSnapshot(opts: {
   groups?: DrawingGroup[];
   drawings?: Drawing[];
 }): { book: Playbook; pageId: string } {
+  const current = getTutorialPlaybookLive();
+  const tagged = current.mapName === opts.mapName ? current : { ...current, mapName: opts.mapName };
   const next = addSnapshotPage(
-    getTutorialPlaybookLive(),
+    tagged,
     opts.stratTitle,
     opts.pieces,
     opts.floor ?? "auto",

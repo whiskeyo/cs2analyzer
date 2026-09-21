@@ -14,7 +14,6 @@ import { resetTutorialSeriesWarmup } from "./seriesWarmup";
 
 let replayLoad: Promise<Replay> | null = null;
 let seriesLoad: Promise<DemoSeries | null> | null = null;
-let playbookLoad: Promise<Playbook> | null = null;
 let seriesReady = false;
 let seriesValue: DemoSeries | null = null;
 
@@ -22,7 +21,6 @@ let seriesValue: DemoSeries | null = null;
 export function resetTutorialLoadCache(): void {
   replayLoad = null;
   seriesLoad = null;
-  playbookLoad = null;
   seriesReady = false;
   seriesValue = null;
   resetTutorialSeriesWarmup();
@@ -78,6 +76,5 @@ export function loadTutorialSeries(): Promise<DemoSeries | null> {
 }
 
 export function loadTutorialPlaybook(): Promise<Playbook> {
-  playbookLoad ??= Promise.resolve(getTutorialPlaybookLive());
-  return playbookLoad;
+  return Promise.resolve(getTutorialPlaybookLive());
 }

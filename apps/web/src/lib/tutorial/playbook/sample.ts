@@ -1,21 +1,27 @@
 /**
- * Sample Playbook for the tutorial. Two strats on Mirage: one that looks like an
- * Aggregated overlay snapshot, and one fully drawn by hand. World XY come from
- * the tutorial GOTV ticks (A site / palace), not invented layout points.
+ * Sample Playbook for the tutorial. Two strats on Dust2 (the Aggregated series
+ * map): one that looks like a Habits overlay snapshot, and one fully drawn by
+ * hand. World XY sit on A long / ramp / site from the Dust2 radar layout.
  */
 
 import { emptyNote } from "@/lib/notes/note";
 import type { Note, NoteRadarFx, Piece } from "@/lib/notes/types";
 import { defaultPlaybookColor, defaultPlaybookPaletteId } from "@/lib/playbook/pages";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
-import { PLAYBOOK_PREFERRED_MAP, PLAYBOOK_SCHEMA, type Playbook } from "@/lib/playbook/types";
+import { PLAYBOOK_SCHEMA, type Playbook } from "@/lib/playbook/types";
 import {
   TUTORIAL_PLAYBOOK_DRAWN_PAGE_ID,
   TUTORIAL_PLAYBOOK_HABITS_PAGE_ID,
   TUTORIAL_PLAYBOOK_KEY,
+  TUTORIAL_PLAYBOOK_MAP,
 } from "./constants";
 
-export { TUTORIAL_PLAYBOOK_DRAWN_PAGE_ID, TUTORIAL_PLAYBOOK_HABITS_PAGE_ID, TUTORIAL_PLAYBOOK_KEY };
+export {
+  TUTORIAL_PLAYBOOK_DRAWN_PAGE_ID,
+  TUTORIAL_PLAYBOOK_HABITS_PAGE_ID,
+  TUTORIAL_PLAYBOOK_KEY,
+  TUTORIAL_PLAYBOOK_MAP,
+};
 
 function emptyRadarFx(trails: NoteRadarFx["trails"] = []): NoteRadarFx {
   return {
@@ -31,13 +37,12 @@ function emptyRadarFx(trails: NoteRadarFx["trails"] = []): NoteRadarFx {
   };
 }
 
-/** A-site cluster from the tutorial demo ticks. */
-const A_PALACE = { x: 160, y: 2439 };
-const A_RAMP = { x: 182, y: 2439 };
-const A_SITE = { x: 258, y: 2480 };
-const A_TICK = { x: 351, y: 2352 };
-const A_DEFAULT = { x: 334, y: 2433 };
-const A_CT = { x: 349, y: 2352 };
+/** Dust2 A-site cluster (world XY from `de_dust2` radar layout + calibration). */
+const A_LONG = { x: 1264, y: 1260 };
+const A_RAMP = { x: 1440, y: 2557 };
+const A_SITE = { x: 1110, y: 2544 };
+const A_CROSS = { x: 1075, y: 2148 };
+const A_GOOSE = { x: 1299, y: 3019 };
 
 function pawn(
   id: string,
@@ -58,7 +63,7 @@ function pawn(
 }
 
 function habitsSnapshotNote(): Note {
-  const donk = pawn("tutorial-habits-donk", "T", A_PALACE, {
+  const donk = pawn("tutorial-habits-donk", "T", A_LONG, {
     label: "donk",
     groupId: "tutorial-habits-g-donk",
     color: T_COLOR,
@@ -79,13 +84,13 @@ function habitsSnapshotNote(): Note {
   const smoke: Piece = {
     id: "tutorial-habits-smoke",
     kind: "smoke",
-    x: A_TICK.x,
-    y: A_TICK.y,
+    x: A_SITE.x,
+    y: A_SITE.y,
     nadeStyle: "effect",
     trail: [
-      { x: 160, y: 2369 },
-      { x: 258, y: 2400 },
-      { x: A_TICK.x, y: A_TICK.y },
+      { x: A_LONG.x, y: A_LONG.y },
+      { x: A_CROSS.x, y: A_CROSS.y },
+      { x: A_SITE.x, y: A_SITE.y },
     ],
   };
   return {
@@ -99,8 +104,8 @@ function habitsSnapshotNote(): Note {
     radarFx: emptyRadarFx([
       {
         points: [
-          { x: 120, y: 2360 },
-          { x: A_PALACE.x, y: A_PALACE.y },
+          { x: A_LONG.x, y: A_LONG.y + 80 },
+          { x: A_LONG.x, y: A_LONG.y },
         ],
         color: T_COLOR,
         groupId: "tutorial-habits-g-donk",
@@ -108,7 +113,7 @@ function habitsSnapshotNote(): Note {
       },
       {
         points: [
-          { x: 140, y: 2380 },
+          { x: A_RAMP.x - 80, y: A_RAMP.y - 120 },
           { x: A_RAMP.x, y: A_RAMP.y },
         ],
         color: T_COLOR,
@@ -117,7 +122,7 @@ function habitsSnapshotNote(): Note {
       },
       {
         points: [
-          { x: 400, y: 2500 },
+          { x: A_GOOSE.x, y: A_GOOSE.y },
           { x: A_SITE.x, y: A_SITE.y },
         ],
         color: CT_COLOR,
@@ -136,51 +141,51 @@ function drawnExecuteNote(): Note {
         type: "pen",
         color: T_COLOR,
         points: [
-          { x: 120, y: 2360 },
-          { x: 160, y: 2400 },
-          { x: A_PALACE.x, y: A_PALACE.y },
+          { x: A_LONG.x, y: A_LONG.y },
+          { x: A_CROSS.x, y: A_CROSS.y },
+          { x: A_RAMP.x, y: A_RAMP.y },
           { x: A_SITE.x, y: A_SITE.y },
         ],
       },
       {
         type: "arrow",
         color: CT_COLOR,
-        from: { x: A_CT.x, y: A_CT.y },
+        from: { x: A_GOOSE.x, y: A_GOOSE.y },
         to: { x: A_SITE.x, y: A_SITE.y },
       },
       {
         type: "text",
         color: "#e8eef4",
-        x: 220,
-        y: 2520,
+        x: A_CROSS.x,
+        y: A_CROSS.y,
         text: "A execute",
       },
     ],
     pieces: [
-      pawn("tutorial-drawn-t1", "T", A_PALACE, { yaw: 85 }),
+      pawn("tutorial-drawn-t1", "T", A_LONG, { yaw: 85 }),
       pawn("tutorial-drawn-t2", "T", A_RAMP, { yaw: 95 }),
       pawn("tutorial-drawn-ct1", "CT", A_SITE, { yaw: 260 }),
-      pawn("tutorial-drawn-ct2", "CT", A_DEFAULT, { yaw: 240 }),
+      pawn("tutorial-drawn-ct2", "CT", A_GOOSE, { yaw: 240 }),
       {
         id: "tutorial-drawn-smoke",
         kind: "smoke",
-        x: A_TICK.x,
-        y: A_TICK.y,
+        x: A_SITE.x,
+        y: A_SITE.y,
         nadeStyle: "icon",
         trail: [
-          { x: 180, y: 2360 },
-          { x: A_TICK.x, y: A_TICK.y },
+          { x: A_LONG.x, y: A_LONG.y },
+          { x: A_SITE.x, y: A_SITE.y },
         ],
       },
       {
         id: "tutorial-drawn-flash",
         kind: "flash",
-        x: 300,
-        y: 2410,
+        x: A_CROSS.x,
+        y: A_CROSS.y,
         nadeStyle: "icon",
         trail: [
-          { x: A_PALACE.x, y: A_PALACE.y },
-          { x: 300, y: 2410 },
+          { x: A_LONG.x, y: A_LONG.y },
+          { x: A_CROSS.x, y: A_CROSS.y },
         ],
       },
     ],
@@ -190,7 +195,7 @@ function drawnExecuteNote(): Note {
 export const tutorialPlaybook: Playbook = {
   schema: PLAYBOOK_SCHEMA,
   key: TUTORIAL_PLAYBOOK_KEY,
-  mapName: PLAYBOOK_PREFERRED_MAP,
+  mapName: TUTORIAL_PLAYBOOK_MAP,
   title: "Tutorial",
   savedAt: 0,
   sort: 0,

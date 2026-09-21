@@ -221,7 +221,7 @@ describe("usePlaybooks", () => {
     const saveSpy = vi.spyOn(playbookStore, "savePlaybook");
     const loadAllSpy = vi.spyOn(playbookStore, "loadAllPlaybooks");
     const { result } = renderHook(() =>
-      usePlaybooks("de_mirage", { mode: "sandbox", book: sample }),
+      usePlaybooks("de_dust2", { mode: "sandbox", book: sample }),
     );
     await waitFor(() => expect(result.current.book?.title).toBe("Tutorial"));
     expect(result.current.books).toHaveLength(1);

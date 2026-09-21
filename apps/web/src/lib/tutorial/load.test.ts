@@ -20,6 +20,7 @@ describe("tutorial load entry", () => {
     expect(series).not.toBeNull();
     expect(series?.demos.length).toBeGreaterThan(1);
     expect(book.title).toBe("Tutorial");
+    expect(book.mapName).toBe("de_dust2");
   });
 
   it("reuses the cached series hydrate promise", async () => {

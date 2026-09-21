@@ -122,6 +122,7 @@ export function SnapshotDialog({
       const stamped = applySnapshotLayers({ pieces, groups, radarFx, drawings }, layers);
       const savedBook = lockToTutorial
         ? writeTutorialSnapshot({
+            mapName,
             stratTitle,
             pieces: stamped.pieces,
             radarFx: stamped.radarFx,
