@@ -1,4 +1,5 @@
 import {
+  CLIP_EXPORT_DEFAULT_SECONDS,
   CLIP_EXPORT_EMPTY,
   CLIP_EXPORT_FAILED,
   CLIP_EXPORT_FPS,
@@ -70,6 +71,23 @@ export function lastSecondsSpan(
   const endTick = clampTick(tick, bounds);
   const startTick =
     rate > 0 ? Math.max(bounds.startTick, endTick - windowSec * rate) : bounds.startTick;
+  return { startTick, endTick };
+}
+
+/**
+ * Opening a clip: the previous 15s when that history exists, otherwise the
+ * next 15s from the playhead (the start of a round has nothing behind it).
+ */
+export function defaultClipSpan(
+  tick: number,
+  bounds: ClipSpan,
+  rate: number,
+  seconds = CLIP_EXPORT_DEFAULT_SECONDS,
+): ClipSpan {
+  const last = lastSecondsSpan(tick, seconds, bounds, rate);
+  if (clipDurationSeconds(last, rate) >= 1) return last;
+  const startTick = clampTick(tick, bounds);
+  const endTick = rate > 0 ? Math.min(bounds.endTick, startTick + seconds * rate) : startTick;
   return { startTick, endTick };
 }
 

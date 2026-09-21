@@ -74,6 +74,15 @@ describe("ClipExport", () => {
     });
   });
 
+  it("starts the next 15 seconds when the round has just begun", async () => {
+    const user = userEvent.setup();
+    render(<ClipExport {...props({ tick: 2 * RATE })} />);
+    await user.click(screen.getByRole("button", { name: "Export clip" }));
+    expect(screen.getByText("15.0s")).toBeInTheDocument();
+    expect(screen.getByText("Start 0:00.0")).toBeInTheDocument();
+    expect(screen.getByText("End 0:15.0")).toBeInTheDocument();
+  });
+
   it("opens on the last 15 seconds and can switch to the round window", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<ClipExport {...props()} />);

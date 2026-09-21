@@ -13,6 +13,7 @@ import {
   clipFrameTicks,
   clipRangeIssue,
   clipRoundSlug,
+  defaultClipSpan,
   formatClipClock,
   lastSecondsSpan,
   preferredClipMime,
@@ -85,6 +86,17 @@ describe("clip ranges", () => {
     expect(lastSecondsSpan(80 * RATE, 100, bounds, RATE)).toEqual({
       startTick: 50 * RATE,
       endTick: 80 * RATE,
+    });
+  });
+
+  it("looks forward when the playhead has no history yet", () => {
+    expect(defaultClipSpan(0, bounds, RATE)).toEqual({
+      startTick: 0,
+      endTick: 15 * RATE,
+    });
+    expect(defaultClipSpan(40 * RATE, bounds, RATE)).toEqual({
+      startTick: 25 * RATE,
+      endTick: 40 * RATE,
     });
   });
 

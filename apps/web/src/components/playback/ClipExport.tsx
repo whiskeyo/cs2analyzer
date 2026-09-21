@@ -13,6 +13,7 @@ import {
   clipFrameTicks,
   clipRangeIssue,
   clipRoundSlug,
+  defaultClipSpan,
   formatClipClock,
   formatClipDuration,
   lastSecondsSpan,
@@ -116,7 +117,7 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
       setOpen(false);
       return;
     }
-    setSpan((prev) => prev ?? lastSecondsSpan(tick, CLIP_EXPORT_DEFAULT_SECONDS, bounds, rate));
+    setSpan((prev) => prev ?? defaultClipSpan(tick, bounds, rate));
     setError(null);
     setOpen(true);
   };
