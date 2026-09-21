@@ -159,6 +159,7 @@ export function TutorialCoach() {
   const { pathname } = useLocation();
   const { update } = useUserSettings();
   const playing = useOptionalAnalyzer()?.playback.playing ?? false;
+  const wasPlayingRef = useRef(playing);
   const route = parseTutorialPath(pathname);
   const steps = route ? tutorialCoachSteps(route) : [];
   const [index, setIndex] = useState(0);
@@ -198,7 +199,9 @@ export function TutorialCoach() {
   }, [advance, current]);
 
   useEffect(() => {
-    if (playing) advance("play-or-scrub");
+    const started = playing && !wasPlayingRef.current;
+    wasPlayingRef.current = playing;
+    if (started) advance("play-or-scrub");
   }, [advance, playing]);
 
   // Playable tutorial routes always show marks. `tutorialCompleted` only skips

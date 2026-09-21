@@ -11,6 +11,10 @@ const settingsMocks = vi.hoisted(() => ({
   update: vi.fn(),
 }));
 
+const analyzerMocks = vi.hoisted(() => ({
+  playing: false,
+}));
+
 vi.mock("@/lib/settings/useUserSettings", () => ({
   useUserSettings: () => ({
     settings: { tutorialCompleted: settingsMocks.tutorialCompleted },
@@ -19,6 +23,10 @@ vi.mock("@/lib/settings/useUserSettings", () => ({
     update: settingsMocks.update,
     reset: vi.fn(),
   }),
+}));
+
+vi.mock("@/lib/state/analyzerState", () => ({
+  useOptionalAnalyzer: () => ({ playback: { playing: analyzerMocks.playing } }),
 }));
 
 function SingleTargets() {
@@ -78,6 +86,7 @@ describe("TutorialCoach", () => {
     settingsMocks.tutorialCompleted = false;
     settingsMocks.ready = true;
     settingsMocks.update.mockReset();
+    analyzerMocks.playing = false;
   });
 
   it("advances Single steps on real actions, not Next", async () => {
@@ -208,6 +217,17 @@ describe("TutorialCoach", () => {
       </TestRouter>,
     );
     expect(screen.getByRole("complementary", { name: "Tutorial coach" })).toBeInTheDocument();
+    expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
+  });
+
+  it("does not skip Play when playback is already running on mount", () => {
+    analyzerMocks.playing = true;
+    render(
+      <TestRouter path="/tutorial/single">
+        <SingleTargets />
+        <TutorialCoach />
+      </TestRouter>,
+    );
     expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
   });
 });
