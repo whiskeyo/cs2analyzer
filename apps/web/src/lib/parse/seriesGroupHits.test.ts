@@ -212,31 +212,42 @@ describe("aggregateSeriesGroupHits", () => {
 
     const hits = aggregateSeriesGroupHits(series, { side: "CT", kind: "pistol" }, places);
     expect(hits.roundCount).toBe(3);
+    expect(hits.sampleCount).toBe(2);
     expect(hits.entries.map((entry) => entry.id)).toEqual(["B", "A", "Mid", "Others"]);
     expect(hits.entries.map((entry) => entry.label)).not.toContain("Top Mid");
     expect(hits.entries.map((entry) => entry.label)).not.toContain("Window");
     expect(hits.entries.find((entry) => entry.id === "Mid")).toMatchObject({
-      count: 2,
-      share: 2 / 3,
+      samples: 2,
+      share: 1,
     });
-    expect(hits.entries.find((entry) => entry.id === "Others")?.count).toBe(0);
+    expect(hits.entries.find((entry) => entry.id === "Others")?.samples).toBe(0);
     expect(hits.entries.find((entry) => entry.id === "Spawns")).toBeUndefined();
     expect(formatGroupHitPercent(2, 3)).toBe("67%");
   });
 
-  it("counts one round in every group the side entered", () => {
+  it("splits one round across groups by time, not by fine callouts", () => {
     const series = seriesFrom(
       [
         { tick: 64, players: [ctAt(A_SITE), { ...ctAt(B_SITE), ct: false }] },
-        { tick: 128, players: [ctAt(TOP_MID), { ...ctAt(CONNECTOR), ct: false }] },
+        { tick: 128, players: [ctAt(PALACE), { ...ctAt(CONNECTOR), ct: false }] },
+        { tick: 192, players: [ctAt(A_SITE), { ...ctAt(B_APPS), ct: false }] },
+        { tick: 256, players: [ctAt(TOP_MID), { ...ctAt(CONNECTOR), ct: false }] },
       ],
       "both.dem",
     );
     const hits = aggregateSeriesGroupHits(series, { side: "CT", kind: "pistol" }, places);
-    expect(hits.entries.find((entry) => entry.id === "A")?.count).toBe(1);
-    expect(hits.entries.find((entry) => entry.id === "Mid")?.count).toBe(1);
-    expect(hits.entries.find((entry) => entry.id === "B")?.count).toBe(0);
+    expect(hits.sampleCount).toBe(4);
+    expect(hits.entries.find((entry) => entry.id === "A")).toMatchObject({
+      samples: 3,
+      share: 0.75,
+    });
+    expect(hits.entries.find((entry) => entry.id === "Mid")).toMatchObject({
+      samples: 1,
+      share: 0.25,
+    });
+    expect(hits.entries.find((entry) => entry.id === "B")?.samples).toBe(0);
     expect(hits.entries.map((entry) => entry.id)).not.toContain("Connector");
+    expect(formatGroupHitPercent(3, 4)).toBe("75%");
   });
 
   it("ignores the other side and positions after death", () => {
@@ -256,8 +267,8 @@ describe("aggregateSeriesGroupHits", () => {
     );
     const hits = aggregateSeriesGroupHits(series, { side: "T", kind: "pistol" }, places);
     expect(hits.roundCount).toBe(1);
-    expect(hits.entries.find((entry) => entry.id === "A")?.count).toBe(1);
-    expect(hits.entries.find((entry) => entry.id === "B")?.count).toBe(0);
+    expect(hits.entries.find((entry) => entry.id === "A")?.samples).toBe(1);
+    expect(hits.entries.find((entry) => entry.id === "B")?.samples).toBe(0);
   });
 
   it("samples on the group-hit step and skips frames in between", () => {
@@ -270,8 +281,8 @@ describe("aggregateSeriesGroupHits", () => {
       "step.dem",
     );
     const hits = aggregateSeriesGroupHits(series, { side: "CT", kind: "pistol" }, places);
-    expect(hits.entries.find((entry) => entry.id === "A")?.count).toBe(1);
-    expect(hits.entries.find((entry) => entry.id === "B")?.count).toBe(0);
+    expect(hits.entries.find((entry) => entry.id === "A")?.samples).toBe(2);
+    expect(hits.entries.find((entry) => entry.id === "B")?.samples).toBe(0);
   });
 
   it("returns no groups when the map has no layout", () => {
@@ -279,5 +290,6 @@ describe("aggregateSeriesGroupHits", () => {
     const hits = aggregateSeriesGroupHits(series, { side: "CT", kind: "pistol" }, null);
     expect(hits.entries).toEqual([]);
     expect(hits.roundCount).toBe(1);
+    expect(hits.sampleCount).toBe(0);
   });
 });

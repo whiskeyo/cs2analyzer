@@ -69,23 +69,23 @@ describe("SeriesBucketPanel", () => {
       habitsState({
         groupHits: {
           roundCount: 3,
+          sampleCount: 3,
           entries: [
-            { id: "A", label: "A", count: 2, share: 2 / 3 },
-            { id: "Mid", label: "Mid", count: 1, share: 1 / 3 },
-            { id: "B", label: "B", count: 0, share: 0 },
+            { id: "A", label: "A", samples: 2, share: 2 / 3 },
+            { id: "Mid", label: "Mid", samples: 1, share: 1 / 3 },
+            { id: "B", label: "B", samples: 0, share: 0 },
           ],
         },
       }) as unknown as ReturnType<typeof useApp>,
     );
     render(<SeriesBucketPanel />);
 
-    expect(screen.getByText(/entered each layout group/)).toBeInTheDocument();
+    expect(screen.getByText(/time this side spent in each layout group/)).toBeInTheDocument();
     const list = screen.getByRole("list", { name: "Layout group hits" });
     expect(list).toHaveTextContent("Mid");
     expect(list).toHaveTextContent(formatGroupHitPercent(2, 3));
-    expect(list).toHaveTextContent("2/3");
+    expect(list).toHaveTextContent(formatGroupHitPercent(1, 3));
     expect(list).toHaveTextContent("0%");
-    expect(list).toHaveTextContent("0/3");
     expect(list).not.toHaveTextContent("Top Mid");
     const mid = screen.getByText("Mid").closest("li");
     expect(mid?.querySelector(".series-group-fill")).toHaveStyle({ width: `${(1 / 3) * 100}%` });
@@ -93,9 +93,9 @@ describe("SeriesBucketPanel", () => {
 
   it("hides area hits when the map has no layout groups", () => {
     vi.mocked(useApp).mockReturnValue(
-      habitsState({ groupHits: { roundCount: 2, entries: [] } }) as unknown as ReturnType<
-        typeof useApp
-      >,
+      habitsState({
+        groupHits: { roundCount: 2, sampleCount: 0, entries: [] },
+      }) as unknown as ReturnType<typeof useApp>,
     );
     render(<SeriesBucketPanel />);
     expect(screen.queryByRole("list", { name: "Layout group hits" })).not.toBeInTheDocument();
