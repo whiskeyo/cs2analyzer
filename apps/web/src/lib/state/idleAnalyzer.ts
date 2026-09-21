@@ -46,6 +46,8 @@ export function idleView(): ViewState {
     setLayers: noop,
     viewEpoch: 0,
     resetView: noop,
+    clutchBoard: false,
+    setClutchBoard: noop,
   };
 }
 

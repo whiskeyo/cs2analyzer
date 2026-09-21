@@ -2,11 +2,12 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useMatchPdfExport } from "@/lib/export/useMatchPdfExport";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
-import { type DefaultSidebarTab } from "@/lib/settings/userSettings";
+import { DEFAULT_SIDEBAR_TABS, type DefaultSidebarTab } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { analyzerNotesLive, notesForAnalyzerSession } from "@/lib/notes";
 import { isAggregatedView, isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { Action } from "./Action";
+import { ClutchBoard } from "./ClutchBoard";
 import { Review } from "./Review";
 import { Notes } from "./Notes";
 import { RoundList } from "./RoundList";
@@ -25,11 +26,12 @@ import { seriesPlayerReview } from "@/lib/parse/seriesPlayerReview";
 
 type Tab = DefaultSidebarTab;
 
-const DEMO_ONLY_TABS: Tab[] = ["score", "notes", "rounds", "weapons"];
+const DEMO_ONLY_TABS: Tab[] = ["score", "notes", "rounds", "weapons", "clutch"];
 
 const TAB_LABEL: Record<Tab, string> = {
   score: "Score",
   player: "Review",
+  clutch: "Clutch",
   notes: "Notes",
   action: "Action",
   util: "Utility",
@@ -78,6 +80,11 @@ export const Sidebar = memo(function Sidebar() {
     }
   }, [settings.defaultSidebarTab]);
   const activeTab: Tab = seriesMode && DEMO_ONLY_TABS.includes(tab) ? "action" : tab;
+  const setClutchBoard = view.setClutchBoard;
+  useEffect(() => {
+    setClutchBoard(activeTab === "clutch" && !seriesMode);
+    return () => setClutchBoard(false);
+  }, [activeTab, seriesMode, setClutchBoard]);
   const { width, handleProps } = usePanelResize({
     minWidth: SIDEBAR_MIN_WIDTH,
     maxWidth: SIDEBAR_MAX_WIDTH,
@@ -96,35 +103,33 @@ export const Sidebar = memo(function Sidebar() {
     <aside className="sidebar" style={{ width }}>
       <div {...handleProps} />
       <div className="tabs">
-        {(["score", "player", "notes", "action", "util", "rounds", "weapons"] as const).map(
-          (id) => (
-            <button
-              key={id}
-              type="button"
-              className={activeTab === id ? "on" : ""}
-              disabled={tabDisabled(id)}
-              title={tabDisabled(id) ? "Not available in aggregated view" : undefined}
-              data-tutorial={
-                id === "notes"
-                  ? "notes"
-                  : id === "util"
-                    ? "util"
-                    : id === "player"
-                      ? "review"
-                      : undefined
-              }
-              data-tutorial-action={
-                id === "notes" ? "open-notes" : id === "util" ? "open-util" : undefined
-              }
-              onClick={() => {
-                choseTab.current = true;
-                setTab(id);
-              }}
-            >
-              {TAB_LABEL[id]}
-            </button>
-          ),
-        )}
+        {DEFAULT_SIDEBAR_TABS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className={activeTab === id ? "on" : ""}
+            disabled={tabDisabled(id)}
+            title={tabDisabled(id) ? "Not available in aggregated view" : undefined}
+            data-tutorial={
+              id === "notes"
+                ? "notes"
+                : id === "util"
+                  ? "util"
+                  : id === "player"
+                    ? "review"
+                    : undefined
+            }
+            data-tutorial-action={
+              id === "notes" ? "open-notes" : id === "util" ? "open-util" : undefined
+            }
+            onClick={() => {
+              choseTab.current = true;
+              setTab(id);
+            }}
+          >
+            {TAB_LABEL[id]}
+          </button>
+        ))}
       </div>
       <div className="sidebar-body">
         {activeTab === "score" && (
@@ -142,6 +147,15 @@ export const Sidebar = memo(function Sidebar() {
               onSelect={(i) => onSelect(i)}
             />
           ))}
+        {activeTab === "clutch" && (
+          <ClutchBoard
+            replay={replay}
+            tick={tick}
+            selected={selected}
+            onJump={onJump}
+            onSelect={(i) => onSelect(i)}
+          />
+        )}
         {activeTab === "notes" && (
           <Notes
             replay={replay}
