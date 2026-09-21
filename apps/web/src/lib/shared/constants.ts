@@ -145,6 +145,12 @@ export const PATH_BRANCH_PERCENT_SCALE = 100;
 /** First-wave util multiset window after freeze (util-set chips). */
 export const SERIES_FIRST_WAVE_SECONDS = 8;
 
+/**
+ * How often to sample alive positions when tallying layout-group hits.
+ * Groups are whole sites (A / Mid / Outside), so one second is enough.
+ */
+export const SERIES_GROUP_HIT_STEP_SECONDS = 1;
+
 /** Min matching Steam IDs to merge "X" and "Team X" roster aliases. */
 export const SERIES_TEAM_MERGE_MIN_STEAM_OVERLAP = 3;
 

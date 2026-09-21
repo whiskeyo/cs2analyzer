@@ -25,6 +25,7 @@ import {
 } from "@/lib/parse/seriesOverlay";
 import { focalRosterForSeries } from "@/lib/parse/seriesRoster";
 import { aggregateUtilSets, type UtilSetEntry } from "@/lib/parse/seriesUtilSets";
+import { aggregateSeriesGroupHits, type SeriesGroupHits } from "@/lib/parse/seriesGroupHits";
 import { seriesDemoColors } from "@/lib/parse/seriesDemoColor";
 import type { RoundKind } from "@/lib/parse/roundTags";
 import type { MapPlaces } from "@/lib/match/sites";
@@ -94,6 +95,8 @@ export interface SeriesHabitsState {
   util: ReturnType<typeof aggregateSeriesUtil> | null;
   action: ReturnType<typeof aggregateSeriesAction> | null;
   utilSets: { entries: UtilSetEntry[]; roundCount: number } | null;
+  /** Layout-group presence for the active side and buy. Null outside Aggregated. */
+  groupHits: SeriesGroupHits | null;
   seriesUtilThrows: SeriesUtilThrow[];
   seriesActionBeats: SeriesActionBeatRow[];
   seriesRoundsByKind: SeriesRoundsByKind[];
@@ -268,6 +271,11 @@ export function useSeriesHabits(opts: {
   const utilSets = useMemo(() => {
     if (!overlaySeries || !aggregated) return null;
     return aggregateUtilSets(overlaySeries, bucketFilter, places);
+  }, [overlaySeries, aggregated, bucketFilter, places]);
+
+  const groupHits = useMemo(() => {
+    if (!overlaySeries || !aggregated) return null;
+    return aggregateSeriesGroupHits(overlaySeries, bucketFilter, places);
   }, [overlaySeries, aggregated, bucketFilter, places]);
 
   useLayoutEffect(() => {
@@ -453,6 +461,7 @@ export function useSeriesHabits(opts: {
     util,
     action,
     utilSets,
+    groupHits,
     seriesUtilThrows,
     seriesActionBeats,
     seriesRoundsByKind,

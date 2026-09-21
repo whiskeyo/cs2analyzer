@@ -1,4 +1,5 @@
 import { NADE_LABEL, NADE_WEAPON } from "@/lib/match/roundEvents";
+import { formatGroupHitPercent, type SeriesGroupHits } from "@/lib/parse/seriesGroupHits";
 import { useApp } from "@/lib/state/appState";
 import { isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { WeaponIcon } from "@/components/weapons/WeaponIcon";
@@ -17,6 +18,8 @@ export function SeriesBucketPanel() {
         {session.series.focalTeam} · {bucket}
         {util && <span className="muted"> · {util.roundCount} rounds</span>}
       </h3>
+
+      <GroupHits hits={habits.groupHits} />
 
       {utilSets && utilSets.entries.length > 0 && (
         <>
@@ -73,5 +76,33 @@ export function SeriesBucketPanel() {
         <p className="muted tab-hint">No rounds in this bucket across the series.</p>
       )}
     </section>
+  );
+}
+
+/** Share of bucket rounds where this side entered each layout filter group. */
+function GroupHits({ hits }: { hits: SeriesGroupHits | null | undefined }) {
+  if (!hits || hits.roundCount === 0 || hits.entries.length === 0) return null;
+  return (
+    <>
+      <p className="tab-hint">Share of rounds this side entered each layout group</p>
+      <ul className="series-group-list" aria-label="Layout group hits">
+        {hits.entries.map((entry) => (
+          <li key={entry.id} className="series-group-row">
+            <span className="series-group-label" title={entry.label}>
+              {entry.label}
+            </span>
+            <span className="series-group-track" aria-hidden="true">
+              <span className="series-group-fill" style={{ width: `${entry.share * 100}%` }} />
+            </span>
+            <span className="series-group-count">
+              {formatGroupHitPercent(entry.count, hits.roundCount)}
+              <span className="muted">
+                {entry.count}/{hits.roundCount}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

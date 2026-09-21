@@ -1357,6 +1357,44 @@ code {
   object-fit: contain;
   flex-shrink: 0;
 }
+.series-group-list {
+  list-style: none;
+  margin: 0 0 0.65rem;
+  padding: 0;
+}
+.series-group-row {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, 7.5rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.28rem 0;
+  font-size: 0.78rem;
+}
+.series-group-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #c5d0da;
+}
+.series-group-track {
+  height: 6px;
+  border-radius: 3px;
+  background: #1e2732;
+  overflow: hidden;
+}
+.series-group-fill {
+  display: block;
+  height: 100%;
+  background: #7dcea0;
+}
+.series-group-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  color: #7dcea0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .series-review-breakdown {
   list-style: none;
   margin: 0.25rem 0 0;
