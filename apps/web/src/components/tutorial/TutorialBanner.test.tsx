@@ -59,12 +59,13 @@ describe("TutorialBanner", () => {
     const state = bannerState(TUTORIAL_ID);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     render(
-      <TestRouter path="/tutorial">
+      <TestRouter path="/tutorial/single">
         <TutorialBanner />
       </TestRouter>,
     );
     expect(screen.getByText("Tutorial")).toBeInTheDocument();
     expect(screen.getByText("Sample of two rounds from GOTV demo")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/tutorial");
     expect(screen.getByRole("link", { name: "Next: Multiple demos" })).toHaveAttribute(
       "href",
       "/tutorial/aggregated",
@@ -93,7 +94,7 @@ describe("TutorialBanner", () => {
     );
     expect(screen.getByRole("link", { name: "Previous: Single demo" })).toHaveAttribute(
       "href",
-      "/tutorial",
+      "/tutorial/single",
     );
   });
 

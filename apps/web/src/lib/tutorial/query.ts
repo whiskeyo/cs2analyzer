@@ -4,17 +4,22 @@ import { isTutorialDemoId } from "./identity";
 export const TUTORIAL_STEPS = ["replay", "aggregated", "playbook"] as const;
 export type TutorialStep = (typeof TUTORIAL_STEPS)[number];
 
-/** `/tutorial`, `/tutorial/aggregated`, `/tutorial/playbook`. */
+/** Hub at `/tutorial`. Playable steps live under `/tutorial/single` and siblings. */
+export function isTutorialHubPath(pathname: string): boolean {
+  return normalizePath(pathname) === ROUTES.tutorial;
+}
+
+/** `/tutorial/single`, `/tutorial/aggregated`, `/tutorial/playbook`. */
 export function parseTutorialPath(pathname: string): TutorialStep | null {
   const path = normalizePath(pathname);
-  if (path === ROUTES.tutorial) return "replay";
+  if (path === `${ROUTES.tutorial}/single`) return "replay";
   if (path === `${ROUTES.tutorial}/aggregated`) return "aggregated";
   if (path === `${ROUTES.tutorial}/playbook`) return "playbook";
   return null;
 }
 
 export function isTutorialPath(pathname: string): boolean {
-  return parseTutorialPath(pathname) != null;
+  return isTutorialHubPath(pathname) || parseTutorialPath(pathname) != null;
 }
 
 export function isTutorialAnalyzerPath(pathname: string): boolean {
@@ -27,8 +32,8 @@ export function isTutorialPlaybookPath(pathname: string): boolean {
 }
 
 /**
- * Tutorial fixtures are only a live Analyzer session on `/tutorial` analyzer
- * routes. `/analyzer` never treats a tutorial demo id as a dropped demo.
+ * Tutorial fixtures are only a live Analyzer session on playable `/tutorial/…`
+ * analyzer routes. `/analyzer` never treats a tutorial demo id as a dropped demo.
  */
 export function isAnalyzerSessionVisible(
   pathname: string,
@@ -37,10 +42,14 @@ export function isAnalyzerSessionVisible(
   return !isTutorialDemoId(demoId) || isTutorialAnalyzerPath(pathname);
 }
 
+export function tutorialHubHref(): string {
+  return ROUTES.tutorial;
+}
+
 export function tutorialHref(step: TutorialStep = "replay"): string {
   if (step === "aggregated") return `${ROUTES.tutorial}/aggregated`;
   if (step === "playbook") return `${ROUTES.tutorial}/playbook`;
-  return ROUTES.tutorial;
+  return `${ROUTES.tutorial}/single`;
 }
 
 export function nextTutorialStep(step: TutorialStep): TutorialStep | null {

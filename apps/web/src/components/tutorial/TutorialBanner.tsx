@@ -6,6 +6,7 @@ import {
   nextTutorialStep,
   parseTutorialPath,
   previousTutorialStep,
+  tutorialHubHref,
   tutorialHref,
   type TutorialStep,
 } from "@/lib/tutorial/query";
@@ -61,7 +62,11 @@ export function TutorialBanner() {
         <Link className="ghost" to={tutorialHref(previous)}>
           {backLabel(step)}
         </Link>
-      ) : null}
+      ) : (
+        <Link className="ghost" to={tutorialHubHref()}>
+          Overview
+        </Link>
+      )}
       {next ? (
         <Link
           className="ghost"

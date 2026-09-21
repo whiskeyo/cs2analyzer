@@ -23,27 +23,62 @@ import { parseTutorialPath } from "@/lib/tutorial/query";
 
 const CALLOUT_FALLBACK = { width: 280, height: 120 };
 
+function sameBox(a: Box | null, b: Box | null): boolean {
+  if (a == null || b == null) return a === b;
+  return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
+}
+
 function useCoachTarget(target: TutorialCoachTarget): Box | null {
   const [box, setBox] = useState<Box | null>(null);
 
   useLayoutEffect(() => {
-    const read = () => {
+    let cancelled = false;
+    let ro: ResizeObserver | null = null;
+    let raf = 0;
+
+    const observe = (el: Element | null) => {
+      ro?.disconnect();
+      ro = null;
+      if (!(el instanceof HTMLElement) || typeof ResizeObserver === "undefined") return;
+      ro = new ResizeObserver(() => {
+        if (cancelled) return;
+        const next = coachTargetBox(el);
+        setBox((prev) => (sameBox(prev, next) ? prev : next));
+      });
+      ro.observe(el);
+    };
+
+    const read = (): boolean => {
+      if (cancelled) return false;
       const el = document.querySelector(tutorialTargetSelector(target));
       if (el instanceof HTMLElement && typeof el.scrollIntoView === "function") {
         el.scrollIntoView({ block: "nearest", inline: "nearest" });
       }
-      setBox(coachTargetBox(el));
+      const next = coachTargetBox(el);
+      setBox((prev) => (sameBox(prev, next) ? prev : next));
+      observe(el);
+      return el instanceof HTMLElement;
     };
-    read();
-    const el = document.querySelector(tutorialTargetSelector(target));
-    const ro =
-      el instanceof HTMLElement && typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(read)
+
+    const poll = () => {
+      if (cancelled) return;
+      if (!read()) raf = requestAnimationFrame(poll);
+    };
+
+    poll();
+    const mo =
+      typeof MutationObserver !== "undefined"
+        ? new MutationObserver(() => {
+            read();
+          })
         : null;
-    if (el instanceof HTMLElement) ro?.observe(el);
+    mo?.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("resize", read);
     window.addEventListener("scroll", read, true);
     return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      mo?.disconnect();
       ro?.disconnect();
       window.removeEventListener("resize", read);
       window.removeEventListener("scroll", read, true);
@@ -122,10 +157,10 @@ function CoachCallout({
 /** Spotlight + callout beside one real control. Advances on `doneWhen`, not Next. */
 export function TutorialCoach() {
   const { pathname } = useLocation();
-  const { settings, ready, update } = useUserSettings();
+  const { update } = useUserSettings();
   const playing = useOptionalAnalyzer()?.playback.playing ?? false;
-  const route = parseTutorialPath(pathname) ?? "replay";
-  const steps = tutorialCoachSteps(route);
+  const route = parseTutorialPath(pathname);
+  const steps = route ? tutorialCoachSteps(route) : [];
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(true);
   const current = steps[Math.min(index, Math.max(0, steps.length - 1))];
@@ -166,7 +201,16 @@ export function TutorialCoach() {
     if (playing) advance("play-or-scrub");
   }, [advance, playing]);
 
-  if (!ready || settings.tutorialCompleted || !open || !current || index >= steps.length) {
+  // Playable tutorial routes always show marks. `tutorialCompleted` only skips
+  // Home prefetch; IndexedDB `ready` must not hide the first callout. No DOM
+  // during prerender — coach hydrates on the client.
+  if (
+    typeof document === "undefined" ||
+    route == null ||
+    !open ||
+    !current ||
+    index >= steps.length
+  ) {
     return null;
   }
 

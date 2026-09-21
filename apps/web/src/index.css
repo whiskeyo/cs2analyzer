@@ -54,6 +54,7 @@ body,
 
 .home-hero,
 .faq,
+.tutorial,
 .rating,
 .contact,
 .not-found,
@@ -76,6 +77,7 @@ body,
 }
 .home-intro h2,
 .faq h2,
+.tutorial h2,
 .rating h2,
 .contact h2,
 .not-found h2,
@@ -99,6 +101,7 @@ body,
 }
 .home-intro-lead,
 .faq-lead,
+.tutorial-lead,
 .rating-lead,
 .not-found-lead {
   margin: 0 0 1.25rem;
@@ -193,7 +196,7 @@ button.home-card {
 .tutorial-coach-layer {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--z-modal);
   pointer-events: none;
 }
 .tutorial-coach-spot {
@@ -239,6 +242,20 @@ button.home-card {
   justify-content: flex-end;
   gap: 0.45rem;
   margin-top: 0.6rem;
+}
+.tutorial-cta {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.35rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #0b1014;
+  font-weight: 650;
+  text-decoration: none;
+}
+.tutorial-cta:hover {
+  filter: brightness(1.08);
 }
 .contact-list {
   display: grid;

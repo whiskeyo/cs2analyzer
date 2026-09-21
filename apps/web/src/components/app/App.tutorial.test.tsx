@@ -91,19 +91,31 @@ describe("App tutorial", () => {
     window.history.replaceState({}, "", "/");
   });
 
-  it("opens the tutorial from the drop-zone text link without WASM", async () => {
+  it("opens the tutorial hub from the drop-zone text link", async () => {
     render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
     await userEvent.click(screen.getByRole("link", { name: "try the Tutorial first" }));
-    expect(await screen.findByText("Tutorial")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Tutorial" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start tutorial" })).toHaveAttribute(
+      "href",
+      "/tutorial/single",
+    );
+    expect(screen.queryByRole("complementary", { name: "Tutorial coach" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Exit tutorial" })).not.toBeInTheDocument();
+    expect(loadMocks.loadTutorialReplay).toHaveBeenCalled();
+    expect(loadMocks.loadTutorialPlaybook).not.toHaveBeenCalled();
+  });
+
+  it("starts visible coach marks on /tutorial/single from the hub CTA", async () => {
+    render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
+    await userEvent.click(screen.getByRole("link", { name: "try the Tutorial first" }));
+    await userEvent.click(await screen.findByRole("link", { name: "Start tutorial" }));
     expect(
       await screen.findByRole("complementary", { name: "Tutorial coach" }),
     ).toBeInTheDocument();
-    await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
-    expect(screen.getByText(new RegExp(TUTORIAL_FILENAME))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Exit tutorial" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Next: Multiple demos" })).toBeInTheDocument();
-    await waitFor(() => expect(loadMocks.loadTutorialSeries).toHaveBeenCalled());
-    expect(loadMocks.loadTutorialPlaybook).not.toHaveBeenCalled();
+    await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
+    expect(await screen.findByText(new RegExp(TUTORIAL_FILENAME))).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
     expect(await screen.findByRole("link", { name: "try the Tutorial first" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Exit tutorial" })).not.toBeInTheDocument();
@@ -111,16 +123,26 @@ describe("App tutorial", () => {
     expect(screen.queryByText("Loading tutorial…")).not.toBeInTheDocument();
   });
 
-  it("reloads the sample from /tutorial after a refresh", async () => {
-    window.history.replaceState({}, "", "/tutorial");
+  it("shows the first coach-mark callout when Single mounts with the tour active", async () => {
+    window.history.replaceState({}, "", "/tutorial/single");
+    render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
+    await waitFor(() => {
+      expect(screen.getByRole("complementary", { name: "Tutorial coach" })).toBeInTheDocument();
+      expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
+    });
+    await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
+  });
+
+  it("reloads the sample from /tutorial/single after a refresh", async () => {
+    window.history.replaceState({}, "", "/tutorial/single");
     render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
     expect(document.title).toBe("CS2 Analyzer — Tutorial");
     expect(screen.getByRole("button", { name: "Exit tutorial" })).toBeInTheDocument();
     await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
   });
 
-  it("opens the empty Analyzer drop zone after leaving /tutorial via site nav", async () => {
-    window.history.replaceState({}, "", "/tutorial");
+  it("opens the empty Analyzer drop zone after leaving /tutorial/single via site nav", async () => {
+    window.history.replaceState({}, "", "/tutorial/single");
     render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
     await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
     expect(await screen.findByText(new RegExp(TUTORIAL_FILENAME))).toBeInTheDocument();

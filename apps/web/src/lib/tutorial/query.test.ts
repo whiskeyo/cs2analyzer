@@ -3,30 +3,38 @@ import { TUTORIAL_ID } from "./identity";
 import {
   isAnalyzerSessionVisible,
   isTutorialAnalyzerPath,
+  isTutorialHubPath,
   isTutorialPath,
   isTutorialPlaybookPath,
   nextTutorialStep,
   parseTutorialPath,
   previousTutorialStep,
+  tutorialHubHref,
   tutorialHref,
 } from "./query";
 
 describe("tutorial path", () => {
-  it("parses replay, aggregated, and playbook paths", () => {
+  it("parses the hub separately from playable Single / Aggregated / Playbook", () => {
     expect(parseTutorialPath("/")).toBeNull();
     expect(parseTutorialPath("/analyzer")).toBeNull();
     expect(parseTutorialPath("/playbook")).toBeNull();
-    expect(parseTutorialPath("/tutorial")).toBe("replay");
-    expect(parseTutorialPath("/tutorial/")).toBe("replay");
+    expect(parseTutorialPath("/tutorial")).toBeNull();
+    expect(parseTutorialPath("/tutorial/")).toBeNull();
+    expect(parseTutorialPath("/tutorial/single")).toBe("replay");
+    expect(parseTutorialPath("/tutorial/single/")).toBe("replay");
     expect(parseTutorialPath("/tutorial/aggregated")).toBe("aggregated");
     expect(parseTutorialPath("/tutorial/playbook")).toBe("playbook");
     expect(parseTutorialPath("/tutorial/other")).toBeNull();
+    expect(isTutorialHubPath("/tutorial")).toBe(true);
+    expect(isTutorialHubPath("/tutorial/")).toBe(true);
+    expect(isTutorialHubPath("/tutorial/single")).toBe(false);
   });
 
   it("builds path hrefs that survive a refresh", () => {
-    expect(tutorialHref("replay")).toBe("/tutorial");
+    expect(tutorialHubHref()).toBe("/tutorial");
+    expect(tutorialHref("replay")).toBe("/tutorial/single");
     expect(tutorialHref("aggregated")).toBe("/tutorial/aggregated");
-    expect(tutorialHref()).toBe("/tutorial");
+    expect(tutorialHref()).toBe("/tutorial/single");
     expect(tutorialHref("playbook")).toBe("/tutorial/playbook");
     expect(parseTutorialPath(tutorialHref("replay"))).toBe("replay");
     expect(parseTutorialPath(tutorialHref("aggregated"))).toBe("aggregated");
@@ -35,10 +43,12 @@ describe("tutorial path", () => {
 
   it("classifies tutorial analyzer vs playbook shells", () => {
     expect(isTutorialPath("/tutorial")).toBe(true);
+    expect(isTutorialPath("/tutorial/single")).toBe(true);
     expect(isTutorialPath("/tutorial/aggregated")).toBe(true);
     expect(isTutorialPath("/tutorial/playbook")).toBe(true);
     expect(isTutorialPath("/analyzer")).toBe(false);
-    expect(isTutorialAnalyzerPath("/tutorial")).toBe(true);
+    expect(isTutorialAnalyzerPath("/tutorial")).toBe(false);
+    expect(isTutorialAnalyzerPath("/tutorial/single")).toBe(true);
     expect(isTutorialAnalyzerPath("/tutorial/aggregated")).toBe(true);
     expect(isTutorialAnalyzerPath("/tutorial/playbook")).toBe(false);
     expect(isTutorialPlaybookPath("/tutorial/playbook")).toBe(true);
@@ -46,7 +56,8 @@ describe("tutorial path", () => {
   });
 
   it("never treats a tutorial demo id as a live /analyzer session", () => {
-    expect(isAnalyzerSessionVisible("/tutorial", TUTORIAL_ID)).toBe(true);
+    expect(isAnalyzerSessionVisible("/tutorial", TUTORIAL_ID)).toBe(false);
+    expect(isAnalyzerSessionVisible("/tutorial/single", TUTORIAL_ID)).toBe(true);
     expect(isAnalyzerSessionVisible("/tutorial/aggregated", TUTORIAL_ID)).toBe(true);
     expect(isAnalyzerSessionVisible("/tutorial/playbook", TUTORIAL_ID)).toBe(false);
     expect(isAnalyzerSessionVisible("/analyzer", TUTORIAL_ID)).toBe(false);

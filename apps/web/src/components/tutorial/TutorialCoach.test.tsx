@@ -82,7 +82,7 @@ describe("TutorialCoach", () => {
 
   it("advances Single steps on real actions, not Next", async () => {
     render(
-      <TestRouter path="/tutorial">
+      <TestRouter path="/tutorial/single">
         <SingleTargets />
         <TutorialCoach />
       </TestRouter>,
@@ -104,7 +104,7 @@ describe("TutorialCoach", () => {
 
   it("treats timeline scrub as the play step action", () => {
     render(
-      <TestRouter path="/tutorial">
+      <TestRouter path="/tutorial/single">
         <SingleTargets />
         <TutorialCoach />
       </TestRouter>,
@@ -117,7 +117,7 @@ describe("TutorialCoach", () => {
 
   it("persists a skip and has no Next control", async () => {
     render(
-      <TestRouter path="/tutorial">
+      <TestRouter path="/tutorial/single">
         <SingleTargets />
         <TutorialCoach />
       </TestRouter>,
@@ -167,8 +167,31 @@ describe("TutorialCoach", () => {
     ).toBeInTheDocument();
   });
 
-  it("stays dismissed after tutorialCompleted is stored", () => {
+  it("still shows callouts after tutorialCompleted is stored", () => {
     settingsMocks.tutorialCompleted = true;
+    render(
+      <TestRouter path="/tutorial/single">
+        <SingleTargets />
+        <TutorialCoach />
+      </TestRouter>,
+    );
+    expect(screen.getByRole("complementary", { name: "Tutorial coach" })).toBeInTheDocument();
+    expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
+  });
+
+  it("shows callouts before IndexedDB settings are ready", () => {
+    settingsMocks.ready = false;
+    render(
+      <TestRouter path="/tutorial/single">
+        <SingleTargets />
+        <TutorialCoach />
+      </TestRouter>,
+    );
+    expect(screen.getByRole("complementary", { name: "Tutorial coach" })).toBeInTheDocument();
+    expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
+  });
+
+  it("does not mount on the /tutorial hub", () => {
     render(
       <TestRouter path="/tutorial">
         <SingleTargets />
@@ -178,14 +201,13 @@ describe("TutorialCoach", () => {
     expect(screen.queryByRole("complementary", { name: "Tutorial coach" })).not.toBeInTheDocument();
   });
 
-  it("waits for IndexedDB settings before showing callouts", () => {
-    settingsMocks.ready = false;
+  it("shows the first callout even before the play control is in the document", () => {
     render(
-      <TestRouter path="/tutorial">
-        <SingleTargets />
+      <TestRouter path="/tutorial/single">
         <TutorialCoach />
       </TestRouter>,
     );
-    expect(screen.queryByRole("complementary", { name: "Tutorial coach" })).not.toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Tutorial coach" })).toBeInTheDocument();
+    expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
   });
 });

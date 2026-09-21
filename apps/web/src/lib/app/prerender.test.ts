@@ -27,6 +27,7 @@ describe("PRERENDER_PATHS", () => {
       ROUTES.home,
       ROUTES.analyzer,
       ROUTES.tutorial,
+      `${ROUTES.tutorial}/single`,
       `${ROUTES.tutorial}/aggregated`,
       `${ROUTES.tutorial}/playbook`,
       ROUTES.playbook,

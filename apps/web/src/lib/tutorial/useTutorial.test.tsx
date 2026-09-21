@@ -165,10 +165,10 @@ describe("useTutorial", () => {
     vi.clearAllMocks();
   });
 
-  it("installs the single-demo fixture from /tutorial", async () => {
+  it("installs the single-demo fixture from /tutorial/single", async () => {
     const { installDemo, status } = mockSession();
     renderHook(() => useTutorial(), {
-      wrapper: wrapper("/tutorial"),
+      wrapper: wrapper("/tutorial/single"),
     });
 
     await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
@@ -194,7 +194,7 @@ describe("useTutorial", () => {
     );
     const { installDemo, status } = mockSession();
     renderHook(() => useTutorial(), {
-      wrapper: wrapper("/tutorial"),
+      wrapper: wrapper("/tutorial/single"),
     });
 
     await waitFor(() => expect(loadMocks.loadTutorialSeries).toHaveBeenCalled());
@@ -207,13 +207,13 @@ describe("useTutorial", () => {
     await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
   });
 
-  it("starts Aggregated hydrate on /tutorial before Next navigation", async () => {
+  it("starts Aggregated hydrate on /tutorial/single before Next navigation", async () => {
     const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
     const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
     const series = buildSeries("de_dust2", [a, b]);
     loadMocks.loadTutorialSeries.mockResolvedValue(series);
     const { installSeries, installDemo } = mockSession();
-    const { wrapper: navWrapper, nav } = navigableWrapper("/tutorial");
+    const { wrapper: navWrapper, nav } = navigableWrapper("/tutorial/single");
     renderHook(() => useTutorial(), { wrapper: navWrapper });
 
     await waitFor(() => expect(loadMocks.loadTutorialSeries).toHaveBeenCalled());
@@ -267,7 +267,7 @@ describe("useTutorial", () => {
     const series = buildSeries("de_dust2", [a, b]);
     loadMocks.loadTutorialSeries.mockResolvedValue(series);
     const { installSeries, installDemo, session } = mockSession();
-    const { wrapper: navWrapper, nav } = navigableWrapper("/tutorial");
+    const { wrapper: navWrapper, nav } = navigableWrapper("/tutorial/single");
     renderHook(() => useTutorial(), { wrapper: navWrapper });
 
     await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
@@ -328,7 +328,7 @@ describe("useTutorial", () => {
     loadMocks.loadTutorialSeries.mockResolvedValue(series);
     const { installDemo } = mockSession();
     renderHook(() => useTutorial(), {
-      wrapper: wrapper("/tutorial"),
+      wrapper: wrapper("/tutorial/single"),
     });
 
     await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
@@ -478,12 +478,12 @@ describe("useTutorial", () => {
     expect(installDemo).not.toHaveBeenCalled();
   });
 
-  it("closes the tutorial session when navigating from /tutorial to /analyzer", async () => {
+  it("closes the tutorial session when navigating from /tutorial/single to /analyzer", async () => {
     const demo = tutorialReplayDemo(replay);
     const { close, installDemo, session } = mockSession();
     session.demo = demo;
     session.replay = replay;
-    const { wrapper: navWrapper, nav } = navigableWrapper("/tutorial");
+    const { wrapper: navWrapper, nav } = navigableWrapper("/tutorial/single");
     renderHook(() => useTutorial(), { wrapper: navWrapper });
     await act(async () => {
       await Promise.resolve();
@@ -497,14 +497,40 @@ describe("useTutorial", () => {
     expect(installDemo).not.toHaveBeenCalled();
   });
 
-  it("does not keep a live Analyzer drop when opening /tutorial", async () => {
+  it("does not keep a live Analyzer drop when opening /tutorial/single", async () => {
+    const demo = loadedDemo(replay, "match.dem", new File([], "match.dem"));
+    const { close, installDemo, session } = mockSession();
+    session.demo = demo;
+    session.replay = replay;
+    renderHook(() => useTutorial(), { wrapper: wrapper("/tutorial/single") });
+    expect(close).toHaveBeenCalledOnce();
+    await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
+  });
+
+  it("warms fixtures on the /tutorial hub without installing a session", async () => {
+    const { installDemo, close } = mockSession();
+    renderHook(() => useTutorial(), { wrapper: wrapper("/tutorial") });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(installDemo).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+    expect(loadMocks.loadTutorialReplay).toHaveBeenCalled();
+    expect(loadMocks.loadTutorialSeries).toHaveBeenCalled();
+    expect(loadMocks.loadTutorialPlaybook).not.toHaveBeenCalled();
+  });
+
+  it("closes a live Analyzer drop on the /tutorial hub without installing fixtures", async () => {
     const demo = loadedDemo(replay, "match.dem", new File([], "match.dem"));
     const { close, installDemo, session } = mockSession();
     session.demo = demo;
     session.replay = replay;
     renderHook(() => useTutorial(), { wrapper: wrapper("/tutorial") });
     expect(close).toHaveBeenCalledOnce();
-    await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(installDemo).not.toHaveBeenCalled();
   });
 
   it("does not reload when the open session already matches the query", async () => {
@@ -513,7 +539,7 @@ describe("useTutorial", () => {
     session.demo = demo;
     session.replay = replay;
     renderHook(() => useTutorial(), {
-      wrapper: wrapper("/tutorial"),
+      wrapper: wrapper("/tutorial/single"),
     });
     await act(async () => {
       await Promise.resolve();
@@ -523,10 +549,10 @@ describe("useTutorial", () => {
     expect(loadMocks.loadTutorialSeries).toHaveBeenCalled();
   });
 
-  it("reinstalls the sample when /tutorial is opened with an empty session", async () => {
+  it("reinstalls the sample when /tutorial/single is opened with an empty session", async () => {
     const { installDemo, session } = mockSession();
     const { unmount } = renderHook(() => useTutorial(), {
-      wrapper: wrapper("/tutorial"),
+      wrapper: wrapper("/tutorial/single"),
     });
     await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
     session.demo = tutorialReplayDemo(replay);
@@ -538,7 +564,7 @@ describe("useTutorial", () => {
     session.demo = null;
     session.replay = null;
     renderHook(() => useTutorial(), {
-      wrapper: wrapper("/tutorial"),
+      wrapper: wrapper("/tutorial/single"),
     });
     await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
   });
