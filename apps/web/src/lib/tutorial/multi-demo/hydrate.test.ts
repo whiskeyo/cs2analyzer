@@ -86,10 +86,27 @@ describe("tutorial multi-demo fixture", () => {
       (n, demo) => n + matchingTags(tagged.tagsByDemo.get(demo.id) ?? [], ctFilter).length,
       0,
     );
-    // Checked-in fixtures are T-only until `--generate-ts-series` is re-run
-    // with side-balanced full-buy windows. After that, CT must be non-empty.
+    // Checked-in fixtures still split halves across files (0/2 vs 1/3) until
+    // `--generate-ts-series` is re-run. After that, every demo has both sides
+    // and CT trails must be non-empty.
     if (ctTags > 0) {
       expect(ctOverlay.trails.length).toBeGreaterThan(0);
+    }
+    const bothSidesPerDemo = tagged.demos.every((demo) => {
+      const tags = tagged.tagsByDemo.get(demo.id) ?? [];
+      return (
+        tags.some((tag) => tag.sideForFocal === "CT") &&
+        tags.some((tag) => tag.sideForFocal === "T")
+      );
+    });
+    if (bothSidesPerDemo) {
+      expect(ctTags).toBeGreaterThan(0);
+      expect(tTags).toBeGreaterThan(0);
+      for (const demo of tagged.demos) {
+        const demoTags = tagged.tagsByDemo.get(demo.id) ?? [];
+        expect(matchingTags(demoTags, ctFilter).length).toBeGreaterThan(0);
+        expect(matchingTags(demoTags, tFilter).length).toBeGreaterThan(0);
+      }
     }
   });
 

@@ -39,10 +39,11 @@ OPTIONS:
         --series-rounds <N>
                           Cap on full-buy regulation rounds that keep
                           habits-window ticks, counted across the whole
-                          series (default 20). Round-robin across demos,
-                          balancing the focal team's CT and T sides.
-                          Unused rounds still emit headers + a freeze
-                          snapshot so the strip can label pistol/eco/force.
+                          series (default 40). Split across demos; each
+                          match keeps both focal CT and T windows when
+                          the GOTV has full buys on each side. Unused
+                          rounds still emit headers + a freeze snapshot
+                          so the strip can label pistol/eco/force.
         --pretty          Indent the JSON
     -q, --quiet           No progress on stderr
     -h, --help            Show this help
@@ -514,6 +515,7 @@ mod tests {
         assert!(USAGE.contains("--habits-window"));
         assert!(USAGE.contains("--series-rounds"));
         assert!(USAGE.contains("full-buy"));
+        assert!(USAGE.contains("both focal CT and T"));
         assert!(USAGE.contains("apps/web/src/lib/tutorial/multi-demo"));
     }
 }

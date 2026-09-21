@@ -29,8 +29,10 @@ pub const TUTORIAL_SERIES_TARGET_MATCHES: usize = 5;
 pub const TUTORIAL_SERIES_MAX_MATCHES: usize = 5;
 
 /// Default cap on full-buy regulation rounds that keep habits-window ticks,
-/// counted across the whole series (not per match).
-pub const TUTORIAL_SERIES_FULL_BUY_CAP: u32 = 20;
+/// counted across the whole series. Split per match so four demos can keep
+/// first-half and second-half windows (about 5+5 each) instead of one side
+/// per file.
+pub const TUTORIAL_SERIES_FULL_BUY_CAP: u32 = 40;
 
 /// One series match after remapping, plus which round numbers are active.
 #[derive(Debug)]
@@ -236,25 +238,20 @@ fn take_next_of_side(
     None
 }
 
-/// Round-robin full-buy rounds across matches until `cap` (series-wide).
-/// Prefers the underrepresented focal side so CT and T both keep habits windows
-/// when the demos have full buys on each side.
-pub fn assign_full_buy_active_rounds(
-    per_match: &[Vec<FullBuyCandidate>],
-    cap: usize,
-) -> Vec<Vec<u32>> {
-    let mut out: Vec<Vec<u32>> = vec![Vec::new(); per_match.len()];
-    if cap == 0 || per_match.is_empty() {
+/// Full-buy windows for one match: take CT and T in turn so a single demo
+/// keeps both halves when the GOTV actually has them. Does not invent a
+/// freeze side the focal team never played.
+fn assign_both_sides_in_match(candidates: &[FullBuyCandidate], budget: usize) -> Vec<u32> {
+    let mut out = Vec::new();
+    if budget == 0 {
         return out;
     }
-    let mut ct_cursor = vec![0usize; per_match.len()];
-    let mut t_cursor = vec![0usize; per_match.len()];
+    let mut ct_cursor = 0usize;
+    let mut t_cursor = 0usize;
     let mut n_ct = 0usize;
     let mut n_t = 0usize;
-    let mut start = 0usize;
-
     loop {
-        if n_ct + n_t >= cap {
+        if out.len() >= budget {
             break;
         }
         let prefer = if n_ct <= n_t { Side::Ct } else { Side::T };
@@ -263,36 +260,51 @@ pub fn assign_full_buy_active_rounds(
         } else {
             Side::Ct
         };
-        let mut picked = false;
-        for &side in &[prefer, other] {
-            for step in 0..per_match.len() {
-                let index = (start + step) % per_match.len();
-                let cursor = if side == Side::Ct {
-                    &mut ct_cursor[index]
-                } else {
-                    &mut t_cursor[index]
-                };
-                if let Some(number) =
-                    take_next_of_side(&per_match[index], cursor, side, &out[index])
-                {
-                    out[index].push(number);
-                    if side == Side::Ct {
-                        n_ct += 1;
-                    } else {
-                        n_t += 1;
-                    }
-                    start = (index + 1) % per_match.len();
-                    picked = true;
-                    break;
-                }
-            }
-            if picked {
+        let mut picked = None;
+        for side in [prefer, other] {
+            let cursor = if side == Side::Ct {
+                &mut ct_cursor
+            } else {
+                &mut t_cursor
+            };
+            if let Some(number) = take_next_of_side(candidates, cursor, side, &out) {
+                picked = Some((number, side));
                 break;
             }
         }
-        if !picked {
-            break;
+        match picked {
+            Some((number, side)) => {
+                out.push(number);
+                if side == Side::Ct {
+                    n_ct += 1;
+                } else {
+                    n_t += 1;
+                }
+            }
+            None => break,
         }
+    }
+    out.sort_unstable();
+    out
+}
+
+/// Split `cap` across matches. Within a match, alternate focal CT and T full
+/// buys (first-half + second-half style). A series-wide underrepresented-side
+/// picker used to park CT on some files and T on others.
+pub fn assign_full_buy_active_rounds(
+    per_match: &[Vec<FullBuyCandidate>],
+    cap: usize,
+) -> Vec<Vec<u32>> {
+    let n = per_match.len();
+    let mut out: Vec<Vec<u32>> = vec![Vec::new(); n];
+    if cap == 0 || n == 0 {
+        return out;
+    }
+    let base = cap / n;
+    let extra = cap % n;
+    for (index, candidates) in per_match.iter().enumerate() {
+        let budget = base + usize::from(index < extra);
+        out[index] = assign_both_sides_in_match(candidates, budget);
     }
     out
 }
@@ -873,7 +885,7 @@ mod tests {
     }
 
     #[test]
-    fn assign_full_buy_balances_focal_ct_and_t() {
+    fn assign_full_buy_keeps_both_sides_on_each_match() {
         let per_match = vec![
             vec![
                 cand(2, Side::T),
@@ -885,14 +897,38 @@ mod tests {
             vec![cand(2, Side::T), cand(14, Side::Ct), cand(15, Side::Ct)],
         ];
         let allocated = assign_full_buy_active_rounds(&per_match, 4);
-        let flat: Vec<u32> = allocated.iter().flatten().copied().collect();
-        assert_eq!(flat.len(), 4);
-        let ct = allocated.iter().flatten().filter(|n| **n >= 14).count();
-        let t = allocated.iter().flatten().filter(|n| **n < 14).count();
-        assert_eq!(ct, 2);
-        assert_eq!(t, 2);
-        assert!(allocated[0].contains(&14) || allocated[1].contains(&14));
-        assert!(allocated[0].contains(&2) || allocated[1].contains(&2));
+        assert_eq!(allocated[0], vec![2, 14]);
+        assert_eq!(allocated[1], vec![2, 14]);
+        for rounds in &allocated {
+            assert!(rounds.iter().any(|n| *n < 14), "T window");
+            assert!(rounds.iter().any(|n| *n >= 14), "CT window");
+        }
+    }
+
+    #[test]
+    fn assign_full_buy_does_not_park_one_side_on_half_the_files() {
+        let one = vec![
+            cand(2, Side::T),
+            cand(3, Side::T),
+            cand(4, Side::T),
+            cand(5, Side::T),
+            cand(6, Side::T),
+            cand(14, Side::Ct),
+            cand(15, Side::Ct),
+            cand(16, Side::Ct),
+            cand(17, Side::Ct),
+            cand(18, Side::Ct),
+        ];
+        let per_match = vec![one.clone(), one.clone(), one.clone(), one.clone()];
+        let allocated = assign_full_buy_active_rounds(&per_match, 40);
+        assert_eq!(allocated.len(), 4);
+        for rounds in &allocated {
+            let ct = rounds.iter().filter(|n| **n >= 14).count();
+            let t = rounds.iter().filter(|n| **n < 14).count();
+            assert_eq!(rounds, &vec![2, 3, 4, 5, 6, 14, 15, 16, 17, 18]);
+            assert_eq!(ct, 5);
+            assert_eq!(t, 5);
+        }
     }
 
     #[test]
@@ -1070,13 +1106,13 @@ mod tests {
 
         // Synthetic JSON is denser unique-looking floats than a real GOTV slice.
         // The CLI still warns at SERIES_FIXTURE_BUDGET_BYTES (2 MiB).
-        const SYNTHETIC_SERIES_JSON_CEILING_BYTES: usize = 4 * 1024 * 1024;
+        const SYNTHETIC_SERIES_JSON_CEILING_BYTES: usize = 8 * 1024 * 1024;
         assert!(
             series_bytes < SYNTHETIC_SERIES_JSON_CEILING_BYTES,
-            "series ticks+headers {:.1} KiB should stay under 4 MiB synthetic JSON",
+            "series ticks+headers {:.1} KiB should stay under 8 MiB synthetic JSON",
             series_bytes as f64 / 1024.0
         );
-        // Twenty 20s windows should stay in the same ballpark as two full rounds.
-        assert!(series_frames < single_frames.saturating_mul(2));
+        // Both-side windows (default 40 × 20s) stay under ~4× two full rounds.
+        assert!(series_frames < single_frames.saturating_mul(4));
     }
 }
