@@ -94,6 +94,7 @@ describe("Controls", () => {
     renderControls(baseProps());
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
     expect(screen.getByText(/R1 Freeze/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export clip" })).toBeInTheDocument();
   });
 
   it("toggles play and pause", async () => {

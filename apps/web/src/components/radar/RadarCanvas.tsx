@@ -22,6 +22,8 @@ import {
   habitsJumpAtScreen,
   nearestPlayerIndexAtScreen,
 } from "@/lib/radar/radarHits";
+import { radarClipHold } from "@/lib/radar/radarClipSurface";
+import { useRadarClipSurface } from "@/lib/radar/useRadarClipSurface";
 import { useRadarImages } from "@/lib/radar/useRadarImages";
 import { TextNoteEditor, useTextNotes, type TextMove } from "@/components/radar/TextNoteEditor";
 import { useRadarPointer, type RadarPanView } from "@/lib/radar/useRadarPointer";
@@ -153,86 +155,95 @@ export function RadarCanvas(props: Props) {
     view.current.oy = 0;
   }, [viewEpoch]);
 
+  const paintSceneRef = useRef<
+    (ctx: CanvasRenderingContext2D, w: number, h: number, tickNow: number) => void
+  >(() => {});
+  paintSceneRef.current = (ctx, w, h, tickNow) => {
+    ctx.fillStyle = "#0b0e12";
+    ctx.fillRect(0, 0, w, h);
+
+    const p = propsRef.current;
+    const calNow = p.cal;
+    const v = view.current;
+    const frame = buildRadarFrame({
+      replay: p.replay,
+      tick: tickNow,
+      layers: p.layers,
+      summaryFilter: p.summaryFilter,
+      selected: p.selected,
+      trails: p.trails,
+      floorMode: p.floorMode,
+      cal: calNow,
+      scale: v.scale,
+      habitsOnly: p.habitsOnly ?? false,
+    });
+
+    const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, v, wx, wy);
+    const img = frame.useLowerFloor ? images.current.lower : images.current.upper;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, w, h);
+    ctx.clip();
+    paintMapImage(ctx, w, h, v, img, calNow, p.radarGray ?? DEFAULT_RADAR_GRAY);
+    paintRadarFrame(ctx, frame, toScreen, {
+      scale: v.scale,
+      c4Icon: c4Icon.current,
+      packC4Icon: c4Icon.current,
+      nadeIcons: nadeIcons.current,
+    });
+    const habitsNow = p.habitsOverlay ?? null;
+    if (habitsNow) {
+      const playSec = p.habitsPlaySecRef?.current;
+      paintHabitsOverlay(
+        ctx,
+        habitsNow,
+        p.habitsOverlayDisplay ?? "trails",
+        p.habitsNadeFilter ?? DEFAULT_HABITS_NADE_FILTER,
+        toScreen,
+        v.scale,
+        {
+          showTrails: p.habitsShowTrails ?? false,
+          showArrows: p.habitsShowArrows ?? true,
+          nadesOn: p.habitsNadesOn ?? true,
+          nadeOpacity: p.habitsNadeOpacity ?? 0.4,
+          playSec,
+          cal: calNow,
+          nadeIcons: nadeIcons.current,
+        },
+      );
+    }
+
+    paintNote(ctx, noteRef.current, toScreen, {
+      tick: tickNow,
+      skipText: editingRef.current?.ref,
+      textMove: textMoveRef.current,
+      draft: draft.current,
+    });
+    const ed = editingRef.current;
+    const wrapBox = editWrapRef.current;
+    if (ed && wrapBox && calNow) {
+      const s = toScreen(ed.x, ed.y);
+      wrapBox.style.left = `${s.x}px`;
+      wrapBox.style.top = `${s.y}px`;
+    }
+
+    paintViewCone(ctx, frame, toScreen);
+    paintPawns(ctx, frame, toScreen, p.layers.names, c4Icon.current, v.scale);
+    ctx.restore();
+  };
+
   useCanvasLoop(
     canvasRef,
     wrapRef,
     (ctx, w, h) => {
-      ctx.fillStyle = "#0b0e12";
-      ctx.fillRect(0, 0, w, h);
-
       const p = propsRef.current;
       const tickNow = p.tickRef?.current ?? p.tick;
-      const calNow = p.cal;
-      const v = view.current;
-      const frame = buildRadarFrame({
-        replay: p.replay,
-        tick: tickNow,
-        layers: p.layers,
-        summaryFilter: p.summaryFilter,
-        selected: p.selected,
-        trails: p.trails,
-        floorMode: p.floorMode,
-        cal: calNow,
-        scale: v.scale,
-        habitsOnly: p.habitsOnly ?? false,
-      });
-
-      const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, v, wx, wy);
-      const img = frame.useLowerFloor ? images.current.lower : images.current.upper;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, w, h);
-      ctx.clip();
-      paintMapImage(ctx, w, h, v, img, calNow, p.radarGray ?? DEFAULT_RADAR_GRAY);
-      paintRadarFrame(ctx, frame, toScreen, {
-        scale: v.scale,
-        c4Icon: c4Icon.current,
-        packC4Icon: c4Icon.current,
-        nadeIcons: nadeIcons.current,
-      });
-      const habitsNow = p.habitsOverlay ?? null;
-      if (habitsNow) {
-        const playSec = p.habitsPlaySecRef?.current;
-        paintHabitsOverlay(
-          ctx,
-          habitsNow,
-          p.habitsOverlayDisplay ?? "trails",
-          p.habitsNadeFilter ?? DEFAULT_HABITS_NADE_FILTER,
-          toScreen,
-          v.scale,
-          {
-            showTrails: p.habitsShowTrails ?? false,
-            showArrows: p.habitsShowArrows ?? true,
-            nadesOn: p.habitsNadesOn ?? true,
-            nadeOpacity: p.habitsNadeOpacity ?? 0.4,
-            playSec,
-            cal: calNow,
-            nadeIcons: nadeIcons.current,
-          },
-        );
-      }
-
-      paintNote(ctx, noteRef.current, toScreen, {
-        tick: tickNow,
-        skipText: editingRef.current?.ref,
-        textMove: textMoveRef.current,
-        draft: draft.current,
-      });
-      const ed = editingRef.current;
-      const wrapBox = editWrapRef.current;
-      if (ed && wrapBox && calNow) {
-        const s = toScreen(ed.x, ed.y);
-        wrapBox.style.left = `${s.x}px`;
-        wrapBox.style.top = `${s.y}px`;
-      }
-
-      paintViewCone(ctx, frame, toScreen);
-      paintPawns(ctx, frame, toScreen, p.layers.names, c4Icon.current, v.scale);
-      ctx.restore();
+      paintSceneRef.current(ctx, w, h, tickNow);
     },
     [replay],
     (w, h) => {
+      if (radarClipHold()) return false;
       const p = propsRef.current;
       const v = view.current;
       const tickNow = p.tickRef?.current ?? p.tick;
@@ -279,6 +290,8 @@ export function RadarCanvas(props: Props) {
       );
     },
   );
+
+  useRadarClipSurface(replay, canvasRef, wrapRef, view, propsRef, paintSceneRef);
 
   useRadarPointer({
     wrapRef,

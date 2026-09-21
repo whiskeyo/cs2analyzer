@@ -12,6 +12,7 @@ import {
   UNIT_CALIBRATION,
 } from "@/lib/testing/fixtures";
 import { createMockCanvas } from "@/lib/testing/mockCanvas";
+import { radarClipHold, radarClipSurface, setRadarClipHold } from "@/lib/radar/radarClipSurface";
 import { RadarCanvas } from "./RadarCanvas";
 
 vi.mock("@/lib/radar/paintRadarFrame", () => ({
@@ -102,6 +103,7 @@ describe("RadarCanvas", () => {
   });
 
   afterEach(() => {
+    setRadarClipHold(false);
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -126,6 +128,33 @@ describe("RadarCanvas", () => {
     expect(paintRadarFrame.paintRadarFrame).toHaveBeenCalled();
     expect(staticMapPaint.paintMapImage).toHaveBeenCalled();
     expect(staticMapPaint.paintNote).toHaveBeenCalled();
+  });
+
+  it("paints an export tick into the live canvas and skips the rAF loop while held", () => {
+    const tickRef = { current: 100 };
+    const { container, unmount } = render(<RadarCanvas {...canvasProps({ tickRef })} />);
+    const wrap = container.querySelector(".radar-wrap") as HTMLElement;
+    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+
+    const surface = radarClipSurface();
+    expect(surface).not.toBeNull();
+    surface?.paintAt(240);
+    const frames = vi.mocked(paintRadarFrame.paintRadarFrame).mock.calls;
+    const exported = frames[frames.length - 1]?.[1] as { tick: number };
+    expect(exported.tick).toBe(240);
+    expect(tickRef.current).toBe(240);
+
+    vi.mocked(paintRadarFrame.paintRadarFrame).mockClear();
+    setRadarClipHold(true);
+    expect(radarClipHold()).toBe(true);
+    act(() => {
+      rafCb?.(1);
+    });
+    expect(paintRadarFrame.paintRadarFrame).not.toHaveBeenCalled();
+
+    unmount();
+    expect(radarClipSurface()).toBeNull();
   });
 
   it("selects a nearby player on click in pan mode", () => {

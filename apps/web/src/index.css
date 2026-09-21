@@ -3925,6 +3925,57 @@ button.link:hover:not(:disabled) {
   font-size: 0.85rem;
   color: #a9b6c3;
 }
+.clip-export {
+  position: relative;
+  flex: 0 0 auto;
+}
+.clip-export-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  width: 280px;
+  padding: 0.7rem;
+  background: #161c24;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.clip-export-hint,
+.clip-export-duration,
+.clip-export-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.clip-export-duration {
+  font-variant-numeric: tabular-nums;
+  color: #a9b6c3;
+}
+.clip-export-error {
+  color: var(--danger);
+}
+.clip-export-presets,
+.clip-export-actions,
+.clip-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.clip-export-row {
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #a9b6c3;
+  font-variant-numeric: tabular-nums;
+}
+.clip-export button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
 
 .round-strip {
   display: flex;
