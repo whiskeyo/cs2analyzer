@@ -3510,6 +3510,14 @@ button.link:hover:not(:disabled) {
   color: #ff8a8a;
   background: #2a1a1e;
 }
+.opening-duels {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid #1e2732;
+}
+.opening-duels .util-head {
+  margin-top: 0;
+}
 .util-head {
   margin: 0.85rem 0 0.25rem;
   font-size: 0.78rem;

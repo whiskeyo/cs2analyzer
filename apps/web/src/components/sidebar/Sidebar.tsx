@@ -140,6 +140,7 @@ export const Sidebar = memo(function Sidebar() {
               selected={selected}
               onJump={onJump}
               onSelect={(i) => onSelect(i)}
+              showOpenings={!seriesMode}
             />
           ))}
         {activeTab === "notes" && (
