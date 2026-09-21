@@ -101,7 +101,9 @@ export function shouldDebouncePersist(input: {
   restored: boolean;
   notesDemoId?: string | null;
   boardDemoId?: string | null;
+  persistable?: boolean;
 }): boolean {
+  if (input.persistable === false) return false;
   if (!input.hasDemo || !input.restored) return false;
   if (input.notesDemoId === undefined && input.boardDemoId === undefined) return true;
   return notesBelongToDemo(input.notesDemoId, input.boardDemoId);

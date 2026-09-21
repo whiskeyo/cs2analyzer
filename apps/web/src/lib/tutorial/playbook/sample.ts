@@ -6,9 +6,9 @@
 import { emptyNote } from "@/lib/notes/note";
 import { defaultPlaybookColor, defaultPlaybookPaletteId } from "@/lib/playbook/pages";
 import { PLAYBOOK_PREFERRED_MAP, PLAYBOOK_SCHEMA, type Playbook } from "@/lib/playbook/types";
+import { TUTORIAL_PLAYBOOK_KEY, TUTORIAL_PLAYBOOK_PAGE_ID } from "./constants";
 
-export const TUTORIAL_PLAYBOOK_KEY = "tutorial-playbook";
-export const TUTORIAL_PLAYBOOK_PAGE_ID = "tutorial-playbook-page";
+export { TUTORIAL_PLAYBOOK_KEY, TUTORIAL_PLAYBOOK_PAGE_ID };
 
 export const tutorialPlaybook: Playbook = {
   schema: PLAYBOOK_SCHEMA,

@@ -96,6 +96,11 @@ export interface UserSettings {
   pdfPhotos: PdfPhotos;
   /** 0 = original map color, 1 = full grayscale. Applies to Analyzer, Playbook, PDF stills. */
   radarGray: number;
+  /**
+   * Home skip / tour finish / don't-show-again. Missing key ≡ not completed,
+   * so first-visit Home can idle-prefetch the Replay fixture.
+   */
+  tutorialCompleted: boolean;
 }
 
 export type UserSettingsRecord = UserSettings & { id: typeof USER_SETTINGS_ID };
@@ -163,6 +168,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     pdfTheme: DEFAULT_PDF_THEME,
     pdfPhotos: DEFAULT_PDF_PHOTOS,
     radarGray: DEFAULT_RADAR_GRAY,
+    tutorialCompleted: false,
   };
 }
 
@@ -348,5 +354,6 @@ export function parseUserSettings(raw: unknown): UserSettings {
       RADAR_GRAY_MAX,
       defaults.radarGray,
     ),
+    tutorialCompleted: parseBoolean(raw.tutorialCompleted, defaults.tutorialCompleted),
   };
 }

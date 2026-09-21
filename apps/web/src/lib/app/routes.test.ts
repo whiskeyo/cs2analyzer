@@ -27,6 +27,7 @@ describe("route helpers", () => {
     expect(isHomePath("/")).toBe(true);
     expect(isHomePath("/analyzer")).toBe(false);
     expect(isAnalyzerPath("/analyzer")).toBe(true);
+    expect(isAnalyzerPath("/tutorial")).toBe(false);
     expect(isAnalyzerPath("/")).toBe(false);
     expect(isPlaybookPath("/playbook")).toBe(true);
     expect(isPlaybookPath("/playbook/")).toBe(true);
@@ -47,6 +48,7 @@ describe("route helpers", () => {
   it("keeps Analyzer off the site root", () => {
     expect(ROUTES.home).toBe("/");
     expect(ROUTES.analyzer).toBe("/analyzer");
+    expect(ROUTES.tutorial).toBe("/tutorial");
     expect(ROUTES.playbook).toBe("/playbook");
     expect(ROUTES.faq).toBe("/faq");
     expect(ROUTES.rating).toBe("/rating");

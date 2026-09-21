@@ -16,6 +16,7 @@ import {
   buildSeriesOverlay,
   clampSeriesTrailWindowSec,
   DEFAULT_HABITS_NADE_FILTER,
+  overlayRoster,
   type HabitsNadeFilter,
   type HabitsNadeKind,
   type HabitsTrail,
@@ -29,6 +30,11 @@ import type { RoundKind } from "@/lib/parse/roundTags";
 import type { MapPlaces } from "@/lib/match/sites";
 import type { Side } from "@/lib/replay/replayTypes";
 import { SERIES_HABITS_WINDOW_SECONDS } from "@/lib/shared/constants";
+import {
+  tutorialLocksSeriesToAggregatedFull,
+  tutorialSeriesHabitsTags,
+} from "@/lib/tutorial/activeRound";
+import { peekTutorialTaggedSeries, tutorialSeriesOverlay } from "@/lib/tutorial/seriesWarmup";
 
 export type SeriesViewMode = "demos" | "aggregated";
 
@@ -60,6 +66,8 @@ export interface SeriesHabitsState {
   /** Active bucket overlay (all rounds of one buy + side). Null = GOTV playback. */
   bucketOverlay: BucketOverlaySelection | null;
   selectBucketOverlay: (kind: RoundKind, side: Side) => void;
+  /** Set bucket overlay without toggling off (tutorial enter, StrictMode). */
+  ensureBucketOverlay: (kind: RoundKind, side: Side) => void;
   /** Freeze-relative playhead for bucket overlay (0 … bucketWindowSec). */
   bucketPlaySec: number;
   bucketPlaySecRef: MutableRefObject<number>;
@@ -94,7 +102,11 @@ export interface SeriesHabitsState {
   playRound: (target: Pick<HabitsTrail, "demoId" | "jumpTick">) => void;
 }
 
-const DEFAULT_FILTER: SeriesHabitsFilter = { side: "CT", kind: "full", playerKey: null };
+const DEFAULT_FILTER: SeriesHabitsFilter = {
+  side: "CT",
+  kind: "full",
+  playerKey: null,
+};
 
 /**
  * Habits filters survive demo hops inside a series (same overlay query).
@@ -113,6 +125,7 @@ export function useSeriesHabits(opts: {
   pathBranchMinShare?: number;
 }): SeriesHabitsState {
   const { series, places, activeDemoId, selectDemo, jump } = opts;
+  const locked = tutorialLocksSeriesToAggregatedFull(series);
   const trailWindowSec = clampSeriesTrailWindowSec(
     opts.trailWindowSec ?? SERIES_HABITS_WINDOW_SECONDS,
   );
@@ -129,40 +142,72 @@ export function useSeriesHabits(opts: {
   const [nadesOn, setNadesOn] = useState(true);
   const [nadeOpacity, setNadeOpacity] = useState(0.4);
   const [seriesView, setSeriesView] = useState<SeriesViewMode>("demos");
-  const aggregated = seriesView === "aggregated";
+  const aggregated = seriesView === "aggregated" || locked;
+  const seriesViewOut: SeriesViewMode = locked ? "aggregated" : seriesView;
   const pendingJumpRef = useRef<{ demoId: string; tick: number } | null>(null);
 
-  const playerKey = useMemo(() => {
-    if (!filter.playerKey || !series) return filter.playerKey;
-    const roster = focalRosterForSeries(series);
-    return roster.some((p) => p.key === filter.playerKey) ? filter.playerKey : null;
-  }, [filter.playerKey, series]);
+  const overlayBucket = useMemo((): BucketOverlaySelection | null => {
+    if (locked) {
+      const side = bucketOverlay?.side ?? filter.side;
+      if (bucketOverlay?.kind === "full" && bucketOverlay.side === side) return bucketOverlay;
+      return { kind: "full", side };
+    }
+    return bucketOverlay;
+  }, [bucketOverlay, filter.side, locked]);
 
   const bucketFilter = useMemo((): SeriesFilter => {
-    if (bucketOverlay) return { side: bucketOverlay.side, kind: bucketOverlay.kind };
+    if (overlayBucket) return { side: overlayBucket.side, kind: overlayBucket.kind };
     return { side: filter.side, kind: filter.kind };
-  }, [bucketOverlay, filter.side, filter.kind]);
+  }, [overlayBucket, filter.side, filter.kind]);
 
-  const focalPlayers = useMemo(() => {
-    if (!series) return [];
-    return focalRosterForSeries(series);
+  const overlaySeries = useMemo(() => {
+    if (!series) return null;
+    const warmed = peekTutorialTaggedSeries(series);
+    if (warmed) return warmed;
+    const tagsByDemo = tutorialSeriesHabitsTags(series);
+    if (tagsByDemo === series.tagsByDemo) return series;
+    return { ...series, tagsByDemo };
   }, [series]);
 
+  const focalPlayers = useMemo(() => {
+    if (!overlaySeries) return [];
+    const onSide = overlayRoster(overlaySeries, bucketFilter);
+    return onSide.length > 0 ? onSide : focalRosterForSeries(overlaySeries);
+  }, [bucketFilter, overlaySeries]);
+
+  const playerKey = useMemo(() => {
+    if (!filter.playerKey || !overlaySeries) return filter.playerKey;
+    return focalPlayers.some((p) => p.key === filter.playerKey) ? filter.playerKey : null;
+  }, [filter.playerKey, focalPlayers, overlaySeries]);
+
   const overlay = useMemo(() => {
-    if (!series || !aggregated || !overlayOn || !bucketOverlay) return null;
-    return buildSeriesOverlay(series, bucketFilter, playerKey, trailWindowSec, {
+    if (!overlaySeries || !aggregated || !overlayOn || !overlayBucket) return null;
+    const branch = {
       mergeDistance: opts.pathBranchMergeDistance,
       stepDistance: opts.pathBranchStepDistance,
       minShare: opts.pathBranchMinShare,
-    });
+    };
+    if (locked && series) {
+      return tutorialSeriesOverlay(
+        series,
+        overlaySeries,
+        bucketFilter,
+        playerKey,
+        trailWindowSec,
+        branch,
+      );
+    }
+    return buildSeriesOverlay(overlaySeries, bucketFilter, playerKey, trailWindowSec, branch);
   }, [
-    series,
+    overlaySeries,
     aggregated,
     overlayOn,
-    bucketOverlay,
+    overlayBucket,
     bucketFilter,
     playerKey,
     trailWindowSec,
+    locked,
+    series,
     opts.pathBranchMergeDistance,
     opts.pathBranchStepDistance,
     opts.pathBranchMinShare,
@@ -179,24 +224,36 @@ export function useSeriesHabits(opts: {
   }, [bucketWindowSec]);
 
   const util = useMemo(() => {
-    if (!series || !aggregated) return null;
-    return aggregateSeriesUtil(series, series.tagsByDemo, bucketFilter, places, playerKey);
-  }, [series, aggregated, bucketFilter, places, playerKey]);
+    if (!overlaySeries || !aggregated) return null;
+    return aggregateSeriesUtil(
+      overlaySeries,
+      overlaySeries.tagsByDemo,
+      bucketFilter,
+      places,
+      playerKey,
+    );
+  }, [overlaySeries, aggregated, bucketFilter, places, playerKey]);
 
   const action = useMemo(() => {
-    if (!series || !aggregated) return null;
-    return aggregateSeriesAction(series, series.tagsByDemo, bucketFilter, places);
-  }, [series, aggregated, bucketFilter, places]);
+    if (!overlaySeries || !aggregated) return null;
+    return aggregateSeriesAction(overlaySeries, overlaySeries.tagsByDemo, bucketFilter, places);
+  }, [overlaySeries, aggregated, bucketFilter, places]);
 
   const seriesUtilThrows = useMemo(() => {
-    if (!series || !aggregated) return [];
-    return collectSeriesUtilThrows(series, series.tagsByDemo, bucketFilter, places, playerKey);
-  }, [series, aggregated, bucketFilter, places, playerKey]);
+    if (!overlaySeries || !aggregated) return [];
+    return collectSeriesUtilThrows(
+      overlaySeries,
+      overlaySeries.tagsByDemo,
+      bucketFilter,
+      places,
+      playerKey,
+    );
+  }, [overlaySeries, aggregated, bucketFilter, places, playerKey]);
 
   const seriesActionBeats = useMemo(() => {
-    if (!series || !aggregated) return [];
-    return collectSeriesActionBeats(series, series.tagsByDemo, bucketFilter, places);
-  }, [series, aggregated, bucketFilter, places]);
+    if (!overlaySeries || !aggregated) return [];
+    return collectSeriesActionBeats(overlaySeries, overlaySeries.tagsByDemo, bucketFilter, places);
+  }, [overlaySeries, aggregated, bucketFilter, places]);
 
   const seriesRoundsByKind = useMemo(() => {
     if (!series) return [];
@@ -209,9 +266,9 @@ export function useSeriesHabits(opts: {
   }, [series]);
 
   const utilSets = useMemo(() => {
-    if (!series || !aggregated) return null;
-    return aggregateUtilSets(series, bucketFilter, places);
-  }, [series, aggregated, bucketFilter, places]);
+    if (!overlaySeries || !aggregated) return null;
+    return aggregateUtilSets(overlaySeries, bucketFilter, places);
+  }, [overlaySeries, aggregated, bucketFilter, places]);
 
   useLayoutEffect(() => {
     const pending = pendingJumpRef.current;
@@ -240,16 +297,34 @@ export function useSeriesHabits(opts: {
 
   const playRound = useCallback(
     (target: Pick<HabitsTrail, "demoId" | "jumpTick">) => {
+      if (locked) return;
       setBucketOverlay(null);
       resetBucketPlaySec();
       jumpToDemoRound(target);
     },
-    [jumpToDemoRound, resetBucketPlaySec],
+    [jumpToDemoRound, locked, resetBucketPlaySec],
   );
 
   const selectBucketOverlay = useCallback(
     (kind: RoundKind, side: Side) => {
-      setFilter((prev) => ({ ...prev, kind, side }));
+      if (locked) {
+        if (kind !== "full") return;
+        setFilter((prev) => ({
+          ...prev,
+          kind,
+          side,
+          playerKey: prev.side === side ? prev.playerKey : null,
+        }));
+        setBucketOverlay({ kind, side });
+        setOverlayOn(true);
+        return;
+      }
+      setFilter((prev) => ({
+        ...prev,
+        kind,
+        side,
+        playerKey: prev.side === side ? prev.playerKey : null,
+      }));
       setBucketOverlay((prev) => {
         if (prev?.kind === kind && prev.side === side) return null;
         return { kind, side };
@@ -257,18 +332,56 @@ export function useSeriesHabits(opts: {
       resetBucketPlaySec();
       setOverlayOn(true);
     },
-    [resetBucketPlaySec],
+    [locked, resetBucketPlaySec],
   );
 
-  const setSide = useCallback((side: Side) => {
-    setFilter((prev) => ({ ...prev, side }));
-    setBucketOverlay(null);
+  const ensureBucketOverlay = useCallback((kind: RoundKind, side: Side) => {
+    setFilter((prev) => {
+      if (prev.kind === kind && prev.side === side) return prev;
+      return {
+        ...prev,
+        kind,
+        side,
+        playerKey: prev.side === side ? prev.playerKey : null,
+      };
+    });
+    setBucketOverlay((prev) => {
+      if (prev?.kind === kind && prev.side === side) return prev;
+      return { kind, side };
+    });
+    setOverlayOn(true);
   }, []);
 
-  const setKind = useCallback((kind: RoundKind) => {
-    setFilter((prev) => ({ ...prev, kind }));
-    setBucketOverlay(null);
-  }, []);
+  const setSide = useCallback(
+    (side: Side) => {
+      setFilter((prev) => ({ ...prev, side, playerKey: null }));
+      if (locked) {
+        setBucketOverlay({ kind: "full", side });
+        setOverlayOn(true);
+        return;
+      }
+      setBucketOverlay(null);
+    },
+    [locked],
+  );
+
+  const setKind = useCallback(
+    (kind: RoundKind) => {
+      if (locked) {
+        if (kind !== "full") return;
+        setFilter((prev) => ({ ...prev, kind }));
+        setBucketOverlay((prev) => ({
+          kind: "full",
+          side: prev?.side ?? "CT",
+        }));
+        setOverlayOn(true);
+        return;
+      }
+      setFilter((prev) => ({ ...prev, kind }));
+      setBucketOverlay(null);
+    },
+    [locked],
+  );
 
   const setPlayerKey = useCallback((playerKey: string | null) => {
     setFilter((prev) => ({ ...prev, playerKey }));
@@ -288,10 +401,22 @@ export function useSeriesHabits(opts: {
     setNadeFilter((prev) => ({ ...prev, [kind]: on }));
   }, []);
 
-  const setSeriesViewWrapped = useCallback((view: SeriesViewMode) => {
-    setSeriesView(view);
-    if (view !== "aggregated") setBucketOverlay(null);
-  }, []);
+  const setOverlayOnWrapped = useCallback(
+    (on: boolean) => {
+      if (locked && !on) return;
+      setOverlayOn(on);
+    },
+    [locked],
+  );
+
+  const setSeriesViewWrapped = useCallback(
+    (view: SeriesViewMode) => {
+      if (locked && view !== "aggregated") return;
+      setSeriesView(view);
+      if (view !== "aggregated") setBucketOverlay(null);
+    },
+    [locked],
+  );
 
   return {
     filter,
@@ -299,13 +424,14 @@ export function useSeriesHabits(opts: {
     setSide,
     setKind,
     setPlayerKey,
-    seriesView,
+    seriesView: seriesViewOut,
     setSeriesView: setSeriesViewWrapped,
     aggregated,
     overlayOn,
-    setOverlayOn,
-    bucketOverlay,
+    setOverlayOn: setOverlayOnWrapped,
+    bucketOverlay: overlayBucket,
     selectBucketOverlay,
+    ensureBucketOverlay,
     bucketPlaySec,
     bucketPlaySecRef,
     setBucketPlaySec,

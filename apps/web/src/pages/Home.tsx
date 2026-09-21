@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { DemoDrop } from "@/components/app/DemoDrop";
 import { CreatePlaybookCard } from "@/components/playbook/CreatePlaybookCard";
+import { TutorialStart } from "@/components/tutorial/TutorialStart";
 import { ROUTES } from "@/lib/app/routes";
 import { FEATURE_LIST_CLASS } from "@/lib/markdown/featureList";
 
@@ -24,13 +25,13 @@ function HomeIntro() {
   );
 }
 
-function HomeFaqHint() {
+function HomeDropHint() {
   return (
-    <p className="home-faq-hint muted">
+    <TutorialStart>
       If you have questions, <Link to={ROUTES.faq}>see the FAQ</Link>.{" "}
       <Link to={ROUTES.rating}>Match rating formulas</Link> live on their own page. To reach the
       author, <Link to={ROUTES.contact}>Contact</Link>.
-    </p>
+    </TutorialStart>
   );
 }
 
@@ -40,7 +41,7 @@ export function Home() {
       openAnalyzerOnDrop
       showSavedNotes={false}
       beside={<CreatePlaybookCard />}
-      below={<HomeFaqHint />}
+      below={<HomeDropHint />}
     >
       <HomeIntro />
     </DemoDrop>

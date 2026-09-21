@@ -1,4 +1,5 @@
 import { NOTE_BOOKMARK_TITLE } from "@/lib/shared/constants";
+import { isTutorialProject } from "@/lib/tutorial/identity";
 import type { GrenadeKind, Replay } from "@/lib/replay/replayTypes";
 import type { MatchScorecard, SavedPlayerSnapshot } from "@/lib/stats/stats";
 import {
@@ -312,6 +313,7 @@ export function isNotesFile(file: File): boolean {
 }
 
 export async function saveProject(project: ReviewProject): Promise<void> {
+  if (isTutorialProject(project)) return;
   if (!idbAvailable()) return;
   const db = await openCs2Db();
   try {
@@ -328,13 +330,15 @@ export async function loadProject(key: string): Promise<ReviewProject | null> {
   try {
     const tx = db.transaction(STORE, "readonly");
     const raw = await requestOf(tx.objectStore(STORE).get(key));
-    return parseProject(raw);
+    const project = parseProject(raw);
+    if (project && isTutorialProject(project)) return null;
+    return project;
   } finally {
     db.close();
   }
 }
 
-export async function loadAllProjects(): Promise<ReviewProject[]> {
+async function readStoredProjects(): Promise<ReviewProject[]> {
   if (!idbAvailable()) return [];
   const db = await openCs2Db();
   try {
@@ -351,16 +355,31 @@ export async function loadAllProjects(): Promise<ReviewProject[]> {
   }
 }
 
+/** Drop leftover tutorial fixture rows written before they were excluded from IDB. */
+export async function purgeTutorialProjects(): Promise<number> {
+  const stale = (await readStoredProjects()).filter((project) => isTutorialProject(project));
+  for (const project of stale) {
+    await deleteProject(project.key);
+  }
+  return stale.length;
+}
+
+export async function loadAllProjects(): Promise<ReviewProject[]> {
+  await purgeTutorialProjects();
+  return (await readStoredProjects()).filter((project) => !isTutorialProject(project));
+}
+
 export async function importProjects(bundle: ProjectBundle): Promise<number> {
-  if (!idbAvailable()) return bundle.projects.length;
+  const projects = bundle.projects.filter((project) => !isTutorialProject(project));
+  if (!idbAvailable()) return projects.length;
   const db = await openCs2Db();
   try {
     const tx = db.transaction(STORE, "readwrite");
     const store = tx.objectStore(STORE);
-    for (const p of bundle.projects) {
+    for (const p of projects) {
       await requestOf(store.put({ ...p, savedAt: p.savedAt || Date.now() }));
     }
-    return bundle.projects.length;
+    return projects.length;
   } finally {
     db.close();
   }
@@ -384,7 +403,7 @@ export async function deleteProject(key: string): Promise<void> {
 /** Wipe every saved review project in this browser. Returns how many were removed. */
 export async function deleteAllProjects(): Promise<number> {
   if (!idbAvailable()) return 0;
-  const existing = await loadAllProjects();
+  const existing = await readStoredProjects();
   if (existing.length === 0) return 0;
   const db = await openCs2Db();
   try {

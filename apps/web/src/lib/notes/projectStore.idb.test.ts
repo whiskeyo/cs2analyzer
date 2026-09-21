@@ -4,6 +4,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { COLOR_PRESETS } from "./palettes";
+import { PROJECT_STORE, openCs2Db, requestOf } from "@/lib/storage/idb";
 import {
   countProjects,
   deleteAllProjects,
@@ -99,5 +100,40 @@ describe("projectStore indexedDB", () => {
   it("returns zero when the store is already empty", async () => {
     expect(await deleteAllProjects()).toBe(0);
     expect(await countProjects()).toBe(0);
+  });
+
+  it("refuses to save tutorial fixture notes and purges stale rows", async () => {
+    const real = project({
+      key: "de_dust2|24|1|b8-vs-spirit-m1-dust2.dem",
+      fileName: "b8-vs-spirit-m1-dust2.dem",
+    });
+    const tutorial = project({
+      key: "de_mirage|2|1|tutorial.dem",
+      fileName: "tutorial.dem",
+    });
+    const series = project({
+      key: "de_dust2|24|1|tutorial-series-0.dem",
+      fileName: "tutorial-series-0.dem",
+    });
+    await saveProject(real);
+    await saveProject(tutorial);
+    await saveProject(series);
+    expect(await loadProject(tutorial.key)).toBeNull();
+    expect(await loadProject(series.key)).toBeNull();
+    expect(await loadProject(real.key)).toBeTruthy();
+
+    const db = await openCs2Db();
+    try {
+      const tx = db.transaction(PROJECT_STORE, "readwrite");
+      await requestOf(tx.objectStore(PROJECT_STORE).put(tutorial));
+      await requestOf(tx.objectStore(PROJECT_STORE).put(series));
+    } finally {
+      db.close();
+    }
+
+    const listed = await loadAllProjects();
+    expect(listed.map((row) => row.fileName)).toEqual(["b8-vs-spirit-m1-dust2.dem"]);
+    expect(await loadProject(tutorial.key)).toBeNull();
+    expect(await countProjects()).toBe(1);
   });
 });

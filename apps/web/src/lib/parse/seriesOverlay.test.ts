@@ -155,6 +155,7 @@ describe("buildSeriesOverlay", () => {
     const late = overlayAtPlaySec(full, 20);
     expect(early.trails[0]?.points.length ?? 0).toBeLessThan(late.trails[0]?.points.length ?? 0);
     expect(early.windowSec).toBe(full.windowSec);
+    expect(overlayAtPlaySec(full, 0).trails.length).toBeGreaterThan(0);
   });
 
   it("uses round end for the bucket window when not overridden", () => {

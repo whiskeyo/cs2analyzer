@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { useApp } from "@/lib/state/appState";
 import { showSeriesBar } from "@/lib/parse/seriesMode";
+import { tutorialLocksSeriesToAggregatedFull } from "@/lib/tutorial/activeRound";
 import { prettyMap } from "@/lib/weapons/weapons";
 
 /** File list + focal team when several demos are loaded for habits. */
@@ -9,6 +10,7 @@ export function SeriesBar() {
   if (!showSeriesBar(session)) return null;
 
   const series = session.series;
+  const tutorialLock = tutorialLocksSeriesToAggregatedFull(series);
 
   const activeId = session.demo?.id ?? "";
   const { aggregated } = habits;
@@ -38,7 +40,11 @@ export function SeriesBar() {
         <button
           type="button"
           className={`filter${aggregated ? " on" : ""}`}
-          onClick={() => habits.setSeriesView(aggregated ? "demos" : "aggregated")}
+          data-tutorial="aggregated"
+          onClick={() => {
+            if (tutorialLock && aggregated) return;
+            habits.setSeriesView(aggregated ? "demos" : "aggregated");
+          }}
         >
           Aggregated
         </button>
@@ -55,6 +61,7 @@ export function SeriesBar() {
                 style={demoColor ? ({ "--demo-color": demoColor } as CSSProperties) : undefined}
                 title={`${roundCount} tagged rounds · already parsed`}
                 onClick={() => {
+                  if (tutorialLock) return;
                   if (aggregated) habits.setSeriesView("demos");
                   session.selectDemo(demo.id);
                 }}

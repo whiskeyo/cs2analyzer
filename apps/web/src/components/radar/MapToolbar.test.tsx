@@ -60,6 +60,17 @@ describe("MapToolbar", () => {
     expect(props.reviewActions.onTool).toHaveBeenCalledWith("pen");
   });
 
+  it("disables drawing tools when drawings are not live", async () => {
+    const props = toolbarProps({ drawingsEnabled: false });
+    render(<MapToolbar {...props} />);
+    expect(screen.getByRole("button", { name: "Draw" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Arrow" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Text note" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Pan" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Draw" }));
+    expect(props.reviewActions.onTool).not.toHaveBeenCalled();
+  });
+
   it("stamps a bookmark when the bookmark tool is chosen", async () => {
     const props = toolbarProps();
     render(<MapToolbar {...props} />);

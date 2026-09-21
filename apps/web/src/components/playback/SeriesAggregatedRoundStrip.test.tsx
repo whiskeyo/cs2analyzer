@@ -100,4 +100,33 @@ describe("SeriesAggregatedRoundStrip", () => {
     await userEvent.click(screen.getByTitle("Pistol · CT · all rounds overlay"));
     expect(onBucketOverlay).toHaveBeenCalledWith("pistol", "CT");
   });
+
+  it("disables unused buckets and numbered chips for the tutorial lock", async () => {
+    const { groups, replay, demoA } = fixture();
+    const onBucketOverlay = vi.fn();
+    const onRoundJump = vi.fn();
+    render(
+      <SeriesAggregatedRoundStrip
+        groups={groups}
+        demoColors={new Map()}
+        activeDemoId={demoA.id}
+        bucketOverlay={{ kind: "full", side: "CT" }}
+        replay={replay}
+        tick={100}
+        onBucketOverlay={onBucketOverlay}
+        onRoundJump={onRoundJump}
+        bucketEnabled={(kind) => kind === "full"}
+        roundJumpEnabled={false}
+      />,
+    );
+    const pistolBucket = screen.getByTitle("Pistol · CT · not playable in the tutorial");
+    expect(pistolBucket).toBeDisabled();
+    expect(pistolBucket).toHaveClass("is-inactive");
+    const numbered = screen.getByTitle("Pistol · CT #1 · not playable in the tutorial");
+    expect(numbered).toBeDisabled();
+    await userEvent.click(pistolBucket);
+    await userEvent.click(numbered);
+    expect(onBucketOverlay).not.toHaveBeenCalled();
+    expect(onRoundJump).not.toHaveBeenCalled();
+  });
 });

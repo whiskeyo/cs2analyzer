@@ -9,6 +9,7 @@ import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore
 import { newPlaybook } from "@/lib/playbook/pages";
 import { serializePlaybookBundle } from "@/lib/playbook/transfer";
 import { TestRouter } from "@/lib/testing/router";
+import { TUTORIAL_ID } from "@/lib/tutorial/identity";
 import { Header } from "./Header";
 
 function renderHeader(path = "/") {
@@ -47,6 +48,7 @@ function viewerState(aggregated = false) {
   const onFiles = vi.fn();
   return {
     session: {
+      demo,
       replay,
       fileName: "match.dem",
       close,
@@ -157,6 +159,15 @@ describe("Header", () => {
     await openSettings();
     expect(screen.getByRole("button", { name: "Export notes" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Remove notes" })).toBeEnabled();
+  });
+
+  it("hides match chrome on /analyzer when the open demo is a tutorial fixture", () => {
+    const state = viewerState();
+    state.session.demo = { ...state.session.demo, id: TUTORIAL_ID };
+    vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
+    renderHeader("/analyzer");
+    expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
   });
 
   it("shows map, file meta, and viewer actions with a loaded replay", async () => {

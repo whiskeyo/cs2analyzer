@@ -1,3 +1,4 @@
+import { parseTutorialPath } from "@/lib/tutorial/query";
 import { isLayoutsPath, normalizePath, ROUTES } from "./routes";
 
 export const SITE_NAME = "CS2 Analyzer";
@@ -69,6 +70,7 @@ export type PageHead = {
 
 const CRUMB_LABELS: Record<string, string> = {
   [ROUTES.analyzer]: "Analyzer",
+  [ROUTES.tutorial]: "Tutorial",
   [ROUTES.playbook]: "Playbook",
   [ROUTES.faq]: "FAQ",
   [ROUTES.rating]: "Rating",
@@ -87,6 +89,21 @@ const PAGE_META: Record<string, Omit<PageMeta, "canonical">> = {
   [ROUTES.analyzer]: {
     title: `${SITE_NAME} — Analyzer`,
     description: "Open a Counter-Strike 2 demo on this machine and review radar, stats, and notes.",
+  },
+  [ROUTES.tutorial]: {
+    title: `${SITE_NAME} — Tutorial`,
+    description:
+      "Try the local-first CS2 analyzer with a short sample match, habits series, and playbook. No file drop.",
+  },
+  [`${ROUTES.tutorial}/aggregated`]: {
+    title: `${SITE_NAME} — Tutorial`,
+    description:
+      "Try the local-first CS2 analyzer with a short sample match, habits series, and playbook. No file drop.",
+  },
+  [`${ROUTES.tutorial}/playbook`]: {
+    title: `${SITE_NAME} — Tutorial`,
+    description:
+      "Try the local-first CS2 analyzer with a short sample match, habits series, and playbook. No file drop.",
   },
   [ROUTES.playbook]: {
     title: `${SITE_NAME} — Playbook`,
@@ -167,6 +184,27 @@ export function siteJsonLd(): SiteJsonLd {
  */
 export function breadcrumbTrail(pathname: string): BreadcrumbCrumb[] | null {
   const path = normalizePath(pathname);
+  const tutorial = parseTutorialPath(path);
+  if (tutorial === "replay") {
+    return [
+      { name: "Home", path: ROUTES.home },
+      { name: "Tutorial", path: ROUTES.tutorial },
+    ];
+  }
+  if (tutorial === "aggregated") {
+    return [
+      { name: "Home", path: ROUTES.home },
+      { name: "Tutorial", path: ROUTES.tutorial },
+      { name: "Aggregated", path: `${ROUTES.tutorial}/aggregated` },
+    ];
+  }
+  if (tutorial === "playbook") {
+    return [
+      { name: "Home", path: ROUTES.home },
+      { name: "Tutorial", path: ROUTES.tutorial },
+      { name: "Playbook", path: `${ROUTES.tutorial}/playbook` },
+    ];
+  }
   const label = CRUMB_LABELS[path];
   if (!label) {
     return null;

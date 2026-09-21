@@ -31,13 +31,19 @@ OPTIONS:
                           cwd, or the cargo workspace). No match JSON on stdout.
         --generate-ts-series
                           Same-map Aggregated tutorial under
-                          apps/web/src/lib/tutorial/multi-demo/. Habits-window
-                          ticks only (default 20s, --habits-window to override).
+                          apps/web/src/lib/tutorial/multi-demo/. Full round
+                          list; habits-window ticks for full-buy regulation
+                          rounds across the series (default 20s window).
         --habits-window <SEC>
                           Series habits window after freeze (default 20; 5–60).
         --series-rounds <N>
-                          Live regulation rounds per series match that keep
-                          ticks (default 2).
+                          Cap on full-buy regulation rounds that keep
+                          habits-window ticks, counted across the whole
+                          series (default 40). Split across demos; each
+                          match keeps both focal CT and T windows when
+                          the GOTV has full buys on each side. Unused
+                          rounds still emit headers + a freeze snapshot
+                          so the strip can label pistol/eco/force.
         --pretty          Indent the JSON
     -q, --quiet           No progress on stderr
     -h, --help            Show this help
@@ -118,7 +124,7 @@ fn parse_args() -> Result<Option<Args>, String> {
     let mut generate_ts_fixture = false;
     let mut generate_ts_series = false;
     let mut habits_window_sec = series::default_habits_window_sec();
-    let mut series_rounds = series::TUTORIAL_SERIES_ACTIVE_ROUNDS;
+    let mut series_rounds = series::TUTORIAL_SERIES_FULL_BUY_CAP;
 
     let mut argv = std::env::args().skip(1);
     while let Some(arg) = argv.next() {
@@ -273,7 +279,7 @@ fn write_ts_fixture(parsed: &Match, quiet: bool) -> Result<String, String> {
 
 /// Slice habits windows from each demo and write `tutorial/multi-demo/`.
 fn write_ts_series(args: &Args, tick_stride: u32) -> Result<String, String> {
-    let mut matches = Vec::new();
+    let mut parsed_matches = Vec::new();
     for (index, path) in args.paths.iter().enumerate() {
         if !args.quiet {
             eprintln!(
@@ -282,11 +288,42 @@ fn write_ts_series(args: &Args, tick_stride: u32) -> Result<String, String> {
                 args.paths.len()
             );
         }
-        let parsed = parse_one_demo(path, tick_stride, args.quiet)?;
+        parsed_matches.push(parse_one_demo(path, tick_stride, args.quiet)?);
+    }
+    let match_refs: Vec<&Match> = parsed_matches.iter().collect();
+    let focal = series::infer_series_focal_names(&match_refs);
+    let candidates: Vec<Vec<series::FullBuyCandidate>> = parsed_matches
+        .iter()
+        .map(|parsed| series::full_buy_candidates(parsed, &focal))
+        .collect();
+    let allocated = series::assign_full_buy_active_rounds(&candidates, args.series_rounds as usize);
+    if allocated.iter().all(|rounds| rounds.is_empty()) {
+        return Err("series has no full-buy regulation rounds for Aggregated".to_string());
+    }
+    let mut matches = Vec::new();
+    for (index, parsed) in parsed_matches.iter().enumerate() {
+        if !args.quiet {
+            let picked = &allocated[index];
+            let ct = candidates[index]
+                .iter()
+                .filter(|c| picked.contains(&c.number) && c.side == cs2analyzer::Side::Ct)
+                .count();
+            let t = candidates[index]
+                .iter()
+                .filter(|c| picked.contains(&c.number) && c.side == cs2analyzer::Side::T)
+                .count();
+            eprintln!(
+                "  {} full-buy habits windows (of {} candidates; {} CT / {} T)",
+                picked.len(),
+                candidates[index].len(),
+                ct,
+                t
+            );
+        }
         matches.push(series::series_match_from_parsed(
-            &parsed,
+            parsed,
             index,
-            args.series_rounds,
+            &allocated[index],
             args.habits_window_sec,
         )?);
     }
@@ -476,6 +513,9 @@ mod tests {
         assert!(USAGE.contains("apps/web/src/lib/tutorial/single-demo"));
         assert!(USAGE.contains("--generate-ts-series"));
         assert!(USAGE.contains("--habits-window"));
+        assert!(USAGE.contains("--series-rounds"));
+        assert!(USAGE.contains("full-buy"));
+        assert!(USAGE.contains("both focal CT and T"));
         assert!(USAGE.contains("apps/web/src/lib/tutorial/multi-demo"));
     }
 }

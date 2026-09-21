@@ -116,6 +116,13 @@ describe("userSettingsStore without indexedDB", () => {
     expect(loaded.defaultSummaryFilter.kinds.smoke).toBe(true);
   });
 
+  it("round-trips tutorialCompleted and reset restores not completed", async () => {
+    expect((await loadUserSettings()).tutorialCompleted).toBe(false);
+    await saveUserSettings({ tutorialCompleted: true });
+    expect((await loadUserSettings()).tutorialCompleted).toBe(true);
+    expect((await resetUserSettings()).tutorialCompleted).toBe(false);
+  });
+
   it("reset restores shipped defaults without wiping the patch source", async () => {
     await saveUserSettings({ sidebarWidth: 560, savedNotesPageSize: 10 });
     const reset = await resetUserSettings();
@@ -123,6 +130,7 @@ describe("userSettingsStore without indexedDB", () => {
     expect(reset.savedNotesPageSize).toBe(SAVED_NOTES_PAGE_SIZE);
     expect(reset.pdfTheme).toBe("dark");
     expect(reset.radarGray).toBe(DEFAULT_RADAR_GRAY);
+    expect(reset.tutorialCompleted).toBe(false);
     expect(reset.pathBranchMergeDistance).toBe(PATH_BRANCH_MERGE_DISTANCE);
     expect(reset.pathBranchStepDistance).toBe(PATH_BRANCH_STEP_DISTANCE);
     expect(reset.pathBranchMinShare).toBe(PATH_BRANCH_MIN_SHARE);

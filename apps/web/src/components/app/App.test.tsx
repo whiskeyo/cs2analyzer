@@ -150,6 +150,11 @@ describe("App", () => {
     expect(screen.queryByRole("link", { name: "Pick a map" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Start empty board" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "see the FAQ" })).toHaveAttribute("href", "/faq");
+    expect(screen.getByRole("link", { name: "try the Tutorial first" })).toHaveAttribute(
+      "href",
+      "/tutorial",
+    );
+    expect(screen.queryByRole("link", { name: "Try without a demo" })).not.toBeInTheDocument();
     const contactLinks = screen.getAllByRole("link", { name: "Contact" });
     expect(contactLinks.length).toBeGreaterThan(0);
     for (const link of contactLinks) {

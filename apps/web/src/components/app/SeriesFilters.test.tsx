@@ -107,6 +107,27 @@ describe("SeriesFilters", () => {
     expect(habits.setKind).toHaveBeenCalledWith("eco");
   });
 
+  it("locks buy filters to full on a tutorial series", async () => {
+    const { session, habits } = multiDemoHabits();
+    const { tutorialSeriesDemoId } = await import("@/lib/tutorial/multi-demo/types");
+    const { tutorialSeriesManifest } = await import("@/lib/tutorial/multi-demo/manifest");
+    for (const [index, demo] of session.series.demos.entries()) {
+      const meta = tutorialSeriesManifest.matches[index];
+      if (meta) demo.id = tutorialSeriesDemoId(meta);
+    }
+    vi.mocked(useApp).mockReturnValue({
+      session,
+      habits,
+    } as unknown as ReturnType<typeof useApp>);
+    render(<SeriesFilters />);
+    expect(screen.getByRole("button", { name: "Full" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Eco" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Pistol" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Force" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Eco" }));
+    expect(habits.setKind).not.toHaveBeenCalled();
+  });
+
   it("hides Overall outside aggregated overlay", () => {
     const { session, habits } = multiDemoHabits();
     vi.mocked(useApp).mockReturnValue({

@@ -50,7 +50,7 @@ export function RadarStage() {
   const pawnLegend = analyzerPawnLegend(session.series, habits, habits.overlay);
 
   return (
-    <div className="radar-col">
+    <div className="radar-col" data-tutorial="radar">
       <MapToolbar
         review={{
           tool: view.tool,
@@ -68,8 +68,12 @@ export function RadarStage() {
           canFollow: view.selected != null,
           layers: view.layers,
         }}
+        drawingsEnabled={notesLive}
         reviewActions={{
-          onTool: view.setTool,
+          onTool: (next) => {
+            if (!notesLive && next !== "pan") return;
+            view.setTool(next);
+          },
           onColor: review.setColor,
           onPalette: (id) => {
             review.setPaletteId(id);

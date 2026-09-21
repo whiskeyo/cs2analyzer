@@ -41,6 +41,8 @@ describe("pageMeta", () => {
   it("uses distinct titles and descriptions per known route", () => {
     expect(pageTitle("/")).toBe(SITE_NAME);
     expect(pageTitle("/analyzer")).toBe("CS2 Analyzer — Analyzer");
+    expect(pageTitle("/tutorial")).toBe("CS2 Analyzer — Tutorial");
+    expect(pageTitle("/tutorial/aggregated")).toBe("CS2 Analyzer — Tutorial");
     expect(pageTitle("/playbook")).toBe("CS2 Analyzer — Playbook");
     expect(pageTitle("/faq")).toBe("CS2 Analyzer — FAQ");
     expect(pageTitle("/faq/")).toBe("CS2 Analyzer — FAQ");
@@ -54,6 +56,7 @@ describe("pageMeta", () => {
     expect(pageMeta("/").description).toMatch(/browser/);
     expect(pageMeta("/").description).not.toMatch(/viewer/i);
     expect(pageMeta("/analyzer").description).toMatch(/demo/);
+    expect(pageMeta("/tutorial").description).toMatch(/sample match/);
     expect(pageMeta("/playbook").description).toMatch(/playbook/i);
     expect(pageMeta("/faq").description).toMatch(/FAQ|answers/i);
     expect(pageMeta("/rating").description).toMatch(/rating/i);
@@ -199,6 +202,14 @@ describe("breadcrumbTrail", () => {
     ]);
     expect(breadcrumbTrail("/faq/")).toEqual(breadcrumbTrail("/faq"));
     expect(breadcrumbTrail("/analyzer")?.[1]).toEqual({ name: "Analyzer", path: "/analyzer" });
+    expect(breadcrumbTrail("/tutorial")).toEqual([
+      { name: "Home", path: "/" },
+      { name: "Tutorial", path: "/tutorial" },
+    ]);
+    expect(breadcrumbTrail("/tutorial/playbook")?.[2]).toEqual({
+      name: "Playbook",
+      path: "/tutorial/playbook",
+    });
     expect(breadcrumbTrail("/playbook")?.[1]).toEqual({ name: "Playbook", path: "/playbook" });
     expect(breadcrumbTrail("/rating")?.[1]).toEqual({ name: "Rating", path: "/rating" });
     expect(breadcrumbTrail("/contact")?.[1]).toEqual({ name: "Contact", path: "/contact" });

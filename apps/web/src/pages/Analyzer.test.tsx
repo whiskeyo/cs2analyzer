@@ -6,6 +6,7 @@ import { deleteProject } from "@/lib/notes/projectStore";
 import type { ReviewProject } from "@/lib/notes/projectStore";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
 import { TestRouter } from "@/lib/testing/router";
+import { TUTORIAL_ID } from "@/lib/tutorial/identity";
 import { Analyzer } from "./Analyzer";
 
 vi.mock("@/lib/state/appState", () => ({
@@ -79,6 +80,14 @@ describe("Analyzer", () => {
     );
     expect(screen.getByText("Saved notes")).toBeInTheDocument();
     expect(screen.getByText("match.dem")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "try the Tutorial first" })).toHaveAttribute(
+      "href",
+      "/tutorial",
+    );
+    expect(screen.queryByRole("link", { name: "Try without a demo" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Loads a short Mirage sample in the Analyzer/),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
     ).not.toBeInTheDocument();
@@ -164,5 +173,27 @@ describe("Analyzer", () => {
     );
     expect(screen.getByTestId("viewer")).toBeInTheDocument();
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "try the Tutorial first" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the drop zone and saved notes when a tutorial demo leaks onto /analyzer", () => {
+    const state = analyzerState([savedProject()]);
+    vi.mocked(useApp).mockReturnValue({
+      ...state,
+      session: {
+        ...state.session,
+        demo: { id: TUTORIAL_ID },
+        replay: { header: { map_name: "de_mirage" } },
+      },
+    } as unknown as ReturnType<typeof useApp>);
+    render(
+      <TestRouter path="/analyzer">
+        <Analyzer />
+      </TestRouter>,
+    );
+    expect(screen.queryByTestId("viewer")).not.toBeInTheDocument();
+    expect(screen.getByText("Drop a demo")).toBeInTheDocument();
+    expect(screen.getByText("Saved notes")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "try the Tutorial first" })).toBeInTheDocument();
   });
 });

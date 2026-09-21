@@ -533,24 +533,59 @@ export function useDemoSession(opts: {
     setSeries((prev) => (prev ? withFocalTeam(prev, name) : prev));
   }, []);
 
-  /** "New demo": back to the splash. Saved notes are untouched. */
-  const close = useCallback(() => {
+  const abortInFlightParse = useCallback(() => {
     parseGenRef.current += 1;
     parsingRef.current = false;
     keepSessionRef.current = false;
     poolRef.current?.reset();
+    if (progressRafRef.current) cancelAnimationFrame(progressRafRef.current);
+    progressRafRef.current = 0;
+    setParsing(false);
+    setProgress(null);
+    setParseFiles(null);
+    setSwitching(false);
+  }, []);
+
+  /** Install a parsed demo without WASM (tutorial fixtures, tests). */
+  const installDemo = useCallback(
+    (next: LoadedDemo) => {
+      if (sessionSnapRef.current.demo) onBeforeSelectRef.current?.();
+      abortInFlightParse();
+      clearSeriesReviewCache();
+      statusRef.current.clear();
+      finishSingle(next);
+    },
+    [abortInFlightParse, finishSingle],
+  );
+
+  /** Install a same-map series without WASM (tutorial Aggregated fixtures). */
+  const installSeries = useCallback(
+    (next: DemoSeries) => {
+      if (next.demos.length === 0) return;
+      if (sessionSnapRef.current.demo) onBeforeSelectRef.current?.();
+      abortInFlightParse();
+      clearSeriesReviewCache();
+      statusRef.current.clear();
+      setMapGroups([{ mapName: next.mapName, demos: next.demos }]);
+      setParsedDemos(next.demos);
+      setSelectedMapName(next.mapName);
+      setSeries(next);
+      setDemo(next.demos[0]);
+    },
+    [abortInFlightParse],
+  );
+
+  /** "New demo": back to the splash. Saved notes are untouched. */
+  const close = useCallback(() => {
+    abortInFlightParse();
     discardParserWarmup();
     setDemo(null);
     setSeries(null);
     setMapGroups([]);
     setSelectedMapName(null);
     setParsedDemos([]);
-    setParsing(false);
-    setProgress(null);
-    setParseFiles(null);
-    setSwitching(false);
     statusRef.current.clear();
-  }, []);
+  }, [abortInFlightParse]);
 
   return {
     demo,
@@ -567,6 +602,8 @@ export function useDemoSession(opts: {
     parseDemo,
     parseDemos,
     appendDemos,
+    installDemo,
+    installSeries,
     cancelParse,
     selectDemo,
     selectMap,

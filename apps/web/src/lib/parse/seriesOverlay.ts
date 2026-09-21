@@ -13,7 +13,7 @@ import {
 import { SERIES_TRAIL_WINDOW_STORAGE_KEY } from "@/lib/shared/storageKeys";
 import { matchingTags, type SeriesFilter } from "./seriesAnalysis";
 import type { RoundTag } from "./roundTags";
-import { playerIdentityKey } from "./seriesRoster";
+import { playerIdentityKey, playerTeamNameAt } from "./seriesRoster";
 import {
   buildPathBranches,
   clampPathBranchOptions,
@@ -153,17 +153,65 @@ export function loadHabitsTrailWindowSec(): number {
   }
 }
 
-function focalSidePlayersAtFreeze(replay: Replay, tag: RoundTag): number[] {
-  const wantCt = tag.sideForFocal === "CT";
-  const players = samplePlayers(replay, tag.freezeEndTick);
-  return players.filter((p) => p.present && p.ct === wantCt).map((p) => p.index);
+function playerOnFocalTeam(
+  replay: Replay,
+  player: number,
+  tick: number,
+  focal: ReadonlySet<string>,
+): boolean {
+  const team = playerTeamNameAt(replay, player, tick);
+  return Boolean(team && focal.has(team));
 }
 
-function throwerOnFocalSide(replay: Replay, tag: RoundTag, thrower: number): boolean {
+function focalSidePlayersAtFreeze(
+  replay: Replay,
+  tag: RoundTag,
+  focal: ReadonlySet<string>,
+): number[] {
+  const wantCt = tag.sideForFocal === "CT";
+  const players = samplePlayers(replay, tag.freezeEndTick);
+  return players
+    .filter((p) => p.present && p.ct === wantCt)
+    .map((p) => p.index)
+    .filter((player) => playerOnFocalTeam(replay, player, tag.freezeEndTick, focal));
+}
+
+/**
+ * Focal-team players on the selected habits side/buy.
+ * Same org as the team picker (`focalTeamNames`), not every pawn on that side.
+ */
+export function overlayRoster(
+  series: DemoSeries,
+  filter: SeriesFilter,
+): { key: string; name: string }[] {
+  const focal = new Set(series.focalTeamNames);
+  const byKey = new Map<string, string>();
+  for (const demo of series.demos) {
+    const tags = series.tagsByDemo.get(demo.id) ?? [];
+    for (const tag of matchingTags(tags, filter)) {
+      for (const player of focalSidePlayersAtFreeze(demo.replay, tag, focal)) {
+        const key = playerIdentityKey(demo.replay, player);
+        if (byKey.has(key)) continue;
+        byKey.set(key, demo.replay.players[player]?.name ?? "?");
+      }
+    }
+  }
+  return [...byKey.entries()]
+    .map(([key, name]) => ({ key, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function throwerOnFocalTeam(
+  replay: Replay,
+  tag: RoundTag,
+  thrower: number,
+  focal: ReadonlySet<string>,
+): boolean {
   if (thrower < 0) return false;
   const wantCt = tag.sideForFocal === "CT";
   const snap = samplePlayer(replay, thrower, tag.freezeEndTick);
-  return Boolean(snap?.present && snap.ct === wantCt);
+  if (!snap?.present || snap.ct !== wantCt) return false;
+  return playerOnFocalTeam(replay, thrower, tag.freezeEndTick, focal);
 }
 
 /** Inclusive last tick to sample: this round only, never the next freeze/spawn. */
@@ -227,6 +275,7 @@ function habitsNadesInTaggedRound(
   windowSeconds: number,
   playerKey: string | null,
   demoId: string,
+  focal: ReadonlySet<string>,
 ): HabitsNade[] {
   const tps = tickRate(replay);
   const until = tag.freezeEndTick + Math.round(tps * windowSeconds);
@@ -238,7 +287,7 @@ function habitsNadesInTaggedRound(
     if (g.start_tick < tag.freezeEndTick || g.start_tick > until) continue;
     if (g.start_tick < round.start_tick || g.start_tick > round.end_tick) continue;
     if (inKnifeRound(replay, g.start_tick)) continue;
-    if (!throwerOnFocalSide(replay, tag, g.thrower)) continue;
+    if (!throwerOnFocalTeam(replay, tag, g.thrower, focal)) continue;
     if (playerKey != null && playerIdentityKey(replay, g.thrower) !== playerKey) continue;
     if (g.points.length === 0) continue;
     out.push({
@@ -261,6 +310,62 @@ export function habitsNadeViewTick(nade: HabitsNade, playSec: number): number {
   return nade.freezeEndTick + Math.round(nade.tps * playSec);
 }
 
+function lerpNumber(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/** Shortest-path lerp on CS2 eye yaw (degrees). Same unwrap as replay `samplePlayer`. */
+function lerpYaw(a: number, b: number, t: number): number {
+  let delta = b - a;
+  while (delta > 180) delta -= 360;
+  while (delta < -180) delta += 360;
+  return a + delta * t;
+}
+
+/** Fractional freeze-relative tick. Tutorial `tickStride` 6 is ~10 Hz; the playhead is not. */
+export function habitsPlayheadTick(jumpTick: number, tps: number, playSec: number): number {
+  return jumpTick + tps * playSec;
+}
+
+function interpolateHabitsPoint(
+  from: HabitsTrailPoint,
+  to: HabitsTrailPoint,
+  untilTick: number,
+): HabitsTrailPoint {
+  const span = to.tick - from.tick;
+  const t = span === 0 ? 0 : (untilTick - from.tick) / span;
+  return {
+    x: lerpNumber(from.x, to.x, t),
+    y: lerpNumber(from.y, to.y, t),
+    z: lerpNumber(from.z, to.z, t),
+    tick: untilTick,
+    yaw: lerpYaw(from.yaw, to.yaw, t),
+  };
+}
+
+/**
+ * Samples at or before `untilTick`, plus a lerped head when the playhead sits
+ * between sparse stride snapshots. One-point freeze heads stay put; nothing is
+ * invented past the last sample (death / trail end).
+ */
+export function clipHabitsTrailPoints(
+  points: HabitsTrailPoint[],
+  untilTick: number,
+): HabitsTrailPoint[] {
+  if (points.length === 0) return [];
+  let lastAtOrBefore = -1;
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].tick <= untilTick) lastAtOrBefore = i;
+    else break;
+  }
+  if (lastAtOrBefore < 0) return [points[0]];
+  const kept = points.slice(0, lastAtOrBefore + 1);
+  const last = points[lastAtOrBefore];
+  const next = points[lastAtOrBefore + 1];
+  if (!next || last.tick === untilTick) return kept;
+  return [...kept, interpolateHabitsPoint(last, next, untilTick)];
+}
+
 /** Freeze-relative player paths and util arcs for one habits filter bucket. */
 export function buildSeriesOverlay(
   series: DemoSeries,
@@ -273,6 +378,7 @@ export function buildSeriesOverlay(
   const trails: HabitsTrail[] = [];
   const nades: HabitsNade[] = [];
   const steamTints = new Map<string, string>();
+  const focal = new Set(series.focalTeamNames);
   let roundCount = 0;
 
   for (const demo of series.demos) {
@@ -285,8 +391,10 @@ export function buildSeriesOverlay(
       const round = demo.replay.rounds.find((r) => r.number === tag.roundNumber);
       if (!round) continue;
       const until = tag.freezeEndTick + Math.round(tps * windowSec);
-      nades.push(...habitsNadesInTaggedRound(demo.replay, tag, windowSec, playerKey, demo.id));
-      for (const player of focalSidePlayersAtFreeze(demo.replay, tag)) {
+      nades.push(
+        ...habitsNadesInTaggedRound(demo.replay, tag, windowSec, playerKey, demo.id, focal),
+      );
+      for (const player of focalSidePlayersAtFreeze(demo.replay, tag, focal)) {
         const meta = demo.replay.players[player];
         const key = playerIdentityKey(demo.replay, player);
         if (playerKey != null && key !== playerKey) continue;
@@ -325,15 +433,16 @@ export function buildSeriesOverlay(
 function clipTrailsForPlaySec(trails: HabitsTrail[], playSec: number): HabitsTrail[] {
   const out: HabitsTrail[] = [];
   for (const trail of trails) {
-    const until = trail.jumpTick + Math.round(trail.tps * playSec);
-    const points = trail.points.filter((p) => p.tick <= until);
+    const until = habitsPlayheadTick(trail.jumpTick, trail.tps, playSec);
+    const points = clipHabitsTrailPoints(trail.points, until);
     const showDeath = trail.deathAt != null && trail.deathTick != null && trail.deathTick <= until;
     const showSurvived =
       !showDeath &&
       trail.survivedAt != null &&
       trail.survivedTick != null &&
       trail.survivedTick <= until;
-    if (points.length < 2 && !showDeath) continue;
+    // Keep a freeze-only head so arrows exist at playSec 0 (one sampled tick).
+    if (points.length < 1 && !showDeath) continue;
     out.push({
       ...trail,
       points,

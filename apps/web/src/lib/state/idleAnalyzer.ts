@@ -63,6 +63,7 @@ export function idleHabits(): SeriesHabitsState {
     setOverlayOn: noop,
     bucketOverlay: null,
     selectBucketOverlay: noop,
+    ensureBucketOverlay: noop,
     bucketPlaySec: 0,
     bucketPlaySecRef: { current: 0 },
     setBucketPlaySec: noop,

@@ -9,33 +9,44 @@ export function MapToolbar({
   reviewActions,
   viewActions,
   onSnapshot,
+  drawingsEnabled = true,
 }: MapToolbarProps) {
   const { tool, color, paletteId, floorMode, hasFloors, canUndo, canRedo } = review;
   const { follow, trails, moment, canFollow, layers } = view;
   const { onTool, onColor, onPalette, onFloorMode, onUndo, onRedo, onClear, onStampBookmark } =
     reviewActions;
   const { onFollow, onTrails, onMoment, onLayers, onResetView } = viewActions;
+  const draw = drawingsEnabled;
 
   const toggle = (key: keyof typeof layers) => onLayers({ ...layers, [key]: !layers[key] });
   return (
     <div className="map-toolbar">
       <ToolbarIconBtn title="Pan" on={tool === "pan"} onClick={() => onTool("pan")} path="pan" />
-      <ToolbarIconBtn title="Draw" on={tool === "pen"} onClick={() => onTool("pen")} path="pen" />
+      <ToolbarIconBtn
+        title="Draw"
+        on={tool === "pen"}
+        disabled={!draw}
+        onClick={() => onTool("pen")}
+        path="pen"
+      />
       <ToolbarIconBtn
         title="Arrow"
         on={tool === "arrow"}
+        disabled={!draw}
         onClick={() => onTool("arrow")}
         path="arrow"
       />
       <ToolbarIconBtn
         title="Text note"
         on={tool === "text"}
+        disabled={!draw}
         onClick={() => onTool("text")}
         path="text"
       />
       <ToolbarIconBtn
         title={MATCH_PDF_BOOKMARK_TOOLTIP}
         on={tool === "bookmark"}
+        disabled={!draw}
         onClick={() => {
           onTool("bookmark");
           onStampBookmark();
@@ -45,27 +56,39 @@ export function MapToolbar({
       <ToolbarIconBtn
         title="Erase"
         on={tool === "eraser"}
+        disabled={!draw}
         onClick={() => onTool("eraser")}
         path="erase"
       />
       <ToolbarIconBtn
         title="Undo drawing (Ctrl+Z)"
-        disabled={!canUndo}
+        disabled={!draw || !canUndo}
         onClick={onUndo}
         path="undo"
       />
       <ToolbarIconBtn
         title="Redo drawing (Ctrl+Y)"
-        disabled={!canRedo}
+        disabled={!draw || !canRedo}
         onClick={onRedo}
         path="redo"
       />
-      <ToolbarIconBtn title="Clear drawings on this round" onClick={onClear} path="clear" />
+      <ToolbarIconBtn
+        title="Clear drawings on this round"
+        disabled={!draw}
+        onClick={onClear}
+        path="clear"
+      />
       <ToolbarIconBtn title="Reset view" onClick={onResetView} path="reset" />
       {onSnapshot ? (
         <ToolbarIconBtn title="Snapshot to playbook" onClick={onSnapshot} path="snapshot" />
       ) : null}
-      <ColorPalette paletteId={paletteId} color={color} onPalette={onPalette} onColor={onColor} />
+      <ColorPalette
+        paletteId={paletteId}
+        color={color}
+        onPalette={onPalette}
+        onColor={onColor}
+        disabled={!draw}
+      />
       <ToolbarIconBtn
         title="Track player"
         on={follow}
@@ -77,6 +100,7 @@ export function MapToolbar({
       <ToolbarIconBtn
         title="Moment: new drawings and bookmarks last a few seconds from this tick"
         on={moment}
+        disabled={!draw}
         onClick={() => onMoment(!moment)}
         path="moment"
       />
