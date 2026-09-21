@@ -28,7 +28,10 @@ function mockPointerCapture(el: HTMLElement) {
 function stageShell() {
   const stage = document.createElement("div");
   stage.className = "stage";
-  Object.defineProperty(stage, "clientWidth", { value: 1200, configurable: true });
+  Object.defineProperty(stage, "clientWidth", {
+    value: 1200,
+    configurable: true,
+  });
   document.body.appendChild(stage);
   return stage;
 }
@@ -144,6 +147,24 @@ describe("Sidebar", () => {
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByRole("button", { name: "Review" })).toHaveClass("on");
     expect(screen.getByText(/Select a player/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Opening duels" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Alice killed Cara/ })).toHaveTextContent("AK-47 HS");
+  });
+
+  it("does not list opening duels in aggregated review", async () => {
+    const demoA = loadedDemo(sidebarReplay(), "a.dem", new File([], "a.dem"));
+    const demoB = loadedDemo(makeReplay(), "b.dem", new File([], "b.dem"));
+    const series = buildSeries("de_mirage", [demoA, demoB], "Astralis");
+    mockSidebar({
+      replay: demoA.replay,
+      session: { series },
+      habits: { aggregated: true },
+    });
+
+    render(<Sidebar />);
+    await userEvent.click(screen.getByRole("button", { name: "Review" }));
+    expect(screen.getByText(/Select a player/)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Opening duels" })).not.toBeInTheDocument();
   });
 
   it("shows weapon rows and clears the selected player", async () => {
@@ -192,8 +213,14 @@ describe("Sidebar", () => {
         seriesUtilThrows: [],
         playRound: vi.fn(),
         filter: { side: "CT", kind: "full" },
-        util: { roundCount: 2, entries: [{ kind: "smoke", callout: "A", count: 1 }] },
-        utilSets: { roundCount: 2, entries: [{ key: "a", label: "A smokes", count: 1 }] },
+        util: {
+          roundCount: 2,
+          entries: [{ kind: "smoke", callout: "A", count: 1 }],
+        },
+        utilSets: {
+          roundCount: 2,
+          entries: [{ key: "a", label: "A smokes", count: 1 }],
+        },
         action: { roundCount: 1, entries: [{ title: "A execute", count: 1 }] },
       },
     });
@@ -251,7 +278,7 @@ describe("Sidebar", () => {
     mockSidebar({ selected: 0 });
     render(<Sidebar />);
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
-    expect(screen.getByText(/Alice/)).toBeInTheDocument();
+    expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.getByRole("toolbar", { name: "Review sort" })).toBeInTheDocument();
     expect(screen.queryByRole("toolbar", { name: "Review note kinds" })).not.toBeInTheDocument();
   });
