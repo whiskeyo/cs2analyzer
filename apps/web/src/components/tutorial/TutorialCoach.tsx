@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
-import { useOptionalAnalyzer } from "@/lib/state/analyzerState";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import {
   coachTargetBox,
@@ -14,11 +13,6 @@ import {
   type TutorialCoachStep,
   type TutorialCoachTarget,
 } from "@/lib/tutorial/coach";
-import {
-  onTutorialCoachAction,
-  tutorialCoachActionFromEvent,
-  type TutorialCoachAction,
-} from "@/lib/tutorial/coachAction";
 import { parseTutorialPath } from "@/lib/tutorial/query";
 
 const CALLOUT_FALLBACK = { width: 280, height: 120 };
@@ -88,19 +82,14 @@ function useCoachTarget(target: TutorialCoachTarget): Box | null {
   return box;
 }
 
-function CoachSpot({ box }: { box: Box }) {
+function CoachRing({ box }: { box: Box }) {
   const style = {
     top: box.top - 4,
     left: box.left - 4,
     width: box.width + 8,
     height: box.height + 8,
   };
-  return (
-    <>
-      <div className="tutorial-coach-spot" style={style} aria-hidden="true" />
-      <div className="tutorial-coach-ring" style={style} aria-hidden="true" />
-    </>
-  );
+  return <div className="tutorial-coach-ring" style={style} aria-hidden="true" />;
 }
 
 function CoachCallout({
@@ -108,11 +97,13 @@ function CoachCallout({
   box,
   total,
   onSkip,
+  onNext,
 }: {
   step: TutorialCoachStep;
   box: Box | null;
   total: number;
   onSkip: () => void;
+  onNext: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
   const [size, setSize] = useState(CALLOUT_FALLBACK);
@@ -149,79 +140,52 @@ function CoachCallout({
         <button type="button" className="ghost" onClick={onSkip}>
           Skip
         </button>
+        <button type="button" className="ghost" onClick={onNext}>
+          Next
+        </button>
       </div>
     </aside>
   );
 }
 
-/** Spotlight + callout beside one real control. Advances on `doneWhen`, not Next. */
+/** Ring + callout beside one real control. Only Next advances. */
 export function TutorialCoach() {
   const { pathname } = useLocation();
   const { update } = useUserSettings();
-  const playing = useOptionalAnalyzer()?.playback.playing ?? false;
-  const wasPlayingRef = useRef(playing);
   const route = parseTutorialPath(pathname);
   const steps = route ? tutorialCoachSteps(route) : [];
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(true);
-  const current = steps[Math.min(index, Math.max(0, steps.length - 1))];
+  const current = steps[index];
   const box = useCoachTarget(current?.target ?? "play");
-  const doneWhenRef = useRef<TutorialCoachAction | null>(null);
-  doneWhenRef.current = current && index < steps.length ? current.doneWhen : null;
 
   const skip = useCallback(() => {
     void update({ tutorialCompleted: true });
     setOpen(false);
   }, [update]);
 
-  const advance = useCallback((action: TutorialCoachAction) => {
-    if (doneWhenRef.current == null || action !== doneWhenRef.current) return;
-    doneWhenRef.current = null;
+  const next = useCallback(() => {
     setIndex((i) => i + 1);
   }, []);
-
-  useEffect(() => {
-    if (!current) return;
-    const onDom = (event: Event) => {
-      const action = tutorialCoachActionFromEvent(event);
-      if (action) advance(action);
-    };
-    document.addEventListener("click", onDom, true);
-    document.addEventListener("input", onDom, true);
-    document.addEventListener("change", onDom, true);
-    const stop = onTutorialCoachAction(advance);
-    return () => {
-      document.removeEventListener("click", onDom, true);
-      document.removeEventListener("input", onDom, true);
-      document.removeEventListener("change", onDom, true);
-      stop();
-    };
-  }, [advance, current]);
-
-  useEffect(() => {
-    const started = playing && !wasPlayingRef.current;
-    wasPlayingRef.current = playing;
-    if (started) advance("play-or-scrub");
-  }, [advance, playing]);
 
   // Playable tutorial routes always show marks. `tutorialCompleted` only skips
   // Home prefetch; IndexedDB `ready` must not hide the first callout. No DOM
   // during prerender — coach hydrates on the client.
-  if (
-    typeof document === "undefined" ||
-    route == null ||
-    !open ||
-    !current ||
-    index >= steps.length
-  ) {
+  if (typeof document === "undefined" || route == null || !open || !current) {
     return null;
   }
 
   return createPortal(
-    <div className="tutorial-coach-layer">
-      {box ? <CoachSpot box={box} /> : null}
-      <CoachCallout step={current} box={box} total={TUTORIAL_COACH_STEPS.length} onSkip={skip} />
-    </div>,
+    <>
+      {box ? <CoachRing box={box} /> : null}
+      <CoachCallout
+        step={current}
+        box={box}
+        total={TUTORIAL_COACH_STEPS.length}
+        onSkip={skip}
+        onNext={next}
+      />
+    </>,
     document.body,
   );
 }

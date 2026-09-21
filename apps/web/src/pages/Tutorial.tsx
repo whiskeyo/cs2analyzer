@@ -12,8 +12,8 @@ export function Tutorial() {
         <p className="home-kicker">Sample walkthrough</p>
         <h2>Tutorial</h2>
         <p className="tutorial-lead">
-          Coach marks highlight one Analyzer control at a time. Do the action to continue — there is
-          no Next button.
+          Coach marks highlight one Analyzer control at a time. Explore freely, then click Next in
+          the callout to continue.
         </p>
         <ul className={FEATURE_LIST_CLASS}>
           <li>Play and scrub a two-round GOTV sample, then draw on the radar.</li>

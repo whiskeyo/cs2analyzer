@@ -129,6 +129,7 @@ describe("App tutorial", () => {
     await waitFor(() => {
       expect(screen.getByRole("complementary", { name: "Tutorial coach" })).toBeInTheDocument();
       expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
     });
     await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
   });

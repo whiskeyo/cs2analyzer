@@ -19,7 +19,7 @@ describe("Tutorial intro hub", () => {
     );
     expect(screen.getByRole("heading", { name: "Tutorial" })).toBeInTheDocument();
     expect(screen.getByText(/Coach marks highlight one Analyzer control/)).toBeInTheDocument();
-    expect(screen.getByText(/no Next button/)).toBeInTheDocument();
+    expect(screen.getByText(/click Next in the callout/)).toBeInTheDocument();
     expect(screen.getByText(/two-round GOTV sample/)).toBeInTheDocument();
     expect(screen.getByText(/ephemeral/)).toBeInTheDocument();
     expect(screen.getByText(/Habits across several demos/)).toBeInTheDocument();

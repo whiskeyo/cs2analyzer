@@ -193,27 +193,17 @@ button.home-card {
 .tutorial-banner-next {
   font-size: 0.78rem;
 }
-.tutorial-coach-layer {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-modal);
-  pointer-events: none;
-}
-.tutorial-coach-spot {
-  position: fixed;
-  border-radius: 8px;
-  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.48);
-  pointer-events: none;
-}
 .tutorial-coach-ring {
   position: fixed;
+  z-index: var(--z-modal);
   border: 2px solid var(--accent);
   border-radius: 8px;
-  box-shadow: 0 0 0 1px #13202c;
+  box-shadow: 0 0 0 3px rgb(106 164 216 / 0.28);
   pointer-events: none;
 }
 .tutorial-coach {
   position: fixed;
+  z-index: var(--z-modal);
   width: min(18rem, calc(100vw - 2rem));
   pointer-events: auto;
   padding: 0.7rem 0.8rem;

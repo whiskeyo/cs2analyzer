@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TestRouter } from "@/lib/testing/router";
 import { emitTutorialCoachAction } from "@/lib/tutorial/coachAction";
@@ -11,10 +11,6 @@ const settingsMocks = vi.hoisted(() => ({
   update: vi.fn(),
 }));
 
-const analyzerMocks = vi.hoisted(() => ({
-  playing: false,
-}));
-
 vi.mock("@/lib/settings/useUserSettings", () => ({
   useUserSettings: () => ({
     settings: { tutorialCompleted: settingsMocks.tutorialCompleted },
@@ -23,10 +19,6 @@ vi.mock("@/lib/settings/useUserSettings", () => ({
     update: settingsMocks.update,
     reset: vi.fn(),
   }),
-}));
-
-vi.mock("@/lib/state/analyzerState", () => ({
-  useOptionalAnalyzer: () => ({ playback: { playing: analyzerMocks.playing } }),
 }));
 
 function SingleTargets() {
@@ -81,15 +73,18 @@ function AggregatedTargets() {
   );
 }
 
+async function clickCoachNext() {
+  await userEvent.click(screen.getByRole("button", { name: "Next" }));
+}
+
 describe("TutorialCoach", () => {
   beforeEach(() => {
     settingsMocks.tutorialCompleted = false;
     settingsMocks.ready = true;
     settingsMocks.update.mockReset();
-    analyzerMocks.playing = false;
   });
 
-  it("advances Single steps on real actions, not Next", async () => {
+  it("advances Single steps only on Next, not Play, draw, or Notes", async () => {
     render(
       <TestRouter path="/tutorial/single">
         <SingleTargets />
@@ -98,40 +93,36 @@ describe("TutorialCoach", () => {
     );
     expect(screen.getByRole("complementary", { name: "Tutorial coach" })).toBeInTheDocument();
     expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Play" }));
+    expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
+    fireEvent.input(screen.getByLabelText("Round timeline"), { target: { value: "10" } });
+    expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
+
+    await clickCoachNext();
     expect(screen.getByText(/Use the toolbar to select a tool/)).toBeInTheDocument();
 
-    act(() => emitTutorialCoachAction("draw"));
+    emitTutorialCoachAction("draw");
+    expect(screen.getByText(/Use the toolbar to select a tool/)).toBeInTheDocument();
+    await clickCoachNext();
     expect(screen.getByText(/Open Notes to review what you marked/)).toBeInTheDocument();
     expect(screen.getByText(/ephemeral/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Notes" }));
+    expect(screen.getByText(/Open Notes to review what you marked/)).toBeInTheDocument();
+    await clickCoachNext();
     expect(screen.getByText(/Continue to Aggregated/)).toBeInTheDocument();
   });
 
-  it("treats timeline scrub as the play step action", () => {
+  it("persists a skip and still offers Next", async () => {
     render(
       <TestRouter path="/tutorial/single">
         <SingleTargets />
         <TutorialCoach />
       </TestRouter>,
     );
-    fireEvent.input(screen.getByLabelText("Round timeline"), {
-      target: { value: "10" },
-    });
-    expect(screen.getByText(/Use the toolbar to select a tool/)).toBeInTheDocument();
-  });
-
-  it("persists a skip and has no Next control", async () => {
-    render(
-      <TestRouter path="/tutorial/single">
-        <SingleTargets />
-        <TutorialCoach />
-      </TestRouter>,
-    );
-    expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Skip" }));
     expect(screen.queryByRole("complementary", { name: "Tutorial coach" })).not.toBeInTheDocument();
     expect(settingsMocks.update).toHaveBeenCalledWith({
@@ -139,7 +130,7 @@ describe("TutorialCoach", () => {
     });
   });
 
-  it("walks Aggregated actions including Utility and Full", async () => {
+  it("walks Aggregated steps on Next, not Utility or Full clicks", async () => {
     render(
       <TestRouter path="/tutorial/aggregated">
         <AggregatedTargets />
@@ -148,16 +139,24 @@ describe("TutorialCoach", () => {
     );
     expect(screen.getByText(/Switch CT and T/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "T" }));
+    expect(screen.getByText(/Switch CT and T/)).toBeInTheDocument();
+    await clickCoachNext();
     expect(screen.getByText(/Switch to the Utility tab/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Utility" }));
+    expect(screen.getByText(/Switch to the Utility tab/)).toBeInTheDocument();
+    await clickCoachNext();
     expect(screen.getByText(/Click a grenade in the list/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Smoke" }));
+    expect(screen.getByText(/Click a grenade in the list/)).toBeInTheDocument();
+    await clickCoachNext();
     expect(screen.getByText(/Click Full/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Full" }));
+    expect(screen.getByText(/Click Full/)).toBeInTheDocument();
+    await clickCoachNext();
     expect(screen.getByText(/Open the sample Playbook/)).toBeInTheDocument();
   });
 
-  it("asks to open the sample strat on Playbook", async () => {
+  it("asks to open the sample strat on Playbook and only Next leaves that step", async () => {
     render(
       <TestRouter path="/tutorial/playbook">
         <button type="button" data-tutorial="strat" data-tutorial-action="open-strat">
@@ -171,6 +170,8 @@ describe("TutorialCoach", () => {
     );
     expect(screen.getByText(/Open the Tutorial strat in the tree/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Tutorial strat" }));
+    expect(screen.getByText(/Open the Tutorial strat in the tree/)).toBeInTheDocument();
+    await clickCoachNext();
     expect(
       screen.getByText(/Finish the tutorial to open the Analyzer drop zone/),
     ).toBeInTheDocument();
@@ -218,16 +219,6 @@ describe("TutorialCoach", () => {
     );
     expect(screen.getByRole("complementary", { name: "Tutorial coach" })).toBeInTheDocument();
     expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
-  });
-
-  it("does not skip Play when playback is already running on mount", () => {
-    analyzerMocks.playing = true;
-    render(
-      <TestRouter path="/tutorial/single">
-        <SingleTargets />
-        <TutorialCoach />
-      </TestRouter>,
-    );
-    expect(screen.getByText(/Press Play or drag the round timeline/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
   });
 });
