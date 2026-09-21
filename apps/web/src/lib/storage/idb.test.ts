@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DB_VERSION,
+  DEMO_TAG_STORE,
   HANDLE_STORE,
   PLAYBOOK_IMAGE_STORE,
   PLAYBOOK_STORE,
@@ -11,13 +12,14 @@ import {
 } from "./idb";
 
 describe("idb constants", () => {
-  it("bumps the database to v6 with a playbook image store", () => {
+  it("bumps the database to v7 with a demo tag store", () => {
     expect(PROJECT_STORE).toBe("projects");
     expect(HANDLE_STORE).toBe("demoHandles");
+    expect(DEMO_TAG_STORE).toBe("demoTags");
     expect(PLAYBOOK_STORE).toBe("playbooks");
     expect(PLAYBOOK_IMAGE_STORE).toBe("playbookImages");
     expect(SETTINGS_STORE).toBe("settings");
-    expect(DB_VERSION).toBe(6);
+    expect(DB_VERSION).toBe(7);
   });
 });
 

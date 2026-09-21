@@ -299,6 +299,12 @@ export const NOTE_MOMENT_STEP_SECONDS = 1;
 /** Longest overlay group name stored on a stroke. */
 export const NOTE_GROUP_NAME_MAX = 40;
 
+/** Longest demo tag after lowercase / hyphen normalization. */
+export const DEMO_TAG_MAX_LENGTH = 32;
+
+/** How many tags one demo keeps in this browser. */
+export const DEMO_TAG_MAX_COUNT = 12;
+
 /** Same cap for callout groups in the layout editor / Util chips. */
 export const LAYOUT_GROUP_NAME_MAX = NOTE_GROUP_NAME_MAX;
 
