@@ -476,4 +476,16 @@ describe("Playbook", () => {
     expect(screen.getByRole("button", { name: "Inferno" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Tutorial" })).not.toBeInTheDocument();
   });
+
+  it("adds a tutorial strat without offering to open it elsewhere", async () => {
+    renderBoard("/tutorial/playbook");
+    expect(await screen.findByRole("button", { name: "Tutorial" })).toBeInTheDocument();
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Tutorial" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "New strat" }));
+    expect(screen.getAllByRole("button", { name: "Untitled strat" }).length).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(screen.queryByRole("button", { name: "Open strat" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
 });

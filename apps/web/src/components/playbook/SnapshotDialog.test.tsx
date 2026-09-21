@@ -253,12 +253,13 @@ describe("SnapshotDialog", () => {
     const tutorial = await screen.findByRole("radio", { name: "Tutorial" });
     expect(tutorial).toBeEnabled();
     expect(tutorial).toBeChecked();
-    expect(screen.getByRole("radio", { name: "A execs" })).toBeDisabled();
+    expect(await screen.findByRole("radio", { name: "A execs" })).toBeDisabled();
     expect(screen.getByRole("radio", { name: "New playbook" })).toBeDisabled();
     expect(screen.getByText(/only the sample Playbook can receive a snapshot/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(write).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(PLAYBOOK_FOCUS_KEY)).toBeNull();
     expect(getTutorialPlaybookLive().pages.length).toBe(tutorialPlaybook.pages.length + 1);
     expect(getTutorialPlaybookLive().pages.some((page) => page.title === DEFAULT_TITLE)).toBe(true);
     write.mockRestore();

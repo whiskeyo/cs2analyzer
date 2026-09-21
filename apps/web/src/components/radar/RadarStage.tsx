@@ -229,7 +229,7 @@ export function RadarStage() {
           onClose={() => setSnapshot(null)}
           onSaved={(saved) => {
             setSnapshot(null);
-            setToast(saved);
+            if (!tutorialSnapshot) setToast(saved);
           }}
         />
       ) : null}

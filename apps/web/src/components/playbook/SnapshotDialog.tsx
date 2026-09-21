@@ -142,8 +142,10 @@ export function SnapshotDialog({
               floor,
             })
           ).book;
-      rememberPlaybookFocus({ mapName, bookKey: savedBook.key });
-      if (!lockToTutorial) rememberRecentPlaybook(savedBook.key);
+      if (!lockToTutorial) {
+        rememberPlaybookFocus({ mapName, bookKey: savedBook.key });
+        rememberRecentPlaybook(savedBook.key);
+      }
       onSaved?.({
         mapName,
         bookTitle: savedBook.title,
