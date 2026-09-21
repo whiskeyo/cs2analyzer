@@ -139,6 +139,7 @@ describe("Sidebar", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Rounds" }));
     expect(screen.getByRole("button", { name: "Rounds" })).toHaveClass("on");
+    expect(screen.getByRole("heading", { name: "Economy" })).toBeInTheDocument();
     expect(screen.getByText("R1")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
