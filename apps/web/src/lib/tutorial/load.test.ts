@@ -4,6 +4,7 @@ import {
   loadTutorialPlaybook,
   loadTutorialReplay,
   loadTutorialSeries,
+  peekTutorialSeries,
   prefetchTutorialSeriesChunks,
   resetTutorialLoadCache,
 } from "./load";
@@ -24,6 +25,7 @@ describe("tutorial load entry", () => {
   it("reuses the cached series hydrate promise", async () => {
     resetTutorialLoadCache();
     expect(isTutorialSeriesReady()).toBe(false);
+    expect(peekTutorialSeries()).toBeNull();
     const first = loadTutorialSeries();
     const second = loadTutorialSeries();
     expect(second).toBe(first);
@@ -31,7 +33,11 @@ describe("tutorial load entry", () => {
     const series = await first;
     expect(await second).toBe(series);
     expect(isTutorialSeriesReady()).toBe(true);
+    expect(peekTutorialSeries()).toBe(series);
     expect(loadTutorialSeries()).toBe(first);
+    resetTutorialLoadCache();
+    expect(peekTutorialSeries()).toBeNull();
+    expect(isTutorialSeriesReady()).toBe(false);
   });
 
   it("starts split match payload imports before series hydrate resolves", () => {

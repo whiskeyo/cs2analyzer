@@ -9,11 +9,13 @@ import type { DemoSeries } from "@/lib/parse/session";
 import type { Playbook } from "@/lib/playbook/types";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { seriesMatchLoaders } from "./multi-demo/loaders";
+import { resetTutorialSeriesWarmup } from "./seriesWarmup";
 
 let replayLoad: Promise<Replay> | null = null;
 let seriesLoad: Promise<DemoSeries | null> | null = null;
 let playbookLoad: Promise<Playbook> | null = null;
 let seriesReady = false;
+let seriesValue: DemoSeries | null = null;
 
 /** Test hook: drop in-flight fixture promises so cases stay isolated. */
 export function resetTutorialLoadCache(): void {
@@ -21,11 +23,18 @@ export function resetTutorialLoadCache(): void {
   seriesLoad = null;
   playbookLoad = null;
   seriesReady = false;
+  seriesValue = null;
+  resetTutorialSeriesWarmup();
 }
 
 /** True after `loadTutorialSeries()` has resolved (cache hit for Aggregated). */
 export function isTutorialSeriesReady(): boolean {
   return seriesReady;
+}
+
+/** Resolved series object, or null until hydrate finishes (and after reset). */
+export function peekTutorialSeries(): DemoSeries | null {
+  return seriesValue;
 }
 
 /**
@@ -54,11 +63,13 @@ export function loadTutorialSeries(): Promise<DemoSeries | null> {
     .then(({ hydrateTutorialSeries }) => hydrateTutorialSeries())
     .then((series) => {
       seriesReady = true;
+      seriesValue = series;
       return series;
     })
     .catch((err: unknown) => {
       seriesLoad = null;
       seriesReady = false;
+      seriesValue = null;
       throw err;
     });
   return seriesLoad;

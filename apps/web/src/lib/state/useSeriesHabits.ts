@@ -34,6 +34,7 @@ import {
   tutorialLocksSeriesToAggregatedFull,
   tutorialSeriesHabitsTags,
 } from "@/lib/tutorial/activeRound";
+import { peekTutorialTaggedSeries, tutorialSeriesOverlay } from "@/lib/tutorial/seriesWarmup";
 
 export type SeriesViewMode = "demos" | "aggregated";
 
@@ -141,16 +142,28 @@ export function useSeriesHabits(opts: {
   const [nadesOn, setNadesOn] = useState(true);
   const [nadeOpacity, setNadeOpacity] = useState(0.4);
   const [seriesView, setSeriesView] = useState<SeriesViewMode>("demos");
-  const aggregated = seriesView === "aggregated";
+  const aggregated = seriesView === "aggregated" || locked;
+  const seriesViewOut: SeriesViewMode = locked ? "aggregated" : seriesView;
   const pendingJumpRef = useRef<{ demoId: string; tick: number } | null>(null);
 
+  const overlayBucket = useMemo((): BucketOverlaySelection | null => {
+    if (locked) {
+      const side = bucketOverlay?.side ?? filter.side;
+      if (bucketOverlay?.kind === "full" && bucketOverlay.side === side) return bucketOverlay;
+      return { kind: "full", side };
+    }
+    return bucketOverlay;
+  }, [bucketOverlay, filter.side, locked]);
+
   const bucketFilter = useMemo((): SeriesFilter => {
-    if (bucketOverlay) return { side: bucketOverlay.side, kind: bucketOverlay.kind };
+    if (overlayBucket) return { side: overlayBucket.side, kind: overlayBucket.kind };
     return { side: filter.side, kind: filter.kind };
-  }, [bucketOverlay, filter.side, filter.kind]);
+  }, [overlayBucket, filter.side, filter.kind]);
 
   const overlaySeries = useMemo(() => {
     if (!series) return null;
+    const warmed = peekTutorialTaggedSeries(series);
+    if (warmed) return warmed;
     const tagsByDemo = tutorialSeriesHabitsTags(series);
     if (tagsByDemo === series.tagsByDemo) return series;
     return { ...series, tagsByDemo };
@@ -168,20 +181,33 @@ export function useSeriesHabits(opts: {
   }, [filter.playerKey, focalPlayers, overlaySeries]);
 
   const overlay = useMemo(() => {
-    if (!overlaySeries || !aggregated || !overlayOn || !bucketOverlay) return null;
-    return buildSeriesOverlay(overlaySeries, bucketFilter, playerKey, trailWindowSec, {
+    if (!overlaySeries || !aggregated || !overlayOn || !overlayBucket) return null;
+    const branch = {
       mergeDistance: opts.pathBranchMergeDistance,
       stepDistance: opts.pathBranchStepDistance,
       minShare: opts.pathBranchMinShare,
-    });
+    };
+    if (locked && series) {
+      return tutorialSeriesOverlay(
+        series,
+        overlaySeries,
+        bucketFilter,
+        playerKey,
+        trailWindowSec,
+        branch,
+      );
+    }
+    return buildSeriesOverlay(overlaySeries, bucketFilter, playerKey, trailWindowSec, branch);
   }, [
     overlaySeries,
     aggregated,
     overlayOn,
-    bucketOverlay,
+    overlayBucket,
     bucketFilter,
     playerKey,
     trailWindowSec,
+    locked,
+    series,
     opts.pathBranchMergeDistance,
     opts.pathBranchStepDistance,
     opts.pathBranchMinShare,
@@ -398,12 +424,12 @@ export function useSeriesHabits(opts: {
     setSide,
     setKind,
     setPlayerKey,
-    seriesView,
+    seriesView: seriesViewOut,
     setSeriesView: setSeriesViewWrapped,
     aggregated,
     overlayOn,
     setOverlayOn: setOverlayOnWrapped,
-    bucketOverlay,
+    bucketOverlay: overlayBucket,
     selectBucketOverlay,
     ensureBucketOverlay,
     bucketPlaySec,

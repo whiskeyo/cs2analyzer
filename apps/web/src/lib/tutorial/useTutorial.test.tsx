@@ -17,6 +17,13 @@ const loadMocks = vi.hoisted(() => ({
   loadTutorialSeries: vi.fn(),
   loadTutorialPlaybook: vi.fn(),
   isTutorialSeriesReady: vi.fn(() => false),
+  peekTutorialSeries: vi.fn((): import("@/lib/parse/session").DemoSeries | null => null),
+}));
+
+const warmupMocks = vi.hoisted(() => ({
+  scheduleTutorialSeriesPrewarm: vi.fn(),
+  ensureTutorialSeriesPrewarm: vi.fn(async () => {}),
+  isTutorialSeriesOverlayReady: vi.fn(() => false),
 }));
 
 const playbookMocks = vi.hoisted(() => ({
@@ -40,6 +47,13 @@ vi.mock("./load", () => ({
   loadTutorialSeries: loadMocks.loadTutorialSeries,
   loadTutorialPlaybook: loadMocks.loadTutorialPlaybook,
   isTutorialSeriesReady: loadMocks.isTutorialSeriesReady,
+  peekTutorialSeries: loadMocks.peekTutorialSeries,
+}));
+
+vi.mock("./seriesWarmup", () => ({
+  scheduleTutorialSeriesPrewarm: warmupMocks.scheduleTutorialSeriesPrewarm,
+  ensureTutorialSeriesPrewarm: warmupMocks.ensureTutorialSeriesPrewarm,
+  isTutorialSeriesOverlayReady: warmupMocks.isTutorialSeriesOverlayReady,
 }));
 
 vi.mock("@/lib/playbook/playbookStore", () => ({
@@ -129,6 +143,10 @@ describe("useTutorial", () => {
     loadMocks.loadTutorialSeries.mockReset();
     loadMocks.loadTutorialPlaybook.mockReset();
     loadMocks.isTutorialSeriesReady.mockReset().mockReturnValue(false);
+    loadMocks.peekTutorialSeries.mockReset().mockReturnValue(null);
+    warmupMocks.scheduleTutorialSeriesPrewarm.mockReset();
+    warmupMocks.ensureTutorialSeriesPrewarm.mockReset().mockResolvedValue(undefined);
+    warmupMocks.isTutorialSeriesOverlayReady.mockReset().mockReturnValue(false);
     playbookMocks.loadPlaybook.mockReset();
     playbookMocks.savePlaybook.mockReset();
     playbookMocks.emitPlaybooksChanged.mockReset();
@@ -225,19 +243,101 @@ describe("useTutorial", () => {
     expect(loadMocks.loadTutorialPlaybook).toHaveBeenCalled();
   });
 
-  it("skips Aggregated loading chrome when the series promise is already ready", async () => {
+  it("skips Aggregated loading chrome when the series and overlay are already ready", () => {
     const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
     const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
     const series = buildSeries("de_dust2", [a, b]);
-    loadMocks.loadTutorialSeries.mockResolvedValue(series);
+    loadMocks.loadTutorialSeries.mockReturnValue(new Promise(() => {}));
     loadMocks.isTutorialSeriesReady.mockReturnValue(true);
+    loadMocks.peekTutorialSeries.mockReturnValue(series);
+    warmupMocks.isTutorialSeriesOverlayReady.mockReturnValue(true);
     const { installSeries, status } = mockSession();
     renderHook(() => useTutorial(), {
       wrapper: wrapper("/tutorial/aggregated"),
     });
 
-    await waitFor(() => expect(installSeries).toHaveBeenCalledWith(series));
+    expect(installSeries).toHaveBeenCalledWith(series);
+    expect(warmupMocks.ensureTutorialSeriesPrewarm).not.toHaveBeenCalled();
     expect(status.setNotice).not.toHaveBeenCalledWith("Loading Aggregated series…");
+  });
+
+  it("does not await loadTutorialSeries again when Next finds a prewarmed series", async () => {
+    const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
+    const series = buildSeries("de_dust2", [a, b]);
+    loadMocks.loadTutorialSeries.mockResolvedValue(series);
+    const { installSeries, installDemo, session } = mockSession();
+    const { wrapper: navWrapper, nav } = navigableWrapper("/tutorial");
+    renderHook(() => useTutorial(), { wrapper: navWrapper });
+
+    await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
+    session.demo = tutorialReplayDemo(replay);
+    session.replay = replay;
+    loadMocks.loadTutorialSeries.mockClear();
+    loadMocks.loadTutorialSeries.mockReturnValue(new Promise(() => {}));
+    loadMocks.isTutorialSeriesReady.mockReturnValue(true);
+    loadMocks.peekTutorialSeries.mockReturnValue(series);
+    warmupMocks.isTutorialSeriesOverlayReady.mockReturnValue(true);
+
+    await act(async () => {
+      nav.go("/tutorial/aggregated");
+    });
+
+    expect(installSeries).toHaveBeenCalledWith(series);
+    expect(warmupMocks.ensureTutorialSeriesPrewarm).not.toHaveBeenCalled();
+  });
+
+  it("waits on overlay prewarm, not a second hydrate, when the series object is already in memory", async () => {
+    const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
+    const series = buildSeries("de_dust2", [a, b]);
+    let finishPrewarm!: () => void;
+    warmupMocks.ensureTutorialSeriesPrewarm.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishPrewarm = resolve;
+      }),
+    );
+    loadMocks.loadTutorialSeries.mockReturnValue(new Promise(() => {}));
+    loadMocks.isTutorialSeriesReady.mockReturnValue(true);
+    loadMocks.peekTutorialSeries.mockReturnValue(series);
+    warmupMocks.isTutorialSeriesOverlayReady.mockReturnValue(false);
+    const { installSeries, status } = mockSession();
+    renderHook(() => useTutorial(), {
+      wrapper: wrapper("/tutorial/aggregated"),
+    });
+
+    await waitFor(() =>
+      expect(status.setNotice).toHaveBeenCalledWith("Loading Aggregated series…"),
+    );
+    expect(installSeries).not.toHaveBeenCalled();
+    expect(warmupMocks.ensureTutorialSeriesPrewarm).toHaveBeenCalledWith(
+      series,
+      expect.any(Object),
+    );
+
+    await act(async () => {
+      finishPrewarm();
+    });
+    await waitFor(() => expect(installSeries).toHaveBeenCalledWith(series));
+  });
+
+  it("schedules Aggregated overlay prewarm after the Replay session is installed", async () => {
+    const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
+    const series = buildSeries("de_dust2", [a, b]);
+    loadMocks.loadTutorialSeries.mockResolvedValue(series);
+    const { installDemo } = mockSession();
+    renderHook(() => useTutorial(), {
+      wrapper: wrapper("/tutorial"),
+    });
+
+    await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(warmupMocks.scheduleTutorialSeriesPrewarm).toHaveBeenCalledWith(
+        series,
+        expect.any(Object),
+      ),
+    );
   });
 
   it("opens Aggregated view on the full-buy overlay", async () => {
@@ -249,7 +349,12 @@ describe("useTutorial", () => {
     const setSeriesView = vi.fn();
     const ensureBucketOverlay = vi.fn();
     sessionMocks.useOptionalAnalyzer.mockReturnValue({
-      habits: { aggregated: false, filter: { side: "T" }, setSeriesView, ensureBucketOverlay },
+      habits: {
+        aggregated: false,
+        filter: { side: "T" },
+        setSeriesView,
+        ensureBucketOverlay,
+      },
     });
     const { rerender } = renderHook(() => useTutorial(), {
       wrapper: wrapper("/tutorial/aggregated"),
@@ -335,7 +440,9 @@ describe("useTutorial", () => {
 
   it("does nothing on /analyzer without a /tutorial path", async () => {
     const { installDemo, close } = mockSession();
-    renderHook(() => useTutorial(), { wrapper: wrapper("/analyzer?tutorial=1") });
+    renderHook(() => useTutorial(), {
+      wrapper: wrapper("/analyzer?tutorial=1"),
+    });
     await act(async () => {
       await Promise.resolve();
     });

@@ -26,6 +26,7 @@ vi.mock("@/lib/tutorial/load", () => ({
   loadTutorialSeries: loadMocks.loadTutorialSeries,
   loadTutorialPlaybook: loadMocks.loadTutorialPlaybook,
   isTutorialSeriesReady: loadMocks.isTutorialSeriesReady,
+  peekTutorialSeries: () => null,
 }));
 
 vi.mock("@/lib/radar/maps", async (importOriginal) => {

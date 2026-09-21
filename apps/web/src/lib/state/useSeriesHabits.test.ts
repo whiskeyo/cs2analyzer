@@ -283,6 +283,30 @@ describe("useSeriesHabits", () => {
     expect(result.current.overlayOn).toBe(true);
   });
 
+  it("turns on Aggregated full overlay on the first tutorial series render", () => {
+    const demoA = makeSeriesDemo("a.dem");
+    const demoB = makeSeriesDemo("b.dem");
+    demoA.id = tutorialSeriesDemoId(tutorialSeriesManifest.matches[0]);
+    demoB.id = tutorialSeriesDemoId(
+      tutorialSeriesManifest.matches[1] ?? tutorialSeriesManifest.matches[0],
+    );
+    const series = buildSeries("de_dust2", [demoA, demoB], FOCAL);
+    const { result } = renderHook(() =>
+      useSeriesHabits({
+        series,
+        places: null,
+        activeDemoId: demoA.id,
+        selectDemo: vi.fn(),
+        jump: vi.fn(),
+      }),
+    );
+
+    expect(result.current.aggregated).toBe(true);
+    expect(result.current.seriesView).toBe("aggregated");
+    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "CT" });
+    expect(result.current.overlay).not.toBeNull();
+  });
+
   it("tutorial Aggregated side switch keeps overlay trails and a CT player filter", async () => {
     const { hydrateTutorialSeries } = await import("@/lib/tutorial/multi-demo/hydrate");
     const series = await hydrateTutorialSeries();

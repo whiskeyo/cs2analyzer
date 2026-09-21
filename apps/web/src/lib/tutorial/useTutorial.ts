@@ -14,6 +14,7 @@ import {
   loadTutorialPlaybook,
   loadTutorialReplay,
   loadTutorialSeries,
+  peekTutorialSeries,
 } from "./load";
 import {
   prefetchNextTutorialStep,
@@ -26,8 +27,15 @@ import {
   parseTutorialPath,
   type TutorialStep,
 } from "./query";
+import {
+  ensureTutorialSeriesPrewarm,
+  isTutorialSeriesOverlayReady,
+  scheduleTutorialSeriesPrewarm,
+  type TutorialSeriesPrewarmOpts,
+} from "./seriesWarmup";
 
 const LOADING_NOTICE = "Loading tutorial…";
+const AGGREGATED_NOTICE = "Loading Aggregated series…";
 
 /** Survives AnalyzerHost remount so a matching session is not installed twice. */
 let lastInstalledStep: TutorialStep | null = null;
@@ -71,6 +79,36 @@ function sessionMatchesStep(
   return !isMultiDemoSeries(session.series);
 }
 
+function warmupOpts(settings: {
+  habitsTrailWindowSec: number;
+  pathBranchMergeDistance: number;
+  pathBranchStepDistance: number;
+  pathBranchMinShare: number;
+}): TutorialSeriesPrewarmOpts {
+  return {
+    trailWindowSec: settings.habitsTrailWindowSec,
+    mergeDistance: settings.pathBranchMergeDistance,
+    stepDistance: settings.pathBranchStepDistance,
+    minShare: settings.pathBranchMinShare,
+  };
+}
+
+function scheduleSeriesOverlayWarmup(opts: TutorialSeriesPrewarmOpts): void {
+  void loadTutorialSeries().then((series) => {
+    if (series) scheduleTutorialSeriesPrewarm(series, opts);
+  });
+}
+
+function installReadyAggregated(session: {
+  installSeries: (series: NonNullable<ReturnType<typeof peekTutorialSeries>>) => void;
+}): boolean {
+  const series = peekTutorialSeries();
+  if (!series || !isTutorialSeriesOverlayReady()) return false;
+  session.installSeries(series);
+  lastInstalledStep = "aggregated";
+  return true;
+}
+
 async function ensureTutorialPlaybook(): Promise<void> {
   await loadTutorialPlaybook();
 }
@@ -85,6 +123,7 @@ export function useTutorial(): void {
   const { settings, ready } = useUserSettings();
   const { pathname } = useLocation();
   const step = parseTutorialPath(pathname);
+  const overlayOpts = warmupOpts(settings);
 
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -92,6 +131,8 @@ export function useTutorial(): void {
   statusRef.current = status;
   const loadingRef = useRef(false);
   const installedStepRef = useRef<TutorialStep | null>(null);
+  const overlayOptsRef = useRef(overlayOpts);
+  overlayOptsRef.current = overlayOpts;
 
   useLayoutEffect(() => {
     if (step == null) {
@@ -109,6 +150,14 @@ export function useTutorial(): void {
     closeIfForeignSession(sessionRef.current);
     if (step === "replay" || step === "aggregated") {
       warmupTutorialSession();
+      if (
+        step === "aggregated" &&
+        !sessionMatchesStep(sessionRef.current, "aggregated") &&
+        installReadyAggregated(sessionRef.current)
+      ) {
+        installedStepRef.current = "aggregated";
+        prefetchNextTutorialStep("aggregated");
+      }
       return;
     }
     if (isTutorialPlaybookPath(pathname)) prefetchNextTutorialStep(step);
@@ -169,6 +218,15 @@ export function useTutorial(): void {
       lastInstalledStep = step;
       installedStepRef.current = step;
       prefetchNextTutorialStep(step);
+      if (step === "replay") scheduleSeriesOverlayWarmup(overlayOptsRef.current);
+      return;
+    }
+
+    if (step === "aggregated" && installReadyAggregated(live)) {
+      installedStepRef.current = "aggregated";
+      prefetchNextTutorialStep("aggregated");
+      statusRef.current.clear();
+      loadingRef.current = false;
       return;
     }
 
@@ -181,8 +239,8 @@ export function useTutorial(): void {
       statusRef.current.setNotice(LOADING_NOTICE);
     } else {
       const seriesPromise = loadTutorialSeries();
-      if (!isTutorialSeriesReady()) {
-        statusRef.current.setNotice("Loading Aggregated series…");
+      if (!isTutorialSeriesReady() || !isTutorialSeriesOverlayReady()) {
+        statusRef.current.setNotice(AGGREGATED_NOTICE);
       }
       void seriesPromise;
     }
@@ -194,13 +252,15 @@ export function useTutorial(): void {
           const replay = await loadTutorialReplay();
           if (cancelled) return;
           sessionRef.current.installDemo(tutorialReplayDemo(replay));
-          void loadTutorialSeries();
+          scheduleSeriesOverlayWarmup(overlayOptsRef.current);
         } else {
-          const series = await loadTutorialSeries();
+          const series = peekTutorialSeries() ?? (await loadTutorialSeries());
           if (cancelled) return;
           if (!series) {
             throw new Error("Tutorial series is empty.");
           }
+          await ensureTutorialSeriesPrewarm(series, overlayOptsRef.current);
+          if (cancelled) return;
           sessionRef.current.installSeries(series);
         }
         if (cancelled) return;

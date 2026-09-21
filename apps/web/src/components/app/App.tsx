@@ -17,7 +17,11 @@ import { NotFound } from "@/pages/NotFound";
 import { Playbook } from "@/pages/Playbook";
 
 const LayoutsApp = import.meta.env.DEV
-  ? lazy(() => import("@/components/layouts/LayoutsApp").then((m) => ({ default: m.LayoutsApp })))
+  ? lazy(() =>
+      import("@/components/layouts/LayoutsApp").then((m) => ({
+        default: m.LayoutsApp,
+      })),
+    )
   : null;
 
 function AppLayout() {
@@ -62,8 +66,10 @@ function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route index element={<Home />} />
         <Route path={ROUTES.analyzer.slice(1)} element={<Analyzer />} />
-        <Route path={ROUTES.tutorial.slice(1)} element={<Analyzer />} />
-        <Route path={`${ROUTES.tutorial.slice(1)}/aggregated`} element={<Analyzer />} />
+        {/* Nested so Next: Multiple demos keeps Analyzer/Viewer mounted. */}
+        <Route path={ROUTES.tutorial.slice(1)} element={<Analyzer />}>
+          <Route path="aggregated" element={null} />
+        </Route>
         <Route path={`${ROUTES.tutorial.slice(1)}/playbook`} element={<Playbook />} />
         <Route path={ROUTES.playbook.slice(1)} element={<Playbook />} />
         <Route path={ROUTES.faq.slice(1)} element={<Faq />} />
