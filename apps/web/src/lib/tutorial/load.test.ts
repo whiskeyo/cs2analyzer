@@ -1,11 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   isTutorialSeriesReady,
   loadTutorialPlaybook,
   loadTutorialReplay,
   loadTutorialSeries,
+  prefetchTutorialSeriesChunks,
   resetTutorialLoadCache,
 } from "./load";
+import { seriesMatchLoaders } from "./multi-demo/loaders";
 
 describe("tutorial load entry", () => {
   it("lazy-loads the three fixture loaders", async () => {
@@ -30,5 +32,23 @@ describe("tutorial load entry", () => {
     expect(await second).toBe(series);
     expect(isTutorialSeriesReady()).toBe(true);
     expect(loadTutorialSeries()).toBe(first);
+  });
+
+  it("starts split match payload imports before series hydrate resolves", () => {
+    const originals = { ...seriesMatchLoaders };
+    const spies = Object.keys(originals).map((id) => {
+      const spy = vi.fn(originals[id]);
+      seriesMatchLoaders[id] = spy;
+      return spy;
+    });
+    try {
+      expect(spies.length).toBeGreaterThan(1);
+      prefetchTutorialSeriesChunks();
+      for (const spy of spies) {
+        expect(spy).toHaveBeenCalledOnce();
+      }
+    } finally {
+      Object.assign(seriesMatchLoaders, originals);
+    }
   });
 });

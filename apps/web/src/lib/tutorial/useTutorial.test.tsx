@@ -189,6 +189,25 @@ describe("useTutorial", () => {
     await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
   });
 
+  it("starts Aggregated hydrate on /tutorial before Next navigation", async () => {
+    const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
+    const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
+    const series = buildSeries("de_dust2", [a, b]);
+    loadMocks.loadTutorialSeries.mockResolvedValue(series);
+    const { installSeries, installDemo } = mockSession();
+    const { wrapper: navWrapper, nav } = navigableWrapper("/tutorial");
+    renderHook(() => useTutorial(), { wrapper: navWrapper });
+
+    await waitFor(() => expect(loadMocks.loadTutorialSeries).toHaveBeenCalled());
+    expect(installSeries).not.toHaveBeenCalled();
+    await waitFor(() => expect(installDemo).toHaveBeenCalledOnce());
+
+    await act(async () => {
+      nav.go("/tutorial/aggregated");
+    });
+    await waitFor(() => expect(installSeries).toHaveBeenCalledWith(series));
+  });
+
   it("installs the Aggregated series from /tutorial/aggregated", async () => {
     const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
     const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));

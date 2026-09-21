@@ -19,6 +19,7 @@ import {
   prefersSaveData,
   prefetchNextTutorialStep,
   prefetchTutorialReplay,
+  prefetchTutorialSeries,
   scheduleHomeTutorialPrefetch,
   warmupTutorialSession,
   TUTORIAL_HOME_PREFETCH_TIMEOUT_MS,
@@ -71,6 +72,12 @@ describe("tutorial prefetch", () => {
   it("starts Replay and Aggregated hydrates together", () => {
     warmupTutorialSession();
     expect(loadMocks.loadTutorialReplay).toHaveBeenCalledOnce();
+    expect(loadMocks.loadTutorialSeries).toHaveBeenCalledOnce();
+  });
+
+  it("warms Aggregated even when Save-Data is on once the tour has started", () => {
+    vi.stubGlobal("navigator", { connection: { saveData: true } });
+    prefetchTutorialSeries();
     expect(loadMocks.loadTutorialSeries).toHaveBeenCalledOnce();
   });
 

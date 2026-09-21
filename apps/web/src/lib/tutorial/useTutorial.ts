@@ -107,8 +107,8 @@ export function useTutorial(): void {
       return;
     }
     closeIfForeignSession(sessionRef.current);
-    if (isTutorialAnalyzerPath(pathname)) {
-      if (step === "replay" || step === "aggregated") warmupTutorialSession();
+    if (step === "replay" || step === "aggregated") {
+      warmupTutorialSession();
       return;
     }
     if (isTutorialPlaybookPath(pathname)) prefetchNextTutorialStep(step);
@@ -168,6 +168,7 @@ export function useTutorial(): void {
     if (sessionMatchesStep(live, step)) {
       lastInstalledStep = step;
       installedStepRef.current = step;
+      prefetchNextTutorialStep(step);
       return;
     }
 
@@ -193,6 +194,7 @@ export function useTutorial(): void {
           const replay = await loadTutorialReplay();
           if (cancelled) return;
           sessionRef.current.installDemo(tutorialReplayDemo(replay));
+          void loadTutorialSeries();
         } else {
           const series = await loadTutorialSeries();
           if (cancelled) return;

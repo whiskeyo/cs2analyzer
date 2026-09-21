@@ -35,6 +35,7 @@ export function prefetchTutorialReplay(): void {
   void loadTutorialReplay();
 }
 
+/** Start Aggregated hydrate + match chunks. Cached; safe to call often. */
 export function prefetchTutorialSeries(): void {
   void loadTutorialSeries();
 }
@@ -42,7 +43,7 @@ export function prefetchTutorialSeries(): void {
 /** Home CTA / `/tutorial`: start Replay and Aggregated hydrates together. */
 export function warmupTutorialSession(): void {
   void loadTutorialReplay();
-  void loadTutorialSeries();
+  prefetchTutorialSeries();
 }
 
 export function prefetchTutorialPlaybook(): void {

@@ -8,6 +8,7 @@
 import type { DemoSeries } from "@/lib/parse/session";
 import type { Playbook } from "@/lib/playbook/types";
 import type { Replay } from "@/lib/replay/replayTypes";
+import { seriesMatchLoaders } from "./multi-demo/loaders";
 
 let replayLoad: Promise<Replay> | null = null;
 let seriesLoad: Promise<DemoSeries | null> | null = null;
@@ -27,6 +28,16 @@ export function isTutorialSeriesReady(): boolean {
   return seriesReady;
 }
 
+/**
+ * Kick match payload chunks without waiting for `hydrate.ts`. Vite splits each
+ * match; starting them here overlaps download with Replay hydrate.
+ */
+export function prefetchTutorialSeriesChunks(): void {
+  for (const load of Object.values(seriesMatchLoaders)) {
+    void load();
+  }
+}
+
 export function loadTutorialReplay(): Promise<Replay> {
   replayLoad ??= import("./single-demo/hydrate")
     .then(({ hydrateTutorialReplay }) => hydrateTutorialReplay())
@@ -38,6 +49,7 @@ export function loadTutorialReplay(): Promise<Replay> {
 }
 
 export function loadTutorialSeries(): Promise<DemoSeries | null> {
+  prefetchTutorialSeriesChunks();
   seriesLoad ??= import("./multi-demo/hydrate")
     .then(({ hydrateTutorialSeries }) => hydrateTutorialSeries())
     .then((series) => {
