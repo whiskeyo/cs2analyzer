@@ -81,6 +81,7 @@ describe("Playbook", () => {
     vi.mocked(loadCalibrations).mockResolvedValue({
       de_inferno: UNIT_CALIBRATION,
       de_mirage: UNIT_CALIBRATION,
+      de_dust2: UNIT_CALIBRATION,
     });
     downloadPlaybookPdf.mockReset();
     downloadPlaybookPdf.mockResolvedValue(undefined);
@@ -461,12 +462,15 @@ describe("Playbook", () => {
     await createPlaybook("de_inferno", "Other map book");
     const { unmount } = renderBoard("/tutorial/playbook");
     expect(await screen.findByRole("button", { name: "Tutorial" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dust II" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mirage" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My real book" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Other map book" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Inferno" })).not.toBeInTheDocument();
     fireEvent.contextMenu(screen.getByRole("button", { name: "Tutorial" }));
     expect(screen.queryByRole("menuitem", { name: "Duplicate playbook" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Delete playbook" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Export PDF" })).toBeInTheDocument();
     expect(await loadPlaybook(real.key)).toMatchObject({
       title: "My real book",
     });
@@ -487,5 +491,22 @@ describe("Playbook", () => {
     );
     expect(screen.queryByRole("button", { name: "Open strat" })).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("exports a PDF from the tutorial sandbox book", async () => {
+    renderBoard("/tutorial/playbook");
+    expect(await screen.findByRole("button", { name: "Tutorial" })).toBeInTheDocument();
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Tutorial" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Export PDF" }));
+    expect(screen.getByRole("dialog", { name: "Export PDF" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Without photos" }));
+    await waitFor(() => expect(downloadPlaybookPdf).toHaveBeenCalledTimes(1));
+    expect(downloadPlaybookPdf.mock.calls[0]?.[0]).toMatchObject({
+      title: "Tutorial",
+      mapName: "de_dust2",
+    });
+    expect(downloadPlaybookPdf.mock.calls[0]?.[1]).toBe(UNIT_CALIBRATION);
+    expect(downloadPlaybookPdf.mock.calls[0]?.[5]).toBe(false);
+    expect(screen.queryByRole("button", { name: "Open strat" })).not.toBeInTheDocument();
   });
 });

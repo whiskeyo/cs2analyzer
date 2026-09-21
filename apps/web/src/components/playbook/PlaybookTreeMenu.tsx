@@ -98,6 +98,10 @@ export function PlaybookTreeMenu({
                 onSelect: () => onNewStrat(target.bookKey),
               },
               { label: "Rename", onSelect: () => onRenameBook(target.bookKey) },
+              {
+                label: "Export PDF",
+                onSelect: () => onExportPdf(target.bookKey),
+              },
             ]
           : [
               {
