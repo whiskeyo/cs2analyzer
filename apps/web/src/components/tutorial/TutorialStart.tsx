@@ -1,42 +1,24 @@
+import { type ReactNode } from "react";
 import { Link } from "react-router";
-import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { warmupTutorialSession } from "@/lib/tutorial/prefetch";
 import { tutorialHref } from "@/lib/tutorial/query";
 
 interface Props {
-  compact?: boolean;
+  children?: ReactNode;
 }
 
-/** Home / Analyzer empty-state CTA. Pointer-down warms Replay + Aggregated. */
-export function TutorialStart({ compact = false }: Props) {
-  const { settings, ready, update } = useUserSettings();
-  const showDismiss = ready && !settings.tutorialCompleted && !compact;
-
+/**
+ * Home / Analyzer empty-state line under the drop row. Pointer-down warms
+ * Replay + Aggregated before the `/tutorial` navigation.
+ */
+export function TutorialStart({ children }: Props) {
   return (
-    <p className={compact ? "tutorial-start tutorial-start-compact" : "tutorial-start"}>
-      <Link
-        className="ghost"
-        to={tutorialHref("replay")}
-        onPointerDown={() => warmupTutorialSession()}
-      >
-        Try without a demo
+    <p className="home-faq-hint muted">
+      Or{" "}
+      <Link to={tutorialHref("replay")} onPointerDown={() => warmupTutorialSession()}>
+        try the Tutorial first
       </Link>
-      {compact ? (
-        <span className="muted"> Short Mirage sample. No file drop.</span>
-      ) : (
-        <span className="muted">Loads a short Mirage sample in the Analyzer.</span>
-      )}
-      {showDismiss ? (
-        <button
-          type="button"
-          className="ghost"
-          onClick={() => {
-            void update({ tutorialCompleted: true });
-          }}
-        >
-          Don&apos;t show again
-        </button>
-      ) : null}
+      .{children ? <> {children}</> : null}
     </p>
   );
 }

@@ -78,10 +78,14 @@ describe("Home", () => {
     expect(screen.getByText(/playbook drawings/i)).toBeInTheDocument();
     expect(screen.queryByText(/GOTV viewer/i)).not.toBeInTheDocument();
     expect(screen.getByText(/One Counter-Strike 2/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Try without a demo" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "try the Tutorial first" })).toHaveAttribute(
       "href",
       "/tutorial",
     );
+    expect(screen.queryByRole("link", { name: "Try without a demo" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Loads a short Mirage sample in the Analyzer/),
+    ).not.toBeInTheDocument();
     const drop = container.querySelector(".drop");
     const intro = container.querySelector(".home-intro");
     expect(drop).toBeTruthy();
@@ -112,6 +116,10 @@ describe("Home", () => {
     }
     if (playbook && faq) {
       expect(playbook.compareDocumentPosition(faq) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    }
+    if (faq) {
+      expect(faq).toHaveTextContent(/Or try the Tutorial first/);
+      expect(faq).toHaveTextContent(/If you have questions/);
     }
     expect(screen.getByRole("button", { name: /Create a playbook/ })).toBeInTheDocument();
     expect(container.querySelector(".home-playbook-add")).toBeNull();

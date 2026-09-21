@@ -20,5 +20,5 @@ export function Analyzer() {
       ? session.replay
       : null;
   if (replay) return <Viewer />;
-  return <DemoDrop showSavedNotes below={<TutorialStart compact />} />;
+  return <DemoDrop showSavedNotes below={<TutorialStart />} />;
 }

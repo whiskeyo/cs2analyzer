@@ -161,18 +161,6 @@ button.home-card {
 .home-faq-hint a:hover {
   color: var(--text);
 }
-.tutorial-start {
-  margin: 1rem 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-}
-.tutorial-start-compact {
-  margin: 0.85rem 0 0;
-  justify-content: center;
-  text-align: center;
-}
 .tutorial-banner {
   display: flex;
   flex-wrap: wrap;

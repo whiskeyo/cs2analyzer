@@ -80,10 +80,14 @@ describe("Analyzer", () => {
     );
     expect(screen.getByText("Saved notes")).toBeInTheDocument();
     expect(screen.getByText("match.dem")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Try without a demo" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "try the Tutorial first" })).toHaveAttribute(
       "href",
       "/tutorial",
     );
+    expect(screen.queryByRole("link", { name: "Try without a demo" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Loads a short Mirage sample in the Analyzer/),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: /Watch Counter-Strike 2 demos/ }),
     ).not.toBeInTheDocument();
@@ -169,7 +173,7 @@ describe("Analyzer", () => {
     );
     expect(screen.getByTestId("viewer")).toBeInTheDocument();
     expect(screen.queryByText("Saved notes")).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Try without a demo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "try the Tutorial first" })).not.toBeInTheDocument();
   });
 
   it("keeps the drop zone and saved notes when a tutorial demo leaks onto /analyzer", () => {
@@ -190,6 +194,6 @@ describe("Analyzer", () => {
     expect(screen.queryByTestId("viewer")).not.toBeInTheDocument();
     expect(screen.getByText("Drop a demo")).toBeInTheDocument();
     expect(screen.getByText("Saved notes")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Try without a demo" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "try the Tutorial first" })).toBeInTheDocument();
   });
 });

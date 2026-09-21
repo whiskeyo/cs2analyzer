@@ -91,9 +91,9 @@ describe("App tutorial", () => {
     window.history.replaceState({}, "", "/");
   });
 
-  it("installs the sample from Try without a demo without WASM", async () => {
+  it("opens the tutorial from the drop-zone text link without WASM", async () => {
     render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
-    await userEvent.click(screen.getByRole("link", { name: "Try without a demo" }));
+    await userEvent.click(screen.getByRole("link", { name: "try the Tutorial first" }));
     expect(await screen.findByText("Tutorial")).toBeInTheDocument();
     expect(await screen.findByRole("complementary", { name: "Tutorial tips" })).toBeInTheDocument();
     await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
@@ -103,7 +103,7 @@ describe("App tutorial", () => {
     await waitFor(() => expect(loadMocks.loadTutorialSeries).toHaveBeenCalled());
     expect(loadMocks.loadTutorialPlaybook).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
-    expect(await screen.findByRole("link", { name: "Try without a demo" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "try the Tutorial first" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Exit tutorial" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByText("Loading tutorial…")).not.toBeInTheDocument();
@@ -127,6 +127,6 @@ describe("App tutorial", () => {
     expect(screen.queryByText(new RegExp(TUTORIAL_FILENAME))).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Exit tutorial" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Try without a demo" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "try the Tutorial first" })).toBeInTheDocument();
   });
 });

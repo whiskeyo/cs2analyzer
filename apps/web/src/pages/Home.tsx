@@ -21,18 +21,17 @@ function HomeIntro() {
         <li>Kill feed, opening duels, nade summary, and CSV export.</li>
         <li>And way more!</li>
       </ul>
-      <TutorialStart />
     </div>
   );
 }
 
-function HomeFaqHint() {
+function HomeDropHint() {
   return (
-    <p className="home-faq-hint muted">
+    <TutorialStart>
       If you have questions, <Link to={ROUTES.faq}>see the FAQ</Link>.{" "}
       <Link to={ROUTES.rating}>Match rating formulas</Link> live on their own page. To reach the
       author, <Link to={ROUTES.contact}>Contact</Link>.
-    </p>
+    </TutorialStart>
   );
 }
 
@@ -42,7 +41,7 @@ export function Home() {
       openAnalyzerOnDrop
       showSavedNotes={false}
       beside={<CreatePlaybookCard />}
-      below={<HomeFaqHint />}
+      below={<HomeDropHint />}
     >
       <HomeIntro />
     </DemoDrop>
