@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { roundStories } from "./roundStory";
-import type { Round } from "@/lib/replay/replayTypes";
-import { makeBombEvent, makeKill, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
+import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type Round } from "@/lib/replay/replayTypes";
+import { FORCE_BUY_MAX_EQUIPMENT } from "@/lib/shared/constants";
+import {
+  makeBombEvent,
+  makeKill,
+  makePlayer,
+  makeReplay,
+  makeRound,
+  makeTicks,
+} from "@/lib/testing/fixtures";
 
 /** Round stories need a long round: the fixtures run past the default 640. */
 function round(partial: Partial<Round> & Pick<Round, "number" | "winner">): Round {
@@ -69,5 +77,21 @@ describe("roundStories", () => {
     const stories = roundStories(m);
     expect(stories[0].ace).toBe(true);
     expect(stories[0].ending).toBe("ace");
+  });
+
+  it("uses the economy buy label, including anti-eco", () => {
+    const ticks = makeTicks(roster.length, 1);
+    ticks.ticks[0] = 64;
+    for (let i = 0; i < roster.length; i++) {
+      const ct = roster[i]?.start_side === "CT";
+      ticks.flags[i] = FLAG_PRESENT | FLAG_ALIVE | (ct ? FLAG_CT : 0);
+      ticks.equip[i] = ct ? FORCE_BUY_MAX_EQUIPMENT : 500;
+    }
+    const m = makeReplay({
+      players: roster,
+      rounds: [round({ number: 4, winner: "CT", win_reason: 8 })],
+      ticks,
+    });
+    expect(roundStories(m)[0]?.summary).toContain("T eco vs CT anti-eco");
   });
 });
