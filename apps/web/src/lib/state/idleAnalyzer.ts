@@ -85,6 +85,7 @@ export function idleHabits(): SeriesHabitsState {
     util: null,
     action: null,
     utilSets: null,
+    groupHits: null,
     seriesUtilThrows: [],
     seriesActionBeats: [],
     seriesRoundsByKind: [],
