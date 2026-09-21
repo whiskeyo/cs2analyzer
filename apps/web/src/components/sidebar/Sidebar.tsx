@@ -104,6 +104,10 @@ export const Sidebar = memo(function Sidebar() {
               className={activeTab === id ? "on" : ""}
               disabled={tabDisabled(id)}
               title={tabDisabled(id) ? "Not available in aggregated view" : undefined}
+              data-tutorial={id === "notes" ? "notes" : id === "util" ? "util" : undefined}
+              data-tutorial-action={
+                id === "notes" ? "open-notes" : id === "util" ? "open-util" : undefined
+              }
               onClick={() => {
                 choseTab.current = true;
                 setTab(id);

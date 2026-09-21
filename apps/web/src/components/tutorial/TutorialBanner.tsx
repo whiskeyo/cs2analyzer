@@ -49,12 +49,12 @@ export function TutorialBanner() {
     if (completed && !settings.tutorialCompleted) {
       void update({ tutorialCompleted: true });
     }
-    navigate(ROUTES.home);
+    navigate(completed ? ROUTES.analyzer : ROUTES.home);
     session.close();
   };
 
   return (
-    <div className="tutorial-banner" data-tutorial="welcome">
+    <div className="tutorial-banner">
       <span className="tutorial-chip">Tutorial</span>
       <span className="tutorial-banner-copy">{stepCopy(step)}</span>
       {previous ? (
@@ -66,12 +66,19 @@ export function TutorialBanner() {
         <Link
           className="ghost"
           to={tutorialHref(next)}
-          data-tutorial={next === "aggregated" ? "aggregated" : undefined}
+          data-tutorial={next === "aggregated" ? "next-aggregated" : "next-playbook"}
+          data-tutorial-action={next === "aggregated" ? "next-aggregated" : "next-playbook"}
         >
           {nextLabel(step)}
         </Link>
       ) : (
-        <button type="button" className="ghost" onClick={() => exit(true)}>
+        <button
+          type="button"
+          className="ghost"
+          data-tutorial="finish"
+          data-tutorial-action="finish"
+          onClick={() => exit(true)}
+        >
           Finish
         </button>
       )}

@@ -365,7 +365,7 @@ export function Playbook() {
                 hasFloors={Boolean(cal?.lower_radar)}
                 onFloorMode={(floor) => setFloor(page.id, floor)}
               />
-              <div className="playbook-board" data-tutorial="board">
+              <div className="playbook-board">
                 <PlaybookCanvas
                   cal={cal}
                   floorMode={page.floor}
@@ -452,11 +452,7 @@ export function Playbook() {
             />
           </aside>
         ) : null}
-        <aside
-          className="playbook-sidebar playbook-tree-pane"
-          style={{ width: treeResize.width }}
-          data-tutorial="tree"
-        >
+        <aside className="playbook-sidebar playbook-tree-pane" style={{ width: treeResize.width }}>
           <div {...treeResize.handleProps} />
           <h2>Playbooks</h2>
           <p className="playbook-lead">Maps, then named books. Drawings stay on this machine.</p>

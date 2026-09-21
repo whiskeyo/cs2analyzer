@@ -316,6 +316,8 @@ export function PlaybookTree({
                                               : "playbook-tree-strat"
                                           }
                                           title="Drag to reorder. Double-click or F2 to rename."
+                                          data-tutorial="strat"
+                                          data-tutorial-action="open-strat"
                                           onClick={() => onSelectStrat(book, page.id)}
                                           onDoubleClick={(e) => {
                                             e.preventDefault();

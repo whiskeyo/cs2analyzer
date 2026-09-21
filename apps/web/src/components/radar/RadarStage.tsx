@@ -17,6 +17,7 @@ import { currentRound } from "@/lib/replay/sample";
 import { tickRate } from "@/lib/shared/constants";
 import { useApp } from "@/lib/state/appState";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
+import { emitTutorialCoachAction } from "@/lib/tutorial/coachAction";
 import { Hud } from "./Hud";
 import { KillFeed } from "./KillFeed";
 import { MapToolbar } from "./MapToolbar";
@@ -50,7 +51,7 @@ export function RadarStage() {
   const pawnLegend = analyzerPawnLegend(session.series, habits, habits.overlay);
 
   return (
-    <div className="radar-col" data-tutorial="radar">
+    <div className="radar-col">
       <MapToolbar
         review={{
           tool: view.tool,
@@ -118,6 +119,7 @@ export function RadarStage() {
                 ),
               ),
             );
+            emitTutorialCoachAction("draw");
           },
         }}
         viewActions={{
@@ -172,6 +174,7 @@ export function RadarStage() {
           onNote={(next) => {
             if (!notesLive || round == null) return;
             review.commitNotes(updateRoundNote(review.notes, round.number, () => next));
+            emitTutorialCoachAction("draw");
           }}
           onPan={() => view.setFollow(false)}
           onPause={() => playback.setPlaying(false)}

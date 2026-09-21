@@ -48,6 +48,10 @@ function toolbarProps(overrides: Partial<MapToolbarProps> = {}): MapToolbarProps
 describe("MapToolbar", () => {
   it("renders drawing tools and layer toggles", () => {
     render(<MapToolbar {...toolbarProps()} />);
+    expect(screen.getByRole("toolbar", { name: "Draw tools" })).toHaveAttribute(
+      "data-tutorial",
+      "draw",
+    );
     expect(screen.getByRole("button", { name: "Draw" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Legend" })).toBeNull();
     expect(screen.getByRole("button", { name: "Nades" })).toHaveClass("on");
@@ -74,7 +78,9 @@ describe("MapToolbar", () => {
   it("stamps a bookmark when the bookmark tool is chosen", async () => {
     const props = toolbarProps();
     render(<MapToolbar {...props} />);
-    const bookmark = screen.getByRole("button", { name: MATCH_PDF_BOOKMARK_TOOLTIP });
+    const bookmark = screen.getByRole("button", {
+      name: MATCH_PDF_BOOKMARK_TOOLTIP,
+    });
     expect(bookmark).toHaveAttribute("title", MATCH_PDF_BOOKMARK_TOOLTIP);
     await userEvent.click(bookmark);
     expect(props.reviewActions.onTool).toHaveBeenCalledWith("bookmark");

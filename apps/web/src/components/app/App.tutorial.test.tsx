@@ -95,7 +95,9 @@ describe("App tutorial", () => {
     render(<App createWorker={() => ({ terminate() {} }) as Worker} />);
     await userEvent.click(screen.getByRole("link", { name: "try the Tutorial first" }));
     expect(await screen.findByText("Tutorial")).toBeInTheDocument();
-    expect(await screen.findByRole("complementary", { name: "Tutorial tips" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("complementary", { name: "Tutorial coach" }),
+    ).toBeInTheDocument();
     await waitFor(() => expect(loadMocks.loadTutorialReplay).toHaveBeenCalled());
     expect(screen.getByText(new RegExp(TUTORIAL_FILENAME))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Exit tutorial" })).toBeInTheDocument();

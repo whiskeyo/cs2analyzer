@@ -42,12 +42,13 @@ export function SeriesFilters() {
         ))}
       </select>
       <span className="series-filters-label">Side</span>
-      <div className="filters" role="toolbar" aria-label="Habits side">
+      <div className="filters" role="toolbar" aria-label="Habits side" data-tutorial="side">
         {(["CT", "T"] as const).map((side) => (
           <button
             key={side}
             type="button"
             className={`filter${filter.side === side ? " on" : ""}`}
+            data-tutorial-action="switch-side"
             onClick={() => habits.setSide(side)}
           >
             {side}
@@ -55,7 +56,7 @@ export function SeriesFilters() {
         ))}
       </div>
       <span className="series-filters-label">Buy</span>
-      <div className="filters" role="toolbar" aria-label="Habits buy type">
+      <div className="filters" role="toolbar" aria-label="Habits buy type" data-tutorial="buy">
         {KINDS.map((k) => {
           const enabled = !tutorialSeries || k.id === "full";
           return (
@@ -65,6 +66,7 @@ export function SeriesFilters() {
               className={`filter${filter.kind === k.id ? " on" : ""}${enabled ? "" : " is-inactive"}`}
               disabled={!enabled}
               title={enabled ? undefined : "Tutorial uses Aggregated full only"}
+              data-tutorial-action={k.id === "full" ? "toggle-buy" : undefined}
               onClick={() => habits.setKind(k.id)}
             >
               {k.label}

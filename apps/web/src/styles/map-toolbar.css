@@ -85,3 +85,9 @@
   background: #2c3846;
   margin: 0 0.25rem;
 }
+.map-toolbar-draw {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}

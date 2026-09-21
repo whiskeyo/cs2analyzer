@@ -142,6 +142,8 @@ export function Utility({
                 <button
                   type="button"
                   className={`review-note${tone ? ` ${tone}` : ""}${row.tick > tick ? " pending" : ""}`}
+                  data-tutorial={i === 0 ? "util-throw" : undefined}
+                  data-tutorial-action="jump-grenade"
                   onClick={() => {
                     onClearFollow?.();
                     if (row.thrower >= 0) onSelect(row.thrower);

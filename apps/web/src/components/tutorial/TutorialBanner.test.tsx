@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useLocation } from "react-router";
 import { useApp } from "@/lib/state/appState";
 import { TUTORIAL_ID } from "@/lib/tutorial/identity";
 import { TestRouter } from "@/lib/testing/router";
@@ -29,6 +30,11 @@ function bannerState(id: string | null) {
       close: vi.fn(),
     },
   };
+}
+
+function PathProbe() {
+  const { pathname } = useLocation();
+  return <span data-testid="path">{pathname}</span>;
 }
 
 describe("TutorialBanner", () => {
@@ -63,6 +69,10 @@ describe("TutorialBanner", () => {
       "href",
       "/tutorial/aggregated",
     );
+    expect(screen.getByRole("link", { name: "Next: Multiple demos" })).toHaveAttribute(
+      "data-tutorial",
+      "next-aggregated",
+    );
     expect(screen.queryByRole("button", { name: "Finish" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
     expect(state.session.close).toHaveBeenCalledOnce();
@@ -93,9 +103,10 @@ describe("TutorialBanner", () => {
     render(
       <TestRouter path="/tutorial/playbook">
         <TutorialBanner />
+        <PathProbe />
       </TestRouter>,
     );
-    expect(screen.getByText(/playbook/i)).toBeInTheDocument();
+    expect(screen.getByText(/Sample Playbook/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Previous: Multiple demos" })).toHaveAttribute(
       "href",
       "/tutorial/aggregated",
@@ -103,5 +114,6 @@ describe("TutorialBanner", () => {
     await userEvent.click(screen.getByRole("button", { name: "Finish" }));
     expect(updateSettings).toHaveBeenCalledWith({ tutorialCompleted: true });
     expect(state.session.close).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("path")).toHaveTextContent("/analyzer");
   });
 });

@@ -179,8 +179,10 @@ export const Controls = memo(function Controls({
   };
 
   return (
-    <div className="controls">
-      <TransportButton playing={playing} onToggle={onTogglePlay} />
+    <div className="controls" data-tutorial="play">
+      <span data-tutorial-action="play-or-scrub">
+        <TransportButton playing={playing} onToggle={onTogglePlay} />
+      </span>
       <UnfocusableButton
         title="Previous round ([)"
         onClick={() => send({ type: "jump-round", dir: -1 })}
@@ -257,6 +259,7 @@ export const Controls = memo(function Controls({
             min={activeRange.min}
             max={activeRange.max}
             aria-label="Round timeline"
+            data-tutorial-action="play-or-scrub"
             value={Math.min(activeRange.max, Math.max(activeRange.min, tick))}
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture(e.pointerId);
@@ -329,7 +332,10 @@ export const Controls = memo(function Controls({
             <span
               key={m.tick}
               className="timeline-label"
-              style={{ left: `${m.at * 100}%`, transform: `translateX(${markLabelShift(m.at)})` }}
+              style={{
+                left: `${m.at * 100}%`,
+                transform: `translateX(${markLabelShift(m.at)})`,
+              }}
             >
               {m.label}
             </span>

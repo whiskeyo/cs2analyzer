@@ -193,7 +193,13 @@ button.home-card {
 .tutorial-coach-layer {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 60;
+  pointer-events: none;
+}
+.tutorial-coach-spot {
+  position: fixed;
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.48);
   pointer-events: none;
 }
 .tutorial-coach-ring {
@@ -205,11 +211,9 @@ button.home-card {
 }
 .tutorial-coach {
   position: fixed;
-  left: 1rem;
-  bottom: 1rem;
-  width: min(22rem, calc(100vw - 2rem));
+  width: min(18rem, calc(100vw - 2rem));
   pointer-events: auto;
-  padding: 0.85rem 0.95rem;
+  padding: 0.7rem 0.8rem;
   border: 1px solid #3d6f99;
   border-radius: 10px;
   background: #12171d;
@@ -224,11 +228,6 @@ button.home-card {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.tutorial-coach h2 {
-  margin: 0 0 0.35rem;
-  font-size: 0.95rem;
-  font-weight: 650;
-}
 .tutorial-coach p {
   margin: 0;
   color: var(--text-muted);
@@ -239,7 +238,7 @@ button.home-card {
   display: flex;
   justify-content: flex-end;
   gap: 0.45rem;
-  margin-top: 0.75rem;
+  margin-top: 0.6rem;
 }
 .contact-list {
   display: grid;
