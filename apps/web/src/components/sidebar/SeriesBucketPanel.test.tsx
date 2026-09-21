@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { useApp } from "@/lib/state/appState";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { makeReplay } from "@/lib/testing/fixtures";
+import { formatGroupHitPercent } from "@/lib/parse/seriesGroupHits";
 import { SeriesBucketPanel } from "./SeriesBucketPanel";
 
 vi.mock("@/lib/state/appState", () => ({
@@ -61,6 +62,43 @@ describe("SeriesBucketPanel", () => {
     expect(screen.getAllByText("2/3").length).toBeGreaterThan(0);
     expect(screen.getByText(/Smoke A site/)).toBeInTheDocument();
     expect(screen.getByText("A execute")).toBeInTheDocument();
+  });
+
+  it("shows layout-group hit shares for the active side", () => {
+    vi.mocked(useApp).mockReturnValue(
+      habitsState({
+        groupHits: {
+          roundCount: 3,
+          entries: [
+            { id: "A", label: "A", count: 2, share: 2 / 3 },
+            { id: "Mid", label: "Mid", count: 1, share: 1 / 3 },
+            { id: "B", label: "B", count: 0, share: 0 },
+          ],
+        },
+      }) as unknown as ReturnType<typeof useApp>,
+    );
+    render(<SeriesBucketPanel />);
+
+    expect(screen.getByText(/entered each layout group/)).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Layout group hits" });
+    expect(list).toHaveTextContent("Mid");
+    expect(list).toHaveTextContent(formatGroupHitPercent(2, 3));
+    expect(list).toHaveTextContent("2/3");
+    expect(list).toHaveTextContent("0%");
+    expect(list).toHaveTextContent("0/3");
+    expect(list).not.toHaveTextContent("Top Mid");
+    const mid = screen.getByText("Mid").closest("li");
+    expect(mid?.querySelector(".series-group-fill")).toHaveStyle({ width: `${(1 / 3) * 100}%` });
+  });
+
+  it("hides area hits when the map has no layout groups", () => {
+    vi.mocked(useApp).mockReturnValue(
+      habitsState({ groupHits: { roundCount: 2, entries: [] } }) as unknown as ReturnType<
+        typeof useApp
+      >,
+    );
+    render(<SeriesBucketPanel />);
+    expect(screen.queryByRole("list", { name: "Layout group hits" })).not.toBeInTheDocument();
   });
 
   it("shows an empty hint when the bucket has no rounds", () => {
