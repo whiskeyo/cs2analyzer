@@ -98,7 +98,7 @@ describe("TutorialBanner", () => {
     );
   });
 
-  it("finishes the tour from the playbook step", async () => {
+  it("exits the tour from the playbook step with one control", async () => {
     const state = bannerState(null);
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     render(
@@ -107,14 +107,16 @@ describe("TutorialBanner", () => {
         <PathProbe />
       </TestRouter>,
     );
-    expect(screen.getByText(/Sample Playbook/)).toBeInTheDocument();
+    expect(screen.getByText(/Tutorial Playbook/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Previous: Multiple demos" })).toHaveAttribute(
       "href",
       "/tutorial/aggregated",
     );
-    await userEvent.click(screen.getByRole("button", { name: "Finish" }));
-    expect(updateSettings).toHaveBeenCalledWith({ tutorialCompleted: true });
+    expect(screen.queryByRole("button", { name: "Finish" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Finish" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
+    expect(updateSettings).not.toHaveBeenCalled();
     expect(state.session.close).toHaveBeenCalledOnce();
-    expect(screen.getByTestId("path")).toHaveTextContent("/analyzer");
+    expect(screen.getByTestId("path")).toHaveTextContent("/");
   });
 });
