@@ -17,8 +17,8 @@ import {
   rememberRecentPlaybook,
 } from "@/lib/playbook/snapshotRecent";
 import { UNTITLED_PLAYBOOK, type Playbook } from "@/lib/playbook/types";
-import { TUTORIAL_PLAYBOOK_KEY } from "@/lib/tutorial/playbook/constants";
-import { getTutorialPlaybookLive, writeTutorialSnapshot } from "@/lib/tutorial/playbook/live";
+import { isTutorialPlaybookKey } from "@/lib/tutorial/playbook/constants";
+import { tutorialSnapshotDestination, writeTutorialSnapshot } from "@/lib/tutorial/playbook/live";
 import { errorMessage } from "@/lib/validate/json.ts";
 import type { SnapshotToastInfo } from "./SnapshotToast";
 
@@ -77,9 +77,11 @@ export function SnapshotDialog({
 }: Props) {
   const titleId = useId();
   const [books, setBooks] = useState<Playbook[] | null>(() =>
-    lockToTutorial ? [getTutorialPlaybookLive()] : null,
+    lockToTutorial ? [tutorialSnapshotDestination(mapName)] : null,
   );
-  const [target, setTarget] = useState(lockToTutorial ? TUTORIAL_PLAYBOOK_KEY : NEW_BOOK);
+  const [target, setTarget] = useState(
+    lockToTutorial ? tutorialSnapshotDestination(mapName).key : NEW_BOOK,
+  );
   const [newTitle, setNewTitle] = useState("");
   const [stratTitle, setStratTitle] = useState(initialTitle);
   const [layers, setLayers] = useState<SnapshotLayers>(DEFAULT_SNAPSHOT_LAYERS);
@@ -94,10 +96,10 @@ export function SnapshotDialog({
       .then((list) => {
         if (cancelled) return;
         if (lockToTutorial) {
-          const sample = getTutorialPlaybookLive();
+          const sample = tutorialSnapshotDestination(mapName);
           const rest = list.filter((book) => book.key !== sample.key);
           setBooks([sample, ...rest]);
-          setTarget(TUTORIAL_PLAYBOOK_KEY);
+          setTarget(sample.key);
           return;
         }
         setBooks(list);
@@ -203,7 +205,7 @@ export function SnapshotDialog({
               book={book}
               target={target}
               onPick={setTarget}
-              disabled={lockToTutorial && book.key !== TUTORIAL_PLAYBOOK_KEY}
+              disabled={lockToTutorial && !isTutorialPlaybookKey(book.key)}
             />
           ))}
           {rest.length > 0 && recent.length > 0 ? (
@@ -215,7 +217,7 @@ export function SnapshotDialog({
               book={book}
               target={target}
               onPick={setTarget}
-              disabled={lockToTutorial && book.key !== TUTORIAL_PLAYBOOK_KEY}
+              disabled={lockToTutorial && !isTutorialPlaybookKey(book.key)}
             />
           ))}
           <label className={lockToTutorial ? "is-disabled" : undefined}>

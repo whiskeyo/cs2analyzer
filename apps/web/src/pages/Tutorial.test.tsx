@@ -22,7 +22,7 @@ describe("Tutorial intro hub", () => {
     expect(screen.getByText(/click Next in the callout/)).toBeInTheDocument();
     expect(screen.getByText(/two-round GOTV sample/)).toBeInTheDocument();
     expect(screen.getByText(/snapshot to the Playbook/)).toBeInTheDocument();
-    expect(screen.getByText(/sample Playbook with snapshot and drawn strats/)).toBeInTheDocument();
+    expect(screen.getByText(/Snapshots land under that session's map/)).toBeInTheDocument();
     const start = screen.getByRole("link", { name: "Start tutorial" });
     expect(start).toHaveAttribute("href", tutorialHref("replay"));
     expect(start).toHaveAttribute("href", "/tutorial/single");

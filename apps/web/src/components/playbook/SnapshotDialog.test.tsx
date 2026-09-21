@@ -13,8 +13,7 @@ import { rememberRecentPlaybook } from "@/lib/playbook/snapshotRecent";
 import { SNAPSHOT_RECENT_BOOKS_KEY } from "@/lib/shared/storageKeys";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
 import { SnapshotDialog } from "./SnapshotDialog";
-import { getTutorialPlaybookLive, resetTutorialPlaybookLive } from "@/lib/tutorial/playbook/live";
-import { tutorialPlaybook } from "@/lib/tutorial/playbook/sample";
+import { getTutorialPlaybookForMap, resetTutorialPlaybookLive } from "@/lib/tutorial/playbook/live";
 
 const DEFAULT_TITLE = "NaVi - FaZe (faceit.dem) · R12 0:00";
 
@@ -260,9 +259,9 @@ describe("SnapshotDialog", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(write).not.toHaveBeenCalled();
     expect(sessionStorage.getItem(PLAYBOOK_FOCUS_KEY)).toBeNull();
-    expect(getTutorialPlaybookLive().mapName).toBe("de_anubis");
-    expect(getTutorialPlaybookLive().pages.length).toBe(tutorialPlaybook.pages.length + 1);
-    expect(getTutorialPlaybookLive().pages.some((page) => page.title === DEFAULT_TITLE)).toBe(true);
+    const saved = getTutorialPlaybookForMap("de_anubis");
+    expect(saved?.mapName).toBe("de_anubis");
+    expect(saved?.pages.some((page) => page.title === DEFAULT_TITLE)).toBe(true);
     write.mockRestore();
   });
 });

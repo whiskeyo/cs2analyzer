@@ -184,7 +184,7 @@ describe("TutorialCoach", () => {
     await clickCoachNext();
     expect(screen.getByText(/Snapshot this Aggregated overlay/)).toBeInTheDocument();
     await clickCoachNext();
-    expect(screen.getByText(/Open the sample Playbook/)).toBeInTheDocument();
+    expect(screen.getByText(/Open the Playbook/)).toBeInTheDocument();
   });
 
   it("walks Playbook sample strats, tools, Strat notes, and PDF on Next only", async () => {
@@ -204,9 +204,9 @@ describe("TutorialCoach", () => {
         <TutorialCoach />
       </TestRouter>,
     );
-    expect(screen.getByText(/Open the sample strats in the tree/)).toBeInTheDocument();
+    expect(screen.getByText(/The tree lists every map/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Habits snapshot" }));
-    expect(screen.getByText(/Open the sample strats in the tree/)).toBeInTheDocument();
+    expect(screen.getByText(/The tree lists every map/)).toBeInTheDocument();
     await clickCoachNext();
     expect(screen.getByText(/Add CT\/T pawns and grenades/)).toBeInTheDocument();
     await clickCoachNext();
@@ -218,9 +218,7 @@ describe("TutorialCoach", () => {
     await clickCoachNext();
     expect(screen.getByText(/Playbook notes export to PDF/)).toBeInTheDocument();
     await clickCoachNext();
-    expect(
-      screen.getByText(/Finish the tutorial to open the Analyzer drop zone/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Exit the tutorial/)).toBeInTheDocument();
   });
 
   it("still shows callouts after tutorialCompleted is stored", () => {

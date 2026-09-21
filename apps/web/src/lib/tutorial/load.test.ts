@@ -12,15 +12,15 @@ import { seriesMatchLoaders } from "./multi-demo/loaders";
 
 describe("tutorial load entry", () => {
   it("lazy-loads the three fixture loaders", async () => {
+    resetTutorialLoadCache();
     const replay = await loadTutorialReplay();
     const series = await loadTutorialSeries();
-    const book = await loadTutorialPlaybook();
+    const books = await loadTutorialPlaybook();
     expect(replay.header.map_name).toBe("de_mirage");
     expect(replay.rounds).toHaveLength(2);
     expect(series).not.toBeNull();
     expect(series?.demos.length).toBeGreaterThan(1);
-    expect(book.title).toBe("Tutorial");
-    expect(book.mapName).toBe("de_dust2");
+    expect(books).toEqual([]);
   });
 
   it("reuses the cached series hydrate promise", async () => {

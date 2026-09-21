@@ -61,15 +61,15 @@ export function Playbook() {
   const searchKey = searchParams.toString();
   const query = useMemo(() => parsePlaybookQuery(searchKey), [searchKey]);
   const tutorialPlaybook = isTutorialPlaybookPath(pathname);
-  const [loadedSample, setLoadedSample] = useState<PlaybookDoc | null>(null);
+  const [loadedSample, setLoadedSample] = useState<PlaybookDoc[]>([]);
   const incomingSearch = useMemo(() => canonicalPlaybookSearch(query), [query]);
   const initialMapFromUrl = useRef(query.map);
   const appliedSearchRef = useRef<string | null>(null);
   const [maps, setMaps] = useState<Record<string, MapCalibration> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapName, setMapName] = useState<string | null>(null);
-  const sandboxBook = tutorialPlaybook ? loadedSample : null;
-  const boardMap = tutorialPlaybook ? (sandboxBook?.mapName ?? null) : mapName;
+  const sandboxBooks = tutorialPlaybook ? loadedSample : [];
+  const boardMap = mapName;
   const [videoPageId, setVideoPageId] = useState<string | null>(null);
   const [openVideoIdState, setOpenVideoIdState] = useState<string | null>(null);
   const [imagePageId, setImagePageId] = useState<string | null>(null);
@@ -120,7 +120,7 @@ export function Playbook() {
     saveError,
   } = usePlaybooks(
     boardMap,
-    tutorialPlaybook ? { mode: "sandbox", book: sandboxBook } : { mode: "idb" },
+    tutorialPlaybook ? { mode: "sandbox", books: sandboxBooks } : { mode: "idb" },
   );
 
   const treeWidthRef = useRef(PLAYBOOK_TREE_DEFAULT_WIDTH);
@@ -186,7 +186,7 @@ export function Playbook() {
     if (!tutorialPlaybook) return;
     let cancelled = false;
     void loadTutorialPlaybook().then((sample) => {
-      if (!cancelled) setLoadedSample(structuredClone(sample));
+      if (!cancelled) setLoadedSample(sample.map((book) => structuredClone(book)));
     });
     return () => {
       cancelled = true;
@@ -199,7 +199,6 @@ export function Playbook() {
       .then((cals) => {
         if (cancelled) return;
         setMaps(cals);
-        if (tutorialPlaybook) return;
         setMapName((current) => {
           if (current) return current;
           const mapFromUrl = initialMapFromUrl.current;
@@ -464,14 +463,14 @@ export function Playbook() {
             </p>
           ) : null}
           <PlaybookTree
-            mapNames={tutorialPlaybook ? (boardMap ? [boardMap] : []) : names}
+            mapNames={names}
             books={treeBooks}
             mapName={boardMap}
             activeKey={activeKey}
             activePageId={book?.activePageId ?? null}
             expandedBooks={treeExpandedBooks}
             collapsedMaps={collapsedMaps}
-            onSelectMap={tutorialPlaybook ? () => undefined : setMapName}
+            onSelectMap={setMapName}
             onToggleMap={(map) => {
               setCollapsedMaps((prev) => {
                 const next = new Set(prev);

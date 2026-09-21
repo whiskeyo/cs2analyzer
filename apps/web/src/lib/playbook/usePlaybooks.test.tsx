@@ -8,7 +8,7 @@ import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
 import { addPiece, makePiece } from "./pieces";
 import { deleteAllPlaybooks, loadPlaybook } from "./playbookStore";
 import * as playbookStore from "./playbookStore";
-import { tutorialPlaybook } from "@/lib/tutorial/playbook/sample";
+import { emptyTutorialPlaybook } from "@/lib/tutorial/playbook/live";
 import { COPY_SUFFIX, UNTITLED_PLAYBOOK } from "./types";
 import { usePlaybooks } from "./usePlaybooks";
 import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
@@ -217,11 +217,11 @@ describe("usePlaybooks", () => {
 
   it("keeps a sandbox book in memory without touching IndexedDB", async () => {
     const real = await playbookStore.createPlaybook("de_mirage", "My real book");
-    const sample = structuredClone(tutorialPlaybook);
+    const sample = emptyTutorialPlaybook("de_dust2");
     const saveSpy = vi.spyOn(playbookStore, "savePlaybook");
     const loadAllSpy = vi.spyOn(playbookStore, "loadAllPlaybooks");
     const { result } = renderHook(() =>
-      usePlaybooks("de_dust2", { mode: "sandbox", book: sample }),
+      usePlaybooks("de_dust2", { mode: "sandbox", books: [sample] }),
     );
     await waitFor(() => expect(result.current.book?.title).toBe("Tutorial"));
     expect(result.current.books).toHaveLength(1);

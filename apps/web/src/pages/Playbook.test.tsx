@@ -460,20 +460,17 @@ describe("Playbook", () => {
     await waitFor(() => expect(loadCalibrations).toHaveBeenCalled());
   });
 
-  it("keeps the tutorial Playbook step on the sample book only", async () => {
+  it("lists every map on the tutorial Playbook and hides IndexedDB books", async () => {
     const real = await createPlaybook("de_mirage", "My real book");
     await createPlaybook("de_inferno", "Other map book");
     const { unmount } = renderBoard("/tutorial/playbook");
-    expect(await screen.findByRole("button", { name: "Tutorial" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Mirage" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Dust II" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Mirage" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Inferno" })).toBeInTheDocument();
+    expect(screen.getAllByText("No playbooks").length).toBeGreaterThanOrEqual(3);
+    expect(screen.queryByRole("button", { name: "Tutorial" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "My real book" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Other map book" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Inferno" })).not.toBeInTheDocument();
-    fireEvent.contextMenu(screen.getByRole("button", { name: "Tutorial" }));
-    expect(screen.queryByRole("menuitem", { name: "Duplicate playbook" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: "Delete playbook" })).not.toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Export PDF" })).toBeInTheDocument();
     expect(await loadPlaybook(real.key)).toMatchObject({
       title: "My real book",
     });
@@ -485,9 +482,12 @@ describe("Playbook", () => {
   });
 
   it("adds a tutorial strat without offering to open it elsewhere", async () => {
+    writeTutorialSnapshot({ mapName: "de_mirage", stratTitle: "Opened", pieces: [] });
     renderBoard("/tutorial/playbook");
     expect(await screen.findByRole("button", { name: "Tutorial" })).toBeInTheDocument();
     fireEvent.contextMenu(screen.getByRole("button", { name: "Tutorial" }));
+    expect(screen.queryByRole("menuitem", { name: "Duplicate playbook" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Delete playbook" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("menuitem", { name: "New strat" }));
     expect(screen.getAllByRole("button", { name: "Untitled strat" }).length).toBeGreaterThanOrEqual(
       1,
@@ -496,21 +496,29 @@ describe("Playbook", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("places a live tutorial snapshot under Dust II, not Mirage", async () => {
+  it("places Single and Aggregated snapshots under their own maps", async () => {
+    writeTutorialSnapshot({
+      mapName: "de_mirage",
+      stratTitle: "Mirage single",
+      pieces: [],
+    });
     writeTutorialSnapshot({
       mapName: "de_dust2",
-      stratTitle: "Team Spirit series (4 demos) · CT full · 0:00",
+      stratTitle: "Dust2 habits",
       pieces: [],
     });
     renderBoard("/tutorial/playbook");
-    expect(await screen.findByRole("button", { name: "Dust II" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Team Spirit series (4 demos) · CT full · 0:00" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Mirage" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Mirage" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mirage single" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dust II" }));
+    expect(screen.getByRole("button", { name: "Dust2 habits" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mirage single" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Inferno" }));
+    expect(screen.getAllByText("No playbooks").length).toBeGreaterThanOrEqual(1);
   });
 
   it("exports a PDF from the tutorial sandbox book", async () => {
+    writeTutorialSnapshot({ mapName: "de_mirage", stratTitle: "Export me", pieces: [] });
     renderBoard("/tutorial/playbook");
     expect(await screen.findByRole("button", { name: "Tutorial" })).toBeInTheDocument();
     fireEvent.contextMenu(screen.getByRole("button", { name: "Tutorial" }));
@@ -520,7 +528,7 @@ describe("Playbook", () => {
     await waitFor(() => expect(downloadPlaybookPdf).toHaveBeenCalledTimes(1));
     expect(downloadPlaybookPdf.mock.calls[0]?.[0]).toMatchObject({
       title: "Tutorial",
-      mapName: "de_dust2",
+      mapName: "de_mirage",
     });
     expect(downloadPlaybookPdf.mock.calls[0]?.[1]).toBe(UNIT_CALIBRATION);
     expect(downloadPlaybookPdf.mock.calls[0]?.[5]).toBe(false);

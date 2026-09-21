@@ -14,7 +14,7 @@ import type { RoundKind } from "@/lib/parse/roundTags";
 import type { Side } from "@/lib/replay/replayTypes";
 import { makeReplay, makeRound } from "@/lib/testing/fixtures";
 import { TestRouter } from "@/lib/testing/router";
-import { getTutorialPlaybookLive, resetTutorialPlaybookLive } from "@/lib/tutorial/playbook/live";
+import { getTutorialPlaybookForMap, resetTutorialPlaybookLive } from "@/lib/tutorial/playbook/live";
 import { RadarStage } from "./RadarStage";
 
 function renderStage(ui = <RadarStage />, path = "/") {
@@ -297,7 +297,7 @@ describe("RadarStage", () => {
       );
       expect(screen.queryByRole("button", { name: "Open strat" })).not.toBeInTheDocument();
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
-      expect(getTutorialPlaybookLive().mapName).toBe("de_anubis");
+      expect(getTutorialPlaybookForMap("de_anubis")?.mapName).toBe("de_anubis");
     },
   );
 
@@ -328,7 +328,8 @@ describe("RadarStage", () => {
         screen.queryByRole("dialog", { name: "Snapshot to playbook" }),
       ).not.toBeInTheDocument(),
     );
-    expect(getTutorialPlaybookLive().mapName).toBe("de_dust2");
+    expect(getTutorialPlaybookForMap("de_dust2")?.mapName).toBe("de_dust2");
+    expect(getTutorialPlaybookForMap("de_anubis")).toBeNull();
     expect(screen.queryByRole("button", { name: "Open strat" })).not.toBeInTheDocument();
   });
 

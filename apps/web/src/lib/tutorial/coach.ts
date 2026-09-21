@@ -130,14 +130,13 @@ export const TUTORIAL_COACH_STEPS: TutorialCoachStep[] = [
     route: "aggregated",
     target: "next-playbook",
     doneWhen: "next-playbook",
-    body: "Open the sample Playbook to see how strats sit next to the Analyzer.",
+    body: "Open the Playbook. Snapshots from Single and Aggregated land under that session's map. Other maps stay empty until something is added.",
   },
   {
     id: "strat",
     route: "playbook",
     target: "strat",
-    doneWhen: "open-strat",
-    body: "Open the sample strats in the tree. One is an Aggregated habits snapshot; the other is fully drawn by hand. Try both styles.",
+    body: "The tree lists every map. Snapshots you took show up under that map. Maps with nothing yet stay empty.",
   },
   {
     id: "playbook-tools",
@@ -162,7 +161,7 @@ export const TUTORIAL_COACH_STEPS: TutorialCoachStep[] = [
     route: "playbook",
     target: "finish",
     doneWhen: "finish",
-    body: "Finish the tutorial to open the Analyzer drop zone and parse your own GOTV demo.",
+    body: "Exit the tutorial. You can open the Analyzer and drop your own GOTV demo after that.",
   },
 ];
 

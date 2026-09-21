@@ -19,7 +19,7 @@ export function Tutorial() {
           <li>Play and scrub a two-round GOTV sample, then draw on the radar.</li>
           <li>Review, grenade jump, snapshot to the Playbook, and PDF export.</li>
           <li>
-            Habits across several demos, then a sample Playbook with snapshot and drawn strats.
+            Habits across several demos, then the Playbook. Snapshots land under that session's map.
           </li>
         </ul>
         <Link
