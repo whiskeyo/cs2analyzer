@@ -6,9 +6,13 @@ import { act, renderHook } from "@testing-library/react";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { focalRosterForSeries, playerIdentityKey } from "@/lib/parse/seriesRoster";
 import { makeFreezeTicks, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
+import { hydrateTutorialSeries } from "@/lib/tutorial/multi-demo/hydrate";
 import { tutorialSeriesManifest } from "@/lib/tutorial/multi-demo/manifest";
 import { tutorialSeriesDemoId } from "@/lib/tutorial/multi-demo/types";
 import { useSeriesHabits } from "./useSeriesHabits";
+
+/** Both-side series shards are large; CI import+hydrate exceeds vitest's 5s default. */
+const TUTORIAL_SERIES_FIXTURE_TEST_TIMEOUT_MS = 30_000;
 
 const FOCAL = "Team A";
 
@@ -307,57 +311,60 @@ describe("useSeriesHabits", () => {
     expect(result.current.overlay).not.toBeNull();
   });
 
-  it("tutorial Aggregated side switch keeps overlay trails and a CT player filter", async () => {
-    const { hydrateTutorialSeries } = await import("@/lib/tutorial/multi-demo/hydrate");
-    const series = await hydrateTutorialSeries();
-    expect(series).not.toBeNull();
-    if (!series) return;
+  it(
+    "tutorial Aggregated side switch keeps overlay trails and a CT player filter",
+    async () => {
+      const series = await hydrateTutorialSeries();
+      expect(series).not.toBeNull();
+      if (!series) return;
 
-    const { result } = renderHook(() =>
-      useSeriesHabits({
-        series,
-        places: null,
-        activeDemoId: series.demos[0]?.id ?? null,
-        selectDemo: vi.fn(),
-        jump: vi.fn(),
-      }),
-    );
+      const { result } = renderHook(() =>
+        useSeriesHabits({
+          series,
+          places: null,
+          activeDemoId: series.demos[0]?.id ?? null,
+          selectDemo: vi.fn(),
+          jump: vi.fn(),
+        }),
+      );
 
-    act(() => {
-      result.current.setSeriesView("aggregated");
-      result.current.ensureBucketOverlay("full", "CT");
-    });
-    const spirit = focalRosterForSeries(series);
-    const spiritKeys = new Set(spirit.map((p) => p.key));
-    const spiritNames = new Set(spirit.map((p) => p.name));
-    expect(spiritKeys.size).toBeGreaterThan(0);
-    expect(result.current.focalPlayers.every((p) => spiritKeys.has(p.key))).toBe(true);
-    expect(result.current.focalPlayers.length).toBeGreaterThan(0);
-    expect(result.current.overlay?.trails.every((trail) => spiritNames.has(trail.playerName))).toBe(
-      true,
-    );
+      act(() => {
+        result.current.setSeriesView("aggregated");
+        result.current.ensureBucketOverlay("full", "CT");
+      });
+      const spirit = focalRosterForSeries(series);
+      const spiritKeys = new Set(spirit.map((p) => p.key));
+      const spiritNames = new Set(spirit.map((p) => p.name));
+      expect(spiritKeys.size).toBeGreaterThan(0);
+      expect(result.current.focalPlayers.every((p) => spiritKeys.has(p.key))).toBe(true);
+      expect(result.current.focalPlayers.length).toBeGreaterThan(0);
+      expect(
+        result.current.overlay?.trails.every((trail) => spiritNames.has(trail.playerName)),
+      ).toBe(true);
 
-    act(() => result.current.setSide("T"));
-    expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
-    expect(result.current.filter.playerKey).toBeNull();
-    expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
-    expect(result.current.overlay?.trails.every((trail) => spiritNames.has(trail.playerName))).toBe(
-      true,
-    );
-    expect(result.current.focalPlayers.every((p) => spiritKeys.has(p.key))).toBe(true);
-    const tPlayer = result.current.focalPlayers[0];
-    expect(tPlayer).toBeTruthy();
-    act(() => result.current.setPlayerKey(tPlayer!.key));
-    expect(result.current.playerKey).toBe(tPlayer!.key);
-    expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
-    expect(
-      result.current.overlay?.trails.every((trail) => trail.playerName === tPlayer!.name),
-    ).toBe(true);
+      act(() => result.current.setSide("T"));
+      expect(result.current.bucketOverlay).toEqual({ kind: "full", side: "T" });
+      expect(result.current.filter.playerKey).toBeNull();
+      expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
+      expect(
+        result.current.overlay?.trails.every((trail) => spiritNames.has(trail.playerName)),
+      ).toBe(true);
+      expect(result.current.focalPlayers.every((p) => spiritKeys.has(p.key))).toBe(true);
+      const tPlayer = result.current.focalPlayers[0];
+      expect(tPlayer).toBeTruthy();
+      act(() => result.current.setPlayerKey(tPlayer!.key));
+      expect(result.current.playerKey).toBe(tPlayer!.key);
+      expect(result.current.overlay?.trails.length).toBeGreaterThan(0);
+      expect(
+        result.current.overlay?.trails.every((trail) => trail.playerName === tPlayer!.name),
+      ).toBe(true);
 
-    act(() => result.current.setSide("CT"));
-    expect(result.current.overlay?.trails.every((trail) => spiritNames.has(trail.playerName))).toBe(
-      true,
-    );
-    expect(result.current.focalPlayers.every((p) => spiritKeys.has(p.key))).toBe(true);
-  });
+      act(() => result.current.setSide("CT"));
+      expect(
+        result.current.overlay?.trails.every((trail) => spiritNames.has(trail.playerName)),
+      ).toBe(true);
+      expect(result.current.focalPlayers.every((p) => spiritKeys.has(p.key))).toBe(true);
+    },
+    TUTORIAL_SERIES_FIXTURE_TEST_TIMEOUT_MS,
+  );
 });
