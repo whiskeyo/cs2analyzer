@@ -1744,6 +1744,12 @@ a.ghost {
   max-height: 12rem;
   overflow: auto;
 }
+.snapshot-tutorial-hint {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
 .snapshot-recent-hint {
   margin: 0.35rem 0 0;
   font-size: 0.72rem;

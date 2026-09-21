@@ -173,7 +173,7 @@ export function SnapshotDialog({
           is on.
         </p>
         {lockToTutorial ? (
-          <p className="snapshot-recent-hint">
+          <p className="snapshot-tutorial-hint">
             During the tutorial, only the sample Playbook can receive a snapshot. Other destinations
             stay listed but inactive.
           </p>
