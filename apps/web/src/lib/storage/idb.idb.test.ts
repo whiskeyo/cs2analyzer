@@ -5,7 +5,9 @@ import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
 import {
   DB_NAME,
+  DEMO_TAG_STORE,
   HANDLE_STORE,
+  PLAYBOOK_IMAGE_STORE,
   PLAYBOOK_STORE,
   PROJECT_STORE,
   SETTINGS_STORE,
@@ -71,12 +73,31 @@ describe("openCs2Db", () => {
     }
   });
 
+  it("adds demo tags when upgrading a v6 database", async () => {
+    await deleteCs2Db();
+    await openAtVersion(6, (db) => {
+      db.createObjectStore(PROJECT_STORE, { keyPath: "key" });
+      db.createObjectStore(HANDLE_STORE, { keyPath: "key" });
+      db.createObjectStore(PLAYBOOK_STORE, { keyPath: "key" });
+      db.createObjectStore(PLAYBOOK_IMAGE_STORE, { keyPath: "id" });
+      db.createObjectStore(SETTINGS_STORE, { keyPath: "id" });
+    });
+    const db = await openCs2Db();
+    try {
+      expect(hasStore(db, DEMO_TAG_STORE)).toBe(true);
+      expect(hasStore(db, PROJECT_STORE)).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
   it("is available and creates every store", async () => {
     expect(idbAvailable()).toBe(true);
     const db = await openCs2Db();
     try {
       expect(hasStore(db, PROJECT_STORE)).toBe(true);
       expect(hasStore(db, HANDLE_STORE)).toBe(true);
+      expect(hasStore(db, DEMO_TAG_STORE)).toBe(true);
       expect(hasStore(db, PLAYBOOK_STORE)).toBe(true);
       expect(hasStore(db, SETTINGS_STORE)).toBe(true);
       expect(hasStore(db, "nope")).toBe(false);

@@ -1,5 +1,6 @@
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
+import { loadAllDemoTags } from "@/lib/demo/tagStore";
 import { deleteProject } from "@/lib/notes/projectStore";
 import { ROUTES } from "@/lib/app/routes";
 import { useApp } from "@/lib/state/appState";
@@ -25,6 +26,22 @@ export function DemoDrop({
   const { session, status, review, onFiles } = useApp();
   const { settings } = useUserSettings();
   const navigate = useNavigate();
+  const [tagsByKey, setTagsByKey] = useState<ReadonlyMap<string, readonly string[]>>(
+    () => new Map(),
+  );
+  useEffect(() => {
+    if (!showSavedNotes) return;
+    let cancelled = false;
+    void loadAllDemoTags()
+      .then((map) => {
+        if (cancelled) return;
+        setTagsByKey((prev) => (prev.size === 0 && map.size === 0 ? prev : map));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [showSavedNotes, review.saved]);
   return (
     <DropZone
       onFiles={(files) => {
@@ -40,6 +57,7 @@ export function DemoDrop({
       error={status.error}
       notice={status.notice}
       saved={review.saved}
+      tagsByKey={tagsByKey}
       showSavedNotes={showSavedNotes}
       pageSize={settings.savedNotesPageSize}
       beside={beside}
