@@ -18,6 +18,7 @@
  * that session map; they do not retag onto another map.
  */
 
-import type { Playbook } from "@/lib/playbook/types";
+import sample from "./sample.json";
+import { parsePlaybookBundle } from "@/lib/playbook/transfer";
 
-export const tutorialPlaybooks: Playbook[] = [];
+export const tutorialPlaybooks = parsePlaybookBundle(sample)?.playbooks ?? [];
