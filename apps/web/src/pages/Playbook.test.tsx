@@ -19,6 +19,7 @@ import {
   savePlaybook,
 } from "@/lib/playbook/playbookStore";
 import { TestRouter } from "@/lib/testing/router";
+import { resetTutorialPlaybookLive, writeTutorialSnapshot } from "@/lib/tutorial/playbook/live";
 import { Playbook } from "./Playbook";
 
 function renderBoard(path = "/playbook") {
@@ -76,6 +77,7 @@ async function stratMenu(title: string, item: string) {
 describe("Playbook", () => {
   beforeEach(async () => {
     await deleteAllPlaybooks();
+    resetTutorialPlaybookLive();
     sessionStorage.removeItem(PLAYBOOK_FOCUS_KEY);
     vi.mocked(loadCalibrations).mockReset();
     vi.mocked(loadCalibrations).mockResolvedValue({
@@ -89,6 +91,7 @@ describe("Playbook", () => {
 
   afterEach(async () => {
     await deleteAllPlaybooks();
+    resetTutorialPlaybookLive();
     sessionStorage.removeItem(PLAYBOOK_FOCUS_KEY);
   });
 
@@ -491,6 +494,20 @@ describe("Playbook", () => {
     );
     expect(screen.queryByRole("button", { name: "Open strat" })).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("places a live tutorial snapshot under Dust II, not Mirage", async () => {
+    writeTutorialSnapshot({
+      mapName: "de_dust2",
+      stratTitle: "Team Spirit series (4 demos) · CT full · 0:00",
+      pieces: [],
+    });
+    renderBoard("/tutorial/playbook");
+    expect(await screen.findByRole("button", { name: "Dust II" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Team Spirit series (4 demos) · CT full · 0:00" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mirage" })).not.toBeInTheDocument();
   });
 
   it("exports a PDF from the tutorial sandbox book", async () => {
