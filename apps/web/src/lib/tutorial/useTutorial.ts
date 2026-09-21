@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLocation } from "react-router";
 import { isHomePath } from "@/lib/app/routes";
 import { isMultiDemoSeries } from "@/lib/parse/seriesMode";
+import { purgeTutorialProjects } from "@/lib/notes/projectStore";
+import { clearSeriesReviewCache } from "@/lib/notes/seriesReviewCache";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { useOptionalAnalyzer } from "@/lib/state/analyzerState";
 import { useSession } from "@/lib/state/sessionState";
@@ -93,9 +95,15 @@ export function useTutorial(): void {
 
   useLayoutEffect(() => {
     if (step == null) {
+      const live = sessionRef.current;
+      const wasTutorial = lastInstalledStep != null || isTutorialDemoId(live.demo?.id);
       lastInstalledStep = null;
       installedStepRef.current = null;
-      closeIfTutorialSession(sessionRef.current);
+      closeIfTutorialSession(live);
+      if (wasTutorial) {
+        clearSeriesReviewCache();
+        void purgeTutorialProjects();
+      }
       return;
     }
     closeIfForeignSession(sessionRef.current);

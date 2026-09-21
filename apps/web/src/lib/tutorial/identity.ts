@@ -25,3 +25,25 @@ export function isTutorialDemoId(id: string | null | undefined): boolean {
   if (!id) return false;
   return id.startsWith(TUTORIAL_SERIES_PREFIX) || id.startsWith(TUTORIAL_DEMO_PREFIX);
 }
+
+/** Fixture filenames that must never appear in Saved Notes. */
+export function isTutorialNotesFile(fileName: string | null | undefined): boolean {
+  if (!fileName) return false;
+  const name = fileName.trim();
+  if (name === TUTORIAL_FILENAME) return true;
+  return /^tutorial-series-.+\.dem$/i.test(name);
+}
+
+export function isTutorialProject(project: { fileName?: string; key?: string }): boolean {
+  if (isTutorialNotesFile(project.fileName)) return true;
+  if (!project.key) return false;
+  const fileName = project.key.split("|").at(-1);
+  return isTutorialNotesFile(fileName);
+}
+
+export function isTutorialLoadedDemo(
+  demo: { id?: string; fileName?: string } | null | undefined,
+): boolean {
+  if (!demo) return false;
+  return isTutorialDemoId(demo.id) || isTutorialNotesFile(demo.fileName);
+}

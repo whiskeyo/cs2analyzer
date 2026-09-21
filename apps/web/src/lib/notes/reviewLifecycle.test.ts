@@ -105,7 +105,13 @@ describe("reviewLifecycle", () => {
   it("only debounces persist after restore has settled", () => {
     expect(shouldDebouncePersist({ hasDemo: true, restored: false })).toBe(false);
     expect(shouldDebouncePersist({ hasDemo: true, restored: true })).toBe(true);
-    expect(shouldDebouncePersist({ hasDemo: false, restored: true })).toBe(false);
+    expect(
+      shouldDebouncePersist({
+        hasDemo: true,
+        restored: true,
+        persistable: false,
+      }),
+    ).toBe(false);
   });
 
   it("does not persist notes that still belong to another demo", () => {

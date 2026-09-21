@@ -1,3 +1,4 @@
+import { isTutorialLoadedDemo } from "@/lib/tutorial/identity";
 import { matchEndTick, matchScorecard, savedPlayerSnapshots } from "@/lib/stats/stats";
 import type { LoadedDemo } from "@/lib/parse/session";
 import type { GrenadeKind } from "@/lib/replay/replayTypes";
@@ -176,6 +177,9 @@ export async function seedDemoStats(
 /** In-memory series review entries → IndexedDB, then clear the cache. */
 export async function flushSeriesReviewCache(): Promise<void> {
   for (const entry of seriesReviewEntries()) {
+    if (isTutorialLoadedDemo(entry.demo)) {
+      continue;
+    }
     const endTick = matchEndTick(entry.demo.replay);
     const key = matchKey(entry.demo.replay, entry.demo.fileName);
     const existing = await loadProject(key);

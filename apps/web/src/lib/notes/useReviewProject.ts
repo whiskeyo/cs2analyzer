@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PROJECT_SAVE_DEBOUNCE_MS } from "@/lib/shared/constants";
-import { isTutorialDemoId } from "@/lib/tutorial/identity";
+import { isTutorialDemoId, isTutorialLoadedDemo } from "@/lib/tutorial/identity";
 import type { LoadedDemo, DemoSeries } from "@/lib/parse/session";
 import type { Playback } from "@/lib/playback/usePlayback";
 import type { Status } from "@/lib/state/status";
@@ -186,7 +186,7 @@ export function useReviewProject(opts: {
 
   const persist = useCallback(
     async (target: LoadedDemo | null, opts?: { stats?: boolean; refreshList?: boolean }) => {
-      if (!target) {
+      if (!target || isTutorialLoadedDemo(target)) {
         return;
       }
       if (!notesBelongToDemo(notesDemoIdRef.current, target.id)) {
@@ -244,6 +244,9 @@ export function useReviewProject(opts: {
       for (const d of parsedDemos) {
         if (cancelled) {
           return;
+        }
+        if (isTutorialLoadedDemo(d)) {
+          continue;
         }
         await saveProject(await seedDemoStats(d, overlayDefaultsRef.current));
       }
@@ -357,6 +360,14 @@ export function useReviewProject(opts: {
         );
       }
     };
+
+    if (isTutorialLoadedDemo(demo)) {
+      settle(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     void loadProject(matchKey(demo.replay, demo.fileName))
       .then(settle)
       .catch(() => settle(null));
@@ -384,6 +395,7 @@ export function useReviewProject(opts: {
         restored: restoredRef.current,
         notesDemoId: notesDemoIdRef.current,
         boardDemoId: demo?.id ?? null,
+        persistable: !isTutorialLoadedDemo(demo),
       })
     ) {
       return;
