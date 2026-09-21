@@ -59,6 +59,12 @@ export const REGULATION_ROUNDS = 24;
 /** Competitive 5v5 roster size per side. */
 export const COMPETITIVE_PLAYERS_PER_SIDE = 5;
 
+/**
+ * Clutch board lists 1v2 and harder (successful and failed).
+ * 1v1 stays on the scoreboard and the live HUD.
+ */
+export const CLUTCH_BOARD_MIN_ENEMIES = 2;
+
 /** First 1-based round number of overtime. */
 export const FIRST_OVERTIME_ROUND = 25;
 

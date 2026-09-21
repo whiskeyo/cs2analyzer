@@ -1,5 +1,5 @@
 import { useLocation } from "react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { SnapshotDialog } from "@/components/playbook/SnapshotDialog";
 import { SnapshotToast, type SnapshotToastInfo } from "@/components/playbook/SnapshotToast";
 import {
@@ -10,6 +10,7 @@ import {
   noteForAnalyzerBoard,
   updateRoundNote,
 } from "@/lib/notes";
+import { clutchBoard } from "@/lib/match/clutches";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { isAggregatedView } from "@/lib/parse/seriesMode";
 import { snapshotFromAnalyzer } from "@/lib/playbook/snapshot";
@@ -40,6 +41,12 @@ export function RadarStage() {
   const [snapshot, setSnapshot] = useState<ReturnType<typeof snapshotFromAnalyzer> | null>(null);
   const [toast, setToast] = useState<SnapshotToastInfo | null>(null);
   const replay = session.replay;
+  const showClutchBoard = view?.clutchBoard === true;
+  const clutchMarks = useMemo(() => {
+    if (!showClutchBoard || !replay || habits == null) return [];
+    if (isAggregatedView(session.series, habits)) return [];
+    return clutchBoard(replay);
+  }, [showClutchBoard, replay, session.series, habits]);
   if (!replay) return null;
   const { tick } = playback;
   const habitsOnly = habits.overlay != null;
@@ -199,6 +206,11 @@ export function RadarStage() {
           habitsOnly={habitsOnly}
           onHabitsJump={habits.playRound}
           radarGray={settings.radarGray}
+          clutchMarks={habitsOnly ? [] : clutchMarks}
+          onClutchJump={(row) => {
+            view.select(row.player);
+            playback.jump(row.tick);
+          }}
         />
         <PawnLegend entries={pawnLegend} />
         {!habitsOnly && <Hud replay={replay} tick={tick} />}

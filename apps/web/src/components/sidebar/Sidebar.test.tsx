@@ -56,20 +56,22 @@ function sidebarAppState({
   replay = sidebarReplay(),
   selected = null,
   onSelect = vi.fn(),
+  jump = vi.fn(),
   session = {},
   habits = {},
 }: {
   replay?: ReturnType<typeof sidebarReplay>;
   selected?: number | null;
   onSelect?: (index: number | null) => void;
+  jump?: (tick: number) => void;
   session?: Record<string, unknown>;
   habits?: Record<string, unknown>;
 } = {}) {
   return {
     session: { series: null, replay, fileName: "match.dem", ...session },
-    playback: { tick: 640, jump: vi.fn(), activeRound: null },
+    playback: { tick: 640, jump, activeRound: null },
     review: { notes: [], commitNotes: vi.fn(), floorMode: "auto" },
-    view: { selected, select: onSelect, setFollow: vi.fn() },
+    view: { selected, select: onSelect, setFollow: vi.fn(), setClutchBoard: vi.fn() },
     places: null,
     habits: {
       aggregated: false,
@@ -133,9 +135,20 @@ describe("Sidebar", () => {
     expect(screen.getByText("Select a player or view match totals")).toBeInTheDocument();
   });
 
-  it("opens rounds and review tabs and has no clutch tab", async () => {
+  it("opens rounds, review, and the clutch board", async () => {
+    const jump = vi.fn();
+    const onSelect = vi.fn();
+    mockSidebar({ jump, onSelect });
     render(<Sidebar />);
-    expect(screen.queryByRole("button", { name: "Clutch" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Clutch" }));
+    expect(screen.getByRole("button", { name: "Clutch" })).toHaveClass("on");
+    const row = screen.getByRole("button", { name: /Dan · 1v2/ });
+    expect(row).toHaveTextContent("Lost");
+    expect(row).toHaveTextContent("tick 200");
+    await userEvent.click(row);
+    expect(onSelect).toHaveBeenCalledWith(3);
+    expect(jump).toHaveBeenCalledWith(200);
 
     await userEvent.click(screen.getByRole("button", { name: "Rounds" }));
     expect(screen.getByRole("button", { name: "Rounds" })).toHaveClass("on");

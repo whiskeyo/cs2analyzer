@@ -2,8 +2,10 @@ import { useEffect, useRef, type MutableRefObject, type RefObject } from "react"
 import { canvasInputsChanged, useCanvasLoop } from "@/lib/shared/useCanvasLoop";
 import { applyRadarFollowCam, radarPaintInputs } from "@/lib/radar/radarPaintDirty";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import type { ClutchBoardRow } from "@/lib/match/clutches";
 import { worldToScreen } from "@/lib/radar/maps";
 import { buildRadarFrame } from "@/lib/radar/radarFrame";
+import { paintClutchMarks } from "@/lib/radar/paintClutchMarks";
 import {
   paintPawns,
   paintRadarFrame,
@@ -19,6 +21,7 @@ import {
 } from "@/lib/parse/seriesOverlay";
 import {
   canvasLocalPoint,
+  clutchMarkAtScreen,
   habitsJumpAtScreen,
   nearestPlayerIndexAtScreen,
 } from "@/lib/radar/radarHits";
@@ -71,6 +74,9 @@ interface Props {
   habitsOnly?: boolean;
   onHabitsJump?: (target: { demoId: string; jumpTick: number }) => void;
   radarGray?: number;
+  /** Clutch-start markers. Empty unless the clutch board is open. */
+  clutchMarks?: readonly ClutchBoardRow[];
+  onClutchJump?: (row: ClutchBoardRow) => void;
 }
 
 export function RadarCanvas(props: Props) {
@@ -229,6 +235,10 @@ export function RadarCanvas(props: Props) {
 
       paintViewCone(ctx, frame, toScreen);
       paintPawns(ctx, frame, toScreen, p.layers.names, c4Icon.current, v.scale);
+      const clutchMarks = p.clutchMarks ?? [];
+      if (!p.habitsOnly && clutchMarks.length > 0) {
+        paintClutchMarks(ctx, clutchMarks, toScreen, tickNow, p.selected);
+      }
       ctx.restore();
     },
     [replay],
@@ -275,6 +285,7 @@ export function RadarCanvas(props: Props) {
           editX: ed?.x ?? null,
           editY: ed?.y ?? null,
           radarGray: p.radarGray ?? DEFAULT_RADAR_GRAY,
+          clutchMarks: p.clutchMarks ?? null,
         }),
       );
     },
@@ -326,10 +337,15 @@ export function RadarCanvas(props: Props) {
       return;
     }
     const { x: mx, y: my } = canvasLocalPoint(canvas, e.clientX, e.clientY);
-    const players = samplePlayers(p.replay, p.tickRef?.current ?? p.tick);
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
     const toScreen = (wx: number, wy: number) => worldToScreen(calNow, w, h, view.current, wx, wy);
+    const clutchHit = clutchMarkAtScreen(p.clutchMarks ?? [], mx, my, toScreen);
+    if (clutchHit && p.onClutchJump) {
+      p.onClutchJump(clutchHit);
+      return;
+    }
+    const players = samplePlayers(p.replay, p.tickRef?.current ?? p.tick);
     p.onSelect(nearestPlayerIndexAtScreen(players, mx, my, toScreen));
   };
 

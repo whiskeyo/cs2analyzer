@@ -2754,7 +2754,7 @@ body.sidebar-resizing {
 }
 .tabs {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: 0.25rem;
   box-sizing: border-box;
@@ -2770,8 +2770,8 @@ body.sidebar-resizing {
   padding: 0 0.7rem 1rem;
 }
 .tabs button {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 calc(25% - 0.25rem);
+  min-width: calc(25% - 0.25rem);
   min-height: 1.85rem;
   background: var(--bg-panel);
   color: #c5d0da;
