@@ -39,7 +39,7 @@ describe("RoundStrip duplicate rounds", () => {
     render(<RoundStrip replay={replay} tick={100} notes={[]} places={null} />);
     const chips = await screen.findAllByRole("listitem");
     expect(chips).toHaveLength(2);
-    expect(chips[0]).toHaveAccessibleName("Round 8 · T full · CT full");
-    expect(chips[1]).toHaveAccessibleName("Round 8 · T eco · CT eco");
+    expect(chips[0]).toHaveAccessibleName("Round 8 · T Full · CT Full");
+    expect(chips[1]).toHaveAccessibleName("Round 8 · T Eco · CT Eco");
   });
 });

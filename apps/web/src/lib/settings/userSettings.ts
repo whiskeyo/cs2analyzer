@@ -38,7 +38,6 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
-import { DEFAULT_LOCALE, parseLocale, type Locale } from "@/lib/i18n/locales";
 import { clampPathBranchOptions } from "@/lib/parse/pathBranches";
 import { isFiniteNumber, isRecord, isString } from "@/lib/validate/guards.ts";
 
@@ -104,8 +103,6 @@ export interface UserSettings {
   radarGray: number;
   /** Square radar clip edge in pixels. */
   clipExportSize: ClipExportSize;
-  /** UI language. Unknown stored values fall back to English. */
-  locale: Locale;
   /**
    * Home skip / tour finish / don't-show-again. Missing key ≡ not completed,
    * so first-visit Home can idle-prefetch the Replay fixture.
@@ -179,7 +176,6 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     pdfPhotos: DEFAULT_PDF_PHOTOS,
     radarGray: DEFAULT_RADAR_GRAY,
     clipExportSize: CLIP_EXPORT_SIZE_DEFAULT,
-    locale: DEFAULT_LOCALE,
     tutorialCompleted: false,
   };
 }
@@ -371,7 +367,6 @@ export function parseUserSettings(raw: unknown): UserSettings {
       defaults.radarGray,
     ),
     clipExportSize: parseClipExportSize(raw.clipExportSize),
-    locale: parseLocale(raw.locale),
     tutorialCompleted: parseBoolean(raw.tutorialCompleted, defaults.tutorialCompleted),
   };
 }

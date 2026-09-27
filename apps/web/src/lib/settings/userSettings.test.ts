@@ -72,7 +72,6 @@ describe("defaultUserSettings", () => {
       pdfPhotos: "with",
       radarGray: DEFAULT_RADAR_GRAY,
       clipExportSize: CLIP_EXPORT_SIZE_DEFAULT,
-      locale: "en",
       tutorialCompleted: false,
     });
     expect(settings.defaultPaletteId).toBe(COLOR_PRESETS[0].id);
@@ -274,12 +273,6 @@ describe("parseUserSettings", () => {
       CLIP_EXPORT_SIZE_DEFAULT,
     );
     expect("clipExportFps" in parseUserSettings({ clipExportFps: 60 })).toBe(false);
-  });
-
-  it("keeps en and pl and rejects any other locale", () => {
-    expect(parseUserSettings({}).locale).toBe("en");
-    expect(parseUserSettings({ locale: "pl" }).locale).toBe("pl");
-    expect(parseUserSettings({ locale: "de" }).locale).toBe("en");
   });
 
   it("treats a missing tutorialCompleted key as not completed", () => {
