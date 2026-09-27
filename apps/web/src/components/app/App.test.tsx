@@ -231,6 +231,7 @@ describe("App", () => {
     const { container } = await loadDemo();
 
     expect(screen.getByText(/match\.dem/)).toBeInTheDocument();
+    expect(screen.queryByText(/Parsed in/)).not.toBeInTheDocument();
     expect(window.location.pathname).toBe("/analyzer");
     expect(hudMeta(container)).toBe("Anubis · R1");
     expect(screen.getByText("Astralis")).toBeInTheDocument();
