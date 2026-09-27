@@ -6,7 +6,13 @@ import {
 } from "@/lib/shared/constants";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type Side } from "@/lib/replay/replayTypes";
 import { makePlayer, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
-import { formatBuyRecord, formatBuyWinRate, matchEconomy, spendBuy } from "./economy";
+import {
+  formatBuyRecord,
+  formatBuyWinRate,
+  matchEconomy,
+  roundTeamName,
+  spendBuy,
+} from "./economy";
 
 describe("spendBuy", () => {
   it("uses the shared eco and force equipment cutoffs", () => {
@@ -197,6 +203,31 @@ describe("matchEconomy", () => {
     expect(swapped?.side).toBe("T");
     expect(swapped?.won).toBe(true);
     expect(swapped?.buy).toBe("pistol");
+  });
+
+  it("names each side from that round, including after the half swap", () => {
+    const replay = economyReplay([
+      {
+        number: 1,
+        winner: "CT",
+        ctEquip: 800,
+        tEquip: 800,
+        team_ct: "Astralis",
+        team_t: "Vitality",
+      },
+      {
+        number: 13,
+        winner: "T",
+        ctEquip: 800,
+        tEquip: 800,
+        team_ct: "Vitality",
+        team_t: "Astralis",
+      },
+    ]);
+    expect(roundTeamName(replay, replay.rounds[0]!, "CT")).toBe("Astralis");
+    expect(roundTeamName(replay, replay.rounds[0]!, "T")).toBe("Vitality");
+    expect(roundTeamName(replay, replay.rounds[1]!, "CT")).toBe("Vitality");
+    expect(roundTeamName(replay, replay.rounds[1]!, "T")).toBe("Astralis");
   });
 
   it("leaves the buy empty when a side is missing at freeze", () => {

@@ -4,8 +4,10 @@ import {
   ECONOMY_BUY_LABEL,
   SIDE_DISPLAY_ORDER,
   roundSideBuys,
+  roundTeamName,
   type EconomyBuy,
 } from "@/lib/match/economy";
+import type { Side } from "@/lib/replay/replayTypes";
 import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execute";
 import type { MapPlaces } from "@/lib/match/sites";
 import { noteRounds } from "@/lib/notes";
@@ -73,7 +75,7 @@ export const RoundStrip = memo(function RoundStrip({
         const liveAction = live != null && live.round === r.number;
         const enabled = roundEnabled?.(r) ?? true;
         const sides = buys[index] ?? null;
-        const title = roundChipTitle(r, sides, hasAction, hasNotes);
+        const title = roundChipTitle(replay, r, sides, hasAction, hasNotes);
         return (
           <button
             key={r.start_tick}
@@ -120,6 +122,7 @@ export const RoundStrip = memo(function RoundStrip({
 });
 
 function roundChipTitle(
+  replay: Replay,
   round: Round,
   sides: { ct: EconomyBuy | null; t: EconomyBuy | null } | null,
   hasAction: boolean,
@@ -129,12 +132,19 @@ function roundChipTitle(
   if (sides) {
     for (const side of SIDE_DISPLAY_ORDER) {
       const buy = side === "CT" ? sides.ct : sides.t;
-      parts.push(`${side} ${buyWord(buy)}`);
+      parts.push(sideBuyPhrase(side, roundTeamName(replay, round, side), buy));
     }
   }
   if (hasAction) parts.push("execute");
   if (hasNotes) parts.push("notes");
   return parts.join(" · ");
+}
+
+function sideBuyPhrase(side: Side, team: string, buy: EconomyBuy | null): string {
+  const word = buyWord(buy);
+  const name = team.trim();
+  if (name === "" || name.toUpperCase() === side) return `${side} ${word}`;
+  return `${side} ${name} ${word}`;
 }
 
 function buyWord(buy: EconomyBuy | null): string {

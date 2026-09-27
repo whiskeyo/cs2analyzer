@@ -152,7 +152,8 @@ function classifySide(
   return spend;
 }
 
-function teamAtFreeze(replay: Replay, round: Round, side: Side): string {
+/** Name on this side at this freeze. Round fields follow swaps; header is only a fallback. */
+export function roundTeamName(replay: Replay, round: Round, side: Side): string {
   const named = side === "CT" ? round.team_ct : round.team_t;
   if (named && named.trim() !== "") return named;
   return side === "CT" ? replay.header.team_ct : replay.header.team_t;
@@ -171,13 +172,13 @@ function competitiveEconomies(replay: Replay): RoundEconomy[] {
       winner: round.winner,
       ct: {
         side: "CT",
-        team: teamAtFreeze(replay, round, "CT"),
+        team: roundTeamName(replay, round, "CT"),
         buy: classifySide(round.number, ctAverage, tAverage),
         averageEquipment: ctAverage,
       },
       t: {
         side: "T",
-        team: teamAtFreeze(replay, round, "T"),
+        team: roundTeamName(replay, round, "T"),
         buy: classifySide(round.number, tAverage, ctAverage),
         averageEquipment: tAverage,
       },
