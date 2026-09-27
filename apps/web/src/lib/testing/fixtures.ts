@@ -164,7 +164,7 @@ export function makeGrenade(
 export function makeBombEvent(
   partial: Partial<BombEvent> & Pick<BombEvent, "tick" | "kind">,
 ): BombEvent {
-  return { player: 0, x: 0, y: 0, z: 0, ...partial };
+  return { player: 0, x: 0, y: 0, z: 0, haskit: false, ...partial };
 }
 
 /** Overrides for `makeReplay`; `header` is merged field by field. */

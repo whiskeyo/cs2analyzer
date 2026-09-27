@@ -383,7 +383,7 @@ function defuseBeginFromEvents(
       continue;
     }
     if (e.kind === "begin_defuse") {
-      begin = { tick: e.tick, haskit: !!e.haskit, player: e.player };
+      begin = { tick: e.tick, haskit: e.haskit, player: e.player };
     } else if (
       e.kind === "abort_defuse" ||
       e.kind === "defused" ||

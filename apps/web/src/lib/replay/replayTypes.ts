@@ -169,7 +169,7 @@ export interface BombEvent {
   x: number;
   y: number;
   z: number;
-  haskit?: boolean;
+  haskit: boolean;
   /** 0 = A, 1 = B when the demo event includes a site index. */
   site?: number;
 }
