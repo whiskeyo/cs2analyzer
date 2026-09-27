@@ -266,9 +266,10 @@ export function roundWinBanner(
  * full time. When this plant recorded a begin, abort, or defused event, those
  * events own the clock: flags cannot start one again after an abort. GOTV may
  * omit `abort_defuse`, so once a begin is in effect the clock also stops when
- * that defuser's `FLAG_DEFUSING` sample is off, after one tick-stride of slack.
- * Flags are the fallback only when the plant has no defuse event. Death and
- * explosion end the clock too.
+ * no alive CT still has `FLAG_DEFUSING`, after two tick strides of slack.
+ * The event slot is not a column index. Flags are the fallback only when the
+ * plant has no defuse event, and only for a CT. A kill of the begin player
+ * and an explosion end the clock too.
  */
 export function defuseClock(
   replay: Replay,
@@ -296,7 +297,7 @@ export function defuseClock(
     return null;
   }
 
-  const haskit = begin.haskit || defuserCarriesKit(replay, tick, begin.player);
+  const haskit = defuseHasKit(replay, tick, begin);
   const duration = haskit ? DEFUSE_WITH_KIT_SECONDS : DEFUSE_WITHOUT_KIT_SECONDS;
   const remaining = duration - (tick - begin.tick) / tps;
   if (remaining < -0.25) {
@@ -341,6 +342,11 @@ function plantWindowEnd(replay: Replay, round: Round, plantTick: number): number
   return end;
 }
 
+/**
+ * Whether this plant has a begin, abort, or defused event anywhere in its
+ * window, including events after the playback tick. The flags-vs-events
+ * choice is about the rest of that plant, not only what has happened so far.
+ */
 function plantHasDefuseEvents(replay: Replay, round: Round, plantTick: number): boolean {
   const end = plantWindowEnd(replay, round, plantTick);
   for (const e of replay.bombEvents) {
@@ -390,28 +396,31 @@ function defuseBeginFromEvents(
 }
 
 /**
- * `bomb_abortdefuse` is not guaranteed in GOTV. After `begin.tick` plus the
- * header `tick_stride`, a sample with `FLAG_DEFUSING` clear means they let go.
- * Earlier frames are ignored so the first snapshot cannot cancel a real defuse.
+ * GOTV events and entity snapshots can land in different packets, so the
+ * defuse flag is trusted only after this many sampled frames past begin.
+ */
+const DEFUSE_FLAG_SLACK_FRAMES = 2;
+
+/**
+ * `bomb_abortdefuse` is not guaranteed in GOTV. After two header tick strides
+ * past begin, the attempt is over when no alive, present CT still has
+ * `FLAG_DEFUSING`. The event slot is not used as a column index. Frames
+ * inside the slack stay ignored so a late snapshot cannot cancel a real defuse.
  */
 function defuseFlagReleased(replay: Replay, tick: number, begin: DefuseBegin): boolean {
-  if (begin.player < 0) {
+  if (tick < defuseFlagReadyTick(replay, begin.tick)) {
     return false;
   }
-  const ready = begin.tick + tickStride(replay);
-  if (tick < ready) {
-    return false;
-  }
-  const buf = replay.ticks;
-  const playerCount = buf.playerCount;
-  if (playerCount === 0 || buf.frameCount === 0 || begin.player >= playerCount) {
-    return false;
-  }
-  const frame = lastSampleAtOrBefore(buf.ticks, tick);
-  if (frame < 0 || buf.ticks[frame] < ready) {
-    return false;
-  }
-  return (buf.flags[frame * playerCount + begin.player] & FLAG_DEFUSING) === 0;
+  return columnDefuser(replay, tick) == null;
+}
+
+/** Alive, present CT whose sample has `FLAG_DEFUSING`. */
+function columnDefuser(replay: Replay, tick: number) {
+  return samplePlayers(replay, tick).find((p) => p.present && p.alive && p.ct && p.defusing);
+}
+
+function defuseFlagReadyTick(replay: Replay, beginTick: number): number {
+  return beginTick + DEFUSE_FLAG_SLACK_FRAMES * tickStride(replay);
 }
 
 /** Snapshot spacing on `MatchHeader`, the stride `parseDemo` was called with. */
@@ -420,21 +429,7 @@ function tickStride(replay: Replay): number {
   return stride > 0 ? stride : 1;
 }
 
-function lastSampleAtOrBefore(ticks: Uint32Array, tick: number): number {
-  if (ticks.length === 0 || tick < ticks[0]) {
-    return -1;
-  }
-  let lo = 0;
-  let hi = ticks.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (ticks[mid] <= tick) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo;
-}
-
-/** Kill, or a pawn that is already dead or gone. Abort is not required. */
+/** A kill of the begin event's player. */
 function defuserDown(replay: Replay, tick: number, begin: DefuseBegin): boolean {
   if (begin.player < 0) {
     return false;
@@ -444,20 +439,22 @@ function defuserDown(replay: Replay, tick: number, begin: DefuseBegin): boolean 
       return true;
     }
   }
-  const players = samplePlayers(replay, tick);
-  if (players.length === 0) {
-    return false;
-  }
-  const player = players.find((p) => p.index === begin.player);
-  return !!player && (!player.alive || !player.present);
+  return false;
 }
 
-function defuserCarriesKit(replay: Replay, tick: number, player: number): boolean {
-  if (player < 0) {
+/**
+ * Event `haskit`, or `GEAR_DEFUSER` on the column-side defuser. Before the
+ * slack elapses the flag may not be sampled yet, so only the event counts.
+ */
+function defuseHasKit(replay: Replay, tick: number, begin: DefuseBegin): boolean {
+  if (begin.haskit) {
+    return true;
+  }
+  if (tick < defuseFlagReadyTick(replay, begin.tick)) {
     return false;
   }
-  const pawn = samplePlayers(replay, tick).find((p) => p.index === player);
-  return !!pawn && (pawn.gear & GEAR_DEFUSER) !== 0;
+  const defuser = columnDefuser(replay, tick);
+  return !!defuser && (defuser.gear & GEAR_DEFUSER) !== 0;
 }
 
 /** Active plant: 3.2s arm. Cancels on plant, drop, death, or timeout (FACEIT beginplant). */
@@ -511,7 +508,7 @@ export function plantClock(replay: Replay, tick: number): { remaining: number } 
 }
 
 function defuseBeginFromFlags(replay: Replay, tick: number, plantTick: number): DefuseBegin | null {
-  const defuser = samplePlayers(replay, tick).find((p) => p.defusing && p.alive && p.present);
+  const defuser = columnDefuser(replay, tick);
   if (!defuser) {
     return null;
   }
