@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  clampLeadInSec,
-  eventsForRound,
-  jumpBefore,
-  roundClock,
-  type BombEventKind,
-} from "./roundEvents";
+import { clampLeadInSec, eventsForRound, jumpBefore, roundClock } from "./roundEvents";
 import type { BombEvent, GrenadeThrow, Round } from "@/lib/replay/replayTypes";
 import {
   makeBombEvent,
@@ -59,7 +53,6 @@ describe("eventsForRound", () => {
   });
 
   it("lists begin-plant, plant and defuse, skipping pickup/drop/abort", () => {
-    expect("abort_defuse" satisfies BombEventKind).toBe("abort_defuse");
     const bomb = (
       tick: number,
       kind: BombEvent["kind"],

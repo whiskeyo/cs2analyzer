@@ -15,11 +15,10 @@ export const MIN_LEAD_IN_SEC = 0;
 export const MAX_LEAD_IN_SEC = 5;
 export { LEAD_IN_STORAGE_KEY };
 
-export type BombEventKind =
-  "planted" | "defused" | "exploded" | "begin_defuse" | "begin_plant" | "abort_defuse";
+export type BombEventKind = BombEvent["kind"];
 
-/** Round-timeline rows. Abort is a parsed kind and is not listed. */
-type TimelineBombKind = Exclude<BombEventKind, "abort_defuse">;
+/** Round-timeline rows. Abort, pickup, and drop stay off the timeline. */
+type TimelineBombKind = Exclude<BombEventKind, "abort_defuse" | "pickup" | "dropped">;
 
 export type RoundEventKind = "kill" | "nade" | "bomb";
 
