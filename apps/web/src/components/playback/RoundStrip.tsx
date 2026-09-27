@@ -3,6 +3,7 @@ import { GearIcon } from "@/components/weapons/WeaponIcon";
 import {
   ECONOMY_BUY_LABEL,
   SIDE_DISPLAY_ORDER,
+  bySide,
   roundSideBuys,
   roundTeamName,
   type EconomyBuy,
@@ -100,7 +101,7 @@ export const RoundStrip = memo(function RoundStrip({
             ) : (
               <span className="round-buys" aria-hidden="true">
                 {SIDE_DISPLAY_ORDER.map((side) => {
-                  const buy = side === "CT" ? (sides?.ct ?? null) : (sides?.t ?? null);
+                  const buy = sides == null ? null : bySide(sides, side);
                   return (
                     <span
                       key={side}
@@ -132,7 +133,7 @@ function roundChipLabel(
   const parts = [round.is_knife ? "Knife" : `Round ${round.number}`];
   if (sides) {
     for (const side of SIDE_DISPLAY_ORDER) {
-      const buy = side === "CT" ? sides.ct : sides.t;
+      const buy = bySide(sides, side);
       parts.push(sideBuyPhrase(side, roundTeamName(replay, round, side), buy));
     }
   }

@@ -31,6 +31,11 @@ export const ECONOMY_BUY_ORDER: readonly EconomyBuy[] = [
 /** Spectator HUD, economy rows, and the round strip: T on the left, CT on the right. */
 export const SIDE_DISPLAY_ORDER: readonly Side[] = ["T", "CT"];
 
+/** CT or T field of a side pair. */
+export function bySide<T>(pair: { ct: T; t: T }, side: Side): T {
+  return side === "CT" ? pair.ct : pair.t;
+}
+
 export const ECONOMY_BUY_LABEL: Record<EconomyBuy, string> = {
   pistol: "Pistol",
   eco: "Eco",
@@ -160,9 +165,9 @@ function classifySide(
 
 /** Name on this side at this freeze. Round fields follow swaps; header is only a fallback. */
 export function roundTeamName(replay: Replay, round: Round, side: Side): string {
-  const named = side === "CT" ? round.team_ct : round.team_t;
+  const named = bySide({ ct: round.team_ct, t: round.team_t }, side);
   if (named && named.trim() !== "") return named;
-  return side === "CT" ? replay.header.team_ct : replay.header.team_t;
+  return bySide({ ct: replay.header.team_ct, t: replay.header.team_t }, side);
 }
 
 function competitiveEconomies(replay: Replay): RoundEconomy[] {
@@ -197,7 +202,7 @@ function teamOrder(rounds: readonly RoundEconomy[]): string[] {
   const names: string[] = [];
   for (const round of rounds) {
     for (const side of SIDE_DISPLAY_ORDER) {
-      const row = side === "CT" ? round.ct : round.t;
+      const row = bySide(round, side);
       if (row.team !== "" && !names.includes(row.team)) names.push(row.team);
     }
   }
