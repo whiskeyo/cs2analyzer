@@ -295,6 +295,8 @@ describe("matchEconomy", () => {
         },
         { number: 24, winner: "CT", ctEquip: 800, tEquip: 800 },
         { number: 25, winner: "CT", ctEquip: 4500, tEquip: 4500 },
+        // Synthetic. A real match starts each OT half with OVERTIME_START_MONEY ($10,000)
+        // on both teams. This row only guards that no OT round is classified as pistol.
         { number: 28, winner: "T", ctEquip: 800, tEquip: 5000 },
         { number: 31, winner: "CT", ctEquip: 2500, tEquip: 2500 },
       ]),
