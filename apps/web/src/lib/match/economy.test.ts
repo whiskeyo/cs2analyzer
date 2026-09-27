@@ -179,21 +179,21 @@ describe("matchEconomy", () => {
     );
     expect(economy.rates).toEqual([
       {
-        team: "Astralis",
-        rows: [
-          { buy: "pistol", rounds: 2, wins: 2 },
-          { buy: "anti-eco", rounds: 1, wins: 1 },
-        ],
-      },
-      {
         team: "Vitality",
         rows: [
           { buy: "pistol", rounds: 2, wins: 0 },
           { buy: "eco", rounds: 1, wins: 0 },
         ],
       },
+      {
+        team: "Astralis",
+        rows: [
+          { buy: "pistol", rounds: 2, wins: 2 },
+          { buy: "anti-eco", rounds: 1, wins: 1 },
+        ],
+      },
     ]);
-    const swapped = economy.rows[0]?.cells[2];
+    const swapped = economy.rows.find((row) => row.team === "Astralis")?.cells[2];
     expect(swapped?.side).toBe("T");
     expect(swapped?.won).toBe(true);
     expect(swapped?.buy).toBe("pistol");

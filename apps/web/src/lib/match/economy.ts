@@ -27,6 +27,9 @@ export const ECONOMY_BUY_ORDER: readonly EconomyBuy[] = [
   "full",
 ];
 
+/** Spectator HUD, economy rows, and the round strip: T on the left, CT on the right. */
+export const SIDE_DISPLAY_ORDER: readonly Side[] = ["T", "CT"];
+
 export const ECONOMY_BUY_LABEL: Record<EconomyBuy, string> = {
   pistol: "Pistol",
   eco: "Eco",
@@ -186,8 +189,9 @@ function competitiveEconomies(replay: Replay): RoundEconomy[] {
 function teamOrder(rounds: readonly RoundEconomy[]): string[] {
   const names: string[] = [];
   for (const round of rounds) {
-    for (const side of [round.ct, round.t]) {
-      if (side.team !== "" && !names.includes(side.team)) names.push(side.team);
+    for (const side of SIDE_DISPLAY_ORDER) {
+      const row = side === "CT" ? round.ct : round.t;
+      if (row.team !== "" && !names.includes(row.team)) names.push(row.team);
     }
   }
   return names;

@@ -22,7 +22,7 @@ import {
 import { RoundStrip } from "./RoundStrip";
 
 const tps = DEFAULT_TICK_RATE;
-const NO_BUY = "CT no buy · T no buy";
+const NO_BUY = "T no buy · CT no buy";
 
 function CommandSink({
   replay,
@@ -281,21 +281,21 @@ describe("RoundStrip", () => {
 
     render(<RoundStrip replay={replay} tick={100} notes={[]} places={null} />);
 
-    const pistol = await screen.findByTitle("Round 1 · CT pistol · T pistol");
+    const pistol = await screen.findByTitle("Round 1 · T pistol · CT pistol");
     const pistolMarks = pistol.querySelectorAll(".round-buy");
-    expect(pistolMarks[0]).toHaveClass("ct");
+    expect(pistolMarks[0]).toHaveClass("t");
     expect(pistolMarks[0]).toHaveAttribute("data-buy", "pistol");
-    expect(pistolMarks[1]).toHaveClass("t");
+    expect(pistolMarks[1]).toHaveClass("ct");
     expect(pistolMarks[1]).toHaveAttribute("data-buy", "pistol");
     expect(pistol).toHaveClass("ct");
 
-    const save = screen.getByTitle("Round 4 · CT anti-eco · T eco");
+    const save = screen.getByTitle("Round 4 · T eco · CT anti-eco");
     expect(save).toHaveClass("t");
     expect(save).not.toHaveClass("ct");
     expect(save.querySelector(".round-buy.ct")).toHaveAttribute("data-buy", "anti-eco");
     expect(save.querySelector(".round-buy.t")).toHaveAttribute("data-buy", "eco");
 
-    const overtime = screen.getByTitle(`Round ${FIRST_OVERTIME_ROUND} · CT full · T full`);
+    const overtime = screen.getByTitle(`Round ${FIRST_OVERTIME_ROUND} · T full · CT full`);
     expect(overtime.querySelector(".round-buy.ct")).toHaveAttribute("data-buy", "full");
     expect(overtime.querySelector(".round-buy.t")).toHaveAttribute("data-buy", "full");
     expect(overtime).not.toHaveTextContent("OT");
