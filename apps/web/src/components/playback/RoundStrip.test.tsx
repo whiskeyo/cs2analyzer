@@ -300,4 +300,50 @@ describe("RoundStrip", () => {
     expect(overtime.querySelector(".round-buy.t")).toHaveAttribute("data-buy", "full");
     expect(overtime).not.toHaveTextContent("OT");
   });
+
+  it("names each side from that round, including after the half swap", async () => {
+    const present = FLAG_PRESENT | FLAG_ALIVE;
+    const ticks = makeTicks(2, 2);
+    ticks.ticks[0] = 64;
+    ticks.ticks[1] = 800;
+    const ct = present | FLAG_CT;
+    ticks.flags.set([ct, present, ct, present]);
+    ticks.equip[0] = ECO_MAX_EQUIPMENT - 1;
+    ticks.equip[1] = FORCE_BUY_MAX_EQUIPMENT;
+    ticks.equip[2] = FORCE_BUY_MAX_EQUIPMENT;
+    ticks.equip[3] = ECO_MAX_EQUIPMENT - 1;
+    const replay = makeReplay({
+      header: { team_ct: "Astralis", team_t: "Vitality" },
+      ticks,
+      rounds: [
+        makeRound({
+          number: 2,
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 700,
+          winner: "T",
+          team_ct: "Astralis",
+          team_t: "Vitality",
+        }),
+        makeRound({
+          number: 13,
+          start_tick: 700,
+          freeze_end_tick: 800,
+          end_tick: 1800,
+          winner: "CT",
+          team_ct: "Vitality",
+          team_t: "Astralis",
+        }),
+      ],
+    });
+
+    render(<RoundStrip replay={replay} tick={100} notes={[]} places={null} />);
+
+    expect(
+      await screen.findByTitle("Round 2 · T Vitality anti-eco · CT Astralis eco"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTitle("Round 13 · T Astralis pistol · CT Vitality pistol"),
+    ).toBeInTheDocument();
+  });
 });
