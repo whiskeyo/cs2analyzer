@@ -1,6 +1,11 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { GearIcon } from "@/components/weapons/WeaponIcon";
-import { ECONOMY_BUY_LABEL, roundSideBuys, type EconomyBuy } from "@/lib/match/economy";
+import {
+  ECONOMY_BUY_LABEL,
+  SIDE_DISPLAY_ORDER,
+  roundSideBuys,
+  type EconomyBuy,
+} from "@/lib/match/economy";
 import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execute";
 import type { MapPlaces } from "@/lib/match/sites";
 import { noteRounds } from "@/lib/notes";
@@ -92,12 +97,18 @@ export const RoundStrip = memo(function RoundStrip({
               </span>
             ) : (
               <span className="round-buys" aria-hidden="true">
-                <span className="round-buy ct" data-buy={sides?.ct ?? "none"}>
-                  <SideBuyIcon buy={sides?.ct ?? null} />
-                </span>
-                <span className="round-buy t" data-buy={sides?.t ?? "none"}>
-                  <SideBuyIcon buy={sides?.t ?? null} />
-                </span>
+                {SIDE_DISPLAY_ORDER.map((side) => {
+                  const buy = side === "CT" ? (sides?.ct ?? null) : (sides?.t ?? null);
+                  return (
+                    <span
+                      key={side}
+                      className={`round-buy ${side === "CT" ? "ct" : "t"}`}
+                      data-buy={buy ?? "none"}
+                    >
+                      <SideBuyIcon buy={buy} />
+                    </span>
+                  );
+                })}
               </span>
             )}
             {r.is_knife ? "K" : r.number}
@@ -116,7 +127,10 @@ function roundChipTitle(
 ): string {
   const parts = [round.is_knife ? "Knife" : `Round ${round.number}`];
   if (sides) {
-    parts.push(`CT ${buyWord(sides.ct)}`, `T ${buyWord(sides.t)}`);
+    for (const side of SIDE_DISPLAY_ORDER) {
+      const buy = side === "CT" ? sides.ct : sides.t;
+      parts.push(`${side} ${buyWord(buy)}`);
+    }
   }
   if (hasAction) parts.push("execute");
   if (hasNotes) parts.push("notes");
