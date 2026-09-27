@@ -265,6 +265,61 @@ describe("matchEconomy", () => {
     expect(economy.rounds[0]?.t.buy).toBe("full");
   });
 
+  it("classifies half edges and overtime from equipment, except the second pistol", () => {
+    const economy = matchEconomy(
+      economyReplay([
+        {
+          number: 12,
+          winner: "CT",
+          ctEquip: 4500,
+          tEquip: 4500,
+          team_ct: "Astralis",
+          team_t: "Vitality",
+        },
+        {
+          number: 13,
+          winner: "T",
+          ctEquip: 5000,
+          tEquip: 4200,
+          team_ct: "Vitality",
+          team_t: "Astralis",
+        },
+        { number: 24, winner: "CT", ctEquip: 800, tEquip: 800 },
+        { number: 25, winner: "CT", ctEquip: 4500, tEquip: 4500 },
+        { number: 28, winner: "T", ctEquip: 800, tEquip: 5000 },
+        { number: 31, winner: "CT", ctEquip: 2500, tEquip: 2500 },
+      ]),
+    );
+    expect(economy.rounds.map((round) => [round.round, round.ct.buy, round.t.buy])).toEqual([
+      [12, "full", "full"],
+      [13, "pistol", "pistol"],
+      [24, "eco", "eco"],
+      [25, "full", "full"],
+      [28, "eco", "anti-eco"],
+      [31, "force", "force"],
+    ]);
+    const pistolRounds = economy.rounds
+      .filter((round) => round.ct.buy === "pistol" || round.t.buy === "pistol")
+      .map((round) => round.round);
+    expect(pistolRounds).toEqual([13]);
+    expect(economy.rounds[0]?.t.team).toBe("Vitality");
+    expect(economy.rounds[1]?.ct.team).toBe("Vitality");
+    expect(economy.rounds[1]?.t.team).toBe("Astralis");
+  });
+
+  it("classifies a repeated round number from that round's own freeze", () => {
+    const economy = matchEconomy(
+      economyReplay([
+        { number: 8, winner: "CT", ctEquip: 5000, tEquip: 5000 },
+        { number: 8, winner: "T", ctEquip: 500, tEquip: 500 },
+      ]),
+    );
+    expect(economy.rounds).toHaveLength(2);
+    expect(economy.rounds[0]?.ct.buy).toBe("full");
+    expect(economy.rounds[1]?.ct.buy).toBe("eco");
+    expect(economy.rounds[0]?.jumpTick).not.toBe(economy.rounds[1]?.jumpTick);
+  });
+
   it("leaves the buy empty when a side is missing at freeze", () => {
     const economy = matchEconomy(
       economyReplay([{ number: 4, winner: null, ctEquip: 0, tEquip: 0, present: false }]),
