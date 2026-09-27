@@ -2913,6 +2913,125 @@ button.link:hover:not(:disabled) {
   margin: 0;
   padding: 0;
 }
+.economy {
+  margin: 0.55rem 0 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #1e2732;
+}
+.economy-heading {
+  margin: 0.35rem 0 0.15rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+.economy-chart {
+  margin: 0.35rem 0 0.45rem;
+  overflow-x: auto;
+}
+.economy-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: max-content;
+  min-width: 100%;
+  margin-bottom: 0.18rem;
+}
+.economy-team-label,
+.economy-team {
+  flex: 0 0 5.6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+}
+.economy-team {
+  flex: none;
+  max-width: 100%;
+  margin: 0 0 0.15rem;
+  font-weight: 600;
+}
+.economy-cells {
+  display: flex;
+  min-width: 0;
+  gap: 2px;
+}
+.economy-slot {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.economy-gap {
+  width: 8px;
+  flex: none;
+}
+.economy-num {
+  width: 16px;
+  text-align: center;
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.economy-cell {
+  width: 16px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.economy-cell.win {
+  box-shadow: inset 0 0 0 2px #f4f7fb;
+}
+.economy-cell.on {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.economy-cell.buy-none {
+  background: transparent;
+  border-color: #3d4d5e;
+}
+.buy-pistol {
+  background: #8b98a5;
+}
+.buy-eco {
+  background: var(--rating-poor);
+}
+.buy-force {
+  background: var(--rating-average);
+}
+.buy-anti {
+  background: var(--rating-great);
+}
+.buy-full {
+  background: var(--rating-good);
+}
+.economy-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.7rem;
+  margin: 0.15rem 0 0.55rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.economy-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+.economy-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.economy-rates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.economy-rates table {
+  font-size: 0.72rem;
+}
 .round-panel {
   display: flex;
   flex-direction: column;

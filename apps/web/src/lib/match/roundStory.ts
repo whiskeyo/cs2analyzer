@@ -1,18 +1,16 @@
 import {
-  ECO_MAX_EQUIPMENT,
-  FORCE_BUY_MAX_EQUIPMENT,
   WIN_REASON_BOMB,
   WIN_REASON_CT_ELIM,
   WIN_REASON_DEFUSE,
   WIN_REASON_TIME,
   WIN_REASON_T_ELIM,
 } from "@/lib/shared/constants";
-import { samplePlayers } from "@/lib/replay/sample";
 import { isEnemyKill } from "@/lib/stats/stats";
 import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
 import { winReasonLabel } from "@/lib/weapons/weapons";
+import { ECONOMY_BUY_LABEL, roundSideBuys, type EconomyBuy } from "./economy";
 
-export type BuyLevel = "eco" | "force" | "full";
+export type BuyLevel = EconomyBuy;
 
 export interface RoundStory {
   round: number;
@@ -36,15 +34,6 @@ function inRound(r: Round, tick: number): boolean {
   return tick >= r.start_tick && tick <= r.end_tick;
 }
 
-function buyLevel(replay: Replay, tick: number, ct: boolean): BuyLevel | null {
-  const pts = samplePlayers(replay, tick).filter((p) => p.present && p.ct === ct);
-  if (pts.length === 0) return null;
-  const avg = pts.reduce((s, p) => s + p.equip, 0) / pts.length;
-  if (avg < ECO_MAX_EQUIPMENT) return "eco";
-  if (avg < FORCE_BUY_MAX_EQUIPMENT) return "force";
-  return "full";
-}
-
 function endingOf(r: Round, planted: boolean, ace: boolean): string {
   if (ace && (r.win_reason === WIN_REASON_CT_ELIM || r.win_reason === WIN_REASON_T_ELIM))
     return "ace";
@@ -60,8 +49,8 @@ function endingOf(r: Round, planted: boolean, ace: boolean): string {
 function buyLine(t: BuyLevel | null, ct: BuyLevel | null): string {
   if (!t && !ct) return "";
   const bits: string[] = [];
-  if (t) bits.push(`T ${t}`);
-  if (ct) bits.push(`CT ${ct}`);
+  if (t) bits.push(`T ${ECONOMY_BUY_LABEL[t].toLowerCase()}`);
+  if (ct) bits.push(`CT ${ECONOMY_BUY_LABEL[ct].toLowerCase()}`);
   return bits.join(" vs ");
 }
 
@@ -92,8 +81,9 @@ export function roundStories(replay: Replay): RoundStory[] {
       byPlayer.set(k.attacker, (byPlayer.get(k.attacker) ?? 0) + 1);
     }
     const ace = [...byPlayer.values()].some((n) => n >= 5);
-    const tBuy = buyLevel(replay, freeze, false);
-    const ctBuy = buyLevel(replay, freeze, true);
+    const buys = roundSideBuys(replay, r);
+    const tBuy = buys.t;
+    const ctBuy = buys.ct;
     const ending = endingOf(r, planted, ace);
     const bits = [buyLine(tBuy, ctBuy)];
     if (opener) bits.push(`${opener.name} opener`);
