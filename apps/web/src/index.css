@@ -1589,6 +1589,10 @@ a.ghost {
   padding: 0.2rem 0.35rem;
   font-size: 0.82rem;
 }
+.settings-field select.settings-language {
+  width: auto;
+  min-width: 7rem;
+}
 .settings-field output {
   min-width: 2.6rem;
   color: var(--text-muted);

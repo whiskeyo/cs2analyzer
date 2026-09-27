@@ -33,6 +33,7 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
+import { DEFAULT_LOCALE, parseLocale, type Locale } from "@/lib/i18n/locales";
 import { clampPathBranchOptions } from "@/lib/parse/pathBranches";
 import { isFiniteNumber, isRecord, isString } from "@/lib/validate/guards.ts";
 
@@ -96,6 +97,8 @@ export interface UserSettings {
   pdfPhotos: PdfPhotos;
   /** 0 = original map color, 1 = full grayscale. Applies to Analyzer, Playbook, PDF stills. */
   radarGray: number;
+  /** UI language. Unknown stored values fall back to English. */
+  locale: Locale;
   /**
    * Home skip / tour finish / don't-show-again. Missing key ≡ not completed,
    * so first-visit Home can idle-prefetch the Replay fixture.
@@ -168,6 +171,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     pdfTheme: DEFAULT_PDF_THEME,
     pdfPhotos: DEFAULT_PDF_PHOTOS,
     radarGray: DEFAULT_RADAR_GRAY,
+    locale: DEFAULT_LOCALE,
     tutorialCompleted: false,
   };
 }
@@ -354,6 +358,7 @@ export function parseUserSettings(raw: unknown): UserSettings {
       RADAR_GRAY_MAX,
       defaults.radarGray,
     ),
+    locale: parseLocale(raw.locale),
     tutorialCompleted: parseBoolean(raw.tutorialCompleted, defaults.tutorialCompleted),
   };
 }

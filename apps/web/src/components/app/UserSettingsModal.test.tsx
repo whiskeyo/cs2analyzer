@@ -332,6 +332,18 @@ describe("UserSettingsModal", () => {
     expect(screen.getByLabelText("Saved notes page size")).toHaveValue(8);
   });
 
+  it("stores the language and applies it immediately", async () => {
+    renderModal();
+    const language = await screen.findByRole("combobox", { name: "Language" });
+    expect(language).toHaveValue("en");
+    await userEvent.selectOptions(language, "pl");
+    expect(await screen.findByRole("combobox", { name: "Język" })).toHaveValue("pl");
+    expect(document.documentElement.lang).toBe("pl");
+    await waitFor(async () => {
+      expect((await loadUserSettings()).locale).toBe("pl");
+    });
+  });
+
   it("includes local database usage in Preferences", async () => {
     renderModal();
     expect(await screen.findByRole("heading", { name: "Local database" })).toBeInTheDocument();

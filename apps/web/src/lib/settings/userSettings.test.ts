@@ -70,6 +70,7 @@ describe("defaultUserSettings", () => {
       pdfTheme: "dark",
       pdfPhotos: "with",
       radarGray: DEFAULT_RADAR_GRAY,
+      locale: "en",
       tutorialCompleted: false,
     });
     expect(settings.defaultPaletteId).toBe(COLOR_PRESETS[0].id);
@@ -260,6 +261,12 @@ describe("parseUserSettings", () => {
 
   it("keeps skipKnifeOnOpen false when stored", () => {
     expect(parseUserSettings({ skipKnifeOnOpen: false }).skipKnifeOnOpen).toBe(false);
+  });
+
+  it("keeps en and pl and rejects any other locale", () => {
+    expect(parseUserSettings({}).locale).toBe("en");
+    expect(parseUserSettings({ locale: "pl" }).locale).toBe("pl");
+    expect(parseUserSettings({ locale: "de" }).locale).toBe("en");
   });
 
   it("treats a missing tutorialCompleted key as not completed", () => {
