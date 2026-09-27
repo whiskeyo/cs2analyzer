@@ -7,6 +7,7 @@ import {
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type Side } from "@/lib/replay/replayTypes";
 import { makePlayer, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
 import {
+  bySide,
   formatBuyRecord,
   formatBuyWinRate,
   matchEconomy,
@@ -20,6 +21,14 @@ describe("spendBuy", () => {
     expect(spendBuy(ECO_MAX_EQUIPMENT)).toBe("force");
     expect(spendBuy(FORCE_BUY_MAX_EQUIPMENT - 1)).toBe("force");
     expect(spendBuy(FORCE_BUY_MAX_EQUIPMENT)).toBe("full");
+  });
+});
+
+describe("bySide", () => {
+  it("reads the field for the given side", () => {
+    const pair = { ct: "ct-value", t: "t-value" };
+    expect(bySide(pair, "CT")).toBe("ct-value");
+    expect(bySide(pair, "T")).toBe("t-value");
   });
 });
 
