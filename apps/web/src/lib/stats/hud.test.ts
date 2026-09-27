@@ -251,7 +251,7 @@ describe("defuseClock", () => {
 
   it("ends a tap fake when the defuse flag drops and abort_defuse never arrives", () => {
     const begin = 200;
-    // Wider than the parser's stride of 4, so a sample at +4 is still slack.
+    // Not the parser default of 4. A frame at +4 must still be slack.
     const stride = 8;
     const m = clockReplay({
       header: { tick_stride: stride },
@@ -266,7 +266,12 @@ describe("defuseClock", () => {
         makeBombEvent({ tick: begin, kind: "begin_defuse", haskit: false, player: 0 }),
       ],
     });
+    expect(m.header.tick_stride).toBe(stride);
     expect(defuseClock(m, begin)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS, 5);
+    expect(defuseClock(m, begin + 4)?.remaining).toBeCloseTo(
+      DEFUSE_WITHOUT_KIT_SECONDS - 4 / 64,
+      5,
+    );
     expect(defuseClock(m, begin + stride - 1)?.remaining).toBeCloseTo(
       DEFUSE_WITHOUT_KIT_SECONDS - (stride - 1) / 64,
       5,

@@ -390,9 +390,9 @@ function defuseBeginFromEvents(
 }
 
 /**
- * `bomb_abortdefuse` is not guaranteed in GOTV. After `begin.tick + stride`,
- * a sample with `FLAG_DEFUSING` clear means they let go. Earlier frames are
- * ignored so the first snapshot cannot cancel a real defuse.
+ * `bomb_abortdefuse` is not guaranteed in GOTV. After `begin.tick` plus the
+ * header `tick_stride`, a sample with `FLAG_DEFUSING` clear means they let go.
+ * Earlier frames are ignored so the first snapshot cannot cancel a real defuse.
  */
 function defuseFlagReleased(replay: Replay, tick: number, begin: DefuseBegin): boolean {
   if (begin.player < 0) {
@@ -414,6 +414,7 @@ function defuseFlagReleased(replay: Replay, tick: number, begin: DefuseBegin): b
   return (buf.flags[frame * playerCount + begin.player] & FLAG_DEFUSING) === 0;
 }
 
+/** Snapshot spacing on `MatchHeader`, the stride `parseDemo` was called with. */
 function tickStride(replay: Replay): number {
   const stride = replay.header.tick_stride;
   return stride > 0 ? stride : 1;
