@@ -249,6 +249,84 @@ describe("defuseClock", () => {
     expect(defuseClock(m, release + 32)).toBeNull();
   });
 
+  it("ends a tap fake when the defuse flag drops and abort_defuse never arrives", () => {
+    const begin = 200;
+    // Wider than the parser's stride of 4, so a sample at +4 is still slack.
+    const stride = 8;
+    const m = clockReplay({
+      header: { tick_stride: stride },
+      ticks: defusingSamples(1, [
+        { tick: begin },
+        { tick: begin + 4 },
+        { tick: begin + stride },
+        { tick: begin + 64 },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: begin, kind: "begin_defuse", haskit: false, player: 0 }),
+      ],
+    });
+    expect(defuseClock(m, begin)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS, 5);
+    expect(defuseClock(m, begin + stride - 1)?.remaining).toBeCloseTo(
+      DEFUSE_WITHOUT_KIT_SECONDS - (stride - 1) / 64,
+      5,
+    );
+    expect(defuseClock(m, begin + stride)).toBeNull();
+    expect(defuseClock(m, begin + 64)).toBeNull();
+    const after = renderToStaticMarkup(createElement(Hud, { replay: m, tick: begin + stride }));
+    expect(after).not.toContain("Defuse");
+    expect(after).toContain("C4");
+  });
+
+  it("ends a hold fake when the defuse flag drops and abort_defuse never arrives", () => {
+    const begin = 200;
+    const release = begin + 64 * 2;
+    const m = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: begin, defusing: [0] },
+        { tick: begin + 64, defusing: [0] },
+        { tick: release },
+        { tick: release + 64 },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: begin, kind: "begin_defuse", haskit: false, player: 0 }),
+      ],
+    });
+    expect(defuseClock(m, begin + 64)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS - 1, 5);
+    expect(defuseClock(m, release - 1)?.remaining).toBeCloseTo(
+      DEFUSE_WITHOUT_KIT_SECONDS - (64 * 2 - 1) / 64,
+      5,
+    );
+    expect(defuseClock(m, release)).toBeNull();
+    expect(defuseClock(m, release + 32)).toBeNull();
+  });
+
+  it("starts a fresh clock on a new begin after the flag dropped", () => {
+    const first = 200;
+    const stride = 4;
+    const second = 400;
+    const m = clockReplay({
+      header: { tick_stride: stride },
+      ticks: defusingSamples(2, [
+        { tick: first, defusing: [0] },
+        { tick: first + stride },
+        { tick: second },
+        { tick: second + stride, defusing: [1] },
+        { tick: second + 64, defusing: [1] },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: first, kind: "begin_defuse", haskit: false, player: 0 }),
+        makeBombEvent({ tick: second, kind: "begin_defuse", haskit: true, player: 1 }),
+      ],
+    });
+    expect(defuseClock(m, first + stride)).toBeNull();
+    expect(defuseClock(m, second)?.remaining).toBeCloseTo(DEFUSE_WITH_KIT_SECONDS, 5);
+    expect(defuseClock(m, second)?.haskit).toBe(true);
+    expect(defuseClock(m, second + 64)?.remaining).toBeCloseTo(DEFUSE_WITH_KIT_SECONDS - 1, 5);
+  });
+
   it("does not start a flag clock before begin_defuse when the plant has defuse events", () => {
     const m = clockReplay({
       ticks: defusingSamples(1, [

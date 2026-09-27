@@ -264,9 +264,11 @@ export function roundWinBanner(
 /**
  * Active defuse. A kit is 5s and no kit is 10s; each new begin restarts from
  * full time. When this plant recorded a begin, abort, or defused event, those
- * events are the clock: a sampled `FLAG_DEFUSING` run must not bring a fake
- * back after abort. Flags are only the fallback when the demo has no defuse
- * event for the plant. Death and explosion end the clock too.
+ * events own the clock: flags cannot start one again after an abort. GOTV may
+ * omit `abort_defuse`, so once a begin is in effect the clock also stops when
+ * that defuser's `FLAG_DEFUSING` sample is off, after one tick-stride of slack.
+ * Flags are the fallback only when the plant has no defuse event. Death and
+ * explosion end the clock too.
  */
 export function defuseClock(
   replay: Replay,
@@ -283,10 +285,14 @@ export function defuseClock(
     return null;
   }
 
-  const begin = plantHasDefuseEvents(replay, round, plantTick)
+  const trackedByEvents = plantHasDefuseEvents(replay, round, plantTick);
+  const begin = trackedByEvents
     ? defuseBeginFromEvents(replay, round, plantTick, tick)
     : defuseBeginFromFlags(replay, tick, plantTick);
   if (!begin || defuserDown(replay, tick, begin)) {
+    return null;
+  }
+  if (trackedByEvents && defuseFlagReleased(replay, tick, begin)) {
     return null;
   }
 
@@ -381,6 +387,50 @@ function defuseBeginFromEvents(
     }
   }
   return begin;
+}
+
+/**
+ * `bomb_abortdefuse` is not guaranteed in GOTV. After `begin.tick + stride`,
+ * a sample with `FLAG_DEFUSING` clear means they let go. Earlier frames are
+ * ignored so the first snapshot cannot cancel a real defuse.
+ */
+function defuseFlagReleased(replay: Replay, tick: number, begin: DefuseBegin): boolean {
+  if (begin.player < 0) {
+    return false;
+  }
+  const ready = begin.tick + tickStride(replay);
+  if (tick < ready) {
+    return false;
+  }
+  const buf = replay.ticks;
+  const playerCount = buf.playerCount;
+  if (playerCount === 0 || buf.frameCount === 0 || begin.player >= playerCount) {
+    return false;
+  }
+  const frame = lastSampleAtOrBefore(buf.ticks, tick);
+  if (frame < 0 || buf.ticks[frame] < ready) {
+    return false;
+  }
+  return (buf.flags[frame * playerCount + begin.player] & FLAG_DEFUSING) === 0;
+}
+
+function tickStride(replay: Replay): number {
+  const stride = replay.header.tick_stride;
+  return stride > 0 ? stride : 1;
+}
+
+function lastSampleAtOrBefore(ticks: Uint32Array, tick: number): number {
+  if (ticks.length === 0 || tick < ticks[0]) {
+    return -1;
+  }
+  let lo = 0;
+  let hi = ticks.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (ticks[mid] <= tick) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
 }
 
 /** Kill, or a pawn that is already dead or gone. Abort is not required. */
