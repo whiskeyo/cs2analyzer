@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- defuse clock cases share one replay helper */
 import { describe, expect, it } from "vitest";
 import {
   bombView,
