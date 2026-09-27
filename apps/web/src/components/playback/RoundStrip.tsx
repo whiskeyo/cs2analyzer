@@ -1,9 +1,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { GearIcon } from "@/components/weapons/WeaponIcon";
-import type { Messages } from "@/lib/i18n/messages";
-import { translate } from "@/lib/i18n/translate";
-import { useMessages } from "@/lib/i18n/useMessages";
 import {
+  ECONOMY_BUY_LABEL,
   SIDE_DISPLAY_ORDER,
   roundSideBuys,
   roundTeamName,
@@ -39,7 +37,6 @@ export const RoundStrip = memo(function RoundStrip({
   roundEnabled,
 }: Props) {
   const send = useSendPlaybackCommand();
-  const { messages } = useMessages();
   const current = activeRound ?? currentRound(replay, tick);
   const [beats, setBeats] = useState<ExecuteBeat[]>([]);
 
@@ -77,7 +74,7 @@ export const RoundStrip = memo(function RoundStrip({
         const liveAction = live != null && live.round === r.number;
         const enabled = roundEnabled?.(r) ?? true;
         const sides = buys[index] ?? null;
-        const title = roundChipLabel(messages, replay, r, sides, hasAction, hasNotes, enabled);
+        const title = roundChipLabel(replay, r, sides, hasAction, hasNotes, enabled);
         return (
           <button
             key={r.start_tick}
@@ -124,8 +121,7 @@ export const RoundStrip = memo(function RoundStrip({
   );
 });
 
-export function roundChipLabel(
-  messages: Messages,
+function roundChipLabel(
   replay: Replay,
   round: Round,
   sides: { ct: EconomyBuy | null; t: EconomyBuy | null } | null,
@@ -133,41 +129,22 @@ export function roundChipLabel(
   hasNotes: boolean,
   enabled = true,
 ): string {
-  const copy = messages.roundStrip;
-  const parts = [round.is_knife ? copy.knife : translate(copy.round, { number: round.number })];
+  const parts = [round.is_knife ? "Knife" : `Round ${round.number}`];
   if (sides) {
     for (const side of SIDE_DISPLAY_ORDER) {
       const buy = side === "CT" ? sides.ct : sides.t;
-      parts.push(sideBuyPhrase(messages, side, roundTeamName(replay, round, side), buy));
+      parts.push(sideBuyPhrase(side, roundTeamName(replay, round, side), buy));
     }
   }
-  if (hasAction) parts.push(copy.execute);
-  if (hasNotes) parts.push(copy.notes);
+  if (hasAction) parts.push("execute");
+  if (hasNotes) parts.push("notes");
   const title = parts.join(" · ");
-  return enabled ? title : `${title} · ${copy.tutorialInactive}`;
+  return enabled ? title : `${title} · not playable in the tutorial`;
 }
 
-function sideBuyPhrase(
-  messages: Messages,
-  side: Side,
-  team: string,
-  buy: EconomyBuy | null,
-): string {
-  const copy = messages.roundStrip;
-  const word = buyWord(messages, buy);
+function sideBuyPhrase(side: Side, team: string, buy: EconomyBuy | null): string {
+  const word = buy ? ECONOMY_BUY_LABEL[buy] : "No buy";
   const name = team.trim();
-  if (name === "" || name.toUpperCase() === side) {
-    return translate(copy.sideBuy, { side, buy: word });
-  }
-  return translate(copy.sideTeamBuy, { side, team: name, buy: word });
-}
-
-function buyWord(messages: Messages, buy: EconomyBuy | null): string {
-  const copy = messages.roundStrip;
-  if (buy === "pistol") return copy.pistol;
-  if (buy === "eco") return copy.eco;
-  if (buy === "force") return copy.force;
-  if (buy === "anti-eco") return copy.antiEco;
-  if (buy === "full") return copy.full;
-  return copy.noBuy;
+  if (name === "" || name.toUpperCase() === side) return `${side} ${word}`;
+  return `${side} ${name} ${word}`;
 }
