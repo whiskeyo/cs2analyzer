@@ -1,5 +1,6 @@
 import { samplePlayers } from "@/lib/replay/sample";
 import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
+import { liveScoreboardPlayers } from "@/lib/stats/liveScore";
 import {
   ECO_MAX_EQUIPMENT,
   FIRST_OVERTIME_ROUND,
@@ -104,10 +105,15 @@ export function formatBuyWinRate(wins: number, rounds: number): string {
   return `${Math.round((wins / rounds) * PERCENT_SCALE)}%`;
 }
 
-/** Average freeze equipment for one side. Null when nobody on that side is present. */
+/**
+ * Average freeze equipment for one side.
+ * Leftover controllers (present, dead, $0, not alive at this freeze) are left out,
+ * same as the live scoreboard, so they do not pull a side toward eco.
+ */
 export function sideAverageEquipment(replay: Replay, tick: number, ct: boolean): number | null {
+  const live = new Set(liveScoreboardPlayers(replay, tick));
   const players = samplePlayers(replay, tick).filter(
-    (player) => player.present && player.ct === ct,
+    (player) => live.has(player.index) && player.ct === ct,
   );
   if (players.length === 0) return null;
   return players.reduce((sum, player) => sum + player.equip, 0) / players.length;
