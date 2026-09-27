@@ -1,5 +1,7 @@
-import { currentRound, samplePlayers } from "@/lib/replay/sample";
+import { currentRound, samplePlayer, samplePlayers } from "@/lib/replay/sample";
 import type { Kill, Replay, Round, Side } from "@/lib/replay/replayTypes";
+import { CLUTCH_BOARD_MIN_ENEMIES } from "@/lib/shared/constants";
+import { WEAPON_BY_ID } from "@/lib/weapons/weapons";
 
 export interface ClutchAttempt {
   tick: number;
@@ -10,6 +12,16 @@ export interface ClutchAttempt {
   vs: number;
   side: Side;
   won: boolean;
+}
+
+/** One 1v2+ situation for the match clutch board. `vs` is enemies alive at the start. */
+export interface ClutchBoardRow extends ClutchAttempt {
+  /** Weapon key in hand at `tick` (`ak47`), or empty when the demo has no loadout. */
+  weapon: string;
+  x: number;
+  y: number;
+  /** False when that player has no pawn sample at the start tick. */
+  placed: boolean;
 }
 
 function roundLabel(r: Round): string {
@@ -102,6 +114,32 @@ function clutchesInRound(replay: Replay, round: Round, untilTick: number): Clutc
   return [row(clutchCt, round.winner === "CT"), row(clutchT, round.winner === "T")].filter(
     (x): x is ClutchAttempt => x != null,
   );
+}
+
+function weaponKey(active: number, primary: number, secondary: number): string {
+  const id = active || primary || secondary;
+  return WEAPON_BY_ID[id] ?? "";
+}
+
+/**
+ * Completed-round 1v2+ clutches for a single demo, in start order.
+ * Includes wins and losses. 1v1 is omitted (`CLUTCH_BOARD_MIN_ENEMIES`).
+ */
+export function clutchBoard(replay: Replay): ClutchBoardRow[] {
+  const until = replay.rounds.reduce((max, round) => Math.max(max, round.end_tick), 0);
+  const rows: ClutchBoardRow[] = [];
+  for (const attempt of clutchAttempts(replay, until)) {
+    if (attempt.vs < CLUTCH_BOARD_MIN_ENEMIES) continue;
+    const pawn = samplePlayer(replay, attempt.player, attempt.tick);
+    rows.push({
+      ...attempt,
+      weapon: pawn ? weaponKey(pawn.active, pawn.primary, pawn.secondary) : "",
+      x: pawn?.x ?? 0,
+      y: pawn?.y ?? 0,
+      placed: pawn != null && pawn.present,
+    });
+  }
+  return rows;
 }
 
 export function liveClutch(replay: Replay, tick: number): ClutchAttempt | null {

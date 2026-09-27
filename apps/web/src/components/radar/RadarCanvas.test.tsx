@@ -21,6 +21,10 @@ vi.mock("@/lib/radar/paintRadarFrame", () => ({
   paintHabitsOverlay: vi.fn(),
 }));
 
+vi.mock("@/lib/radar/paintClutchMarks", () => ({
+  paintClutchMarks: vi.fn(),
+}));
+
 vi.mock("@/lib/radar/staticMapPaint", () => ({
   paintMapImage: vi.fn(),
   paintNote: vi.fn(),

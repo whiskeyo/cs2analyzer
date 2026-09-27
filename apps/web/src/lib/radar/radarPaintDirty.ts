@@ -72,6 +72,8 @@ export interface RadarPaintDirtyArgs {
   editX: number | null;
   editY: number | null;
   radarGray: number;
+  /** Identity of the clutch-start markers. Null when the board is closed. */
+  clutchMarks?: readonly { tick: number }[] | null;
 }
 
 /**
@@ -135,5 +137,6 @@ export function radarPaintInputs(args: RadarPaintDirtyArgs): readonly unknown[] 
     args.editX,
     args.editY,
     args.radarGray,
+    args.clutchMarks ?? null,
   ];
 }

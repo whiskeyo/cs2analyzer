@@ -31,6 +31,7 @@ export const DRAW_TOOL_LABELS: Record<DefaultDrawTool, string> = {
 export const SIDEBAR_TAB_LABELS: Record<DefaultSidebarTab, string> = {
   score: "Score",
   player: "Review",
+  clutch: "Clutch",
   notes: "Notes",
   action: "Action",
   util: "Utility",

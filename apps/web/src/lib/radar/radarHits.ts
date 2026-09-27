@@ -1,3 +1,4 @@
+import type { ClutchBoardRow } from "@/lib/match/clutches";
 import {
   habitsArrowAtScreen,
   habitsArrowJumpTick,
@@ -7,6 +8,9 @@ import type { SampledPlayer } from "@/lib/replay/sample";
 
 /** Click this close to a pawn (CSS px) to select it. */
 export const PLAYER_HIT_RADIUS_PX = 18;
+
+/** Click this close to a clutch-start marker (CSS px) to jump there. */
+export const CLUTCH_MARK_HIT_PX = 14;
 
 /** Double-click this close to a habits arrow (CSS px) to jump. */
 export const HABITS_ARROW_HIT_PX = 16;
@@ -35,6 +39,24 @@ export function nearestPlayerIndexAtScreen(
     if (!best || d < best.d) best = { i: p.index, d };
   }
   return best && best.d < hitRadius * hitRadius ? best.i : null;
+}
+
+export function clutchMarkAtScreen(
+  marks: readonly ClutchBoardRow[],
+  mx: number,
+  my: number,
+  toScreen: (wx: number, wy: number) => { x: number; y: number },
+  hitRadius = CLUTCH_MARK_HIT_PX,
+): ClutchBoardRow | null {
+  let best: { row: ClutchBoardRow; d: number } | null = null;
+  const limit = hitRadius * hitRadius;
+  for (const row of marks) {
+    if (!row.placed) continue;
+    const s = toScreen(row.x, row.y);
+    const d = (s.x - mx) ** 2 + (s.y - my) ** 2;
+    if (d <= limit && (!best || d < best.d)) best = { row, d };
+  }
+  return best?.row ?? null;
 }
 
 export function habitsJumpAtScreen(

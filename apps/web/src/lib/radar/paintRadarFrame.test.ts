@@ -22,6 +22,7 @@ import {
 import { arcCountAt, createMockCanvas, identityToScreen } from "@/lib/testing/mockCanvas";
 import { NADE_COLORS } from "@/lib/radar/radarFx";
 import { buildRadarFrame, CT_COLOR, RADAR_STYLE, type RadarFrame } from "./radarFrame";
+import { paintClutchMarks } from "./paintClutchMarks";
 import { paintHabitsOverlay, paintPawns, paintRadarFrame, paintViewCone } from "./paintRadarFrame";
 
 const tps = DEFAULT_TICK_RATE;
@@ -926,5 +927,40 @@ describe("paintRadarFrame smoke linger timing", () => {
     if (atPop?.phase !== "linger" || halfway?.phase !== "linger") return;
     expect(atPop.left).toBeCloseTo(1);
     expect(halfway.left).toBeCloseTo(0.5, 1);
+  });
+});
+
+describe("paintClutchMarks", () => {
+  it("draws a marker at each placed clutch start and skips the rest", () => {
+    const ctx = createMockCanvas();
+    paintClutchMarks(
+      ctx,
+      [
+        {
+          x: 40,
+          y: 70,
+          vs: 3,
+          won: false,
+          placed: true,
+          player: 1,
+          tick: 200,
+        },
+        {
+          x: 0,
+          y: 0,
+          vs: 2,
+          won: true,
+          placed: false,
+          player: 2,
+          tick: 300,
+        },
+      ],
+      toScreen,
+      200,
+      null,
+    );
+    expect(arcCountAt(ctx, 40, 70)).toBeGreaterThan(0);
+    expect(arcCountAt(ctx, 0, 0)).toBe(0);
+    expect(ctx.fillText).toHaveBeenCalledWith("1v3", 40, 62);
   });
 });

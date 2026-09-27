@@ -119,7 +119,7 @@ describe("parseUserSettings", () => {
       defaultColor: "",
       defaultFloorMode: "roof",
       defaultDrawTool: "eraser",
-      defaultSidebarTab: "clutch",
+      defaultSidebarTab: "overview",
       defaultPlaybackSpeed: 3,
       skipKnifeOnOpen: "yes",
       eventLeadInSec: 9,
@@ -141,6 +141,7 @@ describe("parseUserSettings", () => {
     expect(parsed.defaultFloorMode).toBe("auto");
     expect(parsed.defaultDrawTool).toBe("pan");
     expect(parsed.defaultSidebarTab).toBe("score");
+    expect(parseUserSettings({ defaultSidebarTab: "clutch" }).defaultSidebarTab).toBe("clutch");
     expect(parsed.defaultPlaybackSpeed).toBe(DEFAULT_PLAYBACK_SPEED);
     expect(parsed.skipKnifeOnOpen).toBe(true);
     expect(parsed.eventLeadInSec).toBe(5);

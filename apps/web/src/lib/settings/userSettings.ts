@@ -55,6 +55,7 @@ export type DefaultDrawTool = (typeof DEFAULT_DRAW_TOOLS)[number];
 export const DEFAULT_SIDEBAR_TABS = [
   "score",
   "player",
+  "clutch",
   "notes",
   "action",
   "util",

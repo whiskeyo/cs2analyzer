@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { canvasLocalPoint, habitsJumpAtScreen, nearestPlayerIndexAtScreen } from "./radarHits";
+import type { ClutchBoardRow } from "@/lib/match/clutches";
+import {
+  canvasLocalPoint,
+  clutchMarkAtScreen,
+  habitsJumpAtScreen,
+  nearestPlayerIndexAtScreen,
+} from "./radarHits";
 import { DEFAULT_PATH_BRANCH_OPTIONS } from "@/lib/parse/pathBranches";
 import type { SampledPlayer } from "@/lib/replay/sample";
 
@@ -92,5 +98,35 @@ describe("habitsJumpAtScreen", () => {
       undefined,
     );
     expect(hit).toEqual({ demoId: "d1", jumpTick: 100 });
+  });
+});
+
+function clutchMark(
+  partial: Partial<ClutchBoardRow> & Pick<ClutchBoardRow, "x" | "y">,
+): ClutchBoardRow {
+  return {
+    tick: 200,
+    round: 1,
+    roundLabel: "R1",
+    player: 1,
+    name: "Bob",
+    vs: 2,
+    side: "CT",
+    won: true,
+    weapon: "ak47",
+    placed: true,
+    ...partial,
+  };
+}
+
+describe("clutchMarkAtScreen", () => {
+  const toScreen = (x: number, y: number) => ({ x, y });
+
+  it("returns the nearest placed marker and skips ones with no position", () => {
+    const near = clutchMark({ x: 10, y: 10, tick: 200 });
+    const far = clutchMark({ x: 80, y: 80, tick: 400, player: 2 });
+    const missing = clutchMark({ x: 11, y: 11, placed: false, tick: 300, player: 3 });
+    expect(clutchMarkAtScreen([missing, far, near], 12, 11, toScreen)?.tick).toBe(200);
+    expect(clutchMarkAtScreen([far], 12, 11, toScreen)).toBeNull();
   });
 });

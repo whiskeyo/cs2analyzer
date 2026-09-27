@@ -25,6 +25,7 @@ export function useViewState(
   const [tool, setTool] = useState<DrawTool>(defaultTool);
   const [layers, setLayers] = useState<MapLayers>(() => ({ ...defaultLayers }));
   const [viewEpoch, setViewEpoch] = useState(0);
+  const [clutchBoard, setClutchBoard] = useState(false);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
 
@@ -63,6 +64,8 @@ export function useViewState(
     setLayers,
     viewEpoch,
     resetView,
+    clutchBoard,
+    setClutchBoard,
   };
 }
 
