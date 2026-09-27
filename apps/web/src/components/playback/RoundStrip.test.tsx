@@ -22,6 +22,7 @@ import {
 import { RoundStrip } from "./RoundStrip";
 
 const tps = DEFAULT_TICK_RATE;
+const NO_BUY = "CT no buy · T no buy";
 
 function CommandSink({
   replay,
@@ -75,11 +76,9 @@ describe("RoundStrip", () => {
 
     await waitFor(() => expect(screen.getByRole("list")).toBeInTheDocument());
     expect(screen.getByTitle("Knife")).toHaveTextContent("K");
-    expect(screen.getByTitle("Round 1 · Pistol")).toHaveClass("on");
-    expect(
-      screen.getByTitle("Round 1 · Pistol").querySelector("img")?.getAttribute("src"),
-    ).toContain("glock.svg");
-    expect(screen.getByTitle("Round 2")).not.toHaveClass("on");
+    expect(screen.getByTitle("Knife").querySelector(".round-buys.is-knife")).toBeTruthy();
+    expect(screen.getByTitle(`Round 1 · ${NO_BUY}`)).toHaveClass("on");
+    expect(screen.getByTitle(`Round 2 · ${NO_BUY}`)).not.toHaveClass("on");
   });
 
   it("keeps the pinned round highlighted when the tick is still in the previous round", async () => {
@@ -109,8 +108,8 @@ describe("RoundStrip", () => {
       />,
     );
 
-    await waitFor(() => expect(screen.getByTitle("Round 19")).toHaveClass("on"));
-    expect(screen.getByTitle("Round 18")).not.toHaveClass("on");
+    await waitFor(() => expect(screen.getByTitle(`Round 19 · ${NO_BUY}`)).toHaveClass("on"));
+    expect(screen.getByTitle(`Round 18 · ${NO_BUY}`)).not.toHaveClass("on");
   });
 
   it("dispatches a jump command when a round chip is clicked", async () => {
@@ -130,7 +129,8 @@ describe("RoundStrip", () => {
     });
     render(<RoundStrip replay={replay} tick={tps} notes={[]} places={null} />);
 
-    await userEvent.click(screen.getByTitle("Round 1 · Pistol").querySelector("img")!);
+    const chip = screen.getByTitle(`Round 1 · ${NO_BUY}`);
+    await userEvent.click(chip.querySelector(".round-buy.ct")!);
     expect(onJump).toHaveBeenCalledWith(2 * tps);
   });
 
@@ -160,7 +160,7 @@ describe("RoundStrip", () => {
       </PlaybackCommandProvider>,
     );
 
-    await userEvent.click(screen.getByTitle("Round 2"));
+    await userEvent.click(screen.getByTitle(`Round 2 · ${NO_BUY}`));
     expect(onJump).toHaveBeenCalledWith(0, true, expect.objectContaining({ number: 2 }));
   });
 
@@ -195,7 +195,7 @@ describe("RoundStrip", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTitle("Round 1 · Pistol · notes")).toHaveClass("has-notes"),
+      expect(screen.getByTitle(`Round 1 · ${NO_BUY} · notes`)).toHaveClass("has-notes"),
     );
   });
 
@@ -230,54 +230,74 @@ describe("RoundStrip", () => {
       />,
     );
 
-    await waitFor(() => expect(screen.getByTitle("Round 1 · Pistol")).toBeEnabled());
-    const inactive = screen.getByTitle("Round 3 · not playable in the tutorial");
+    await waitFor(() => expect(screen.getByTitle(`Round 1 · ${NO_BUY}`)).toBeEnabled());
+    const inactive = screen.getByTitle(`Round 3 · ${NO_BUY} · not playable in the tutorial`);
     expect(inactive).toBeDisabled();
     expect(inactive).toHaveClass("is-inactive");
     await userEvent.click(inactive);
     expect(onJump).not.toHaveBeenCalled();
   });
 
-  it("shows eco and overtime icons from freeze equipment", async () => {
+  it("shows each side's buy, with the chip color still the round winner", async () => {
     const present = FLAG_PRESENT | FLAG_ALIVE;
-    const ticks = makeTicks(2, 2);
+    const ticks = makeTicks(2, 3);
     ticks.ticks[0] = 64;
-    ticks.ticks[1] = 2000;
-    ticks.flags[0] = present | FLAG_CT;
-    ticks.flags[1] = present;
-    ticks.flags[2] = present | FLAG_CT;
-    ticks.flags[3] = present;
-    ticks.equip[0] = FORCE_BUY_MAX_EQUIPMENT;
-    ticks.equip[1] = ECO_MAX_EQUIPMENT - 1;
+    ticks.ticks[1] = 800;
+    ticks.ticks[2] = 2000;
+    const ct = present | FLAG_CT;
+    ticks.flags.set([ct, present, ct, present, ct, present]);
+    ticks.equip[0] = 800;
+    ticks.equip[1] = 800;
     ticks.equip[2] = FORCE_BUY_MAX_EQUIPMENT;
-    ticks.equip[3] = FORCE_BUY_MAX_EQUIPMENT;
+    ticks.equip[3] = ECO_MAX_EQUIPMENT - 1;
+    ticks.equip[4] = FORCE_BUY_MAX_EQUIPMENT;
+    ticks.equip[5] = FORCE_BUY_MAX_EQUIPMENT;
     const replay = makeReplay({
       ticks,
       rounds: [
         makeRound({
-          number: 4,
+          number: 1,
           start_tick: 0,
           freeze_end_tick: 64,
-          end_tick: 400,
+          end_tick: 700,
+          winner: "CT",
+        }),
+        makeRound({
+          number: 4,
+          start_tick: 700,
+          freeze_end_tick: 800,
+          end_tick: 1800,
+          winner: "T",
         }),
         makeRound({
           number: FIRST_OVERTIME_ROUND,
           start_tick: 1900,
           freeze_end_tick: 2000,
           end_tick: 2800,
+          winner: "CT",
         }),
       ],
     });
 
     render(<RoundStrip replay={replay} tick={100} notes={[]} places={null} />);
 
-    await waitFor(() =>
-      expect(screen.getByTitle("Round 4 · Eco")).toHaveAttribute("data-chapter", "eco"),
-    );
-    expect(screen.getByTitle(`Round ${FIRST_OVERTIME_ROUND} · Overtime`)).toHaveAttribute(
-      "data-chapter",
-      "overtime",
-    );
-    expect(screen.getByTitle(`Round ${FIRST_OVERTIME_ROUND} · Overtime`)).toHaveTextContent("OT");
+    const pistol = await screen.findByTitle("Round 1 · CT pistol · T pistol");
+    const pistolMarks = pistol.querySelectorAll(".round-buy");
+    expect(pistolMarks[0]).toHaveClass("ct");
+    expect(pistolMarks[0]).toHaveAttribute("data-buy", "pistol");
+    expect(pistolMarks[1]).toHaveClass("t");
+    expect(pistolMarks[1]).toHaveAttribute("data-buy", "pistol");
+    expect(pistol).toHaveClass("ct");
+
+    const save = screen.getByTitle("Round 4 · CT anti-eco · T eco");
+    expect(save).toHaveClass("t");
+    expect(save).not.toHaveClass("ct");
+    expect(save.querySelector(".round-buy.ct")).toHaveAttribute("data-buy", "anti-eco");
+    expect(save.querySelector(".round-buy.t")).toHaveAttribute("data-buy", "eco");
+
+    const overtime = screen.getByTitle(`Round ${FIRST_OVERTIME_ROUND} · CT full · T full`);
+    expect(overtime.querySelector(".round-buy.ct")).toHaveAttribute("data-buy", "full");
+    expect(overtime.querySelector(".round-buy.t")).toHaveAttribute("data-buy", "full");
+    expect(overtime).not.toHaveTextContent("OT");
   });
 });

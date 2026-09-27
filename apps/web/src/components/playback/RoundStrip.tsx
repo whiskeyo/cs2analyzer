@@ -1,15 +1,16 @@
 import { memo, useEffect, useMemo, useState } from "react";
-import { blockTransportFocus } from "@/lib/playback/transportFocus";
-import { tickRate } from "@/lib/shared/constants";
+import { GearIcon } from "@/components/weapons/WeaponIcon";
+import { ECONOMY_BUY_LABEL, roundSideBuys, type EconomyBuy } from "@/lib/match/economy";
 import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execute";
+import type { MapPlaces } from "@/lib/match/sites";
+import { noteRounds } from "@/lib/notes";
+import type { RoundNote } from "@/lib/notes/types";
+import { useSendPlaybackCommand } from "@/lib/playback/playbackCommandContext";
+import { blockTransportFocus } from "@/lib/playback/transportFocus";
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
-import type { RoundNote } from "@/lib/notes/types";
-import { noteRounds } from "@/lib/notes";
-import { ROUND_CHAPTER_LABEL, roundChapter, type RoundChapter } from "@/lib/playback/roundChapter";
-import { useSendPlaybackCommand } from "@/lib/playback/playbackCommandContext";
-import type { MapPlaces } from "@/lib/match/sites";
-import { RoundChapterIcon } from "./RoundChapterIcon";
+import { tickRate } from "@/lib/shared/constants";
+import { SideBuyIcon } from "./SideBuyIcon";
 
 interface Props {
   replay: Replay;
@@ -55,8 +56,8 @@ export const RoundStrip = memo(function RoundStrip({
   const actionRounds = new Set(beats.map((b) => b.round));
   const noted = noteRounds(notes);
   const live = activeExecute(beats, tick, tickRate(replay));
-  const chapters = useMemo(
-    () => replay.rounds.map((round) => roundChapter(replay, round)),
+  const buys = useMemo(
+    () => replay.rounds.map((round) => (round.is_knife ? null : roundSideBuys(replay, round))),
     [replay],
   );
   return (
@@ -66,8 +67,8 @@ export const RoundStrip = memo(function RoundStrip({
         const hasNotes = noted.has(r.number);
         const liveAction = live != null && live.round === r.number;
         const enabled = roundEnabled?.(r) ?? true;
-        const chapter = chapters[index] ?? null;
-        const title = roundChipTitle(r, chapter, hasAction, hasNotes);
+        const sides = buys[index] ?? null;
+        const title = roundChipTitle(r, sides, hasAction, hasNotes);
         return (
           <button
             key={r.start_tick}
@@ -75,7 +76,6 @@ export const RoundStrip = memo(function RoundStrip({
             tabIndex={-1}
             role="listitem"
             disabled={!enabled}
-            data-chapter={chapter ?? undefined}
             className={`rs${current?.start_tick === r.start_tick ? " on" : ""}${hasAction ? " has-action" : ""}${hasNotes ? " has-notes" : ""}${liveAction ? " live-action" : ""}${enabled ? "" : " is-inactive"} ${
               r.winner === "CT" ? "ct" : r.winner === "T" ? "t" : "none"
             }`}
@@ -86,9 +86,20 @@ export const RoundStrip = memo(function RoundStrip({
               send({ type: "jump", tick: 0, pause: true, round: r });
             }}
           >
-            <span className="round-chapter-slot" aria-hidden="true">
-              {chapter ? <RoundChapterIcon chapter={chapter} /> : null}
-            </span>
+            {r.is_knife ? (
+              <span className="round-buys is-knife" aria-hidden="true">
+                <GearIcon name="knife" title="" className="round-buy-knife" />
+              </span>
+            ) : (
+              <span className="round-buys" aria-hidden="true">
+                <span className="round-buy ct" data-buy={sides?.ct ?? "none"}>
+                  <SideBuyIcon buy={sides?.ct ?? null} />
+                </span>
+                <span className="round-buy t" data-buy={sides?.t ?? "none"}>
+                  <SideBuyIcon buy={sides?.t ?? null} />
+                </span>
+              </span>
+            )}
             {r.is_knife ? "K" : r.number}
           </button>
         );
@@ -99,13 +110,19 @@ export const RoundStrip = memo(function RoundStrip({
 
 function roundChipTitle(
   round: Round,
-  chapter: RoundChapter | null,
+  sides: { ct: EconomyBuy | null; t: EconomyBuy | null } | null,
   hasAction: boolean,
   hasNotes: boolean,
 ): string {
   const parts = [round.is_knife ? "Knife" : `Round ${round.number}`];
-  if (chapter && chapter !== "knife") parts.push(ROUND_CHAPTER_LABEL[chapter]);
+  if (sides) {
+    parts.push(`CT ${buyWord(sides.ct)}`, `T ${buyWord(sides.t)}`);
+  }
   if (hasAction) parts.push("execute");
   if (hasNotes) parts.push("notes");
   return parts.join(" · ");
+}
+
+function buyWord(buy: EconomyBuy | null): string {
+  return buy ? ECONOMY_BUY_LABEL[buy].toLowerCase() : "no buy";
 }
