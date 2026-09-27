@@ -1,7 +1,4 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { Hud } from "@/components/radar/Hud";
 import {
   bombView,
   defuseClock,
@@ -230,12 +227,6 @@ describe("defuseClock", () => {
     expect(defuseClock(m, 201)).toBeNull();
     expect(defuseClock(m, 250)).toBeNull();
     expect(defuseClock(m, 800)).toBeNull();
-    const during = renderToStaticMarkup(createElement(Hud, { replay: m, tick: 200 }));
-    const after = renderToStaticMarkup(createElement(Hud, { replay: m, tick: 250 }));
-    expect(during).toContain("Defuse");
-    expect(during).toContain("C4");
-    expect(after).not.toContain("Defuse");
-    expect(after).toContain("C4");
     expect(liveSituation(m, 250).bomb?.remaining).toBeGreaterThan(0);
   });
 
@@ -290,9 +281,6 @@ describe("defuseClock", () => {
     );
     expect(defuseClock(m, begin + slack)).toBeNull();
     expect(defuseClock(m, begin + 64)).toBeNull();
-    const after = renderToStaticMarkup(createElement(Hud, { replay: m, tick: begin + slack }));
-    expect(after).not.toContain("Defuse");
-    expect(after).toContain("C4");
   });
 
   it("ends a hold fake when the defuse flag drops and abort_defuse never arrives", () => {

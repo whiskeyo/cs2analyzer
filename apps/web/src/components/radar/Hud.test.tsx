@@ -1,17 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { BOMB_SECONDS, DEFAULT_TICK_RATE, PLANT_SECONDS } from "@/lib/shared/constants";
-import { FLAG_ALIVE } from "@/lib/replay/replayTypes";
+import { FLAG_ALIVE, FLAG_CT, FLAG_DEFUSING, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import {
   makeBombEvent,
   makeFreezeTicks,
   makePlayer,
   makeReplay,
   makeRound,
+  makeTicks,
 } from "@/lib/testing/fixtures";
 import { Hud } from "./Hud";
 
 const tps = DEFAULT_TICK_RATE;
+
+function ctSamples(frames: { tick: number; defusing: boolean }[]) {
+  const playerCount = 2;
+  const buf = makeTicks(playerCount, frames.length);
+  frames.forEach((frame, index) => {
+    buf.ticks[index] = frame.tick;
+    for (let player = 0; player < playerCount; player++) {
+      let flags = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+      if (frame.defusing && player === 0) flags |= FLAG_DEFUSING;
+      buf.flags[index * playerCount + player] = flags;
+    }
+  });
+  return buf;
+}
 
 describe("Hud", () => {
   it("counts down the freeze and drops the label once play is live", () => {
@@ -112,5 +127,54 @@ describe("Hud", () => {
     rerender(<Hud replay={replay} tick={300} />);
     expect(screen.getByText("Astralis 1")).toBeInTheDocument();
     expect(screen.getByText("0 Vitality")).toBeInTheDocument();
+  });
+
+  it("drops the Defuse badge after an abort and keeps the C4 clock", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
+      ticks: ctSamples([
+        { tick: 200, defusing: true },
+        { tick: 800, defusing: true },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false, player: 0 }),
+        makeBombEvent({ tick: 201, kind: "abort_defuse", player: 0 }),
+      ],
+    });
+    const { rerender } = render(<Hud replay={replay} tick={200} />);
+    expect(screen.getByText(/Defuse/)).toBeInTheDocument();
+    expect(screen.getByText(/C4/)).toBeInTheDocument();
+
+    rerender(<Hud replay={replay} tick={250} />);
+    expect(screen.queryByText(/Defuse/)).not.toBeInTheDocument();
+    expect(screen.getByText(/C4/)).toBeInTheDocument();
+  });
+
+  it("drops the Defuse badge when the flag is gone and no abort arrives", () => {
+    const begin = 200;
+    const stride = 8;
+    const slack = stride * 2;
+    const replay = makeReplay({
+      header: { tick_stride: stride },
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
+      ticks: ctSamples([
+        { tick: begin, defusing: false },
+        { tick: begin + slack, defusing: false },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: begin, kind: "begin_defuse", haskit: false, player: 0 }),
+      ],
+    });
+    const { rerender } = render(<Hud replay={replay} tick={begin} />);
+    expect(screen.getByText(/Defuse/)).toBeInTheDocument();
+    expect(screen.getByText(/C4/)).toBeInTheDocument();
+
+    rerender(<Hud replay={replay} tick={begin + slack} />);
+    expect(screen.queryByText(/Defuse/)).not.toBeInTheDocument();
+    expect(screen.getByText(/C4/)).toBeInTheDocument();
   });
 });
