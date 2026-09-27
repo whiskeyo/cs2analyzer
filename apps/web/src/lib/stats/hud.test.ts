@@ -1,14 +1,31 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { bombView, defuseClock, freezeRemaining, plantClock, roundWinBanner } from "./hud";
+import { Hud } from "@/components/radar/Hud";
+import {
+  bombView,
+  defuseClock,
+  freezeRemaining,
+  liveSituation,
+  plantClock,
+  roundWinBanner,
+} from "./hud";
 import {
   makeBombEvent,
   makeFreezeTicks,
+  makeKill,
   makePlayer,
   makeReplay,
   makeRound,
   makeTicks,
+  type ReplayOverrides,
 } from "@/lib/testing/fixtures";
-import { BOMB_SECONDS, PLANT_SECONDS } from "@/lib/shared/constants";
+import {
+  BOMB_SECONDS,
+  DEFUSE_WITHOUT_KIT_SECONDS,
+  DEFUSE_WITH_KIT_SECONDS,
+  PLANT_SECONDS,
+} from "@/lib/shared/constants";
 import {
   FLAG_ALIVE,
   FLAG_CT,
@@ -79,6 +96,43 @@ describe("roundWinBanner", () => {
   });
 });
 
+function clockReplay(overrides: ReplayOverrides = {}) {
+  return makeReplay({
+    players: [makePlayer(0, "CT", "A"), makePlayer(1, "CT", "B")],
+    rounds: [
+      makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 4000 }),
+    ],
+    ...overrides,
+  });
+}
+
+/** Sparse pawn samples. A slot listed in `defusing` stays on for that sample. */
+function defusingSamples(
+  playerCount: number,
+  samples: {
+    tick: number;
+    defusing?: number[];
+    dead?: number[];
+    gone?: number[];
+    kit?: number[];
+  }[],
+) {
+  const buf = makeTicks(playerCount, samples.length);
+  samples.forEach((sample, frame) => {
+    buf.ticks[frame] = sample.tick;
+    for (let player = 0; player < playerCount; player++) {
+      const slot = frame * playerCount + player;
+      let flags = FLAG_CT;
+      if (!sample.gone?.includes(player)) flags |= FLAG_PRESENT;
+      if (!sample.dead?.includes(player) && !sample.gone?.includes(player)) flags |= FLAG_ALIVE;
+      if (sample.defusing?.includes(player)) flags |= FLAG_DEFUSING;
+      buf.flags[slot] = flags;
+      if (sample.kit?.includes(player)) buf.gear[slot] = GEAR_DEFUSER;
+    }
+  });
+  return buf;
+}
+
 describe("defuseClock", () => {
   it("counts a 5s kit defuse after plant", () => {
     const m = makeReplay({
@@ -131,6 +185,265 @@ describe("defuseClock", () => {
     expect(defuseClock(m, 199)).toBeNull();
     expect(defuseClock(m, 200)?.remaining).toBeCloseTo(5, 5);
     expect(defuseClock(m, 200)?.haskit).toBe(true);
+  });
+
+  it("keeps counting from flags when the plant has no defuse event", () => {
+    const start = 200;
+    const m = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 64 },
+        { tick: start, defusing: [0], kit: [0] },
+        { tick: start + 64 * 2, defusing: [0], kit: [0] },
+        { tick: start + 64 * 4 },
+      ]),
+      bombEvents: [makeBombEvent({ tick: 100, kind: "planted" })],
+    });
+    expect(defuseClock(m, start)?.remaining).toBeCloseTo(DEFUSE_WITH_KIT_SECONDS, 5);
+    expect(defuseClock(m, start + 64 * 2)?.remaining).toBeCloseTo(DEFUSE_WITH_KIT_SECONDS - 2, 5);
+    expect(defuseClock(m, start + 64 * 4)).toBeNull();
+  });
+
+  it("hides the badge on a tap fake even while FLAG_DEFUSING is still set", () => {
+    const m = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 64 },
+        { tick: 200, defusing: [0] },
+        { tick: 800, defusing: [0] },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false, player: 0 }),
+        makeBombEvent({ tick: 201, kind: "abort_defuse", player: 0 }),
+      ],
+    });
+    expect(defuseClock(m, 200)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS, 5);
+    expect(defuseClock(m, 201)).toBeNull();
+    expect(defuseClock(m, 250)).toBeNull();
+    expect(defuseClock(m, 800)).toBeNull();
+    const during = renderToStaticMarkup(createElement(Hud, { replay: m, tick: 200 }));
+    const after = renderToStaticMarkup(createElement(Hud, { replay: m, tick: 250 }));
+    expect(during).toContain("Defuse");
+    expect(during).toContain("C4");
+    expect(after).not.toContain("Defuse");
+    expect(after).toContain("C4");
+    expect(liveSituation(m, 250).bomb?.remaining).toBeGreaterThan(0);
+  });
+
+  it("hides the badge after a hold of a few seconds even while the flag is still set", () => {
+    const start = 200;
+    const release = start + 64 * 3;
+    const m = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 64 },
+        { tick: start, defusing: [0] },
+        { tick: release + 64, defusing: [0] },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: start, kind: "begin_defuse", haskit: false, player: 0 }),
+        makeBombEvent({ tick: release, kind: "abort_defuse", player: 0 }),
+      ],
+    });
+    expect(defuseClock(m, start + 64)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS - 1, 5);
+    expect(defuseClock(m, release)).toBeNull();
+    expect(defuseClock(m, release + 32)).toBeNull();
+  });
+
+  it("does not start a flag clock before begin_defuse when the plant has defuse events", () => {
+    const m = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 64 },
+        { tick: 160, defusing: [0] },
+        { tick: 200, defusing: [0] },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false, player: 0 }),
+      ],
+    });
+    expect(defuseClock(m, 180)).toBeNull();
+    expect(defuseClock(m, 200)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS, 5);
+  });
+
+  it("restarts from full time on begin, abort, begin, defused", () => {
+    const first = 200;
+    const abort = first + 64;
+    const second = 400;
+    const defused = second + 64 * 4;
+    const m = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 64 },
+        { tick: first, defusing: [0] },
+        { tick: defused, defusing: [0] },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: first, kind: "begin_defuse", haskit: false, player: 0 }),
+        makeBombEvent({ tick: abort, kind: "abort_defuse", player: 0 }),
+        makeBombEvent({ tick: second, kind: "begin_defuse", haskit: false, player: 0 }),
+        makeBombEvent({ tick: defused, kind: "defused", player: 0 }),
+      ],
+    });
+    expect(defuseClock(m, first + 32)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS - 0.5, 5);
+    expect(defuseClock(m, abort)).toBeNull();
+    expect(defuseClock(m, second - 1)).toBeNull();
+    expect(defuseClock(m, second)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS, 5);
+    expect(defuseClock(m, second + 64)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS - 1, 5);
+    expect(defuseClock(m, defused)).toBeNull();
+  });
+
+  it("uses the new defuser's kit after an abort", () => {
+    const stuck = defusingSamples(2, [
+      { tick: 64 },
+      { tick: 200, defusing: [0, 1], kit: [0] },
+      { tick: 800, defusing: [0, 1], kit: [0] },
+    ]);
+    const toKit = clockReplay({
+      ticks: stuck,
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false, player: 0 }),
+        makeBombEvent({ tick: 280, kind: "abort_defuse", player: 0 }),
+        makeBombEvent({ tick: 360, kind: "begin_defuse", haskit: true, player: 1 }),
+      ],
+    });
+    expect(defuseClock(toKit, 300)).toBeNull();
+    expect(defuseClock(toKit, 360)).toEqual({
+      remaining: DEFUSE_WITH_KIT_SECONDS,
+      haskit: true,
+    });
+
+    const noKitBegin = makeBombEvent({
+      tick: 360,
+      kind: "begin_defuse",
+      haskit: false,
+      player: 1,
+    });
+    const toBare = clockReplay({
+      ticks: stuck,
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: true, player: 0 }),
+        makeBombEvent({ tick: 280, kind: "abort_defuse", player: 0 }),
+        noKitBegin,
+      ],
+    });
+    expect(defuseClock(toBare, 360)).toEqual({
+      remaining: DEFUSE_WITHOUT_KIT_SECONDS,
+      haskit: false,
+    });
+    expect(noKitBegin.haskit).toBe(false);
+  });
+
+  it("reads a kit from the defuser's gear without writing it back onto the event", () => {
+    const begin = makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false, player: 0 });
+    const m = clockReplay({
+      ticks: defusingSamples(1, [{ tick: 200, defusing: [0], kit: [0] }]),
+      bombEvents: [makeBombEvent({ tick: 100, kind: "planted" }), begin],
+    });
+    expect(defuseClock(m, 200)).toEqual({
+      remaining: DEFUSE_WITH_KIT_SECONDS,
+      haskit: true,
+    });
+    expect(begin.haskit).toBe(false);
+  });
+
+  it("ends the clock when the defuser is killed, even if the sample is still defusing", () => {
+    const m = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 200, defusing: [0] },
+        { tick: 500, defusing: [0] },
+      ]),
+      kills: [makeKill(250, 1, 1), makeKill(300, 1, 0)],
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false, player: 0 }),
+      ],
+    });
+    expect(defuseClock(m, 280)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS - 80 / 64, 5);
+    expect(defuseClock(m, 300)).toBeNull();
+    expect(defuseClock(m, 400)).toBeNull();
+  });
+
+  it("ends a flags-only defuse when the defuser is killed", () => {
+    const m = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 200, defusing: [0] },
+        { tick: 500, defusing: [0] },
+      ]),
+      kills: [makeKill(300, 1, 0)],
+      bombEvents: [makeBombEvent({ tick: 100, kind: "planted" })],
+    });
+    expect(defuseClock(m, 280)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS - 80 / 64, 5);
+    expect(defuseClock(m, 300)).toBeNull();
+  });
+
+  it("ignores a kill from before this defuse attempt", () => {
+    const m = clockReplay({
+      kills: [makeKill(80, 1, 0)],
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false, player: 0 }),
+      ],
+    });
+    expect(defuseClock(m, 250)?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS - 50 / 64, 5);
+  });
+
+  it("ends the clock when the sampled pawn is dead or gone", () => {
+    const dead = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 200, defusing: [0] },
+        { tick: 300, defusing: [0], dead: [0] },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false, player: 0 }),
+      ],
+    });
+    expect(defuseClock(dead, 280)).not.toBeNull();
+    expect(defuseClock(dead, 300)).toBeNull();
+
+    const gone = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 200, defusing: [0] },
+        { tick: 300, defusing: [0], gone: [0] },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false, player: 0 }),
+      ],
+    });
+    expect(defuseClock(gone, 300)).toBeNull();
+  });
+
+  it("ends the clock when the bomb explodes", () => {
+    const withEvents = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 200, defusing: [0] },
+        { tick: 800, defusing: [0] },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false, player: 0 }),
+        makeBombEvent({ tick: 400, kind: "exploded" }),
+      ],
+    });
+    expect(defuseClock(withEvents, 399)).not.toBeNull();
+    expect(defuseClock(withEvents, 400)).toBeNull();
+    expect(defuseClock(withEvents, 500)).toBeNull();
+
+    const flagsOnly = clockReplay({
+      ticks: defusingSamples(1, [
+        { tick: 200, defusing: [0] },
+        { tick: 800, defusing: [0] },
+      ]),
+      bombEvents: [
+        makeBombEvent({ tick: 100, kind: "planted" }),
+        makeBombEvent({ tick: 400, kind: "exploded" }),
+      ],
+    });
+    expect(defuseClock(flagsOnly, 300)).not.toBeNull();
+    expect(defuseClock(flagsOnly, 400)).toBeNull();
   });
 });
 
