@@ -267,9 +267,10 @@ export function roundWinBanner(
  * events own the clock: flags cannot start one again after an abort. GOTV may
  * omit `abort_defuse`, so once a begin is in effect the clock also stops when
  * no alive CT still has `FLAG_DEFUSING`, after two tick strides of slack.
- * The event slot is not a column index. Flags are the fallback only when the
- * plant has no defuse event, and only for a CT. A kill of the begin player
- * and an explosion end the clock too.
+ * The event slot is not a column index. On that path the kit is
+ * `begin_defuse.haskit` for the whole attempt. Flags are the fallback only
+ * when the plant has no defuse event, and only for a CT; that path reads
+ * `GEAR_DEFUSER`. A kill of the begin player and an explosion end the clock too.
  */
 export function defuseClock(
   replay: Replay,
@@ -297,7 +298,7 @@ export function defuseClock(
     return null;
   }
 
-  const haskit = defuseHasKit(replay, tick, begin);
+  const haskit = begin.haskit;
   const duration = haskit ? DEFUSE_WITH_KIT_SECONDS : DEFUSE_WITHOUT_KIT_SECONDS;
   const remaining = duration - (tick - begin.tick) / tps;
   if (remaining < -0.25) {
@@ -440,21 +441,6 @@ function defuserDown(replay: Replay, tick: number, begin: DefuseBegin): boolean 
     }
   }
   return false;
-}
-
-/**
- * Event `haskit`, or `GEAR_DEFUSER` on the column-side defuser. Before the
- * slack elapses the flag may not be sampled yet, so only the event counts.
- */
-function defuseHasKit(replay: Replay, tick: number, begin: DefuseBegin): boolean {
-  if (begin.haskit) {
-    return true;
-  }
-  if (tick < defuseFlagReadyTick(replay, begin.tick)) {
-    return false;
-  }
-  const defuser = columnDefuser(replay, tick);
-  return !!defuser && (defuser.gear & GEAR_DEFUSER) !== 0;
 }
 
 /** Active plant: 3.2s arm. Cancels on plant, drop, death, or timeout (FACEIT beginplant). */

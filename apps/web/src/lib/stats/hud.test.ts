@@ -424,7 +424,7 @@ describe("defuseClock", () => {
     expect(noKitBegin.haskit).toBe(false);
   });
 
-  it("reads a kit from the column defuser's gear after slack, without writing the event", () => {
+  it("keeps the 10s clock when the event has no kit even if the column shows one", () => {
     const beginTick = 200;
     const stride = 4;
     const ready = beginTick + stride * 2;
@@ -447,8 +447,8 @@ describe("defuseClock", () => {
       haskit: false,
     });
     expect(defuseClock(m, ready)).toEqual({
-      remaining: DEFUSE_WITH_KIT_SECONDS - (ready - beginTick) / 64,
-      haskit: true,
+      remaining: DEFUSE_WITHOUT_KIT_SECONDS - (ready - beginTick) / 64,
+      haskit: false,
     });
     expect(begin.haskit).toBe(false);
   });
@@ -481,13 +481,13 @@ describe("defuseClock", () => {
       remaining: DEFUSE_WITHOUT_KIT_SECONDS,
       haskit: false,
     });
-    expect(defuseClock(m, ready)?.haskit).toBe(true);
+    expect(defuseClock(m, ready)?.haskit).toBe(false);
     expect(defuseClock(m, ready)?.remaining).toBeCloseTo(
-      DEFUSE_WITH_KIT_SECONDS - (ready - begin) / 64,
+      DEFUSE_WITHOUT_KIT_SECONDS - (ready - begin) / 64,
       5,
     );
     expect(defuseClock(m, done - 1)?.remaining).toBeCloseTo(
-      DEFUSE_WITH_KIT_SECONDS - (done - 1 - begin) / 64,
+      DEFUSE_WITHOUT_KIT_SECONDS - (done - 1 - begin) / 64,
       5,
     );
     expect(defuseClock(m, done)).toBeNull();
