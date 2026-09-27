@@ -9,6 +9,8 @@ import {
   DEFAULT_SIDEBAR_TABS,
   type DefaultSidebarTab,
 } from "@/lib/settings/userSettings";
+import { parseLocale } from "@/lib/i18n/locales";
+import { useMessages } from "@/lib/i18n/useMessages";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { UserSettingsPlayback } from "./UserSettingsPlayback";
 import { UserSettingsPdfSection, UserSettingsResetDialog } from "./userSettingsPanels";
@@ -35,6 +37,7 @@ import {
 
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
   const { settings, update, reset, saveError } = useUserSettings();
+  const { messages } = useMessages();
   const [confirmReset, setConfirmReset] = useState(false);
   const titleId = useId();
   const confirmTitleId = useId();
@@ -80,6 +83,21 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
             {saveError}
           </p>
         ) : null}
+
+        <section className="settings-section">
+          <h3>{messages.settings.language}</h3>
+          <label className="settings-field">
+            <span>{messages.settings.language}</span>
+            <select
+              className="settings-language"
+              value={settings.locale}
+              onChange={(e) => void update({ locale: parseLocale(e.target.value) })}
+            >
+              <option value="en">English</option>
+              <option value="pl">Polski</option>
+            </select>
+          </label>
+        </section>
 
         <section className="settings-section">
           <h3>Performance</h3>

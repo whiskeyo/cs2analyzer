@@ -1,3 +1,4 @@
+import "fake-indexeddb/auto";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -19,7 +20,11 @@ import {
   type Replay,
   type Round,
 } from "@/lib/replay/replayTypes";
-import { RoundStrip } from "./RoundStrip";
+import { messagesFor } from "@/lib/i18n/catalogs";
+import { roundSideBuys } from "@/lib/match/economy";
+import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
+import { clearUserSettingsForTests, saveUserSettings } from "@/lib/settings/userSettingsStore";
+import { RoundStrip, roundChipLabel } from "./RoundStrip";
 
 const tps = DEFAULT_TICK_RATE;
 const NO_BUY = "T no buy · CT no buy";
@@ -77,7 +82,9 @@ describe("RoundStrip", () => {
     await waitFor(() => expect(screen.getByRole("list")).toBeInTheDocument());
     expect(screen.getByTitle("Knife")).toHaveTextContent("K");
     expect(screen.getByTitle("Knife").querySelector(".round-buys.is-knife")).toBeTruthy();
-    expect(screen.getByTitle(`Round 1 · ${NO_BUY}`)).toHaveClass("on");
+    const live = screen.getByTitle(`Round 1 · ${NO_BUY}`);
+    expect(live).toHaveClass("on");
+    expect(live).toHaveAccessibleName(`Round 1 · ${NO_BUY}`);
     expect(screen.getByTitle(`Round 2 · ${NO_BUY}`)).not.toHaveClass("on");
   });
 
@@ -345,5 +352,58 @@ describe("RoundStrip", () => {
     expect(
       screen.getByTitle("Round 13 · T Astralis pistol · CT Vitality pistol"),
     ).toBeInTheDocument();
+  });
+
+  it("announces the same buy line to screen readers in Polish", async () => {
+    const replay = makeReplay({
+      rounds: [
+        makeRound({
+          number: 2,
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 640,
+          team_t: "Vitality",
+          team_ct: "Astralis",
+        }),
+      ],
+    });
+    const round = replay.rounds[0]!;
+    const polish = roundChipLabel(
+      messagesFor("pl"),
+      replay,
+      round,
+      roundSideBuys(replay, round),
+      false,
+      true,
+    );
+    expect(polish).toBe("Runda 2 · T Vitality brak buy · CT Astralis brak buy · notatki");
+
+    const previousLang = document.documentElement.lang;
+    await clearUserSettingsForTests();
+    await saveUserSettings({ locale: "pl" });
+    render(
+      <UserSettingsProvider>
+        <RoundStrip
+          replay={replay}
+          tick={100}
+          notes={[
+            {
+              round: 2,
+              note: {
+                groups: [],
+                drawings: [{ type: "pen", color: "#fff", points: [{ x: 0, y: 0 }] }],
+                pieces: [],
+                bookmarks: [],
+              },
+            },
+          ]}
+          places={null}
+        />
+      </UserSettingsProvider>,
+    );
+    const chip = await screen.findByRole("listitem", { name: polish });
+    expect(chip).toHaveAttribute("title", polish);
+    document.documentElement.lang = previousLang;
+    await clearUserSettingsForTests();
   });
 });

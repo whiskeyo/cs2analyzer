@@ -34,6 +34,10 @@ function useUserSettingsState(): UserSettingsApi {
   const dirtyRef = useRef(false);
 
   useEffect(() => {
+    document.documentElement.lang = settings.locale;
+  }, [settings.locale]);
+
+  useEffect(() => {
     let cancelled = false;
     void loadUserSettings().then((loaded) => {
       if (cancelled) {

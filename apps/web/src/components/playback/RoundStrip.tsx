@@ -1,13 +1,14 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { GearIcon } from "@/components/weapons/WeaponIcon";
+import type { Messages } from "@/lib/i18n/messages";
+import { translate } from "@/lib/i18n/translate";
+import { useMessages } from "@/lib/i18n/useMessages";
 import {
-  ECONOMY_BUY_LABEL,
   SIDE_DISPLAY_ORDER,
   roundSideBuys,
   roundTeamName,
   type EconomyBuy,
 } from "@/lib/match/economy";
-import type { Side } from "@/lib/replay/replayTypes";
 import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execute";
 import type { MapPlaces } from "@/lib/match/sites";
 import { noteRounds } from "@/lib/notes";
@@ -15,7 +16,7 @@ import type { RoundNote } from "@/lib/notes/types";
 import { useSendPlaybackCommand } from "@/lib/playback/playbackCommandContext";
 import { blockTransportFocus } from "@/lib/playback/transportFocus";
 import { currentRound } from "@/lib/replay/sample";
-import type { Replay, Round } from "@/lib/replay/replayTypes";
+import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
 import { tickRate } from "@/lib/shared/constants";
 import { SideBuyIcon } from "./SideBuyIcon";
 
@@ -38,6 +39,7 @@ export const RoundStrip = memo(function RoundStrip({
   roundEnabled,
 }: Props) {
   const send = useSendPlaybackCommand();
+  const { messages } = useMessages();
   const current = activeRound ?? currentRound(replay, tick);
   const [beats, setBeats] = useState<ExecuteBeat[]>([]);
 
@@ -75,7 +77,7 @@ export const RoundStrip = memo(function RoundStrip({
         const liveAction = live != null && live.round === r.number;
         const enabled = roundEnabled?.(r) ?? true;
         const sides = buys[index] ?? null;
-        const title = roundChipTitle(replay, r, sides, hasAction, hasNotes);
+        const title = roundChipLabel(messages, replay, r, sides, hasAction, hasNotes, enabled);
         return (
           <button
             key={r.start_tick}
@@ -86,7 +88,8 @@ export const RoundStrip = memo(function RoundStrip({
             className={`rs${current?.start_tick === r.start_tick ? " on" : ""}${hasAction ? " has-action" : ""}${hasNotes ? " has-notes" : ""}${liveAction ? " live-action" : ""}${enabled ? "" : " is-inactive"} ${
               r.winner === "CT" ? "ct" : r.winner === "T" ? "t" : "none"
             }`}
-            title={enabled ? title : `${title} · not playable in the tutorial`}
+            title={title}
+            aria-label={title}
             onMouseDown={blockTransportFocus}
             onClick={() => {
               if (!enabled) return;
@@ -121,32 +124,50 @@ export const RoundStrip = memo(function RoundStrip({
   );
 });
 
-function roundChipTitle(
+export function roundChipLabel(
+  messages: Messages,
   replay: Replay,
   round: Round,
   sides: { ct: EconomyBuy | null; t: EconomyBuy | null } | null,
   hasAction: boolean,
   hasNotes: boolean,
+  enabled = true,
 ): string {
-  const parts = [round.is_knife ? "Knife" : `Round ${round.number}`];
+  const copy = messages.roundStrip;
+  const parts = [round.is_knife ? copy.knife : translate(copy.round, { number: round.number })];
   if (sides) {
     for (const side of SIDE_DISPLAY_ORDER) {
       const buy = side === "CT" ? sides.ct : sides.t;
-      parts.push(sideBuyPhrase(side, roundTeamName(replay, round, side), buy));
+      parts.push(sideBuyPhrase(messages, side, roundTeamName(replay, round, side), buy));
     }
   }
-  if (hasAction) parts.push("execute");
-  if (hasNotes) parts.push("notes");
-  return parts.join(" · ");
+  if (hasAction) parts.push(copy.execute);
+  if (hasNotes) parts.push(copy.notes);
+  const title = parts.join(" · ");
+  return enabled ? title : `${title} · ${copy.tutorialInactive}`;
 }
 
-function sideBuyPhrase(side: Side, team: string, buy: EconomyBuy | null): string {
-  const word = buyWord(buy);
+function sideBuyPhrase(
+  messages: Messages,
+  side: Side,
+  team: string,
+  buy: EconomyBuy | null,
+): string {
+  const copy = messages.roundStrip;
+  const word = buyWord(messages, buy);
   const name = team.trim();
-  if (name === "" || name.toUpperCase() === side) return `${side} ${word}`;
-  return `${side} ${name} ${word}`;
+  if (name === "" || name.toUpperCase() === side) {
+    return translate(copy.sideBuy, { side, buy: word });
+  }
+  return translate(copy.sideTeamBuy, { side, team: name, buy: word });
 }
 
-function buyWord(buy: EconomyBuy | null): string {
-  return buy ? ECONOMY_BUY_LABEL[buy].toLowerCase() : "no buy";
+function buyWord(messages: Messages, buy: EconomyBuy | null): string {
+  const copy = messages.roundStrip;
+  if (buy === "pistol") return copy.pistol;
+  if (buy === "eco") return copy.eco;
+  if (buy === "force") return copy.force;
+  if (buy === "anti-eco") return copy.antiEco;
+  if (buy === "full") return copy.full;
+  return copy.noBuy;
 }
