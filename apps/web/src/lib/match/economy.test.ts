@@ -230,6 +230,41 @@ describe("matchEconomy", () => {
     expect(roundTeamName(replay, replay.rounds[1]!, "T")).toBe("Astralis");
   });
 
+  it("ignores a leftover dead $0 controller when averaging a side", () => {
+    const players = [
+      makePlayer(0, "CT", "C"),
+      makePlayer(1, "T", "T"),
+      makePlayer(2, "CT", "Ghost"),
+    ];
+    const ticks = makeTicks(3, 1);
+    const freeze = 64;
+    ticks.ticks[0] = freeze;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[2] = FLAG_PRESENT | FLAG_CT;
+    ticks.equip[0] = 5000;
+    ticks.equip[1] = 5000;
+    ticks.equip[2] = 0;
+    ticks.money[2] = 0;
+    const replay = makeReplay({
+      players,
+      ticks,
+      rounds: [
+        makeRound({
+          number: 4,
+          winner: "CT",
+          start_tick: 0,
+          freeze_end_tick: freeze,
+          end_tick: 800,
+        }),
+      ],
+    });
+    const economy = matchEconomy(replay);
+    expect(economy.rounds[0]?.ct.buy).toBe("full");
+    expect(economy.rounds[0]?.ct.averageEquipment).toBe(5000);
+    expect(economy.rounds[0]?.t.buy).toBe("full");
+  });
+
   it("leaves the buy empty when a side is missing at freeze", () => {
     const economy = matchEconomy(
       economyReplay([{ number: 4, winner: null, ctEquip: 0, tEquip: 0, present: false }]),
