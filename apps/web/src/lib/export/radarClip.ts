@@ -7,6 +7,7 @@ import {
   CLIP_EXPORT_NO_CANVAS,
   CLIP_EXPORT_TOO_SHORT,
   CLIP_EXPORT_VIDEO_BITS_PER_SECOND,
+  CLIP_TIMESTAMP_US,
 } from "@/lib/export/constants";
 
 /** Inclusive-exclusive demo tick window. `endTick` is the first tick not shown. */
@@ -41,12 +42,17 @@ export function clipDurationSeconds(span: ClipSpan, rate: number): number {
   return Math.max(0, (span.endTick - span.startTick) / rate);
 }
 
+/**
+ * `maxSeconds === null` is the offline path: a full round is allowed.
+ * The real-time recorder still passes {@link CLIP_EXPORT_MAX_SECONDS}.
+ */
 export function clipRangeIssue(
   span: ClipSpan,
   rate: number,
-  maxSeconds = CLIP_EXPORT_MAX_SECONDS,
+  maxSeconds: number | null = CLIP_EXPORT_MAX_SECONDS,
 ): ClipRangeIssue | null {
   if (!(span.endTick > span.startTick) || !(rate > 0)) return "empty";
+  if (maxSeconds == null) return null;
   const maxTicks = maxSeconds * rate;
   if (span.endTick - span.startTick > maxTicks + 0.001) return "too-long";
   return null;
@@ -116,7 +122,9 @@ export function roundWindowSpan(
 
 /**
  * One sample tick per video frame. Ticks advance by `rate / fps` so a 15s
- * range is exactly 15 × 60 frames and stays strictly inside `[start, end)`.
+ * range is exactly 15 × fps frames and stays strictly inside `[start, end)`.
+ * Fractional ticks fall between `tick_stride` samples; `samplePlayer` lerps
+ * those the same way live playback does.
  */
 export function clipFrameTicks(span: ClipSpan, rate: number, fps = CLIP_EXPORT_FPS): number[] {
   if (!(rate > 0) || !(fps > 0) || !(span.endTick > span.startTick)) return [];
@@ -129,6 +137,29 @@ export function clipFrameTicks(span: ClipSpan, rate: number, fps = CLIP_EXPORT_F
     ticks.push(span.startTick + i * step);
   }
   return ticks;
+}
+
+/** Presentation timestamp in microseconds for frame `index`. */
+export function clipFrameTimestamp(index: number, fps: number): number {
+  if (!(fps > 0) || index <= 0) return 0;
+  return Math.round((index * CLIP_TIMESTAMP_US) / fps);
+}
+
+/**
+ * One timestamp per frame. Rounding can theoretically collide at odd frame
+ * rates, so each step is forced strictly above the previous one.
+ */
+export function clipFrameTimestamps(frameCount: number, fps: number): number[] {
+  if (!(fps > 0) || frameCount <= 0) return [];
+  const stamps: number[] = [];
+  let previous = -1;
+  for (let i = 0; i < frameCount; i++) {
+    let stamp = clipFrameTimestamp(i, fps);
+    if (stamp <= previous) stamp = previous + 1;
+    stamps.push(stamp);
+    previous = stamp;
+  }
+  return stamps;
 }
 
 export function preferredClipMime(isTypeSupported: (mime: string) => boolean): string | null {

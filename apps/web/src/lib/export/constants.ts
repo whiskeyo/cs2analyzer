@@ -92,10 +92,60 @@ export const MATCH_PDF_ECO_FULL = "Full buy";
 export const MATCH_PDF_ECO_KNIFE = "Knife";
 export const MATCH_PDF_EXPORT_ERROR = "Could not export PDF.";
 
-/** Radar clip video frames per second of demo time. */
+/**
+ * Frames per second when a caller does not pass one.
+ * Preferences default to {@link CLIP_EXPORT_FPS_DEFAULT}; 60 interpolates
+ * between the demo's `tick_stride` samples.
+ */
 export const CLIP_EXPORT_FPS = 60;
 
-/** Longest continuous radar clip, in seconds of demo time. */
+/** Offline export frame rate. 60 interpolates between sampled ticks. */
+export const CLIP_EXPORT_FPS_DEFAULT = 30;
+export const CLIP_EXPORT_FPS_SMOOTH = 60;
+export const CLIP_EXPORT_FPS_OPTIONS = [CLIP_EXPORT_FPS_DEFAULT, CLIP_EXPORT_FPS_SMOOTH] as const;
+export type ClipExportFps = (typeof CLIP_EXPORT_FPS_OPTIONS)[number];
+
+/** Square radar file. The bitmap does not follow the window. */
+export const CLIP_EXPORT_SIZE_DEFAULT = 1080;
+export const CLIP_EXPORT_SIZE_HIGH = 1440;
+export const CLIP_EXPORT_SIZES = [CLIP_EXPORT_SIZE_DEFAULT, CLIP_EXPORT_SIZE_HIGH] as const;
+export type ClipExportSize = (typeof CLIP_EXPORT_SIZES)[number];
+
+/** WebCodecs `VideoFrame` timestamps are microseconds. */
+export const CLIP_TIMESTAMP_US = 1_000_000;
+
+/** Forced keyframe spacing for the offline H.264 encoder. */
+export const CLIP_EXPORT_KEYFRAME_SECONDS = 2;
+
+/** Frames kept in flight so a long round does not queue every bitmap. */
+export const CLIP_ENCODE_QUEUE_FRAMES = 3;
+
+/** Seconds of demo time before a detected execute. */
+export const CLIP_SITE_ENTRY_LEAD_SECONDS = 3;
+
+/** Window around a selected kill, in seconds of demo time. */
+export const CLIP_KILL_BEFORE_SECONDS = 5;
+export const CLIP_KILL_AFTER_SECONDS = 3;
+
+/** H.264 bitrates for a flat 2D radar. 60 fps doubles the 30 fps rate. */
+export const CLIP_EXPORT_BITRATE_1080 = 12_000_000;
+export const CLIP_EXPORT_BITRATE_1440 = 20_000_000;
+
+/**
+ * AVC profiles probed with `VideoEncoder.isConfigSupported`, highest first.
+ * `mp4-muxer` needs `avc` (length-prefixed) output, not Annex B.
+ */
+export const CLIP_H264_CODECS = [
+  "avc1.640033",
+  "avc1.640032",
+  "avc1.640028",
+  "avc1.4d0033",
+  "avc1.4d0028",
+  "avc1.420033",
+  "avc1.420028",
+] as const;
+
+/** Longest continuous radar clip on the real-time MediaRecorder path. */
 export const CLIP_EXPORT_MAX_SECONDS = 30;
 
 /** Preset length for “last N seconds” in single playback. */
@@ -110,3 +160,13 @@ export const CLIP_EXPORT_FAILED = "Could not export the clip.";
 export const CLIP_EXPORT_EMPTY = "The recording was empty.";
 export const CLIP_EXPORT_TOO_SHORT = "Clip is too short.";
 export const CLIP_EXPORT_NO_CANVAS = "This browser cannot record a canvas.";
+export const CLIP_EXPORT_CHECKING = "Checking offline export…";
+/**
+ * Shown when WebCodecs H.264 is missing. Export then uses MediaRecorder,
+ * which stamps frames from the wall clock.
+ */
+export const CLIP_EXPORT_REALTIME_HINT =
+  "This browser records in real time, so export takes as long as the clip and is limited to 30 seconds. Offline export needs H.264 in WebCodecs.";
+export const CLIP_EXPORT_NO_EXECUTE = "No execute in this round";
+export const CLIP_EXPORT_NO_PLANT = "No plant in this round";
+export const CLIP_EXPORT_NO_KILL = "No kill in this round";
