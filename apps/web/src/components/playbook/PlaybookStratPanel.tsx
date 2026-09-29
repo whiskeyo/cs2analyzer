@@ -96,7 +96,7 @@ export function PlaybookStratPanel({
         onOpen={onOpenImage}
         onError={onImageError}
       />
-      <label className="playbook-field playbook-notes-field">
+      <label className="playbook-field playbook-notes-field" data-tutorial="strat-notes">
         Strat notes
         <textarea
           value={body}

@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { TestRouter } from "@/lib/testing/router";
-import { tutorialHref } from "@/lib/tutorial/query";
 import { TutorialStart } from "./TutorialStart";
 
 const warmup = vi.hoisted(() => vi.fn());
@@ -22,7 +21,6 @@ describe("TutorialStart", () => {
       </TestRouter>,
     );
     const link = screen.getByRole("link", { name: "try the Tutorial first" });
-    expect(link).toHaveAttribute("href", tutorialHref("replay"));
     expect(link).toHaveAttribute("href", "/tutorial");
     expect(link).not.toHaveClass("ghost");
     expect(screen.getByText(/Or/)).toBeInTheDocument();

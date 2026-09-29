@@ -1,7 +1,7 @@
 /**
  * Off-path Aggregated install prep: tagged series + full-buy overlays.
  *
- * Hydrate (`loadTutorialSeries`) can finish while `/tutorial` is still on
+ * Hydrate (`loadTutorialSeries`) can finish while `/tutorial/single` is still on
  * Mirage. Building trails then, after first paint, keeps Next from doing that
  * CPU on the main thread during the session swap.
  */

@@ -39,25 +39,52 @@ import { booksWithDraft, movePlaybookTo, nextPlaybookSort } from "./tree";
 
 export function usePlaybooks(
   mapName: string | null,
-  source: { mode: "idb" } | { mode: "sandbox"; book: Playbook | null } = {
+  source: { mode: "idb" } | { mode: "sandbox"; books: Playbook[] } = {
     mode: "idb",
   },
 ) {
   const sandboxMode = source.mode === "sandbox";
-  const sandboxBook = source.mode === "sandbox" ? source.book : null;
+  const sandboxBooks = source.mode === "sandbox" ? source.books : [];
   const [allBooks, setAllBooks] = useState<Playbook[]>([]);
   const [activeByMap, setActiveByMap] = useState<Record<string, string | null>>({});
   const [draft, setDraft] = useState<Playbook | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const skipSaveRef = useRef(true);
-  const [sandboxSeed, setSandboxSeed] = useState<Playbook | null | "idb">("idb");
+  const [sandboxSeed, setSandboxSeed] = useState<Playbook[] | "idb">("idb");
   if (sandboxMode) {
-    if (sandboxSeed !== sandboxBook) {
-      setSandboxSeed(sandboxBook);
+    const sameSeed =
+      sandboxSeed !== "idb" &&
+      sandboxSeed.length === sandboxBooks.length &&
+      sandboxSeed.every((book, index) => book === sandboxBooks[index]);
+    if (!sameSeed) {
+      setSandboxSeed(sandboxBooks);
       skipSaveRef.current = true;
-      setAllBooks(sandboxBook ? [sandboxBook] : []);
-      setDraft(sandboxBook);
-      setActiveByMap(sandboxBook ? { [sandboxBook.mapName]: sandboxBook.key } : {});
+      setAllBooks(sandboxBooks);
+      const active: Record<string, string | null> = {};
+      for (const row of sandboxBooks) {
+        if (active[row.mapName] == null) active[row.mapName] = row.key;
+      }
+      setActiveByMap(active);
+      const key = mapName ? active[mapName] : null;
+      setDraft(key ? (sandboxBooks.find((row) => row.key === key) ?? null) : null);
+    } else if (!mapName) {
+      if (draft) setDraft(null);
+    } else {
+      const key = activeByMap[mapName];
+      const next =
+        allBooks.find((row) => row.mapName === mapName && (key == null || row.key === key)) ??
+        allBooks.find((row) => row.mapName === mapName) ??
+        null;
+      if (draft?.key !== next?.key) setDraft(next);
+      if (draft) {
+        const index = allBooks.findIndex((row) => row.key === draft.key);
+        if (index < 0) setAllBooks([...allBooks, draft]);
+        else if (allBooks[index] !== draft) {
+          const merged = allBooks.slice();
+          merged[index] = draft;
+          setAllBooks(merged);
+        }
+      }
     }
   } else if (sandboxSeed !== "idb") {
     setSandboxSeed("idb");

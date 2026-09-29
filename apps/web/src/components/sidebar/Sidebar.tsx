@@ -9,6 +9,7 @@ import { isAggregatedView, isMultiDemoSeries } from "@/lib/parse/seriesMode";
 import { Action } from "./Action";
 import { Review } from "./Review";
 import { Notes } from "./Notes";
+import { Economy } from "./Economy";
 import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
 import { usePanelResize } from "@/lib/shared/usePanelResize";
@@ -104,6 +105,18 @@ export const Sidebar = memo(function Sidebar() {
               className={activeTab === id ? "on" : ""}
               disabled={tabDisabled(id)}
               title={tabDisabled(id) ? "Not available in aggregated view" : undefined}
+              data-tutorial={
+                id === "notes"
+                  ? "notes"
+                  : id === "util"
+                    ? "util"
+                    : id === "player"
+                      ? "review"
+                      : undefined
+              }
+              data-tutorial-action={
+                id === "notes" ? "open-notes" : id === "util" ? "open-util" : undefined
+              }
               onClick={() => {
                 choseTab.current = true;
                 setTab(id);
@@ -181,17 +194,20 @@ export const Sidebar = memo(function Sidebar() {
           </>
         )}
         {activeTab === "rounds" && (
-          <RoundList
-            replay={replay}
-            tick={tick}
-            onJump={onJump}
-            onSelect={onSelect}
-            activeRound={activeRound}
-            leadInSec={settings.eventLeadInSec}
-            onLeadInSecChange={(next) => {
-              void update({ eventLeadInSec: next });
-            }}
-          />
+          <>
+            <Economy replay={replay} tick={tick} onJump={onJump} activeRound={activeRound} />
+            <RoundList
+              replay={replay}
+              tick={tick}
+              onJump={onJump}
+              onSelect={onSelect}
+              activeRound={activeRound}
+              leadInSec={settings.eventLeadInSec}
+              onLeadInSecChange={(next) => {
+                void update({ eventLeadInSec: next });
+              }}
+            />
+          </>
         )}
         {activeTab === "weapons" && (
           <WeaponTable replay={replay} tick={tick} selected={selected} onSelect={onSelect} />

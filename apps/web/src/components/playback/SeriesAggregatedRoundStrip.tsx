@@ -115,7 +115,7 @@ export const SeriesAggregatedRoundStrip = memo(function SeriesAggregatedRoundStr
   const liveRoundNumber = live != null && !live.is_knife ? live.number : null;
 
   return (
-    <div className="series-round-strip" role="list">
+    <div className="series-round-strip" role="list" data-tutorial="rounds">
       {groups.map((group) => {
         const ctRounds = group.rounds.filter((chip) => chip.side === "CT");
         const tRounds = group.rounds.filter((chip) => chip.side === "T");

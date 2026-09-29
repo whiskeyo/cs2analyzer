@@ -22,44 +22,53 @@ export function MapToolbar({
   return (
     <div className="map-toolbar">
       <ToolbarIconBtn title="Pan" on={tool === "pan"} onClick={() => onTool("pan")} path="pan" />
-      <ToolbarIconBtn
-        title="Draw"
-        on={tool === "pen"}
-        disabled={!draw}
-        onClick={() => onTool("pen")}
-        path="pen"
-      />
-      <ToolbarIconBtn
-        title="Arrow"
-        on={tool === "arrow"}
-        disabled={!draw}
-        onClick={() => onTool("arrow")}
-        path="arrow"
-      />
-      <ToolbarIconBtn
-        title="Text note"
-        on={tool === "text"}
-        disabled={!draw}
-        onClick={() => onTool("text")}
-        path="text"
-      />
-      <ToolbarIconBtn
-        title={MATCH_PDF_BOOKMARK_TOOLTIP}
-        on={tool === "bookmark"}
-        disabled={!draw}
-        onClick={() => {
-          onTool("bookmark");
-          onStampBookmark();
-        }}
-        path="bookmark"
-      />
-      <ToolbarIconBtn
-        title="Erase"
-        on={tool === "eraser"}
-        disabled={!draw}
-        onClick={() => onTool("eraser")}
-        path="erase"
-      />
+      <span
+        className="map-toolbar-draw"
+        data-tutorial="draw"
+        role="toolbar"
+        aria-label="Draw tools"
+      >
+        <ToolbarIconBtn
+          title="Draw"
+          on={tool === "pen"}
+          disabled={!draw}
+          onClick={() => onTool("pen")}
+          path="pen"
+        />
+        <ToolbarIconBtn
+          title="Arrow"
+          on={tool === "arrow"}
+          disabled={!draw}
+          onClick={() => onTool("arrow")}
+          path="arrow"
+        />
+        <ToolbarIconBtn
+          title="Text note"
+          on={tool === "text"}
+          disabled={!draw}
+          onClick={() => onTool("text")}
+          path="text"
+        />
+        <span data-tutorial="bookmark">
+          <ToolbarIconBtn
+            title={MATCH_PDF_BOOKMARK_TOOLTIP}
+            on={tool === "bookmark"}
+            disabled={!draw}
+            onClick={() => {
+              onTool("bookmark");
+              onStampBookmark();
+            }}
+            path="bookmark"
+          />
+        </span>
+        <ToolbarIconBtn
+          title="Erase"
+          on={tool === "eraser"}
+          disabled={!draw}
+          onClick={() => onTool("eraser")}
+          path="erase"
+        />
+      </span>
       <ToolbarIconBtn
         title="Undo drawing (Ctrl+Z)"
         disabled={!draw || !canUndo}
@@ -80,7 +89,9 @@ export function MapToolbar({
       />
       <ToolbarIconBtn title="Reset view" onClick={onResetView} path="reset" />
       {onSnapshot ? (
-        <ToolbarIconBtn title="Snapshot to playbook" onClick={onSnapshot} path="snapshot" />
+        <span data-tutorial="snapshot">
+          <ToolbarIconBtn title="Snapshot to playbook" onClick={onSnapshot} path="snapshot" />
+        </span>
       ) : null}
       <ColorPalette
         paletteId={paletteId}

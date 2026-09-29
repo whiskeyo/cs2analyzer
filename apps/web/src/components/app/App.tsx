@@ -15,6 +15,7 @@ import { Home } from "@/pages/Home";
 import { Rating } from "@/pages/Rating";
 import { NotFound } from "@/pages/NotFound";
 import { Playbook } from "@/pages/Playbook";
+import { Tutorial } from "@/pages/Tutorial";
 
 const LayoutsApp = import.meta.env.DEV
   ? lazy(() =>
@@ -66,11 +67,15 @@ function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route index element={<Home />} />
         <Route path={ROUTES.analyzer.slice(1)} element={<Analyzer />} />
-        {/* Nested so Next: Multiple demos keeps Analyzer/Viewer mounted. */}
-        <Route path={ROUTES.tutorial.slice(1)} element={<Analyzer />}>
-          <Route path="aggregated" element={null} />
+        <Route path={ROUTES.tutorial.slice(1)}>
+          <Route index element={<Tutorial />} />
+          {/* Nested so Single → Aggregated keeps Analyzer/Viewer mounted. */}
+          <Route element={<Analyzer />}>
+            <Route path="single" element={null} />
+            <Route path="aggregated" element={null} />
+          </Route>
+          <Route path="playbook" element={<Playbook />} />
         </Route>
-        <Route path={`${ROUTES.tutorial.slice(1)}/playbook`} element={<Playbook />} />
         <Route path={ROUTES.playbook.slice(1)} element={<Playbook />} />
         <Route path={ROUTES.faq.slice(1)} element={<Faq />} />
         <Route path={ROUTES.rating.slice(1)} element={<Rating />} />

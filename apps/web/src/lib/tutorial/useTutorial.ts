@@ -15,6 +15,7 @@ import {
   loadTutorialReplay,
   loadTutorialSeries,
   peekTutorialSeries,
+  resetTutorialLoadCache,
 } from "./load";
 import {
   prefetchNextTutorialStep,
@@ -23,6 +24,7 @@ import {
 } from "./prefetch";
 import {
   isTutorialAnalyzerPath,
+  isTutorialHubPath,
   isTutorialPlaybookPath,
   parseTutorialPath,
   type TutorialStep,
@@ -114,8 +116,9 @@ async function ensureTutorialPlaybook(): Promise<void> {
 }
 
 /**
- * `/tutorial` installer. Puts tutorial fixtures on the same session path as a
- * successful demo drop. Lazy `load.ts` keeps ticks off the cold path.
+ * Playable `/tutorial/single` (and siblings) installer. Puts tutorial fixtures
+ * on the same session path as a successful demo drop. The `/tutorial` hub only
+ * warms chunks. Lazy `load.ts` keeps ticks off the cold path.
  */
 export function useTutorial(): void {
   const { session, status } = useSession();
@@ -137,12 +140,17 @@ export function useTutorial(): void {
   useLayoutEffect(() => {
     if (step == null) {
       const live = sessionRef.current;
+      if (isTutorialHubPath(pathname)) {
+        closeIfForeignSession(live);
+        warmupTutorialSession();
+      }
       const wasTutorial = lastInstalledStep != null || isTutorialDemoId(live.demo?.id);
       lastInstalledStep = null;
       installedStepRef.current = null;
       closeIfTutorialSession(live);
       if (wasTutorial) {
         clearSeriesReviewCache();
+        resetTutorialLoadCache();
         void purgeTutorialProjects();
       }
       return;

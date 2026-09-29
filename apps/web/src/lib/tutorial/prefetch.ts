@@ -40,7 +40,7 @@ export function prefetchTutorialSeries(): void {
   void loadTutorialSeries();
 }
 
-/** Home CTA / `/tutorial`: start Replay and Aggregated hydrates together. */
+/** Home CTA / `/tutorial` hub / Start tutorial: Replay + Aggregated hydrates. */
 export function warmupTutorialSession(): void {
   void loadTutorialReplay();
   prefetchTutorialSeries();
@@ -51,7 +51,7 @@ export function prefetchTutorialPlaybook(): void {
 }
 
 /** Home-only: wait for idle then pull the Replay chunk.
- * Aggregated series starts on CTA / `/tutorial`, in parallel with Replay.
+ * Aggregated series starts on CTA / `/tutorial/single`, in parallel with Replay.
  * Caller must skip when `tutorialCompleted` is already true.
  */
 export function scheduleHomeTutorialPrefetch(): () => void {

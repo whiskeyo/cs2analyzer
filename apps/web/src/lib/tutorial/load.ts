@@ -2,18 +2,18 @@
  * Lazy entry points so tutorial fixtures stay off the Analyzer cold path.
  *
  * `single-demo/` is a two-round Replay, `multi-demo/` is the Aggregated series,
- * `playbook/` is a sample book for the later tour snapshot step.
+ * `playbook/` is the in-memory tutorial books (empty until a snapshot or a user fixture).
  */
 
 import type { DemoSeries } from "@/lib/parse/session";
 import type { Playbook } from "@/lib/playbook/types";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { seriesMatchLoaders } from "./multi-demo/loaders";
+import { getTutorialPlaybooksLive, resetTutorialPlaybookLive } from "./playbook/live";
 import { resetTutorialSeriesWarmup } from "./seriesWarmup";
 
 let replayLoad: Promise<Replay> | null = null;
 let seriesLoad: Promise<DemoSeries | null> | null = null;
-let playbookLoad: Promise<Playbook> | null = null;
 let seriesReady = false;
 let seriesValue: DemoSeries | null = null;
 
@@ -21,10 +21,10 @@ let seriesValue: DemoSeries | null = null;
 export function resetTutorialLoadCache(): void {
   replayLoad = null;
   seriesLoad = null;
-  playbookLoad = null;
   seriesReady = false;
   seriesValue = null;
   resetTutorialSeriesWarmup();
+  resetTutorialPlaybookLive();
 }
 
 /** True after `loadTutorialSeries()` has resolved (cache hit for Aggregated). */
@@ -75,12 +75,6 @@ export function loadTutorialSeries(): Promise<DemoSeries | null> {
   return seriesLoad;
 }
 
-export function loadTutorialPlaybook(): Promise<Playbook> {
-  playbookLoad ??= import("./playbook/sample")
-    .then(({ tutorialPlaybook }) => tutorialPlaybook)
-    .catch((err: unknown) => {
-      playbookLoad = null;
-      throw err;
-    });
-  return playbookLoad;
+export function loadTutorialPlaybook(): Promise<Playbook[]> {
+  return Promise.resolve(getTutorialPlaybooksLive());
 }

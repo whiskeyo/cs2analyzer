@@ -345,7 +345,7 @@ export function useReviewProject(opts: {
           commitNotes([], true);
         }
         setNotesDemoId(demo.id);
-        if (plan.autoplayIfEmpty) {
+        if (plan.autoplayIfEmpty && !isTutorialLoadedDemo(demo)) {
           playbackRef.current.setPlaying(true);
         }
         return;

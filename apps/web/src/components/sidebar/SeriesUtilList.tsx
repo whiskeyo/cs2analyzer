@@ -34,6 +34,8 @@ export function SeriesUtilList({ rows, playerName, onJump, onClearFollow }: Prop
                 <button
                   type="button"
                   className={`review-note${tone ? ` ${tone}` : ""}`}
+                  data-tutorial={i === 0 ? "util-throw" : undefined}
+                  data-tutorial-action="jump-grenade"
                   onClick={() => {
                     onClearFollow?.();
                     onJump({ demoId: row.demoId, jumpTick: row.jumpTick });

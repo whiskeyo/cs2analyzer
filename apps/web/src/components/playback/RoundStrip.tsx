@@ -54,7 +54,7 @@ export const RoundStrip = memo(function RoundStrip({
   const noted = noteRounds(notes);
   const live = activeExecute(beats, tick, tickRate(replay));
   return (
-    <div className="round-strip" role="list" data-tutorial="rounds">
+    <div className="round-strip" role="list">
       {replay.rounds.map((r) => {
         const hasAction = !r.is_knife && actionRounds.has(r.number);
         const hasNotes = noted.has(r.number);

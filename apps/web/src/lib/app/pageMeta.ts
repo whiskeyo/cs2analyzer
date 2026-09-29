@@ -95,6 +95,11 @@ const PAGE_META: Record<string, Omit<PageMeta, "canonical">> = {
     description:
       "Try the local-first CS2 analyzer with a short sample match, habits series, and playbook. No file drop.",
   },
+  [`${ROUTES.tutorial}/single`]: {
+    title: `${SITE_NAME} — Tutorial`,
+    description:
+      "Try the local-first CS2 analyzer with a short sample match, habits series, and playbook. No file drop.",
+  },
   [`${ROUTES.tutorial}/aggregated`]: {
     title: `${SITE_NAME} — Tutorial`,
     description:
@@ -189,6 +194,7 @@ export function breadcrumbTrail(pathname: string): BreadcrumbCrumb[] | null {
     return [
       { name: "Home", path: ROUTES.home },
       { name: "Tutorial", path: ROUTES.tutorial },
+      { name: "Single", path: `${ROUTES.tutorial}/single` },
     ];
   }
   if (tutorial === "aggregated") {

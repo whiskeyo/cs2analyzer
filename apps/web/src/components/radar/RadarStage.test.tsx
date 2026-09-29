@@ -14,10 +14,11 @@ import type { RoundKind } from "@/lib/parse/roundTags";
 import type { Side } from "@/lib/replay/replayTypes";
 import { makeReplay, makeRound } from "@/lib/testing/fixtures";
 import { TestRouter } from "@/lib/testing/router";
+import { getTutorialPlaybookForMap, resetTutorialPlaybookLive } from "@/lib/tutorial/playbook/live";
 import { RadarStage } from "./RadarStage";
 
-function renderStage(ui = <RadarStage />) {
-  return render(<TestRouter>{ui}</TestRouter>);
+function renderStage(ui = <RadarStage />, path = "/") {
+  return render(<TestRouter path={path}>{ui}</TestRouter>);
 }
 
 vi.mock("@/lib/state/appState", () => ({
@@ -134,11 +135,13 @@ describe("RadarStage", () => {
     vi.mocked(useApp).mockReset();
     await playbookStore.deleteAllPlaybooks();
     localStorage.removeItem(SNAPSHOT_RECENT_BOOKS_KEY);
+    resetTutorialPlaybookLive();
   });
 
   afterEach(async () => {
     await playbookStore.deleteAllPlaybooks();
     localStorage.removeItem(SNAPSHOT_RECENT_BOOKS_KEY);
+    resetTutorialPlaybookLive();
   });
 
   it("renders nothing without a loaded replay", () => {
@@ -277,6 +280,57 @@ describe("RadarStage", () => {
     expect(screen.queryByRole("dialog", { name: "Snapshot to playbook" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it.each(["/tutorial/single", "/tutorial/aggregated"] as const)(
+    "saves a tutorial snapshot on %s without offering Open strat",
+    async (path) => {
+      vi.mocked(useApp).mockReturnValue(radarState() as unknown as ReturnType<typeof useApp>);
+      renderStage(<RadarStage />, path);
+      await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled());
+      await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("dialog", { name: "Snapshot to playbook" }),
+        ).not.toBeInTheDocument(),
+      );
+      expect(screen.queryByRole("button", { name: "Open strat" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(getTutorialPlaybookForMap("de_anubis")?.mapName).toBe("de_anubis");
+    },
+  );
+
+  it("tags a tutorial Habits snapshot with the series Dust2 map", async () => {
+    const state = radarState(makeReplay({ header: { map_name: "de_dust2" } }));
+    state.habits.overlay = {
+      trails: [],
+      branches: [],
+      branchOptions: DEFAULT_PATH_BRANCH_OPTIONS,
+      nades: [],
+      roundCount: 4,
+      windowSec: 20,
+    };
+    state.habits.bucketPlaySec = 8;
+    state.habits.bucketOverlay = { kind: "full", side: "T" };
+    state.session.series = {
+      mapName: "de_dust2",
+      focalTeam: "Spirit",
+      demos: [{}, {}, {}, {}],
+    };
+    vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
+    renderStage(<RadarStage />, "/tutorial/aggregated");
+    await userEvent.click(screen.getByRole("button", { name: "Snapshot to playbook" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Snapshot" })).toBeEnabled());
+    await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Snapshot to playbook" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(getTutorialPlaybookForMap("de_dust2")?.mapName).toBe("de_dust2");
+    expect(getTutorialPlaybookForMap("de_anubis")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open strat" })).not.toBeInTheDocument();
   });
 
   it("hides the pawn colour legend on a live single-demo HUD", () => {

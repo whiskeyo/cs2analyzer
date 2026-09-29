@@ -13,6 +13,7 @@ import { rememberRecentPlaybook } from "@/lib/playbook/snapshotRecent";
 import { SNAPSHOT_RECENT_BOOKS_KEY } from "@/lib/shared/storageKeys";
 import { UNTITLED_PLAYBOOK } from "@/lib/playbook/types";
 import { SnapshotDialog } from "./SnapshotDialog";
+import { getTutorialPlaybookForMap, resetTutorialPlaybookLive } from "@/lib/tutorial/playbook/live";
 
 const DEFAULT_TITLE = "NaVi - FaZe (faceit.dem) · R12 0:00";
 
@@ -38,6 +39,7 @@ describe("SnapshotDialog", () => {
     await playbookStore.deleteAllPlaybooks();
     sessionStorage.removeItem(PLAYBOOK_FOCUS_KEY);
     localStorage.removeItem(SNAPSHOT_RECENT_BOOKS_KEY);
+    resetTutorialPlaybookLive();
   });
 
   afterEach(async () => {
@@ -241,5 +243,25 @@ describe("SnapshotDialog", () => {
     unmount();
     resolve([]);
     vi.mocked(playbookStore.listPlaybooksForMap).mockRestore();
+  });
+
+  it("lists other playbooks but only the tutorial book is selectable", async () => {
+    await playbookStore.createPlaybook("de_anubis", "A execs");
+    const write = vi.spyOn(snapshot, "writeSnapshot");
+    const { onSaved } = renderDialog({ lockToTutorial: true });
+    const tutorial = await screen.findByRole("radio", { name: "Tutorial" });
+    expect(tutorial).toBeEnabled();
+    expect(tutorial).toBeChecked();
+    expect(await screen.findByRole("radio", { name: "A execs" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "New playbook" })).toBeDisabled();
+    expect(screen.getByText(/only the sample Playbook can receive a snapshot/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Snapshot" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(write).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(PLAYBOOK_FOCUS_KEY)).toBeNull();
+    const saved = getTutorialPlaybookForMap("de_anubis");
+    expect(saved?.mapName).toBe("de_anubis");
+    expect(saved?.pages.some((page) => page.title === DEFAULT_TITLE)).toBe(true);
+    write.mockRestore();
   });
 });
