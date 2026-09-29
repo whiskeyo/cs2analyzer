@@ -1,0 +1,123 @@
+import { Muxer, ArrayBufferTarget } from "mp4-muxer";
+import {
+  CLIP_ENCODE_QUEUE_FRAMES,
+  CLIP_EXPORT_FAILED,
+  CLIP_EXPORT_KEYFRAME_SECONDS,
+  CLIP_TIMESTAMP_US,
+} from "@/lib/export/constants";
+
+export interface ClipEncodeSessionConfig {
+  width: number;
+  height: number;
+  fps: number;
+  codec: string;
+  bitrate: number;
+  onError: (message: string) => void;
+}
+
+export interface ClipEncodeSession {
+  encode(bitmap: ImageBitmap, timestamp: number, index: number, onQueued: () => void): void;
+  finish(): Promise<ArrayBuffer>;
+  close(): void;
+}
+
+/**
+ * H.264 `VideoEncoder` plus an in-memory MP4 mux. Frames carry explicit
+ * timestamps, so the file's clock is demo time rather than the wall clock.
+ * Imported only from the export worker (and the main-thread fallback).
+ */
+export function openClipEncodeSession(config: ClipEncodeSessionConfig): ClipEncodeSession {
+  if (typeof VideoEncoder === "undefined") {
+    throw new Error(CLIP_EXPORT_FAILED);
+  }
+  const target = new ArrayBufferTarget();
+  const muxer = new Muxer({
+    target,
+    video: {
+      codec: "avc",
+      width: config.width,
+      height: config.height,
+      frameRate: config.fps,
+    },
+    fastStart: "in-memory",
+    firstTimestampBehavior: "strict",
+  });
+  let failed = false;
+  const fail = (message: string) => {
+    if (failed) return;
+    failed = true;
+    config.onError(message);
+  };
+  const encoder = new VideoEncoder({
+    output: (chunk, meta) => {
+      if (failed) return;
+      muxer.addVideoChunk(chunk, meta);
+    },
+    error: (error) => {
+      fail(error instanceof Error && error.message ? error.message : CLIP_EXPORT_FAILED);
+    },
+  });
+  encoder.configure({
+    codec: config.codec,
+    width: config.width,
+    height: config.height,
+    bitrate: config.bitrate,
+    framerate: config.fps,
+    latencyMode: "quality",
+    avc: { format: "avc" },
+  });
+  const keyEvery = Math.max(1, Math.round(config.fps * CLIP_EXPORT_KEYFRAME_SECONDS));
+  const frameDuration = Math.round(CLIP_TIMESTAMP_US / config.fps);
+  let closed = false;
+
+  const closeEncoder = () => {
+    if (closed) return;
+    closed = true;
+    try {
+      if (encoder.state !== "closed") encoder.close();
+    } catch {
+      // Already closed by a previous cancel or error.
+    }
+  };
+
+  return {
+    encode(bitmap, timestamp, index, onQueued) {
+      if (closed || failed) {
+        bitmap.close();
+        return;
+      }
+      const frame = new VideoFrame(bitmap, {
+        timestamp,
+        duration: frameDuration,
+      });
+      bitmap.close();
+      try {
+        encoder.encode(frame, { keyFrame: index % keyEvery === 0 });
+      } finally {
+        frame.close();
+      }
+      const notify = () => {
+        if (closed || failed || encoder.state === "closed") return;
+        if (encoder.encodeQueueSize <= CLIP_ENCODE_QUEUE_FRAMES) {
+          onQueued();
+          return;
+        }
+        encoder.addEventListener("dequeue", notify, { once: true });
+      };
+      notify();
+    },
+    async finish() {
+      if (failed) throw new Error(CLIP_EXPORT_FAILED);
+      await encoder.flush();
+      if (failed || closed) throw new Error(CLIP_EXPORT_FAILED);
+      muxer.finalize();
+      const { buffer } = target;
+      closeEncoder();
+      return buffer;
+    },
+    close() {
+      failed = true;
+      closeEncoder();
+    },
+  };
+}

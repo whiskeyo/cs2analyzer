@@ -2,7 +2,11 @@ import { useEffect, type MutableRefObject, type RefObject } from "react";
 import { applyRadarFollowCam } from "@/lib/radar/radarPaintDirty";
 import type { RadarView } from "@/lib/radar/maps";
 import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
-import { paintRadarClipFrame, registerRadarClipSurface } from "@/lib/radar/radarClipSurface";
+import {
+  paintRadarClipFrame,
+  registerRadarClipSurface,
+  type ClipFrameCanvas,
+} from "@/lib/radar/radarClipSurface";
 
 interface ClipPaintSource {
   tickRef?: MutableRefObject<number>;
@@ -56,6 +60,35 @@ export function useRadarClipSurface(
           },
           paintSceneRef.current,
         );
+      },
+      paintSquare(target: ClipFrameCanvas, size: number, tick: number) {
+        const ctx = target.getContext("2d");
+        if (!ctx) return;
+        if (target.width !== size || target.height !== size) {
+          target.width = size;
+          target.height = size;
+        }
+        const source = propsRef.current;
+        if (source.tickRef) source.tickRef.current = tick;
+        const live = view.current;
+        const saved = { scale: live.scale, ox: live.ox, oy: live.oy };
+        applyRadarFollowCam(
+          live,
+          size,
+          size,
+          source.replay,
+          tick,
+          source.selected,
+          source.follow,
+          source.cal,
+        );
+        try {
+          paintSceneRef.current(ctx as CanvasRenderingContext2D, size, size, tick);
+        } finally {
+          live.scale = saved.scale;
+          live.ox = saved.ox;
+          live.oy = saved.oy;
+        }
       },
     });
     return () => registerRadarClipSurface(null);

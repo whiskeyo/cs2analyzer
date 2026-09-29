@@ -31,7 +31,11 @@ vi.mock("@/lib/parse/seriesOverlay", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/parse/seriesOverlay")>();
   return {
     ...actual,
-    habitsArrowAtScreen: vi.fn(() => ({ demoId: "d1", tick: 100, side: "CT" as const })),
+    habitsArrowAtScreen: vi.fn(() => ({
+      demoId: "d1",
+      tick: 100,
+      side: "CT" as const,
+    })),
     habitsArrowJumpTick: vi.fn(() => 200),
   };
 });
@@ -44,7 +48,14 @@ import { habitsArrowAtScreen } from "@/lib/parse/seriesOverlay";
 function canvasProps(overrides: Partial<Parameters<typeof RadarCanvas>[0]> = {}) {
   const replay = makeReplay({
     players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
-    rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+    rounds: [
+      makeRound({
+        number: 1,
+        start_tick: 0,
+        freeze_end_tick: 64,
+        end_tick: 640,
+      }),
+    ],
     ticks: makeFreezeTicks(2, 1, 64),
   });
   return {
@@ -118,8 +129,14 @@ describe("RadarCanvas", () => {
     expect(wrap).toBeInTheDocument();
     expect(canvas).toBeInTheDocument();
 
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
 
     act(() => {
       rafCb?.(0);
@@ -134,8 +151,14 @@ describe("RadarCanvas", () => {
     const tickRef = { current: 100 };
     const { container, unmount } = render(<RadarCanvas {...canvasProps({ tickRef })} />);
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
 
     const surface = radarClipSurface();
     expect(surface).not.toBeNull();
@@ -153,6 +176,22 @@ describe("RadarCanvas", () => {
     });
     expect(paintRadarFrame.paintRadarFrame).not.toHaveBeenCalled();
 
+    const live = container.querySelector("canvas") as HTMLCanvasElement;
+    const liveWidth = live.width;
+    const square = {
+      width: 0,
+      height: 0,
+      getContext: () => createMockCanvas(),
+    };
+    surface?.paintSquare(square, 1080, 300);
+    expect(square.width).toBe(1080);
+    expect(square.height).toBe(1080);
+    expect(live.width).toBe(liveWidth);
+    const squareFrames = vi.mocked(staticMapPaint.paintMapImage).mock.calls;
+    const sized = squareFrames[squareFrames.length - 1];
+    expect(sized?.[1]).toBe(1080);
+    expect(sized?.[2]).toBe(1080);
+
     unmount();
     expect(radarClipSurface()).toBeNull();
   });
@@ -163,8 +202,14 @@ describe("RadarCanvas", () => {
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
     const canvas = container.querySelector("canvas") as HTMLCanvasElement;
 
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
     canvas.getBoundingClientRect = () =>
       ({
         left: 0,
@@ -184,7 +229,9 @@ describe("RadarCanvas", () => {
 
   it("uses crosshair cursor for drawing tools", () => {
     const { container } = render(<RadarCanvas {...canvasProps({ tool: "pen" })} />);
-    expect(container.querySelector(".radar-wrap")).toHaveStyle({ cursor: "crosshair" });
+    expect(container.querySelector(".radar-wrap")).toHaveStyle({
+      cursor: "crosshair",
+    });
   });
 
   it("does not select players when not in pan mode", () => {
@@ -192,8 +239,14 @@ describe("RadarCanvas", () => {
     const { container } = render(<RadarCanvas {...canvasProps({ onSelect, tool: "eraser" })} />);
     const canvas = container.querySelector("canvas") as HTMLCanvasElement;
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
     canvas.getBoundingClientRect = () =>
       ({
         left: 0,
@@ -226,8 +279,14 @@ describe("RadarCanvas", () => {
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
     const canvas = container.querySelector("canvas") as HTMLCanvasElement;
 
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
     canvas.getBoundingClientRect = () =>
       ({
         left: 0,
@@ -256,8 +315,14 @@ describe("RadarCanvas", () => {
     const tickRef = { current: 240 };
     const { container } = render(<RadarCanvas {...canvasProps({ tick: 100, tickRef })} />);
     const wrap = container.querySelector(".radar-wrap");
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
 
     act(() => {
       rafCb?.(0);
@@ -270,8 +335,14 @@ describe("RadarCanvas", () => {
     const tickRef = { current: 100 };
     const { container } = render(<RadarCanvas {...canvasProps({ tick: 100, tickRef })} />);
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
 
     act(() => {
       rafCb?.(0);
@@ -293,8 +364,14 @@ describe("RadarCanvas", () => {
   it("skips rebuild and paint when the tick, view, and layers are unchanged", () => {
     const { container } = render(<RadarCanvas {...canvasProps()} />);
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
 
     act(() => {
       rafCb?.(0);
@@ -323,8 +400,14 @@ describe("RadarCanvas", () => {
     });
     const { container, rerender } = render(<RadarCanvas {...base} />);
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
 
     act(() => {
       rafCb?.(0);
@@ -382,8 +465,14 @@ describe("RadarCanvas", () => {
   it("rebuilds after pan or zoom", () => {
     const { container } = render(<RadarCanvas {...canvasProps()} />);
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
     wrap.getBoundingClientRect = () =>
       ({
         left: 0,
@@ -412,8 +501,14 @@ describe("RadarCanvas", () => {
   it("skips paint on a paused follow-cam once the view has snapped", () => {
     const { container } = render(<RadarCanvas {...canvasProps({ follow: true, selected: 0 })} />);
     const wrap = container.querySelector(".radar-wrap") as HTMLElement;
-    Object.defineProperty(wrap, "clientWidth", { value: 400, configurable: true });
-    Object.defineProperty(wrap, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(wrap, "clientWidth", {
+      value: 400,
+      configurable: true,
+    });
+    Object.defineProperty(wrap, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
 
     act(() => {
       rafCb?.(0);

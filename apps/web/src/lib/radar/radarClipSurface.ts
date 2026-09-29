@@ -4,10 +4,22 @@
  * uses the same canvas; the export control itself stays on single playback.
  */
 
+/** Bitmap the offline exporter paints into. Independent of the on-screen radar. */
+export interface ClipFrameCanvas {
+  width: number;
+  height: number;
+  getContext(contextId: "2d"): CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+}
+
 export interface RadarClipSurface {
   canvas: HTMLCanvasElement;
   /** Draw one demo tick into the live radar bitmap. */
   paintAt: (tick: number) => void;
+  /**
+   * Draw one demo tick into a square bitmap. `size` is the file's pixel edge,
+   * not the window.
+   */
+  paintSquare: (canvas: ClipFrameCanvas, size: number, tick: number) => void;
 }
 
 let surface: RadarClipSurface | null = null;
