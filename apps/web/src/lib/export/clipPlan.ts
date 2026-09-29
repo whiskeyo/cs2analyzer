@@ -21,6 +21,8 @@ export interface ClipRoundClock {
   start_tick: number;
   freeze_end_tick: number;
   end_tick: number;
+  /** First `cs_pre_restart` after the win. 0 when the demo did not record one. */
+  playback_end_tick?: number;
 }
 
 /**
@@ -34,39 +36,59 @@ export function clipRoundBounds(round: ClipRoundClock): ClipSpan {
   return { startTick, endTick };
 }
 
-/**
- * Exclusive end of the post-round tail. `limitTick` is the next round's
- * start (freeze start) or the demo end. A limit at or before `endTick`
- * leaves the round cut at the win.
- */
-export function clipTailEnd(
-  endTick: number,
-  rate: number,
-  limitTick: number,
-  tailSeconds = CLIP_POST_ROUND_TAIL_SECONDS,
-): number {
-  if (!(rate > 0) || !(limitTick > endTick)) return endTick;
-  return Math.min(endTick + tailSeconds * rate, limitTick);
-}
-
-/** Next round's start, or the demo end when this is the last round. */
-export function clipTailLimitTick(
+/** Next round's freeze start, or null on the last round. */
+export function clipNextRoundStart(
   rounds: readonly { start_tick: number; freeze_end_tick: number }[],
   roundIndex: number,
-  demoEndTick: number,
-): number {
+): number | null {
   const next = roundIndex >= 0 ? rounds[roundIndex + 1] : undefined;
-  if (next) {
-    if (next.start_tick > 0) return next.start_tick;
-    return next.freeze_end_tick;
-  }
-  return demoEndTick > 0 ? demoEndTick : Number.POSITIVE_INFINITY;
+  if (!next) return null;
+  if (next.start_tick > 0) return next.start_tick;
+  return next.freeze_end_tick > 0 ? next.freeze_end_tick : null;
 }
 
-/** Live round plus the post-round tail, for full-round and around-kill clips. */
-export function clipRoundCover(round: ClipRoundClock, rate: number, limitTick: number): ClipSpan {
+/**
+ * Last tick included in a full-round or around-kill clip.
+ * `playback_end_tick` is the end of the win panel. When it is 0, keep three
+ * seconds after the win. Either way the last tick is at most one before the
+ * next round, or the demo end on the last round.
+ */
+export function clipCoverLastTick(
+  round: ClipRoundClock,
+  rate: number,
+  nextStartTick: number | null,
+  demoEndTick: number,
+  tailSeconds = CLIP_POST_ROUND_TAIL_SECONDS,
+): number {
+  const win = round.end_tick;
+  const playbackEnd = round.playback_end_tick ?? 0;
+  const tail = rate > 0 ? win + tailSeconds * rate : win;
+  let last = playbackEnd > 0 ? playbackEnd : tail;
+  if (nextStartTick != null && nextStartTick > 0) {
+    last = Math.min(last, nextStartTick - 1);
+  } else if (demoEndTick > 0) {
+    last = Math.min(last, demoEndTick);
+  }
+  return Math.max(last, win);
+}
+
+/**
+ * Live round plus the post-round window. `endTick` is exclusive: the tick
+ * after {@link clipCoverLastTick}, and never the next round's `start_tick`.
+ */
+export function clipRoundCover(
+  round: ClipRoundClock,
+  rate: number,
+  nextStartTick: number | null,
+  demoEndTick: number,
+): ClipSpan {
   const live = clipRoundBounds(round);
-  return { startTick: live.startTick, endTick: clipTailEnd(live.endTick, rate, limitTick) };
+  const last = clipCoverLastTick(round, rate, nextStartTick, demoEndTick);
+  let endTick = last + 1;
+  if (nextStartTick != null && nextStartTick > 0) {
+    endTick = Math.min(endTick, nextStartTick);
+  }
+  return { startTick: live.startTick, endTick: Math.max(endTick, live.startTick) };
 }
 
 export function clampClipSpan(span: ClipSpan, bounds: ClipSpan): ClipSpan {
@@ -154,20 +176,17 @@ export function plantTickInRound(
 }
 
 /**
- * Kills from round start through `end_tick`, plus any in the post-round tail.
- * `tailEndTick` is exclusive, so a frag on the next round's start stays out.
+ * Kills from round start through the clip's last tick.
+ * `clipEndTick` is the cover's exclusive end, so a frag on the next round's
+ * start stays out. The winning kill on `end_tick` stays in.
  */
 export function killsInRound<T extends { tick: number }>(
   kills: readonly T[],
   round: { start_tick: number; end_tick: number },
-  tailEndTick = round.end_tick,
+  clipEndTick = round.end_tick + 1,
 ): T[] {
-  const end = Math.max(round.end_tick, tailEndTick);
-  return kills.filter((kill) => {
-    if (kill.tick < round.start_tick) return false;
-    if (kill.tick <= round.end_tick) return true;
-    return kill.tick < end;
-  });
+  const end = Math.max(round.end_tick + 1, clipEndTick);
+  return kills.filter((kill) => kill.tick >= round.start_tick && kill.tick < end);
 }
 
 export function nearestKillTick(kills: readonly { tick: number }[], tick: number): number | null {

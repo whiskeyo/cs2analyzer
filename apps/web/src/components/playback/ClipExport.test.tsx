@@ -244,7 +244,8 @@ describe("ClipExport", () => {
     };
     expect(recorded.size).toBe(1440);
     expect(recorded.fps).toBe(60);
-    expect(recorded.ticks).toHaveLength(91 * 60);
+    const coverTicks = 90 * RATE + 3 * RATE + 1 - 2 * RATE;
+    expect(recorded.ticks).toHaveLength(Math.round((coverTicks / RATE) * 60));
     expect(recorded.ticks[0]).toBeLessThan(recorded.ticks[1]!);
     expect(onPlaying).toHaveBeenCalledWith(false);
     expect(mocks.hold).toHaveBeenCalledWith(true);

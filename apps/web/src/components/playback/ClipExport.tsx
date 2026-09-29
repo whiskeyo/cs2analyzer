@@ -11,9 +11,9 @@ import {
   aroundKillSpan,
   clipExportHint,
   clipExportMaxSeconds,
+  clipNextRoundStart,
   clipRoundBounds,
   clipRoundCover,
-  clipTailLimitTick,
   firstExecuteActionTick,
   fullRoundSpan,
   killsInRound,
@@ -117,20 +117,19 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
   const beats = useMemo(() => findExecutes(replay), [replay]);
   const roundBounds = round ? clipRoundBounds(round) : null;
   const roundIndex = round ? replay.rounds.indexOf(round) : -1;
-  const tailLimit = round
-    ? clipTailLimitTick(replay.rounds, roundIndex, replay.header.playback_ticks)
-    : 0;
-  const cover = round ? clipRoundCover(round, rate, tailLimit) : null;
+  const nextStart = round ? clipNextRoundStart(replay.rounds, roundIndex) : null;
+  const demoEnd = replay.header.playback_ticks;
+  const cover = round ? clipRoundCover(round, rate, nextStart, demoEnd) : null;
   const executeAt = round ? firstExecuteActionTick(beats, round.number) : null;
   const plantAt = round ? plantTickInRound(replay.bombEvents, round) : null;
   const roundKills = useMemo(() => {
     if (!round) return [];
     const index = replay.rounds.indexOf(round);
-    const limit = clipTailLimitTick(replay.rounds, index, replay.header.playback_ticks);
+    const next = clipNextRoundStart(replay.rounds, index);
     return killsInRound(
       replay.kills,
       round,
-      clipRoundCover(round, tickRate(replay), limit).endTick,
+      clipRoundCover(round, tickRate(replay), next, replay.header.playback_ticks).endTick,
     );
   }, [replay, round]);
   const site = roundBounds ? siteEntrySpan(roundBounds, executeAt, plantAt, rate) : null;

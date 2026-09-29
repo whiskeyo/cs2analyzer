@@ -128,8 +128,9 @@ export const CLIP_KILL_BEFORE_SECONDS = 5;
 export const CLIP_KILL_AFTER_SECONDS = 3;
 
 /**
- * Seconds after `Round.end_tick` kept in a full-round or around-kill clip.
+ * Seconds after `Round.end_tick` kept when `playback_end_tick` is 0.
  * `end_tick` is the win-status flip, so the round-deciding kill sits on it.
+ * A recorded win panel (`playback_end_tick`) replaces this fallback.
  */
 export const CLIP_POST_ROUND_TAIL_SECONDS = 3;
 
