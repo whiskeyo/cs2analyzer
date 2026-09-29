@@ -123,8 +123,8 @@ export function roundWindowSpan(
 /**
  * One sample tick per video frame. Ticks advance by `rate / fps` so a 15s
  * range is exactly 15 × fps frames and stays strictly inside `[start, end)`.
- * Fractional ticks fall between `tick_stride` samples; `samplePlayer` lerps
- * those the same way live playback does.
+ * Fractional ticks fall between `tick_stride` samples; `samplePlayer` blends
+ * those the same way live playback does, and snaps across a death or teleport.
  */
 export function clipFrameTicks(span: ClipSpan, rate: number, fps = CLIP_EXPORT_FPS): number[] {
   if (!(rate > 0) || !(fps > 0) || !(span.endTick > span.startTick)) return [];

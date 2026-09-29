@@ -4,6 +4,14 @@
 export const DEFAULT_TICK_RATE = 64;
 
 /**
+ * Horizontal pawn speed, in units per second, above which playback and clip
+ * export draw the later sample instead of blending. The limit is this speed
+ * times the real tick gap, so a stride-4 step at 64 tick is 62.5 units.
+ * Vertical movement does not count.
+ */
+export const PAWN_INTERP_MAX_SPEED = 1000;
+
+/**
  * How often React HUD / scoreboard `tick` may change during playback.
  * The canvas rAF path reads `tickRef` at full rate.
  */
