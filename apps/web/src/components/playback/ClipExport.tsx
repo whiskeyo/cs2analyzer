@@ -1,34 +1,41 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CLIP_EXPORT_DEFAULT_SECONDS,
-  CLIP_EXPORT_FAILED,
-  CLIP_EXPORT_FPS,
-  CLIP_EXPORT_MAX_SECONDS,
-  CLIP_EXPORT_NOT_READY,
+  CLIP_EXPORT_CHECKING,
+  CLIP_EXPORT_NO_EXECUTE,
+  CLIP_EXPORT_NO_KILL,
+  CLIP_EXPORT_NO_PLANT,
   CLIP_EXPORT_UNSUPPORTED,
 } from "@/lib/export/constants";
+import { probeClipEncoder, type ClipEncoderChoice } from "@/lib/export/clipEncodeSupport";
 import {
-  clipDownloadName,
+  aroundKillSpan,
+  clipExportHint,
+  clipExportMaxSeconds,
+  clipRoundBounds,
+  firstExecuteActionTick,
+  fullRoundSpan,
+  killsInRound,
+  nearestKillTick,
+  plantTickInRound,
+  postPlantSpan,
+  siteEntrySpan,
+} from "@/lib/export/clipPlan";
+import {
   clipDurationSeconds,
-  clipFrameTicks,
   clipRangeIssue,
   clipRoundSlug,
   defaultClipSpan,
   formatClipClock,
   formatClipDuration,
-  lastSecondsSpan,
-  mediaRecorderSupports,
-  preferredClipMime,
-  recordRadarClip,
-  roundWindowSpan,
   type ClipRangeIssue,
   type ClipSpan,
 } from "@/lib/export/radarClip";
-import { radarClipSurface, setRadarClipHold } from "@/lib/radar/radarClipSurface";
+import { runClipExport } from "@/lib/export/runClipExport";
+import { findExecutes } from "@/lib/match/execute";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
-import { HUD_TICK_INTERVAL_MS, tickRate } from "@/lib/shared/constants";
-import { downloadBlob } from "@/lib/shared/download";
+import { tickRate } from "@/lib/shared/constants";
 import { blockTransportFocus } from "@/lib/playback/transportFocus";
+import { useUserSettings } from "@/lib/settings/useUserSettings";
 
 interface Props {
   replay: Replay;
@@ -46,7 +53,7 @@ function boundsOf(minTick: number, maxTick: number): ClipSpan {
 
 function rangeMessage(issue: ClipRangeIssue): string {
   if (issue === "too-long") {
-    return `Clips can be at most ${CLIP_EXPORT_MAX_SECONDS} seconds.`;
+    return "Clips can be at most 30 seconds in this browser.";
   }
   return "Pick a start before the end.";
 }
@@ -56,12 +63,14 @@ function ClipButton({
   ariaLabel,
   disabled,
   pressed,
+  title,
   onClick,
 }: {
   label: string;
   ariaLabel?: string;
   disabled?: boolean;
   pressed?: boolean;
+  title?: string;
   onClick: () => void;
 }) {
   return (
@@ -71,6 +80,7 @@ function ClipButton({
       aria-label={ariaLabel}
       aria-pressed={pressed}
       disabled={disabled}
+      title={title}
       onMouseDown={blockTransportFocus}
       onClick={onClick}
     >
@@ -80,20 +90,43 @@ function ClipButton({
 }
 
 export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPlaying }: Props) {
+  const { settings } = useUserSettings();
+  const size = settings.clipExportSize;
+  const fps = settings.clipExportFps;
   const rate = tickRate(replay);
-  const bounds = boundsOf(minTick, maxTick);
+  const scrub = boundsOf(minTick, maxTick);
   const roundKey = round?.start_tick ?? null;
   const [open, setOpen] = useState(false);
   const [span, setSpan] = useState<ClipSpan | null>(null);
   const [spanRound, setSpanRound] = useState(roundKey);
+  const [killIndex, setKillIndex] = useState(0);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [choice, setChoice] = useState<ClipEncoderChoice | null | "pending">("pending");
+  const [probedFor, setProbedFor] = useState("");
   const abortRef = useRef<AbortController | null>(null);
+  const probeKey = open ? `${size}:${fps}` : "";
+  if (probeKey !== probedFor) {
+    setProbedFor(probeKey);
+    setChoice("pending");
+  }
+
+  const beats = useMemo(() => findExecutes(replay), [replay]);
+  const roundBounds = round ? clipRoundBounds(round) : null;
+  const executeAt = round ? firstExecuteActionTick(beats, round.number) : null;
+  const plantAt = round ? plantTickInRound(replay.bombEvents, round) : null;
+  const roundKills = useMemo(
+    () => (round ? killsInRound(replay.kills, round) : []),
+    [replay, round],
+  );
+  const site = roundBounds ? siteEntrySpan(roundBounds, executeAt, plantAt, rate) : null;
+  const postPlant = roundBounds ? postPlantSpan(roundBounds, plantAt) : null;
 
   if (spanRound !== roundKey && !recording) {
     setSpanRound(roundKey);
     setSpan(null);
+    setKillIndex(0);
     setError(null);
   }
 
@@ -101,7 +134,19 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
     return () => abortRef.current?.abort();
   }, []);
 
-  const issue = span ? clipRangeIssue(span, rate) : "empty";
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void probeClipEncoder(size, fps).then((next) => {
+      if (!cancelled) setChoice(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, size, fps]);
+
+  const path = choice === "pending" || choice == null ? null : choice.path;
+  const issue = span ? clipRangeIssue(span, rate, clipExportMaxSeconds(path)) : "empty";
   const seconds = span ? clipDurationSeconds(span, rate) : 0;
   const origin = round ? Math.max(round.freeze_end_tick, round.start_tick) : minTick;
   const clock = (at: number) => formatClipClock((at - origin) / rate);
@@ -117,7 +162,11 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
       setOpen(false);
       return;
     }
-    setSpan((prev) => prev ?? defaultClipSpan(tick, bounds, rate));
+    const full = roundBounds ? fullRoundSpan(roundBounds) : null;
+    setSpan(
+      (prev) =>
+        prev ?? (full && full.endTick > full.startTick ? full : defaultClipSpan(tick, scrub, rate)),
+    );
     setError(null);
     setOpen(true);
   };
@@ -131,69 +180,60 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
     setError(null);
   };
 
+  const applyKill = (index: number) => {
+    setKillIndex(index);
+    const kill = roundKills[index];
+    if (!roundBounds || !kill) return;
+    const next = aroundKillSpan(roundBounds, kill.tick, rate);
+    if (next) applySpan(next);
+  };
+
   const download = () => {
-    if (!span || issue) return;
-    const surface = radarClipSurface();
-    if (!surface || surface.canvas.width <= 0 || surface.canvas.height <= 0) {
-      setError(CLIP_EXPORT_NOT_READY);
-      return;
-    }
-    const mime = preferredClipMime(mediaRecorderSupports);
-    if (!mime) {
+    if (!span || issue || choice === "pending") return;
+    if (!choice) {
       setError(CLIP_EXPORT_UNSUPPORTED);
-      return;
-    }
-    const ticks = clipFrameTicks(span, rate);
-    if (ticks.length === 0) {
-      setError(rangeMessage("empty"));
       return;
     }
     const controller = new AbortController();
     abortRef.current = controller;
-    const restoreTick = tick;
-    const endTick = span.endTick;
+    const active = choice;
     setRecording(true);
     setProgress(0);
     setError(null);
-    onPlaying(false);
-    setRadarClipHold(true);
-    let lastUi = 0;
-    void recordRadarClip({
-      canvas: surface.canvas,
-      ticks,
-      mimeType: mime,
-      paintAt: surface.paintAt,
+    void runClipExport({
+      choice: active,
+      span,
+      rate,
+      fps,
+      size,
+      mapName: replay.header.map_name,
+      roundSlug: clipRoundSlug(round),
+      restoreTick: tick,
+      onTick,
+      onProgress: setProgress,
+      onPlaying,
       signal: controller.signal,
-      onFrame: (index, frameTick) => {
-        const now = performance.now();
-        const last = index === ticks.length - 1;
-        if (last || now - lastUi >= HUD_TICK_INTERVAL_MS) {
-          lastUi = now;
-          onTick(Math.round(frameTick));
-          setProgress((index + 1) / ticks.length);
-        }
-      },
     })
-      .then((blob) => {
-        const type = blob.type || mime;
-        downloadBlob(
-          clipDownloadName(replay.header.map_name, clipRoundSlug(round), type),
-          type,
-          blob,
-        );
-        onTick(Math.round(endTick));
-      })
       .catch((err: unknown) => {
-        onTick(restoreTick);
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : CLIP_EXPORT_FAILED);
+        if (err instanceof Error && err.message) setError(err.message);
       })
       .finally(() => {
-        setRadarClipHold(false);
         setRecording(false);
         abortRef.current = null;
       });
   };
+
+  const hint =
+    choice === "pending"
+      ? CLIP_EXPORT_CHECKING
+      : choice == null
+        ? CLIP_EXPORT_UNSUPPORTED
+        : clipExportHint(choice.path, size, fps);
+  const status = recording
+    ? path === "media-recorder"
+      ? `Recording ${formatClipDuration(progress * seconds)} / ${formatClipDuration(seconds)}`
+      : `Exporting ${Math.round(progress * 100)}%`
+    : formatClipDuration(seconds);
 
   return (
     <div className="clip-export">
@@ -211,33 +251,63 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
           role="region"
           aria-label="Radar clip export"
         >
-          <p className="clip-export-hint">
-            {CLIP_EXPORT_FPS} fps · up to {CLIP_EXPORT_MAX_SECONDS}s · saved on this device
-          </p>
+          <p className="clip-export-hint">{hint}</p>
           <div className="clip-export-presets">
             <ClipButton
-              label="Last 15s"
-              ariaLabel="Last 15 seconds"
-              disabled={recording}
-              onClick={() =>
-                applySpan(lastSecondsSpan(tick, CLIP_EXPORT_DEFAULT_SECONDS, bounds, rate))
-              }
+              label="Full round"
+              ariaLabel="Full round"
+              disabled={recording || !roundBounds}
+              onClick={() => {
+                if (roundBounds) applySpan(fullRoundSpan(roundBounds));
+              }}
             />
             <ClipButton
-              label="Last 30s"
-              ariaLabel="Last 30 seconds"
-              disabled={recording}
-              onClick={() =>
-                applySpan(lastSecondsSpan(tick, CLIP_EXPORT_MAX_SECONDS, bounds, rate))
-              }
+              label="Site entry"
+              ariaLabel="Site entry"
+              disabled={recording || !site}
+              title={site ? undefined : CLIP_EXPORT_NO_EXECUTE}
+              onClick={() => {
+                if (site) applySpan(site);
+              }}
             />
             <ClipButton
-              label="This round"
-              ariaLabel="This round"
-              disabled={recording}
-              onClick={() => applySpan(roundWindowSpan(tick, bounds, rate))}
+              label="Post-plant"
+              ariaLabel="Post-plant retake"
+              disabled={recording || !postPlant}
+              title={postPlant ? undefined : CLIP_EXPORT_NO_PLANT}
+              onClick={() => {
+                if (postPlant) applySpan(postPlant);
+              }}
+            />
+            <ClipButton
+              label="Around kill"
+              ariaLabel="Around a kill"
+              disabled={recording || roundKills.length === 0}
+              title={roundKills.length === 0 ? CLIP_EXPORT_NO_KILL : undefined}
+              onClick={() => {
+                const nearest = nearestKillTick(roundKills, tick);
+                const index = roundKills.findIndex((kill) => kill.tick === nearest);
+                applyKill(index >= 0 ? index : 0);
+              }}
             />
           </div>
+          {roundKills.length > 0 ? (
+            <label className="clip-export-row">
+              <span>Kill</span>
+              <select
+                aria-label="Kill"
+                value={Math.min(killIndex, roundKills.length - 1)}
+                disabled={recording}
+                onChange={(event) => applyKill(Number(event.target.value))}
+              >
+                {roundKills.map((kill, index) => (
+                  <option key={`${kill.tick}-${index}`} value={index}>
+                    {clock(kill.tick)} {kill.weapon}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <div className="clip-export-row">
             <span>Start {span ? clock(span.startTick) : "—"}</span>
             <ClipButton label="Mark start" disabled={recording} onClick={() => mark("start")} />
@@ -246,11 +316,15 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
             <span>End {span ? clock(span.endTick) : "—"}</span>
             <ClipButton label="Mark end" disabled={recording} onClick={() => mark("end")} />
           </div>
-          <p className="clip-export-duration">
-            {recording
-              ? `Recording ${formatClipDuration(progress * seconds)} / ${formatClipDuration(seconds)}`
-              : formatClipDuration(seconds)}
-          </p>
+          <p className="clip-export-duration">{status}</p>
+          {recording ? (
+            <progress
+              className="clip-export-progress"
+              max={1}
+              value={progress}
+              aria-label="Clip export progress"
+            />
+          ) : null}
           {issue && span && !recording ? (
             <p className="clip-export-error">{rangeMessage(issue)}</p>
           ) : null}
@@ -266,7 +340,7 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
               <ClipButton
                 label="Download"
                 ariaLabel="Download clip"
-                disabled={issue !== null}
+                disabled={issue !== null || choice === "pending" || choice == null}
                 onClick={download}
               />
             )}

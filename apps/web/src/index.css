@@ -4053,7 +4053,7 @@ button.link:hover:not(:disabled) {
   bottom: calc(100% + 8px);
   left: 0;
   z-index: 30;
-  width: 280px;
+  width: 320px;
   padding: 0.7rem;
   background: #161c24;
   border: 1px solid var(--border);
@@ -4094,6 +4094,20 @@ button.link:hover:not(:disabled) {
 .clip-export button:disabled {
   opacity: 0.55;
   cursor: default;
+}
+.clip-export-progress {
+  width: 100%;
+  height: 0.45rem;
+  accent-color: #5b9fd6;
+}
+.clip-export select {
+  max-width: 11rem;
+  background: #10161c;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.8rem;
 }
 
 .round-strip {
