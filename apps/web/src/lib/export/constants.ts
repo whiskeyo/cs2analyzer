@@ -92,13 +92,6 @@ export const MATCH_PDF_ECO_FULL = "Full buy";
 export const MATCH_PDF_ECO_KNIFE = "Knife";
 export const MATCH_PDF_EXPORT_ERROR = "Could not export PDF.";
 
-/**
- * Frames per second when a caller does not pass one.
- * Preferences default to {@link CLIP_EXPORT_FPS_DEFAULT}; 60 interpolates
- * between the demo's `tick_stride` samples.
- */
-export const CLIP_EXPORT_FPS = 60;
-
 /** Offline export frame rate. 60 interpolates between sampled ticks. */
 export const CLIP_EXPORT_FPS_DEFAULT = 30;
 export const CLIP_EXPORT_FPS_SMOOTH = 60;

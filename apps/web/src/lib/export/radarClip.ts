@@ -2,7 +2,7 @@ import {
   CLIP_EXPORT_DEFAULT_SECONDS,
   CLIP_EXPORT_EMPTY,
   CLIP_EXPORT_FAILED,
-  CLIP_EXPORT_FPS,
+  CLIP_EXPORT_FPS_DEFAULT,
   CLIP_EXPORT_MAX_SECONDS,
   CLIP_EXPORT_NO_CANVAS,
   CLIP_EXPORT_TOO_SHORT,
@@ -126,7 +126,11 @@ export function roundWindowSpan(
  * Fractional ticks fall between `tick_stride` samples; `samplePlayer` blends
  * those the same way live playback does, and snaps across a death or teleport.
  */
-export function clipFrameTicks(span: ClipSpan, rate: number, fps = CLIP_EXPORT_FPS): number[] {
+export function clipFrameTicks(
+  span: ClipSpan,
+  rate: number,
+  fps = CLIP_EXPORT_FPS_DEFAULT,
+): number[] {
   if (!(rate > 0) || !(fps > 0) || !(span.endTick > span.startTick)) return [];
   const seconds = (span.endTick - span.startTick) / rate;
   const count = Math.round(seconds * fps);
@@ -280,7 +284,7 @@ export async function recordRadarClip(options: RecordRadarClipOptions): Promise<
     paintAt,
     onFrame,
     signal,
-    fps = CLIP_EXPORT_FPS,
+    fps = CLIP_EXPORT_FPS_DEFAULT,
     videoBitsPerSecond = CLIP_EXPORT_VIDEO_BITS_PER_SECOND,
     now = () => performance.now(),
     sleep = sleepMs,
