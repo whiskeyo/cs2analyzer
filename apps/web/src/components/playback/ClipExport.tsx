@@ -12,6 +12,8 @@ import {
   clipExportHint,
   clipExportMaxSeconds,
   clipRoundBounds,
+  clipRoundCover,
+  clipTailLimitTick,
   firstExecuteActionTick,
   fullRoundSpan,
   killsInRound,
@@ -114,12 +116,23 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
 
   const beats = useMemo(() => findExecutes(replay), [replay]);
   const roundBounds = round ? clipRoundBounds(round) : null;
+  const roundIndex = round ? replay.rounds.indexOf(round) : -1;
+  const tailLimit = round
+    ? clipTailLimitTick(replay.rounds, roundIndex, replay.header.playback_ticks)
+    : 0;
+  const cover = round ? clipRoundCover(round, rate, tailLimit) : null;
   const executeAt = round ? firstExecuteActionTick(beats, round.number) : null;
   const plantAt = round ? plantTickInRound(replay.bombEvents, round) : null;
-  const roundKills = useMemo(
-    () => (round ? killsInRound(replay.kills, round) : []),
-    [replay, round],
-  );
+  const roundKills = useMemo(() => {
+    if (!round) return [];
+    const index = replay.rounds.indexOf(round);
+    const limit = clipTailLimitTick(replay.rounds, index, replay.header.playback_ticks);
+    return killsInRound(
+      replay.kills,
+      round,
+      clipRoundCover(round, tickRate(replay), limit).endTick,
+    );
+  }, [replay, round]);
   const site = roundBounds ? siteEntrySpan(roundBounds, executeAt, plantAt, rate) : null;
   const postPlant = roundBounds ? postPlantSpan(roundBounds, plantAt) : null;
 
@@ -162,7 +175,7 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
       setOpen(false);
       return;
     }
-    const full = roundBounds ? fullRoundSpan(roundBounds) : null;
+    const full = cover ? fullRoundSpan(cover) : null;
     setSpan(
       (prev) =>
         prev ?? (full && full.endTick > full.startTick ? full : defaultClipSpan(tick, scrub, rate)),
@@ -183,8 +196,8 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
   const applyKill = (index: number) => {
     setKillIndex(index);
     const kill = roundKills[index];
-    if (!roundBounds || !kill) return;
-    const next = aroundKillSpan(roundBounds, kill.tick, rate);
+    if (!cover || !kill) return;
+    const next = aroundKillSpan(cover, kill.tick, rate);
     if (next) applySpan(next);
   };
 
@@ -256,9 +269,9 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
             <ClipButton
               label="Full round"
               ariaLabel="Full round"
-              disabled={recording || !roundBounds}
+              disabled={recording || !cover}
               onClick={() => {
-                if (roundBounds) applySpan(fullRoundSpan(roundBounds));
+                if (cover) applySpan(fullRoundSpan(cover));
               }}
             />
             <ClipButton

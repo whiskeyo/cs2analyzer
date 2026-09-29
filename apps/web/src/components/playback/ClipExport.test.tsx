@@ -101,7 +101,7 @@ function props(overrides: Partial<Parameters<typeof ClipExport>[0]> = {}) {
   });
   return {
     replay: makeReplay({
-      header: { map_name: "de_mirage", tick_rate: RATE },
+      header: { map_name: "de_mirage", tick_rate: RATE, playback_ticks: 200 * RATE },
       rounds: [round],
     }),
     tick: 2 * RATE + 40 * RATE,
@@ -143,9 +143,9 @@ describe("ClipExport", () => {
     const user = userEvent.setup();
     render(<ClipExport {...props({ tick: 2 * RATE })} />);
     await openPanel(user);
-    expect(screen.getByText("88.0s")).toBeInTheDocument();
+    expect(screen.getByText("91.0s")).toBeInTheDocument();
     expect(screen.getByText("Start 0:00.0")).toBeInTheDocument();
-    expect(screen.getByText("End 1:28.0")).toBeInTheDocument();
+    expect(screen.getByText("End 1:31.0")).toBeInTheDocument();
     expect(screen.getByText("1080×1080 · 30 fps · encoded on this device")).toBeInTheDocument();
   });
 
@@ -174,7 +174,7 @@ describe("ClipExport", () => {
     const user = userEvent.setup();
     const earlyKill = props();
     earlyKill.replay = makeReplay({
-      header: { map_name: "de_mirage", tick_rate: RATE },
+      header: { map_name: "de_mirage", tick_rate: RATE, playback_ticks: 200 * RATE },
       rounds: [earlyKill.round!],
       kills: [makeKill(2 * RATE + 2 * RATE, 1, 0, { weapon: "ak47" })],
       bombEvents: [makeBombEvent({ tick: 2 * RATE + 30 * RATE, kind: "planted" })],
@@ -244,7 +244,7 @@ describe("ClipExport", () => {
     };
     expect(recorded.size).toBe(1440);
     expect(recorded.fps).toBe(60);
-    expect(recorded.ticks).toHaveLength(88 * 60);
+    expect(recorded.ticks).toHaveLength(91 * 60);
     expect(recorded.ticks[0]).toBeLessThan(recorded.ticks[1]!);
     expect(onPlaying).toHaveBeenCalledWith(false);
     expect(mocks.hold).toHaveBeenCalledWith(true);

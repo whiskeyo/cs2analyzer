@@ -127,6 +127,12 @@ export const CLIP_SITE_ENTRY_LEAD_SECONDS = 3;
 export const CLIP_KILL_BEFORE_SECONDS = 5;
 export const CLIP_KILL_AFTER_SECONDS = 3;
 
+/**
+ * Seconds after `Round.end_tick` kept in a full-round or around-kill clip.
+ * `end_tick` is the win-status flip, so the round-deciding kill sits on it.
+ */
+export const CLIP_POST_ROUND_TAIL_SECONDS = 3;
+
 /** H.264 bitrates for a flat 2D radar. 60 fps doubles the 30 fps rate. */
 export const CLIP_EXPORT_BITRATE_1080 = 12_000_000;
 export const CLIP_EXPORT_BITRATE_1440 = 20_000_000;
