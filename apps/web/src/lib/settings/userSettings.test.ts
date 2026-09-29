@@ -1,4 +1,10 @@
 import { describe, expect, it } from "vitest";
+import {
+  CLIP_EXPORT_FPS_DEFAULT,
+  CLIP_EXPORT_FPS_SMOOTH,
+  CLIP_EXPORT_SIZE_DEFAULT,
+  CLIP_EXPORT_SIZE_HIGH,
+} from "@/lib/export/constants";
 import { DEFAULT_LEAD_IN_SEC } from "@/lib/match/roundEvents";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
@@ -70,6 +76,8 @@ describe("defaultUserSettings", () => {
       pdfTheme: "dark",
       pdfPhotos: "with",
       radarGray: DEFAULT_RADAR_GRAY,
+      clipExportSize: CLIP_EXPORT_SIZE_DEFAULT,
+      clipExportFps: CLIP_EXPORT_FPS_DEFAULT,
       tutorialCompleted: false,
     });
     expect(settings.defaultPaletteId).toBe(COLOR_PRESETS[0].id);
@@ -260,6 +268,21 @@ describe("parseUserSettings", () => {
 
   it("keeps skipKnifeOnOpen false when stored", () => {
     expect(parseUserSettings({ skipKnifeOnOpen: false }).skipKnifeOnOpen).toBe(false);
+  });
+
+  it("defaults radar clip size and frame rate and ignores unknown values", () => {
+    expect(parseUserSettings({}).clipExportSize).toBe(CLIP_EXPORT_SIZE_DEFAULT);
+    expect(parseUserSettings({}).clipExportFps).toBe(CLIP_EXPORT_FPS_DEFAULT);
+    expect(parseUserSettings({ clipExportSize: CLIP_EXPORT_SIZE_HIGH }).clipExportSize).toBe(
+      CLIP_EXPORT_SIZE_HIGH,
+    );
+    expect(parseUserSettings({ clipExportFps: CLIP_EXPORT_FPS_SMOOTH }).clipExportFps).toBe(
+      CLIP_EXPORT_FPS_SMOOTH,
+    );
+    expect(parseUserSettings({ clipExportSize: 720, clipExportFps: 24 }).clipExportSize).toBe(
+      CLIP_EXPORT_SIZE_DEFAULT,
+    );
+    expect(parseUserSettings({ clipExportFps: 24 }).clipExportFps).toBe(CLIP_EXPORT_FPS_DEFAULT);
   });
 
   it("treats a missing tutorialCompleted key as not completed", () => {
