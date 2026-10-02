@@ -185,7 +185,11 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
         onClick={toggle}
       />
       {recording ? (
-        <div className="clip-export-panel" role="status" aria-label="Radar clip export">
+        <div
+          className="clip-export-panel clip-export-busy"
+          role="status"
+          aria-label="Radar clip export"
+        >
           <p className="clip-export-duration">{progressLabel(progress)}</p>
           <progress
             className="clip-export-progress"

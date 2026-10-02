@@ -4050,18 +4050,30 @@ button.link:hover:not(:disabled) {
 }
 .clip-export-panel {
   position: absolute;
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 4px);
   left: 0;
   z-index: 30;
-  width: 320px;
-  padding: 0.7rem;
+  width: max-content;
+  max-width: calc(100vw - 1rem);
+  padding: 0.25rem;
   background: #161c24;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.25rem;
+}
+/* Width follows the progress label and Cancel. The bar and hint fill that and wrap. */
+.clip-export-busy {
+  display: grid;
+  grid-template-columns: max-content;
+  justify-items: stretch;
+}
+.clip-export-busy .clip-export-progress,
+.clip-export-busy .clip-export-hint {
+  width: 0;
+  min-width: 100%;
 }
 .clip-export-hint,
 .clip-export-duration,
@@ -4073,6 +4085,11 @@ button.link:hover:not(:disabled) {
 .clip-export-duration {
   font-variant-numeric: tabular-nums;
   color: #a9b6c3;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.clip-export-hint {
+  line-height: 1.25;
 }
 .clip-export-error {
   color: var(--danger);
@@ -4080,7 +4097,7 @@ button.link:hover:not(:disabled) {
 .clip-export-presets,
 .clip-export-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.35rem;
 }
