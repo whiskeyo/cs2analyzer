@@ -8,7 +8,7 @@ import {
   FLAG_PRESENT,
   type Replay,
 } from "@/lib/replay/replayTypes";
-import { makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
+import { makePlayer, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
 
 describe("samplePlayer", () => {
   it("returns one pawn and null for a missing slot", () => {
@@ -30,6 +30,19 @@ describe("samplePlayer", () => {
     expect(a?.clip).toBe(0);
     expect(samplePlayer(m, 2, 80)).toBeNull();
     expect(samplePlayers(m, 80)).toHaveLength(2);
+  });
+
+  it("draws the later sample between a death instead of sliding", () => {
+    const ticks = makeTicks(1, 2);
+    ticks.ticks[0] = 0;
+    ticks.ticks[1] = 4;
+    ticks.x[0] = 0;
+    ticks.x[1] = 10;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[1] = FLAG_PRESENT;
+    const replay = makeReplay({ ticks, players: [makePlayer(0, "CT", "A")] });
+    expect(samplePlayer(replay, 0, 0)).toMatchObject({ x: 0, alive: true });
+    expect(samplePlayer(replay, 0, 2)).toMatchObject({ x: 10, alive: false, present: true });
   });
 
   it("reuses the snapshot for a tick it already sampled", () => {

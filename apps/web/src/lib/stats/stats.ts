@@ -16,6 +16,7 @@ export {
   freezeRemaining,
   liveSituation,
   plantedBombPos,
+  roundHudLabel,
   roundWinBanner,
   type BombView,
   type LiveSituation,

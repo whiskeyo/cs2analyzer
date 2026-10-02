@@ -15,6 +15,8 @@ import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { RoundNote } from "@/lib/notes/types";
 import { formatClock } from "@/lib/weapons/weapons";
 import { publicUrl } from "@/lib/shared/publicUrl";
+import { roundHudLabel, roundTimeRemaining } from "@/lib/stats/hud";
+import { ClipExport } from "./ClipExport";
 import { TransportButton } from "./TransportButton";
 import { UnfocusableButton } from "./UnfocusableButton";
 
@@ -159,9 +161,10 @@ export const Controls = memo(function Controls({
   const inFreeze = !!round && tick < round.freeze_end_tick;
   const freezeLeft =
     round && tick < round.freeze_end_tick ? (round.freeze_end_tick - tick) / tps : 0;
+  const elapsed = Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps);
   const clock = inFreeze
     ? `Freeze ${freezeLeft.toFixed(1)}s`
-    : formatClock(Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps));
+    : formatClock(roundTimeRemaining(elapsed));
   const marks = round ? roundTimelineMarks(round, tps, activeRange) : [];
   const bookmarks = round
     ? roundBookmarkMarks(noteForRound(notes, round.number), round, activeRange)
@@ -235,6 +238,13 @@ export const Controls = memo(function Controls({
           ))}
         </select>
       </label>
+      <ClipExport
+        replay={replay}
+        tick={tick}
+        round={round ?? null}
+        onTick={onTick}
+        onPlaying={onPlaying}
+      />
       <div className="timeline-wrap">
         <div className="timeline-bar">
           <div className="timeline-track" aria-hidden="true">
@@ -344,7 +354,7 @@ export const Controls = memo(function Controls({
       </div>
       <div className="clock-wrap">
         <span className="clock">
-          {round ? (round.is_knife ? "Knife" : `R${round.number}`) : "—"} {clock}
+          {round ? roundHudLabel(round) : "—"} {clock}
         </span>
         <button
           type="button"

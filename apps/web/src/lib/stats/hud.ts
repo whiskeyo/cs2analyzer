@@ -2,7 +2,10 @@ import {
   BOMB_SECONDS,
   DEFUSE_WITH_KIT_SECONDS,
   DEFUSE_WITHOUT_KIT_SECONDS,
+  FIRST_OVERTIME_ROUND,
+  OVERTIME_PERIOD_ROUNDS,
   PLANT_SECONDS,
+  ROUND_TIME_DEFUSE_S,
   tickRate,
 } from "@/lib/shared/constants";
 import { currentRound, samplePlayers, trailingFlagStart } from "@/lib/replay/sample";
@@ -16,6 +19,22 @@ import {
   type Round,
   type Side,
 } from "@/lib/replay/replayTypes";
+
+/** Seconds left on the competitive round clock. Stays at 0 after 1:55. */
+export function roundTimeRemaining(elapsedSeconds: number): number {
+  return Math.max(0, ROUND_TIME_DEFUSE_S - Math.max(0, elapsedSeconds));
+}
+
+/**
+ * Round chip shared by the live HUD and a burned-in clip.
+ * Regulation is `R12`. Overtime adds the MR3 period: `R26 · OT1`.
+ */
+export function roundHudLabel(round: { number: number; is_knife: boolean }): string {
+  if (round.is_knife) return "Knife";
+  if (round.number < FIRST_OVERTIME_ROUND) return `R${round.number}`;
+  const period = Math.floor((round.number - FIRST_OVERTIME_ROUND) / OVERTIME_PERIOD_ROUNDS) + 1;
+  return `R${round.number} · OT${period}`;
+}
 
 export interface LiveSituation {
   ctAlive: number;

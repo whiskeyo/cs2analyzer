@@ -1,3 +1,8 @@
+import {
+  CLIP_EXPORT_SIZE_DEFAULT,
+  CLIP_EXPORT_SIZE_HIGH,
+  type ClipExportSize,
+} from "@/lib/export/constants";
 import { clampLeadInSec, DEFAULT_LEAD_IN_SEC } from "@/lib/match/roundEvents";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
 import {
@@ -96,6 +101,8 @@ export interface UserSettings {
   pdfPhotos: PdfPhotos;
   /** 0 = original map color, 1 = full grayscale. Applies to Analyzer, Playbook, PDF stills. */
   radarGray: number;
+  /** Square radar clip edge in pixels. */
+  clipExportSize: ClipExportSize;
   /**
    * Home skip / tour finish / don't-show-again. Missing key ≡ not completed,
    * so first-visit Home can idle-prefetch the Replay fixture.
@@ -168,6 +175,7 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     pdfTheme: DEFAULT_PDF_THEME,
     pdfPhotos: DEFAULT_PDF_PHOTOS,
     radarGray: DEFAULT_RADAR_GRAY,
+    clipExportSize: CLIP_EXPORT_SIZE_DEFAULT,
     tutorialCompleted: false,
   };
 }
@@ -241,6 +249,10 @@ function parseDefaultDrawTool(value: unknown): DefaultDrawTool {
 
 function parseDefaultSidebarTab(value: unknown): DefaultSidebarTab {
   return DEFAULT_SIDEBAR_TABS.some((id) => id === value) ? (value as DefaultSidebarTab) : "score";
+}
+
+function parseClipExportSize(value: unknown): ClipExportSize {
+  return value === CLIP_EXPORT_SIZE_HIGH ? CLIP_EXPORT_SIZE_HIGH : CLIP_EXPORT_SIZE_DEFAULT;
 }
 
 function parseBoolean(value: unknown, fallback: boolean): boolean {
@@ -354,6 +366,7 @@ export function parseUserSettings(raw: unknown): UserSettings {
       RADAR_GRAY_MAX,
       defaults.radarGray,
     ),
+    clipExportSize: parseClipExportSize(raw.clipExportSize),
     tutorialCompleted: parseBoolean(raw.tutorialCompleted, defaults.tutorialCompleted),
   };
 }
