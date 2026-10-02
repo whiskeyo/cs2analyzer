@@ -20,9 +20,13 @@ import {
   type Side,
 } from "@/lib/replay/replayTypes";
 
-/** Seconds left on the competitive round clock. Stays at 0 after 1:55. */
-export function roundTimeRemaining(elapsedSeconds: number): number {
-  return Math.max(0, ROUND_TIME_DEFUSE_S - Math.max(0, elapsedSeconds));
+/**
+ * Seconds left on the round clock. `roundTimeS` is the parsed `m_iRoundTime`.
+ * Missing or `0` falls back to the competitive defuse length. Stays at 0 after that.
+ */
+export function roundTimeRemaining(elapsedSeconds: number, roundTimeS = 0): number {
+  const limit = roundTimeS > 0 ? roundTimeS : ROUND_TIME_DEFUSE_S;
+  return Math.max(0, limit - Math.max(0, elapsedSeconds));
 }
 
 /**

@@ -66,6 +66,8 @@ export interface Round {
   win_reason: number;
   score_ct: number;
   score_t: number;
+  /** `m_iRoundTime` at freeze end, seconds. `0` when the demo did not carry it. */
+  round_time_s: number;
   is_knife: boolean;
   team_ct?: string;
   team_t?: string;

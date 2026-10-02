@@ -525,6 +525,7 @@ describe("utilThrowsForRound", () => {
           is_knife: false,
           score_ct: 1,
           score_t: 0,
+          round_time_s: 0,
         },
         {
           number: 2,
@@ -538,6 +539,7 @@ describe("utilThrowsForRound", () => {
           is_knife: false,
           score_ct: 1,
           score_t: 1,
+          round_time_s: 0,
         },
       ],
       grenades: [nade("smoke", 100, 0), nade("flash", 800, 1), nade("he", 850, 1)],

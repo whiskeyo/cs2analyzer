@@ -41,6 +41,10 @@ type Shape = Record<string, Check>;
  * (`playback_end_tick`, `team_ct` / `team_t`, `GrenadeThrow.fires`,
  * `BombEvent.haskit` / `site`) stay off this list — they are optional in the
  * types, not `#[serde(default)]` shims for stale WASM caches.
+ *
+ * `round_time_s` is required on `Round`, but demos parsed before that field
+ * and kept in IndexedDB omit it. A missing value becomes `0` (HUD fallback).
+ * A present value that is not a number still fails.
  */
 const HEADER: Shape = {
   map_name: text,
@@ -71,8 +75,20 @@ const ROUND: Shape = {
   win_reason: number,
   score_ct: number,
   score_t: number,
+  round_time_s: number,
   is_knife: flag,
 };
+
+/** Older stored round JSON has no `round_time_s`. `0` means "unknown". */
+function fillMissingRoundTime(value: unknown): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.round_time_s === undefined) {
+    record.round_time_s = 0;
+  }
+}
 
 const GRENADE: Shape = {
   thrower: number,
@@ -219,6 +235,11 @@ export function decodeList<T>(name: PayloadName, json: string): T[] {
   const value = parseJson(name, json);
   if (!Array.isArray(value)) {
     throw new PayloadError(`Parser sent ${describe(value)} for "${name}", expected an array.`);
+  }
+  if (name === "rounds") {
+    for (const item of value) {
+      fillMissingRoundTime(item);
+    }
   }
   const shape = PAYLOAD_SHAPES[name];
   for (const index of listSampleIndexes(value.length)) {

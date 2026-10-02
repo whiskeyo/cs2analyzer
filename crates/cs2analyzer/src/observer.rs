@@ -66,6 +66,8 @@ pub(crate) struct Collector {
     pub final_winner: Option<Side>,
     pub final_reason: i32,
     pub round_scores: HashMap<u32, (i32, i32)>,
+    /// `m_iRoundTime` at freeze end, keyed by freeze tick. `0` when the prop is missing.
+    pub round_times: HashMap<u32, u32>,
     pub round_names: HashMap<u32, (String, String)>,
     /// Max player equipment value at freeze-end, keyed by freeze tick.
     pub round_equip: HashMap<u32, i32>,
@@ -168,6 +170,7 @@ impl Collector {
             final_winner: None,
             final_reason: 0,
             round_scores: HashMap::new(),
+            round_times: HashMap::new(),
             round_names: HashMap::new(),
             round_equip: HashMap::new(),
             final_score: None,
@@ -866,6 +869,7 @@ impl Collector {
                 if !in_warmup(ctx) {
                     self.freeze_ends.push(tick);
                     self.round_scores.insert(tick, team_scores(ctx));
+                    self.round_times.insert(tick, round_time_seconds(ctx));
                     self.round_names.insert(tick, team_names(ctx));
                     self.round_equip.insert(tick, max_equipment(ctx));
                     record_controllers(self, ctx, tick, true);

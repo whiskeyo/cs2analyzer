@@ -105,6 +105,22 @@ describe("Controls", () => {
     expect(screen.getByText(/R1 1:45/)).toBeInTheDocument();
   });
 
+  it("counts a parsed round length down from 1:30", () => {
+    const replay = makeReplay({
+      rounds: [
+        makeRound({
+          number: 1,
+          start_tick: 0,
+          freeze_end_tick: 2 * tps,
+          end_tick: 200 * tps,
+          round_time_s: 90,
+        }),
+      ],
+    });
+    renderControls(baseProps({ replay, tick: 2 * tps }));
+    expect(screen.getByText(/R1 1:30/)).toBeInTheDocument();
+  });
+
   it("toggles play and pause", async () => {
     const onTogglePlay = vi.fn();
     const { rerender } = renderControls(baseProps({ onTogglePlay }));

@@ -164,7 +164,7 @@ export const Controls = memo(function Controls({
   const elapsed = Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps);
   const clock = inFreeze
     ? `Freeze ${freezeLeft.toFixed(1)}s`
-    : formatClock(roundTimeRemaining(elapsed));
+    : formatClock(roundTimeRemaining(elapsed, round?.round_time_s ?? 0));
   const marks = round ? roundTimelineMarks(round, tps, activeRange) : [];
   const bookmarks = round
     ? roundBookmarkMarks(noteForRound(notes, round.number), round, activeRange)

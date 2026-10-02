@@ -505,6 +505,7 @@ mod tests {
                 win_reason: 8,
                 score_ct: 1,
                 score_t: 0,
+                round_time_s: 0,
                 is_knife: false,
                 team_ct: String::new(),
                 team_t: String::new(),
