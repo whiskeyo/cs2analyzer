@@ -17,7 +17,6 @@ import {
   clipRangeIssue,
   clipRoundSlug,
   defaultClipSpan,
-  formatClipClock,
   lastSecondsSpan,
   preferredClipMime,
   recordRadarClip,
@@ -171,8 +170,6 @@ describe("clip file name", () => {
     expect(
       clipDownloadName("maps/de_dust2", clipRoundSlug({ number: 0, is_knife: true }), "video/mp4"),
     ).toBe("de_dust2-knife.mp4");
-    expect(formatClipClock(75.3)).toBe("1:15.3");
-    expect(formatClipClock(-1.2)).toBe("-0:01.2");
   });
 });
 

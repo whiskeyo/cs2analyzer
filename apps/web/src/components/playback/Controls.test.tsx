@@ -94,7 +94,8 @@ describe("Controls", () => {
     renderControls(baseProps());
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
     expect(screen.getByText(/R1 Freeze/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Export clip" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export clip: full round" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export clip: from plant" })).toBeInTheDocument();
   });
 
   it("counts the live round clock down from 1:55", () => {
