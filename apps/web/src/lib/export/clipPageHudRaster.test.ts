@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { CLIP_HUD_PANEL_HUD, CLIP_HUD_PANEL_SCORE } from "@/lib/export/clipPageHudKey";
 import {
   clipHudCssVariableText,
+  clipHudPanelLayoutCss,
   clipPageHudSvg,
   collectDocumentCss,
   escapeClipHudCss,
@@ -12,6 +14,15 @@ describe("clip page HUD raster", () => {
     expect(escaped).not.toContain("</");
     expect(escaped).toContain("&lt;/style>");
     expect(escaped).toContain("a&amp;b");
+  });
+
+  it("keeps the page score row when the HUD panel is rasterized", () => {
+    const layout = clipHudPanelLayoutCss(CLIP_HUD_PANEL_HUD);
+    expect(layout).toContain("flex-direction:row");
+    expect(layout).toContain(".hud-score");
+    expect(clipHudPanelLayoutCss(CLIP_HUD_PANEL_SCORE)).toBe("");
+    const svg = clipPageHudSvg("", "<div class='radar-hud'></div>", 200, 40, "", layout);
+    expect(svg).toContain("flex-direction:row");
   });
 
   it("embeds the stylesheet and the panel markup in one foreignObject", () => {

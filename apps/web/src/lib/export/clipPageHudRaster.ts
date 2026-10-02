@@ -1,3 +1,5 @@
+import { CLIP_HUD_PANEL_HUD, type ClipHudPanel } from "@/lib/export/clipPageHudKey";
+
 /**
  * Draw a clip HUD panel through an SVG `foreignObject`.
  *
@@ -62,6 +64,23 @@ function documentCss(): string {
 }
 
 /**
+ * Desktop HUD rules for the raster.
+ * The SVG viewport is the panel, so `@media (max-width: 900px)` would
+ * left-align the score and the round clock used to sit on that line.
+ * The page Hud is a centered row: team score, alive count, team score.
+ */
+export function clipHudPanelLayoutCss(panel: ClipHudPanel): string {
+  if (panel !== CLIP_HUD_PANEL_HUD) return "";
+  return [
+    ".radar-hud{position:relative !important;top:auto !important;left:auto !important;right:auto !important;transform:none !important;",
+    "display:flex !important;flex-direction:column !important;align-items:center !important;text-align:center !important;",
+    "width:max-content !important;max-width:100% !important;gap:0.25rem !important}",
+    ".hud-score{display:flex !important;flex-direction:row !important;flex-wrap:nowrap !important;",
+    "align-items:baseline !important;gap:0.7rem !important;white-space:nowrap !important}",
+  ].join("");
+}
+
+/**
  * SVG document for one panel. `markup` is the panel's XHTML.
  * The wrapper is the containing block so an absolutely positioned panel
  * (spectator column, top HUD) stays inside the bitmap we measured.
@@ -72,9 +91,11 @@ export function clipPageHudSvg(
   width: number,
   height: number,
   variables: string,
+  layoutCss = "",
 ): string {
   const style = escapeClipHudCss(css);
   const vars = escapeClipHudCss(variables);
+  const layout = escapeClipHudCss(layoutCss);
   const box = `width:${width}px;height:${height}px;margin:0;padding:0;position:relative;overflow:hidden;`;
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">`,
@@ -82,6 +103,7 @@ export function clipPageHudSvg(
     `<div xmlns="http://www.w3.org/1999/xhtml" class="clip-hud-raster-root" style="${box}">`,
     `<style>${style}</style>`,
     `<style>.clip-hud-raster-root{${vars}}</style>`,
+    layout ? `<style>${layout}</style>` : "",
     markup,
     "</div></foreignObject></svg>",
   ].join("");
@@ -156,7 +178,10 @@ function loadSvgImage(svg: string): Promise<HTMLImageElement> {
 }
 
 /** Raster one HUD panel. Throws when the foreignObject image cannot be drawn. */
-export async function rasterClipPageNode(node: HTMLElement): Promise<HTMLCanvasElement> {
+export async function rasterClipPageNode(
+  node: HTMLElement,
+  layoutCss = "",
+): Promise<HTMLCanvasElement> {
   const box = node.getBoundingClientRect();
   const width = Math.max(1, Math.ceil(box.width));
   const height = Math.max(1, Math.ceil(box.height));
@@ -173,6 +198,7 @@ export async function rasterClipPageNode(node: HTMLElement): Promise<HTMLCanvasE
     width,
     height,
     variables,
+    layoutCss,
   );
   const image = await loadSvgImage(svg);
   const canvas = document.createElement("canvas");

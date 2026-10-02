@@ -4142,10 +4142,6 @@ button.link:hover:not(:disabled) {
   align-items: center;
   text-align: center;
 }
-.clip-page-clock {
-  margin-top: 0.15rem;
-  text-shadow: 0 1px 4px #000;
-}
 .clip-page-eco-panel {
   position: absolute;
   inset: 0;

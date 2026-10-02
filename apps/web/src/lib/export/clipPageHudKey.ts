@@ -105,7 +105,6 @@ export function clipPageHudKey(
   const picked = selected == null ? "" : String(selected);
   return {
     hud: [
-      clipRoundClockLabel(replay, tick),
       prettyMap(replay.header.map_name),
       round ? roundHudLabel(round) : "",
       teams.tName,

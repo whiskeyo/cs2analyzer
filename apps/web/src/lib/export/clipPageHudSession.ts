@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { ClipPageHud } from "@/components/export/ClipPageHud";
 import { clipHudLayout, paintClipHud } from "@/lib/export/clipHud";
 import { CLIP_HUD_PROBE_PX, clipExportFrame } from "@/lib/export/constants";
-import { rasterClipPageNode } from "@/lib/export/clipPageHudRaster";
+import { clipHudPanelLayoutCss, rasterClipPageNode } from "@/lib/export/clipPageHudRaster";
 import {
   probeClipHudForeignObject,
   selectClipHudRenderer,
@@ -36,7 +36,7 @@ interface PlacedImage {
 
 export interface ClipPageHudPorts {
   probe: () => Promise<ClipHudProbe>;
-  raster: (node: HTMLElement) => Promise<HTMLCanvasElement>;
+  raster: (node: HTMLElement, panel: ClipHudPanel) => Promise<HTMLCanvasElement>;
   usable: (canvas: HTMLCanvasElement) => Promise<boolean>;
 }
 
@@ -44,8 +44,8 @@ type HudDrawContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext
 
 const PANEL_ORDER: ClipHudPanel[] = [CLIP_HUD_PANEL_SCORE, CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_HUD];
 
-function rasterPageNode(node: HTMLElement): Promise<HTMLCanvasElement> {
-  return rasterClipPageNode(node);
+function rasterPageNode(node: HTMLElement, panel: ClipHudPanel): Promise<HTMLCanvasElement> {
+  return rasterClipPageNode(node, clipHudPanelLayoutCss(panel));
 }
 
 /** Draw the raster into a tiny canvas and see whether encoding it still works. */
@@ -234,7 +234,7 @@ class ClipPageHudSession implements ClipPageHudController {
     for (const node of panelNodes(host, panel)) {
       const box = node.getBoundingClientRect();
       if (box.width < 1 || box.height < 1) continue;
-      const canvas = await this.ports.raster(node);
+      const canvas = await this.ports.raster(node, panel);
       const image = place(host, node, canvas);
       if (image) placed.push(image);
     }

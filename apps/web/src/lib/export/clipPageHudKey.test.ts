@@ -85,7 +85,7 @@ describe("clipPageHudKey", () => {
     expect(hurt.hud).toBe(at110.hud);
   });
 
-  it("changes the HUD key on a kill tick and on the round clock, not the cards", () => {
+  it("changes the HUD key on a kill tick, not when only the round clock would move", () => {
     const replay = playing({
       ticks: roster([
         { tick: 64, health: 100, x: 0 },
@@ -95,8 +95,8 @@ describe("clipPageHudKey", () => {
     });
     const freezeEnd = clipPageHudKey(replay, 64, null);
     const oneSecond = clipPageHudKey(replay, 64 + RATE, null);
-    expect(clipHudPanelsToRaster(freezeEnd, oneSecond)).toEqual(["hud"]);
-    expect(oneSecond.economy).toBe(freezeEnd.economy);
+    expect(clipHudPanelsToRaster(freezeEnd, oneSecond)).toEqual([]);
+    expect(oneSecond.hud).toBe(freezeEnd.hud);
 
     const dead = clipPageHudKey(replay, 200, null);
     expect(clipHudPanelsToRaster(oneSecond, dead)).toEqual(["hud", "economy", "scoreboard"]);
@@ -126,7 +126,7 @@ describe("clipPageHudKey", () => {
     expect(picked.hud).toBe(none.hud);
   });
 
-  it("uses the demo round length in the HUD key", () => {
+  it("leaves the page HUD key alone when only the round length changes", () => {
     const standard = playing();
     const wingman = playing({
       rounds: [
@@ -141,7 +141,7 @@ describe("clipPageHudKey", () => {
     });
     const full = clipPageHudKey(standard, 64, null);
     const short = clipPageHudKey(wingman, 64, null);
-    expect(short.hud).not.toBe(full.hud);
+    expect(short.hud).toBe(full.hud);
     expect(short.economy).toBe(full.economy);
     expect(short.scoreboard).toBe(full.scoreboard);
   });

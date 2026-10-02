@@ -7,7 +7,6 @@ import {
   CLIP_HUD_PANEL_HUD,
   CLIP_HUD_PANEL_SCORE,
   clipPageStage,
-  clipRoundClockLabel,
 } from "@/lib/export/clipPageHudKey";
 import type { Replay } from "@/lib/replay/replayTypes";
 
@@ -36,7 +35,6 @@ export const ClipPageHud = memo(function ClipPageHud({
       <div className="radar-stage clip-page-stage" style={{ width: stage.width, height }}>
         <div className="clip-page-hud-panel" data-clip-panel={CLIP_HUD_PANEL_HUD}>
           <Hud replay={replay} tick={tick} />
-          <div className="clock clip-page-clock">{clipRoundClockLabel(replay, tick)}</div>
         </div>
         <div className="clip-page-eco-panel" data-clip-panel={CLIP_HUD_PANEL_ECO}>
           <SpectatorEconomy
