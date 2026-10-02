@@ -2,8 +2,6 @@ import {
   CLIP_EXPORT_BITRATE_1080,
   CLIP_EXPORT_BITRATE_1440,
   CLIP_EXPORT_FPS,
-  CLIP_EXPORT_MAX_SECONDS,
-  CLIP_EXPORT_REALTIME_HINT,
   CLIP_EXPORT_SIZE_HIGH,
   CLIP_POST_ROUND_TAIL_SECONDS,
   clipExportFrameLabel,
@@ -11,6 +9,7 @@ import {
 import {
   clipFrameClock,
   clipRangeIssue,
+  formatClipDuration,
   type ClipFrameClock,
   type ClipSpan,
 } from "@/lib/export/radarClip";
@@ -151,16 +150,15 @@ export function selectClipEncodePath(caps: ClipEncodeCapabilities): ClipEncodePa
   return null;
 }
 
-export function clipExportMaxSeconds(path: ClipEncodePath | null): number | null {
-  return path === "media-recorder" ? CLIP_EXPORT_MAX_SECONDS : null;
-}
-
 export function clipExportBitrate(size: number): number {
   return size >= CLIP_EXPORT_SIZE_HIGH ? CLIP_EXPORT_BITRATE_1440 : CLIP_EXPORT_BITRATE_1080;
 }
 
-export function clipExportHint(path: ClipEncodePath, size: number): string {
-  if (path === "media-recorder") return CLIP_EXPORT_REALTIME_HINT;
+/** Real-time fallback names the wall-clock length. Offline encode does not. */
+export function clipExportHint(path: ClipEncodePath, size: number, seconds = 0): string {
+  if (path === "media-recorder") {
+    return `This browser records in real time, so this export takes ${formatClipDuration(seconds)}. Offline export needs H.264 in WebCodecs.`;
+  }
   return `${clipExportFrameLabel(size)} · ${CLIP_EXPORT_FPS} fps · encoded on this device`;
 }
 
@@ -169,10 +167,12 @@ export function clipFrameSchedule(span: ClipSpan, rate: number, fps: number): Cl
   return clipFrameClock(span, rate, fps);
 }
 
+/** Neither encode path refuses a long round. `path` records which encoder was chosen. */
 export function clipSpanIssue(
   span: ClipSpan,
   rate: number,
   path: ClipEncodePath | null,
 ): ReturnType<typeof clipRangeIssue> {
-  return clipRangeIssue(span, rate, clipExportMaxSeconds(path));
+  void path;
+  return clipRangeIssue(span, rate, null);
 }

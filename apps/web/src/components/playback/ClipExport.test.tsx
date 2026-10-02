@@ -5,7 +5,6 @@ import {
   CLIP_EXPORT_FPS,
   CLIP_EXPORT_NO_PLANT,
   CLIP_EXPORT_NOT_READY,
-  CLIP_EXPORT_REALTIME_HINT,
   CLIP_EXPORT_UNSUPPORTED,
 } from "@/lib/export/constants";
 import { makeBombEvent, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
@@ -247,7 +246,7 @@ describe("ClipExport", () => {
     expect(mocks.download).not.toHaveBeenCalled();
   });
 
-  it("explains the real-time cap when H.264 is unavailable", async () => {
+  it("records a full round in real time when H.264 is unavailable", async () => {
     const user = userEvent.setup();
     mocks.probe.mockResolvedValue({
       path: "media-recorder",
@@ -261,9 +260,9 @@ describe("ClipExport", () => {
     });
     render(<ClipExport {...view} />);
     await user.click(screen.getByRole("button", { name: "Export clip" }));
-    expect(await screen.findByText(CLIP_EXPORT_REALTIME_HINT)).toBeInTheDocument();
-    expect(screen.getByText(/at most 30 seconds/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Download clip" })).toBeDisabled();
+    expect(await screen.findByText(/this export takes 91\.0s/)).toBeInTheDocument();
+    expect(screen.queryByText(/30 seconds/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download clip" })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "Post-plant retake" }));
     expect(screen.getByRole("button", { name: "Download clip" })).toBeEnabled();

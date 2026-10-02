@@ -43,8 +43,8 @@ export function clipDurationSeconds(span: ClipSpan, rate: number): number {
 }
 
 /**
- * `maxSeconds === null` is the offline path: a full round is allowed.
- * The real-time recorder still passes {@link CLIP_EXPORT_MAX_SECONDS}.
+ * `maxSeconds === null` allows the whole span. Export uses that for both
+ * encode paths. Helpers that still window a clip pass {@link CLIP_EXPORT_MAX_SECONDS}.
  */
 export function clipRangeIssue(
   span: ClipSpan,

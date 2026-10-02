@@ -8,7 +8,6 @@ import {
 import { probeClipEncoder, type ClipEncoderChoice } from "@/lib/export/clipEncodeSupport";
 import {
   clipExportHint,
-  clipExportMaxSeconds,
   clipNextRoundStart,
   clipRoundCover,
   clipSampleEndTick,
@@ -127,7 +126,7 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
   }, [open, size, fps]);
 
   const path = choice === "pending" || choice == null ? null : choice.path;
-  const issue = span ? clipRangeIssue(span, rate, clipExportMaxSeconds(path)) : "empty";
+  const issue = span ? clipRangeIssue(span, rate, null) : "empty";
   const seconds = span ? clipDurationSeconds(span, rate) : 0;
   const origin = round ? Math.max(round.freeze_end_tick, round.start_tick) : 0;
   const clock = (at: number) => formatClipClock((at - origin) / rate);
@@ -189,7 +188,7 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
       ? CLIP_EXPORT_CHECKING
       : choice == null
         ? CLIP_EXPORT_UNSUPPORTED
-        : clipExportHint(choice.path, size);
+        : clipExportHint(choice.path, size, seconds);
   const status = recording
     ? path === "media-recorder"
       ? `Recording ${formatClipDuration(progress * seconds)} / ${formatClipDuration(seconds)}`

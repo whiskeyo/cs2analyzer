@@ -168,10 +168,4 @@ export const CLIP_EXPORT_EMPTY = "The recording was empty.";
 export const CLIP_EXPORT_TOO_SHORT = "Clip is too short.";
 export const CLIP_EXPORT_NO_CANVAS = "This browser cannot record a canvas.";
 export const CLIP_EXPORT_CHECKING = "Checking offline export…";
-/**
- * Shown when WebCodecs H.264 is missing. Export then uses MediaRecorder,
- * which stamps frames from the wall clock.
- */
-export const CLIP_EXPORT_REALTIME_HINT =
-  "This browser records in real time, so export takes as long as the clip and is limited to 30 seconds. Offline export needs H.264 in WebCodecs.";
 export const CLIP_EXPORT_NO_PLANT = "No plant in this round";
