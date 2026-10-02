@@ -261,6 +261,7 @@ describe("ClipExport", () => {
     render(<ClipExport {...view} />);
     await user.click(screen.getByRole("button", { name: "Export clip" }));
     expect(await screen.findByText(/this export takes 91\.0s/)).toBeInTheDocument();
+    expect(screen.getByText(/Don't switch tabs while recording/)).toBeInTheDocument();
     expect(screen.queryByText(/30 seconds/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download clip" })).toBeEnabled();
 

@@ -167,5 +167,9 @@ export const CLIP_EXPORT_FAILED = "Could not export the clip.";
 export const CLIP_EXPORT_EMPTY = "The recording was empty.";
 export const CLIP_EXPORT_TOO_SHORT = "Clip is too short.";
 export const CLIP_EXPORT_NO_CANVAS = "This browser cannot record a canvas.";
+/** Real-time capture is paced by timers, which a background tab throttles. */
+export const CLIP_EXPORT_STAY_ON_TAB = "Don't switch tabs while recording.";
+export const CLIP_EXPORT_TAB_HIDDEN =
+  "Recording stopped because this tab was hidden. Stay on this tab and export again.";
 export const CLIP_EXPORT_CHECKING = "Checking offline export…";
 export const CLIP_EXPORT_NO_PLANT = "No plant in this round";

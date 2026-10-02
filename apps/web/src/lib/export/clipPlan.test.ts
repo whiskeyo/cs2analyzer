@@ -214,7 +214,7 @@ describe("clip encoder selection", () => {
     expect(clipSpanIssue(long, RATE, "media-recorder")).toBeNull();
     expect(clipSpanIssue({ startTick: 4, endTick: 4 }, RATE, "webcodecs")).toBe("empty");
     expect(clipExportHint("media-recorder", 1080, 45)).toBe(
-      "This browser records in real time, so this export takes 45.0s. Offline export needs H.264 in WebCodecs.",
+      "This browser records in real time, so this export takes 45.0s. Don't switch tabs while recording. Offline export needs H.264 in WebCodecs.",
     );
     expect(clipExportHint("media-recorder", 1080, 45)).not.toMatch(/30 seconds/);
     expect(clipExportHint("webcodecs", 1440)).toBe("2560×1440 · 30 fps · encoded on this device");

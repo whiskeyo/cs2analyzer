@@ -5,6 +5,7 @@ import {
   CLIP_EXPORT_FPS,
   CLIP_EXPORT_MAX_SECONDS,
   CLIP_EXPORT_NO_CANVAS,
+  CLIP_EXPORT_TAB_HIDDEN,
   CLIP_EXPORT_TOO_SHORT,
   CLIP_EXPORT_VIDEO_BITS_PER_SECOND,
   CLIP_TIMESTAMP_US,
@@ -329,6 +330,9 @@ export async function recordRadarClip(options: RecordRadarClipOptions): Promise<
   if (signal?.aborted) {
     throw new DOMException("Clip export cancelled", "AbortError");
   }
+  if (tabIsHidden()) {
+    throw new Error(CLIP_EXPORT_TAB_HIDDEN);
+  }
 
   const stream = canvas.captureStream(0);
   const manualFrames =
@@ -352,6 +356,14 @@ export async function recordRadarClip(options: RecordRadarClipOptions): Promise<
 
   const frameMs = 1000 / fps;
   let started = false;
+  let rejectHidden: (error: Error) => void = () => {};
+  const hidden = new Promise<never>((_resolve, reject) => {
+    rejectHidden = reject;
+  });
+  hidden.catch(() => undefined);
+  const stopWatch = watchTabHidden(() => {
+    rejectHidden(new Error(CLIP_EXPORT_TAB_HIDDEN));
+  });
   try {
     const first = ticks[0];
     if (first === undefined) throw new Error(CLIP_EXPORT_TOO_SHORT);
@@ -363,13 +375,15 @@ export async function recordRadarClip(options: RecordRadarClipOptions): Promise<
       if (signal?.aborted) {
         throw new DOMException("Clip export cancelled", "AbortError");
       }
+      if (tabIsHidden()) throw new Error(CLIP_EXPORT_TAB_HIDDEN);
       paintAt(tick);
       if (manualFrames) requestCanvasFrame(recorded);
       onFrame?.(index, tick);
       nextAt += holdMs?.[index] ?? frameMs;
       const wait = nextAt - now();
-      if (wait > 0) await sleep(wait);
+      if (wait > 0) await Promise.race([sleep(wait), hidden]);
       else nextAt = now();
+      if (tabIsHidden()) throw new Error(CLIP_EXPORT_TAB_HIDDEN);
     }
     if (signal?.aborted) {
       throw new DOMException("Clip export cancelled", "AbortError");
@@ -389,8 +403,23 @@ export async function recordRadarClip(options: RecordRadarClipOptions): Promise<
     }
     throw error;
   } finally {
+    stopWatch();
     stopStream(recorded);
   }
+}
+
+function tabIsHidden(): boolean {
+  return typeof document !== "undefined" && document.visibilityState === "hidden";
+}
+
+/** Background tabs throttle timers, so a hidden page must not finish the file. */
+function watchTabHidden(onHidden: () => void): () => void {
+  if (typeof document === "undefined") return () => {};
+  const onChange = () => {
+    if (document.visibilityState === "hidden") onHidden();
+  };
+  document.addEventListener("visibilitychange", onChange);
+  return () => document.removeEventListener("visibilitychange", onChange);
 }
 
 /** Browsers without manual frames capture on a timer instead. */

@@ -4,6 +4,7 @@ import {
   CLIP_EXPORT_FPS,
   CLIP_EXPORT_MAX_SECONDS,
   CLIP_EXPORT_NO_CANVAS,
+  CLIP_EXPORT_TAB_HIDDEN,
   CLIP_EXPORT_TOO_SHORT,
   CLIP_EXPORT_VIDEO_BITS_PER_SECOND,
 } from "@/lib/export/constants";
@@ -256,6 +257,80 @@ describe("recordRadarClip", () => {
       });
       const held = time.sleeps.reduce((sum, ms) => sum + ms, 0);
       expect(held).toBeCloseTo(demoMs, 5);
+    }
+  });
+
+  function stubVisibility(initial: "visible" | "hidden") {
+    const listeners = new Set<() => void>();
+    let visibilityState: "visible" | "hidden" = initial;
+    vi.stubGlobal("document", {
+      get visibilityState() {
+        return visibilityState;
+      },
+      addEventListener(type: string, fn: () => void) {
+        if (type === "visibilitychange") listeners.add(fn);
+      },
+      removeEventListener(_type: string, fn: () => void) {
+        listeners.delete(fn);
+      },
+    });
+    return {
+      hide() {
+        visibilityState = "hidden";
+        for (const fn of listeners) fn();
+      },
+    };
+  }
+
+  it("refuses to start when the tab is already hidden", async () => {
+    stubVisibility("hidden");
+    try {
+      const { canvas, captureStream } = fakeCanvas(true);
+      await expect(
+        recordRadarClip({
+          canvas,
+          ticks: [1, 2],
+          mimeType: "video/webm",
+          paintAt: () => {},
+          createRecorder: () => new FakeRecorder(0, ""),
+        }),
+      ).rejects.toThrow(CLIP_EXPORT_TAB_HIDDEN);
+      expect(captureStream).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("aborts without a file when the tab is hidden mid-recording", async () => {
+    const page = stubVisibility("visible");
+    let release = () => {};
+    const hung = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    try {
+      const { canvas } = fakeCanvas(true);
+      const pending = recordRadarClip({
+        canvas,
+        ticks: [1, 2, 3],
+        mimeType: "video/webm",
+        paintAt: () => {},
+        now: () => 0,
+        sleep: () => hung,
+        createRecorder: (_stream, mime, bits) => new FakeRecorder(bits, mime),
+      });
+      page.hide();
+      const error = await pending.then(
+        () => {
+          throw new Error("recording resolved");
+        },
+        (err: unknown) => err,
+      );
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).name).not.toBe("AbortError");
+      expect((error as Error).message).toBe(CLIP_EXPORT_TAB_HIDDEN);
+    } finally {
+      release();
+      vi.unstubAllGlobals();
     }
   });
 

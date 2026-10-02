@@ -3,6 +3,7 @@ import {
   CLIP_EXPORT_BITRATE_1440,
   CLIP_EXPORT_FPS,
   CLIP_EXPORT_SIZE_HIGH,
+  CLIP_EXPORT_STAY_ON_TAB,
   CLIP_POST_ROUND_TAIL_SECONDS,
   clipExportFrameLabel,
 } from "@/lib/export/constants";
@@ -157,7 +158,7 @@ export function clipExportBitrate(size: number): number {
 /** Real-time fallback names the wall-clock length. Offline encode does not. */
 export function clipExportHint(path: ClipEncodePath, size: number, seconds = 0): string {
   if (path === "media-recorder") {
-    return `This browser records in real time, so this export takes ${formatClipDuration(seconds)}. Offline export needs H.264 in WebCodecs.`;
+    return `This browser records in real time, so this export takes ${formatClipDuration(seconds)}. ${CLIP_EXPORT_STAY_ON_TAB} Offline export needs H.264 in WebCodecs.`;
   }
   return `${clipExportFrameLabel(size)} · ${CLIP_EXPORT_FPS} fps · encoded on this device`;
 }
