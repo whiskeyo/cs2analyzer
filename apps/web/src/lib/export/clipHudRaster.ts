@@ -56,9 +56,9 @@ function failedProbe(): ClipHudProbe {
 }
 
 /**
- * Same-origin data URL, matching `html-to-image`.
- * A blob URL taints the canvas in current Chromium and WebKit, so `toBlob`
- * and `VideoFrame` then fail. A data URL of the same SVG does not.
+ * Same-origin data URL. A blob URL taints the canvas in current Chromium and
+ * WebKit, so `toBlob` and `VideoFrame` then fail. A data URL of the same SVG
+ * does not.
  */
 export function clipHudProbeImageUrl(size = CLIP_HUD_PROBE_PX): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clipHudProbeSvg(size))}`;

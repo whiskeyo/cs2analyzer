@@ -101,9 +101,6 @@ export const CLIP_EXPORT_FPS = 30;
  */
 export const CLIP_HUD_PROBE_PX = 32;
 
-/** Raster the page HUD at CSS pixels. The clip frame is already the output size. */
-export const CLIP_HUD_RASTER_PIXEL_RATIO = 1;
-
 /** Bomb, defuse, plant, and freeze labels show one decimal. The raster key uses the same. */
 export const CLIP_HUD_TIMER_DECIMALS = 1;
 

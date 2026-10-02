@@ -1,14 +1,10 @@
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { toCanvas } from "html-to-image";
 import { ClipPageHud } from "@/components/export/ClipPageHud";
 import { clipHudLayout, paintClipHud } from "@/lib/export/clipHud";
-import {
-  CLIP_HUD_PROBE_PX,
-  CLIP_HUD_RASTER_PIXEL_RATIO,
-  clipExportFrame,
-} from "@/lib/export/constants";
+import { CLIP_HUD_PROBE_PX, clipExportFrame } from "@/lib/export/constants";
+import { rasterClipPageNode } from "@/lib/export/clipPageHudRaster";
 import {
   probeClipHudForeignObject,
   selectClipHudRenderer,
@@ -49,21 +45,7 @@ type HudDrawContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext
 const PANEL_ORDER: ClipHudPanel[] = [CLIP_HUD_PANEL_SCORE, CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_HUD];
 
 function rasterPageNode(node: HTMLElement): Promise<HTMLCanvasElement> {
-  const box = node.getBoundingClientRect();
-  const width = Math.max(1, Math.ceil(box.width));
-  const height = Math.max(1, Math.ceil(box.height));
-  return toCanvas(node, {
-    pixelRatio: CLIP_HUD_RASTER_PIXEL_RATIO,
-    skipFonts: true,
-    cacheBust: false,
-    skipAutoScale: true,
-    width,
-    height,
-    canvasWidth: width,
-    canvasHeight: height,
-    imagePlaceholder: "",
-    onImageErrorHandler: () => undefined,
-  });
+  return rasterClipPageNode(node);
 }
 
 /** Draw the raster into a tiny canvas and see whether encoding it still works. */
