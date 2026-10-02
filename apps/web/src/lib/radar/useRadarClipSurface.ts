@@ -1,6 +1,8 @@
 import { useEffect, type MutableRefObject, type RefObject } from "react";
-import { clipExportFrame } from "@/lib/export/constants";
+import { CLIP_PAGE_FRAME_BG, clipExportFrame } from "@/lib/export/constants";
 import { clipHudLayout, paintClipHud } from "@/lib/export/clipHud";
+import { clipPageHudSession, endClipPageHud } from "@/lib/export/clipPageHudBridge";
+import { clipPageStage } from "@/lib/export/clipPageHudKey";
 import { applyRadarFollowCam } from "@/lib/radar/radarPaintDirty";
 import type { RadarView } from "@/lib/radar/maps";
 import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
@@ -63,6 +65,18 @@ export function useRadarClipSurface(
           paintSceneRef.current,
         );
       },
+      prepareClipHud(height, tick) {
+        const source = propsRef.current;
+        return import("@/lib/export/clipPageHudSession")
+          .then(({ beginClipPageHud }) =>
+            beginClipPageHud(source.replay, height, tick, source.selected),
+          )
+          .then(() => undefined)
+          .catch(() => undefined);
+      },
+      releaseClipHud() {
+        endClipPageHud();
+      },
       paintFrame(target: ClipFrameCanvas, height: number, tick: number) {
         const frame = clipExportFrame(height);
         const ctx = target.getContext("2d");
@@ -71,16 +85,23 @@ export function useRadarClipSurface(
           target.width = frame.width;
           target.height = frame.height;
         }
-        const layout = clipHudLayout(frame.width, frame.height);
         const source = propsRef.current;
         if (source.tickRef) source.tickRef.current = tick;
         const live = view.current;
         const saved = { scale: live.scale, ox: live.ox, oy: live.oy };
         const paintCtx = ctx as CanvasRenderingContext2D;
+        const pageHud = clipPageHudSession();
+        const page = pageHud?.mode === "page";
+        const stage = page ? clipPageStage(frame.width, frame.height) : null;
+        const layout = clipHudLayout(frame.width, frame.height);
+        const radarW = stage ? stage.width : layout.radar.size;
+        const radarH = stage ? stage.height : layout.radar.size;
+        const radarX = stage ? stage.x : layout.radar.x;
+        const radarY = stage ? stage.y : layout.radar.y;
         applyRadarFollowCam(
           live,
-          layout.radar.size,
-          layout.radar.size,
+          radarW,
+          radarH,
           source.replay,
           tick,
           source.selected,
@@ -88,15 +109,18 @@ export function useRadarClipSurface(
           source.cal,
         );
         try {
-          paintCtx.fillStyle = "#10161c";
+          paintCtx.fillStyle = page ? CLIP_PAGE_FRAME_BG : "#10161c";
           paintCtx.fillRect(0, 0, frame.width, frame.height);
           paintCtx.save();
           paintCtx.beginPath();
-          paintCtx.rect(layout.radar.x, layout.radar.y, layout.radar.size, layout.radar.size);
+          paintCtx.rect(radarX, radarY, radarW, radarH);
           paintCtx.clip();
-          paintCtx.translate(layout.radar.x, layout.radar.y);
-          paintSceneRef.current(paintCtx, layout.radar.size, layout.radar.size, tick);
+          paintCtx.translate(radarX, radarY);
+          paintSceneRef.current(paintCtx, radarW, radarH, tick);
           paintCtx.restore();
+          if (page && pageHud) {
+            return pageHud.paint(paintCtx, tick, source.selected);
+          }
           paintClipHud(paintCtx, source.replay, tick, layout);
         } finally {
           live.scale = saved.scale;

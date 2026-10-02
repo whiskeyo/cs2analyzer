@@ -101,6 +101,15 @@ export const CLIP_EXPORT_FPS = 30;
  */
 export const CLIP_HUD_PROBE_PX = 32;
 
+/** Raster the page HUD at CSS pixels. The clip frame is already the output size. */
+export const CLIP_HUD_RASTER_PIXEL_RATIO = 1;
+
+/** Bomb, defuse, plant, and freeze labels show one decimal. The raster key uses the same. */
+export const CLIP_HUD_TIMER_DECIMALS = 1;
+
+/** Analyzer page background (`--bg`). */
+export const CLIP_PAGE_FRAME_BG = "#0b0e12";
+
 /** 16:9 radar clip. The stored preference is the frame height, not a square edge. */
 export const CLIP_EXPORT_ASPECT_WIDTH = 16;
 export const CLIP_EXPORT_ASPECT_HEIGHT = 9;

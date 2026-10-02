@@ -68,7 +68,9 @@ describe("encodeRadarClip", () => {
       ticks,
       codec: "avc1.640028",
       bitrate: 12_000_000,
-      paintFrame: (_canvas, tick) => painted.push(tick),
+      paintFrame: (_canvas, tick) => {
+        painted.push(tick);
+      },
       onProgress: (ratio) => progress.push(ratio),
       createWorker: () => worker,
       createCanvas: () => canvas(),
@@ -167,6 +169,34 @@ describe("encodeRadarClip", () => {
       }),
     ).rejects.toThrow("no encoder");
     expect(worker.terminated).toBe(true);
+  });
+});
+
+describe("encodeRadarClip HUD timing", () => {
+  it("reads the bitmap only after paintFrame resolves", async () => {
+    const worker = new FakeWorker();
+    const order: string[] = [];
+    await encodeRadarClip({
+      size: 1080,
+      fps: 30,
+      ticks: [1, 2],
+      codec: "avc1.640028",
+      bitrate: 1,
+      paintFrame: async (_canvas, tick) => {
+        order.push(`paint:${tick}`);
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 0);
+        });
+        order.push(`painted:${tick}`);
+      },
+      createWorker: () => worker,
+      createCanvas: () => canvas(),
+      takeBitmap: () => {
+        order.push("bitmap");
+        return { close: vi.fn() } as unknown as ImageBitmap;
+      },
+    });
+    expect(order).toEqual(["paint:1", "painted:1", "bitmap", "paint:2", "painted:2", "bitmap"]);
   });
 });
 

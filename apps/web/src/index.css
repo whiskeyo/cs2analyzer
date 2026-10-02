@@ -4103,6 +4103,71 @@ button.link:hover:not(:disabled) {
   line-height: 1.2;
   color: var(--danger);
 }
+.clip-page-host-slot {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.clip-page-host {
+  display: flex;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text);
+}
+.clip-page-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  background: transparent;
+}
+.clip-page-hud-panel {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.clip-page-host .radar-hud {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  align-items: center;
+  text-align: center;
+}
+.clip-page-clock {
+  margin-top: 0.15rem;
+  text-shadow: 0 1px 4px #000;
+}
+.clip-page-eco-panel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.clip-page-host .spec-eco {
+  display: flex;
+}
+.clip-page-host .sidebar {
+  position: relative;
+  flex: 0 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.clip-page-host .sidebar-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .clip-export button:disabled {
   opacity: 0.55;
   cursor: default;

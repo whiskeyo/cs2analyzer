@@ -37,7 +37,7 @@ function clipRecordCanvas(size: number): HTMLCanvasElement {
 }
 
 /** Paint and encode the span. Resolves after the file is saved, or rejects. */
-export function runClipExport(input: RunClipExportInput): Promise<void> {
+export async function runClipExport(input: RunClipExportInput): Promise<void> {
   const surface = radarClipSurface();
   if (!surface) return Promise.reject(new Error(CLIP_EXPORT_NOT_READY));
   const scheduled = clipFrameSchedule(input.span, input.rate, input.fps);
@@ -47,6 +47,13 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
 
   input.onPlaying(false);
   setRadarClipHold(true);
+  if (surface.prepareClipHud) {
+    try {
+      await surface.prepareClipHud(input.size, input.span.startTick);
+    } catch {
+      // The painted HUD still exports.
+    }
+  }
   let lastUi = 0;
   const publish = (index: number, frameTick: number, ratio: number) => {
     const now = performance.now();
@@ -77,7 +84,7 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
           holdMs: scheduled.durations.map((us) => us / 1000),
           mimeType: input.choice.mime,
           paintAt: (frameTick) => {
-            if (recorded) surface.paintFrame(recorded, input.size, frameTick);
+            if (recorded) return surface.paintFrame(recorded, input.size, frameTick);
           },
           fps: input.fps,
           signal: input.signal,
@@ -113,5 +120,10 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
 
   return work.catch(fail).finally(() => {
     setRadarClipHold(false);
+    try {
+      surface.releaseClipHud?.();
+    } catch {
+      // Dropping the offscreen HUD must not hide an export error.
+    }
   });
 }
