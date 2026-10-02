@@ -1,4 +1,5 @@
 import {
+  CLIP_HUD_PANEL_ECO,
   CLIP_HUD_PANEL_HUD,
   CLIP_HUD_PANEL_SCORE,
   type ClipHudPanel,
@@ -93,9 +94,20 @@ const SCORE_LAYOUT_CSS = [
   "max-height:none !important;overflow:hidden !important}",
 ].join("");
 
+/**
+ * Spectator columns are rasterized on their own. The narrow SVG viewport
+ * matches `@media (max-width: 900px)`, which sets `.spec-eco { display: none }`.
+ */
+const ECO_LAYOUT_CSS = [
+  ".spec-eco{display:flex !important;visibility:visible !important;opacity:1 !important;",
+  "position:relative !important;top:auto !important;right:auto !important;bottom:auto !important;left:auto !important;",
+  "height:100% !important;max-height:none !important}",
+].join("");
+
 export function clipHudPanelLayoutCss(panel: ClipHudPanel): string {
   if (panel === CLIP_HUD_PANEL_HUD) return HUD_LAYOUT_CSS;
   if (panel === CLIP_HUD_PANEL_SCORE) return SCORE_LAYOUT_CSS;
+  if (panel === CLIP_HUD_PANEL_ECO) return ECO_LAYOUT_CSS;
   return "";
 }
 
