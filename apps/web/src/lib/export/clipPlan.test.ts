@@ -1,23 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { CLIP_EXPORT_FPS } from "@/lib/export/constants";
 import {
-  aroundKillSpan,
+  clipCoverLastTick,
   clipExportBitrate,
   clipExportHint,
-  clipCoverLastTick,
   clipFrameSchedule,
   clipNextRoundStart,
   clipRoundBounds,
   clipRoundCover,
+  clipSampleEndTick,
   clipSpanIssue,
-  firstExecuteActionTick,
   fullRoundSpan,
-  killsInRound,
-  nearestKillTick,
   plantTickInRound,
   postPlantSpan,
   selectClipEncodePath,
-  siteEntrySpan,
 } from "@/lib/export/clipPlan";
 import { clipFrameTimestamps, clipSpanDurationUs } from "@/lib/export/radarClip";
 
@@ -88,111 +84,49 @@ describe("clip presets", () => {
     });
   });
 
-  it("starts site entry a few seconds before the execute and ends at the plant", () => {
-    const execute = 2 * RATE + 20 * RATE;
-    const plant = 2 * RATE + 40 * RATE;
-    expect(siteEntrySpan(bounds, execute, plant, RATE)).toEqual({
-      startTick: execute - 3 * RATE,
-      endTick: plant,
-    });
-    expect(siteEntrySpan(bounds, execute, null, RATE)).toEqual({
-      startTick: execute - 3 * RATE,
-      endTick: bounds.endTick,
-    });
-    expect(siteEntrySpan(bounds, null, plant, RATE)).toBeNull();
-  });
-
-  it("runs post-plant from the plant to round end and disables a round with no plant", () => {
+  it("runs post-plant through the full-round cover, including a win with no final kill", () => {
     const plant = 2 * RATE + 30 * RATE;
-    expect(postPlantSpan(bounds, plant)).toEqual({
+    const live = round(2, 90);
+    const sampleEnd = live.end_tick + 20 * RATE;
+    const cover = clipRoundCover(live, RATE, null, sampleEnd);
+    expect(postPlantSpan(cover, plant)).toEqual({
       startTick: plant,
-      endTick: bounds.endTick,
+      endTick: cover.endTick,
     });
-    expect(postPlantSpan(bounds, null)).toBeNull();
-    expect(postPlantSpan(bounds, bounds.endTick)).toBeNull();
-    expect(plantTickInRound([{ tick: plant, kind: "planted" }], round(2, 90))).toBe(plant);
-    expect(plantTickInRound([{ tick: plant, kind: "defused" }], round(2, 90))).toBeNull();
-    expect(plantTickInRound([{ tick: 90 * RATE + 5, kind: "planted" }], round(2, 90))).toBeNull();
+    expect(cover.endTick).toBe(live.end_tick + 3 * RATE + 1);
+    expect(postPlantSpan(cover, null)).toBeNull();
+    expect(postPlantSpan(cover, cover.endTick)).toBeNull();
+    expect(plantTickInRound([{ tick: plant, kind: "planted" }], live)).toBe(plant);
+    expect(plantTickInRound([{ tick: plant, kind: "defused" }], live)).toBeNull();
+    expect(plantTickInRound([{ tick: 90 * RATE + 5, kind: "planted" }], live)).toBeNull();
+
+    const panel = live.end_tick + 7 * RATE;
+    const exploded = { ...live, playback_end_tick: panel };
+    const explosionCover = clipRoundCover(exploded, RATE, null, panel + 10 * RATE);
+    expect(postPlantSpan(explosionCover, plant)?.endTick).toBe(explosionCover.endTick);
+    expect(explosionCover.endTick).toBe(panel + 1);
   });
 
-  it("clamps a kill in the first seconds and a kill at round end", () => {
-    const early = bounds.startTick + 2 * RATE;
-    expect(aroundKillSpan(bounds, early, RATE)).toEqual({
-      startTick: bounds.startTick,
-      endTick: early + 3 * RATE,
-    });
-    const late = bounds.endTick - RATE;
-    expect(aroundKillSpan(bounds, late, RATE)).toEqual({
-      startTick: late - 5 * RATE,
-      endTick: bounds.endTick,
-    });
-    const mid = bounds.startTick + 40 * RATE;
-    expect(aroundKillSpan(bounds, mid, RATE)).toEqual({
-      startTick: mid - 5 * RATE,
-      endTick: mid + 3 * RATE,
-    });
-  });
-
-  it("picks the earliest execute and the kill nearest the playhead", () => {
-    expect(
-      firstExecuteActionTick(
-        [
-          { round: 3, kind: "plant", actionTick: 10 },
-          { round: 3, kind: "execute", actionTick: 80 },
-          { round: 3, kind: "execute", actionTick: 40 },
-          { round: 4, kind: "execute", actionTick: 5 },
-        ],
-        3,
-      ),
-    ).toBe(40);
-    expect(firstExecuteActionTick([], 3)).toBeNull();
-
-    const kills = [{ tick: 10 }, { tick: 50 }, { tick: 90 }];
-    expect(nearestKillTick(kills, 70)).toBe(50);
-    expect(nearestKillTick([], 70)).toBeNull();
-    expect(
-      killsInRound([{ tick: -1 }, { tick: 100 }, { tick: 90 * RATE + 1 }], round(2, 90)),
-    ).toEqual([{ tick: 100 }]);
-  });
-
-  it("keeps the win panel, including a kill after round end", () => {
+  it("keeps the win panel when playback_end_tick is recorded", () => {
     const live = round(2, 90);
     const panel = live.end_tick + 7 * RATE;
     const recorded = { ...live, playback_end_tick: panel };
-    const demoEnd = live.end_tick + 30 * RATE;
-    const cover = clipRoundCover(recorded, RATE, null, demoEnd);
-    expect(clipCoverLastTick(recorded, RATE, null, demoEnd)).toBe(panel);
+    const sampleEnd = live.end_tick + 30 * RATE;
+    const cover = clipRoundCover(recorded, RATE, null, sampleEnd);
+    expect(clipCoverLastTick(recorded, RATE, null, sampleEnd)).toBe(panel);
     expect(cover).toEqual({ startTick: 2 * RATE, endTick: panel + 1 });
     expect(fullRoundSpan(cover)).toEqual(cover);
-    expect(aroundKillSpan(cover, live.end_tick, RATE)).toEqual({
-      startTick: live.end_tick - 5 * RATE,
-      endTick: live.end_tick + 3 * RATE,
-    });
-
-    const exitFrag = live.end_tick + RATE;
-    expect(
-      killsInRound([{ tick: exitFrag }, { tick: panel + 1 }], recorded, cover.endTick),
-    ).toEqual([{ tick: exitFrag }]);
-    expect(aroundKillSpan(cover, exitFrag, RATE)).toEqual({
-      startTick: exitFrag - 5 * RATE,
-      endTick: exitFrag + 3 * RATE,
-    });
   });
 
-  it("falls back to 3s after the win when playback_end_tick is 0", () => {
+  it("falls back to 3s after the win when playback_end_tick is 0 and samples continue", () => {
     const live = { ...round(2, 90), playback_end_tick: 0 };
-    const demoEnd = live.end_tick + 20 * RATE;
-    const cover = clipRoundCover(live, RATE, clipNextRoundStart([live], 0), demoEnd);
+    const sampleEnd = live.end_tick + 20 * RATE;
+    const cover = clipRoundCover(live, RATE, clipNextRoundStart([live], 0), sampleEnd);
     expect(clipNextRoundStart([live], 0)).toBeNull();
     expect(cover.endTick).toBe(live.end_tick + 3 * RATE + 1);
-    expect(aroundKillSpan(cover, live.end_tick, RATE)?.endTick).toBe(live.end_tick + 3 * RATE);
-    const exitFrag = live.end_tick + RATE;
-    expect(
-      killsInRound([{ tick: exitFrag }, { tick: live.end_tick + 4 * RATE }], live, cover.endTick),
-    ).toEqual([{ tick: exitFrag }]);
   });
 
-  it("stops the tail before the next round and at the demo end on the last round", () => {
+  it("stops the tail before the next round", () => {
     const live = round(2, 90);
     const next = {
       start_tick: live.end_tick + 2 * RATE,
@@ -203,21 +137,35 @@ describe("clip presets", () => {
     const cover = clipRoundCover(live, RATE, next.start_tick, live.end_tick + 30 * RATE);
     expect(cover.endTick).toBe(next.start_tick);
     expect(cover.endTick).toBeLessThan(next.freeze_end_tick);
-    expect(aroundKillSpan(cover, live.end_tick, RATE)?.endTick).toBe(next.start_tick);
-    expect(
-      killsInRound(
-        [{ tick: live.end_tick + RATE }, { tick: next.start_tick - 1 }, { tick: next.start_tick }],
-        live,
-        cover.endTick,
-      ),
-    ).toEqual([{ tick: live.end_tick + RATE }, { tick: next.start_tick - 1 }]);
+    expect(postPlantSpan(cover, live.end_tick - 10 * RATE)?.endTick).toBe(next.start_tick);
 
     const pastPanel = { ...live, playback_end_tick: next.start_tick + 10 * RATE };
     expect(clipRoundCover(pastPanel, RATE, next.start_tick, 0).endTick).toBe(next.start_tick);
+  });
 
-    const shortDemo = live.end_tick + RATE;
-    expect(clipRoundCover(live, RATE, null, shortDemo).endTick).toBe(shortDemo + 1);
+  it("clamps the last round to the last recorded sample, not playback_ticks", () => {
+    const live = { ...round(2, 90), number: 24, playback_end_tick: 0 };
+    const lastSample = live.end_tick + RATE;
+    expect(clipSampleEndTick(new Uint32Array([live.start_tick, lastSample]))).toBe(lastSample);
+    expect(clipSampleEndTick(new Uint32Array())).toBe(0);
+    const cover = clipRoundCover(live, RATE, null, lastSample);
+    expect(cover.endTick).toBe(lastSample + 1);
+    expect(cover.endTick).toBeLessThan(live.end_tick + 3 * RATE);
     expect(clipCoverLastTick(live, RATE, null, live.end_tick)).toBe(live.end_tick);
+    const truncated = live.end_tick - 2 * RATE;
+    expect(clipRoundCover(live, RATE, null, truncated).endTick).toBe(truncated + 1);
+  });
+
+  it("clamps an overtime last round to the last recorded sample", () => {
+    const ot1 = { ...round(2, 40), number: 26, playback_end_tick: 0 };
+    const lastSample = ot1.end_tick + 2 * RATE;
+    const cover = clipRoundCover(ot1, RATE, null, lastSample);
+    expect(cover.endTick).toBe(lastSample + 1);
+    expect(postPlantSpan(cover, ot1.end_tick - 8 * RATE)?.endTick).toBe(cover.endTick);
+
+    const ot2 = { ...round(2, 40), number: 31, playback_end_tick: 0 };
+    const longBuffer = ot2.end_tick + 20 * RATE;
+    expect(clipRoundCover(ot2, RATE, null, longBuffer).endTick).toBe(ot2.end_tick + 3 * RATE + 1);
   });
 });
 

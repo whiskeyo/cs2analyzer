@@ -4100,15 +4100,6 @@ button.link:hover:not(:disabled) {
   height: 0.45rem;
   accent-color: #5b9fd6;
 }
-.clip-export select {
-  max-width: 11rem;
-  background: #10161c;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font: inherit;
-  font-size: 0.8rem;
-}
 
 .round-strip {
   display: flex;

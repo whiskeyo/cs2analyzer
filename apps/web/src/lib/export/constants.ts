@@ -110,13 +110,6 @@ export const CLIP_EXPORT_KEYFRAME_SECONDS = 2;
 /** Frames kept in flight so a long round does not queue every bitmap. */
 export const CLIP_ENCODE_QUEUE_FRAMES = 3;
 
-/** Seconds of demo time before a detected execute. */
-export const CLIP_SITE_ENTRY_LEAD_SECONDS = 3;
-
-/** Window around a selected kill, in seconds of demo time. */
-export const CLIP_KILL_BEFORE_SECONDS = 5;
-export const CLIP_KILL_AFTER_SECONDS = 3;
-
 /**
  * Seconds after `Round.end_tick` kept when `playback_end_tick` is 0.
  * `end_tick` is the win-status flip, so the round-deciding kill sits on it.
@@ -164,6 +157,4 @@ export const CLIP_EXPORT_CHECKING = "Checking offline export…";
  */
 export const CLIP_EXPORT_REALTIME_HINT =
   "This browser records in real time, so export takes as long as the clip and is limited to 30 seconds. Offline export needs H.264 in WebCodecs.";
-export const CLIP_EXPORT_NO_EXECUTE = "No execute in this round";
 export const CLIP_EXPORT_NO_PLANT = "No plant in this round";
-export const CLIP_EXPORT_NO_KILL = "No kill in this round";

@@ -240,8 +240,6 @@ export const Controls = memo(function Controls({
         replay={replay}
         tick={tick}
         round={round ?? null}
-        minTick={min}
-        maxTick={max}
         onTick={onTick}
         onPlaying={onPlaying}
       />

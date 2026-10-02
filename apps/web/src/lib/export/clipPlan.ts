@@ -5,10 +5,7 @@ import {
   CLIP_EXPORT_MAX_SECONDS,
   CLIP_EXPORT_REALTIME_HINT,
   CLIP_EXPORT_SIZE_HIGH,
-  CLIP_KILL_AFTER_SECONDS,
-  CLIP_KILL_BEFORE_SECONDS,
   CLIP_POST_ROUND_TAIL_SECONDS,
-  CLIP_SITE_ENTRY_LEAD_SECONDS,
 } from "@/lib/export/constants";
 import {
   clipFrameClock,
@@ -27,13 +24,19 @@ export interface ClipRoundClock {
 
 /**
  * Live round, freeze excluded. `end_tick` is the win-status flip
- * (`m_iRoundWinStatus`), not the next freeze. Site entry and post-plant
- * stop here. Full round and around-kill use {@link clipRoundCover}.
+ * (`m_iRoundWinStatus`), not the next freeze. Full round and post-plant
+ * use {@link clipRoundCover}, which continues through the win panel.
  */
 export function clipRoundBounds(round: ClipRoundClock): ClipSpan {
   const startTick = Math.max(round.freeze_end_tick, round.start_tick);
   const endTick = Math.max(round.end_tick, startTick);
   return { startTick, endTick };
+}
+
+/** Last element of the tick buffer, or 0 when nothing was recorded. */
+export function clipSampleEndTick(ticks: ArrayLike<number>): number {
+  if (ticks.length === 0) return 0;
+  return ticks[ticks.length - 1] ?? 0;
 }
 
 /** Next round's freeze start, or null on the last round. */
@@ -48,16 +51,17 @@ export function clipNextRoundStart(
 }
 
 /**
- * Last tick included in a full-round or around-kill clip.
+ * Last tick included in a full-round clip.
  * `playback_end_tick` is the end of the win panel. When it is 0, keep three
- * seconds after the win. Either way the last tick is at most one before the
- * next round, or the demo end on the last round.
+ * seconds after the win. The last tick is at most one before the next round.
+ * On the last round that bound is the last recorded sample, not
+ * `header.playback_ticks` (0 or past the buffer on a truncated demo).
  */
 export function clipCoverLastTick(
   round: ClipRoundClock,
   rate: number,
   nextStartTick: number | null,
-  demoEndTick: number,
+  sampleEndTick: number,
   tailSeconds = CLIP_POST_ROUND_TAIL_SECONDS,
 ): number {
   const win = round.end_tick;
@@ -66,8 +70,9 @@ export function clipCoverLastTick(
   let last = playbackEnd > 0 ? playbackEnd : tail;
   if (nextStartTick != null && nextStartTick > 0) {
     last = Math.min(last, nextStartTick - 1);
-  } else if (demoEndTick > 0) {
-    last = Math.min(last, demoEndTick);
+  } else if (sampleEndTick > 0) {
+    last = Math.min(last, sampleEndTick);
+    if (sampleEndTick < win) return sampleEndTick;
   }
   return Math.max(last, win);
 }
@@ -80,10 +85,10 @@ export function clipRoundCover(
   round: ClipRoundClock,
   rate: number,
   nextStartTick: number | null,
-  demoEndTick: number,
+  sampleEndTick: number,
 ): ClipSpan {
   const live = clipRoundBounds(round);
-  const last = clipCoverLastTick(round, rate, nextStartTick, demoEndTick);
+  const last = clipCoverLastTick(round, rate, nextStartTick, sampleEndTick);
   let endTick = last + 1;
   if (nextStartTick != null && nextStartTick > 0) {
     endTick = Math.min(endTick, nextStartTick);
@@ -102,66 +107,16 @@ export function fullRoundSpan(bounds: ClipSpan): ClipSpan {
 }
 
 /**
- * A few seconds before the execute's action tick, through the plant.
- * Without a plant the window runs to round end. No detected execute → null.
+ * Plant through the same exclusive end as full round ({@link clipRoundCover}).
+ * Pass the cover, not the live `end_tick` window, so explosion and defuse
+ * rounds still include the win panel when there is no final kill.
+ * No plant, or a plant on the cover's last tick, returns null.
  */
-export function siteEntrySpan(
-  bounds: ClipSpan,
-  executeActionTick: number | null,
-  plantTick: number | null,
-  rate: number,
-  leadSeconds = CLIP_SITE_ENTRY_LEAD_SECONDS,
-): ClipSpan | null {
-  if (executeActionTick == null || !(rate > 0)) return null;
-  const span = clampClipSpan(
-    {
-      startTick: executeActionTick - leadSeconds * rate,
-      endTick: plantTick ?? bounds.endTick,
-    },
-    bounds,
-  );
-  if (!(span.endTick > span.startTick)) return null;
-  return span;
-}
-
-/** Plant through round end. Rounds without a plant (or an empty window) return null. */
-export function postPlantSpan(bounds: ClipSpan, plantTick: number | null): ClipSpan | null {
+export function postPlantSpan(cover: ClipSpan, plantTick: number | null): ClipSpan | null {
   if (plantTick == null) return null;
-  const span = clampClipSpan({ startTick: plantTick, endTick: bounds.endTick }, bounds);
+  const span = clampClipSpan({ startTick: plantTick, endTick: cover.endTick }, cover);
   if (!(span.endTick > span.startTick)) return null;
   return span;
-}
-
-/** About 5s before a kill through 3s after, clamped to the round. */
-export function aroundKillSpan(
-  bounds: ClipSpan,
-  killTick: number,
-  rate: number,
-  beforeSeconds = CLIP_KILL_BEFORE_SECONDS,
-  afterSeconds = CLIP_KILL_AFTER_SECONDS,
-): ClipSpan | null {
-  if (!(rate > 0)) return null;
-  const span = clampClipSpan(
-    {
-      startTick: killTick - beforeSeconds * rate,
-      endTick: killTick + afterSeconds * rate,
-    },
-    bounds,
-  );
-  if (!(span.endTick > span.startTick)) return null;
-  return span;
-}
-
-export function firstExecuteActionTick(
-  beats: readonly { round: number; kind: string; actionTick: number }[],
-  roundNumber: number,
-): number | null {
-  let best: number | null = null;
-  for (const beat of beats) {
-    if (beat.round !== roundNumber || beat.kind !== "execute") continue;
-    if (best == null || beat.actionTick < best) best = beat.actionTick;
-  }
-  return best;
 }
 
 export function plantTickInRound(
@@ -173,33 +128,6 @@ export function plantTickInRound(
     if (event.tick >= round.start_tick && event.tick <= round.end_tick) return event.tick;
   }
   return null;
-}
-
-/**
- * Kills from round start through the clip's last tick.
- * `clipEndTick` is the cover's exclusive end, so a frag on the next round's
- * start stays out. The winning kill on `end_tick` stays in.
- */
-export function killsInRound<T extends { tick: number }>(
-  kills: readonly T[],
-  round: { start_tick: number; end_tick: number },
-  clipEndTick = round.end_tick + 1,
-): T[] {
-  const end = Math.max(round.end_tick + 1, clipEndTick);
-  return kills.filter((kill) => kill.tick >= round.start_tick && kill.tick < end);
-}
-
-export function nearestKillTick(kills: readonly { tick: number }[], tick: number): number | null {
-  let best: number | null = null;
-  let bestDist = Number.POSITIVE_INFINITY;
-  for (const kill of kills) {
-    const dist = Math.abs(kill.tick - tick);
-    if (dist < bestDist) {
-      best = kill.tick;
-      bestDist = dist;
-    }
-  }
-  return best;
 }
 
 export type ClipEncodePath = "webcodecs" | "media-recorder";

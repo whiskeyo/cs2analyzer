@@ -3,14 +3,12 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   CLIP_EXPORT_FPS,
-  CLIP_EXPORT_NO_EXECUTE,
-  CLIP_EXPORT_NO_KILL,
   CLIP_EXPORT_NO_PLANT,
   CLIP_EXPORT_NOT_READY,
   CLIP_EXPORT_REALTIME_HINT,
   CLIP_EXPORT_UNSUPPORTED,
 } from "@/lib/export/constants";
-import { makeBombEvent, makeKill, makeReplay, makeRound } from "@/lib/testing/fixtures";
+import { makeBombEvent, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
 import { defaultUserSettings } from "@/lib/settings/userSettings";
 import { ClipExport } from "./ClipExport";
 
@@ -20,7 +18,6 @@ const mocks = vi.hoisted(() => ({
   download: vi.fn(),
   hold: vi.fn(),
   probe: vi.fn(),
-  executes: vi.fn((): { round: number; kind: string; actionTick: number }[] => []),
   settings: vi.fn(),
   surface: vi.fn(
     (): {
@@ -47,11 +44,6 @@ vi.mock("@/lib/export/radarClipEncode", () => ({
 vi.mock("@/lib/export/clipEncodeSupport", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/export/clipEncodeSupport")>();
   return { ...actual, probeClipEncoder: mocks.probe };
-});
-
-vi.mock("@/lib/match/execute", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/match/execute")>();
-  return { ...actual, findExecutes: () => mocks.executes() };
 });
 
 vi.mock("@/lib/settings/useUserSettings", () => ({
@@ -106,8 +98,6 @@ function props(overrides: Partial<Parameters<typeof ClipExport>[0]> = {}) {
     }),
     tick: 2 * RATE + 40 * RATE,
     round,
-    minTick: 2 * RATE,
-    maxTick: 80 * RATE,
     onTick: vi.fn(),
     onPlaying: vi.fn(),
     ...overrides,
@@ -126,10 +116,8 @@ describe("ClipExport", () => {
     mocks.download.mockReset();
     mocks.hold.mockReset();
     mocks.probe.mockReset();
-    mocks.executes.mockReset();
     mocks.settings.mockReset();
     mocks.surface.mockReset();
-    mocks.executes.mockReturnValue([]);
     mocks.probe.mockResolvedValue(webcodecs());
     mocks.settings.mockReturnValue(settingsApi());
     mocks.surface.mockReturnValue({
@@ -149,7 +137,7 @@ describe("ClipExport", () => {
     expect(screen.getByText("1080×1080 · 30 fps · encoded on this device")).toBeInTheDocument();
   });
 
-  it("disables post-plant without a plant and site entry without an execute", async () => {
+  it("disables post-plant without a plant", async () => {
     const user = userEvent.setup();
     render(<ClipExport {...props()} />);
     await openPanel(user);
@@ -158,57 +146,42 @@ describe("ClipExport", () => {
       "title",
       CLIP_EXPORT_NO_PLANT,
     );
-    expect(screen.getByRole("button", { name: "Site entry" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Site entry" })).toHaveAttribute(
-      "title",
-      CLIP_EXPORT_NO_EXECUTE,
-    );
-    expect(screen.getByRole("button", { name: "Around a kill" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Around a kill" })).toHaveAttribute(
-      "title",
-      CLIP_EXPORT_NO_KILL,
-    );
+    expect(screen.queryByRole("button", { name: "Site entry" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Around a kill" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark start" })).not.toBeInTheDocument();
   });
 
-  it("sets site entry, post-plant, and a kill clamped to the round start", async () => {
+  it("runs post-plant through the win panel, not the live end tick", async () => {
     const user = userEvent.setup();
-    const earlyKill = props();
-    earlyKill.replay = makeReplay({
-      header: { map_name: "de_mirage", tick_rate: RATE, playback_ticks: 200 * RATE },
-      rounds: [earlyKill.round!],
-      kills: [makeKill(2 * RATE + 2 * RATE, 1, 0, { weapon: "ak47" })],
+    const planted = props();
+    planted.replay = makeReplay({
+      header: { map_name: "de_mirage", tick_rate: RATE, playback_ticks: 0 },
+      rounds: [planted.round!],
       bombEvents: [makeBombEvent({ tick: 2 * RATE + 30 * RATE, kind: "planted" })],
     });
-    mocks.executes.mockReturnValue([
-      { round: 3, kind: "execute", actionTick: 2 * RATE + 20 * RATE },
-    ]);
-    render(<ClipExport {...earlyKill} />);
+    render(<ClipExport {...planted} />);
     await openPanel(user);
-
-    await user.click(screen.getByRole("button", { name: "Site entry" }));
-    expect(screen.getByText("Start 0:17.0")).toBeInTheDocument();
-    expect(screen.getByText("End 0:30.0")).toBeInTheDocument();
-
     await user.click(screen.getByRole("button", { name: "Post-plant retake" }));
-    expect(screen.getByText("58.0s")).toBeInTheDocument();
+    expect(screen.getByText("61.0s")).toBeInTheDocument();
     expect(screen.getByText("Start 0:30.0")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Around a kill" }));
-    expect(screen.getByText("5.0s")).toBeInTheDocument();
-    expect(screen.getByText("Start 0:00.0")).toBeInTheDocument();
-    expect(screen.getByText("End 0:05.0")).toBeInTheDocument();
+    expect(screen.getByText("End 1:31.0")).toBeInTheDocument();
   });
 
-  it("keeps a long custom range on the offline path", async () => {
+  it("stops the last round at the last sample when playback_ticks is 0", async () => {
     const user = userEvent.setup();
-    const view = props({ tick: 2 * RATE + 5 * RATE });
-    const { rerender } = render(<ClipExport {...view} />);
+    const last = props();
+    const sample = 90 * RATE + RATE;
+    const ticks = makeTicks(0, 1);
+    ticks.ticks[0] = sample;
+    last.replay = makeReplay({
+      header: { map_name: "de_mirage", tick_rate: RATE, playback_ticks: 0 },
+      rounds: [last.round!],
+      ticks,
+    });
+    render(<ClipExport {...last} />);
     await openPanel(user);
-    await user.click(screen.getByRole("button", { name: "Mark start" }));
-    rerender(<ClipExport {...view} tick={2 * RATE + 50 * RATE} />);
-    await user.click(screen.getByRole("button", { name: "Mark end" }));
-    expect(screen.queryByText(/at most 30 seconds/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Download clip" })).toBeEnabled();
+    expect(screen.getByText("89.0s")).toBeInTheDocument();
+    expect(screen.queryByText("91.0s")).not.toBeInTheDocument();
   });
 
   it("downloads an offline clip at the preference size and 30 fps", async () => {
@@ -281,15 +254,18 @@ describe("ClipExport", () => {
       mime: "video/webm;codecs=vp9",
     });
     const view = props({ tick: 2 * RATE + 5 * RATE });
-    const { rerender } = render(<ClipExport {...view} />);
+    view.replay = makeReplay({
+      header: { map_name: "de_mirage", tick_rate: RATE, playback_ticks: 200 * RATE },
+      rounds: [view.round!],
+      bombEvents: [makeBombEvent({ tick: 90 * RATE - 8 * RATE, kind: "planted" })],
+    });
+    render(<ClipExport {...view} />);
     await user.click(screen.getByRole("button", { name: "Export clip" }));
     expect(await screen.findByText(CLIP_EXPORT_REALTIME_HINT)).toBeInTheDocument();
     expect(screen.getByText(/at most 30 seconds/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download clip" })).toBeDisabled();
 
-    await user.click(screen.getByRole("button", { name: "Mark start" }));
-    rerender(<ClipExport {...view} tick={2 * RATE + 15 * RATE} />);
-    await user.click(screen.getByRole("button", { name: "Mark end" }));
+    await user.click(screen.getByRole("button", { name: "Post-plant retake" }));
     expect(screen.getByRole("button", { name: "Download clip" })).toBeEnabled();
     mocks.record.mockResolvedValue(new Blob(["vid"], { type: "video/webm" }));
     await user.click(screen.getByRole("button", { name: "Download clip" }));
@@ -298,7 +274,9 @@ describe("ClipExport", () => {
       ticks: number[];
       mimeType: string;
     };
-    expect(recorded.ticks).toHaveLength(10 * CLIP_EXPORT_FPS);
+    const plant = 90 * RATE - 8 * RATE;
+    const coverEnd = 90 * RATE + 3 * RATE + 1;
+    expect(recorded.ticks).toHaveLength(Math.round(((coverEnd - plant) / RATE) * CLIP_EXPORT_FPS));
     expect(recorded.mimeType).toBe("video/webm;codecs=vp9");
     expect(mocks.encode).not.toHaveBeenCalled();
   });
