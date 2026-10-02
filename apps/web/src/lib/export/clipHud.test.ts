@@ -229,31 +229,52 @@ describe("clip HUD state", () => {
     expect(afterDrop.clockLabel).toBe("C4 30.0");
     expect(afterDrop.bombRemaining).toBeCloseTo(cleanAtSeen.bombRemaining ?? -1);
 
-    const defusedAt = plant + 12 * RATE;
-    const defused = clipHudState(
-      makeReplay({
-        rounds: [live],
-        ticks: stillHolding,
-        bombEvents: [planted, makeBombEvent({ tick: defusedAt, kind: "defused", player: 0 })],
-      }),
-      defusedAt,
-    );
+    const defusedAt = plant + 15 * RATE;
+    const nextStart = 22000;
+    const nextFreeze = nextStart + 2 * RATE;
+    const nextRound = makeRound({
+      number: 6,
+      start_tick: nextStart,
+      freeze_end_tick: nextFreeze,
+      end_tick: 40000,
+      round_time_s: 90,
+    });
+    const defusedReplay = makeReplay({
+      rounds: [live, nextRound],
+      ticks: stillHolding,
+      bombEvents: [planted, makeBombEvent({ tick: defusedAt, kind: "defused", player: 0 })],
+    });
+    const defused = clipHudState(defusedReplay, defusedAt);
+    const defusedLater = clipHudState(defusedReplay, defusedAt + 20 * RATE);
     expect(defused.bombRemaining).toBeNull();
-    expect(defused.clockKind).toBe("round");
-    expect(defused.clockLabel).toBe("0:58");
+    expect(defused.clockKind).toBe("bomb");
+    expect(defused.clockLabel).toBe("C4 25.0");
+    expect(defusedLater.clockKind).toBe("bomb");
+    expect(defusedLater.clockLabel).toBe("C4 25.0");
+    expect(clipHudState(defusedReplay, nextStart).clockLabel).toMatch(/^Freeze /);
+    expect(clipHudState(defusedReplay, nextFreeze)).toMatchObject({
+      clockKind: "round",
+      clockLabel: "1:30",
+    });
+    expect(clipHudState(defusedReplay, nextFreeze + 10 * RATE).clockLabel).toBe("1:20");
 
     const explodedAt = plant + 15 * RATE;
-    const exploded = clipHudState(
-      makeReplay({
-        rounds: [live],
-        ticks: stillHolding,
-        bombEvents: [planted, makeBombEvent({ tick: explodedAt, kind: "exploded" })],
-      }),
-      explodedAt,
-    );
+    const explodedReplay = makeReplay({
+      rounds: [live, nextRound],
+      ticks: stillHolding,
+      bombEvents: [planted, makeBombEvent({ tick: explodedAt, kind: "exploded" })],
+    });
+    const exploded = clipHudState(explodedReplay, explodedAt);
+    const explodedLater = clipHudState(explodedReplay, explodedAt + 20 * RATE);
     expect(exploded.bombRemaining).toBeNull();
-    expect(exploded.clockKind).toBe("round");
-    expect(exploded.clockLabel).toBe("0:55");
+    expect(exploded.clockKind).toBe("bomb");
+    expect(exploded.clockLabel).toBe("C4 0.0");
+    expect(explodedLater.clockKind).toBe("bomb");
+    expect(explodedLater.clockLabel).toBe("C4 0.0");
+    expect(clipHudState(explodedReplay, nextFreeze)).toMatchObject({
+      clockKind: "round",
+      clockLabel: "1:30",
+    });
   });
 
   it("lists hp, armor, money, weapon, and ammo for each side", () => {
