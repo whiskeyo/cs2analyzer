@@ -4033,6 +4033,18 @@ button.link:hover:not(:disabled) {
   width: calc(var(--ctrl-btn-h) * 0.72);
   height: calc(var(--ctrl-btn-h) * 0.72);
 }
+.clip-record-icon {
+  position: relative;
+  display: inline-flex;
+}
+.clip-record-c4 {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 46%;
+  height: 46%;
+  pointer-events: none;
+}
 .controls button.round-autoplay:not(.on) {
   color: var(--text-muted);
 }
@@ -4045,60 +4057,55 @@ button.link:hover:not(:disabled) {
   color: #a9b6c3;
 }
 .clip-export {
-  position: relative;
-  flex: 0 0 auto;
-}
-.clip-export-panel {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  z-index: 30;
-  width: 320px;
-  padding: 0.7rem;
-  background: #161c24;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-.clip-export-hint,
-.clip-export-duration,
-.clip-export-error {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-.clip-export-duration {
-  font-variant-numeric: tabular-nums;
-  color: #a9b6c3;
-}
-.clip-export-error {
-  color: var(--danger);
-}
-.clip-export-presets,
-.clip-export-actions,
-.clip-export-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  flex: 0 0 auto;
 }
-.clip-export-row {
-  justify-content: space-between;
-  font-size: 0.85rem;
-  color: #a9b6c3;
+.controls button.clip-record-btn svg,
+.controls button.clip-record-btn .clip-record-icon {
+  width: calc(var(--ctrl-btn-h) * 0.72);
+  height: calc(var(--ctrl-btn-h) * 0.72);
+}
+.clip-export-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: var(--ctrl-btn-h);
+}
+.clip-export-percent {
+  margin: 0;
+  font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
+  color: #a9b6c3;
+  white-space: nowrap;
+}
+.clip-export-progress {
+  width: 4.5rem;
+  height: 0.35rem;
+  accent-color: #5b9fd6;
+}
+.clip-export-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: var(--text);
+  white-space: nowrap;
+}
+.controls button.clip-cancel-btn svg {
+  width: calc(var(--ctrl-btn-h) * 0.55);
+  height: calc(var(--ctrl-btn-h) * 0.55);
+}
+.clip-export-error {
+  margin: 0;
+  max-width: 14rem;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: var(--danger);
 }
 .clip-export button:disabled {
   opacity: 0.55;
   cursor: default;
-}
-.clip-export-progress {
-  width: 100%;
-  height: 0.45rem;
-  accent-color: #5b9fd6;
 }
 
 .round-strip {

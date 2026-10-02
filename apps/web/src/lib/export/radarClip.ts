@@ -237,19 +237,6 @@ export function clipRoundSlug(round: { number: number; is_knife: boolean } | nul
   return `r${round.number}`;
 }
 
-/** Round clock with a tenth, same origin the caller picks (usually freeze end). */
-export function formatClipClock(seconds: number): string {
-  const sign = seconds < 0 ? "-" : "";
-  const abs = Math.abs(seconds);
-  const minutes = Math.floor(abs / 60);
-  const rest = (abs - minutes * 60).toFixed(1).padStart(4, "0");
-  return `${sign}${minutes}:${rest}`;
-}
-
-export function formatClipDuration(seconds: number): string {
-  return `${Math.max(0, seconds).toFixed(1)}s`;
-}
-
 function sleepMs(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
