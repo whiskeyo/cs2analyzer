@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as clipHud from "@/lib/export/clipHud";
+import { CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_SCORE } from "@/lib/export/clipPageHudKey";
 import { fitClipScoreboard } from "@/lib/export/clipPageHudRaster";
 import { beginClipPageHud } from "@/lib/export/clipPageHudSession";
 import { endClipPageHud } from "@/lib/export/clipPageHudBridge";
@@ -276,5 +277,44 @@ describe("clip page HUD raster failure", () => {
     expect(painted).toHaveBeenCalledTimes(3);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("does not draw a panel that finished when its sibling raster throws", async () => {
+    mockPanelBoxes();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const painted = vi.spyOn(clipHud, "paintClipHud").mockImplementation(() => undefined);
+    let arm = false;
+    const finished = new Set<string>();
+    const raster = vi.fn(async (_node: HTMLElement, panel: string) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 12;
+      canvas.height = 8;
+      if (arm && panel === CLIP_HUD_PANEL_SCORE) {
+        throw new Error("icon");
+      }
+      if (arm) finished.add(panel);
+      return canvas;
+    });
+    const again = await beginClipPageHud(
+      roster([
+        { tick: 64, health: 100 },
+        { tick: 200, health: 40 },
+      ]),
+      1080,
+      64,
+      null,
+      { ...pageHudPorts(), raster },
+    );
+    arm = true;
+    const ctx = paintCtx();
+    await again.paint(ctx, 200, null);
+    expect(finished.has(CLIP_HUD_PANEL_ECO)).toBe(true);
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+    expect(again.mode).toBe("painted");
+    expect(painted).toHaveBeenCalledTimes(1);
+    const calls = raster.mock.calls.length;
+    await again.paint(ctx, 200, null);
+    expect(raster.mock.calls.length).toBe(calls);
+    expect(painted).toHaveBeenCalledTimes(2);
   });
 });
