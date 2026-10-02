@@ -171,8 +171,11 @@ export const CLIP_EXPORT_NO_CANVAS = "This browser cannot record a canvas.";
 export const CLIP_EXPORT_STAY_ON_TAB = "Don't switch tabs while recording.";
 export const CLIP_EXPORT_TAB_HIDDEN =
   "Recording stopped because this tab was hidden. Stay on this tab and export again.";
-/** Shown with a 0–100 percent while a radar clip export is running. */
-export const CLIP_EXPORT_PROGRESS = "Exporting…";
+/** Percent shown beside the clip progress bar (`0%`–`100%`). */
+export function clipExportPercent(ratio: number): string {
+  return `${Math.round(ratio * 100)}%`;
+}
+export const CLIP_EXPORT_CANCEL = "Cancel clip export";
 export const CLIP_EXPORT_NO_PLANT = "No plant in this round";
 export const CLIP_EXPORT_FULL_ROUND = "Export clip: full round";
 export const CLIP_EXPORT_FROM_PLANT = "Export clip: from plant";

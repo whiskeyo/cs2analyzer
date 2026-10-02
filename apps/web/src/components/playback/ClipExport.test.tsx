@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
+  CLIP_EXPORT_CANCEL,
   CLIP_EXPORT_FPS,
   CLIP_EXPORT_FROM_PLANT,
   CLIP_EXPORT_FULL_ROUND,
   CLIP_EXPORT_NO_PLANT,
   CLIP_EXPORT_NOT_READY,
+  CLIP_EXPORT_STAY_ON_TAB,
   CLIP_EXPORT_UNSUPPORTED,
+  clipExportPercent,
 } from "@/lib/export/constants";
 import {
   clipNextRoundStart,
@@ -139,8 +142,9 @@ function fromPlantButton() {
 function hangEncode() {
   let release: (blob: Blob) => void = () => {};
   mocks.encode.mockImplementation(
-    () =>
+    (opts: { onProgress?: (ratio: number) => void }) =>
       new Promise<Blob>((resolve) => {
+        opts.onProgress?.(0.4);
         release = resolve;
       }),
   );
@@ -202,12 +206,15 @@ describe("ClipExport", () => {
     expect(fullRoundButton()).toHaveFocus();
     await user.keyboard("{Enter}");
 
-    expect(fullRoundButton()).toBeDisabled();
-    await waitFor(() => expect(mocks.encode).toHaveBeenCalled());
+    expect(await screen.findByText(clipExportPercent(0.4))).toBeInTheDocument();
+    expect(screen.queryByText(CLIP_EXPORT_STAY_ON_TAB)).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Clip export progress" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: CLIP_EXPORT_FULL_ROUND })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Download clip" })).not.toBeInTheDocument();
 
     release(new Blob(["vid"], { type: "video/mp4" }));
     await waitFor(() => expect(mocks.download).toHaveBeenCalled());
+    expect(screen.queryByText(clipExportPercent(0.4))).not.toBeInTheDocument();
     expect(fullRoundButton()).toBeEnabled();
 
     const recorded = mocks.encode.mock.calls[0]?.[0] as {
@@ -315,6 +322,75 @@ describe("ClipExport", () => {
     );
   });
 
+  it("cancels an in-progress export without a file", async () => {
+    const user = userEvent.setup();
+    const onTick = vi.fn();
+    const tick = 2 * RATE + 20 * RATE;
+    mocks.encode.mockImplementation(
+      (opts: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          opts.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Clip export cancelled", "AbortError"));
+          });
+        }),
+    );
+    render(<ClipExport {...props({ onTick, tick })} />);
+    await user.click(fullRoundButton());
+    await waitFor(() => expect(mocks.encode).toHaveBeenCalled());
+    expect(screen.getByText(clipExportPercent(0))).toBeInTheDocument();
+    const cancel = screen.getByRole("button", { name: CLIP_EXPORT_CANCEL });
+    expect(cancel.tabIndex).not.toBe(-1);
+    cancel.focus();
+    expect(cancel).toHaveFocus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(mocks.hold).toHaveBeenCalledWith(false));
+    expect(onTick).toHaveBeenCalledWith(tick);
+    expect(mocks.download).not.toHaveBeenCalled();
+    expect(screen.queryByText(clipExportPercent(0))).not.toBeInTheDocument();
+    expect(fullRoundButton()).toBeEnabled();
+    expect(screen.queryByRole("button", { name: CLIP_EXPORT_CANCEL })).not.toBeInTheDocument();
+  });
+
+  it("warns to stay on the tab only while the real-time recorder runs", async () => {
+    const user = userEvent.setup();
+    let releaseRecord: (blob: Blob) => void = () => {};
+    mocks.probe.mockResolvedValue({
+      path: "media-recorder",
+      mime: "video/webm;codecs=vp9",
+    });
+    mocks.record.mockImplementation(
+      () =>
+        new Promise<Blob>((resolve) => {
+          releaseRecord = resolve;
+        }),
+    );
+    render(<ClipExport {...props()} />);
+    await user.click(fullRoundButton());
+
+    const hint = await screen.findByText(CLIP_EXPORT_STAY_ON_TAB);
+    const status = screen.getByRole("status");
+    const progress = within(status).getByRole("progressbar", { name: "Clip export progress" });
+    expect(status).toHaveTextContent(clipExportPercent(0));
+    expect(progress.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(screen.queryByRole("button", { name: CLIP_EXPORT_FULL_ROUND })).not.toBeInTheDocument();
+
+    releaseRecord(new Blob(["vid"], { type: "video/webm" }));
+    await waitFor(() =>
+      expect(screen.queryByText(CLIP_EXPORT_STAY_ON_TAB)).not.toBeInTheDocument(),
+    );
+
+    mocks.download.mockClear();
+    mocks.probe.mockResolvedValue(webcodecs());
+    const release = hangEncode();
+    await user.click(fullRoundButton());
+    expect(await screen.findByText(clipExportPercent(0.4))).toBeInTheDocument();
+    expect(screen.queryByText(CLIP_EXPORT_STAY_ON_TAB)).not.toBeInTheDocument();
+    release(new Blob(["vid"], { type: "video/mp4" }));
+    await waitFor(() => expect(mocks.download).toHaveBeenCalled());
+  });
+
   it("explains when the radar or the browser cannot record", async () => {
     const user = userEvent.setup();
     mocks.surface.mockReturnValue(null);
@@ -322,6 +398,7 @@ describe("ClipExport", () => {
     await user.click(fullRoundButton());
     expect(await screen.findByRole("alert")).toHaveTextContent(CLIP_EXPORT_NOT_READY);
     expect(fullRoundButton()).toBeEnabled();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 
     mocks.surface.mockReturnValue({
       canvas: { width: 640, height: 480 } as HTMLCanvasElement,

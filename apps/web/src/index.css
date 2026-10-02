@@ -4067,6 +4067,35 @@ button.link:hover:not(:disabled) {
   width: calc(var(--ctrl-btn-h) * 0.72);
   height: calc(var(--ctrl-btn-h) * 0.72);
 }
+.clip-export-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: var(--ctrl-btn-h);
+}
+.clip-export-percent {
+  margin: 0;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: #a9b6c3;
+  white-space: nowrap;
+}
+.clip-export-progress {
+  width: 4.5rem;
+  height: 0.35rem;
+  accent-color: #5b9fd6;
+}
+.clip-export-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: var(--text);
+  white-space: nowrap;
+}
+.controls button.clip-cancel-btn svg {
+  width: calc(var(--ctrl-btn-h) * 0.55);
+  height: calc(var(--ctrl-btn-h) * 0.55);
+}
 .clip-export-error {
   margin: 0;
   max-width: 14rem;
