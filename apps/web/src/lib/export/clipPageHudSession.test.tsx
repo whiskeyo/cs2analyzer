@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as clipHud from "@/lib/export/clipHud";
+import * as clipHudRaster from "@/lib/export/clipHudRaster";
 import { CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_SCORE } from "@/lib/export/clipPageHudKey";
 import { fitClipScoreboard } from "@/lib/export/clipPageHudRaster";
 import { beginClipPageHud } from "@/lib/export/clipPageHudSession";
@@ -237,6 +238,21 @@ describe("clip page host slot", () => {
     expect(hostSlots()).toHaveLength(1);
     session.dispose();
     expect(hostSlots()).toHaveLength(0);
+  });
+});
+
+describe("clip page HUD probe cache", () => {
+  it("uses the cached renderer instead of probing on every export", async () => {
+    mockPanelBoxes();
+    const renderer = vi.spyOn(clipHudRaster, "clipHudRenderer").mockResolvedValue("page");
+    const probe = vi.spyOn(clipHudRaster, "probeClipHudForeignObject");
+    const session = await beginClipPageHud(replay(), 1080, 64, null, {
+      raster: blankCanvas,
+      usable: async () => true,
+    });
+    expect(session.mode).toBe("page");
+    expect(renderer).toHaveBeenCalledTimes(1);
+    expect(probe).not.toHaveBeenCalled();
   });
 });
 

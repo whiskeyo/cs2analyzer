@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { CLIP_HUD_PROBE_PX } from "@/lib/export/constants";
 import {
   clipHudProbeImageUrl,
   clipHudProbeSvg,
+  clipHudRenderer,
+  resetClipHudRendererCache,
   selectClipHudRenderer,
   type ClipHudProbe,
 } from "@/lib/export/clipHudRaster";
@@ -17,6 +19,18 @@ function usable(overrides: Partial<ClipHudProbe> = {}): ClipHudProbe {
     ...overrides,
   };
 }
+
+afterEach(() => {
+  resetClipHudRendererCache();
+});
+
+describe("clipHudRenderer", () => {
+  it("reuses one probe for the page", () => {
+    resetClipHudRendererCache();
+    const first = clipHudRenderer();
+    expect(clipHudRenderer()).toBe(first);
+  });
+});
 
 describe("selectClipHudRenderer", () => {
   it("uses the page HUD when the canvas stays usable", () => {

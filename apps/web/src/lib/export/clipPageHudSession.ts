@@ -10,7 +10,7 @@ import {
   rasterClipPageNode,
 } from "@/lib/export/clipPageHudRaster";
 import {
-  probeClipHudForeignObject,
+  clipHudRenderer,
   selectClipHudRenderer,
   type ClipHudProbe,
   type ClipHudRenderer,
@@ -115,7 +115,9 @@ function place(
 
 class ClipPageHudSession implements ClipPageHudController {
   mode: ClipHudRenderer = "painted";
-  private readonly ports: ClipPageHudPorts;
+  private readonly ports: Omit<ClipPageHudPorts, "probe">;
+  /** Set when a test replaces the page probe. Production uses the cached renderer. */
+  private readonly probeOverride: ClipPageHudPorts["probe"] | null;
   private readonly replay: Replay;
   private readonly height: number;
   private slot: HTMLDivElement | null = null;
@@ -126,8 +128,8 @@ class ClipPageHudSession implements ClipPageHudController {
   constructor(replay: Replay, height: number, ports?: Partial<ClipPageHudPorts>) {
     this.replay = replay;
     this.height = height;
+    this.probeOverride = ports?.probe ?? null;
     this.ports = {
-      probe: ports?.probe ?? probeClipHudForeignObject,
       raster: ports?.raster ?? rasterPageNode,
       usable: ports?.usable ?? clipHudRasterUsable,
     };
@@ -135,7 +137,9 @@ class ClipPageHudSession implements ClipPageHudController {
 
   async prepare(tick: number, selected: number | null): Promise<void> {
     try {
-      this.mode = selectClipHudRenderer(await this.ports.probe());
+      this.mode = this.probeOverride
+        ? selectClipHudRenderer(await this.probeOverride())
+        : await clipHudRenderer();
     } catch {
       this.mode = "painted";
       return;
