@@ -11,9 +11,9 @@ import {
   CLIP_SITE_ENTRY_LEAD_SECONDS,
 } from "@/lib/export/constants";
 import {
-  clipFrameTicks,
-  clipFrameTimestamps,
+  clipFrameClock,
   clipRangeIssue,
+  type ClipFrameClock,
   type ClipSpan,
 } from "@/lib/export/radarClip";
 
@@ -237,14 +237,9 @@ export function clipExportHint(path: ClipEncodePath, size: number, fps: number):
   return `${size}×${size} · ${fps} fps · encoded on this device`;
 }
 
-/** Frame count is duration × fps. Timestamps stay strictly increasing. */
-export function clipFrameSchedule(
-  span: ClipSpan,
-  rate: number,
-  fps: number,
-): { ticks: number[]; timestamps: number[] } {
-  const ticks = clipFrameTicks(span, rate, fps);
-  return { ticks, timestamps: clipFrameTimestamps(ticks.length, fps) };
+/** Frame count is duration × fps. Timestamps partition the demo span. */
+export function clipFrameSchedule(span: ClipSpan, rate: number, fps: number): ClipFrameClock {
+  return clipFrameClock(span, rate, fps);
 }
 
 export function clipSpanIssue(

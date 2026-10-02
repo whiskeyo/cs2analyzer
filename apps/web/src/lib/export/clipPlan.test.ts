@@ -19,9 +19,17 @@ import {
   selectClipEncodePath,
   siteEntrySpan,
 } from "@/lib/export/clipPlan";
-import { clipFrameTimestamps } from "@/lib/export/radarClip";
+import { clipFrameTimestamps, clipSpanDurationUs } from "@/lib/export/radarClip";
 
 const RATE = 64;
+
+function durationsOf(
+  span: { startTick: number; endTick: number },
+  rate: number,
+  fps: number,
+): number {
+  return clipFrameSchedule(span, rate, fps).durations.reduce((sum, duration) => sum + duration, 0);
+}
 
 function round(freezeSec: number, endSec: number) {
   return {
@@ -44,6 +52,18 @@ describe("clip frames", () => {
       }
       expect(ticks[0]).toBe(1000);
       expect(ticks[ticks.length - 1]).toBeLessThan(span.endTick);
+      const fileUs = durationsOf(span, RATE, fps);
+      expect(fileUs).toBe(clipSpanDurationUs(span, RATE));
+    }
+  });
+
+  it("gives 30 fps and 60 fps the same duration as the demo span", () => {
+    const span = { startTick: 0, endTick: 2578 };
+    const demoUs = Math.round((2578 * 1_000_000) / RATE);
+    expect(clipSpanDurationUs(span, RATE)).toBe(demoUs);
+    expect(demoUs / 1_000_000).toBeCloseTo(40.28125, 5);
+    for (const fps of [CLIP_EXPORT_FPS_DEFAULT, CLIP_EXPORT_FPS_SMOOTH]) {
+      expect(durationsOf(span, RATE, fps)).toBe(demoUs);
     }
   });
 

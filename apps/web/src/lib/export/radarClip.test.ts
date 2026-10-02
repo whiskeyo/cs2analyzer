@@ -11,7 +11,9 @@ import {
 import {
   clipDownloadName,
   clipDurationSeconds,
+  clipFrameClock,
   clipFrameTicks,
+  clipSpanDurationUs,
   clipRangeIssue,
   clipRoundSlug,
   defaultClipSpan,
@@ -236,6 +238,29 @@ describe("recordRadarClip", () => {
       createRecorder: (_stream, mime, bits) => new FakeRecorder(bits, mime),
     });
     expect(captureStream.mock.calls.map((call) => call[0])).toEqual([0, CLIP_EXPORT_FPS_DEFAULT]);
+  });
+
+  it("holds each frame so 30 fps and 60 fps last as long as the demo span", async () => {
+    const span = { startTick: 0, endTick: 2578 };
+    const demoMs = clipSpanDurationUs(span, RATE) / 1000;
+    for (const fps of [CLIP_EXPORT_FPS_DEFAULT, CLIP_EXPORT_FPS_SMOOTH]) {
+      const clock = clipFrameClock(span, RATE, fps);
+      const { canvas } = fakeCanvas(true);
+      const time = clocked();
+      await recordRadarClip({
+        canvas,
+        ticks: clock.ticks,
+        holdMs: clock.durations.map((us) => us / 1000),
+        fps,
+        mimeType: "video/webm",
+        paintAt: () => {},
+        now: time.now,
+        sleep: time.sleep,
+        createRecorder: (_stream, mime, bits) => new FakeRecorder(bits, mime),
+      });
+      const held = time.sleeps.reduce((sum, ms) => sum + ms, 0);
+      expect(held).toBeCloseTo(demoMs, 5);
+    }
   });
 
   it("paces at 60 fps when the caller asks for it", async () => {

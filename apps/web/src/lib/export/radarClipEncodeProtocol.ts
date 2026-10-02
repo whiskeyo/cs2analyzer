@@ -8,7 +8,13 @@ export type ClipEncodeIn =
       codec: string;
       bitrate: number;
     }
-  | { type: "frame"; bitmap: ImageBitmap; timestamp: number; index: number }
+  | {
+      type: "frame";
+      bitmap: ImageBitmap;
+      timestamp: number;
+      duration: number;
+      index: number;
+    }
   | { type: "finish" }
   | { type: "cancel" };
 

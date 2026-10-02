@@ -3,6 +3,7 @@ import {
   CLIP_EXPORT_FAILED,
   CLIP_EXPORT_NO_CANVAS,
   CLIP_EXPORT_TOO_SHORT,
+  CLIP_TIMESTAMP_US,
 } from "@/lib/export/constants";
 import { clipFrameTimestamp } from "@/lib/export/radarClip";
 import type { ClipEncodeOut, ClipEncodeWorker } from "@/lib/export/radarClipEncodeProtocol";
@@ -26,6 +27,9 @@ export interface EncodeRadarClipOptions {
   size: number;
   fps: number;
   ticks: readonly number[];
+  /** Microseconds. When set, the file lasts as long as the demo span. */
+  timestamps?: readonly number[];
+  durations?: readonly number[];
   codec: string;
   bitrate: number;
   paintFrame: (canvas: ClipFrameCanvas, tick: number) => void;
@@ -106,7 +110,7 @@ async function waitForRoom(state: EncodeLoopState, signal: AbortSignal | undefin
 async function paintFrames(
   options: EncodeRadarClipOptions,
   canvas: ClipFrameCanvas,
-  send: (bitmap: ImageBitmap, timestamp: number, index: number) => void,
+  send: (bitmap: ImageBitmap, timestamp: number, duration: number, index: number) => void,
   state: EncodeLoopState,
 ): Promise<void> {
   const { ticks, fps, paintFrame, signal, takeBitmap: grab = takeBitmap } = options;
@@ -125,8 +129,9 @@ async function paintFrames(
       bitmap.close();
       throw abortError();
     }
-    const timestamp = clipFrameTimestamp(index, fps);
-    send(bitmap, timestamp, index);
+    const timestamp = options.timestamps?.[index] ?? clipFrameTimestamp(index, fps);
+    const duration = options.durations?.[index] ?? Math.round(CLIP_TIMESTAMP_US / fps);
+    send(bitmap, timestamp, duration, index);
     state.sent += 1;
     const clock = now();
     if (clock - lastYield > 50) {
@@ -229,8 +234,8 @@ async function encodeWithWorker(
     await paintFrames(
       options,
       canvas,
-      (bitmap, timestamp, index) => {
-        worker.postMessage({ type: "frame", bitmap, timestamp, index }, [bitmap]);
+      (bitmap, timestamp, duration, index) => {
+        worker.postMessage({ type: "frame", bitmap, timestamp, duration, index }, [bitmap]);
       },
       state,
     );
@@ -281,8 +286,8 @@ async function encodeOnMainThread(
     await paintFrames(
       options,
       canvas,
-      (bitmap, timestamp, index) => {
-        session?.encode(bitmap, timestamp, index, () => {
+      (bitmap, timestamp, duration, index) => {
+        session?.encode(bitmap, timestamp, duration, index, () => {
           state.encoded = Math.max(state.encoded, index);
           options.onProgress?.((state.encoded + 1) / options.ticks.length);
           wake(state);

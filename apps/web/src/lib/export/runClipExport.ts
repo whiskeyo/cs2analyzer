@@ -1,12 +1,7 @@
 import { CLIP_EXPORT_FAILED, CLIP_EXPORT_NOT_READY } from "@/lib/export/constants";
 import type { ClipEncoderChoice } from "@/lib/export/clipEncodeSupport";
 import { clipFrameSchedule } from "@/lib/export/clipPlan";
-import {
-  clipDownloadName,
-  clipFrameTicks,
-  recordRadarClip,
-  type ClipSpan,
-} from "@/lib/export/radarClip";
+import { clipDownloadName, recordRadarClip, type ClipSpan } from "@/lib/export/radarClip";
 import { radarClipSurface, setRadarClipHold } from "@/lib/radar/radarClipSurface";
 import { HUD_TICK_INTERVAL_MS } from "@/lib/shared/constants";
 import { downloadBlob } from "@/lib/shared/download";
@@ -68,7 +63,8 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
     input.choice.path === "media-recorder"
       ? recordRadarClip({
           canvas: surface.canvas,
-          ticks: clipFrameTicks(input.span, input.rate, input.fps),
+          ticks: scheduled.ticks,
+          holdMs: scheduled.durations.map((us) => us / 1000),
           mimeType: input.choice.mime,
           paintAt: surface.paintAt,
           fps: input.fps,
@@ -87,6 +83,8 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
             size: input.size,
             fps: input.fps,
             ticks: scheduled.ticks,
+            timestamps: scheduled.timestamps,
+            durations: scheduled.durations,
             codec: input.choice.codec,
             bitrate: input.choice.bitrate,
             signal: input.signal,

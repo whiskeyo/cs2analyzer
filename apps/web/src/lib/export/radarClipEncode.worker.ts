@@ -54,7 +54,7 @@ scope.onmessage = (event: MessageEvent<ClipEncodeIn>) => {
       return;
     }
     try {
-      current.encode(message.bitmap, message.timestamp, message.index, () => {
+      current.encode(message.bitmap, message.timestamp, message.duration, message.index, () => {
         if (!stopped) scope.postMessage({ type: "encoded", index: message.index });
       });
     } catch (error) {

@@ -16,7 +16,13 @@ export interface ClipEncodeSessionConfig {
 }
 
 export interface ClipEncodeSession {
-  encode(bitmap: ImageBitmap, timestamp: number, index: number, onQueued: () => void): void;
+  encode(
+    bitmap: ImageBitmap,
+    timestamp: number,
+    duration: number,
+    index: number,
+    onQueued: () => void,
+  ): void;
   finish(): Promise<ArrayBuffer>;
   close(): void;
 }
@@ -67,7 +73,7 @@ export function openClipEncodeSession(config: ClipEncodeSessionConfig): ClipEnco
     avc: { format: "avc" },
   });
   const keyEvery = Math.max(1, Math.round(config.fps * CLIP_EXPORT_KEYFRAME_SECONDS));
-  const frameDuration = Math.round(CLIP_TIMESTAMP_US / config.fps);
+  const fallbackDuration = Math.round(CLIP_TIMESTAMP_US / config.fps);
   let closed = false;
 
   const closeEncoder = () => {
@@ -81,14 +87,14 @@ export function openClipEncodeSession(config: ClipEncodeSessionConfig): ClipEnco
   };
 
   return {
-    encode(bitmap, timestamp, index, onQueued) {
+    encode(bitmap, timestamp, duration, index, onQueued) {
       if (closed || failed) {
         bitmap.close();
         return;
       }
       const frame = new VideoFrame(bitmap, {
         timestamp,
-        duration: frameDuration,
+        duration: duration > 0 ? duration : fallbackDuration,
       });
       bitmap.close();
       try {

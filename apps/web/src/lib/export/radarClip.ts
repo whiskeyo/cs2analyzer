@@ -120,27 +120,56 @@ export function roundWindowSpan(
   return { startTick, endTick };
 }
 
+/** Demo length of a clip, in microseconds. This is the file's duration. */
+export function clipSpanDurationUs(span: ClipSpan, rate: number): number {
+  if (!(rate > 0) || !(span.endTick > span.startTick)) return 0;
+  return Math.round(((span.endTick - span.startTick) * CLIP_TIMESTAMP_US) / rate);
+}
+
+export interface ClipFrameClock {
+  ticks: number[];
+  /** Presentation time of each frame, microseconds from the first frame. */
+  timestamps: number[];
+  /** How long each frame is shown. The sum is {@link clipSpanDurationUs}. */
+  durations: number[];
+}
+
 /**
- * One sample tick per video frame. Ticks advance by `rate / fps` so a 15s
- * range is exactly 15 × fps frames and stays strictly inside `[start, end)`.
+ * One sample tick per video frame, spaced across the span.
+ * Frame timestamps partition the demo duration, so 30 fps and 60 fps files
+ * of the same span have the same length: `(endTick - startTick) / rate`.
  * Fractional ticks fall between `tick_stride` samples; `samplePlayer` blends
  * those the same way live playback does, and snaps across a death or teleport.
  */
+export function clipFrameClock(span: ClipSpan, rate: number, fps: number): ClipFrameClock {
+  const durationUs = clipSpanDurationUs(span, rate);
+  const seconds = durationUs / CLIP_TIMESTAMP_US;
+  const count = fps > 0 ? Math.round(seconds * fps) : 0;
+  if (!(rate > 0) || count <= 0 || durationUs <= 0) {
+    return { ticks: [], timestamps: [], durations: [] };
+  }
+  const ticks: number[] = [];
+  const timestamps: number[] = [];
+  const durations: number[] = [];
+  const spanTicks = span.endTick - span.startTick;
+  let cursor = 0;
+  for (let i = 0; i < count; i++) {
+    ticks.push(span.startTick + (i * spanTicks) / count);
+    const next = i + 1 === count ? durationUs : Math.round(((i + 1) * durationUs) / count);
+    timestamps.push(cursor);
+    durations.push(next - cursor);
+    cursor = next;
+  }
+  return { ticks, timestamps, durations };
+}
+
+/** One sample tick per video frame. Stays strictly inside `[start, end)`. */
 export function clipFrameTicks(
   span: ClipSpan,
   rate: number,
   fps = CLIP_EXPORT_FPS_DEFAULT,
 ): number[] {
-  if (!(rate > 0) || !(fps > 0) || !(span.endTick > span.startTick)) return [];
-  const seconds = (span.endTick - span.startTick) / rate;
-  const count = Math.round(seconds * fps);
-  if (count <= 0) return [];
-  const ticks: number[] = [];
-  const step = rate / fps;
-  for (let i = 0; i < count; i++) {
-    ticks.push(span.startTick + i * step);
-  }
-  return ticks;
+  return clipFrameClock(span, rate, fps).ticks;
 }
 
 /** Presentation timestamp in microseconds for frame `index`. */
@@ -259,6 +288,8 @@ export interface RecordRadarClipOptions {
   mimeType: string;
   paintAt: (tick: number) => void;
   fps?: number;
+  /** Per-frame hold, milliseconds. When set, the sum is the demo span. */
+  holdMs?: readonly number[];
   videoBitsPerSecond?: number;
   onFrame?: (index: number, tick: number) => void;
   signal?: AbortSignal;
@@ -272,9 +303,10 @@ export interface RecordRadarClipOptions {
 }
 
 /**
- * Record `ticks` in order at `fps`. MediaRecorder stamps frames from the wall
- * clock, so each frame is held for `1/fps` seconds. `captureStream(0)` plus
- * `requestFrame` pushes exactly one bitmap per tick when the browser allows it.
+ * Record `ticks` in order. MediaRecorder stamps frames from the wall clock.
+ * `holdMs` keeps each frame for its share of the demo span; otherwise each
+ * frame is held for `1/fps` seconds. `captureStream(0)` plus `requestFrame`
+ * pushes exactly one bitmap per tick when the browser allows it.
  */
 export async function recordRadarClip(options: RecordRadarClipOptions): Promise<Blob> {
   const {
@@ -284,6 +316,7 @@ export async function recordRadarClip(options: RecordRadarClipOptions): Promise<
     paintAt,
     onFrame,
     signal,
+    holdMs,
     fps = CLIP_EXPORT_FPS_DEFAULT,
     videoBitsPerSecond = CLIP_EXPORT_VIDEO_BITS_PER_SECOND,
     now = () => performance.now(),
@@ -337,7 +370,7 @@ export async function recordRadarClip(options: RecordRadarClipOptions): Promise<
       paintAt(tick);
       if (manualFrames) requestCanvasFrame(recorded);
       onFrame?.(index, tick);
-      nextAt += frameMs;
+      nextAt += holdMs?.[index] ?? frameMs;
       const wait = nextAt - now();
       if (wait > 0) await sleep(wait);
       else nextAt = now();
