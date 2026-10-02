@@ -192,6 +192,8 @@ class ClipPageHudSession implements ClipPageHudController {
     const frame = clipExportFrame(this.height);
     const slot = document.createElement("div");
     slot.className = "clip-page-host-slot";
+    slot.inert = true;
+    slot.setAttribute("inert", "");
     slot.setAttribute("aria-hidden", "true");
     slot.style.width = `${frame.width}px`;
     slot.style.height = `${frame.height}px`;

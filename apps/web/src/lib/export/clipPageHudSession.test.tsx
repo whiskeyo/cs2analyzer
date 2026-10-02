@@ -36,6 +36,46 @@ function blankCanvas(): Promise<HTMLCanvasElement> {
   return Promise.resolve(canvas);
 }
 
+const TABBABLE = "a[href], button, input, select, textarea, [tabindex]";
+
+/** Focusable controls. An `inert` ancestor removes the whole subtree. */
+function tabbableDescendants(root: ParentNode): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(TABBABLE)].filter((el) => {
+    if (el.closest("[inert]")) return false;
+    if (el.tabIndex < 0) return false;
+    if (el.matches(":disabled")) return false;
+    return true;
+  });
+}
+
+function pageHudPorts(raster: () => Promise<HTMLCanvasElement> = blankCanvas) {
+  return {
+    probe: async () => cleanProbe,
+    raster,
+    usable: async () => true,
+  };
+}
+
+function mockPanelBoxes(): void {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+    x: 4,
+    y: 6,
+    left: 4,
+    top: 6,
+    right: 80,
+    bottom: 40,
+    width: 76,
+    height: 34,
+    toJSON() {
+      return {};
+    },
+  });
+}
+
+function hostSlots(): NodeListOf<Element> {
+  return document.querySelectorAll(".clip-page-host-slot");
+}
+
 afterEach(() => {
   endClipPageHud();
   vi.restoreAllMocks();
@@ -141,5 +181,48 @@ describe("clip page HUD fallback", () => {
       usable: async () => false,
     });
     expect(session.mode).toBe("painted");
+  });
+});
+
+describe("clip page host slot", () => {
+  it("is inert and has no tabbable descendants while an export is mounted", async () => {
+    mockPanelBoxes();
+    await beginClipPageHud(replay(), 1080, 64, null, pageHudPorts());
+    const slot = hostSlots()[0];
+    expect(slot).toBeInstanceOf(HTMLElement);
+    expect(slot?.hasAttribute("inert")).toBe(true);
+    const buttons = [...(slot?.querySelectorAll("button") ?? [])].filter(
+      (button) => button.tabIndex >= 0,
+    );
+    expect(buttons.length).toBeGreaterThan(0);
+    expect(buttons.every((button) => button.closest("[inert]") === slot)).toBe(true);
+    expect(tabbableDescendants(slot!)).toEqual([]);
+  });
+
+  it("is removed after a successful export", async () => {
+    mockPanelBoxes();
+    await beginClipPageHud(replay(), 1080, 64, null, pageHudPorts());
+    expect(hostSlots()).toHaveLength(1);
+    endClipPageHud();
+    expect(hostSlots()).toHaveLength(0);
+  });
+
+  it("is removed when the first raster fails", async () => {
+    mockPanelBoxes();
+    const session = await beginClipPageHud(replay(), 1080, 64, null, {
+      ...pageHudPorts(async () => {
+        throw new Error("raster");
+      }),
+    });
+    expect(session.mode).toBe("painted");
+    expect(hostSlots()).toHaveLength(0);
+  });
+
+  it("is removed when the export is cancelled", async () => {
+    mockPanelBoxes();
+    const session = await beginClipPageHud(replay(), 1080, 64, null, pageHudPorts());
+    expect(hostSlots()).toHaveLength(1);
+    session.dispose();
+    expect(hostSlots()).toHaveLength(0);
   });
 });
