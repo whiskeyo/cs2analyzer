@@ -31,11 +31,7 @@ export function ClipFromPlantIcon() {
   return (
     <span className="clip-record-icon">
       <ClipRecordIcon />
-      <img
-        src={publicUrl("weapons/c4.svg")}
-        alt=""
-        className="clip-record-c4"
-      />
+      <img src={publicUrl("weapons/c4.svg")} alt="" className="clip-record-c4" />
     </span>
   );
 }

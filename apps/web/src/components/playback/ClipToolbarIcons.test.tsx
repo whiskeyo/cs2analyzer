@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import {
-  ClipCancelIcon,
-  ClipFromPlantIcon,
-  ClipRecordIcon,
-} from "./ClipToolbarIcons";
+import { ClipCancelIcon, ClipFromPlantIcon, ClipRecordIcon } from "./ClipToolbarIcons";
 
 describe("ClipToolbarIcons", () => {
   it("draws a film frame with a play mark", () => {
@@ -18,10 +14,7 @@ describe("ClipToolbarIcons", () => {
     const { container } = render(<ClipFromPlantIcon />);
     expect(container.querySelector("svg")).toBeInTheDocument();
     const badge = container.querySelector("img");
-    expect(badge).toHaveAttribute(
-      "src",
-      expect.stringContaining("weapons/c4.svg"),
-    );
+    expect(badge).toHaveAttribute("src", expect.stringContaining("weapons/c4.svg"));
     expect(badge).toHaveAttribute("alt", "");
   });
 
