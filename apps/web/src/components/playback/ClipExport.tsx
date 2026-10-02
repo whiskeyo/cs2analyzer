@@ -3,6 +3,7 @@ import {
   CLIP_EXPORT_FPS,
   CLIP_EXPORT_NO_PLANT,
   CLIP_EXPORT_PROGRESS,
+  CLIP_EXPORT_STAY_ON_TAB,
   CLIP_EXPORT_UNSUPPORTED,
 } from "@/lib/export/constants";
 import { probeClipEncoder } from "@/lib/export/clipEncodeSupport";
@@ -13,6 +14,7 @@ import {
   fullRoundSpan,
   plantTickInRound,
   postPlantSpan,
+  type ClipEncodePath,
 } from "@/lib/export/clipPlan";
 import { clipRoundSlug, type ClipSpan } from "@/lib/export/radarClip";
 import { runClipExport } from "@/lib/export/runClipExport";
@@ -77,6 +79,7 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
   const roundKey = round?.start_tick ?? null;
   const [open, setOpen] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [encodePath, setEncodePath] = useState<ClipEncodePath | null>(null);
   const [error, setError] = useState<ClipExportError | null>(null);
   const [progress, setProgress] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -106,6 +109,7 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
     abortRef.current = controller;
     setOpen(false);
     setError(null);
+    setEncodePath(null);
     setRecording(true);
     setProgress(0);
     const exportRound = roundKey;
@@ -117,6 +121,7 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
           setError({ roundKey: exportRound, message: CLIP_EXPORT_UNSUPPORTED });
           return;
         }
+        setEncodePath(active.path);
         await runClipExport({
           choice: active,
           span,
@@ -138,6 +143,7 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
         }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
+        setEncodePath(null);
         setRecording(false);
       }
     })();
@@ -161,6 +167,9 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
             value={progress}
             aria-label="Clip export progress"
           />
+          {encodePath === "media-recorder" ? (
+            <p className="clip-export-hint">{CLIP_EXPORT_STAY_ON_TAB}</p>
+          ) : null}
           <div className="clip-export-actions">
             <ClipButton
               label="Cancel"

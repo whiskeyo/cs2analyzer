@@ -6,6 +6,7 @@ import {
   CLIP_EXPORT_NO_PLANT,
   CLIP_EXPORT_NOT_READY,
   CLIP_EXPORT_PROGRESS,
+  CLIP_EXPORT_STAY_ON_TAB,
   CLIP_EXPORT_UNSUPPORTED,
 } from "@/lib/export/constants";
 import {
@@ -201,6 +202,7 @@ describe("ClipExport", () => {
     await user.click(screen.getByRole("button", { name: "Full round" }));
 
     expect(await screen.findByText(`${CLIP_EXPORT_PROGRESS} 40%`)).toBeInTheDocument();
+    expect(screen.queryByText(CLIP_EXPORT_STAY_ON_TAB)).not.toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "Clip export progress" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Full round" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Download clip" })).not.toBeInTheDocument();
@@ -305,6 +307,47 @@ describe("ClipExport", () => {
     expect(screen.queryByText(new RegExp(CLIP_EXPORT_PROGRESS))).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export clip" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Cancel clip export" })).not.toBeInTheDocument();
+  });
+
+  it("warns to stay on the tab only while the real-time recorder runs", async () => {
+    const user = userEvent.setup();
+    let releaseRecord: (blob: Blob) => void = () => {};
+    mocks.probe.mockResolvedValue({
+      path: "media-recorder",
+      mime: "video/webm;codecs=vp9",
+    });
+    mocks.record.mockImplementation(
+      () =>
+        new Promise<Blob>((resolve) => {
+          releaseRecord = resolve;
+        }),
+    );
+    render(<ClipExport {...props()} />);
+    await openMenu(user);
+    await user.click(screen.getByRole("button", { name: "Full round" }));
+
+    const hint = await screen.findByText(CLIP_EXPORT_STAY_ON_TAB);
+    const status = screen.getByRole("status", { name: "Radar clip export" });
+    const progress = within(status).getByRole("progressbar", { name: "Clip export progress" });
+    expect(status).toHaveTextContent(`${CLIP_EXPORT_PROGRESS} 0%`);
+    expect(progress.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+
+    releaseRecord(new Blob(["vid"], { type: "video/webm" }));
+    await waitFor(() =>
+      expect(screen.queryByText(CLIP_EXPORT_STAY_ON_TAB)).not.toBeInTheDocument(),
+    );
+
+    mocks.download.mockClear();
+    mocks.probe.mockResolvedValue(webcodecs());
+    const release = hangEncode();
+    await user.click(screen.getByRole("button", { name: "Export clip" }));
+    await user.click(screen.getByRole("button", { name: "Full round" }));
+    expect(await screen.findByText(`${CLIP_EXPORT_PROGRESS} 40%`)).toBeInTheDocument();
+    expect(screen.queryByText(CLIP_EXPORT_STAY_ON_TAB)).not.toBeInTheDocument();
+    release(new Blob(["vid"], { type: "video/mp4" }));
+    await waitFor(() => expect(mocks.download).toHaveBeenCalled());
   });
 
   it("records post plant in real time when H.264 is unavailable", async () => {

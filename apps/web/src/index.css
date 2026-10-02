@@ -4063,6 +4063,7 @@ button.link:hover:not(:disabled) {
   flex-direction: column;
   gap: 0.45rem;
 }
+.clip-export-hint,
 .clip-export-duration,
 .clip-export-error {
   margin: 0;
