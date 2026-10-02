@@ -91,3 +91,91 @@ export const MATCH_PDF_ECO_FORCE = "Force";
 export const MATCH_PDF_ECO_FULL = "Full buy";
 export const MATCH_PDF_ECO_KNIFE = "Knife";
 export const MATCH_PDF_EXPORT_ERROR = "Could not export PDF.";
+
+/** Offline radar clips are 30 fps. There is no faster export rate. */
+export const CLIP_EXPORT_FPS = 30;
+
+/** 16:9 radar clip. The stored preference is the frame height, not a square edge. */
+export const CLIP_EXPORT_ASPECT_WIDTH = 16;
+export const CLIP_EXPORT_ASPECT_HEIGHT = 9;
+export const CLIP_EXPORT_SIZE_DEFAULT = 1080;
+export const CLIP_EXPORT_SIZE_HIGH = 1440;
+export const CLIP_EXPORT_SIZES = [CLIP_EXPORT_SIZE_DEFAULT, CLIP_EXPORT_SIZE_HIGH] as const;
+export type ClipExportSize = (typeof CLIP_EXPORT_SIZES)[number];
+
+/** Pixel size of a clip. 1080 → 1920×1080, 1440 → 2560×1440. */
+export function clipExportFrame(height: number): { width: number; height: number } {
+  const frameHeight =
+    height >= CLIP_EXPORT_SIZE_HIGH ? CLIP_EXPORT_SIZE_HIGH : CLIP_EXPORT_SIZE_DEFAULT;
+  return {
+    width: (frameHeight / CLIP_EXPORT_ASPECT_HEIGHT) * CLIP_EXPORT_ASPECT_WIDTH,
+    height: frameHeight,
+  };
+}
+
+export function clipExportFrameLabel(height: number): string {
+  const frame = clipExportFrame(height);
+  return `${frame.width}×${frame.height}`;
+}
+
+/** WebCodecs `VideoFrame` timestamps are microseconds. */
+export const CLIP_TIMESTAMP_US = 1_000_000;
+
+/** Forced keyframe spacing for the offline H.264 encoder. */
+export const CLIP_EXPORT_KEYFRAME_SECONDS = 2;
+
+/** Frames kept in flight so a long round does not queue every bitmap. */
+export const CLIP_ENCODE_QUEUE_FRAMES = 3;
+
+/**
+ * Seconds after `Round.end_tick` kept when `playback_end_tick` is 0.
+ * `end_tick` is the win-status flip, so the round-deciding kill sits on it.
+ * A recorded win panel (`playback_end_tick`) replaces this fallback.
+ */
+export const CLIP_POST_ROUND_TAIL_SECONDS = 3;
+
+/** H.264 bitrates for a flat 2D radar at 30 fps. */
+export const CLIP_EXPORT_BITRATE_1080 = 12_000_000;
+export const CLIP_EXPORT_BITRATE_1440 = 20_000_000;
+
+/**
+ * AVC profiles probed with `VideoEncoder.isConfigSupported`, highest first.
+ * `mp4-muxer` needs `avc` (length-prefixed) output, not Annex B.
+ */
+export const CLIP_H264_CODECS = [
+  "avc1.640033",
+  "avc1.640032",
+  "avc1.640028",
+  "avc1.4d0033",
+  "avc1.4d0028",
+  "avc1.420033",
+  "avc1.420028",
+] as const;
+
+/** Longest continuous radar clip on the real-time MediaRecorder path. */
+export const CLIP_EXPORT_MAX_SECONDS = 30;
+
+/** Preset length for “last N seconds” in single playback. */
+export const CLIP_EXPORT_DEFAULT_SECONDS = 15;
+
+/** MediaRecorder target bitrate for a sharp 2D radar. */
+export const CLIP_EXPORT_VIDEO_BITS_PER_SECOND = 8_000_000;
+
+export const CLIP_EXPORT_NOT_READY = "Radar is not ready to record.";
+export const CLIP_EXPORT_UNSUPPORTED = "This browser cannot record video.";
+export const CLIP_EXPORT_FAILED = "Could not export the clip.";
+export const CLIP_EXPORT_EMPTY = "The recording was empty.";
+export const CLIP_EXPORT_TOO_SHORT = "Clip is too short.";
+export const CLIP_EXPORT_NO_CANVAS = "This browser cannot record a canvas.";
+/** Real-time capture is paced by timers, which a background tab throttles. */
+export const CLIP_EXPORT_STAY_ON_TAB = "Don't switch tabs while recording.";
+export const CLIP_EXPORT_TAB_HIDDEN =
+  "Recording stopped because this tab was hidden. Stay on this tab and export again.";
+/** Percent shown beside the clip progress bar (`0%`–`100%`). */
+export function clipExportPercent(ratio: number): string {
+  return `${Math.round(ratio * 100)}%`;
+}
+export const CLIP_EXPORT_CANCEL = "Cancel clip export";
+export const CLIP_EXPORT_NO_PLANT = "No plant in this round";
+export const CLIP_EXPORT_FULL_ROUND = "Export clip: full round";
+export const CLIP_EXPORT_FROM_PLANT = "Export clip: from plant";

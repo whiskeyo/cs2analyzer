@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { currentRound } from "@/lib/replay/sample";
-import { liveSituation, liveTeams } from "@/lib/stats/stats";
+import { liveSituation, liveTeams, roundHudLabel } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { prettyMap, winReasonLabel } from "@/lib/weapons/weapons";
 
@@ -32,7 +32,7 @@ export const Hud = memo(function Hud({ replay, tick }: Props) {
       </div>
       <div className="hud-meta">
         {prettyMap(replay.header.map_name)}
-        {round ? ` · ${round.is_knife ? "Knife" : `R${round.number}`}` : ""}
+        {round ? ` · ${roundHudLabel(round)}` : ""}
       </div>
       {sit.freeze != null && <div className="hud-freeze">Freeze {sit.freeze.toFixed(1)}s</div>}
       {sit.roundWin && (

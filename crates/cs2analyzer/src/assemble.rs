@@ -285,6 +285,7 @@ fn build_rounds(c: &Collector) -> Vec<Round> {
         let (end_tick, winner, reason) = round_conclusion(c, start, next_start);
         let playback_end_tick = playback_end_tick(c, start, end_tick, next_start);
         let (score_ct, score_t) = c.round_scores.get(&freeze).copied().unwrap_or((0, 0));
+        let round_time_s = c.round_times.get(&freeze).copied().unwrap_or(0);
         let max_ev = c.round_equip.get(&freeze).copied().unwrap_or(0);
         let gun_kill = c.kills.iter().any(|k| {
             k.tick >= start && k.tick <= end_tick && !crate::props::is_knife_weapon(&k.weapon)
@@ -301,6 +302,7 @@ fn build_rounds(c: &Collector) -> Vec<Round> {
             win_reason: reason,
             score_ct,
             score_t,
+            round_time_s,
             is_knife,
             team_ct,
             team_t,
@@ -765,6 +767,33 @@ mod tests {
         assert_eq!(rounds[0].playback_end_tick, 520);
         assert_eq!(rounds[1].end_tick, 1500);
         assert_eq!(rounds[1].playback_end_tick, 1520);
+    }
+
+    #[test]
+    fn round_time_comes_from_the_freeze_end_sample() {
+        let mut c = Collector::new(ParseOptions::default());
+        c.freeze_ends.push(100);
+        c.freeze_ends.push(1000);
+        c.round_times.insert(100, 90);
+        let rounds = build_rounds(&c);
+        assert_eq!(rounds[0].round_time_s, 90);
+        assert_eq!(rounds[1].round_time_s, 0);
+    }
+
+    #[test]
+    fn round_time_defaults_to_zero_when_json_omits_it() {
+        let json = r#"{
+            "number": 1,
+            "start_tick": 0,
+            "freeze_end_tick": 64,
+            "end_tick": 640,
+            "winner": null,
+            "win_reason": 0,
+            "score_ct": 0,
+            "score_t": 0
+        }"#;
+        let round: Round = serde_json::from_str(json).unwrap();
+        assert_eq!(round.round_time_s, 0);
     }
 
     #[test]
@@ -1390,6 +1419,7 @@ mod tests {
             win_reason: 0,
             score_ct: 0,
             score_t: 0,
+            round_time_s: 0,
             is_knife: false,
             team_ct: String::new(),
             team_t: String::new(),

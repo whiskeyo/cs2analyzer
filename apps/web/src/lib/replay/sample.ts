@@ -1,3 +1,5 @@
+import { tickRate } from "@/lib/shared/constants";
+import { interpolatePawn } from "@/lib/replay/interpolate";
 import {
   FLAG_ALIVE,
   FLAG_CT,
@@ -34,17 +36,6 @@ export interface SampledPlayer {
   reserve: number;
 }
 
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
-function lerpAngle(a: number, b: number, t: number): number {
-  let d = b - a;
-  while (d > 180) d -= 360;
-  while (d < -180) d += 360;
-  return a + d * t;
-}
-
 function frameAt(ticks: Uint32Array, tick: number): { i: number; t: number } {
   if (ticks.length === 0) return { i: 0, t: 0 };
   let lo = 0;
@@ -69,13 +60,32 @@ export function samplePlayer(replay: Replay, player: number, tick: number): Samp
   const j = Math.min(i + 1, buf.frameCount - 1);
   const a = i * pc + player;
   const b = j * pc + player;
-  const flags = buf.flags[a];
+  const pose = interpolatePawn(
+    {
+      x: buf.x[a],
+      y: buf.y[a],
+      z: buf.z[a],
+      yaw: buf.yaw[a],
+      flags: buf.flags[a],
+    },
+    {
+      x: buf.x[b],
+      y: buf.y[b],
+      z: buf.z[b],
+      yaw: buf.yaw[b],
+      flags: buf.flags[b],
+    },
+    t,
+    buf.ticks[j] - buf.ticks[i],
+    tickRate(replay),
+  );
+  const flags = pose.snapped ? buf.flags[b] : buf.flags[a];
   return {
     index: player,
-    x: lerp(buf.x[a], buf.x[b], t),
-    y: lerp(buf.y[a], buf.y[b], t),
-    z: lerp(buf.z[a], buf.z[b], t),
-    yaw: lerpAngle(buf.yaw[a], buf.yaw[b], t),
+    x: pose.x,
+    y: pose.y,
+    z: pose.z,
+    yaw: pose.yaw,
     health: buf.health[a],
     armor: buf.armor[a],
     present: (flags & FLAG_PRESENT) !== 0,

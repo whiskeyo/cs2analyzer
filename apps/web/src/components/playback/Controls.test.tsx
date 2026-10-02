@@ -94,6 +94,31 @@ describe("Controls", () => {
     renderControls(baseProps());
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
     expect(screen.getByText(/R1 Freeze/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export clip: full round" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export clip: from plant" })).toBeInTheDocument();
+  });
+
+  it("counts the live round clock down from 1:55", () => {
+    const { rerender } = renderControls(baseProps({ tick: 2 * tps }));
+    expect(screen.getByText(/R1 1:55/)).toBeInTheDocument();
+    rerender(baseProps({ tick: 12 * tps }));
+    expect(screen.getByText(/R1 1:45/)).toBeInTheDocument();
+  });
+
+  it("counts a parsed round length down from 1:30", () => {
+    const replay = makeReplay({
+      rounds: [
+        makeRound({
+          number: 1,
+          start_tick: 0,
+          freeze_end_tick: 2 * tps,
+          end_tick: 200 * tps,
+          round_time_s: 90,
+        }),
+      ],
+    });
+    renderControls(baseProps({ replay, tick: 2 * tps }));
+    expect(screen.getByText(/R1 1:30/)).toBeInTheDocument();
   });
 
   it("toggles play and pause", async () => {

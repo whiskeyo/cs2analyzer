@@ -123,6 +123,15 @@ pub(crate) fn gamerules_i32(ctx: &Context, name: &str) -> Option<i32> {
     }
 }
 
+/// Round length in seconds (`CCSGameRules.m_iRoundTime` via `m_pGameRules`).
+/// `0` when the proxy or the prop is missing, or the value is not positive.
+pub(crate) fn round_time_seconds(ctx: &Context) -> u32 {
+    match gamerules_i32(ctx, "m_pGameRules.m_iRoundTime") {
+        Some(seconds) if seconds > 0 => seconds as u32,
+        _ => 0,
+    }
+}
+
 pub(crate) fn gamerules_bool(ctx: &Context, name: &str) -> bool {
     let Ok(proxy) = ctx.entities().get_by_class_name("CCSGameRulesProxy") else {
         return false;

@@ -4,6 +4,14 @@
 export const DEFAULT_TICK_RATE = 64;
 
 /**
+ * Horizontal pawn speed, in units per second, above which playback and clip
+ * export draw the later sample instead of blending. The limit is this speed
+ * times the real tick gap, so a stride-4 step at 64 tick is 62.5 units.
+ * Vertical movement does not count.
+ */
+export const PAWN_INTERP_MAX_SPEED = 1000;
+
+/**
  * How often React HUD / scoreboard `tick` may change during playback.
  * The canvas rAF path reads `tickRef` at full rate.
  */
@@ -151,6 +159,9 @@ export const SERIES_TEAM_MERGE_MIN_STEAM_OVERLAP = 3;
 /** Overtime side-swap block length. */
 export const OVERTIME_BLOCK_ROUNDS = 3;
 
+/** One overtime is two MR3 blocks (CT and T). */
+export const OVERTIME_PERIOD_ROUNDS = OVERTIME_BLOCK_ROUNDS * 2;
+
 /**
  * Synthetic Steam IDs for GOTV / offline bots (`m_steamID == 0`).
  * Identity is `BOT_STEAM_ID_BASE + CCSPlayerController` entity index.
@@ -168,6 +179,12 @@ export function isBotSteamId(steamId: number): boolean {
 
 /** KAST / trade window: teammate kills the attacker. */
 export const TRADE_SECONDS = 5;
+
+/**
+ * Competitive defuse-map round length (`mp_roundtime_defuse`, 1:55).
+ * The HUD uses `Round.round_time_s` when the demo carried `m_iRoundTime`.
+ */
+export const ROUND_TIME_DEFUSE_S = 115;
 
 /** C4 fuse after plant. */
 export const BOMB_SECONDS = 40;
