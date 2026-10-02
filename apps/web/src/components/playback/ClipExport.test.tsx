@@ -409,4 +409,26 @@ describe("ClipExport", () => {
     expect(screen.queryByRole("button", { name: "Download clip" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export clip" })).toBeEnabled();
   });
+
+  it("closes the menu on Escape and returns focus to Clip", async () => {
+    const user = userEvent.setup();
+    render(<ClipExport {...props()} />);
+    await openMenu(user);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("region", { name: "Radar clip export" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export clip" })).toHaveFocus();
+  });
+
+  it("closes the menu on a click outside it", async () => {
+    const user = userEvent.setup();
+    render(
+      <div>
+        <button type="button">Outside</button>
+        <ClipExport {...props()} />
+      </div>,
+    );
+    await openMenu(user);
+    await user.click(screen.getByRole("button", { name: "Outside" }));
+    expect(screen.queryByRole("region", { name: "Radar clip export" })).not.toBeInTheDocument();
+  });
 });

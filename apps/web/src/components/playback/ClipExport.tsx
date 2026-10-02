@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import {
   CLIP_EXPORT_FPS,
   CLIP_EXPORT_NO_PLANT,
@@ -42,6 +42,7 @@ function ClipButton({
   disabled,
   pressed,
   title,
+  buttonRef,
   onClick,
 }: {
   label: string;
@@ -49,10 +50,12 @@ function ClipButton({
   disabled?: boolean;
   pressed?: boolean;
   title?: string;
+  buttonRef?: Ref<HTMLButtonElement>;
   onClick: () => void;
 }) {
   return (
     <button
+      ref={buttonRef}
       type="button"
       tabIndex={-1}
       aria-label={ariaLabel}
@@ -83,6 +86,8 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
   const [error, setError] = useState<ClipExportError | null>(null);
   const [progress, setProgress] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const clipButtonRef = useRef<HTMLButtonElement>(null);
 
   const roundIndex = round ? replay.rounds.indexOf(round) : -1;
   const nextStart = round ? clipNextRoundStart(replay.rounds, roundIndex) : null;
@@ -96,6 +101,26 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node) || rootRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      clipButtonRef.current?.focus();
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const toggle = () => {
     if (recording) return;
@@ -150,12 +175,13 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
   };
 
   return (
-    <div className="clip-export">
+    <div className="clip-export" ref={rootRef}>
       <ClipButton
         label="Clip"
         ariaLabel="Export clip"
         pressed={open}
         disabled={recording}
+        buttonRef={clipButtonRef}
         onClick={toggle}
       />
       {recording ? (
