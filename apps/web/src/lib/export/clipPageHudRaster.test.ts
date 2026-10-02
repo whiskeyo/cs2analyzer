@@ -20,9 +20,12 @@ describe("clip page HUD raster", () => {
     const layout = clipHudPanelLayoutCss(CLIP_HUD_PANEL_HUD);
     expect(layout).toContain("flex-direction:row");
     expect(layout).toContain(".hud-score");
-    expect(clipHudPanelLayoutCss(CLIP_HUD_PANEL_SCORE)).toBe("");
     const svg = clipPageHudSvg("", "<div class='radar-hud'></div>", 200, 40, "", layout);
     expect(svg).toContain("flex-direction:row");
+  });
+
+  it("lets the scoreboard use the full sidebar instead of the narrow-viewport cap", () => {
+    expect(clipHudPanelLayoutCss(CLIP_HUD_PANEL_SCORE)).toContain("max-height:none");
   });
 
   it("embeds the stylesheet and the panel markup in one foreignObject", () => {

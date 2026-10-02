@@ -4,7 +4,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { ClipPageHud } from "@/components/export/ClipPageHud";
 import { clipHudLayout, paintClipHud } from "@/lib/export/clipHud";
 import { CLIP_HUD_PROBE_PX, clipExportFrame } from "@/lib/export/constants";
-import { clipHudPanelLayoutCss, rasterClipPageNode } from "@/lib/export/clipPageHudRaster";
+import {
+  clipHudPanelLayoutCss,
+  fitClipScoreboard,
+  rasterClipPageNode,
+} from "@/lib/export/clipPageHudRaster";
 import {
   probeClipHudForeignObject,
   selectClipHudRenderer,
@@ -225,6 +229,7 @@ class ClipPageHudSession implements ClipPageHudController {
     this.render(tick, selected);
     const host = this.hostElement();
     if (!host) return;
+    if (dirty.includes(CLIP_HUD_PANEL_SCORE)) fitClipScoreboard(host);
     await Promise.all(dirty.map((panel) => this.rasterPanel(host, panel)));
     this.key = next;
   }

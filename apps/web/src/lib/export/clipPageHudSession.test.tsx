@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fitClipScoreboard } from "@/lib/export/clipPageHudRaster";
 import { beginClipPageHud } from "@/lib/export/clipPageHudSession";
 import { endClipPageHud } from "@/lib/export/clipPageHudBridge";
 import type { ClipHudProbe } from "@/lib/export/clipHudRaster";
@@ -38,6 +39,24 @@ function blankCanvas(): Promise<HTMLCanvasElement> {
 afterEach(() => {
   endClipPageHud();
   vi.restoreAllMocks();
+});
+
+describe("fitClipScoreboard", () => {
+  it("scales the table when both teams do not fit in the sidebar body", () => {
+    const host = document.createElement("div");
+    const body = document.createElement("div");
+    body.className = "sidebar-body";
+    const content = document.createElement("div");
+    body.appendChild(content);
+    host.appendChild(body);
+    Object.defineProperty(body, "clientHeight", { configurable: true, value: 100 });
+    Object.defineProperty(content, "scrollHeight", { configurable: true, value: 250 });
+    expect(fitClipScoreboard(host)).toBeCloseTo(0.4);
+    expect(content.style.transform).toBe("scale(0.4)");
+    Object.defineProperty(content, "scrollHeight", { configurable: true, value: 80 });
+    expect(fitClipScoreboard(host)).toBe(1);
+    expect(content.style.transform).toBe("");
+  });
 });
 
 describe("clip page HUD fallback", () => {

@@ -1,4 +1,8 @@
-import { CLIP_HUD_PANEL_HUD, type ClipHudPanel } from "@/lib/export/clipPageHudKey";
+import {
+  CLIP_HUD_PANEL_HUD,
+  CLIP_HUD_PANEL_SCORE,
+  type ClipHudPanel,
+} from "@/lib/export/clipPageHudKey";
 
 /**
  * Draw a clip HUD panel through an SVG `foreignObject`.
@@ -69,15 +73,50 @@ function documentCss(): string {
  * left-align the score and the round clock used to sit on that line.
  * The page Hud is a centered row: team score, alive count, team score.
  */
+const HUD_LAYOUT_CSS = [
+  ".radar-hud{position:relative !important;top:auto !important;left:auto !important;right:auto !important;transform:none !important;",
+  "display:flex !important;flex-direction:column !important;align-items:center !important;text-align:center !important;",
+  "width:max-content !important;max-width:100% !important;gap:0.25rem !important}",
+  ".hud-score{display:flex !important;flex-direction:row !important;flex-wrap:nowrap !important;",
+  "align-items:baseline !important;gap:0.7rem !important;white-space:nowrap !important}",
+].join("");
+
+/**
+ * The scoreboard SVG is sidebar-width, so the 900px rule's `max-height: 40vh`
+ * was cutting Team Vitality off. Stretch the column to the measured slot.
+ */
+const SCORE_LAYOUT_CSS = [
+  ".sidebar{display:flex !important;flex-direction:column !important;max-height:none !important;",
+  "height:100% !important;overflow:hidden !important;grid-template-rows:none !important}",
+  ".tabs{flex:0 0 auto !important}",
+  ".sidebar-body{display:block !important;flex:1 1 auto !important;min-height:0 !important;",
+  "max-height:none !important;overflow:hidden !important}",
+].join("");
+
 export function clipHudPanelLayoutCss(panel: ClipHudPanel): string {
-  if (panel !== CLIP_HUD_PANEL_HUD) return "";
-  return [
-    ".radar-hud{position:relative !important;top:auto !important;left:auto !important;right:auto !important;transform:none !important;",
-    "display:flex !important;flex-direction:column !important;align-items:center !important;text-align:center !important;",
-    "width:max-content !important;max-width:100% !important;gap:0.25rem !important}",
-    ".hud-score{display:flex !important;flex-direction:row !important;flex-wrap:nowrap !important;",
-    "align-items:baseline !important;gap:0.7rem !important;white-space:nowrap !important}",
-  ].join("");
+  if (panel === CLIP_HUD_PANEL_HUD) return HUD_LAYOUT_CSS;
+  if (panel === CLIP_HUD_PANEL_SCORE) return SCORE_LAYOUT_CSS;
+  return "";
+}
+
+/**
+ * Shrink the scoreboard table so both teams fit in the sidebar body.
+ * Returns 1 when the rows already fit.
+ */
+export function fitClipScoreboard(host: ParentNode): number {
+  const body = host.querySelector(".sidebar-body");
+  const content = body?.firstElementChild;
+  if (!(body instanceof HTMLElement) || !(content instanceof HTMLElement)) return 1;
+  content.style.transform = "";
+  content.style.width = "";
+  const available = body.clientHeight;
+  const needed = content.scrollHeight;
+  if (available < 1 || needed <= available) return 1;
+  const scale = available / needed;
+  content.style.transformOrigin = "top left";
+  content.style.transform = `scale(${scale})`;
+  content.style.width = `${(1 / scale) * 100}%`;
+  return scale;
 }
 
 /**
