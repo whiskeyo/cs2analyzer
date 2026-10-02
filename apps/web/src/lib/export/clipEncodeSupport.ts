@@ -1,5 +1,5 @@
 import {
-  CLIP_EXPORT_FPS_DEFAULT,
+  CLIP_EXPORT_FPS,
   CLIP_H264_CODECS,
   CLIP_EXPORT_SIZE_DEFAULT,
 } from "@/lib/export/constants";
@@ -70,13 +70,13 @@ export interface ClipEncoderProbeDeps {
  */
 export async function probeClipEncoder(
   size = CLIP_EXPORT_SIZE_DEFAULT,
-  fps = CLIP_EXPORT_FPS_DEFAULT,
   deps: ClipEncoderProbeDeps = {},
 ): Promise<ClipEncoderChoice | null> {
   const hasVideoEncoder =
     deps.hasVideoEncoder ??
     (typeof VideoEncoder !== "undefined" && typeof VideoEncoder.isConfigSupported === "function");
-  const bitrate = clipExportBitrate(size, fps);
+  const bitrate = clipExportBitrate(size);
+  const fps = CLIP_EXPORT_FPS;
   let h264 = false;
   let codec: string | null = null;
   if (hasVideoEncoder) {

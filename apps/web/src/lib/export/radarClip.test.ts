@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   CLIP_EXPORT_EMPTY,
-  CLIP_EXPORT_FPS_DEFAULT,
-  CLIP_EXPORT_FPS_SMOOTH,
+  CLIP_EXPORT_FPS,
   CLIP_EXPORT_MAX_SECONDS,
   CLIP_EXPORT_NO_CANVAS,
   CLIP_EXPORT_TOO_SHORT,
@@ -139,16 +138,13 @@ describe("clip frames", () => {
   it("samples a continuous 30 fps tick range when fps is omitted", () => {
     const span = { startTick: 1000, endTick: 1000 + 15 * RATE };
     const ticks = clipFrameTicks(span, RATE);
-    expect(ticks).toHaveLength(15 * CLIP_EXPORT_FPS_DEFAULT);
-    expect(CLIP_EXPORT_FPS_DEFAULT).toBe(30);
+    expect(ticks).toHaveLength(15 * CLIP_EXPORT_FPS);
+    expect(CLIP_EXPORT_FPS).toBe(30);
     expect(ticks[0]).toBe(1000);
     expect(ticks[ticks.length - 1]).toBeLessThan(span.endTick);
     for (let i = 1; i < ticks.length; i++) {
-      expect(ticks[i] - ticks[i - 1]).toBeCloseTo(RATE / CLIP_EXPORT_FPS_DEFAULT);
+      expect(ticks[i] - ticks[i - 1]).toBeCloseTo(RATE / CLIP_EXPORT_FPS);
     }
-    expect(clipFrameTicks(span, RATE, CLIP_EXPORT_FPS_SMOOTH)).toHaveLength(
-      15 * CLIP_EXPORT_FPS_SMOOTH,
-    );
     expect(clipFrameTicks({ startTick: 5, endTick: 5 }, RATE)).toEqual([]);
   });
 });
@@ -218,7 +214,7 @@ describe("recordRadarClip", () => {
     expect(requestFrame).toHaveBeenCalledTimes(ticks.length);
     expect(painted).toEqual([10, 10, 11, 12]);
     expect(time.sleeps).toHaveLength(ticks.length);
-    expect(time.sleeps[0]).toBeCloseTo(1000 / CLIP_EXPORT_FPS_DEFAULT);
+    expect(time.sleeps[0]).toBeCloseTo(1000 / CLIP_EXPORT_FPS);
     expect(recorder.bits).toBe(CLIP_EXPORT_VIDEO_BITS_PER_SECOND);
     expect(blob.size).toBeGreaterThan(0);
     expect(blob.type).toContain("webm");
@@ -237,13 +233,13 @@ describe("recordRadarClip", () => {
       sleep: time.sleep,
       createRecorder: (_stream, mime, bits) => new FakeRecorder(bits, mime),
     });
-    expect(captureStream.mock.calls.map((call) => call[0])).toEqual([0, CLIP_EXPORT_FPS_DEFAULT]);
+    expect(captureStream.mock.calls.map((call) => call[0])).toEqual([0, CLIP_EXPORT_FPS]);
   });
 
   it("holds each frame so 30 fps and 60 fps last as long as the demo span", async () => {
     const span = { startTick: 0, endTick: 2578 };
     const demoMs = clipSpanDurationUs(span, RATE) / 1000;
-    for (const fps of [CLIP_EXPORT_FPS_DEFAULT, CLIP_EXPORT_FPS_SMOOTH]) {
+    for (const fps of [CLIP_EXPORT_FPS, 60]) {
       const clock = clipFrameClock(span, RATE, fps);
       const { canvas } = fakeCanvas(true);
       const time = clocked();
@@ -261,23 +257,6 @@ describe("recordRadarClip", () => {
       const held = time.sleeps.reduce((sum, ms) => sum + ms, 0);
       expect(held).toBeCloseTo(demoMs, 5);
     }
-  });
-
-  it("paces at 60 fps when the caller asks for it", async () => {
-    const { canvas, captureStream } = fakeCanvas(false);
-    const time = clocked();
-    await recordRadarClip({
-      canvas,
-      ticks: [1],
-      fps: CLIP_EXPORT_FPS_SMOOTH,
-      mimeType: "video/webm",
-      paintAt: () => {},
-      now: time.now,
-      sleep: time.sleep,
-      createRecorder: (_stream, mime, bits) => new FakeRecorder(bits, mime),
-    });
-    expect(time.sleeps[0]).toBeCloseTo(1000 / CLIP_EXPORT_FPS_SMOOTH);
-    expect(captureStream.mock.calls.map((call) => call[0])).toEqual([0, CLIP_EXPORT_FPS_SMOOTH]);
   });
 
   it("cancels without a blob when the signal aborts", async () => {

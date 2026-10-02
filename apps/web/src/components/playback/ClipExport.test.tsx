@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
-  CLIP_EXPORT_FPS_DEFAULT,
+  CLIP_EXPORT_FPS,
   CLIP_EXPORT_NO_EXECUTE,
   CLIP_EXPORT_NO_KILL,
   CLIP_EXPORT_NO_PLANT,
@@ -71,7 +71,7 @@ vi.mock("@/lib/radar/radarClipSurface", () => ({
 
 const RATE = 64;
 
-function webcodecs(fps = CLIP_EXPORT_FPS_DEFAULT, size = 1080) {
+function webcodecs(fps = CLIP_EXPORT_FPS, size = 1080) {
   return {
     path: "webcodecs" as const,
     codec: "avc1.640028",
@@ -211,13 +211,12 @@ describe("ClipExport", () => {
     expect(screen.getByRole("button", { name: "Download clip" })).toBeEnabled();
   });
 
-  it("downloads an offline clip at the preference size and frame rate", async () => {
+  it("downloads an offline clip at the preference size and 30 fps", async () => {
     const user = userEvent.setup();
     const settings = defaultUserSettings();
     settings.clipExportSize = 1440;
-    settings.clipExportFps = 60;
     mocks.settings.mockReturnValue(settingsApi(settings));
-    mocks.probe.mockResolvedValue(webcodecs(60, 1440));
+    mocks.probe.mockResolvedValue(webcodecs(CLIP_EXPORT_FPS, 1440));
     const onPlaying = vi.fn();
     let release: (blob: Blob) => void = () => {};
     mocks.encode.mockImplementation(
@@ -229,7 +228,7 @@ describe("ClipExport", () => {
     );
     render(<ClipExport {...props({ onPlaying })} />);
     await openPanel(user);
-    expect(screen.getByText("1440×1440 · 60 fps · encoded on this device")).toBeInTheDocument();
+    expect(screen.getByText("1440×1440 · 30 fps · encoded on this device")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Download clip" }));
     expect(
       await screen.findByRole("progressbar", { name: "Clip export progress" }),
@@ -243,9 +242,9 @@ describe("ClipExport", () => {
       fps: number;
     };
     expect(recorded.size).toBe(1440);
-    expect(recorded.fps).toBe(60);
+    expect(recorded.fps).toBe(CLIP_EXPORT_FPS);
     const coverTicks = 90 * RATE + 3 * RATE + 1 - 2 * RATE;
-    expect(recorded.ticks).toHaveLength(Math.round((coverTicks / RATE) * 60));
+    expect(recorded.ticks).toHaveLength(Math.round((coverTicks / RATE) * CLIP_EXPORT_FPS));
     expect(recorded.ticks[0]).toBeLessThan(recorded.ticks[1]!);
     expect(onPlaying).toHaveBeenCalledWith(false);
     expect(mocks.hold).toHaveBeenCalledWith(true);
@@ -299,7 +298,7 @@ describe("ClipExport", () => {
       ticks: number[];
       mimeType: string;
     };
-    expect(recorded.ticks).toHaveLength(10 * CLIP_EXPORT_FPS_DEFAULT);
+    expect(recorded.ticks).toHaveLength(10 * CLIP_EXPORT_FPS);
     expect(recorded.mimeType).toBe("video/webm;codecs=vp9");
     expect(mocks.encode).not.toHaveBeenCalled();
   });

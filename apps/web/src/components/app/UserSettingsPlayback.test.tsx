@@ -25,18 +25,15 @@ describe("clip export preferences", () => {
     await clearUserSettingsForTests();
   });
 
-  it("persists radar clip resolution and frame rate", async () => {
+  it("persists radar clip resolution", async () => {
     renderModal();
     const size = await screen.findByLabelText("Clip resolution");
-    const fps = screen.getByLabelText("Clip frame rate");
     expect(size).toHaveValue("1080");
-    expect(fps).toHaveValue("30");
+    expect(screen.queryByLabelText("Clip frame rate")).not.toBeInTheDocument();
     fireEvent.change(size, { target: { value: "1440" } });
-    fireEvent.change(fps, { target: { value: "60" } });
     await waitFor(async () => {
       const stored = await loadUserSettings();
       expect(stored.clipExportSize).toBe(1440);
-      expect(stored.clipExportFps).toBe(60);
     });
   });
 });

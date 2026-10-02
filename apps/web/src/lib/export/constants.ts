@@ -92,11 +92,8 @@ export const MATCH_PDF_ECO_FULL = "Full buy";
 export const MATCH_PDF_ECO_KNIFE = "Knife";
 export const MATCH_PDF_EXPORT_ERROR = "Could not export PDF.";
 
-/** Offline export frame rate. 60 interpolates between sampled ticks. */
-export const CLIP_EXPORT_FPS_DEFAULT = 30;
-export const CLIP_EXPORT_FPS_SMOOTH = 60;
-export const CLIP_EXPORT_FPS_OPTIONS = [CLIP_EXPORT_FPS_DEFAULT, CLIP_EXPORT_FPS_SMOOTH] as const;
-export type ClipExportFps = (typeof CLIP_EXPORT_FPS_OPTIONS)[number];
+/** Offline radar clips are 30 fps. There is no faster export rate. */
+export const CLIP_EXPORT_FPS = 30;
 
 /** Square radar file. The bitmap does not follow the window. */
 export const CLIP_EXPORT_SIZE_DEFAULT = 1080;
@@ -127,7 +124,7 @@ export const CLIP_KILL_AFTER_SECONDS = 3;
  */
 export const CLIP_POST_ROUND_TAIL_SECONDS = 3;
 
-/** H.264 bitrates for a flat 2D radar. 60 fps doubles the 30 fps rate. */
+/** H.264 bitrates for a flat 2D radar at 30 fps. */
 export const CLIP_EXPORT_BITRATE_1080 = 12_000_000;
 export const CLIP_EXPORT_BITRATE_1440 = 20_000_000;
 

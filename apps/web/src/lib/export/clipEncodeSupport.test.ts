@@ -30,7 +30,7 @@ describe("H.264 config probe", () => {
   });
 
   it("falls back when VideoEncoder or the H.264 config is missing", async () => {
-    const offline = await probeClipEncoder(1440, 60, {
+    const offline = await probeClipEncoder(1440, {
       hasVideoEncoder: true,
       isConfigSupported: async (config) => config.codec === "avc1.640033",
       mediaRecorderMime: "video/webm",
@@ -40,10 +40,10 @@ describe("H.264 config probe", () => {
       codec: "avc1.640033",
       width: 1440,
       height: 1440,
-      fps: 60,
+      fps: 30,
     });
 
-    const realtime = await probeClipEncoder(1080, 30, {
+    const realtime = await probeClipEncoder(1080, {
       hasVideoEncoder: true,
       isConfigSupported: async () => false,
       mediaRecorderMime: "video/webm;codecs=vp9",
@@ -53,14 +53,14 @@ describe("H.264 config probe", () => {
       mime: "video/webm;codecs=vp9",
     });
 
-    const noEncoder = await probeClipEncoder(1080, 30, {
+    const noEncoder = await probeClipEncoder(1080, {
       hasVideoEncoder: false,
       mediaRecorderMime: "video/mp4",
     });
     expect(noEncoder?.path).toBe("media-recorder");
 
     expect(
-      await probeClipEncoder(1080, 30, {
+      await probeClipEncoder(1080, {
         hasVideoEncoder: false,
         mediaRecorderMime: null,
       }),

@@ -2,7 +2,7 @@ import {
   CLIP_EXPORT_DEFAULT_SECONDS,
   CLIP_EXPORT_EMPTY,
   CLIP_EXPORT_FAILED,
-  CLIP_EXPORT_FPS_DEFAULT,
+  CLIP_EXPORT_FPS,
   CLIP_EXPORT_MAX_SECONDS,
   CLIP_EXPORT_NO_CANVAS,
   CLIP_EXPORT_TOO_SHORT,
@@ -136,8 +136,8 @@ export interface ClipFrameClock {
 
 /**
  * One sample tick per video frame, spaced across the span.
- * Frame timestamps partition the demo duration, so 30 fps and 60 fps files
- * of the same span have the same length: `(endTick - startTick) / rate`.
+ * Frame timestamps partition the demo duration, so the file lasts
+ * `(endTick - startTick) / rate`. Export is {@link CLIP_EXPORT_FPS}.
  * Fractional ticks fall between `tick_stride` samples; `samplePlayer` blends
  * those the same way live playback does, and snaps across a death or teleport.
  */
@@ -164,11 +164,7 @@ export function clipFrameClock(span: ClipSpan, rate: number, fps: number): ClipF
 }
 
 /** One sample tick per video frame. Stays strictly inside `[start, end)`. */
-export function clipFrameTicks(
-  span: ClipSpan,
-  rate: number,
-  fps = CLIP_EXPORT_FPS_DEFAULT,
-): number[] {
+export function clipFrameTicks(span: ClipSpan, rate: number, fps = CLIP_EXPORT_FPS): number[] {
   return clipFrameClock(span, rate, fps).ticks;
 }
 
@@ -317,7 +313,7 @@ export async function recordRadarClip(options: RecordRadarClipOptions): Promise<
     onFrame,
     signal,
     holdMs,
-    fps = CLIP_EXPORT_FPS_DEFAULT,
+    fps = CLIP_EXPORT_FPS,
     videoBitsPerSecond = CLIP_EXPORT_VIDEO_BITS_PER_SECOND,
     now = () => performance.now(),
     sleep = sleepMs,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLIP_EXPORT_FPS_DEFAULT, CLIP_EXPORT_FPS_SMOOTH } from "@/lib/export/constants";
+import { CLIP_EXPORT_FPS } from "@/lib/export/constants";
 import {
   aroundKillSpan,
   clipExportBitrate,
@@ -42,7 +42,7 @@ function round(freezeSec: number, endSec: number) {
 describe("clip frames", () => {
   it("counts frames as duration times fps and keeps timestamps monotonic", () => {
     const span = { startTick: 1000, endTick: 1000 + 10 * RATE };
-    for (const fps of [CLIP_EXPORT_FPS_DEFAULT, CLIP_EXPORT_FPS_SMOOTH]) {
+    for (const fps of [CLIP_EXPORT_FPS, 60]) {
       const { ticks, timestamps } = clipFrameSchedule(span, RATE, fps);
       expect(ticks).toHaveLength(10 * fps);
       expect(timestamps).toHaveLength(10 * fps);
@@ -62,18 +62,14 @@ describe("clip frames", () => {
     const demoUs = Math.round((2578 * 1_000_000) / RATE);
     expect(clipSpanDurationUs(span, RATE)).toBe(demoUs);
     expect(demoUs / 1_000_000).toBeCloseTo(40.28125, 5);
-    for (const fps of [CLIP_EXPORT_FPS_DEFAULT, CLIP_EXPORT_FPS_SMOOTH]) {
+    for (const fps of [CLIP_EXPORT_FPS, 60]) {
       expect(durationsOf(span, RATE, fps)).toBe(demoUs);
     }
   });
 
-  it("places 60 fps frames between tick_stride samples", () => {
+  it("places 30 fps frames between tick_stride samples", () => {
     const stride = 4;
-    const ticks = clipFrameSchedule(
-      { startTick: 0, endTick: RATE },
-      RATE,
-      CLIP_EXPORT_FPS_SMOOTH,
-    ).ticks;
+    const ticks = clipFrameSchedule({ startTick: 0, endTick: RATE }, RATE, CLIP_EXPORT_FPS).ticks;
     const between = ticks.filter((tick) => tick % stride !== 0);
     expect(between.length).toBeGreaterThan(ticks.length / 2);
     expect(clipFrameTimestamps(0, 30)).toEqual([]);
@@ -269,14 +265,10 @@ describe("clip encoder selection", () => {
     expect(clipSpanIssue(long, RATE, "webcodecs")).toBeNull();
     expect(clipSpanIssue(long, RATE, "media-recorder")).toBe("too-long");
     expect(clipSpanIssue({ startTick: 4, endTick: 4 }, RATE, "webcodecs")).toBe("empty");
-    expect(clipExportHint("media-recorder", 1080, 30)).toMatch(/real time/);
-    expect(clipExportHint("media-recorder", 1080, 30)).toMatch(/30 seconds/);
-    expect(clipExportHint("webcodecs", 1440, 60)).toBe(
-      "1440×1440 · 60 fps · encoded on this device",
-    );
-    expect(clipExportBitrate(1080, 30)).toBe(12_000_000);
-    expect(clipExportBitrate(1080, 60)).toBe(24_000_000);
-    expect(clipExportBitrate(1440, 30)).toBe(20_000_000);
-    expect(clipExportBitrate(1440, 60)).toBe(40_000_000);
+    expect(clipExportHint("media-recorder", 1080)).toMatch(/real time/);
+    expect(clipExportHint("media-recorder", 1080)).toMatch(/30 seconds/);
+    expect(clipExportHint("webcodecs", 1440)).toBe("1440×1440 · 30 fps · encoded on this device");
+    expect(clipExportBitrate(1080)).toBe(12_000_000);
+    expect(clipExportBitrate(1440)).toBe(20_000_000);
   });
 });

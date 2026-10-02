@@ -1,9 +1,6 @@
 import {
-  CLIP_EXPORT_FPS_DEFAULT,
-  CLIP_EXPORT_FPS_SMOOTH,
   CLIP_EXPORT_SIZE_DEFAULT,
   CLIP_EXPORT_SIZE_HIGH,
-  type ClipExportFps,
   type ClipExportSize,
 } from "@/lib/export/constants";
 import { clampLeadInSec, DEFAULT_LEAD_IN_SEC } from "@/lib/match/roundEvents";
@@ -106,8 +103,6 @@ export interface UserSettings {
   radarGray: number;
   /** Square radar clip edge in pixels. */
   clipExportSize: ClipExportSize;
-  /** Radar clip frames per second of demo time. */
-  clipExportFps: ClipExportFps;
   /**
    * Home skip / tour finish / don't-show-again. Missing key ≡ not completed,
    * so first-visit Home can idle-prefetch the Replay fixture.
@@ -181,7 +176,6 @@ export function defaultUserSettings(now = Date.now()): UserSettings {
     pdfPhotos: DEFAULT_PDF_PHOTOS,
     radarGray: DEFAULT_RADAR_GRAY,
     clipExportSize: CLIP_EXPORT_SIZE_DEFAULT,
-    clipExportFps: CLIP_EXPORT_FPS_DEFAULT,
     tutorialCompleted: false,
   };
 }
@@ -259,10 +253,6 @@ function parseDefaultSidebarTab(value: unknown): DefaultSidebarTab {
 
 function parseClipExportSize(value: unknown): ClipExportSize {
   return value === CLIP_EXPORT_SIZE_HIGH ? CLIP_EXPORT_SIZE_HIGH : CLIP_EXPORT_SIZE_DEFAULT;
-}
-
-function parseClipExportFps(value: unknown): ClipExportFps {
-  return value === CLIP_EXPORT_FPS_SMOOTH ? CLIP_EXPORT_FPS_SMOOTH : CLIP_EXPORT_FPS_DEFAULT;
 }
 
 function parseBoolean(value: unknown, fallback: boolean): boolean {
@@ -377,7 +367,6 @@ export function parseUserSettings(raw: unknown): UserSettings {
       defaults.radarGray,
     ),
     clipExportSize: parseClipExportSize(raw.clipExportSize),
-    clipExportFps: parseClipExportFps(raw.clipExportFps),
     tutorialCompleted: parseBoolean(raw.tutorialCompleted, defaults.tutorialCompleted),
   };
 }

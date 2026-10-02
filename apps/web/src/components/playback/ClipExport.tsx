@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CLIP_EXPORT_CHECKING,
+  CLIP_EXPORT_FPS,
   CLIP_EXPORT_NO_EXECUTE,
   CLIP_EXPORT_NO_KILL,
   CLIP_EXPORT_NO_PLANT,
@@ -94,7 +95,7 @@ function ClipButton({
 export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPlaying }: Props) {
   const { settings } = useUserSettings();
   const size = settings.clipExportSize;
-  const fps = settings.clipExportFps;
+  const fps = CLIP_EXPORT_FPS;
   const rate = tickRate(replay);
   const scrub = boundsOf(minTick, maxTick);
   const roundKey = round?.start_tick ?? null;
@@ -149,7 +150,7 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    void probeClipEncoder(size, fps).then((next) => {
+    void probeClipEncoder(size).then((next) => {
       if (!cancelled) setChoice(next);
     });
     return () => {
@@ -240,7 +241,7 @@ export function ClipExport({ replay, tick, round, minTick, maxTick, onTick, onPl
       ? CLIP_EXPORT_CHECKING
       : choice == null
         ? CLIP_EXPORT_UNSUPPORTED
-        : clipExportHint(choice.path, size, fps);
+        : clipExportHint(choice.path, size);
   const status = recording
     ? path === "media-recorder"
       ? `Recording ${formatClipDuration(progress * seconds)} / ${formatClipDuration(seconds)}`

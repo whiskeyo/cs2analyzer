@@ -149,7 +149,7 @@ describe("encodeRadarClip", () => {
     await expect(
       encodeRadarClip({
         size: 1440,
-        fps: 60,
+        fps: 30,
         ticks: [1, 2],
         codec: "avc1.640033",
         bitrate: 1,

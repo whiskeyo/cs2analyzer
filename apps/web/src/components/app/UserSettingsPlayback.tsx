@@ -1,9 +1,6 @@
 import {
-  CLIP_EXPORT_FPS_DEFAULT,
-  CLIP_EXPORT_FPS_SMOOTH,
   CLIP_EXPORT_SIZE_DEFAULT,
   CLIP_EXPORT_SIZE_HIGH,
-  type ClipExportFps,
   type ClipExportSize,
 } from "@/lib/export/constants";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
@@ -60,26 +57,7 @@ export function UserSettingsPlayback({
           <option value={CLIP_EXPORT_SIZE_HIGH}>1440×1440</option>
         </select>
       </label>
-      <label className="settings-field">
-        <span>Clip frame rate</span>
-        <select
-          aria-label="Clip frame rate"
-          value={settings.clipExportFps}
-          onChange={(e) => {
-            const fps: ClipExportFps =
-              Number(e.target.value) === CLIP_EXPORT_FPS_SMOOTH
-                ? CLIP_EXPORT_FPS_SMOOTH
-                : CLIP_EXPORT_FPS_DEFAULT;
-            void update({ clipExportFps: fps });
-          }}
-        >
-          <option value={CLIP_EXPORT_FPS_DEFAULT}>30 fps</option>
-          <option value={CLIP_EXPORT_FPS_SMOOTH}>60 fps</option>
-        </select>
-      </label>
-      <p className="settings-hint">
-        Square radar clips. 60 fps interpolates between demo samples. Applies to the next export.
-      </p>
+      <p className="settings-hint">Square radar clips at 30 fps. Applies to the next export.</p>
       <label className="settings-field">
         <span>Event lead-in</span>
         <input

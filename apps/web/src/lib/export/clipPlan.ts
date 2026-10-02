@@ -1,7 +1,7 @@
 import {
   CLIP_EXPORT_BITRATE_1080,
   CLIP_EXPORT_BITRATE_1440,
-  CLIP_EXPORT_FPS_DEFAULT,
+  CLIP_EXPORT_FPS,
   CLIP_EXPORT_MAX_SECONDS,
   CLIP_EXPORT_REALTIME_HINT,
   CLIP_EXPORT_SIZE_HIGH,
@@ -226,15 +226,13 @@ export function clipExportMaxSeconds(path: ClipEncodePath | null): number | null
   return path === "media-recorder" ? CLIP_EXPORT_MAX_SECONDS : null;
 }
 
-export function clipExportBitrate(size: number, fps: number): number {
-  const base = size >= CLIP_EXPORT_SIZE_HIGH ? CLIP_EXPORT_BITRATE_1440 : CLIP_EXPORT_BITRATE_1080;
-  const scale = fps > 0 ? fps / CLIP_EXPORT_FPS_DEFAULT : 1;
-  return Math.round(base * scale);
+export function clipExportBitrate(size: number): number {
+  return size >= CLIP_EXPORT_SIZE_HIGH ? CLIP_EXPORT_BITRATE_1440 : CLIP_EXPORT_BITRATE_1080;
 }
 
-export function clipExportHint(path: ClipEncodePath, size: number, fps: number): string {
+export function clipExportHint(path: ClipEncodePath, size: number): string {
   if (path === "media-recorder") return CLIP_EXPORT_REALTIME_HINT;
-  return `${size}×${size} · ${fps} fps · encoded on this device`;
+  return `${size}×${size} · ${CLIP_EXPORT_FPS} fps · encoded on this device`;
 }
 
 /** Frame count is duration × fps. Timestamps partition the demo span. */
