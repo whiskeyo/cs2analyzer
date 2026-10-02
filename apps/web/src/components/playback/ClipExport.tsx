@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type Ref } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CLIP_EXPORT_FPS,
+  CLIP_EXPORT_FROM_PLANT,
+  CLIP_EXPORT_FULL_ROUND,
   CLIP_EXPORT_NO_PLANT,
-  CLIP_EXPORT_PROGRESS,
-  CLIP_EXPORT_STAY_ON_TAB,
   CLIP_EXPORT_UNSUPPORTED,
 } from "@/lib/export/constants";
 import { probeClipEncoder } from "@/lib/export/clipEncodeSupport";
@@ -14,14 +14,13 @@ import {
   fullRoundSpan,
   plantTickInRound,
   postPlantSpan,
-  type ClipEncodePath,
 } from "@/lib/export/clipPlan";
 import { clipRoundSlug, type ClipSpan } from "@/lib/export/radarClip";
 import { runClipExport } from "@/lib/export/runClipExport";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import { tickRate } from "@/lib/shared/constants";
-import { blockTransportFocus } from "@/lib/playback/transportFocus";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
+import { ClipFromPlantIcon, ClipRecordIcon } from "./ClipToolbarIcons";
 
 interface Props {
   replay: Replay;
@@ -36,58 +35,15 @@ interface ClipExportError {
   message: string;
 }
 
-function ClipButton({
-  label,
-  ariaLabel,
-  disabled,
-  pressed,
-  title,
-  buttonRef,
-  onClick,
-}: {
-  label: string;
-  ariaLabel?: string;
-  disabled?: boolean;
-  pressed?: boolean;
-  title?: string;
-  buttonRef?: Ref<HTMLButtonElement>;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      ref={buttonRef}
-      type="button"
-      tabIndex={-1}
-      aria-label={ariaLabel}
-      aria-pressed={pressed}
-      disabled={disabled}
-      title={title}
-      onMouseDown={blockTransportFocus}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
-}
-
-function progressLabel(ratio: number): string {
-  return `${CLIP_EXPORT_PROGRESS} ${Math.round(ratio * 100)}%`;
-}
-
 export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
   const { settings } = useUserSettings();
   const size = settings.clipExportSize;
   const fps = CLIP_EXPORT_FPS;
   const rate = tickRate(replay);
   const roundKey = round?.start_tick ?? null;
-  const [open, setOpen] = useState(false);
   const [recording, setRecording] = useState(false);
-  const [encodePath, setEncodePath] = useState<ClipEncodePath | null>(null);
   const [error, setError] = useState<ClipExportError | null>(null);
-  const [progress, setProgress] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const clipButtonRef = useRef<HTMLButtonElement>(null);
 
   const roundIndex = round ? replay.rounds.indexOf(round) : -1;
   const nextStart = round ? clipNextRoundStart(replay.rounds, roundIndex) : null;
@@ -95,48 +51,19 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
   const cover = round ? clipRoundCover(round, rate, nextStart, sampleEnd) : null;
   const plantAt = round ? plantTickInRound(replay.bombEvents, round) : null;
   const postPlant = cover ? postPlantSpan(cover, plantAt) : null;
-  const visibleError =
-    error && error.roundKey === roundKey && !open && !recording ? error.message : null;
+  const visibleError = error && error.roundKey === roundKey && !recording ? error.message : null;
 
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node) || rootRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      clipButtonRef.current?.focus();
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const toggle = () => {
-    if (recording) return;
-    setOpen((prev) => !prev);
-  };
 
   const begin = (span: ClipSpan) => {
     if (recording) return;
     const controller = new AbortController();
     abortRef.current?.abort();
     abortRef.current = controller;
-    setOpen(false);
     setError(null);
-    setEncodePath(null);
     setRecording(true);
-    setProgress(0);
     const exportRound = roundKey;
     void (async () => {
       try {
@@ -146,7 +73,6 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
           setError({ roundKey: exportRound, message: CLIP_EXPORT_UNSUPPORTED });
           return;
         }
-        setEncodePath(active.path);
         await runClipExport({
           choice: active,
           span,
@@ -157,7 +83,7 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
           roundSlug: clipRoundSlug(round),
           restoreTick: tick,
           onTick,
-          onProgress: setProgress,
+          onProgress: () => undefined,
           onPlaying,
           signal: controller.signal,
         });
@@ -168,79 +94,41 @@ export function ClipExport({ replay, tick, round, onTick, onPlaying }: Props) {
         }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
-        setEncodePath(null);
         setRecording(false);
       }
     })();
   };
 
   return (
-    <div className="clip-export" ref={rootRef}>
-      <ClipButton
-        label="Clip"
-        ariaLabel="Export clip"
-        pressed={open}
-        disabled={recording}
-        buttonRef={clipButtonRef}
-        onClick={toggle}
-      />
-      {recording ? (
-        <div
-          className="clip-export-panel clip-export-busy"
-          role="status"
-          aria-label="Radar clip export"
-        >
-          <p className="clip-export-duration">{progressLabel(progress)}</p>
-          <progress
-            className="clip-export-progress"
-            max={1}
-            value={progress}
-            aria-label="Clip export progress"
-          />
-          {encodePath === "media-recorder" ? (
-            <p className="clip-export-hint">{CLIP_EXPORT_STAY_ON_TAB}</p>
-          ) : null}
-          <div className="clip-export-actions">
-            <ClipButton
-              label="Cancel"
-              ariaLabel="Cancel clip export"
-              onClick={() => abortRef.current?.abort()}
-            />
-          </div>
-        </div>
-      ) : null}
+    <div className="clip-export">
+      <button
+        type="button"
+        className="icon-btn clip-record-btn"
+        aria-label={CLIP_EXPORT_FULL_ROUND}
+        title={CLIP_EXPORT_FULL_ROUND}
+        disabled={!cover || recording}
+        onClick={() => {
+          if (cover) begin(fullRoundSpan(cover));
+        }}
+      >
+        <ClipRecordIcon />
+      </button>
+      <button
+        type="button"
+        className="icon-btn clip-record-btn"
+        aria-label={CLIP_EXPORT_FROM_PLANT}
+        title={postPlant ? CLIP_EXPORT_FROM_PLANT : CLIP_EXPORT_NO_PLANT}
+        disabled={!postPlant || recording}
+        onClick={() => {
+          if (postPlant) begin(postPlant);
+        }}
+      >
+        <ClipFromPlantIcon />
+      </button>
       {visibleError ? (
-        <div className="clip-export-panel" role="alert">
-          <p className="clip-export-error">{visibleError}</p>
-        </div>
-      ) : null}
-      {open && !recording ? (
-        <div
-          className="clip-export-panel"
-          id="radar-clip-export"
-          role="region"
-          aria-label="Radar clip export"
-        >
-          <div className="clip-export-presets">
-            <ClipButton
-              label="Full round"
-              ariaLabel="Full round"
-              disabled={!cover}
-              onClick={() => {
-                if (cover) begin(fullRoundSpan(cover));
-              }}
-            />
-            <ClipButton
-              label="Post plant"
-              ariaLabel="Post plant"
-              disabled={!postPlant}
-              title={postPlant ? undefined : CLIP_EXPORT_NO_PLANT}
-              onClick={() => {
-                if (postPlant) begin(postPlant);
-              }}
-            />
-          </div>
-        </div>
+        <p className="clip-export-error" role="alert">
+          {visibleError}
+        </p>
       ) : null}
     </div>
   );

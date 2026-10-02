@@ -174,3 +174,5 @@ export const CLIP_EXPORT_TAB_HIDDEN =
 /** Shown with a 0–100 percent while a radar clip export is running. */
 export const CLIP_EXPORT_PROGRESS = "Exporting…";
 export const CLIP_EXPORT_NO_PLANT = "No plant in this round";
+export const CLIP_EXPORT_FULL_ROUND = "Export clip: full round";
+export const CLIP_EXPORT_FROM_PLANT = "Export clip: from plant";
