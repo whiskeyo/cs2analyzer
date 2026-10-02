@@ -95,6 +95,12 @@ export const MATCH_PDF_EXPORT_ERROR = "Could not export PDF.";
 /** Offline radar clips are 30 fps. There is no faster export rate. */
 export const CLIP_EXPORT_FPS = 30;
 
+/**
+ * Square used to see whether an SVG `foreignObject` taints the clip canvas.
+ * Large enough for a colored mark and a transparent corner.
+ */
+export const CLIP_HUD_PROBE_PX = 32;
+
 /** 16:9 radar clip. The stored preference is the frame height, not a square edge. */
 export const CLIP_EXPORT_ASPECT_WIDTH = 16;
 export const CLIP_EXPORT_ASPECT_HEIGHT = 9;
