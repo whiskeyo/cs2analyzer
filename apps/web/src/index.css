@@ -4109,6 +4109,10 @@ button.link:hover:not(:disabled) {
   top: 0;
   z-index: -1;
   pointer-events: none;
+  /* The slot sits on the page. Opacity hides it without `visibility` or
+     `display`, which would collapse the boxes the raster measures.
+     Only the panel node is cloned, so this does not fade the bitmap. */
+  opacity: 0;
 }
 .clip-page-host {
   display: flex;
