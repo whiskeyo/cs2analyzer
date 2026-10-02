@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ParseTimings } from "@/lib/replay/replayTypes";
 import type { Status } from "@/lib/state/status";
 import {
   PARSE_POOL_MAX,
@@ -32,6 +33,16 @@ import { buildSeries, withFocalTeam, type DemoSeries, type LoadedDemo } from "./
 import { formatParseTimings } from "./timings";
 import { parseDump } from "./parseDump";
 import { clearSeriesReviewCache } from "@/lib/notes/seriesReviewCache";
+
+/** One console line per successful parse. The same breakdown used to be a UI notice. */
+function logParseBreakdown(fileName: string, timings: ParseTimings, detail?: unknown): void {
+  const line = formatParseTimings(timings);
+  if (detail === undefined) {
+    console.info("[cs2analyzer parse]", fileName, line, timings);
+    return;
+  }
+  console.info("[cs2analyzer parse]", fileName, line, timings, detail);
+}
 
 export type { CreateWorker };
 
@@ -223,14 +234,7 @@ export function useDemoSession(opts: {
               statusRef.current.setError(result.error ?? "Parse failed");
               return;
             }
-            const parseNotice = formatParseTimings(result.timings);
-            console.info(
-              "[cs2analyzer parse]",
-              result.timings,
-              parseNotice,
-              parseDump(result.demo.replay),
-            );
-            statusRef.current.setNotice(parseNotice);
+            logParseBreakdown(file.name, result.timings, parseDump(result.demo.replay));
             finishSingle(result.demo);
           });
       };
@@ -339,6 +343,9 @@ export function useDemoSession(opts: {
 
       const ok = results.filter((r) => r.demo && !r.error);
       if (ok.length > 0) {
+        for (const row of ok) {
+          if (row.timings) logParseBreakdown(row.file.name, row.timings);
+        }
         const maxWasm = Math.max(...ok.map((r) => r.timings?.parseMs ?? 0));
         console.info("[cs2analyzer parse series]", {
           wallMs,
@@ -474,6 +481,9 @@ export function useDemoSession(opts: {
 
       const ok = results.filter((r) => r.demo && !r.error);
       if (ok.length > 0) {
+        for (const row of ok) {
+          if (row.timings) logParseBreakdown(row.file.name, row.timings);
+        }
         const maxWasm = Math.max(...ok.map((r) => r.timings?.parseMs ?? 0));
         console.info("[cs2analyzer parse append]", {
           wallMs,

@@ -158,8 +158,14 @@ describe("useDemoSession", () => {
     expect(result.current.series).toBeNull();
     expect(result.current.mapGroups).toEqual([]);
     expect(result.current.parsedDemos).toEqual([]);
-    expect(status.setNotice).toHaveBeenCalledWith(
+    expect(status.setNotice).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledTimes(1);
+    expect(console.info).toHaveBeenCalledWith(
+      "[cs2analyzer parse]",
+      "match.dem",
       "Parsed in 10ms (WASM 2ms, JSON 3ms, buffers 4ms)",
+      TIMINGS,
+      expect.any(Object),
     );
   });
 
@@ -409,6 +415,14 @@ describe("useDemoSession", () => {
     expect(result.current.series?.demos).toEqual([demoA, demoB]);
     expect(result.current.demo).toBe(demoA);
     expect(status.setNotice).toHaveBeenCalledWith("Series: 2 de_ancient demos · Spirit");
+    expect(status.setNotice).not.toHaveBeenCalledWith(expect.stringContaining("Parsed in"));
+    const breakdown = "Parsed in 10ms (WASM 2ms, JSON 3ms, buffers 4ms)";
+    expect(
+      vi.mocked(console.info).mock.calls.filter((call) => call[0] === "[cs2analyzer parse]"),
+    ).toEqual([
+      ["[cs2analyzer parse]", "a.dem", breakdown, TIMINGS],
+      ["[cs2analyzer parse]", "b.dem", breakdown, TIMINGS],
+    ]);
   });
 
   it("rejects a multi-drop when every file fails inspection", async () => {
