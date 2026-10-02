@@ -4063,7 +4063,6 @@ button.link:hover:not(:disabled) {
   flex-direction: column;
   gap: 0.45rem;
 }
-.clip-export-hint,
 .clip-export-duration,
 .clip-export-error {
   margin: 0;
@@ -4078,18 +4077,11 @@ button.link:hover:not(:disabled) {
   color: var(--danger);
 }
 .clip-export-presets,
-.clip-export-actions,
-.clip-export-row {
+.clip-export-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
-}
-.clip-export-row {
-  justify-content: space-between;
-  font-size: 0.85rem;
-  color: #a9b6c3;
-  font-variant-numeric: tabular-nums;
 }
 .clip-export button:disabled {
   opacity: 0.55;

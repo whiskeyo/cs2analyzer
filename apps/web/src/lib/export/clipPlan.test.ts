@@ -3,7 +3,6 @@ import { CLIP_EXPORT_FPS } from "@/lib/export/constants";
 import {
   clipCoverLastTick,
   clipExportBitrate,
-  clipExportHint,
   clipFrameSchedule,
   clipNextRoundStart,
   clipRoundBounds,
@@ -208,17 +207,11 @@ describe("clip encoder selection", () => {
     ).toBeNull();
   });
 
-  it("lets the real-time path run for the whole span and names that duration", () => {
+  it("lets both encode paths run for the whole span", () => {
     const long = { startTick: 0, endTick: 45 * RATE };
     expect(clipSpanIssue(long, RATE, "webcodecs")).toBeNull();
     expect(clipSpanIssue(long, RATE, "media-recorder")).toBeNull();
     expect(clipSpanIssue({ startTick: 4, endTick: 4 }, RATE, "webcodecs")).toBe("empty");
-    expect(clipExportHint("media-recorder", 1080, 45)).toBe(
-      "This browser records in real time, so this export takes 45.0s. Don't switch tabs while recording. Offline export needs H.264 in WebCodecs.",
-    );
-    expect(clipExportHint("media-recorder", 1080, 45)).not.toMatch(/30 seconds/);
-    expect(clipExportHint("webcodecs", 1440)).toBe("2560×1440 · 30 fps · encoded on this device");
-    expect(clipExportHint("webcodecs", 1080)).toBe("1920×1080 · 30 fps · encoded on this device");
     expect(clipExportBitrate(1080)).toBe(12_000_000);
     expect(clipExportBitrate(1440)).toBe(20_000_000);
   });
