@@ -98,6 +98,10 @@ pub struct Round {
     pub win_reason: i32,
     pub score_ct: i32,
     pub score_t: i32,
+    /// `CCSGameRules.m_iRoundTime` at this round's freeze end, in seconds.
+    /// `0` when the prop is missing. The HUD falls back to the competitive clock.
+    #[serde(default)]
+    pub round_time_s: u32,
     #[serde(default)]
     pub is_knife: bool,
     /// Clan names for whoever is on CT / T at this round's freeze (follows side swaps).
