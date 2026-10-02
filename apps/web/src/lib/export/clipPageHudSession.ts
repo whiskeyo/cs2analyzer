@@ -8,6 +8,7 @@ import {
   clipHudPanelLayoutCss,
   fitClipScoreboard,
   rasterClipPageNode,
+  resetClipPageHudCssCache,
 } from "@/lib/export/clipPageHudRaster";
 import {
   clipHudRenderer,
@@ -136,6 +137,7 @@ class ClipPageHudSession implements ClipPageHudController {
   }
 
   async prepare(tick: number, selected: number | null): Promise<void> {
+    resetClipPageHudCssCache();
     try {
       this.mode = this.probeOverride
         ? selectClipHudRenderer(await this.probeOverride())

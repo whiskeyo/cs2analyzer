@@ -22,6 +22,11 @@ export function resetClipPageHudRasterCache(): void {
   cachedCss = null;
 }
 
+/** Drop the serialized stylesheet so the next export picks up styles loaded since the last one. */
+export function resetClipPageHudCssCache(): void {
+  cachedCss = null;
+}
+
 /** Keep a `<style>` body from closing the tag or breaking the SVG XML. */
 export function escapeClipHudCss(css: string): string {
   return css.replaceAll("&", "&amp;").replaceAll("<", "&lt;");

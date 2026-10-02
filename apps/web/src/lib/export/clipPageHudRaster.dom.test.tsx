@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { rasterClipPageNode, resetClipPageHudRasterCache } from "@/lib/export/clipPageHudRaster";
+import {
+  rasterClipPageNode,
+  resetClipPageHudCssCache,
+  resetClipPageHudRasterCache,
+} from "@/lib/export/clipPageHudRaster";
 
 afterEach(() => {
   resetClipPageHudRasterCache();
@@ -73,6 +77,67 @@ describe("clip page HUD raster clone", () => {
       );
     } finally {
       slot.remove();
+      if (src) Object.defineProperty(HTMLImageElement.prototype, "src", src);
+    }
+  });
+
+  it("embeds stylesheets added after the previous export once the cache is cleared", async () => {
+    resetClipPageHudCssCache();
+    const panel = document.createElement("div");
+    panel.textContent = "hud";
+    vi.spyOn(panel, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 40,
+      bottom: 20,
+      width: 40,
+      height: 20,
+      toJSON() {
+        return {};
+      },
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage() {
+        return undefined;
+      },
+    } as unknown as CanvasRenderingContext2D);
+    const src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
+    let svg = "";
+    Object.defineProperty(HTMLImageElement.prototype, "src", {
+      configurable: true,
+      get() {
+        return "";
+      },
+      set(this: HTMLImageElement, value: string) {
+        const prefix = "data:image/svg+xml;charset=utf-8,";
+        svg = decodeURIComponent(value.slice(prefix.length));
+        queueMicrotask(() => {
+          this.onload?.(new Event("load"));
+        });
+      },
+    });
+    const first = document.createElement("style");
+    first.textContent = ".clip-export-css-a{color:red}";
+    const extra = document.createElement("style");
+    extra.textContent = ".clip-export-css-b{color:blue}";
+    document.head.append(first, extra);
+    extra.remove();
+    try {
+      await rasterClipPageNode(panel);
+      expect(svg).toContain("clip-export-css-a");
+      expect(svg).not.toContain("clip-export-css-b");
+      document.head.appendChild(extra);
+      await rasterClipPageNode(panel);
+      expect(svg).not.toContain("clip-export-css-b");
+      resetClipPageHudCssCache();
+      await rasterClipPageNode(panel);
+      expect(svg).toContain("clip-export-css-a");
+      expect(svg).toContain("clip-export-css-b");
+    } finally {
+      first.remove();
+      extra.remove();
       if (src) Object.defineProperty(HTMLImageElement.prototype, "src", src);
     }
   });

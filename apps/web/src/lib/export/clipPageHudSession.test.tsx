@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as clipHud from "@/lib/export/clipHud";
 import * as clipHudRaster from "@/lib/export/clipHudRaster";
 import { CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_SCORE } from "@/lib/export/clipPageHudKey";
+import * as clipPageHudRaster from "@/lib/export/clipPageHudRaster";
 import { fitClipScoreboard } from "@/lib/export/clipPageHudRaster";
 import { beginClipPageHud } from "@/lib/export/clipPageHudSession";
 import { endClipPageHud } from "@/lib/export/clipPageHudBridge";
@@ -253,6 +254,12 @@ describe("clip page HUD probe cache", () => {
     expect(session.mode).toBe("page");
     expect(renderer).toHaveBeenCalledTimes(1);
     expect(probe).not.toHaveBeenCalled();
+  });
+
+  it("drops the cached stylesheet at the start of an export", async () => {
+    const reset = vi.spyOn(clipPageHudRaster, "resetClipPageHudCssCache");
+    await beginClipPageHud(replay(), 1080, 64, null, pageHudPorts());
+    expect(reset).toHaveBeenCalledTimes(1);
   });
 });
 
