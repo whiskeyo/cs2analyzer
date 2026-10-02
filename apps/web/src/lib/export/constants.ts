@@ -95,11 +95,28 @@ export const MATCH_PDF_EXPORT_ERROR = "Could not export PDF.";
 /** Offline radar clips are 30 fps. There is no faster export rate. */
 export const CLIP_EXPORT_FPS = 30;
 
-/** Square radar file. The bitmap does not follow the window. */
+/** 16:9 radar clip. The stored preference is the frame height, not a square edge. */
+export const CLIP_EXPORT_ASPECT_WIDTH = 16;
+export const CLIP_EXPORT_ASPECT_HEIGHT = 9;
 export const CLIP_EXPORT_SIZE_DEFAULT = 1080;
 export const CLIP_EXPORT_SIZE_HIGH = 1440;
 export const CLIP_EXPORT_SIZES = [CLIP_EXPORT_SIZE_DEFAULT, CLIP_EXPORT_SIZE_HIGH] as const;
 export type ClipExportSize = (typeof CLIP_EXPORT_SIZES)[number];
+
+/** Pixel size of a clip. 1080 → 1920×1080, 1440 → 2560×1440. */
+export function clipExportFrame(height: number): { width: number; height: number } {
+  const frameHeight =
+    height >= CLIP_EXPORT_SIZE_HIGH ? CLIP_EXPORT_SIZE_HIGH : CLIP_EXPORT_SIZE_DEFAULT;
+  return {
+    width: (frameHeight / CLIP_EXPORT_ASPECT_HEIGHT) * CLIP_EXPORT_ASPECT_WIDTH,
+    height: frameHeight,
+  };
+}
+
+export function clipExportFrameLabel(height: number): string {
+  const frame = clipExportFrame(height);
+  return `${frame.width}×${frame.height}`;
+}
 
 /** WebCodecs `VideoFrame` timestamps are microseconds. */
 export const CLIP_TIMESTAMP_US = 1_000_000;

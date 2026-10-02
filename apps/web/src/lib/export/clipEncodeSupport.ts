@@ -1,7 +1,8 @@
 import {
   CLIP_EXPORT_FPS,
-  CLIP_H264_CODECS,
   CLIP_EXPORT_SIZE_DEFAULT,
+  CLIP_H264_CODECS,
+  clipExportFrame,
 } from "@/lib/export/constants";
 import {
   clipExportBitrate,
@@ -75,13 +76,14 @@ export async function probeClipEncoder(
   const hasVideoEncoder =
     deps.hasVideoEncoder ??
     (typeof VideoEncoder !== "undefined" && typeof VideoEncoder.isConfigSupported === "function");
-  const bitrate = clipExportBitrate(size);
+  const frame = clipExportFrame(size);
+  const bitrate = clipExportBitrate(frame.height);
   const fps = CLIP_EXPORT_FPS;
   let h264 = false;
   let codec: string | null = null;
   if (hasVideoEncoder) {
     const supported = await firstSupportedH264Config(
-      h264EncoderCandidates(size, size, fps, bitrate),
+      h264EncoderCandidates(frame.width, frame.height, fps, bitrate),
       deps.isConfigSupported ??
         (async (config) => {
           const result = await VideoEncoder.isConfigSupported(config);
@@ -101,7 +103,7 @@ export async function probeClipEncoder(
     mediaRecorderMime: mime,
   });
   if (path === "webcodecs" && codec) {
-    return { path, codec, bitrate, width: size, height: size, fps };
+    return { path, codec, bitrate, width: frame.width, height: frame.height, fps };
   }
   if (path === "media-recorder" && mime) return { path, mime };
   return null;

@@ -16,6 +16,7 @@ class FakeWorker implements ClipEncodeWorker {
   onerror: AbstractWorker["onerror"] = null;
   terminated = false;
   cancelled = false;
+  started: { width: number; height: number } | null = null;
   frames: { timestamp: number; index: number }[] = [];
   failOnStart = false;
 
@@ -25,6 +26,7 @@ class FakeWorker implements ClipEncodeWorker {
       return;
     }
     if (message.type === "start") {
+      this.started = { width: message.width, height: message.height };
       queueMicrotask(() => {
         if (this.failOnStart) this.emit({ type: "error", message: "no encoder" });
         else this.emit({ type: "ready" });
@@ -74,6 +76,7 @@ describe("encodeRadarClip", () => {
     });
 
     expect(painted).toEqual(ticks);
+    expect(worker.started).toEqual({ width: 1920, height: 1080 });
     expect(worker.frames.map((frame) => frame.timestamp)).toEqual(
       ticks.map((_, i) => clipFrameTimestamp(i, 30)),
     );
@@ -155,9 +158,9 @@ describe("encodeRadarClip", () => {
         bitrate: 1,
         paintFrame: () => {},
         createWorker: () => worker,
-        createCanvas: (size) => ({
-          width: size,
-          height: size,
+        createCanvas: (width, height) => ({
+          width,
+          height,
           getContext: () => null,
         }),
         takeBitmap: () => ({ close: vi.fn() }) as unknown as ImageBitmap,

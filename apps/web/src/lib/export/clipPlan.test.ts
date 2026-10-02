@@ -215,7 +215,8 @@ describe("clip encoder selection", () => {
     expect(clipSpanIssue({ startTick: 4, endTick: 4 }, RATE, "webcodecs")).toBe("empty");
     expect(clipExportHint("media-recorder", 1080)).toMatch(/real time/);
     expect(clipExportHint("media-recorder", 1080)).toMatch(/30 seconds/);
-    expect(clipExportHint("webcodecs", 1440)).toBe("1440×1440 · 30 fps · encoded on this device");
+    expect(clipExportHint("webcodecs", 1440)).toBe("2560×1440 · 30 fps · encoded on this device");
+    expect(clipExportHint("webcodecs", 1080)).toBe("1920×1080 · 30 fps · encoded on this device");
     expect(clipExportBitrate(1080)).toBe(12_000_000);
     expect(clipExportBitrate(1440)).toBe(20_000_000);
   });

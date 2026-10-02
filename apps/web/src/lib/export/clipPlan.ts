@@ -6,6 +6,7 @@ import {
   CLIP_EXPORT_REALTIME_HINT,
   CLIP_EXPORT_SIZE_HIGH,
   CLIP_POST_ROUND_TAIL_SECONDS,
+  clipExportFrameLabel,
 } from "@/lib/export/constants";
 import {
   clipFrameClock,
@@ -160,7 +161,7 @@ export function clipExportBitrate(size: number): number {
 
 export function clipExportHint(path: ClipEncodePath, size: number): string {
   if (path === "media-recorder") return CLIP_EXPORT_REALTIME_HINT;
-  return `${size}×${size} · ${CLIP_EXPORT_FPS} fps · encoded on this device`;
+  return `${clipExportFrameLabel(size)} · ${CLIP_EXPORT_FPS} fps · encoded on this device`;
 }
 
 /** Frame count is duration × fps. Timestamps partition the demo span. */

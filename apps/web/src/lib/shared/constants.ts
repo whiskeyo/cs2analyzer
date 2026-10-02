@@ -159,6 +159,9 @@ export const SERIES_TEAM_MERGE_MIN_STEAM_OVERLAP = 3;
 /** Overtime side-swap block length. */
 export const OVERTIME_BLOCK_ROUNDS = 3;
 
+/** One overtime is two MR3 blocks (CT and T). */
+export const OVERTIME_PERIOD_ROUNDS = OVERTIME_BLOCK_ROUNDS * 2;
+
 /**
  * Synthetic Steam IDs for GOTV / offline bots (`m_steamID == 0`).
  * Identity is `BOT_STEAM_ID_BASE + CCSPlayerController` entity index.

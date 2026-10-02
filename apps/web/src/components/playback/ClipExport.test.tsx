@@ -23,11 +23,11 @@ const mocks = vi.hoisted(() => ({
     (): {
       canvas: HTMLCanvasElement;
       paintAt: (tick: number) => void;
-      paintSquare: () => void;
+      paintFrame: () => void;
     } | null => ({
       canvas: { width: 640, height: 480 } as HTMLCanvasElement,
       paintAt: vi.fn(),
-      paintSquare: vi.fn(),
+      paintFrame: vi.fn(),
     }),
   ),
 }));
@@ -123,7 +123,7 @@ describe("ClipExport", () => {
     mocks.surface.mockReturnValue({
       canvas: { width: 640, height: 480 } as HTMLCanvasElement,
       paintAt: vi.fn(),
-      paintSquare: vi.fn(),
+      paintFrame: vi.fn(),
     });
   });
 
@@ -134,7 +134,7 @@ describe("ClipExport", () => {
     expect(screen.getByText("91.0s")).toBeInTheDocument();
     expect(screen.getByText("Start 0:00.0")).toBeInTheDocument();
     expect(screen.getByText("End 1:31.0")).toBeInTheDocument();
-    expect(screen.getByText("1080×1080 · 30 fps · encoded on this device")).toBeInTheDocument();
+    expect(screen.getByText("1920×1080 · 30 fps · encoded on this device")).toBeInTheDocument();
   });
 
   it("disables post-plant without a plant", async () => {
@@ -201,7 +201,7 @@ describe("ClipExport", () => {
     );
     render(<ClipExport {...props({ onPlaying })} />);
     await openPanel(user);
-    expect(screen.getByText("1440×1440 · 30 fps · encoded on this device")).toBeInTheDocument();
+    expect(screen.getByText("2560×1440 · 30 fps · encoded on this device")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Download clip" }));
     expect(
       await screen.findByRole("progressbar", { name: "Clip export progress" }),
@@ -292,7 +292,7 @@ describe("ClipExport", () => {
     mocks.surface.mockReturnValue({
       canvas: { width: 640, height: 480 } as HTMLCanvasElement,
       paintAt: vi.fn(),
-      paintSquare: vi.fn(),
+      paintFrame: vi.fn(),
     });
     mocks.probe.mockResolvedValue(null);
     rerender(<ClipExport {...props()} key="next" />);

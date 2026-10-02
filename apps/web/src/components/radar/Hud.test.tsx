@@ -40,6 +40,14 @@ describe("Hud", () => {
     expect(screen.queryByText(/Knife/)).not.toBeInTheDocument();
   });
 
+  it("labels overtime with the MR3 period", () => {
+    const replay = makeReplay({
+      rounds: [makeRound({ number: 26, start_tick: 0, freeze_end_tick: 64, end_tick: 2000 })],
+    });
+    render(<Hud replay={replay} tick={100} />);
+    expect(screen.getByText(/R26 · OT1/)).toBeInTheDocument();
+  });
+
   it("shows the plant clock after begin_plant and hides it on plant", () => {
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],

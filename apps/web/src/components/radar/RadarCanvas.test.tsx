@@ -183,14 +183,14 @@ describe("RadarCanvas", () => {
       height: 0,
       getContext: () => createMockCanvas(),
     };
-    surface?.paintSquare(square, 1080, 300);
-    expect(square.width).toBe(1080);
+    surface?.paintFrame(square, 1080, 300);
+    expect(square.width).toBe(1920);
     expect(square.height).toBe(1080);
     expect(live.width).toBe(liveWidth);
     const squareFrames = vi.mocked(staticMapPaint.paintMapImage).mock.calls;
     const sized = squareFrames[squareFrames.length - 1];
-    expect(sized?.[1]).toBe(1080);
-    expect(sized?.[2]).toBe(1080);
+    expect(sized?.[1]).toBeLessThan(1080);
+    expect(sized?.[1]).toBe(sized?.[2]);
 
     unmount();
     expect(radarClipSurface()).toBeNull();

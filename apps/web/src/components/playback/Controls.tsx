@@ -15,6 +15,7 @@ import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { RoundNote } from "@/lib/notes/types";
 import { formatClock } from "@/lib/weapons/weapons";
 import { publicUrl } from "@/lib/shared/publicUrl";
+import { roundHudLabel } from "@/lib/stats/hud";
 import { ClipExport } from "./ClipExport";
 import { TransportButton } from "./TransportButton";
 import { UnfocusableButton } from "./UnfocusableButton";
@@ -352,7 +353,7 @@ export const Controls = memo(function Controls({
       </div>
       <div className="clock-wrap">
         <span className="clock">
-          {round ? (round.is_knife ? "Knife" : `R${round.number}`) : "—"} {clock}
+          {round ? roundHudLabel(round) : "—"} {clock}
         </span>
         <button
           type="button"

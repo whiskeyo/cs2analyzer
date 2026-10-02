@@ -1,6 +1,7 @@
 import {
   CLIP_EXPORT_SIZE_DEFAULT,
   CLIP_EXPORT_SIZE_HIGH,
+  clipExportFrameLabel,
   type ClipExportSize,
 } from "@/lib/export/constants";
 import { MAX_LEAD_IN_SEC, MIN_LEAD_IN_SEC, clampLeadInSec } from "@/lib/match/roundEvents";
@@ -53,11 +54,15 @@ export function UserSettingsPlayback({
             void update({ clipExportSize: size });
           }}
         >
-          <option value={CLIP_EXPORT_SIZE_DEFAULT}>1080×1080</option>
-          <option value={CLIP_EXPORT_SIZE_HIGH}>1440×1440</option>
+          <option value={CLIP_EXPORT_SIZE_DEFAULT}>
+            {clipExportFrameLabel(CLIP_EXPORT_SIZE_DEFAULT)}
+          </option>
+          <option value={CLIP_EXPORT_SIZE_HIGH}>
+            {clipExportFrameLabel(CLIP_EXPORT_SIZE_HIGH)}
+          </option>
         </select>
       </label>
-      <p className="settings-hint">Square radar clips at 30 fps. Applies to the next export.</p>
+      <p className="settings-hint">16:9 radar clips at 30 fps. Applies to the next export.</p>
       <label className="settings-field">
         <span>Event lead-in</span>
         <input

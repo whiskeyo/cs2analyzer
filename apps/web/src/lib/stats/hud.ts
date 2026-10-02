@@ -2,6 +2,8 @@ import {
   BOMB_SECONDS,
   DEFUSE_WITH_KIT_SECONDS,
   DEFUSE_WITHOUT_KIT_SECONDS,
+  FIRST_OVERTIME_ROUND,
+  OVERTIME_PERIOD_ROUNDS,
   PLANT_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
@@ -16,6 +18,17 @@ import {
   type Round,
   type Side,
 } from "@/lib/replay/replayTypes";
+
+/**
+ * Round chip shared by the live HUD and a burned-in clip.
+ * Regulation is `R12`. Overtime adds the MR3 period: `R26 · OT1`.
+ */
+export function roundHudLabel(round: { number: number; is_knife: boolean }): string {
+  if (round.is_knife) return "Knife";
+  if (round.number < FIRST_OVERTIME_ROUND) return `R${round.number}`;
+  const period = Math.floor((round.number - FIRST_OVERTIME_ROUND) / OVERTIME_PERIOD_ROUNDS) + 1;
+  return `R${round.number} · OT${period}`;
+}
 
 export interface LiveSituation {
   ctAlive: number;

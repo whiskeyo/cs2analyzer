@@ -16,10 +16,10 @@ export interface RadarClipSurface {
   /** Draw one demo tick into the live radar bitmap. */
   paintAt: (tick: number) => void;
   /**
-   * Draw one demo tick into a square bitmap. `size` is the file's pixel edge,
-   * not the window.
+   * Draw one demo tick into the 16:9 export frame. `height` is 1080 or 1440.
+   * The radar sits in the center; the HUD uses the rest of the frame.
    */
-  paintSquare: (canvas: ClipFrameCanvas, size: number, tick: number) => void;
+  paintFrame: (canvas: ClipFrameCanvas, height: number, tick: number) => void;
 }
 
 let surface: RadarClipSurface | null = null;

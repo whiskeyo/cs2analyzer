@@ -38,7 +38,7 @@ describe("H.264 config probe", () => {
     expect(offline).toMatchObject({
       path: "webcodecs",
       codec: "avc1.640033",
-      width: 1440,
+      width: 2560,
       height: 1440,
       fps: 30,
     });

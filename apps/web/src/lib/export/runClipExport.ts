@@ -1,4 +1,9 @@
-import { CLIP_EXPORT_FAILED, CLIP_EXPORT_NOT_READY } from "@/lib/export/constants";
+import {
+  CLIP_EXPORT_FAILED,
+  CLIP_EXPORT_NOT_READY,
+  CLIP_EXPORT_NO_CANVAS,
+  clipExportFrame,
+} from "@/lib/export/constants";
 import type { ClipEncoderChoice } from "@/lib/export/clipEncodeSupport";
 import { clipFrameSchedule } from "@/lib/export/clipPlan";
 import { clipDownloadName, recordRadarClip, type ClipSpan } from "@/lib/export/radarClip";
@@ -21,16 +26,20 @@ export interface RunClipExportInput {
   signal: AbortSignal;
 }
 
+/** 16:9 bitmap the real-time recorder captures. The on-screen radar stays put. */
+function clipRecordCanvas(size: number): HTMLCanvasElement {
+  if (typeof document === "undefined") throw new Error(CLIP_EXPORT_NO_CANVAS);
+  const frame = clipExportFrame(size);
+  const canvas = document.createElement("canvas");
+  canvas.width = frame.width;
+  canvas.height = frame.height;
+  return canvas;
+}
+
 /** Paint and encode the span. Resolves after the file is saved, or rejects. */
 export function runClipExport(input: RunClipExportInput): Promise<void> {
   const surface = radarClipSurface();
   if (!surface) return Promise.reject(new Error(CLIP_EXPORT_NOT_READY));
-  if (
-    input.choice.path === "media-recorder" &&
-    (surface.canvas.width <= 0 || surface.canvas.height <= 0)
-  ) {
-    return Promise.reject(new Error(CLIP_EXPORT_NOT_READY));
-  }
   const scheduled = clipFrameSchedule(input.span, input.rate, input.fps);
   if (scheduled.ticks.length === 0) {
     return Promise.reject(new Error("Pick a start before the end."));
@@ -59,14 +68,17 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
     throw err instanceof Error ? err : new Error(CLIP_EXPORT_FAILED);
   };
 
+  const recorded = input.choice.path === "media-recorder" ? clipRecordCanvas(input.size) : null;
   const work =
     input.choice.path === "media-recorder"
       ? recordRadarClip({
-          canvas: surface.canvas,
+          canvas: recorded ?? surface.canvas,
           ticks: scheduled.ticks,
           holdMs: scheduled.durations.map((us) => us / 1000),
           mimeType: input.choice.mime,
-          paintAt: surface.paintAt,
+          paintAt: (frameTick) => {
+            if (recorded) surface.paintFrame(recorded, input.size, frameTick);
+          },
           fps: input.fps,
           signal: input.signal,
           onFrame: (index, frameTick) =>
@@ -88,7 +100,7 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
             codec: input.choice.codec,
             bitrate: input.choice.bitrate,
             signal: input.signal,
-            paintFrame: (canvas, frameTick) => surface.paintSquare(canvas, input.size, frameTick),
+            paintFrame: (canvas, frameTick) => surface.paintFrame(canvas, input.size, frameTick),
             onProgress: (ratio) => {
               const index = Math.min(
                 scheduled.ticks.length - 1,

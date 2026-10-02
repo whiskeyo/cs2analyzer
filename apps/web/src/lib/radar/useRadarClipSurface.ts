@@ -1,4 +1,6 @@
 import { useEffect, type MutableRefObject, type RefObject } from "react";
+import { clipExportFrame } from "@/lib/export/constants";
+import { clipHudLayout, paintClipHud } from "@/lib/export/clipHud";
 import { applyRadarFollowCam } from "@/lib/radar/radarPaintDirty";
 import type { RadarView } from "@/lib/radar/maps";
 import type { MapCalibration, Replay } from "@/lib/replay/replayTypes";
@@ -61,21 +63,24 @@ export function useRadarClipSurface(
           paintSceneRef.current,
         );
       },
-      paintSquare(target: ClipFrameCanvas, size: number, tick: number) {
+      paintFrame(target: ClipFrameCanvas, height: number, tick: number) {
+        const frame = clipExportFrame(height);
         const ctx = target.getContext("2d");
         if (!ctx) return;
-        if (target.width !== size || target.height !== size) {
-          target.width = size;
-          target.height = size;
+        if (target.width !== frame.width || target.height !== frame.height) {
+          target.width = frame.width;
+          target.height = frame.height;
         }
+        const layout = clipHudLayout(frame.width, frame.height);
         const source = propsRef.current;
         if (source.tickRef) source.tickRef.current = tick;
         const live = view.current;
         const saved = { scale: live.scale, ox: live.ox, oy: live.oy };
+        const paintCtx = ctx as CanvasRenderingContext2D;
         applyRadarFollowCam(
           live,
-          size,
-          size,
+          layout.radar.size,
+          layout.radar.size,
           source.replay,
           tick,
           source.selected,
@@ -83,7 +88,16 @@ export function useRadarClipSurface(
           source.cal,
         );
         try {
-          paintSceneRef.current(ctx as CanvasRenderingContext2D, size, size, tick);
+          paintCtx.fillStyle = "#10161c";
+          paintCtx.fillRect(0, 0, frame.width, frame.height);
+          paintCtx.save();
+          paintCtx.beginPath();
+          paintCtx.rect(layout.radar.x, layout.radar.y, layout.radar.size, layout.radar.size);
+          paintCtx.clip();
+          paintCtx.translate(layout.radar.x, layout.radar.y);
+          paintSceneRef.current(paintCtx, layout.radar.size, layout.radar.size, tick);
+          paintCtx.restore();
+          paintClipHud(paintCtx, source.replay, tick, layout);
         } finally {
           live.scale = saved.scale;
           live.ox = saved.ox;

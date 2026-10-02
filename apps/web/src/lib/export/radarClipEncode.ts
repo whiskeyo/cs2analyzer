@@ -4,6 +4,7 @@ import {
   CLIP_EXPORT_NO_CANVAS,
   CLIP_EXPORT_TOO_SHORT,
   CLIP_TIMESTAMP_US,
+  clipExportFrame,
 } from "@/lib/export/constants";
 import { clipFrameTimestamp } from "@/lib/export/radarClip";
 import type { ClipEncodeOut, ClipEncodeWorker } from "@/lib/export/radarClipEncodeProtocol";
@@ -36,7 +37,7 @@ export interface EncodeRadarClipOptions {
   signal?: AbortSignal;
   onProgress?: (ratio: number) => void;
   createWorker?: () => ClipEncodeWorker;
-  createCanvas?: (size: number) => ClipFrameCanvas;
+  createCanvas?: (width: number, height: number) => ClipFrameCanvas;
   takeBitmap?: (canvas: ClipFrameCanvas) => ImageBitmap | Promise<ImageBitmap>;
 }
 
@@ -48,14 +49,14 @@ function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-function createSquareCanvas(size: number): ClipFrameCanvas {
+function createFrameCanvas(width: number, height: number): ClipFrameCanvas {
   if (typeof OffscreenCanvas !== "undefined") {
-    return new OffscreenCanvas(size, size);
+    return new OffscreenCanvas(width, height);
   }
   if (typeof document !== "undefined") {
     const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = width;
+    canvas.height = height;
     return canvas;
   }
   throw new Error(CLIP_EXPORT_NO_CANVAS);
@@ -223,8 +224,8 @@ async function encodeWithWorker(
   const { ready, done } = bindWorker(worker, state, options);
   worker.postMessage({
     type: "start",
-    width: options.size,
-    height: options.size,
+    width: canvas.width,
+    height: canvas.height,
     fps: options.fps,
     codec: options.codec,
     bitrate: options.bitrate,
@@ -266,8 +267,8 @@ async function encodeOnMainThread(
     wake(state);
   };
   session = openClipEncodeSession({
-    width: options.size,
-    height: options.size,
+    width: canvas.width,
+    height: canvas.height,
     fps: options.fps,
     codec: options.codec,
     bitrate: options.bitrate,
@@ -311,14 +312,15 @@ export async function encodeRadarClip(options: EncodeRadarClipOptions): Promise<
     ticks,
     signal,
     createWorker = createRadarClipEncodeWorker,
-    createCanvas = createSquareCanvas,
+    createCanvas = createFrameCanvas,
   } = options;
   if (ticks.length === 0) throw new Error(CLIP_EXPORT_TOO_SHORT);
   if (signal?.aborted) throw abortError();
-  const canvas = createCanvas(options.size);
-  if (canvas.width !== options.size || canvas.height !== options.size) {
-    canvas.width = options.size;
-    canvas.height = options.size;
+  const frame = clipExportFrame(options.size);
+  const canvas = createCanvas(frame.width, frame.height);
+  if (canvas.width !== frame.width || canvas.height !== frame.height) {
+    canvas.width = frame.width;
+    canvas.height = frame.height;
   }
   const injected = options.createWorker != null;
   const worker = createWorker();
