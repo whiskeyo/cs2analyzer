@@ -5,6 +5,7 @@ import {
   FIRST_OVERTIME_ROUND,
   OVERTIME_PERIOD_ROUNDS,
   PLANT_SECONDS,
+  ROUND_TIME_DEFUSE_S,
   tickRate,
 } from "@/lib/shared/constants";
 import { currentRound, samplePlayers, trailingFlagStart } from "@/lib/replay/sample";
@@ -18,6 +19,11 @@ import {
   type Round,
   type Side,
 } from "@/lib/replay/replayTypes";
+
+/** Seconds left on the competitive round clock. Stays at 0 after 1:55. */
+export function roundTimeRemaining(elapsedSeconds: number): number {
+  return Math.max(0, ROUND_TIME_DEFUSE_S - Math.max(0, elapsedSeconds));
+}
 
 /**
  * Round chip shared by the live HUD and a burned-in clip.

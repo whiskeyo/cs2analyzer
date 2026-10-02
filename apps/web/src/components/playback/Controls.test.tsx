@@ -97,6 +97,13 @@ describe("Controls", () => {
     expect(screen.getByRole("button", { name: "Export clip" })).toBeInTheDocument();
   });
 
+  it("counts the live round clock down from 1:55", () => {
+    const { rerender } = renderControls(baseProps({ tick: 2 * tps }));
+    expect(screen.getByText(/R1 1:55/)).toBeInTheDocument();
+    rerender(baseProps({ tick: 12 * tps }));
+    expect(screen.getByText(/R1 1:45/)).toBeInTheDocument();
+  });
+
   it("toggles play and pause", async () => {
     const onTogglePlay = vi.fn();
     const { rerender } = renderControls(baseProps({ onTogglePlay }));

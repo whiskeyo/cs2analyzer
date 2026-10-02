@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { bombView, defuseClock, freezeRemaining, plantClock, roundWinBanner } from "./hud";
+import {
+  bombView,
+  defuseClock,
+  freezeRemaining,
+  plantClock,
+  roundTimeRemaining,
+  roundWinBanner,
+} from "./hud";
 import {
   makeBombEvent,
   makeFreezeTicks,
@@ -8,7 +15,7 @@ import {
   makeRound,
   makeTicks,
 } from "@/lib/testing/fixtures";
-import { BOMB_SECONDS, PLANT_SECONDS } from "@/lib/shared/constants";
+import { BOMB_SECONDS, PLANT_SECONDS, ROUND_TIME_DEFUSE_S } from "@/lib/shared/constants";
 import {
   FLAG_ALIVE,
   FLAG_CT,
@@ -18,6 +25,16 @@ import {
   GEAR_C4,
   GEAR_DEFUSER,
 } from "@/lib/replay/replayTypes";
+
+describe("roundTimeRemaining", () => {
+  it("counts down from the competitive defuse clock and stays at 0", () => {
+    expect(roundTimeRemaining(0)).toBe(ROUND_TIME_DEFUSE_S);
+    expect(roundTimeRemaining(10)).toBe(105);
+    expect(roundTimeRemaining(ROUND_TIME_DEFUSE_S)).toBe(0);
+    expect(roundTimeRemaining(ROUND_TIME_DEFUSE_S + 20)).toBe(0);
+    expect(roundTimeRemaining(-5)).toBe(ROUND_TIME_DEFUSE_S);
+  });
+});
 
 describe("freezeRemaining", () => {
   it("counts down until freeze_end_tick", () => {

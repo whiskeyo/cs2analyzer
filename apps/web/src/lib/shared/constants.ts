@@ -180,6 +180,13 @@ export function isBotSteamId(steamId: number): boolean {
 /** KAST / trade window: teammate kills the attacker. */
 export const TRADE_SECONDS = 5;
 
+/**
+ * Competitive defuse-map round length (`mp_roundtime_defuse`). Wingman uses a
+ * shorter clock. The parsed replay does not carry this value yet; reading it
+ * from the demo is a follow-up.
+ */
+export const ROUND_TIME_DEFUSE_S = 115;
+
 /** C4 fuse after plant. */
 export const BOMB_SECONDS = 40;
 

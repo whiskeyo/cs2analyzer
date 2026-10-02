@@ -8,7 +8,7 @@ import {
   FULL_HEALTH,
   tickRate,
 } from "@/lib/shared/constants";
-import { liveSituation, roundHudLabel } from "@/lib/stats/hud";
+import { liveSituation, roundHudLabel, roundTimeRemaining } from "@/lib/stats/hud";
 import { currentSide, liveScoreboardPlayers, liveTeams } from "@/lib/stats/liveScore";
 import { formatMoney, heldWeaponId, weaponHasMagazine } from "@/lib/weapons/loadout";
 import {
@@ -144,7 +144,8 @@ export function clipHudState(replay: Replay, tick: number): ClipHudState {
   const round = currentRound(replay, tick);
   const rate = tickRate(replay);
   const origin = round ? (round.freeze_end_tick > 0 ? round.freeze_end_tick : round.start_tick) : 0;
-  let clockLabel = formatClock(rate > 0 ? Math.max(0, (tick - origin) / rate) : 0);
+  const elapsed = rate > 0 ? Math.max(0, (tick - origin) / rate) : 0;
+  let clockLabel = formatClock(roundTimeRemaining(elapsed));
   let clockKind: ClipHudState["clockKind"] = "round";
   if (sit.freeze != null) {
     clockLabel = `Freeze ${sit.freeze.toFixed(1)}`;

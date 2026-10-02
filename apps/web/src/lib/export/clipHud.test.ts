@@ -13,6 +13,7 @@ import {
   DEFUSE_WITH_KIT_SECONDS,
   DEFUSE_WITHOUT_KIT_SECONDS,
   FULL_HEALTH,
+  ROUND_TIME_DEFUSE_S,
   WIN_REASON_DEFUSE,
 } from "@/lib/shared/constants";
 import { roundHudLabel } from "@/lib/stats/hud";
@@ -67,9 +68,15 @@ describe("clip HUD state", () => {
     expect(clipHudState(replay, 100).roundLabel).toBe("R26 · OT1");
   });
 
-  it("replaces the round clock with the 40s fuse and tracks kit versus no-kit defuse", () => {
+  it("counts the round clock down from 1:55 and replaces it with the 40s fuse after plant", () => {
+    const live = makeRound({ number: 5, start_tick: 0, freeze_end_tick: 64, end_tick: 20000 });
+    const replay = makeReplay({ rounds: [live] });
+    expect(clipHudState(replay, 64).clockLabel).toBe("1:55");
+    expect(clipHudState(replay, 64 + 10 * RATE).clockLabel).toBe("1:45");
+    expect(clipHudState(replay, 64 + ROUND_TIME_DEFUSE_S * RATE).clockLabel).toBe("0:00");
+    expect(clipHudState(replay, 64 + (ROUND_TIME_DEFUSE_S + 20) * RATE).clockLabel).toBe("0:00");
+
     const plant = 200;
-    const live = makeRound({ number: 5, start_tick: 0, freeze_end_tick: 64, end_tick: 5000 });
     const planted = makeReplay({
       rounds: [live],
       bombEvents: [makeBombEvent({ tick: plant, kind: "planted" })],
