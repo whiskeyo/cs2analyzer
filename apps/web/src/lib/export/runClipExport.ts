@@ -47,13 +47,38 @@ export async function runClipExport(input: RunClipExportInput): Promise<void> {
 
   input.onPlaying(false);
   setRadarClipHold(true);
-  if (surface.prepareClipHud) {
+  try {
+    if (surface.prepareClipHud) {
+      try {
+        await surface.prepareClipHud(input.size, input.span.startTick);
+      } catch {
+        // The painted HUD still exports.
+      }
+    }
+    if (input.signal.aborted) {
+      throw new DOMException("Clip export cancelled", "AbortError");
+    }
+    await runClipEncode(input, surface, scheduled);
+  } catch (err) {
+    input.onTick(input.restoreTick);
+    if (err instanceof DOMException && err.name === "AbortError") return;
+    throw err instanceof Error ? err : new Error(CLIP_EXPORT_FAILED);
+  } finally {
+    setRadarClipHold(false);
     try {
-      await surface.prepareClipHud(input.size, input.span.startTick);
+      surface.releaseClipHud?.();
     } catch {
-      // The painted HUD still exports.
+      // Dropping the offscreen HUD must not hide an export error.
     }
   }
+}
+
+/** Encode after the HUD is ready. Cancel is checked by the caller first. */
+async function runClipEncode(
+  input: RunClipExportInput,
+  surface: NonNullable<ReturnType<typeof radarClipSurface>>,
+  scheduled: ReturnType<typeof clipFrameSchedule>,
+): Promise<void> {
   let lastUi = 0;
   const publish = (index: number, frameTick: number, ratio: number) => {
     const now = performance.now();
@@ -68,11 +93,6 @@ export async function runClipExport(input: RunClipExportInput): Promise<void> {
     const type = blob.type || mime;
     downloadBlob(clipDownloadName(input.mapName, input.roundSlug, type), type, blob);
     input.onTick(Math.round(input.span.endTick));
-  };
-  const fail = (err: unknown) => {
-    input.onTick(input.restoreTick);
-    if (err instanceof DOMException && err.name === "AbortError") return;
-    throw err instanceof Error ? err : new Error(CLIP_EXPORT_FAILED);
   };
 
   const recorded = input.choice.path === "media-recorder" ? clipRecordCanvas(input.size) : null;
@@ -118,12 +138,5 @@ export async function runClipExport(input: RunClipExportInput): Promise<void> {
           }).then((blob) => finish(blob, "video/mp4"));
         });
 
-  return work.catch(fail).finally(() => {
-    setRadarClipHold(false);
-    try {
-      surface.releaseClipHud?.();
-    } catch {
-      // Dropping the offscreen HUD must not hide an export error.
-    }
-  });
+  await work;
 }
