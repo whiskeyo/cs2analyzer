@@ -17,7 +17,7 @@ import {
   WIN_REASON_DEFUSE,
 } from "@/lib/shared/constants";
 import { roundHudLabel } from "@/lib/stats/hud";
-import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
+import { FLAG_ALIVE, FLAG_CT, FLAG_DEFUSING, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import { WEAPON_BY_ID } from "@/lib/weapons/weapons";
 
 const RATE = 64;
@@ -99,20 +99,30 @@ describe("clip HUD state", () => {
     expect(bomb.clockLabel).toBe("C4 30.0");
 
     const begin = plant + RATE;
+    const holdUntil = begin + 2 * RATE;
+    const holding = makeTicks(2, 2);
+    holding.ticks[0] = begin;
+    holding.ticks[1] = holdUntil;
+    for (let frame = 0; frame < 2; frame++) {
+      holding.flags[frame * 2] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT | FLAG_DEFUSING;
+      holding.flags[frame * 2 + 1] = FLAG_PRESENT | FLAG_ALIVE;
+    }
     const noKit = makeReplay({
       rounds: [live],
+      ticks: holding,
       bombEvents: [
         makeBombEvent({ tick: plant, kind: "planted" }),
         makeBombEvent({ tick: begin, kind: "begin_defuse", haskit: false }),
       ],
     });
-    const defusing = clipHudState(noKit, begin + 2 * RATE);
+    const defusing = clipHudState(noKit, holdUntil);
     expect(defusing.defuse?.haskit).toBe(false);
     expect(defusing.defuse?.remaining).toBeCloseTo(DEFUSE_WITHOUT_KIT_SECONDS - 2);
     expect(defusing.defuse?.progress).toBeCloseTo(2 / DEFUSE_WITHOUT_KIT_SECONDS);
 
     const withKit = makeReplay({
       rounds: [live],
+      ticks: holding,
       bombEvents: [
         makeBombEvent({ tick: plant, kind: "planted" }),
         makeBombEvent({ tick: begin, kind: "begin_defuse", haskit: true }),
@@ -122,6 +132,128 @@ describe("clip HUD state", () => {
     expect(kit.defuse?.haskit).toBe(true);
     expect(kit.defuse?.remaining).toBeCloseTo(DEFUSE_WITH_KIT_SECONDS - 1);
     expect(kit.defuse?.progress).toBeCloseTo(1 / DEFUSE_WITH_KIT_SECONDS);
+  });
+
+  it("keeps the 40s C4 clock running unchanged through a fake defuse", () => {
+    const plant = 64 + 20 * RATE;
+    const live = makeRound({
+      number: 5,
+      start_tick: 0,
+      freeze_end_tick: 64,
+      end_tick: 20000,
+      round_time_s: 90,
+    });
+    const fallback = makeReplay({
+      rounds: [makeRound({ number: 5, start_tick: 0, freeze_end_tick: 64, end_tick: 20000 })],
+    });
+    expect(clipHudState(fallback, 64)).toMatchObject({ clockKind: "round", clockLabel: "1:55" });
+
+    const beforePlant = makeReplay({ rounds: [live] });
+    expect(clipHudState(beforePlant, 64)).toMatchObject({ clockKind: "round", clockLabel: "1:30" });
+
+    const seen = plant + 10 * RATE;
+    const fuseAt = (tick: number) => BOMB_SECONDS - (tick - plant) / RATE;
+    function ctFrames(frames: { tick: number; defusing: boolean }[]) {
+      const playerCount = 2;
+      const buf = makeTicks(playerCount, frames.length);
+      frames.forEach((frame, index) => {
+        buf.ticks[index] = frame.tick;
+        for (let player = 0; player < playerCount; player++) {
+          let flags = FLAG_PRESENT | FLAG_ALIVE;
+          if (player === 0) flags |= FLAG_CT;
+          if (frame.defusing && player === 0) flags |= FLAG_DEFUSING;
+          buf.flags[index * playerCount + player] = flags;
+        }
+      });
+      return buf;
+    }
+
+    const stillHolding = ctFrames([
+      { tick: 64, defusing: false },
+      { tick: plant, defusing: false },
+      { tick: seen, defusing: true },
+    ]);
+    const planted = makeBombEvent({ tick: plant, kind: "planted" });
+    const clean = makeReplay({
+      rounds: [live],
+      ticks: stillHolding,
+      bombEvents: [planted],
+    });
+    const begin = plant + RATE;
+    const aborted = makeReplay({
+      rounds: [live],
+      ticks: stillHolding,
+      bombEvents: [
+        planted,
+        makeBombEvent({ tick: begin, kind: "begin_defuse", haskit: false, player: 0 }),
+        makeBombEvent({ tick: begin + 1, kind: "abort_defuse", player: 0 }),
+      ],
+    });
+    const during = clipHudState(aborted, begin);
+    const afterAbort = clipHudState(aborted, seen);
+    const cleanAtSeen = clipHudState(clean, seen);
+    expect(during.defuse).not.toBeNull();
+    expect(during.clockKind).toBe("bomb");
+    expect(during.bombRemaining).toBeCloseTo(fuseAt(begin));
+    expect(during.clockLabel).toBe("C4 39.0");
+    expect(afterAbort.defuse).toBeNull();
+    expect(afterAbort.clockKind).toBe("bomb");
+    expect(afterAbort.clockLabel).toBe("C4 30.0");
+    expect(afterAbort.bombRemaining).toBeCloseTo(fuseAt(seen));
+    expect(afterAbort.bombRemaining).toBeCloseTo(cleanAtSeen.bombRemaining ?? -1);
+    expect(afterAbort.clockLabel).toBe(cleanAtSeen.clockLabel);
+    const later = clipHudState(aborted, seen + 5 * RATE);
+    expect(later.clockKind).toBe("bomb");
+    expect(later.clockLabel).toBe("C4 25.0");
+    expect(later.bombRemaining).toBeCloseTo(fuseAt(seen + 5 * RATE));
+
+    const stride = 8;
+    const slack = stride * 2;
+    const dropped = makeReplay({
+      header: { tick_stride: stride },
+      rounds: [live],
+      ticks: ctFrames([
+        { tick: 64, defusing: false },
+        { tick: begin, defusing: true },
+        { tick: begin + slack, defusing: false },
+        { tick: seen, defusing: false },
+      ]),
+      bombEvents: [
+        planted,
+        makeBombEvent({ tick: begin, kind: "begin_defuse", haskit: false, player: 0 }),
+      ],
+    });
+    const afterDrop = clipHudState(dropped, seen);
+    expect(afterDrop.defuse).toBeNull();
+    expect(afterDrop.clockKind).toBe("bomb");
+    expect(afterDrop.clockLabel).toBe("C4 30.0");
+    expect(afterDrop.bombRemaining).toBeCloseTo(cleanAtSeen.bombRemaining ?? -1);
+
+    const defusedAt = plant + 12 * RATE;
+    const defused = clipHudState(
+      makeReplay({
+        rounds: [live],
+        ticks: stillHolding,
+        bombEvents: [planted, makeBombEvent({ tick: defusedAt, kind: "defused", player: 0 })],
+      }),
+      defusedAt,
+    );
+    expect(defused.bombRemaining).toBeNull();
+    expect(defused.clockKind).toBe("round");
+    expect(defused.clockLabel).toBe("0:58");
+
+    const explodedAt = plant + 15 * RATE;
+    const exploded = clipHudState(
+      makeReplay({
+        rounds: [live],
+        ticks: stillHolding,
+        bombEvents: [planted, makeBombEvent({ tick: explodedAt, kind: "exploded" })],
+      }),
+      explodedAt,
+    );
+    expect(exploded.bombRemaining).toBeNull();
+    expect(exploded.clockKind).toBe("round");
+    expect(exploded.clockLabel).toBe("0:55");
   });
 
   it("lists hp, armor, money, weapon, and ammo for each side", () => {
