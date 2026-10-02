@@ -166,7 +166,7 @@ class ClipPageHudSession implements ClipPageHudController {
       await this.sync(tick, selected, false);
       const host = this.hostElement();
       if (!host) {
-        this.paintFallback(ctx, tick);
+        this.failToPainted(ctx, tick, new Error("clip hud host missing"));
         return;
       }
       for (const panel of PANEL_ORDER) {
@@ -174,9 +174,21 @@ class ClipPageHudSession implements ClipPageHudController {
           ctx.drawImage(image.canvas, image.x, image.y, image.w, image.h);
         }
       }
-    } catch {
-      this.paintFallback(ctx, tick);
+    } catch (err) {
+      this.failToPainted(ctx, tick, err);
     }
+  }
+
+  /**
+   * One failed raster switches the rest of the export to the painted HUD.
+   * Retrying the page HUD on the next frame flickers the two styles.
+   */
+  private failToPainted(ctx: HudDrawContext, tick: number, reason: unknown): void {
+    if (this.mode === "page") {
+      this.mode = "painted";
+      console.warn("Clip page HUD raster failed; exporting the painted HUD.", reason);
+    }
+    this.paintFallback(ctx, tick);
   }
 
   dispose(): void {

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as clipHud from "@/lib/export/clipHud";
 import { fitClipScoreboard } from "@/lib/export/clipPageHudRaster";
 import { beginClipPageHud } from "@/lib/export/clipPageHudSession";
 import { endClipPageHud } from "@/lib/export/clipPageHudBridge";
@@ -14,19 +15,30 @@ const cleanProbe: ClipHudProbe = {
   threw: false,
 };
 
-function replay() {
-  const ticks = makeTicks(2, 1);
-  ticks.ticks[0] = 64;
-  for (let player = 0; player < 2; player++) {
-    ticks.flags[player] = FLAG_PRESENT | FLAG_ALIVE | (player === 0 ? FLAG_CT : 0);
-    ticks.health[player] = 100;
-    ticks.money[player] = 800;
-  }
+function roster(frames: Array<{ tick: number; health: number }>) {
+  const ticks = makeTicks(2, frames.length);
+  frames.forEach((frame, index) => {
+    ticks.ticks[index] = frame.tick;
+    for (let player = 0; player < 2; player++) {
+      const slot = index * 2 + player;
+      ticks.flags[slot] = FLAG_PRESENT | FLAG_ALIVE | (player === 0 ? FLAG_CT : 0);
+      ticks.health[slot] = frame.health;
+      ticks.money[slot] = 800;
+    }
+  });
   return makeReplay({
     players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
     rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
     ticks,
   });
+}
+
+function replay() {
+  return roster([{ tick: 64, health: 100 }]);
+}
+
+function paintCtx(): CanvasRenderingContext2D {
+  return { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
 }
 
 function blankCanvas(): Promise<HTMLCanvasElement> {
@@ -224,5 +236,45 @@ describe("clip page host slot", () => {
     expect(hostSlots()).toHaveLength(1);
     session.dispose();
     expect(hostSlots()).toHaveLength(0);
+  });
+});
+
+describe("clip page HUD raster failure", () => {
+  it("uses the painted HUD for every later frame after one raster throws", async () => {
+    mockPanelBoxes();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const painted = vi.spyOn(clipHud, "paintClipHud").mockImplementation(() => undefined);
+    let fail = false;
+    const raster = vi.fn(() => {
+      if (fail) return Promise.reject(new Error("decode"));
+      return blankCanvas();
+    });
+    const session = await beginClipPageHud(
+      roster([
+        { tick: 64, health: 100 },
+        { tick: 200, health: 40 },
+      ]),
+      1080,
+      64,
+      null,
+      { ...pageHudPorts(), raster },
+    );
+    expect(session.mode).toBe("page");
+    const prepared = raster.mock.calls.length;
+    fail = true;
+    const ctx = paintCtx();
+    await session.paint(ctx, 200, null);
+    expect(session.mode).toBe("painted");
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+    expect(painted).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    const afterFailure = raster.mock.calls.length;
+    expect(afterFailure).toBeGreaterThan(prepared);
+    await session.paint(ctx, 200, null);
+    await session.paint(ctx, 64, null);
+    expect(raster.mock.calls.length).toBe(afterFailure);
+    expect(painted).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 });
