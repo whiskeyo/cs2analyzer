@@ -42,6 +42,7 @@ describe("Notes", () => {
           win_reason: 8,
           score_ct: 0,
           score_t: 0,
+          round_time_s: 0,
           is_knife: false,
         },
       ],

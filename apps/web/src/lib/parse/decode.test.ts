@@ -115,6 +115,7 @@ describe("decodeList", () => {
       win_reason: 8,
       score_ct: 1,
       score_t: 0,
+      round_time_s: 0,
       is_knife: false,
     };
     expect(decodeList<Round>("rounds", JSON.stringify([round]))[0].winner).toBeNull();
@@ -133,12 +134,35 @@ describe("decodeList", () => {
       win_reason: 8,
       score_ct: 1,
       score_t: 0,
+      round_time_s: 115,
       is_knife: false,
     };
     expect(decodeList<Round>("rounds", JSON.stringify([round]))[0].is_knife).toBe(false);
     expect(() => decodeList<Round>("rounds", `[${without(round, "is_knife")}]`)).toThrow(
       /"rounds\[0\]".*"is_knife".*expected boolean/s,
     );
+  });
+
+  it("fills a missing round_time_s with 0 and rejects a bad type", () => {
+    const round: Round = {
+      number: 1,
+      start_tick: 0,
+      freeze_end_tick: 64,
+      end_tick: 640,
+      winner: "CT",
+      win_reason: 8,
+      score_ct: 1,
+      score_t: 0,
+      round_time_s: 90,
+      is_knife: false,
+    };
+    expect(decodeList<Round>("rounds", JSON.stringify([round]))[0].round_time_s).toBe(90);
+    expect(decodeList<Round>("rounds", `[${without(round, "round_time_s")}]`)[0].round_time_s).toBe(
+      0,
+    );
+    expect(() =>
+      decodeList<Round>("rounds", JSON.stringify([{ ...round, round_time_s: "90" }])),
+    ).toThrow(/"rounds\[0\]".*"round_time_s".*expected number/s);
   });
 
   it("requires player is_bot so a Rust rename fails on drop", () => {
