@@ -216,6 +216,16 @@ function drawPlayers(
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     ctx.fillText(row.name, column.x + pad, y + pad, column.width - pad * 2);
+    if (!row.alive) {
+      ctx.font = `${bodySize}px ui-sans-serif, system-ui, sans-serif`;
+      ctx.fillText(
+        row.money,
+        column.x + pad,
+        y + pad + nameSize + 8 * scale,
+        column.width - pad * 2,
+      );
+      return;
+    }
     const barY = y + pad + nameSize + 8 * scale;
     const barW = column.width - pad * 2;
     const barH = Math.max(4, Math.round(8 * scale));

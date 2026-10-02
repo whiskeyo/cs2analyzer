@@ -145,6 +145,45 @@ describe("clip HUD state", () => {
 });
 
 describe("paintClipHud", () => {
+  it("draws a dead player as a dimmed name and money only", () => {
+    const ticks = makeTicks(2, 1);
+    ticks.ticks[0] = 100;
+    ticks.flags[0] = FLAG_PRESENT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.health[1] = FULL_HEALTH;
+    ticks.armor[0] = 100;
+    ticks.armor[1] = 50;
+    ticks.money[0] = 800;
+    ticks.money[1] = 1500;
+    const ak = WEAPON_BY_ID.indexOf("ak47");
+    ticks.active[0] = ak;
+    ticks.clip[0] = 12;
+    ticks.reserve[0] = 90;
+    ticks.active[1] = ak;
+    ticks.clip[1] = 20;
+    ticks.reserve[1] = 90;
+    const replay = makeReplay({
+      players: [makePlayer(0, "T", "Dead Bob"), makePlayer(1, "CT", "Alice")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
+      ticks,
+    });
+    const ctx = createMockCanvas();
+    const styles: string[] = [];
+    ctx.fillText.mockImplementation((text: string) => {
+      styles.push(`${ctx.fillStyle}:${text}`);
+    });
+    paintClipHud(ctx, replay, 100, clipHudLayout(1920, 1080));
+    const deadName = styles.find((line) => line.endsWith(":Dead Bob"));
+    const deadMoney = styles.find((line) => line.endsWith(":$800"));
+    expect(deadName).toBe("#5c6770:Dead Bob");
+    expect(deadMoney).toBe("#5c6770:$800");
+    expect(styles.filter((line) => line.includes("AK-47"))).toEqual([
+      expect.stringContaining("20/90"),
+    ]);
+    expect(styles.some((line) => line.includes("100 armor"))).toBe(false);
+    expect(styles.some((line) => line.includes("50 armor"))).toBe(true);
+  });
+
   it("draws the derived score, overtime label, and post-plant clock", () => {
     const layout = clipHudLayout(1920, 1080);
     expect(layout.radar.x).toBeGreaterThan(layout.tColumn.x);
