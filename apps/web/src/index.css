@@ -4033,6 +4033,18 @@ button.link:hover:not(:disabled) {
   width: calc(var(--ctrl-btn-h) * 0.72);
   height: calc(var(--ctrl-btn-h) * 0.72);
 }
+.clip-record-icon {
+  position: relative;
+  display: inline-flex;
+}
+.clip-record-c4 {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 46%;
+  height: 46%;
+  pointer-events: none;
+}
 .controls button.round-autoplay:not(.on) {
   color: var(--text-muted);
 }
