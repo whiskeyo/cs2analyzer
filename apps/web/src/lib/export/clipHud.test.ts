@@ -76,6 +76,17 @@ describe("clip HUD state", () => {
     expect(clipHudState(replay, 64 + ROUND_TIME_DEFUSE_S * RATE).clockLabel).toBe("0:00");
     expect(clipHudState(replay, 64 + (ROUND_TIME_DEFUSE_S + 20) * RATE).clockLabel).toBe("0:00");
 
+    const wingman = makeRound({
+      number: 5,
+      start_tick: 0,
+      freeze_end_tick: 64,
+      end_tick: 20000,
+      round_time_s: 90,
+    });
+    const short = makeReplay({ rounds: [wingman] });
+    expect(clipHudState(short, 64).clockLabel).toBe("1:30");
+    expect(clipHudState(short, 64 + 10 * RATE).clockLabel).toBe("1:20");
+
     const plant = 200;
     const planted = makeReplay({
       rounds: [live],

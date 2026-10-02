@@ -145,7 +145,7 @@ export function clipHudState(replay: Replay, tick: number): ClipHudState {
   const rate = tickRate(replay);
   const origin = round ? (round.freeze_end_tick > 0 ? round.freeze_end_tick : round.start_tick) : 0;
   const elapsed = rate > 0 ? Math.max(0, (tick - origin) / rate) : 0;
-  let clockLabel = formatClock(roundTimeRemaining(elapsed));
+  let clockLabel = formatClock(roundTimeRemaining(elapsed, round?.round_time_s ?? 0));
   let clockKind: ClipHudState["clockKind"] = "round";
   if (sit.freeze != null) {
     clockLabel = `Freeze ${sit.freeze.toFixed(1)}`;

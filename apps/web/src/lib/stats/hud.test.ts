@@ -34,6 +34,13 @@ describe("roundTimeRemaining", () => {
     expect(roundTimeRemaining(ROUND_TIME_DEFUSE_S + 20)).toBe(0);
     expect(roundTimeRemaining(-5)).toBe(ROUND_TIME_DEFUSE_S);
   });
+
+  it("uses a parsed round length and falls back when it is missing", () => {
+    expect(roundTimeRemaining(0, 90)).toBe(90);
+    expect(roundTimeRemaining(10, 90)).toBe(80);
+    expect(roundTimeRemaining(90, 90)).toBe(0);
+    expect(roundTimeRemaining(0, 0)).toBe(ROUND_TIME_DEFUSE_S);
+  });
 });
 
 describe("freezeRemaining", () => {

@@ -181,9 +181,8 @@ export function isBotSteamId(steamId: number): boolean {
 export const TRADE_SECONDS = 5;
 
 /**
- * Competitive defuse-map round length (`mp_roundtime_defuse`). Wingman uses a
- * shorter clock. The parsed replay does not carry this value yet; reading it
- * from the demo is a follow-up.
+ * Competitive defuse-map round length (`mp_roundtime_defuse`, 1:55).
+ * The HUD uses `Round.round_time_s` when the demo carried `m_iRoundTime`.
  */
 export const ROUND_TIME_DEFUSE_S = 115;
 
