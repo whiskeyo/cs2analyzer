@@ -37,7 +37,7 @@ function clipRecordCanvas(size: number): HTMLCanvasElement {
 }
 
 /** Paint and encode the span. Resolves after the file is saved, or rejects. */
-export function runClipExport(input: RunClipExportInput): Promise<void> {
+export async function runClipExport(input: RunClipExportInput): Promise<void> {
   const surface = radarClipSurface();
   if (!surface) return Promise.reject(new Error(CLIP_EXPORT_NOT_READY));
   const scheduled = clipFrameSchedule(input.span, input.rate, input.fps);
@@ -47,6 +47,38 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
 
   input.onPlaying(false);
   setRadarClipHold(true);
+  try {
+    if (surface.prepareClipHud) {
+      try {
+        await surface.prepareClipHud(input.size, input.span.startTick);
+      } catch {
+        // The painted HUD still exports.
+      }
+    }
+    if (input.signal.aborted) {
+      throw new DOMException("Clip export cancelled", "AbortError");
+    }
+    await runClipEncode(input, surface, scheduled);
+  } catch (err) {
+    input.onTick(input.restoreTick);
+    if (err instanceof DOMException && err.name === "AbortError") return;
+    throw err instanceof Error ? err : new Error(CLIP_EXPORT_FAILED);
+  } finally {
+    setRadarClipHold(false);
+    try {
+      surface.releaseClipHud?.();
+    } catch {
+      // Dropping the offscreen HUD must not hide an export error.
+    }
+  }
+}
+
+/** Encode after the HUD is ready. Cancel is checked by the caller first. */
+async function runClipEncode(
+  input: RunClipExportInput,
+  surface: NonNullable<ReturnType<typeof radarClipSurface>>,
+  scheduled: ReturnType<typeof clipFrameSchedule>,
+): Promise<void> {
   let lastUi = 0;
   const publish = (index: number, frameTick: number, ratio: number) => {
     const now = performance.now();
@@ -62,11 +94,6 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
     downloadBlob(clipDownloadName(input.mapName, input.roundSlug, type), type, blob);
     input.onTick(Math.round(input.span.endTick));
   };
-  const fail = (err: unknown) => {
-    input.onTick(input.restoreTick);
-    if (err instanceof DOMException && err.name === "AbortError") return;
-    throw err instanceof Error ? err : new Error(CLIP_EXPORT_FAILED);
-  };
 
   const recorded = input.choice.path === "media-recorder" ? clipRecordCanvas(input.size) : null;
   const work =
@@ -77,7 +104,7 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
           holdMs: scheduled.durations.map((us) => us / 1000),
           mimeType: input.choice.mime,
           paintAt: (frameTick) => {
-            if (recorded) surface.paintFrame(recorded, input.size, frameTick);
+            if (recorded) return surface.paintFrame(recorded, input.size, frameTick);
           },
           fps: input.fps,
           signal: input.signal,
@@ -111,7 +138,5 @@ export function runClipExport(input: RunClipExportInput): Promise<void> {
           }).then((blob) => finish(blob, "video/mp4"));
         });
 
-  return work.catch(fail).finally(() => {
-    setRadarClipHold(false);
-  });
+  await work;
 }

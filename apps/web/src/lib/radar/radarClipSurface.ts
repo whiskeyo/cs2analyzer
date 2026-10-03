@@ -17,9 +17,13 @@ export interface RadarClipSurface {
   paintAt: (tick: number) => void;
   /**
    * Draw one demo tick into the 16:9 export frame. `height` is 1080 or 1440.
-   * The radar sits in the center; the HUD uses the rest of the frame.
+   * The page HUD may return a promise so the bitmap matches that tick.
    */
-  paintFrame: (canvas: ClipFrameCanvas, height: number, tick: number) => void;
+  paintFrame: (canvas: ClipFrameCanvas, height: number, tick: number) => void | Promise<void>;
+  /** Mount the offscreen page HUD before the first frame. Failures stay on the painted HUD. */
+  prepareClipHud?: (height: number, tick: number) => Promise<void>;
+  /** Drop the offscreen page HUD after the file is saved or cancelled. */
+  releaseClipHud?: () => void;
 }
 
 let surface: RadarClipSurface | null = null;

@@ -1,5 +1,7 @@
-import { CLIP_EXPORT_SIZE_DEFAULT } from "@/lib/export/constants";
+import { CLIP_EXPORT_SIZE_DEFAULT, CLIP_HUD_TIMER_DECIMALS } from "@/lib/export/constants";
+import { environmentDeath, visibleKillFeed } from "@/lib/radar/killFeed";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
+import { attackerLabel, playerLabel } from "@/lib/replay/playerLabel";
 import { currentRound, samplePlayers } from "@/lib/replay/sample";
 import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
 import {
@@ -90,6 +92,7 @@ export interface ClipHudPainter {
   textBaseline: CanvasTextBaseline;
   fillRect(x: number, y: number, w: number, h: number): void;
   fillText(text: string, x: number, y: number, maxWidth?: number): void;
+  measureText(text: string): { width: number };
 }
 
 /** Radar centered, T list on the left, CT list on the right, bar across the top. */
@@ -136,29 +139,33 @@ function playerRow(replay: Replay, index: number, tick: number): ClipHudPlayer |
 }
 
 /**
- * HUD facts for one export frame. Scores and the win line come from the same
- * helpers as the live HUD. The clock label does not: after a plant it stays on
- * the 40s fuse for the rest of that round.
+ * Burned-in clip clock. After a plant this stays on the 40s fuse for the rest
+ * of the round: a fake defuse does not move it, a real defuse freezes the
+ * reading from that tick, and an explosion holds `C4 0.0`. The next round
+ * counts down from freeze end again. This is not the live bomb chip, which
+ * hides once the fuse is no longer running.
  */
-export function clipHudState(replay: Replay, tick: number): ClipHudState {
-  const teams = liveTeams(replay, tick);
+export function clipClockLabel(replay: Replay, tick: number): string {
   const sit = liveSituation(replay, tick);
   const round = currentRound(replay, tick);
   const rate = tickRate(replay);
   const origin = round ? (round.freeze_end_tick > 0 ? round.freeze_end_tick : round.start_tick) : 0;
   const elapsed = rate > 0 ? Math.max(0, (tick - origin) / rate) : 0;
-  let clockLabel = formatClock(roundTimeRemaining(elapsed, round?.round_time_s ?? 0));
-  let clockKind: ClipHudState["clockKind"] = "round";
-  if (sit.freeze != null) {
-    clockLabel = `Freeze ${sit.freeze.toFixed(1)}`;
-    clockKind = "freeze";
-  } else if (round) {
+  if (sit.freeze != null) return `Freeze ${sit.freeze.toFixed(CLIP_HUD_TIMER_DECIMALS)}`;
+  if (round) {
     const planted = plantedClipClock(replay, round, tick, rate);
-    if (planted) {
-      clockLabel = planted.clockLabel;
-      clockKind = planted.clockKind;
-    }
+    if (planted) return planted.clockLabel;
   }
+  return formatClock(roundTimeRemaining(elapsed, round?.round_time_s ?? 0));
+}
+
+export function clipHudState(replay: Replay, tick: number): ClipHudState {
+  const teams = liveTeams(replay, tick);
+  const sit = liveSituation(replay, tick);
+  const round = currentRound(replay, tick);
+  const clockLabel = clipClockLabel(replay, tick);
+  const clockKind: ClipHudState["clockKind"] =
+    sit.freeze != null ? "freeze" : clockLabel.startsWith("C4 ") ? "bomb" : "round";
   const duration = sit.defuse
     ? sit.defuse.haskit
       ? DEFUSE_WITH_KIT_SECONDS
@@ -300,6 +307,67 @@ function drawPlayers(
   });
 }
 
+function killNameColor(replay: Replay, index: number, tick: number): string {
+  if (index < 0) return TEXT;
+  return currentSide(replay, index, tick) === "CT" ? CT_COLOR : T_COLOR;
+}
+
+/** Painted fallback has no weapon SVGs. */
+const PAINTED_SKULL = "☠";
+
+/** Simple text feed for the painted fallback. Same rows as the page kill feed. */
+function drawKillFeed(
+  ctx: ClipHudPainter,
+  replay: Replay,
+  tick: number,
+  layout: ClipHudLayout,
+  scale: number,
+): void {
+  const kills = visibleKillFeed(replay, tick);
+  if (kills.length === 0) return;
+  const size = Math.round(16 * scale);
+  const rowH = size + 6 * scale;
+  const pad = 12 * scale;
+  ctx.font = `600 ${size}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  kills.forEach((kill, index) => {
+    const environment = environmentDeath(kill);
+    const parts: { text: string; color: string }[] = [];
+    if (environment === "bomb") {
+      parts.push({ text: `${prettyWeapon("c4")}  `, color: MUTED });
+    } else if (environment === "skull") {
+      parts.push({ text: `${PAINTED_SKULL}  `, color: MUTED });
+    } else {
+      parts.push({
+        text: attackerLabel(replay, kill.attacker),
+        color: killNameColor(replay, kill.attacker, kill.tick),
+      });
+      if (kill.assister >= 0) {
+        parts.push({ text: " + ", color: MUTED });
+        parts.push({
+          text: playerLabel(replay.players[kill.assister]),
+          color: killNameColor(replay, kill.assister, kill.tick),
+        });
+      }
+      parts.push({ text: `  ${prettyWeapon(kill.weapon)}  `, color: MUTED });
+    }
+    parts.push({
+      text: playerLabel(replay.players[kill.victim]),
+      color: killNameColor(replay, kill.victim, kill.tick),
+    });
+    let x = layout.radar.x + layout.radar.size - pad;
+    const y = layout.radar.y + pad + index * rowH;
+    for (let part = parts.length - 1; part >= 0; part -= 1) {
+      const piece = parts[part];
+      if (!piece) continue;
+      x -= ctx.measureText(piece.text).width;
+      ctx.fillStyle = piece.color;
+      ctx.fillText(piece.text, x, y);
+    }
+  });
+}
+
 /** Burn the live HUD into the export frame. `layout` is the 16:9 composition. */
 export function paintClipHud(
   ctx: ClipHudPainter,
@@ -342,6 +410,7 @@ export function paintClipHud(
 
   drawPlayers(ctx, state.playersT, layout.tColumn, scale);
   drawPlayers(ctx, state.playersCt, layout.ctColumn, scale);
+  drawKillFeed(ctx, replay, tick, layout, scale);
 
   if (state.defuse) {
     const barH = Math.max(6, Math.round(10 * scale));

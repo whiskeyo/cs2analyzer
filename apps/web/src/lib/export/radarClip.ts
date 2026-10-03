@@ -270,7 +270,7 @@ export interface RecordRadarClipOptions {
   canvas: HTMLCanvasElement;
   ticks: readonly number[];
   mimeType: string;
-  paintAt: (tick: number) => void;
+  paintAt: (tick: number) => void | Promise<void>;
   fps?: number;
   /** Per-frame hold, milliseconds. When set, the sum is the demo span. */
   holdMs?: readonly number[];
@@ -354,7 +354,7 @@ export async function recordRadarClip(options: RecordRadarClipOptions): Promise<
   try {
     const first = ticks[0];
     if (first === undefined) throw new Error(CLIP_EXPORT_TOO_SHORT);
-    paintAt(first);
+    await paintAt(first);
     recorder.start();
     started = true;
     let nextAt = now();
@@ -363,7 +363,7 @@ export async function recordRadarClip(options: RecordRadarClipOptions): Promise<
         throw new DOMException("Clip export cancelled", "AbortError");
       }
       if (tabIsHidden()) throw new Error(CLIP_EXPORT_TAB_HIDDEN);
-      paintAt(tick);
+      await paintAt(tick);
       if (manualFrames) requestCanvasFrame(recorded);
       onFrame?.(index, tick);
       nextAt += holdMs?.[index] ?? frameMs;

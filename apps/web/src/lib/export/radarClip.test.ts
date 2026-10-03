@@ -197,7 +197,9 @@ describe("recordRadarClip", () => {
       canvas,
       ticks,
       mimeType: "video/webm;codecs=vp9",
-      paintAt: (tick) => painted.push(tick),
+      paintAt: (tick) => {
+        painted.push(tick);
+      },
       now: time.now,
       sleep: time.sleep,
       createRecorder: (_stream, mime, bits) => {

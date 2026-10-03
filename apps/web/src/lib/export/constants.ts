@@ -95,6 +95,18 @@ export const MATCH_PDF_EXPORT_ERROR = "Could not export PDF.";
 /** Offline radar clips are 30 fps. There is no faster export rate. */
 export const CLIP_EXPORT_FPS = 30;
 
+/**
+ * Square used to see whether an SVG `foreignObject` taints the clip canvas.
+ * Large enough for a colored mark and a transparent corner.
+ */
+export const CLIP_HUD_PROBE_PX = 32;
+
+/** Bomb, defuse, plant, and freeze labels show one decimal. The raster key uses the same. */
+export const CLIP_HUD_TIMER_DECIMALS = 1;
+
+/** Analyzer page background (`--bg`). */
+export const CLIP_PAGE_FRAME_BG = "#0b0e12";
+
 /** 16:9 radar clip. The stored preference is the frame height, not a square edge. */
 export const CLIP_EXPORT_ASPECT_WIDTH = 16;
 export const CLIP_EXPORT_ASPECT_HEIGHT = 9;

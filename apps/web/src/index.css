@@ -4103,6 +4103,63 @@ button.link:hover:not(:disabled) {
   line-height: 1.2;
   color: var(--danger);
 }
+.clip-page-host-slot {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* The slot sits on the page. Opacity hides it without `visibility` or
+     `display`, which would collapse the boxes the raster measures.
+     Only the panel node is cloned, so this does not fade the bitmap. */
+  opacity: 0;
+}
+.clip-page-host {
+  display: flex;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text);
+}
+.clip-page-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  background: transparent;
+}
+.clip-page-hud-panel {
+  /* Only as wide as the score. A full-bleed box covers the first player
+     card on each side (the columns start 8px in and are 216px wide). */
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 2 * (216px + 8px));
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  background: transparent;
+}
+.clip-page-host .radar-hud {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  align-items: center;
+  text-align: center;
+}
+.clip-page-eco-panel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.clip-page-host .spec-eco {
+  display: flex;
+}
+
 .clip-export button:disabled {
   opacity: 0.55;
   cursor: default;
@@ -4309,11 +4366,13 @@ button.link:hover:not(:disabled) {
   font-size: 0.72rem;
 }
 .kill-feed .att.ct,
-.kill-feed .vic.ct {
+.kill-feed .vic.ct,
+.kill-feed .assist.ct {
   color: #7eb7e6;
 }
 .kill-feed .att.t,
-.kill-feed .vic.t {
+.kill-feed .vic.t,
+.kill-feed .assist.t {
   color: #e0c15a;
 }
 .kill-feed .gun {

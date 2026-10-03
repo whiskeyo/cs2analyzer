@@ -33,7 +33,7 @@ export interface EncodeRadarClipOptions {
   durations?: readonly number[];
   codec: string;
   bitrate: number;
-  paintFrame: (canvas: ClipFrameCanvas, tick: number) => void;
+  paintFrame: (canvas: ClipFrameCanvas, tick: number) => void | Promise<void>;
   signal?: AbortSignal;
   onProgress?: (ratio: number) => void;
   createWorker?: () => ClipEncodeWorker;
@@ -123,7 +123,9 @@ async function paintFrames(
     await waitForRoom(state, signal);
     const tick = ticks[index];
     if (tick === undefined) throw new Error(CLIP_EXPORT_TOO_SHORT);
-    paintFrame(canvas, tick);
+    // The page HUD raster is async. The bitmap must match this tick, including a kill
+    // that just changed the scoreboard, before the encoder takes the frame.
+    await paintFrame(canvas, tick);
     if (signal?.aborted) throw abortError();
     const bitmap = await grab(canvas);
     if (signal?.aborted) {
