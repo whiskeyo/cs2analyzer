@@ -78,24 +78,77 @@ describe("Hud", () => {
 
     rerender(<Hud replay={replay} tick={500 + 4 * tps} />);
     expect(screen.queryByText(/^Plant /)).not.toBeInTheDocument();
-    expect(screen.getByText(`C4 ${BOMB_SECONDS.toFixed(1)}s`)).toBeInTheDocument();
+    expect(screen.getByText(`C4 ${BOMB_SECONDS.toFixed(1)}`)).toBeInTheDocument();
   });
 
-  it("shows the C4 clock after a plant and hides it on defuse", () => {
+  it("keeps the C4 chip after a defuse, frozen, until the next round", () => {
+    const plant = 1000;
+    const defusedAt = plant + 10 * tps;
+    const nextStart = 5000;
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [
+        makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 }),
+        makeRound({
+          number: 2,
+          start_tick: nextStart,
+          freeze_end_tick: nextStart + 64,
+          end_tick: 8000,
+        }),
+      ],
+      ticks: makeFreezeTicks(2, 1),
+      bombEvents: [
+        makeBombEvent({ tick: plant, kind: "planted" }),
+        makeBombEvent({ tick: defusedAt, kind: "defused", player: 0 }),
+      ],
+    });
+    const { rerender } = render(<Hud replay={replay} tick={plant + 5 * tps} />);
+    expect(screen.getByText(`C4 ${(BOMB_SECONDS - 5).toFixed(1)}`)).toBeInTheDocument();
+
+    rerender(<Hud replay={replay} tick={defusedAt + tps} />);
+    const chip = screen.getByText("C4 30.0");
+    expect(chip).toHaveClass("hud-bomb");
+    expect(chip).not.toHaveClass("hot");
+
+    rerender(<Hud replay={replay} tick={nextStart} />);
+    expect(screen.queryByText(/^C4 /)).not.toBeInTheDocument();
+  });
+
+  it("holds C4 0.0 on the chip after an explosion", () => {
+    const plant = 1000;
+    const explodedAt = plant + 10 * tps;
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
       ticks: makeFreezeTicks(2, 1),
       bombEvents: [
-        makeBombEvent({ tick: 1000, kind: "planted" }),
-        makeBombEvent({ tick: 1000 + 10 * tps, kind: "defused", player: 0 }),
+        makeBombEvent({ tick: plant, kind: "planted" }),
+        makeBombEvent({ tick: explodedAt, kind: "exploded" }),
       ],
     });
-    const { rerender } = render(<Hud replay={replay} tick={1000 + 5 * tps} />);
-    expect(screen.getByText(`C4 ${(BOMB_SECONDS - 5).toFixed(1)}s`)).toBeInTheDocument();
+    const { rerender } = render(<Hud replay={replay} tick={explodedAt} />);
+    const chip = screen.getByText("C4 0.0");
+    expect(chip).toHaveClass("hud-bomb", "hot");
 
-    rerender(<Hud replay={replay} tick={1000 + 11 * tps} />);
-    expect(screen.queryByText(/^C4 /)).not.toBeInTheDocument();
+    rerender(<Hud replay={replay} tick={explodedAt + 20 * tps} />);
+    expect(screen.getByText("C4 0.0")).toBeInTheDocument();
+  });
+
+  it("freezes the chip when bomb_defused is after round_end", () => {
+    const plant = 1000;
+    const end = plant + 10 * tps;
+    const defusedAt = end + tps;
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: end })],
+      ticks: makeFreezeTicks(2, 1),
+      bombEvents: [
+        makeBombEvent({ tick: plant, kind: "planted" }),
+        makeBombEvent({ tick: defusedAt, kind: "defused", player: 0 }),
+      ],
+    });
+    expect(() => render(<Hud replay={replay} tick={defusedAt} />)).not.toThrow();
+    expect(screen.getByText("C4 29.0")).toHaveClass("hud-bomb");
   });
 
   it("hides the C4 clock once every CT is dead", () => {

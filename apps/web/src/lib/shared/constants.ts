@@ -189,6 +189,12 @@ export const ROUND_TIME_DEFUSE_S = 115;
 /** C4 fuse after plant. */
 export const BOMB_SECONDS = 40;
 
+/** Decimal places on the shared C4 readout (`C4 12.3`). Not a translated string. */
+export const C4_CLOCK_DECIMALS = 1;
+
+/** Bomb HUD chip turns hot once the fuse is inside this many seconds. */
+export const BOMB_CLOCK_HOT_SECONDS = 10;
+
 /** C4 arm time (hold E). GOTV completed plants are ~3.12s. */
 export const PLANT_SECONDS = 3.2;
 

@@ -2,10 +2,10 @@ import { CLIP_EXPORT_SIZE_DEFAULT, CLIP_HUD_TIMER_DECIMALS } from "@/lib/export/
 import { environmentDeath, visibleKillFeed } from "@/lib/radar/killFeed";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
 import { attackerLabel, playerLabel } from "@/lib/replay/playerLabel";
+import { plantedClock } from "@/lib/replay/plantedClock";
 import { currentRound, samplePlayers } from "@/lib/replay/sample";
-import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
+import type { Replay, Side } from "@/lib/replay/replayTypes";
 import {
-  BOMB_SECONDS,
   DEFUSE_WITH_KIT_SECONDS,
   DEFUSE_WITHOUT_KIT_SECONDS,
   FULL_HEALTH,
@@ -142,8 +142,8 @@ function playerRow(replay: Replay, index: number, tick: number): ClipHudPlayer |
  * Burned-in clip clock. After a plant this stays on the 40s fuse for the rest
  * of the round: a fake defuse does not move it, a real defuse freezes the
  * reading from that tick, and an explosion holds `C4 0.0`. The next round
- * counts down from freeze end again. This is not the live bomb chip, which
- * hides once the fuse is no longer running.
+ * counts down from freeze end again. The page playback clock uses the same
+ * `plantedClock` helper.
  */
 export function clipClockLabel(replay: Replay, tick: number): string {
   const sit = liveSituation(replay, tick);
@@ -153,7 +153,7 @@ export function clipClockLabel(replay: Replay, tick: number): string {
   const elapsed = rate > 0 ? Math.max(0, (tick - origin) / rate) : 0;
   if (sit.freeze != null) return `Freeze ${sit.freeze.toFixed(CLIP_HUD_TIMER_DECIMALS)}`;
   if (round) {
-    const planted = plantedClipClock(replay, round, tick, rate);
+    const planted = plantedClock(replay, round, tick, rate);
     if (planted) return planted.clockLabel;
   }
   return formatClock(roundTimeRemaining(elapsed, round?.round_time_s ?? 0));
@@ -207,51 +207,6 @@ export function clipHudState(replay: Replay, tick: number): ClipHudState {
     winLabel,
     playersT,
     playersCt,
-  };
-}
-
-/** `C4 12.3` from a fuse reading. Zero stays `C4 0.0`. */
-function c4ClockLabel(seconds: number): string {
-  return `C4 ${Math.max(0, seconds).toFixed(1)}`;
-}
-
-/**
- * Clip clock after `bomb_planted` in this round. Counts the 40s fuse from the
- * plant tick. A fake defuse does not touch it. A real defuse freezes the
- * reading from that tick; an explosion holds `C4 0.0`. The next round has no
- * plant yet, so the caller keeps the round countdown. This is not `sit.bomb`:
- * the live chip hides when the fuse is no longer running.
- */
-function plantedClipClock(
-  replay: Replay,
-  round: Round,
-  tick: number,
-  rate: number,
-): { clockLabel: string; clockKind: "bomb" } | null {
-  if (!(rate > 0)) return null;
-  let plantTick = -1;
-  let stopped: "defused" | "exploded" | null = null;
-  let frozen = 0;
-  for (const event of replay.bombEvents) {
-    if (event.tick > tick || event.tick < round.start_tick || event.tick > round.end_tick) {
-      continue;
-    }
-    if (event.kind === "planted") {
-      plantTick = event.tick;
-      stopped = null;
-    } else if (event.kind === "defused" && plantTick >= 0 && event.tick >= plantTick) {
-      stopped = "defused";
-      frozen = BOMB_SECONDS - (event.tick - plantTick) / rate;
-    } else if (event.kind === "exploded" && plantTick >= 0 && event.tick >= plantTick) {
-      stopped = "exploded";
-    }
-  }
-  if (plantTick < 0) return null;
-  if (stopped === "exploded") return { clockLabel: c4ClockLabel(0), clockKind: "bomb" };
-  if (stopped === "defused") return { clockLabel: c4ClockLabel(frozen), clockKind: "bomb" };
-  return {
-    clockLabel: c4ClockLabel(BOMB_SECONDS - (tick - plantTick) / rate),
-    clockKind: "bomb",
   };
 }
 

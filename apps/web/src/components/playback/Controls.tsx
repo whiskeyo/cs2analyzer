@@ -10,12 +10,12 @@ import {
   type RoundScrubEventMark,
 } from "@/lib/playback/roundTimeline";
 import { useSendPlaybackCommand } from "@/lib/playback/playbackCommandContext";
+import { pageClockLabel } from "@/lib/replay/plantedClock";
 import { currentRound } from "@/lib/replay/sample";
 import type { Replay, Round } from "@/lib/replay/replayTypes";
 import type { RoundNote } from "@/lib/notes/types";
-import { formatClock } from "@/lib/weapons/weapons";
 import { publicUrl } from "@/lib/shared/publicUrl";
-import { roundHudLabel, roundTimeRemaining } from "@/lib/stats/hud";
+import { roundHudLabel } from "@/lib/stats/hud";
 import { ClipExport } from "./ClipExport";
 import { TransportButton } from "./TransportButton";
 import { UnfocusableButton } from "./UnfocusableButton";
@@ -159,12 +159,7 @@ export const Controls = memo(function Controls({
 
   const tps = tickRate(replay);
   const inFreeze = !!round && tick < round.freeze_end_tick;
-  const freezeLeft =
-    round && tick < round.freeze_end_tick ? (round.freeze_end_tick - tick) / tps : 0;
-  const elapsed = Math.max(0, (tick - (round?.freeze_end_tick ?? min)) / tps);
-  const clock = inFreeze
-    ? `Freeze ${freezeLeft.toFixed(1)}s`
-    : formatClock(roundTimeRemaining(elapsed, round?.round_time_s ?? 0));
+  const clock = pageClockLabel(replay, tick);
   const marks = round ? roundTimelineMarks(round, tps, activeRange) : [];
   const bookmarks = round
     ? roundBookmarkMarks(noteForRound(notes, round.number), round, activeRange)

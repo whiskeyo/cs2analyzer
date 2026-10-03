@@ -1,5 +1,7 @@
 import { memo } from "react";
+import { plantedClock } from "@/lib/replay/plantedClock";
 import { currentRound } from "@/lib/replay/sample";
+import { BOMB_CLOCK_HOT_SECONDS, tickRate } from "@/lib/shared/constants";
 import { liveSituation, liveTeams, roundHudLabel } from "@/lib/stats/stats";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { prettyMap, winReasonLabel } from "@/lib/weapons/weapons";
@@ -21,6 +23,14 @@ export const Hud = memo(function Hud({ replay, tick, clockLabel }: Props) {
   const round = currentRound(replay, tick);
   const clutchName =
     sit.clutch != null ? (replay.players[sit.clutch.player]?.name ?? "Player") : null;
+  const planted = round ? plantedClock(replay, round, tick, tickRate(replay)) : null;
+  // Running fuse still follows `sit.bomb` (hidden on a CT wipe or a dead timer).
+  // After a defuse or explosion the shared fuse label stays until the next round.
+  const c4Label =
+    !clockLabel && planted && (sit.bomb != null || planted.stopped != null)
+      ? planted.clockLabel
+      : null;
+  const c4Hot = planted != null && Math.max(0, planted.remaining) < BOMB_CLOCK_HOT_SECONDS;
 
   return (
     <div className="radar-hud">
@@ -54,11 +64,7 @@ export const Hud = memo(function Hud({ replay, tick, clockLabel }: Props) {
           Plant {sit.plant.remaining.toFixed(1)}s
         </div>
       )}
-      {sit.bomb && !clockLabel && (
-        <div className={`hud-bomb${sit.bomb.remaining < 10 ? " hot" : ""}`}>
-          C4 {sit.bomb.remaining.toFixed(1)}s
-        </div>
-      )}
+      {c4Label && <div className={`hud-bomb${c4Hot ? " hot" : ""}`}>{c4Label}</div>}
       {sit.defuse && (
         <div className={`hud-defuse${sit.defuse.remaining < 2 ? " hot" : ""}`}>
           Defuse {sit.defuse.remaining.toFixed(1)}s{sit.defuse.haskit ? " · kit" : ""}
