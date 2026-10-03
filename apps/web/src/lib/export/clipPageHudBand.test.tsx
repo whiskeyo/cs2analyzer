@@ -154,12 +154,15 @@ describe("clip score band", () => {
 
       const clone = paint.markup[0];
       expect(clone).toBeInstanceOf(HTMLElement);
-      const rasterHud = (clone as HTMLElement).querySelector(".radar-hud");
-      expect(rasterHud).toBeInstanceOf(HTMLElement);
-      const score = rasterHud as HTMLElement;
-      expect(score.style.getPropertyValue("transform")).toBe("none");
-      expect(score.style.getPropertyPriority("transform")).toBe("important");
-      expect(score.getAttribute("style")).toContain("transform: none !important");
+      const rasterRoot = clone as HTMLElement;
+      expect(rasterRoot.classList.contains("clip-page-hud-panel")).toBe(false);
+      const scoreRow = rasterRoot.querySelector(".hud-score");
+      expect(scoreRow).toBeInstanceOf(HTMLElement);
+      const score = scoreRow?.parentElement;
+      expect(score?.classList.contains("radar-hud")).toBe(false);
+      expect(score?.style.getPropertyValue("transform")).toBe("none");
+      expect(score?.style.getPropertyPriority("transform")).toBe("important");
+      expect(score?.getAttribute("style")).toContain("transform: none !important");
       const rasterText = (clone as HTMLElement).textContent ?? "";
       expect(rasterText).toContain("Team Vitality 0");
       expect(rasterText).toContain("1 Team Spirit");

@@ -163,12 +163,16 @@ function pinRasterRoot(clone: HTMLElement, width: number, height: number): void 
 }
 
 /**
- * Chrome's foreignObject keeps the first `.radar-hud { transform: translateX(-50%) }`
- * rule and ignores a later stylesheet, which clips the left half of the score.
- * Inline `!important` on the cloned score is what the bitmap actually paints.
+ * foreignObject keeps `.radar-hud` / `.clip-page-hud-panel` centering
+ * (`left: 50%` plus `translateX(-50%)`) over inline `transform: none`.
+ * That shift clips the left half of the score. Drop the classes and pin the
+ * row with inline layout so the bitmap is the measured band.
  */
 function pinScoreBand(clone: HTMLElement): void {
-  const hud = clone.matches(".radar-hud") ? clone : clone.querySelector<HTMLElement>(".radar-hud");
+  clone.classList.remove("clip-page-hud-panel");
+  const hud = clone.classList.contains("radar-hud")
+    ? clone
+    : clone.querySelector<HTMLElement>(".radar-hud");
   if (!hud) return;
   pinImportant(hud, [
     ["position", "relative"],
@@ -177,9 +181,15 @@ function pinScoreBand(clone: HTMLElement): void {
     ["bottom", "auto"],
     ["left", "auto"],
     ["transform", "none"],
+    ["display", "flex"],
+    ["flex-direction", "column"],
+    ["align-items", "center"],
+    ["text-align", "center"],
     ["width", "max-content"],
     ["max-width", "none"],
+    ["gap", "0.25rem"],
   ]);
+  hud.classList.remove("radar-hud");
   const score = hud.querySelector<HTMLElement>(".hud-score");
   if (!score) return;
   pinImportant(score, [

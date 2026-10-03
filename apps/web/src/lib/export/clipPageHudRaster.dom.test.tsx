@@ -69,7 +69,7 @@ describe("clip page HUD raster clone", () => {
       expect(clone).toBeInstanceOf(HTMLElement);
       expect(clone).not.toBe(slot);
       expect(clone).not.toBe(panel);
-      expect((clone as HTMLElement).className).toBe("radar-hud");
+      expect((clone as HTMLElement).classList.contains("radar-hud")).toBe(false);
       expect((clone as HTMLElement).textContent).toBe("5 – 5");
       expect((clone as HTMLElement).style.opacity).not.toBe("0");
       expect(serialize.call(new XMLSerializer(), clone as Node)).not.toContain(
