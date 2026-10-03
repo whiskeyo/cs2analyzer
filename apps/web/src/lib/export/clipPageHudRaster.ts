@@ -143,9 +143,13 @@ export function clipPageHudSvg(
   ].join("");
 }
 
+function pinImportant(node: HTMLElement, props: [string, string][]): void {
+  for (const [name, value] of props) node.style.setProperty(name, value, "important");
+}
+
 function pinRasterRoot(clone: HTMLElement, width: number, height: number): void {
   clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-  const reset: [string, string][] = [
+  pinImportant(clone, [
     ["position", "relative"],
     ["top", "0"],
     ["right", "auto"],
@@ -155,10 +159,33 @@ function pinRasterRoot(clone: HTMLElement, width: number, height: number): void 
     ["transform", "none"],
     ["width", `${width}px`],
     ["height", `${height}px`],
-  ];
-  for (const [name, value] of reset) {
-    clone.style.setProperty(name, value, "important");
-  }
+  ]);
+}
+
+/**
+ * Chrome's foreignObject keeps the first `.radar-hud { transform: translateX(-50%) }`
+ * rule and ignores a later stylesheet, which clips the left half of the score.
+ * Inline `!important` on the cloned score is what the bitmap actually paints.
+ */
+function pinScoreBand(clone: HTMLElement): void {
+  const hud = clone.matches(".radar-hud") ? clone : clone.querySelector<HTMLElement>(".radar-hud");
+  if (!hud) return;
+  pinImportant(hud, [
+    ["position", "relative"],
+    ["top", "auto"],
+    ["right", "auto"],
+    ["bottom", "auto"],
+    ["left", "auto"],
+    ["transform", "none"],
+    ["width", "max-content"],
+    ["max-width", "none"],
+  ]);
+  const score = hud.querySelector<HTMLElement>(".hud-score");
+  if (!score) return;
+  pinImportant(score, [
+    ["flex-wrap", "nowrap"],
+    ["white-space", "nowrap"],
+  ]);
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -224,6 +251,7 @@ export async function rasterClipPageNode(
     throw new Error("clip hud node");
   }
   pinRasterRoot(clone, width, height);
+  pinScoreBand(clone);
   await inlineImages(clone);
   const variables = clipHudCssVariableText(getComputedStyle(document.documentElement));
   const svg = clipPageHudSvg(

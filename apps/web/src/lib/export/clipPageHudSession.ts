@@ -100,7 +100,8 @@ function panelNodes(host: ParentNode, panel: ClipHudPanel): HTMLElement[] {
   return [root];
 }
 
-function place(
+/** Where a measured panel is drawn. The full width and height stay on the frame. */
+export function placedClipPanel(
   host: HTMLElement,
   node: HTMLElement,
   canvas: HTMLCanvasElement,
@@ -262,7 +263,7 @@ class ClipPageHudSession implements ClipPageHudController {
       const box = node.getBoundingClientRect();
       if (box.width < 1 || box.height < 1) continue;
       const canvas = await this.ports.raster(node, panel);
-      const image = place(host, node, canvas);
+      const image = placedClipPanel(host, node, canvas);
       if (image) placed.push(image);
     }
     this.images.set(panel, placed);
