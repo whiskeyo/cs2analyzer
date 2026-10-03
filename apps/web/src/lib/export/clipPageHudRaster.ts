@@ -1,5 +1,6 @@
 import {
   CLIP_HUD_PANEL_ECO,
+  CLIP_HUD_PANEL_FEED,
   CLIP_HUD_PANEL_HUD,
   type ClipHudPanel,
 } from "@/lib/export/clipPageHudKey";
@@ -96,9 +97,20 @@ const ECO_LAYOUT_CSS = [
   "height:100% !important;max-height:none !important}",
 ].join("");
 
+/**
+ * The kill feed is rasterized on its own. A panel-sized SVG viewport matches
+ * `@media (max-width: 900px)`, which sets `.kill-feed { display: none }`.
+ */
+const FEED_LAYOUT_CSS = [
+  ".kill-feed{display:flex !important;visibility:visible !important;opacity:1 !important;",
+  "position:relative !important;top:auto !important;right:auto !important;left:auto !important;",
+  "max-width:none !important}",
+].join("");
+
 export function clipHudPanelLayoutCss(panel: ClipHudPanel): string {
   if (panel === CLIP_HUD_PANEL_HUD) return HUD_LAYOUT_CSS;
   if (panel === CLIP_HUD_PANEL_ECO) return ECO_LAYOUT_CSS;
+  if (panel === CLIP_HUD_PANEL_FEED) return FEED_LAYOUT_CSS;
   return "";
 }
 

@@ -3,6 +3,7 @@ import { clipHudLayout, clipHudState, paintClipHud } from "@/lib/export/clipHud"
 import { createMockCanvas } from "@/lib/testing/mockCanvas";
 import {
   makeBombEvent,
+  makeKill,
   makePlayer,
   makeReplay,
   makeRound,
@@ -13,6 +14,7 @@ import {
   DEFUSE_WITH_KIT_SECONDS,
   DEFUSE_WITHOUT_KIT_SECONDS,
   FULL_HEALTH,
+  KILL_FEED_SECONDS,
   ROUND_TIME_DEFUSE_S,
   WIN_REASON_DEFUSE,
 } from "@/lib/shared/constants";
@@ -397,5 +399,32 @@ describe("paintClipHud", () => {
     expect(afterWin.join(" ")).toContain("R26 · OT1");
     expect(afterWin).toContain("CT wins · Defuse");
     expect(afterWin.some((line) => line.includes("1") && line.includes("Alpha"))).toBe(true);
+  });
+
+  it("draws the kill feed, including the assister, until the row expires", () => {
+    const killAt = 1000;
+    const replay = makeReplay({
+      players: [
+        makePlayer(0, "CT", "Alice"),
+        makePlayer(1, "T", "Bob"),
+        makePlayer(2, "T", "Cara"),
+      ],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 8000 })],
+      kills: [makeKill(killAt, 0, 1, { assister: 2, assisted_flash: true, weapon: "ak47" })],
+    });
+    const ctx = createMockCanvas();
+    paintClipHud(ctx, replay, killAt, clipHudLayout(1920, 1080));
+    const drawn = ctx.fillText.mock.calls.map((call) => String(call[0]));
+    expect(drawn).toContain("Alice");
+    expect(drawn).toContain(" + ");
+    expect(drawn).toContain("Cara");
+    expect(drawn).toContain("Bob");
+    expect(drawn.some((line) => line.includes("AK-47"))).toBe(true);
+
+    ctx.fillText.mockClear();
+    paintClipHud(ctx, replay, killAt + (KILL_FEED_SECONDS + 1) * RATE, clipHudLayout(1920, 1080));
+    const later = ctx.fillText.mock.calls.map((call) => String(call[0]));
+    expect(later).not.toContain("Cara");
+    expect(later).not.toContain(" + ");
   });
 });

@@ -17,6 +17,7 @@ import {
 } from "@/lib/export/clipHudRaster";
 import {
   CLIP_HUD_PANEL_ECO,
+  CLIP_HUD_PANEL_FEED,
   CLIP_HUD_PANEL_HUD,
   clipHudPanelsToRaster,
   clipPageHudKey,
@@ -45,7 +46,7 @@ export interface ClipPageHudPorts {
 
 type HudDrawContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-const PANEL_ORDER: ClipHudPanel[] = [CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_HUD];
+const PANEL_ORDER: ClipHudPanel[] = [CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_FEED, CLIP_HUD_PANEL_HUD];
 
 function rasterPageNode(node: HTMLElement, panel: ClipHudPanel): Promise<HTMLCanvasElement> {
   return rasterClipPageNode(node, clipHudPanelLayoutCss(panel));
@@ -91,6 +92,10 @@ function panelNodes(host: ParentNode, panel: ClipHudPanel): HTMLElement[] {
   if (panel === CLIP_HUD_PANEL_ECO) {
     const columns = Array.from(root.querySelectorAll<HTMLElement>(".spec-eco"));
     if (columns.length > 0) return columns;
+  }
+  if (panel === CLIP_HUD_PANEL_FEED) {
+    const feed = root.querySelector<HTMLElement>(".kill-feed");
+    return feed ? [feed] : [];
   }
   return [root];
 }
@@ -241,7 +246,7 @@ class ClipPageHudSession implements ClipPageHudController {
   private async sync(tick: number, selected: number | null, force: boolean): Promise<void> {
     const next = clipPageHudKey(this.replay, tick, selected);
     const dirty = force
-      ? [CLIP_HUD_PANEL_HUD, CLIP_HUD_PANEL_ECO]
+      ? [CLIP_HUD_PANEL_HUD, CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_FEED]
       : clipHudPanelsToRaster(this.key, next);
     if (dirty.length === 0) return;
     this.render(tick, selected);

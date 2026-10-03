@@ -1,5 +1,6 @@
 import { CLIP_EXPORT_SIZE_DEFAULT, CLIP_HUD_TIMER_DECIMALS } from "@/lib/export/constants";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
+import { attackerLabel, playerLabel } from "@/lib/replay/playerLabel";
 import { currentRound, samplePlayers } from "@/lib/replay/sample";
 import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
 import {
@@ -7,10 +8,13 @@ import {
   DEFUSE_WITH_KIT_SECONDS,
   DEFUSE_WITHOUT_KIT_SECONDS,
   FULL_HEALTH,
+  KILL_FEED_MAX_ROWS,
+  KILL_FEED_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
 import { liveSituation, roundHudLabel, roundTimeRemaining } from "@/lib/stats/hud";
 import { currentSide, liveScoreboardPlayers, liveTeams } from "@/lib/stats/liveScore";
+import { recentKills } from "@/lib/stats/stats";
 import { formatMoney, heldWeaponId, weaponHasMagazine } from "@/lib/weapons/loadout";
 import {
   formatClock,
@@ -90,6 +94,7 @@ export interface ClipHudPainter {
   textBaseline: CanvasTextBaseline;
   fillRect(x: number, y: number, w: number, h: number): void;
   fillText(text: string, x: number, y: number, maxWidth?: number): void;
+  measureText(text: string): { width: number };
 }
 
 /** Radar centered, T list on the left, CT list on the right, bar across the top. */
@@ -304,6 +309,59 @@ function drawPlayers(
   });
 }
 
+function killNameColor(replay: Replay, index: number, tick: number): string {
+  if (index < 0) return TEXT;
+  return currentSide(replay, index, tick) === "CT" ? CT_COLOR : T_COLOR;
+}
+
+/** Simple text feed for the painted fallback. Same rows as the page kill feed. */
+function drawKillFeed(
+  ctx: ClipHudPainter,
+  replay: Replay,
+  tick: number,
+  layout: ClipHudLayout,
+  scale: number,
+): void {
+  const rate = tickRate(replay);
+  const kills = recentKills(replay, tick, rate * KILL_FEED_SECONDS, KILL_FEED_MAX_ROWS);
+  if (kills.length === 0) return;
+  const size = Math.round(16 * scale);
+  const rowH = size + 6 * scale;
+  const pad = 12 * scale;
+  ctx.font = `600 ${size}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  kills.forEach((kill, index) => {
+    const parts: { text: string; color: string }[] = [
+      {
+        text: attackerLabel(replay, kill.attacker),
+        color: killNameColor(replay, kill.attacker, kill.tick),
+      },
+    ];
+    if (kill.assister >= 0) {
+      parts.push({ text: " + ", color: MUTED });
+      parts.push({
+        text: playerLabel(replay.players[kill.assister]),
+        color: killNameColor(replay, kill.assister, kill.tick),
+      });
+    }
+    parts.push({ text: `  ${prettyWeapon(kill.weapon)}  `, color: MUTED });
+    parts.push({
+      text: playerLabel(replay.players[kill.victim]),
+      color: killNameColor(replay, kill.victim, kill.tick),
+    });
+    let x = layout.radar.x + layout.radar.size - pad;
+    const y = layout.radar.y + pad + index * rowH;
+    for (let part = parts.length - 1; part >= 0; part -= 1) {
+      const piece = parts[part];
+      if (!piece) continue;
+      x -= ctx.measureText(piece.text).width;
+      ctx.fillStyle = piece.color;
+      ctx.fillText(piece.text, x, y);
+    }
+  });
+}
+
 /** Burn the live HUD into the export frame. `layout` is the 16:9 composition. */
 export function paintClipHud(
   ctx: ClipHudPainter,
@@ -346,6 +404,7 @@ export function paintClipHud(
 
   drawPlayers(ctx, state.playersT, layout.tColumn, scale);
   drawPlayers(ctx, state.playersCt, layout.ctColumn, scale);
+  drawKillFeed(ctx, replay, tick, layout, scale);
 
   if (state.defuse) {
     const barH = Math.max(6, Math.round(10 * scale));

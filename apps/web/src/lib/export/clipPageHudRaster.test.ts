@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_HUD } from "@/lib/export/clipPageHudKey";
+import {
+  CLIP_HUD_PANEL_ECO,
+  CLIP_HUD_PANEL_FEED,
+  CLIP_HUD_PANEL_HUD,
+} from "@/lib/export/clipPageHudKey";
 import {
   clipHudCssVariableText,
   clipHudPanelLayoutCss,
@@ -26,6 +30,10 @@ describe("clip page HUD raster", () => {
 
   it("keeps spectator columns visible inside the narrow raster viewport", () => {
     expect(clipHudPanelLayoutCss(CLIP_HUD_PANEL_ECO)).toContain("display:flex");
+  });
+
+  it("keeps the kill feed visible inside the narrow raster viewport", () => {
+    expect(clipHudPanelLayoutCss(CLIP_HUD_PANEL_FEED)).toContain(".kill-feed{display:flex");
   });
 
   it("embeds the stylesheet and the panel markup in one foreignObject", () => {

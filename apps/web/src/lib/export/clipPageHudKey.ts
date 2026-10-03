@@ -1,19 +1,23 @@
 import { clipClockLabel } from "@/lib/export/clipHud";
 import { CLIP_HUD_TIMER_DECIMALS } from "@/lib/export/constants";
 import { currentRound, samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
-import type { Replay } from "@/lib/replay/replayTypes";
+import type { Kill, Replay } from "@/lib/replay/replayTypes";
+import { KILL_FEED_MAX_ROWS, KILL_FEED_SECONDS, tickRate } from "@/lib/shared/constants";
 import { liveSituation, roundHudLabel } from "@/lib/stats/hud";
 import { liveScoreboardPlayers, liveTeams } from "@/lib/stats/liveScore";
+import { recentKills } from "@/lib/stats/stats";
 import { prettyMap } from "@/lib/weapons/weapons";
 
-export type ClipHudPanel = "hud" | "economy";
+export type ClipHudPanel = "hud" | "economy" | "feed";
 
 export const CLIP_HUD_PANEL_HUD: ClipHudPanel = "hud";
 export const CLIP_HUD_PANEL_ECO: ClipHudPanel = "economy";
+export const CLIP_HUD_PANEL_FEED: ClipHudPanel = "feed";
 
 export interface ClipPageHudKey {
   hud: string;
   economy: string;
+  feed: string;
 }
 
 export interface ClipPageStage {
@@ -44,6 +48,31 @@ export function clipRoundClockLabel(replay: Replay, tick: number): string {
 function timerLabel(seconds: number | null | undefined): string {
   if (seconds == null) return "";
   return seconds.toFixed(CLIP_HUD_TIMER_DECIMALS);
+}
+
+function killToken(kill: Kill): string {
+  return [
+    kill.tick,
+    kill.attacker,
+    kill.victim,
+    kill.assister,
+    kill.assisted_flash ? 1 : 0,
+    kill.weapon,
+    kill.headshot ? 1 : 0,
+    kill.noscope ? 1 : 0,
+    kill.through_smoke ? 1 : 0,
+    kill.wallbang ? 1 : 0,
+    kill.attacker_blind ? 1 : 0,
+    kill.attacker_airborne ? 1 : 0,
+  ].join(".");
+}
+
+/** Visible kill-feed rows. The raster stays put until one of these changes. */
+function clipKillFeedKey(replay: Replay, tick: number): string {
+  const rate = tickRate(replay);
+  return recentKills(replay, tick, rate * KILL_FEED_SECONDS, KILL_FEED_MAX_ROWS)
+    .map(killToken)
+    .join(",");
 }
 
 function playerToken(player: SampledPlayer): string {
@@ -105,6 +134,7 @@ export function clipPageHudKey(
       clutch,
     ].join("|"),
     economy: [teams.tName, teams.t, teams.ctName, teams.ct, picked, players].join("|"),
+    feed: clipKillFeedKey(replay, tick),
   };
 }
 
@@ -114,10 +144,11 @@ export function clipHudPanelsToRaster(
   next: ClipPageHudKey,
 ): ClipHudPanel[] {
   if (!previous) {
-    return [CLIP_HUD_PANEL_HUD, CLIP_HUD_PANEL_ECO];
+    return [CLIP_HUD_PANEL_HUD, CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_FEED];
   }
   const dirty: ClipHudPanel[] = [];
   if (previous.hud !== next.hud) dirty.push(CLIP_HUD_PANEL_HUD);
   if (previous.economy !== next.economy) dirty.push(CLIP_HUD_PANEL_ECO);
+  if (previous.feed !== next.feed) dirty.push(CLIP_HUD_PANEL_FEED);
   return dirty;
 }

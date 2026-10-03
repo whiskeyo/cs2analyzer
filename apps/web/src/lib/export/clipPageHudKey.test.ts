@@ -9,9 +9,10 @@ import {
   clipRoundClockLabel,
 } from "@/lib/export/clipPageHudKey";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
-import { BOMB_SECONDS, ROUND_TIME_DEFUSE_S } from "@/lib/shared/constants";
+import { BOMB_SECONDS, KILL_FEED_SECONDS, ROUND_TIME_DEFUSE_S } from "@/lib/shared/constants";
 import {
   makeBombEvent,
+  makeKill,
   makePlayer,
   makeReplay,
   makeRound,
@@ -201,6 +202,40 @@ describe("clipPageHudKey", () => {
   });
 });
 
+describe("clip kill feed key", () => {
+  it("rasters the feed when a visible row changes and not when the clock ticks", () => {
+    const killAt = 200;
+    const replay = playing({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B"), makePlayer(2, "T", "C")],
+      kills: [makeKill(killAt, 0, 1, { assister: 2, assisted_flash: true })],
+      ticks: roster([
+        { tick: killAt - 1, health: 100, x: 0 },
+        { tick: killAt, health: 100, x: 0 },
+        { tick: killAt + RATE, health: 100, x: 1 },
+        { tick: killAt + (KILL_FEED_SECONDS + 1) * RATE, health: 100, x: 2 },
+      ]),
+    });
+    const before = clipPageHudKey(replay, killAt - 1, null);
+    const atKill = clipPageHudKey(replay, killAt, null);
+    expect(before.feed).toBe("");
+    expect(atKill.feed).not.toBe("");
+    expect(clipHudPanelsToRaster(before, atKill)).toEqual(["feed"]);
+
+    const oneSecond = clipPageHudKey(replay, killAt + RATE, null);
+    expect(oneSecond.feed).toBe(atKill.feed);
+    expect(clipHudPanelsToRaster(atKill, oneSecond)).toEqual(["hud"]);
+
+    const expired = clipPageHudKey(replay, killAt + (KILL_FEED_SECONDS + 1) * RATE, null);
+    expect(expired.feed).toBe("");
+    expect(clipHudPanelsToRaster(atKill, expired)).toContain("feed");
+
+    const flashed = playing({
+      kills: [makeKill(killAt, 0, 1, { assister: 2, assisted_flash: false })],
+    });
+    expect(clipPageHudKey(flashed, killAt, null).feed).not.toBe(atKill.feed);
+  });
+});
+
 describe("clipPageStage", () => {
   it("gives the radar the full 16:9 frame", () => {
     expect(clipPageStage(1920, 1080)).toEqual({
@@ -251,6 +286,6 @@ describe("clip HUD panel", () => {
 describe("clipHudPanelsToRaster", () => {
   it("rasters every panel when there is no previous key", () => {
     const key = clipPageHudKey(playing(), 64, null);
-    expect(clipHudPanelsToRaster(null, key)).toEqual(["hud", "economy"]);
+    expect(clipHudPanelsToRaster(null, key)).toEqual(["hud", "economy", "feed"]);
   });
 });
