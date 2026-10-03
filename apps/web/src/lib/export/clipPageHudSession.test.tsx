@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as clipHud from "@/lib/export/clipHud";
 import * as clipHudRaster from "@/lib/export/clipHudRaster";
-import { CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_SCORE } from "@/lib/export/clipPageHudKey";
+import { CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_HUD } from "@/lib/export/clipPageHudKey";
 import * as clipPageHudRaster from "@/lib/export/clipPageHudRaster";
-import { fitClipScoreboard } from "@/lib/export/clipPageHudRaster";
 import { beginClipPageHud } from "@/lib/export/clipPageHudSession";
 import { endClipPageHud } from "@/lib/export/clipPageHudBridge";
 import type { ClipHudProbe } from "@/lib/export/clipHudRaster";
@@ -94,24 +93,6 @@ function hostSlots(): NodeListOf<Element> {
 afterEach(() => {
   endClipPageHud();
   vi.restoreAllMocks();
-});
-
-describe("fitClipScoreboard", () => {
-  it("scales the table when both teams do not fit in the sidebar body", () => {
-    const host = document.createElement("div");
-    const body = document.createElement("div");
-    body.className = "sidebar-body";
-    const content = document.createElement("div");
-    body.appendChild(content);
-    host.appendChild(body);
-    Object.defineProperty(body, "clientHeight", { configurable: true, value: 100 });
-    Object.defineProperty(content, "scrollHeight", { configurable: true, value: 250 });
-    expect(fitClipScoreboard(host)).toBeCloseTo(0.4);
-    expect(content.style.transform).toBe("scale(0.4)");
-    Object.defineProperty(content, "scrollHeight", { configurable: true, value: 80 });
-    expect(fitClipScoreboard(host)).toBe(1);
-    expect(content.style.transform).toBe("");
-  });
 });
 
 describe("clip page HUD fallback", () => {
@@ -312,7 +293,7 @@ describe("clip page HUD raster failure", () => {
       const canvas = document.createElement("canvas");
       canvas.width = 12;
       canvas.height = 8;
-      if (arm && panel === CLIP_HUD_PANEL_SCORE) {
+      if (arm && panel === CLIP_HUD_PANEL_HUD) {
         throw new Error("icon");
       }
       if (arm) finished.add(panel);

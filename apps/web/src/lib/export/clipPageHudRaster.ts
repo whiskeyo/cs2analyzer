@@ -1,7 +1,6 @@
 import {
   CLIP_HUD_PANEL_ECO,
   CLIP_HUD_PANEL_HUD,
-  CLIP_HUD_PANEL_SCORE,
   type ClipHudPanel,
 } from "@/lib/export/clipPageHudKey";
 
@@ -88,18 +87,6 @@ const HUD_LAYOUT_CSS = [
 ].join("");
 
 /**
- * The scoreboard SVG is sidebar-width, so the 900px rule's `max-height: 40vh`
- * was cutting Team Vitality off. Stretch the column to the measured slot.
- */
-const SCORE_LAYOUT_CSS = [
-  ".sidebar{display:flex !important;flex-direction:column !important;max-height:none !important;",
-  "height:100% !important;overflow:hidden !important;grid-template-rows:none !important}",
-  ".tabs{flex:0 0 auto !important}",
-  ".sidebar-body{display:block !important;flex:1 1 auto !important;min-height:0 !important;",
-  "max-height:none !important;overflow:hidden !important}",
-].join("");
-
-/**
  * Spectator columns are rasterized on their own. The narrow SVG viewport
  * matches `@media (max-width: 900px)`, which sets `.spec-eco { display: none }`.
  */
@@ -111,29 +98,8 @@ const ECO_LAYOUT_CSS = [
 
 export function clipHudPanelLayoutCss(panel: ClipHudPanel): string {
   if (panel === CLIP_HUD_PANEL_HUD) return HUD_LAYOUT_CSS;
-  if (panel === CLIP_HUD_PANEL_SCORE) return SCORE_LAYOUT_CSS;
   if (panel === CLIP_HUD_PANEL_ECO) return ECO_LAYOUT_CSS;
   return "";
-}
-
-/**
- * Shrink the scoreboard table so both teams fit in the sidebar body.
- * Returns 1 when the rows already fit.
- */
-export function fitClipScoreboard(host: ParentNode): number {
-  const body = host.querySelector(".sidebar-body");
-  const content = body?.firstElementChild;
-  if (!(body instanceof HTMLElement) || !(content instanceof HTMLElement)) return 1;
-  content.style.transform = "";
-  content.style.width = "";
-  const available = body.clientHeight;
-  const needed = content.scrollHeight;
-  if (available < 1 || needed <= available) return 1;
-  const scale = available / needed;
-  content.style.transformOrigin = "top left";
-  content.style.transform = `scale(${scale})`;
-  content.style.width = `${(1 / scale) * 100}%`;
-  return scale;
 }
 
 /**

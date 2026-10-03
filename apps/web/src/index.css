@@ -4154,19 +4154,6 @@ button.link:hover:not(:disabled) {
 .clip-page-host .spec-eco {
   display: flex;
 }
-.clip-page-host .sidebar {
-  position: relative;
-  flex: 0 0 auto;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.clip-page-host .sidebar-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
 
 .clip-export button:disabled {
   opacity: 0.55;

@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  CLIP_HUD_PANEL_ECO,
-  CLIP_HUD_PANEL_HUD,
-  CLIP_HUD_PANEL_SCORE,
-} from "@/lib/export/clipPageHudKey";
+import { CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_HUD } from "@/lib/export/clipPageHudKey";
 import {
   clipHudCssVariableText,
   clipHudPanelLayoutCss,
@@ -30,10 +26,6 @@ describe("clip page HUD raster", () => {
 
   it("keeps spectator columns visible inside the narrow raster viewport", () => {
     expect(clipHudPanelLayoutCss(CLIP_HUD_PANEL_ECO)).toContain("display:flex");
-  });
-
-  it("lets the scoreboard use the full sidebar instead of the narrow-viewport cap", () => {
-    expect(clipHudPanelLayoutCss(CLIP_HUD_PANEL_SCORE)).toContain("max-height:none");
   });
 
   it("embeds the stylesheet and the panel markup in one foreignObject", () => {

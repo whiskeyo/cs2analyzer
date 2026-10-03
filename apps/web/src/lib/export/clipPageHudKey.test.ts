@@ -6,7 +6,7 @@ import {
   clipRoundClockLabel,
 } from "@/lib/export/clipPageHudKey";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
-import { BOMB_SECONDS, ROUND_TIME_DEFUSE_S, SIDEBAR_DEFAULT_WIDTH } from "@/lib/shared/constants";
+import { BOMB_SECONDS, ROUND_TIME_DEFUSE_S } from "@/lib/shared/constants";
 import {
   makeBombEvent,
   makePlayer,
@@ -81,7 +81,7 @@ describe("clipPageHudKey", () => {
     expect(clipHudPanelsToRaster(at100, at110)).toEqual([]);
 
     const hurt = clipPageHudKey(replay, 120, null);
-    expect(clipHudPanelsToRaster(at110, hurt)).toEqual(["economy", "scoreboard"]);
+    expect(clipHudPanelsToRaster(at110, hurt)).toEqual(["economy"]);
     expect(hurt.hud).toBe(at110.hud);
   });
 
@@ -101,7 +101,7 @@ describe("clipPageHudKey", () => {
     expect(oneSecond.economy).toBe(freezeEnd.economy);
 
     const dead = clipPageHudKey(replay, 200, null);
-    expect(clipHudPanelsToRaster(oneSecond, dead)).toEqual(["hud", "economy", "scoreboard"]);
+    expect(clipHudPanelsToRaster(oneSecond, dead)).toEqual(["hud", "economy"]);
     expect(dead.hud).not.toBe(oneSecond.hud);
   });
 
@@ -120,11 +120,11 @@ describe("clipPageHudKey", () => {
     expect(BOMB_SECONDS).toBeGreaterThan(0);
   });
 
-  it("includes the selected player on the economy and scoreboard only", () => {
+  it("includes the selected player on the economy only", () => {
     const replay = playing();
     const none = clipPageHudKey(replay, 64, null);
     const picked = clipPageHudKey(replay, 64, 1);
-    expect(clipHudPanelsToRaster(none, picked)).toEqual(["economy", "scoreboard"]);
+    expect(clipHudPanelsToRaster(none, picked)).toEqual(["economy"]);
     expect(picked.hud).toBe(none.hud);
   });
 
@@ -147,7 +147,6 @@ describe("clipPageHudKey", () => {
     expect(clipRoundClockLabel(wingman, 64)).toBe("1:30");
     expect(short.hud).not.toBe(full.hud);
     expect(short.economy).toBe(full.economy);
-    expect(short.scoreboard).toBe(full.scoreboard);
   });
 
   it("holds the C4 label on the page HUD key after defuse or explosion", () => {
@@ -200,22 +199,26 @@ describe("clipPageHudKey", () => {
 });
 
 describe("clipPageStage", () => {
-  it("keeps the analyzer sidebar and gives the radar the rest of the frame", () => {
+  it("gives the radar the full 16:9 frame", () => {
     expect(clipPageStage(1920, 1080)).toEqual({
       x: 0,
       y: 0,
-      width: 1920 - SIDEBAR_DEFAULT_WIDTH,
+      width: 1920,
       height: 1080,
-      sidebar: SIDEBAR_DEFAULT_WIDTH,
     });
-    expect(clipPageStage(2560, 1440).sidebar).toBe(SIDEBAR_DEFAULT_WIDTH);
-    expect(clipPageStage(2560, 1440).width).toBe(2560 - SIDEBAR_DEFAULT_WIDTH);
+    expect(clipPageStage(2560, 1440)).toEqual({
+      x: 0,
+      y: 0,
+      width: 2560,
+      height: 1440,
+    });
+    expect(clipPageStage(0, 1080).width).toBe(0);
   });
 });
 
 describe("clipHudPanelsToRaster", () => {
   it("rasters every panel when there is no previous key", () => {
     const key = clipPageHudKey(playing(), 64, null);
-    expect(clipHudPanelsToRaster(null, key)).toEqual(["hud", "economy", "scoreboard"]);
+    expect(clipHudPanelsToRaster(null, key)).toEqual(["hud", "economy"]);
   });
 });

@@ -2,21 +2,18 @@ import { clipClockLabel } from "@/lib/export/clipHud";
 import { CLIP_HUD_TIMER_DECIMALS } from "@/lib/export/constants";
 import { currentRound, samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
 import type { Replay } from "@/lib/replay/replayTypes";
-import { SIDEBAR_DEFAULT_WIDTH } from "@/lib/shared/constants";
 import { liveSituation, roundHudLabel } from "@/lib/stats/hud";
 import { liveScoreboardPlayers, liveTeams } from "@/lib/stats/liveScore";
 import { prettyMap } from "@/lib/weapons/weapons";
 
-export type ClipHudPanel = "hud" | "economy" | "scoreboard";
+export type ClipHudPanel = "hud" | "economy";
 
 export const CLIP_HUD_PANEL_HUD: ClipHudPanel = "hud";
 export const CLIP_HUD_PANEL_ECO: ClipHudPanel = "economy";
-export const CLIP_HUD_PANEL_SCORE: ClipHudPanel = "scoreboard";
 
 export interface ClipPageHudKey {
   hud: string;
   economy: string;
-  scoreboard: string;
 }
 
 export interface ClipPageStage {
@@ -24,21 +21,18 @@ export interface ClipPageStage {
   y: number;
   width: number;
   height: number;
-  sidebar: number;
 }
 
 /**
- * Radar stage plus the analyzer sidebar. The sidebar keeps the page width
- * (`SIDEBAR_DEFAULT_WIDTH`); the radar takes the rest of the 16:9 frame.
+ * The clip is the radar plus the page HUD. The analyzer sidebar is not in the
+ * frame, so the radar uses the full 16:9 size.
  */
 export function clipPageStage(frameWidth: number, frameHeight: number): ClipPageStage {
-  const sidebar = Math.min(SIDEBAR_DEFAULT_WIDTH, Math.max(0, frameWidth));
   return {
     x: 0,
     y: 0,
-    width: Math.max(0, frameWidth - sidebar),
-    height: frameHeight,
-    sidebar,
+    width: Math.max(0, frameWidth),
+    height: Math.max(0, frameHeight),
   };
 }
 
@@ -74,7 +68,7 @@ function playerToken(player: SampledPlayer): string {
 /**
  * Cheap identity of what the page HUD would show at `tick`.
  * Pawn positions are omitted: the radar is painted every frame, and the
- * overlay only changes when a label, card, or scoreboard cell changes.
+ * overlay only changes when a label or a player card changes.
  */
 export function clipPageHudKey(
   replay: Replay,
@@ -111,7 +105,6 @@ export function clipPageHudKey(
       clutch,
     ].join("|"),
     economy: [teams.tName, teams.t, teams.ctName, teams.ct, picked, players].join("|"),
-    scoreboard: [teams.ctName, teams.ct, teams.tName, teams.t, win, picked, players].join("|"),
   };
 }
 
@@ -121,11 +114,10 @@ export function clipHudPanelsToRaster(
   next: ClipPageHudKey,
 ): ClipHudPanel[] {
   if (!previous) {
-    return [CLIP_HUD_PANEL_HUD, CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_SCORE];
+    return [CLIP_HUD_PANEL_HUD, CLIP_HUD_PANEL_ECO];
   }
   const dirty: ClipHudPanel[] = [];
   if (previous.hud !== next.hud) dirty.push(CLIP_HUD_PANEL_HUD);
   if (previous.economy !== next.economy) dirty.push(CLIP_HUD_PANEL_ECO);
-  if (previous.scoreboard !== next.scoreboard) dirty.push(CLIP_HUD_PANEL_SCORE);
   return dirty;
 }

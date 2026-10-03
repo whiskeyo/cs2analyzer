@@ -1,14 +1,8 @@
 import { memo } from "react";
 import { Hud } from "@/components/radar/Hud";
 import { SpectatorEconomy } from "@/components/radar/SpectatorEconomy";
-import { Scoreboard } from "@/components/sidebar/Scoreboard";
 import { clipClockLabel } from "@/lib/export/clipHud";
-import {
-  CLIP_HUD_PANEL_ECO,
-  CLIP_HUD_PANEL_HUD,
-  CLIP_HUD_PANEL_SCORE,
-  clipPageStage,
-} from "@/lib/export/clipPageHudKey";
+import { CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_HUD, clipPageStage } from "@/lib/export/clipPageHudKey";
 import type { Replay } from "@/lib/replay/replayTypes";
 
 interface Props {
@@ -20,8 +14,9 @@ interface Props {
 }
 
 /**
- * The analyzer HUD, spectator cards, and scoreboard at the clip frame size.
- * `tick` is the export frame, not the live playback clock.
+ * The analyzer HUD and spectator cards at the clip frame size.
+ * The scoreboard stays on the page; a clip is the radar, the top HUD, and the
+ * two team columns. `tick` is the export frame, not the live playback clock.
  */
 export const ClipPageHud = memo(function ClipPageHud({
   replay,
@@ -46,20 +41,6 @@ export const ClipPageHud = memo(function ClipPageHud({
           />
         </div>
       </div>
-      <aside
-        className="sidebar clip-page-score"
-        style={{ width: stage.sidebar }}
-        data-clip-panel={CLIP_HUD_PANEL_SCORE}
-      >
-        <div className="tabs">
-          <button type="button" className="on" tabIndex={-1}>
-            Score
-          </button>
-        </div>
-        <div className="sidebar-body">
-          <Scoreboard replay={replay} tick={tick} selected={selected} onSelect={() => undefined} />
-        </div>
-      </aside>
     </div>
   );
 });

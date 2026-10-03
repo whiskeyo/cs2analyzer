@@ -6,7 +6,6 @@ import { clipHudLayout, paintClipHud } from "@/lib/export/clipHud";
 import { CLIP_HUD_PROBE_PX, clipExportFrame } from "@/lib/export/constants";
 import {
   clipHudPanelLayoutCss,
-  fitClipScoreboard,
   rasterClipPageNode,
   resetClipPageHudCssCache,
 } from "@/lib/export/clipPageHudRaster";
@@ -19,7 +18,6 @@ import {
 import {
   CLIP_HUD_PANEL_ECO,
   CLIP_HUD_PANEL_HUD,
-  CLIP_HUD_PANEL_SCORE,
   clipHudPanelsToRaster,
   clipPageHudKey,
   type ClipHudPanel,
@@ -47,7 +45,7 @@ export interface ClipPageHudPorts {
 
 type HudDrawContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-const PANEL_ORDER: ClipHudPanel[] = [CLIP_HUD_PANEL_SCORE, CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_HUD];
+const PANEL_ORDER: ClipHudPanel[] = [CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_HUD];
 
 function rasterPageNode(node: HTMLElement, panel: ClipHudPanel): Promise<HTMLCanvasElement> {
   return rasterClipPageNode(node, clipHudPanelLayoutCss(panel));
@@ -243,13 +241,12 @@ class ClipPageHudSession implements ClipPageHudController {
   private async sync(tick: number, selected: number | null, force: boolean): Promise<void> {
     const next = clipPageHudKey(this.replay, tick, selected);
     const dirty = force
-      ? [CLIP_HUD_PANEL_HUD, CLIP_HUD_PANEL_ECO, CLIP_HUD_PANEL_SCORE]
+      ? [CLIP_HUD_PANEL_HUD, CLIP_HUD_PANEL_ECO]
       : clipHudPanelsToRaster(this.key, next);
     if (dirty.length === 0) return;
     this.render(tick, selected);
     const host = this.hostElement();
     if (!host) return;
-    if (dirty.includes(CLIP_HUD_PANEL_SCORE)) fitClipScoreboard(host);
     await Promise.all(dirty.map((panel) => this.rasterPanel(host, panel)));
     this.key = next;
   }
