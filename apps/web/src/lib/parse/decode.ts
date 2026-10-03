@@ -39,7 +39,7 @@ type Shape = Record<string, Check>;
 /**
  * Fields TypeScript marks required on `replayTypes.ts`. Optional TS fields
  * (`playback_end_tick`, `team_ct` / `team_t`, `GrenadeThrow.fires`,
- * `BombEvent.haskit` / `site`) stay off this list — they are optional in the
+ * `BombEvent.site`) stay off this list — they are optional in the
  * types, not `#[serde(default)]` shims for stale WASM caches.
  *
  * `round_time_s` is required on `Round`, but demos parsed before that field
@@ -143,6 +143,7 @@ const BOMB_EVENT: Shape = {
   x: number,
   y: number,
   z: number,
+  haskit: flag,
 };
 
 const BUY_EVENT: Shape = { tick: number, player: number, weapon: number, cost: number };

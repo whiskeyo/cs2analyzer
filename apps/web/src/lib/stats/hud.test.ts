@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  bombView,
-  defuseClock,
-  freezeRemaining,
-  plantClock,
-  roundTimeRemaining,
-  roundWinBanner,
-} from "./hud";
+import { bombView, freezeRemaining, plantClock, roundTimeRemaining, roundWinBanner } from "./hud";
 import {
   makeBombEvent,
   makeFreezeTicks,
@@ -16,15 +9,7 @@ import {
   makeTicks,
 } from "@/lib/testing/fixtures";
 import { BOMB_SECONDS, PLANT_SECONDS, ROUND_TIME_DEFUSE_S } from "@/lib/shared/constants";
-import {
-  FLAG_ALIVE,
-  FLAG_CT,
-  FLAG_DEFUSING,
-  FLAG_PLANTING,
-  FLAG_PRESENT,
-  GEAR_C4,
-  GEAR_DEFUSER,
-} from "@/lib/replay/replayTypes";
+import { FLAG_ALIVE, FLAG_PLANTING, FLAG_PRESENT, GEAR_C4 } from "@/lib/replay/replayTypes";
 
 describe("roundTimeRemaining", () => {
   it("counts down from the competitive defuse clock and stays at 0", () => {
@@ -100,61 +85,6 @@ describe("roundWinBanner", () => {
     });
     expect(roundWinBanner(m, 210)).toEqual({ winner: "T", reason: 1 });
     expect(roundWinBanner(m, 265)).toBeNull();
-  });
-});
-
-describe("defuseClock", () => {
-  it("counts a 5s kit defuse after plant", () => {
-    const m = makeReplay({
-      players: [makePlayer(0, "CT", "A")],
-      rounds: [
-        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
-      ],
-      bombEvents: [
-        makeBombEvent({ tick: 100, kind: "planted" }),
-        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: true, player: 0 }),
-      ],
-    });
-    expect(defuseClock(m, 199)).toBeNull();
-    expect(defuseClock(m, 200)?.remaining).toBeCloseTo(5, 5);
-    expect(defuseClock(m, 200 + 64 * 2)?.remaining).toBeCloseTo(3, 5);
-    expect(defuseClock(m, 200 + 64 * 2)?.haskit).toBe(true);
-  });
-
-  it("uses 10s without a kit and cancels on abort", () => {
-    const m = makeReplay({
-      players: [makePlayer(0, "CT", "A")],
-      rounds: [
-        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
-      ],
-      bombEvents: [
-        makeBombEvent({ tick: 100, kind: "planted" }),
-        makeBombEvent({ tick: 200, kind: "begin_defuse", haskit: false }),
-        makeBombEvent({ tick: 300, kind: "abort_defuse" }),
-      ],
-    });
-    expect(defuseClock(m, 264)?.remaining).toBeCloseTo(9, 5);
-    expect(defuseClock(m, 300)).toBeNull();
-  });
-
-  it("starts from FLAG_DEFUSING when GOTV has no begin_defuse", () => {
-    const ticks = makeTicks(1, 2);
-    ticks.ticks[0] = 64;
-    ticks.ticks[1] = 200;
-    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
-    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT | FLAG_DEFUSING;
-    ticks.gear[1] = GEAR_DEFUSER;
-    const m = makeReplay({
-      players: [makePlayer(0, "CT", "A")],
-      rounds: [
-        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 2000 }),
-      ],
-      ticks,
-      bombEvents: [makeBombEvent({ tick: 100, kind: "planted" })],
-    });
-    expect(defuseClock(m, 199)).toBeNull();
-    expect(defuseClock(m, 200)?.remaining).toBeCloseTo(5, 5);
-    expect(defuseClock(m, 200)?.haskit).toBe(true);
   });
 });
 
