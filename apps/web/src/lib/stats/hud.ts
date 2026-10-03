@@ -284,7 +284,17 @@ export function roundWinBanner(
   return null;
 }
 
-/** Active defuse: kit is 5s, no kit is 10s. Cancels on abort, death, explode, or defuse. */
+/**
+ * Active defuse. A kit is 5s and no kit is 10s; each new begin restarts from
+ * full time. When this plant recorded a begin, abort, or defused event, those
+ * events own the clock: flags cannot start one again after an abort. GOTV may
+ * omit `abort_defuse`, so once a begin is in effect the clock also stops when
+ * no alive CT still has `FLAG_DEFUSING`, after two tick strides of slack.
+ * The event slot is not a column index. On that path the kit is
+ * `begin_defuse.haskit` for the whole attempt. Flags are the fallback only
+ * when the plant has no defuse event, and only for a CT; that path reads
+ * `GEAR_DEFUSER`. A kill of the begin player and an explosion end the clock too.
+ */
 export function defuseClock(
   replay: Replay,
   tick: number,
@@ -295,54 +305,165 @@ export function defuseClock(
     return null;
   }
 
-  let plantTick = -1;
-  let begin: { tick: number; haskit: boolean; player: number } | null = null;
-  for (const e of replay.bombEvents) {
-    if (e.tick > tick) {
-      continue;
-    }
-    if (e.tick < round.start_tick || e.tick > round.end_tick) {
-      continue;
-    }
-    if (e.kind === "planted") {
-      plantTick = e.tick;
-      begin = null;
-    } else if (e.kind === "begin_defuse" && plantTick >= 0) {
-      begin = { tick: e.tick, haskit: !!e.haskit, player: e.player };
-    } else if (e.kind === "abort_defuse") {
-      begin = null;
-    } else if (e.kind === "defused" || e.kind === "exploded") {
-      plantTick = -1;
-      begin = null;
-    }
-  }
+  const plantTick = activePlantTick(replay, round, tick);
   if (plantTick < 0) {
     return null;
   }
-  if (!begin) {
-    begin = defuseBeginFromFlags(replay, tick, plantTick);
-    if (!begin) {
-      return null;
-    }
+
+  const trackedByEvents = plantHasDefuseEvents(replay, round, plantTick);
+  const begin = trackedByEvents
+    ? defuseBeginFromEvents(replay, round, plantTick, tick)
+    : defuseBeginFromFlags(replay, tick, plantTick);
+  if (!begin || defuserDown(replay, tick, begin)) {
+    return null;
+  }
+  if (trackedByEvents && defuseFlagReleased(replay, tick, begin)) {
+    return null;
   }
 
-  const players = samplePlayers(replay, tick);
-  if (begin.player >= 0 && players.length > 0) {
-    const p = players.find((x) => x.index === begin.player);
-    if (p && (!p.alive || !p.present)) {
-      return null;
-    }
-    if (!begin.haskit && p && (p.gear & GEAR_DEFUSER) !== 0) {
-      begin.haskit = true;
-    }
-  }
-
-  const duration = begin.haskit ? DEFUSE_WITH_KIT_SECONDS : DEFUSE_WITHOUT_KIT_SECONDS;
+  const haskit = begin.haskit;
+  const duration = haskit ? DEFUSE_WITH_KIT_SECONDS : DEFUSE_WITHOUT_KIT_SECONDS;
   const remaining = duration - (tick - begin.tick) / tps;
   if (remaining < -0.25) {
     return null;
   }
-  return { remaining: Math.max(0, remaining), haskit: begin.haskit };
+  return { remaining: Math.max(0, remaining), haskit };
+}
+
+type DefuseBegin = { tick: number; haskit: boolean; player: number };
+
+function activePlantTick(replay: Replay, round: Round, tick: number): number {
+  let plantTick = -1;
+  for (const e of replay.bombEvents) {
+    if (e.tick > tick || e.tick < round.start_tick || e.tick > round.end_tick) {
+      continue;
+    }
+    if (e.kind === "planted") {
+      plantTick = e.tick;
+    } else if ((e.kind === "defused" || e.kind === "exploded") && e.tick >= plantTick) {
+      plantTick = -1;
+    }
+  }
+  return plantTick;
+}
+
+/**
+ * Exclusive end tick for this plant. The explode tick still belongs to it;
+ * the next plant tick does not.
+ */
+function plantWindowEnd(replay: Replay, round: Round, plantTick: number): number {
+  let end = round.end_tick + 1;
+  for (const e of replay.bombEvents) {
+    if (e.tick < round.start_tick || e.tick > round.end_tick) {
+      continue;
+    }
+    if (e.kind === "exploded" && e.tick >= plantTick && e.tick + 1 < end) {
+      end = e.tick + 1;
+    } else if (e.kind === "planted" && e.tick > plantTick && e.tick < end) {
+      end = e.tick;
+    }
+  }
+  return end;
+}
+
+/**
+ * Whether this plant has a begin, abort, or defused event anywhere in its
+ * window, including events after the playback tick. The flags-vs-events
+ * choice is about the rest of that plant, not only what has happened so far.
+ */
+function plantHasDefuseEvents(replay: Replay, round: Round, plantTick: number): boolean {
+  const end = plantWindowEnd(replay, round, plantTick);
+  for (const e of replay.bombEvents) {
+    if (
+      e.tick < plantTick ||
+      e.tick >= end ||
+      e.tick < round.start_tick ||
+      e.tick > round.end_tick
+    ) {
+      continue;
+    }
+    if (e.kind === "begin_defuse" || e.kind === "abort_defuse" || e.kind === "defused") {
+      return true;
+    }
+  }
+  return false;
+}
+
+function defuseBeginFromEvents(
+  replay: Replay,
+  round: Round,
+  plantTick: number,
+  tick: number,
+): DefuseBegin | null {
+  let begin: DefuseBegin | null = null;
+  for (const e of replay.bombEvents) {
+    if (
+      e.tick > tick ||
+      e.tick < plantTick ||
+      e.tick < round.start_tick ||
+      e.tick > round.end_tick
+    ) {
+      continue;
+    }
+    if (e.kind === "begin_defuse") {
+      begin = { tick: e.tick, haskit: e.haskit, player: e.player };
+    } else if (
+      e.kind === "abort_defuse" ||
+      e.kind === "defused" ||
+      e.kind === "exploded" ||
+      e.kind === "planted"
+    ) {
+      begin = null;
+    }
+  }
+  return begin;
+}
+
+/**
+ * GOTV events and entity snapshots can land in different packets, so the
+ * defuse flag is trusted only after this many sampled frames past begin.
+ */
+const DEFUSE_FLAG_SLACK_FRAMES = 2;
+
+/**
+ * `bomb_abortdefuse` is not guaranteed in GOTV. After two header tick strides
+ * past begin, the attempt is over when no alive, present CT still has
+ * `FLAG_DEFUSING`. The event slot is not used as a column index. Frames
+ * inside the slack stay ignored so a late snapshot cannot cancel a real defuse.
+ */
+function defuseFlagReleased(replay: Replay, tick: number, begin: DefuseBegin): boolean {
+  if (tick < defuseFlagReadyTick(replay, begin.tick)) {
+    return false;
+  }
+  return columnDefuser(replay, tick) == null;
+}
+
+/** Alive, present CT whose sample has `FLAG_DEFUSING`. */
+function columnDefuser(replay: Replay, tick: number) {
+  return samplePlayers(replay, tick).find((p) => p.present && p.alive && p.ct && p.defusing);
+}
+
+function defuseFlagReadyTick(replay: Replay, beginTick: number): number {
+  return beginTick + DEFUSE_FLAG_SLACK_FRAMES * tickStride(replay);
+}
+
+/** Snapshot spacing on `MatchHeader`, the stride `parseDemo` was called with. */
+function tickStride(replay: Replay): number {
+  const stride = replay.header.tick_stride;
+  return stride > 0 ? stride : 1;
+}
+
+/** A kill of the begin event's player. */
+function defuserDown(replay: Replay, tick: number, begin: DefuseBegin): boolean {
+  if (begin.player < 0) {
+    return false;
+  }
+  for (const kill of replay.kills) {
+    if (kill.victim === begin.player && kill.tick >= begin.tick && kill.tick <= tick) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Active plant: 3.2s arm. Cancels on plant, drop, death, or timeout (FACEIT beginplant). */
@@ -395,12 +516,8 @@ export function plantClock(replay: Replay, tick: number): { remaining: number } 
   return { remaining: Math.max(0, remaining) };
 }
 
-function defuseBeginFromFlags(
-  replay: Replay,
-  tick: number,
-  plantTick: number,
-): { tick: number; haskit: boolean; player: number } | null {
-  const defuser = samplePlayers(replay, tick).find((p) => p.defusing && p.alive && p.present);
+function defuseBeginFromFlags(replay: Replay, tick: number, plantTick: number): DefuseBegin | null {
+  const defuser = columnDefuser(replay, tick);
   if (!defuser) {
     return null;
   }

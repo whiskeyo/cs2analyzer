@@ -15,7 +15,10 @@ export const MIN_LEAD_IN_SEC = 0;
 export const MAX_LEAD_IN_SEC = 5;
 export { LEAD_IN_STORAGE_KEY };
 
-export type BombEventKind = "planted" | "defused" | "exploded" | "begin_defuse" | "begin_plant";
+export type BombEventKind = BombEvent["kind"];
+
+/** Round-timeline rows. Abort, pickup, and drop stay off the timeline. */
+type TimelineBombKind = Exclude<BombEventKind, "abort_defuse" | "pickup" | "dropped">;
 
 export type RoundEventKind = "kill" | "nade" | "bomb";
 
@@ -41,7 +44,7 @@ export interface RoundBombEvent {
   kind: "bomb";
   key: string;
   tick: number;
-  bomb: BombEventKind;
+  bomb: TimelineBombKind;
   player: number;
   haskit?: boolean;
 }
@@ -66,7 +69,7 @@ export const NADE_LABEL: Record<GrenadeKind, string> = {
   decoy: "Decoy",
 };
 
-export const BOMB_LABEL: Record<BombEventKind, string> = {
+export const BOMB_LABEL: Record<TimelineBombKind, string> = {
   planted: "Plant",
   defused: "Defuse",
   exploded: "Explode",
@@ -74,7 +77,7 @@ export const BOMB_LABEL: Record<BombEventKind, string> = {
   begin_plant: "Planting",
 };
 
-export const BOMB_WEAPON: Record<BombEventKind, string> = {
+export const BOMB_WEAPON: Record<TimelineBombKind, string> = {
   planted: "c4",
   defused: "defuser",
   exploded: "planted_c4",
@@ -176,13 +179,29 @@ function nadeEvent(g: GrenadeThrow, index: number): RoundNadeEvent {
   };
 }
 
+function timelineBombKind(kind: BombEvent["kind"]): TimelineBombKind | null {
+  switch (kind) {
+    case "planted":
+    case "defused":
+    case "exploded":
+    case "begin_defuse":
+    case "begin_plant":
+      return kind;
+    case "abort_defuse":
+    case "pickup":
+    case "dropped":
+      return null;
+  }
+}
+
 function bombEvent(e: BombEvent, index: number): RoundBombEvent | null {
-  if (e.kind === "abort_defuse" || e.kind === "pickup" || e.kind === "dropped") return null;
+  const bomb = timelineBombKind(e.kind);
+  if (!bomb) return null;
   return {
     kind: "bomb",
-    key: `bomb:${e.tick}:${e.kind}:${e.player}:${index}`,
+    key: `bomb:${e.tick}:${bomb}:${e.player}:${index}`,
     tick: e.tick,
-    bomb: e.kind,
+    bomb,
     player: e.player,
     haskit: e.haskit,
   };

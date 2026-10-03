@@ -199,10 +199,14 @@ describe("decodeList", () => {
       x: 100,
       y: 200,
       z: 50,
+      haskit: false,
     };
     expect(decodeList<BombEvent>("bombEvents", JSON.stringify([planted]))).toEqual([planted]);
     expect(() => decodeList<BombEvent>("bombEvents", `[${without(planted, "z")}]`)).toThrow(
       /"bombEvents\[0\]".*"z".*expected number/s,
+    );
+    expect(() => decodeList<BombEvent>("bombEvents", `[${without(planted, "haskit")}]`)).toThrow(
+      /"bombEvents\[0\]".*"haskit".*expected boolean/s,
     );
   });
 
