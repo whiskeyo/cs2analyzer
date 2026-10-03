@@ -7,10 +7,15 @@ import { prettyMap, winReasonLabel } from "@/lib/weapons/weapons";
 interface Props {
   replay: Replay;
   tick: number;
+  /**
+   * Burned-in clip clock. When set, it replaces the live freeze and C4 chips
+   * so a defuse or explosion keeps the fuse reading for the rest of the round.
+   */
+  clockLabel?: string;
 }
 
 /** Memoised: every app state change re-renders the viewer, not just a new tick. */
-export const Hud = memo(function Hud({ replay, tick }: Props) {
+export const Hud = memo(function Hud({ replay, tick, clockLabel }: Props) {
   const sit = liveSituation(replay, tick);
   const teams = liveTeams(replay, tick);
   const round = currentRound(replay, tick);
@@ -33,8 +38,11 @@ export const Hud = memo(function Hud({ replay, tick }: Props) {
       <div className="hud-meta">
         {prettyMap(replay.header.map_name)}
         {round ? ` · ${roundHudLabel(round)}` : ""}
+        {clockLabel ? ` · ${clockLabel}` : ""}
       </div>
-      {sit.freeze != null && <div className="hud-freeze">Freeze {sit.freeze.toFixed(1)}s</div>}
+      {sit.freeze != null && !clockLabel && (
+        <div className="hud-freeze">Freeze {sit.freeze.toFixed(1)}s</div>
+      )}
       {sit.roundWin && (
         <div className={`hud-win ${sit.roundWin.winner === "CT" ? "ct" : "t"}`}>
           {sit.roundWin.winner} wins
@@ -46,7 +54,7 @@ export const Hud = memo(function Hud({ replay, tick }: Props) {
           Plant {sit.plant.remaining.toFixed(1)}s
         </div>
       )}
-      {sit.bomb && (
+      {sit.bomb && !clockLabel && (
         <div className={`hud-bomb${sit.bomb.remaining < 10 ? " hot" : ""}`}>
           C4 {sit.bomb.remaining.toFixed(1)}s
         </div>

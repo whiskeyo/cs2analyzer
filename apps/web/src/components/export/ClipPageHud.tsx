@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Hud } from "@/components/radar/Hud";
 import { SpectatorEconomy } from "@/components/radar/SpectatorEconomy";
 import { Scoreboard } from "@/components/sidebar/Scoreboard";
+import { clipClockLabel } from "@/lib/export/clipHud";
 import {
   CLIP_HUD_PANEL_ECO,
   CLIP_HUD_PANEL_HUD,
@@ -34,7 +35,7 @@ export const ClipPageHud = memo(function ClipPageHud({
     <div className="clip-page-host" style={{ width, height }}>
       <div className="radar-stage clip-page-stage" style={{ width: stage.width, height }}>
         <div className="clip-page-hud-panel" data-clip-panel={CLIP_HUD_PANEL_HUD}>
-          <Hud replay={replay} tick={tick} />
+          <Hud replay={replay} tick={tick} clockLabel={clipClockLabel(replay, tick)} />
         </div>
         <div className="clip-page-eco-panel" data-clip-panel={CLIP_HUD_PANEL_ECO}>
           <SpectatorEconomy

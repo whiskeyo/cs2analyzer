@@ -1,4 +1,4 @@
-import { CLIP_EXPORT_SIZE_DEFAULT } from "@/lib/export/constants";
+import { CLIP_EXPORT_SIZE_DEFAULT, CLIP_HUD_TIMER_DECIMALS } from "@/lib/export/constants";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
 import { currentRound, samplePlayers } from "@/lib/replay/sample";
 import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
@@ -136,29 +136,33 @@ function playerRow(replay: Replay, index: number, tick: number): ClipHudPlayer |
 }
 
 /**
- * HUD facts for one export frame. Scores and the win line come from the same
- * helpers as the live HUD. The clock label does not: after a plant it stays on
- * the 40s fuse for the rest of that round.
+ * Burned-in clip clock. After a plant this stays on the 40s fuse for the rest
+ * of the round: a fake defuse does not move it, a real defuse freezes the
+ * reading from that tick, and an explosion holds `C4 0.0`. The next round
+ * counts down from freeze end again. This is not the live bomb chip, which
+ * hides once the fuse is no longer running.
  */
-export function clipHudState(replay: Replay, tick: number): ClipHudState {
-  const teams = liveTeams(replay, tick);
+export function clipClockLabel(replay: Replay, tick: number): string {
   const sit = liveSituation(replay, tick);
   const round = currentRound(replay, tick);
   const rate = tickRate(replay);
   const origin = round ? (round.freeze_end_tick > 0 ? round.freeze_end_tick : round.start_tick) : 0;
   const elapsed = rate > 0 ? Math.max(0, (tick - origin) / rate) : 0;
-  let clockLabel = formatClock(roundTimeRemaining(elapsed, round?.round_time_s ?? 0));
-  let clockKind: ClipHudState["clockKind"] = "round";
-  if (sit.freeze != null) {
-    clockLabel = `Freeze ${sit.freeze.toFixed(1)}`;
-    clockKind = "freeze";
-  } else if (round) {
+  if (sit.freeze != null) return `Freeze ${sit.freeze.toFixed(CLIP_HUD_TIMER_DECIMALS)}`;
+  if (round) {
     const planted = plantedClipClock(replay, round, tick, rate);
-    if (planted) {
-      clockLabel = planted.clockLabel;
-      clockKind = planted.clockKind;
-    }
+    if (planted) return planted.clockLabel;
   }
+  return formatClock(roundTimeRemaining(elapsed, round?.round_time_s ?? 0));
+}
+
+export function clipHudState(replay: Replay, tick: number): ClipHudState {
+  const teams = liveTeams(replay, tick);
+  const sit = liveSituation(replay, tick);
+  const round = currentRound(replay, tick);
+  const clockLabel = clipClockLabel(replay, tick);
+  const clockKind: ClipHudState["clockKind"] =
+    sit.freeze != null ? "freeze" : clockLabel.startsWith("C4 ") ? "bomb" : "round";
   const duration = sit.defuse
     ? sit.defuse.haskit
       ? DEFUSE_WITH_KIT_SECONDS

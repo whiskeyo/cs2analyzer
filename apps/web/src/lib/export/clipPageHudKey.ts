@@ -1,10 +1,11 @@
+import { clipClockLabel } from "@/lib/export/clipHud";
 import { CLIP_HUD_TIMER_DECIMALS } from "@/lib/export/constants";
 import { currentRound, samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
 import type { Replay } from "@/lib/replay/replayTypes";
-import { SIDEBAR_DEFAULT_WIDTH, tickRate } from "@/lib/shared/constants";
-import { liveSituation, roundHudLabel, roundTimeRemaining } from "@/lib/stats/hud";
+import { SIDEBAR_DEFAULT_WIDTH } from "@/lib/shared/constants";
+import { liveSituation, roundHudLabel } from "@/lib/stats/hud";
 import { liveScoreboardPlayers, liveTeams } from "@/lib/stats/liveScore";
-import { formatClock, prettyMap } from "@/lib/weapons/weapons";
+import { prettyMap } from "@/lib/weapons/weapons";
 
 export type ClipHudPanel = "hud" | "economy" | "scoreboard";
 
@@ -41,21 +42,9 @@ export function clipPageStage(frameWidth: number, frameHeight: number): ClipPage
   };
 }
 
-/**
- * Round clock for a clip frame. Same formula as the playback controls:
- * freeze replaces the clock, and the limit is `round?.round_time_s ?? 0`
- * (0 falls back to the competitive defuse length inside `roundTimeRemaining`).
- */
+/** Same burned-in clock as the painted fallback, including a fuse held after the bomb is done. */
 export function clipRoundClockLabel(replay: Replay, tick: number): string {
-  const round = currentRound(replay, tick);
-  const rate = tickRate(replay);
-  const inFreeze = !!round && tick < round.freeze_end_tick;
-  if (inFreeze && rate > 0) {
-    return `Freeze ${((round.freeze_end_tick - tick) / rate).toFixed(CLIP_HUD_TIMER_DECIMALS)}s`;
-  }
-  const origin = round?.freeze_end_tick ?? replay.ticks.ticks[0] ?? 0;
-  const elapsed = rate > 0 ? Math.max(0, (tick - origin) / rate) : 0;
-  return formatClock(roundTimeRemaining(elapsed, round?.round_time_s ?? 0));
+  return clipClockLabel(replay, tick);
 }
 
 function timerLabel(seconds: number | null | undefined): string {
@@ -113,7 +102,7 @@ export function clipPageHudKey(
       teams.ct,
       sit.tAlive,
       sit.ctAlive,
-      timerLabel(sit.freeze),
+      clipClockLabel(replay, tick),
       timerLabel(sit.plant?.remaining),
       timerLabel(sit.bomb?.remaining),
       timerLabel(sit.defuse?.remaining),

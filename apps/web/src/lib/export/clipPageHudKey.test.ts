@@ -85,7 +85,7 @@ describe("clipPageHudKey", () => {
     expect(hurt.hud).toBe(at110.hud);
   });
 
-  it("changes the HUD key on a kill tick, not when only the round clock would move", () => {
+  it("changes the HUD key when the burned-in clock or a kill changes", () => {
     const replay = playing({
       ticks: roster([
         { tick: 64, health: 100, x: 0 },
@@ -95,8 +95,10 @@ describe("clipPageHudKey", () => {
     });
     const freezeEnd = clipPageHudKey(replay, 64, null);
     const oneSecond = clipPageHudKey(replay, 64 + RATE, null);
-    expect(clipHudPanelsToRaster(freezeEnd, oneSecond)).toEqual([]);
-    expect(oneSecond.hud).toBe(freezeEnd.hud);
+    expect(clipRoundClockLabel(replay, 64)).toBe("1:55");
+    expect(clipRoundClockLabel(replay, 64 + RATE)).toBe("1:54");
+    expect(clipHudPanelsToRaster(freezeEnd, oneSecond)).toEqual(["hud"]);
+    expect(oneSecond.economy).toBe(freezeEnd.economy);
 
     const dead = clipPageHudKey(replay, 200, null);
     expect(clipHudPanelsToRaster(oneSecond, dead)).toEqual(["hud", "economy", "scoreboard"]);
@@ -126,7 +128,7 @@ describe("clipPageHudKey", () => {
     expect(picked.hud).toBe(none.hud);
   });
 
-  it("leaves the page HUD key alone when only the round length changes", () => {
+  it("changes the HUD key when the round length changes the clock", () => {
     const standard = playing();
     const wingman = playing({
       rounds: [
@@ -141,9 +143,59 @@ describe("clipPageHudKey", () => {
     });
     const full = clipPageHudKey(standard, 64, null);
     const short = clipPageHudKey(wingman, 64, null);
-    expect(short.hud).toBe(full.hud);
+    expect(clipRoundClockLabel(standard, 64)).toBe("1:55");
+    expect(clipRoundClockLabel(wingman, 64)).toBe("1:30");
+    expect(short.hud).not.toBe(full.hud);
     expect(short.economy).toBe(full.economy);
     expect(short.scoreboard).toBe(full.scoreboard);
+  });
+
+  it("holds the C4 label on the page HUD key after defuse or explosion", () => {
+    const plant = 200;
+    const defusedAt = plant + 15 * RATE;
+    const live = makeRound({ number: 5, start_tick: 0, freeze_end_tick: 64, end_tick: 20000 });
+    const nextStart = 22000;
+    const nextFreeze = nextStart + 2 * RATE;
+    const nextRound = makeRound({
+      number: 6,
+      start_tick: nextStart,
+      freeze_end_tick: nextFreeze,
+      end_tick: 40000,
+    });
+    const defused = playing({
+      rounds: [live, nextRound],
+      bombEvents: [
+        makeBombEvent({ tick: plant, kind: "planted" }),
+        makeBombEvent({ tick: defusedAt, kind: "defused" }),
+      ],
+    });
+    expect(clipRoundClockLabel(defused, defusedAt)).toBe("C4 25.0");
+    expect(clipRoundClockLabel(defused, defusedAt + 20 * RATE)).toBe("C4 25.0");
+    expect(clipPageHudKey(defused, defusedAt, null).hud).toBe(
+      clipPageHudKey(defused, defusedAt + 20 * RATE, null).hud,
+    );
+    expect(clipRoundClockLabel(defused, nextFreeze)).toBe("1:55");
+
+    const exploded = playing({
+      rounds: [live, nextRound],
+      bombEvents: [
+        makeBombEvent({ tick: plant, kind: "planted" }),
+        makeBombEvent({ tick: defusedAt, kind: "exploded" }),
+      ],
+    });
+    expect(clipRoundClockLabel(exploded, defusedAt)).toBe("C4 0.0");
+    expect(clipRoundClockLabel(exploded, defusedAt + 20 * RATE)).toBe("C4 0.0");
+    expect(clipRoundClockLabel(exploded, nextFreeze)).toBe("1:55");
+
+    const aborted = playing({
+      rounds: [live],
+      bombEvents: [
+        makeBombEvent({ tick: plant, kind: "planted" }),
+        makeBombEvent({ tick: plant + RATE, kind: "begin_defuse", haskit: false }),
+        makeBombEvent({ tick: plant + RATE + 1, kind: "abort_defuse" }),
+      ],
+    });
+    expect(clipRoundClockLabel(aborted, plant + 10 * RATE)).toBe("C4 30.0");
   });
 });
 
