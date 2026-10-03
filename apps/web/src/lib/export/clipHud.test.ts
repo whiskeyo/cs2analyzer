@@ -449,4 +449,31 @@ describe("paintClipHud", () => {
     expect(yOf("Leo")).toBeLessThan(yOf("Mia"));
     expect(yOf("Mia")).toBeLessThan(yOf("Nova"));
   });
+
+  it("draws a world, fall, or C4 death as the victim only", () => {
+    const world = makeReplay({
+      players: [makePlayer(0, "CT", "Alice")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 8000 })],
+      kills: [makeKill(1000, -1, 0, { weapon: "world" })],
+    });
+    const ctx = createMockCanvas();
+    paintClipHud(ctx, world, 1000, clipHudLayout(1920, 1080));
+    const worldText = ctx.fillText.mock.calls.map((call) => String(call[0]));
+    expect(worldText.join(" ")).not.toContain("World");
+    expect(worldText).toContain("Alice");
+    expect(worldText.some((line) => line.includes("☠"))).toBe(true);
+
+    const bomb = makeReplay({
+      players: [makePlayer(0, "T", "Bob"), makePlayer(1, "CT", "Alice")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 8000 })],
+      kills: [makeKill(1000, 0, 1, { weapon: "c4" })],
+    });
+    ctx.fillText.mockClear();
+    paintClipHud(ctx, bomb, 1000, clipHudLayout(1920, 1080));
+    const bombText = ctx.fillText.mock.calls.map((call) => String(call[0]));
+    expect(bombText).not.toContain("Bob");
+    expect(bombText).not.toContain("World");
+    expect(bombText).toContain("Alice");
+    expect(bombText.some((line) => line.includes("C4"))).toBe(true);
+  });
 });

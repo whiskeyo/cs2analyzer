@@ -140,15 +140,53 @@ describe("KillFeed", () => {
     expect(victims).toEqual(["Eve", "Kai", "Leo", "Mia", "Nova"]);
   });
 
-  it("names the world as the attacker when there is no killer", () => {
+  it("shows a world death as the victim and a skull", () => {
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "Alice")],
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
       kills: [makeKill(1000, -1, 0, { weapon: "world" })],
     });
     render(<KillFeed replay={replay} tick={1000} onJump={() => {}} />);
-    expect(screen.getByText("World")).toHaveClass("att");
-    expect(screen.getByText("World")).not.toHaveClass("ct", "t");
+    expect(screen.queryByText("World")).not.toBeInTheDocument();
+    expect(screen.queryByText("Alice", { selector: ".att" })).not.toBeInTheDocument();
     expect(screen.getByText("Alice")).toHaveClass("vic", "ct");
+    expect(screen.getByTitle("Kill")).toHaveAttribute("src", expect.stringContaining("skull.svg"));
+  });
+
+  it("shows a suicide as the victim and a skull", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "Alice")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
+      kills: [makeKill(1000, 0, 0)],
+    });
+    render(<KillFeed replay={replay} tick={1000} onJump={() => {}} />);
+    expect(screen.getAllByText("Alice")).toHaveLength(1);
+    expect(screen.getByText("Alice")).toHaveClass("vic");
+    expect(screen.getByTitle("Kill")).toBeInTheDocument();
+  });
+
+  it("shows a fall as the victim and a skull", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "T", "Bob"), makePlayer(1, "CT", "Alice")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
+      kills: [makeKill(1000, 0, 1, { weapon: "fall" })],
+    });
+    render(<KillFeed replay={replay} tick={1000} onJump={() => {}} />);
+    expect(screen.queryByText("Bob")).not.toBeInTheDocument();
+    expect(screen.getByText("Alice")).toHaveClass("vic", "ct");
+    expect(screen.getByTitle("Kill")).toBeInTheDocument();
+  });
+
+  it("shows a C4 death as the victim and the bomb icon", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "T", "Bob"), makePlayer(1, "CT", "Alice")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 4000 })],
+      kills: [makeKill(1000, 0, 1, { weapon: "c4" })],
+    });
+    render(<KillFeed replay={replay} tick={1000} onJump={() => {}} />);
+    expect(screen.queryByText("Bob")).not.toBeInTheDocument();
+    expect(screen.queryByText("World")).not.toBeInTheDocument();
+    expect(screen.getByText("Alice")).toHaveClass("vic", "ct");
+    expect(screen.getByTitle("C4")).toHaveAttribute("src", expect.stringContaining("c4.svg"));
   });
 });

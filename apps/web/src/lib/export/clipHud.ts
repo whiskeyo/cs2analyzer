@@ -1,5 +1,5 @@
 import { CLIP_EXPORT_SIZE_DEFAULT, CLIP_HUD_TIMER_DECIMALS } from "@/lib/export/constants";
-import { visibleKillFeed } from "@/lib/radar/killFeed";
+import { environmentDeath, visibleKillFeed } from "@/lib/radar/killFeed";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
 import { attackerLabel, playerLabel } from "@/lib/replay/playerLabel";
 import { currentRound, samplePlayers } from "@/lib/replay/sample";
@@ -312,6 +312,9 @@ function killNameColor(replay: Replay, index: number, tick: number): string {
   return currentSide(replay, index, tick) === "CT" ? CT_COLOR : T_COLOR;
 }
 
+/** Painted fallback has no weapon SVGs. */
+const PAINTED_SKULL = "☠";
+
 /** Simple text feed for the painted fallback. Same rows as the page kill feed. */
 function drawKillFeed(
   ctx: ClipHudPainter,
@@ -329,20 +332,26 @@ function drawKillFeed(
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   kills.forEach((kill, index) => {
-    const parts: { text: string; color: string }[] = [
-      {
+    const environment = environmentDeath(kill);
+    const parts: { text: string; color: string }[] = [];
+    if (environment === "bomb") {
+      parts.push({ text: `${prettyWeapon("c4")}  `, color: MUTED });
+    } else if (environment === "skull") {
+      parts.push({ text: `${PAINTED_SKULL}  `, color: MUTED });
+    } else {
+      parts.push({
         text: attackerLabel(replay, kill.attacker),
         color: killNameColor(replay, kill.attacker, kill.tick),
-      },
-    ];
-    if (kill.assister >= 0) {
-      parts.push({ text: " + ", color: MUTED });
-      parts.push({
-        text: playerLabel(replay.players[kill.assister]),
-        color: killNameColor(replay, kill.assister, kill.tick),
       });
+      if (kill.assister >= 0) {
+        parts.push({ text: " + ", color: MUTED });
+        parts.push({
+          text: playerLabel(replay.players[kill.assister]),
+          color: killNameColor(replay, kill.assister, kill.tick),
+        });
+      }
+      parts.push({ text: `  ${prettyWeapon(kill.weapon)}  `, color: MUTED });
     }
-    parts.push({ text: `  ${prettyWeapon(kill.weapon)}  `, color: MUTED });
     parts.push({
       text: playerLabel(replay.players[kill.victim]),
       color: killNameColor(replay, kill.victim, kill.tick),

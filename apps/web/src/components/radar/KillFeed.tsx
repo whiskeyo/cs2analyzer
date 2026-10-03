@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { visibleKillFeed } from "@/lib/radar/killFeed";
+import { environmentDeath, visibleKillFeed } from "@/lib/radar/killFeed";
 import { publicUrl } from "@/lib/shared/publicUrl";
 import { currentSide } from "@/lib/stats/stats";
 import { attackerLabel, playerLabel } from "@/lib/replay/playerLabel";
@@ -22,40 +22,59 @@ export const KillFeed = memo(function KillFeed({ replay, tick, onJump }: Props) 
   if (kills.length === 0) return null;
   return (
     <ol className="kill-feed">
-      {kills.map((k, i) => (
-        <li key={`${k.tick}-${i}`}>
-          <button type="button" onClick={() => onJump(k.tick)}>
-            <span className={`att ${sideClass(replay, k.attacker, k.tick)}`.trim()}>
-              {attackerLabel(replay, k.attacker)}
-            </span>
-            {k.assister >= 0 && (
-              <span className={`assist ${sideClass(replay, k.assister, k.tick)}`.trim()}>
-                + {playerLabel(replay.players[k.assister])}
-              </span>
-            )}
-            {k.assisted_flash && <GearIcon name="flashbang_assist" title="Flash assist" />}
-            <span className="gun">
-              <WeaponIcon weapon={k.weapon} />
-              {k.noscope && <GearIcon name="noscope" title="No-scope" />}
-              {k.through_smoke && <GearIcon name="through_smoke" title="Through smoke" />}
-              {k.wallbang && <GearIcon name="wallbang" title="Wallbang" />}
-              {k.attacker_airborne && <GearIcon name="attacker_airborne" title="Airborne" />}
-              {k.attacker_blind && <GearIcon name="attacker_blind" title="Blind" />}
-              {k.headshot && (
-                <img
-                  className="headshot-icon"
-                  src={publicUrl("weapons/headshot.svg")}
-                  alt=""
-                  title="Headshot"
-                />
+      {kills.map((k, i) => {
+        const environment = environmentDeath(k);
+        return (
+          <li key={`${k.tick}-${i}`}>
+            <button type="button" onClick={() => onJump(k.tick)}>
+              {environment == null && (
+                <span className={`att ${sideClass(replay, k.attacker, k.tick)}`.trim()}>
+                  {attackerLabel(replay, k.attacker)}
+                </span>
               )}
-            </span>
-            <span className={`vic ${sideClass(replay, k.victim, k.tick)}`.trim()}>
-              {playerLabel(replay.players[k.victim])}
-            </span>
-          </button>
-        </li>
-      ))}
+              {environment == null && k.assister >= 0 && (
+                <span className={`assist ${sideClass(replay, k.assister, k.tick)}`.trim()}>
+                  + {playerLabel(replay.players[k.assister])}
+                </span>
+              )}
+              {environment == null && k.assisted_flash && (
+                <GearIcon name="flashbang_assist" title="Flash assist" />
+              )}
+              <span className="gun">
+                {environment === "bomb" ? (
+                  <WeaponIcon weapon="c4" />
+                ) : environment === "skull" ? (
+                  <GearIcon name="skull" title="Kill" />
+                ) : (
+                  <WeaponIcon weapon={k.weapon} />
+                )}
+                {environment == null && k.noscope && <GearIcon name="noscope" title="No-scope" />}
+                {environment == null && k.through_smoke && (
+                  <GearIcon name="through_smoke" title="Through smoke" />
+                )}
+                {environment == null && k.wallbang && <GearIcon name="wallbang" title="Wallbang" />}
+                {environment == null && k.attacker_airborne && (
+                  <GearIcon name="attacker_airborne" title="Airborne" />
+                )}
+                {environment == null && k.attacker_blind && (
+                  <GearIcon name="attacker_blind" title="Blind" />
+                )}
+                {environment == null && k.headshot && (
+                  <img
+                    className="headshot-icon"
+                    src={publicUrl("weapons/headshot.svg")}
+                    alt=""
+                    title="Headshot"
+                  />
+                )}
+              </span>
+              <span className={`vic ${sideClass(replay, k.victim, k.tick)}`.trim()}>
+                {playerLabel(replay.players[k.victim])}
+              </span>
+            </button>
+          </li>
+        );
+      })}
     </ol>
   );
 });
