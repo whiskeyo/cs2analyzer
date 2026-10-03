@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   clipHudPanelsToRaster,
@@ -213,6 +216,35 @@ describe("clipPageStage", () => {
       height: 1440,
     });
     expect(clipPageStage(0, 1080).width).toBe(0);
+  });
+});
+
+/** `.spec-eco` width and inset. The score band has to stay out of that strip. */
+const SPEC_COLUMN_WIDTH = 216;
+const SPEC_COLUMN_INSET = 8;
+
+function clipHudPanelClearsColumns(frameWidth: number, panelWidth: number): boolean {
+  const gutter = SPEC_COLUMN_INSET + SPEC_COLUMN_WIDTH;
+  const left = (frameWidth - panelWidth) / 2;
+  return left >= gutter && left + panelWidth <= frameWidth - gutter;
+}
+
+describe("clip HUD panel", () => {
+  it("stays between the team columns so the first player name stays visible", () => {
+    const cssPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../index.css");
+    const css = readFileSync(cssPath, "utf8");
+    const start = css.indexOf(".clip-page-hud-panel {");
+    const end = css.indexOf(".clip-page-host .radar-hud");
+    const block = css.slice(start, end);
+    expect(block).toContain("left: 50%");
+    expect(block).toContain("width: max-content");
+    expect(block).toContain("translateX(-50%)");
+    expect(block).toContain("max-width: calc(100% - 2 * (216px + 8px))");
+    expect(block).not.toMatch(/right:\s*0/);
+    expect(clipHudPanelClearsColumns(1920, 1920)).toBe(false);
+    const maxPanel = 1920 - 2 * (SPEC_COLUMN_INSET + SPEC_COLUMN_WIDTH);
+    expect(clipHudPanelClearsColumns(1920, maxPanel)).toBe(true);
+    expect(clipHudPanelClearsColumns(1920, 480)).toBe(true);
   });
 });
 
