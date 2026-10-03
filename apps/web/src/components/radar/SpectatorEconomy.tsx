@@ -13,6 +13,7 @@ import {
 import { playerLabel } from "@/lib/replay/playerLabel";
 import { samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
 import { freezeBuysForPlayer } from "@/lib/match/buys";
+import { SIDE_DISPLAY_ORDER } from "@/lib/match/economy";
 import { computeStats, liveScoreboardPlayers, liveTeams } from "@/lib/stats/stats";
 import { formatLastHit, lastHitTaken } from "@/lib/stats/lastHit";
 import type { Replay } from "@/lib/replay/replayTypes";
@@ -140,7 +141,7 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
     const eq = list.reduce((sum, r) => sum + r.p.equip, 0);
     const alive = list.filter((r) => r.p.alive).length;
     return (
-      <div className={`spec-eco ${side}`} data-tutorial="hud">
+      <div key={side} className={`spec-eco ${side}`} data-tutorial="hud">
         <div className="spec-team">
           <span>
             {title} · {alive}
@@ -170,8 +171,9 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
 
   return (
     <>
-      {column("t", teams.tName, t)}
-      {column("ct", teams.ctName, ct)}
+      {SIDE_DISPLAY_ORDER.map((side) =>
+        side === "T" ? column("t", teams.tName, t) : column("ct", teams.ctName, ct),
+      )}
     </>
   );
 });
