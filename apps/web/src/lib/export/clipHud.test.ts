@@ -427,4 +427,26 @@ describe("paintClipHud", () => {
     expect(later).not.toContain("Cara");
     expect(later).not.toContain(" + ");
   });
+
+  it("draws the newest kill above the older ones", () => {
+    const names = ["Nova", "Mia", "Leo", "Kai", "Eve"];
+    const replay = makeReplay({
+      players: [
+        makePlayer(0, "CT", "Ace"),
+        ...names.map((name, i) => makePlayer(i + 1, "T", name)),
+      ],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 8000 })],
+      kills: names.map((_, i) => makeKill(1000 + i * RATE, 0, i + 1)),
+    });
+    const ctx = createMockCanvas();
+    paintClipHud(ctx, replay, 1000 + (names.length - 1) * RATE, clipHudLayout(1920, 1080));
+    const yOf = (name: string) => {
+      const call = ctx.fillText.mock.calls.find((args) => args[0] === name);
+      return typeof call?.[2] === "number" ? call[2] : Number.POSITIVE_INFINITY;
+    };
+    expect(yOf("Eve")).toBeLessThan(yOf("Kai"));
+    expect(yOf("Kai")).toBeLessThan(yOf("Leo"));
+    expect(yOf("Leo")).toBeLessThan(yOf("Mia"));
+    expect(yOf("Mia")).toBeLessThan(yOf("Nova"));
+  });
 });

@@ -1,4 +1,5 @@
 import { CLIP_EXPORT_SIZE_DEFAULT, CLIP_HUD_TIMER_DECIMALS } from "@/lib/export/constants";
+import { visibleKillFeed } from "@/lib/radar/killFeed";
 import { CT_COLOR, T_COLOR } from "@/lib/radar/radarFrame";
 import { attackerLabel, playerLabel } from "@/lib/replay/playerLabel";
 import { currentRound, samplePlayers } from "@/lib/replay/sample";
@@ -8,13 +9,10 @@ import {
   DEFUSE_WITH_KIT_SECONDS,
   DEFUSE_WITHOUT_KIT_SECONDS,
   FULL_HEALTH,
-  KILL_FEED_MAX_ROWS,
-  KILL_FEED_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
 import { liveSituation, roundHudLabel, roundTimeRemaining } from "@/lib/stats/hud";
 import { currentSide, liveScoreboardPlayers, liveTeams } from "@/lib/stats/liveScore";
-import { recentKills } from "@/lib/stats/stats";
 import { formatMoney, heldWeaponId, weaponHasMagazine } from "@/lib/weapons/loadout";
 import {
   formatClock,
@@ -322,8 +320,7 @@ function drawKillFeed(
   layout: ClipHudLayout,
   scale: number,
 ): void {
-  const rate = tickRate(replay);
-  const kills = recentKills(replay, tick, rate * KILL_FEED_SECONDS, KILL_FEED_MAX_ROWS);
+  const kills = visibleKillFeed(replay, tick);
   if (kills.length === 0) return;
   const size = Math.round(16 * scale);
   const rowH = size + 6 * scale;

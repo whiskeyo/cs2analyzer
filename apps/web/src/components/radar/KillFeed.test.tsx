@@ -124,6 +124,22 @@ describe("KillFeed", () => {
     expect(screen.queryByText("World")).not.toBeInTheDocument();
   });
 
+  it("puts the newest kill on top", () => {
+    const names = ["Nova", "Mia", "Leo", "Kai", "Eve"];
+    const replay = makeReplay({
+      players: [
+        makePlayer(0, "CT", "Ace"),
+        ...names.map((name, i) => makePlayer(i + 1, "T", name)),
+      ],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 8000 })],
+      kills: names.map((_, i) => makeKill(1000 + i * tps, 0, i + 1)),
+    });
+    const tick = 1000 + (names.length - 1) * tps;
+    const { container } = render(<KillFeed replay={replay} tick={tick} onJump={() => {}} />);
+    const victims = [...container.querySelectorAll(".vic")].map((node) => node.textContent);
+    expect(victims).toEqual(["Eve", "Kai", "Leo", "Mia", "Nova"]);
+  });
+
   it("names the world as the attacker when there is no killer", () => {
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "Alice")],
