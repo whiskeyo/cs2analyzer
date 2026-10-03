@@ -1,5 +1,6 @@
 import { getPlaybookImageBlob } from "@/lib/playbook/playbookImageStore";
 import {
+  DEMO_TAG_STORE,
   HANDLE_STORE,
   PLAYBOOK_IMAGE_STORE,
   PLAYBOOK_STORE,
@@ -34,6 +35,7 @@ const STORE_CATEGORY: Record<string, StorageCategoryId> = {
   [PLAYBOOK_IMAGE_STORE]: "photos",
   [SETTINGS_STORE]: "settings",
   [HANDLE_STORE]: "other",
+  [DEMO_TAG_STORE]: "notes",
 };
 
 export interface StorageCategoryUsage {
