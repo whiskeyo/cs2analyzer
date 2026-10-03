@@ -29,6 +29,11 @@ export const KillFeed = memo(function KillFeed({ replay, tick, onJump }: Props) 
             <span className={`att ${sideClass(replay, k.attacker, k.tick)}`.trim()}>
               {attackerLabel(replay, k.attacker)}
             </span>
+            {k.assister >= 0 && (
+              <span className={`assist ${sideClass(replay, k.assister, k.tick)}`.trim()}>
+                + {playerLabel(replay.players[k.assister])}
+              </span>
+            )}
             {k.assisted_flash && <GearIcon name="flashbang_assist" title="Flash assist" />}
             <span className="gun">
               <WeaponIcon weapon={k.weapon} />

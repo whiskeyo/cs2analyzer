@@ -4366,11 +4366,13 @@ button.link:hover:not(:disabled) {
   font-size: 0.72rem;
 }
 .kill-feed .att.ct,
-.kill-feed .vic.ct {
+.kill-feed .vic.ct,
+.kill-feed .assist.ct {
   color: #7eb7e6;
 }
 .kill-feed .att.t,
-.kill-feed .vic.t {
+.kill-feed .vic.t,
+.kill-feed .assist.t {
   color: #e0c15a;
 }
 .kill-feed .gun {
