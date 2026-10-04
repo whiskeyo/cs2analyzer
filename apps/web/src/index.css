@@ -1074,9 +1074,10 @@ code {
   margin: 0;
 }
 .series-round-strip {
+  --series-row-gap: 0.2rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--series-row-gap);
   padding: 0.25rem 0.6rem;
   background: #0d1116;
   min-width: 0;
@@ -1085,15 +1086,46 @@ code {
      scrolls inside this box instead of covering them. */
   flex: 0 1 auto;
   min-height: 0;
-  max-height: 50vh;
+  /* Narrower than the stage, so extra wraps scroll inside the full-stage height. */
+  max-height: min(50vh, var(--series-strip-cap, 50vh));
   overflow: auto;
 }
 .series-round-row {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  /* Floor for a one-line row. Do not shrink: a capped strip would squeeze a
+     wrapped row below its chips and the next buy row would paint on top. */
+  flex: 0 0 auto;
   min-height: 24px;
   min-width: 0;
+}
+.series-round-scroll-tail {
+  display: none;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.series-round-strip.is-overflowing .series-round-scroll-tail {
+  /* Cancel the column gap so the tail height is the only extra scroll space. */
+  display: block;
+  flex-basis: calc(var(--series-strip-tail, 0px) + var(--series-row-gap));
+  height: calc(var(--series-strip-tail, 0px) + var(--series-row-gap));
+  margin-top: calc(-1 * var(--series-row-gap));
+}
+.map-column > .series-round-strip.is-overflowing {
+  overflow-y: scroll;
+  scrollbar-width: thin;
+  scrollbar-color: #9aafc2 #10161c;
+}
+.map-column > .series-round-strip.is-overflowing::-webkit-scrollbar {
+  width: 10px;
+}
+.map-column > .series-round-strip.is-overflowing::-webkit-scrollbar-track {
+  background: #10161c;
+}
+.map-column > .series-round-strip.is-overflowing::-webkit-scrollbar-thumb {
+  background: #9aafc2;
+  border-radius: 5px;
 }
 .series-round-row.is-split {
   align-items: flex-start;
@@ -1860,11 +1892,20 @@ a.ghost {
 .stage {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   /* Toolbar, legend, and sidebar stay inside this box when the round strip grows. */
   overflow: hidden;
+}
+
+.map-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  grid-column: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 .radar-col {
@@ -1874,6 +1915,15 @@ a.ghost {
   grid-template-rows: subgrid;
   min-width: 0;
   min-height: 0;
+}
+
+.map-column > .radar-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  grid-column: auto;
+  grid-row: auto;
+  grid-template-rows: none;
 }
 
 .radar-stage {
@@ -2786,9 +2836,9 @@ input.playbook-video-title {
 .sidebar {
   position: relative;
   grid-column: 2;
-  grid-row: 1 / -1;
-  display: grid;
-  grid-template-rows: subgrid;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   background: #10151b;
   border-left: 1px solid #1e2732;
@@ -2840,6 +2890,7 @@ body.sidebar-resizing {
   z-index: 1;
 }
 .sidebar-body {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   padding: 0 0.7rem 1rem;
@@ -4247,6 +4298,31 @@ button.link:hover:not(:disabled) {
   background: #0d1116;
   overflow-x: auto;
   align-items: flex-end;
+  min-width: 0;
+  min-height: 0;
+}
+
+.map-column > .round-strip,
+.map-column > .series-round-strip {
+  flex: 0 1 auto;
+  max-height: min(50vh, var(--series-strip-cap, 50vh));
+  overflow: auto;
+}
+
+/* Same chips at the stage width. Out of flow, so it only reports that height. */
+.series-round-sizer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--series-row-gap, 0.2rem);
+  padding: 0.25rem 0.6rem;
+  height: auto;
+  max-height: none;
+  overflow: visible;
 }
 .rs {
   min-width: 22px;
@@ -4850,12 +4926,24 @@ button.link:hover:not(:disabled) {
     min-height: min-content;
     overflow: hidden;
   }
+  .map-column {
+    display: contents;
+  }
+  .map-column > .radar-col,
   .radar-col {
     display: flex;
     flex-direction: column;
     flex: 1 0 auto;
+    order: 0;
     min-height: min-content;
     overflow: hidden;
+  }
+  .sidebar {
+    order: 1;
+  }
+  .map-column > .round-strip,
+  .map-column > .series-round-strip {
+    order: 2;
   }
   .viewer .radar-stage {
     flex: 1 1 auto;

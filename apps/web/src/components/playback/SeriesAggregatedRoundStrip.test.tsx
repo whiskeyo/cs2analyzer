@@ -348,4 +348,54 @@ describe("aggregated round row overflow", () => {
     expect(trackFor("Eco")).toHaveAttribute("data-split", "false");
     expect(lineSides(trackFor("Eco"))).toEqual([]);
   });
+
+  it("caps the visible strip at the height of a full-stage layout", async () => {
+    const { replay, demoA } = fixture();
+    const { container } = render(
+      <div className="stage">
+        <SeriesAggregatedRoundStrip
+          groups={[kindGroup("full", "Full", 2, 2)]}
+          demoColors={new Map([[demoA.id, "#f00"]])}
+          activeDemoId={demoA.id}
+          bucketOverlay={null}
+          replay={replay}
+          tick={100}
+          onBucketOverlay={() => {}}
+          onRoundJump={() => {}}
+        />
+      </div>,
+    );
+    const stage = container.querySelector(".stage");
+    const sizer = container.querySelector(".series-round-sizer");
+    const strip = container.querySelector(".series-round-strip");
+    if (
+      !(stage instanceof HTMLElement) ||
+      !(sizer instanceof HTMLElement) ||
+      !(strip instanceof HTMLElement)
+    ) {
+      throw new Error("missing strip cap nodes");
+    }
+    Object.defineProperty(stage, "clientWidth", { configurable: true, value: 1280 });
+    vi.spyOn(sizer, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 1280,
+      bottom: 139.5625,
+      width: 1280,
+      height: 139.5625,
+      toJSON() {
+        return {};
+      },
+    });
+    await act(async () => {
+      resize.notify(stage);
+    });
+    expect(sizer).toHaveStyle({ width: "1280px" });
+    expect(strip.style.getPropertyValue("--series-strip-cap")).toBe("139.5625px");
+    expect(screen.getAllByRole("group", { name: "Full rounds" })).toHaveLength(1);
+    expect(screen.getAllByTitle("Full · CT #1")).toHaveLength(1);
+    expect(screen.getByText("Full")).toBeInTheDocument();
+  });
 });

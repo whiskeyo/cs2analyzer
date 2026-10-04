@@ -22,7 +22,6 @@ import {
 import {
   duplicateSeriesNotice,
   existingSessionDemos,
-  formatSeriesNotice,
   loadedSessionCount,
   mergeAppendedDemos,
   type SessionSnapshot,
@@ -339,7 +338,6 @@ export function useDemoSession(opts: {
       setMapGroups(groups);
       setParsedDemos(groups.flatMap((g) => g.demos));
       loadMapGroup(groups[0]);
-      const nextSeries = buildSeries(groups[0].mapName, groups[0].demos);
 
       const ok = results.filter((r) => r.demo && !r.error);
       if (ok.length > 0) {
@@ -360,8 +358,7 @@ export function useDemoSession(opts: {
           })),
         });
       }
-      const seriesNotice = formatSeriesNotice(groups, nextSeries);
-      statusRef.current.setNotice(ramWarn ? `${seriesNotice} ${seriesRamWarning()}` : seriesNotice);
+      if (ramWarn) statusRef.current.setNotice(seriesRamWarning());
     },
     [beginParse, endParse, getPool, loadMapGroup, parseDemo, scheduleProgress],
   );
@@ -498,14 +495,11 @@ export function useDemoSession(opts: {
           })),
         });
       }
-      const seriesNotice = formatSeriesNotice(merged.groups, merged.series);
       const extras = [
         ...merged.duplicates.map((row) => duplicateSeriesNotice(row.fileName)),
         ...(ramWarn ? [seriesRamWarning()] : []),
       ];
-      statusRef.current.setNotice(
-        extras.length > 0 ? `${seriesNotice} ${extras.join(" ")}` : seriesNotice,
-      );
+      if (extras.length > 0) statusRef.current.setNotice(extras.join(" "));
     },
     [applyMergedSession, beginParse, endParse, getPool, parseDemos, scheduleProgress],
   );

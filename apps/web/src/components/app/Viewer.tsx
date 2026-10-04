@@ -91,32 +91,34 @@ export function Viewer() {
         ) : (
           <>
             <main className="stage">
-              <RadarStage />
+              <div className="map-column">
+                <RadarStage />
+                {!aggregated ? (
+                  <RoundStrip
+                    replay={replay}
+                    tick={tick}
+                    notes={chromeNotes}
+                    places={places}
+                    activeRound={playback.activeRound}
+                    roundEnabled={() => isTutorialSeriesRoundEnabled(session.demo?.id)}
+                  />
+                ) : (
+                  <SeriesAggregatedRoundStrip
+                    groups={habits.seriesRoundsByKind}
+                    demoColors={habits.demoColors}
+                    activeDemoId={session.demo?.id ?? null}
+                    bucketOverlay={habits.bucketOverlay}
+                    replay={replay}
+                    tick={tick}
+                    onBucketOverlay={habits.selectBucketOverlay}
+                    onRoundJump={habits.playRound}
+                    bucketEnabled={(kind) => isTutorialSeriesBucketEnabled(session.demo?.id, kind)}
+                    roundJumpEnabled={isTutorialSeriesChipEnabled(session.demo?.id)}
+                  />
+                )}
+              </div>
               <Sidebar />
             </main>
-            {!aggregated ? (
-              <RoundStrip
-                replay={replay}
-                tick={tick}
-                notes={chromeNotes}
-                places={places}
-                activeRound={playback.activeRound}
-                roundEnabled={() => isTutorialSeriesRoundEnabled(session.demo?.id)}
-              />
-            ) : (
-              <SeriesAggregatedRoundStrip
-                groups={habits.seriesRoundsByKind}
-                demoColors={habits.demoColors}
-                activeDemoId={session.demo?.id ?? null}
-                bucketOverlay={habits.bucketOverlay}
-                replay={replay}
-                tick={tick}
-                onBucketOverlay={habits.selectBucketOverlay}
-                onRoundJump={habits.playRound}
-                bucketEnabled={(kind) => isTutorialSeriesBucketEnabled(session.demo?.id, kind)}
-                roundJumpEnabled={isTutorialSeriesChipEnabled(session.demo?.id)}
-              />
-            )}
             {bucketMode ? (
               <BucketControls
                 playSec={habits.bucketPlaySec}

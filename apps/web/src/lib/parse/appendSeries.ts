@@ -34,17 +34,6 @@ export function duplicateSeriesNotice(fileName: string): string {
   return `${fileName} is already in this series.`;
 }
 
-/** Same sentence as a multi-file drop, keyed to the active map. */
-export function formatSeriesNotice(groups: SeriesMapGroup[], series: DemoSeries): string {
-  const primary = groups.find((group) => group.mapName === series.mapName) ?? groups[0];
-  if (!primary) return "";
-  const mapSummary =
-    groups.length > 1
-      ? `${groups.length} maps (${groups.map((g) => `${g.demos.length}× ${g.mapName}`).join(", ")})`
-      : primary.mapName;
-  return `Series: ${primary.demos.length} ${primary.mapName} demo${primary.demos.length === 1 ? "" : "s"} · ${series.focalTeam}${groups.length > 1 ? ` · ${mapSummary}` : ""}`;
-}
-
 export interface MergeAppendedDemosInput {
   existing: LoadedDemo[];
   incoming: LoadedDemo[];
