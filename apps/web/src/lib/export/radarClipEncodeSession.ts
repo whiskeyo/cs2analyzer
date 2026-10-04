@@ -1,4 +1,10 @@
-import { Muxer, ArrayBufferTarget } from "mp4-muxer";
+import {
+  BufferTarget,
+  EncodedPacket,
+  EncodedVideoPacketSource,
+  Mp4OutputFormat,
+  Output,
+} from "mediabunny";
 import {
   CLIP_ENCODE_QUEUE_FRAMES,
   CLIP_EXPORT_FAILED,
@@ -36,31 +42,42 @@ export function openClipEncodeSession(config: ClipEncodeSessionConfig): ClipEnco
   if (typeof VideoEncoder === "undefined") {
     throw new Error(CLIP_EXPORT_FAILED);
   }
-  const target = new ArrayBufferTarget();
-  const muxer = new Muxer({
+  const target = new BufferTarget();
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: "in-memory" }),
     target,
-    video: {
-      codec: "avc",
-      width: config.width,
-      height: config.height,
-      frameRate: config.fps,
-    },
-    fastStart: "in-memory",
-    firstTimestampBehavior: "strict",
   });
+  const video = new EncodedVideoPacketSource("avc");
+  output.addVideoTrack(video, { frameRate: config.fps });
   let failed = false;
-  const fail = (message: string) => {
+  const fail = (error: unknown) => {
     if (failed) return;
     failed = true;
-    config.onError(message);
+    config.onError(error instanceof Error && error.message ? error.message : CLIP_EXPORT_FAILED);
   };
+  // Encoder output can fire before `start` resolves. Keep packets in decode order.
+  let writes = Promise.resolve();
   const encoder = new VideoEncoder({
     output: (chunk, meta) => {
       if (failed) return;
-      muxer.addVideoChunk(chunk, meta);
+      let packet: EncodedPacket;
+      try {
+        packet = EncodedPacket.fromEncodedChunk(chunk);
+      } catch (error) {
+        fail(error);
+        return;
+      }
+      writes = writes
+        .then(async () => {
+          if (failed) return;
+          await video.add(packet, meta);
+        })
+        .catch((error: unknown) => {
+          fail(error);
+        });
     },
     error: (error) => {
-      fail(error instanceof Error && error.message ? error.message : CLIP_EXPORT_FAILED);
+      fail(error);
     },
   });
   encoder.configure({
@@ -71,6 +88,9 @@ export function openClipEncodeSession(config: ClipEncodeSessionConfig): ClipEnco
     framerate: config.fps,
     latencyMode: "quality",
     avc: { format: "avc" },
+  });
+  writes = output.start().catch((error: unknown) => {
+    fail(error);
   });
   const keyEvery = Math.max(1, Math.round(config.fps * CLIP_EXPORT_KEYFRAME_SECONDS));
   const fallbackDuration = Math.round(CLIP_TIMESTAMP_US / config.fps);
@@ -115,9 +135,12 @@ export function openClipEncodeSession(config: ClipEncodeSessionConfig): ClipEnco
     async finish() {
       if (failed) throw new Error(CLIP_EXPORT_FAILED);
       await encoder.flush();
+      await writes;
       if (failed || closed) throw new Error(CLIP_EXPORT_FAILED);
-      muxer.finalize();
-      const { buffer } = target;
+      video.close();
+      await output.finalize();
+      const buffer = target.buffer;
+      if (!buffer) throw new Error(CLIP_EXPORT_FAILED);
       closeEncoder();
       return buffer;
     },
