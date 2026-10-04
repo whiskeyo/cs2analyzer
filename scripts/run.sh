@@ -4,12 +4,18 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINDGEN_VERSION="0.2.127"
-# `cargo upgrade --incompatible` skips these crates.
-# source2-demo: decoding changes belong in their own PR with real-demo tests.
+# `cargo upgrade --incompatible` skips these crates. `--latest` does not change
+# this list and must not pass `--pinned` (that flag rewrites exact requirements).
+# source2-demo, source2-demo-macros, and source2-demo-protobufs are pinned to
+# =0.5.8 in the workspace Cargo.toml. The macros and protobufs crates are
+# dev-dependencies of crates/cs2analyzer only to hold that lock. `--exclude`
+# keeps `--incompatible` off them. 0.5.9 changes view-angle decoding; lift the
+# pin together with a real-demo angle test.
 # wasm-bindgen: pinned to BINDGEN_VERSION next to wasm-bindgen-cli.
 # js-sys: each release exact-pins wasm-bindgen (`=0.2.N`). The newest js-sys
 # requires a newer wasm-bindgen than BINDGEN_VERSION, so it stays on the pin.
-UPGRADE_CARGO_EXCLUDE=(source2-demo wasm-bindgen js-sys)
+SOURCE2_DEMO_PIN=(source2-demo source2-demo-macros source2-demo-protobufs)
+UPGRADE_CARGO_EXCLUDE=("${SOURCE2_DEMO_PIN[@]}" wasm-bindgen js-sys)
 # npm-check-updates 23 requires Node ^22.22.2, ^24.15.0, or >=26, so Node 24.11
 # prints EBADENGINE. Major 22 accepts ^20.19.0, ^22.12.0, or >=24. npx installs
 # the newest 22.x. No global install.
@@ -225,6 +231,18 @@ cmd_test() {
   log "Tests passed"
 }
 
+# True when name is one of the =0.5.8 source2-demo pins.
+is_source2_demo_pin() {
+  local name="$1"
+  local pinned
+  for pinned in "${SOURCE2_DEMO_PIN[@]}"; do
+    if [[ "$pinned" == "$name" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 # name<TAB>version for each [[package]] in a Cargo.lock (v3 or v4).
 cargo_lock_packages() {
   local lock="$1"
@@ -242,6 +260,37 @@ cargo_lock_packages() {
       in_pkg = 0
     }
   ' "$lock"
+}
+
+# name@version for each locked package. cargo update needs the version when
+# more than one copy of a crate is locked.
+cargo_lock_package_specs() {
+  local lock="$1"
+  local name version
+  while IFS=$'\t' read -r name version; do
+    [[ -n "$name" && -n "$version" ]] || continue
+    printf '%s@%s\n' "$name" "$version"
+  done < <(cargo_lock_packages "$lock")
+}
+
+# Refresh the lock without selecting the =0.5.8 source2-demo pin.
+# `cargo update` has no --exclude. Naming every other package leaves the pin
+# alone. Do not pass --breaking, --precise, --pinned, or --incompatible.
+cargo_update_except_source2_demo_pin() {
+  local spec name
+  local -a args=()
+  while IFS= read -r spec; do
+    [[ -n "$spec" ]] || continue
+    name="${spec%%@*}"
+    if is_source2_demo_pin "$name"; then
+      continue
+    fi
+    args+=(-p "$spec")
+  done < <(cargo_lock_package_specs "$ROOT/Cargo.lock")
+  if [[ ${#args[@]} -eq 0 ]]; then
+    die "cargo update package list was empty"
+  fi
+  cargo update --manifest-path "$ROOT/Cargo.toml" "${args[@]}"
 }
 
 # True when every locked copy of pkg is exactly version (and at least one exists).
@@ -695,12 +744,18 @@ cmd_upgrade() {
   for crate in "${UPGRADE_CARGO_EXCLUDE[@]}"; do
     exclude_args+=(--exclude "$crate")
   done
-  log "cargo upgrade --incompatible (excluding ${UPGRADE_CARGO_EXCLUDE[*]})"
+  # `--incompatible allow` is workspace-wide. `--exclude` is what keeps it off
+  # the =0.5.8 source2-demo pin. Do not pass `--pinned` (default ignore): that
+  # would rewrite those exact requirements. `--latest` does not add it.
+  log "cargo upgrade --manifest-path ${ROOT}/Cargo.toml --incompatible allow ${exclude_args[*]}"
   cargo upgrade --manifest-path "$ROOT/Cargo.toml" --incompatible allow "${exclude_args[@]}"
 
+  # `cargo update` has no --exclude and no --pinned/--incompatible. Selecting
+  # every other locked package by name leaves the =0.5.8 pin unselected, so
+  # this step cannot bump it. Do not pass --breaking.
   UPGRADE_STEP="cargo update"
-  log "cargo update"
-  cargo update --manifest-path "$ROOT/Cargo.toml"
+  log "cargo update --manifest-path ${ROOT}/Cargo.toml -p <locked packages except ${SOURCE2_DEMO_PIN[*]}>"
+  cargo_update_except_source2_demo_pin
 
   # `^0.2.127` still floats to the newest 0.2.x. Put the family back on the CLI.
   UPGRADE_STEP="wasm-bindgen pin"

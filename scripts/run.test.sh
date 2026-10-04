@@ -58,6 +58,24 @@ fi
 grep -F -q -- '--latest requires --upgrade' "${scratch}/latest.err" \
   || fail "--latest with --update should say it requires --upgrade"
 
+# The =0.5.8 workspace pin. --latest must not drop these names.
+for crate in source2-demo source2-demo-macros source2-demo-protobufs; do
+  found=0
+  for excluded in "${UPGRADE_CARGO_EXCLUDE[@]}"; do
+    if [[ "$excluded" == "$crate" ]]; then
+      found=1
+    fi
+  done
+  [[ "$found" -eq 1 ]] || fail "UPGRADE_CARGO_EXCLUDE must contain ${crate}"
+  found=0
+  for excluded in "${SOURCE2_DEMO_PIN[@]}"; do
+    if [[ "$excluded" == "$crate" ]]; then
+      found=1
+    fi
+  done
+  [[ "$found" -eq 1 ]] || fail "SOURCE2_DEMO_PIN must contain ${crate}"
+done
+
 peer_args="$(LATEST=0 ncu_upgrade_args | paste -sd' ' -)"
 [[ "$peer_args" == "-u --peer" ]] || fail "default upgrade should pass --peer (got: ${peer_args})"
 latest_args="$(LATEST=1 ncu_upgrade_args | paste -sd' ' -)"
