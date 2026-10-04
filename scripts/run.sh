@@ -10,8 +10,10 @@ BINDGEN_VERSION="0.2.127"
 # js-sys: each release exact-pins wasm-bindgen (`=0.2.N`). The newest js-sys
 # requires a newer wasm-bindgen than BINDGEN_VERSION, so it stays on the pin.
 UPGRADE_CARGO_EXCLUDE=(source2-demo wasm-bindgen js-sys)
-# npx installs the newest release of this major. No global npm-check-updates.
-NCU_MAJOR=23
+# npm-check-updates 23 requires Node ^22.22.2, ^24.15.0, or >=26, so Node 24.11
+# prints EBADENGINE. Major 22 accepts ^20.19.0, ^22.12.0, or >=24. npx installs
+# the newest 22.x. No global install.
+NCU_MAJOR=22
 WEB="$ROOT/apps/web"
 DEV_PORT="${DEV_PORT:-5173}"
 PROD_PORT="${PROD_PORT:-4173}"
