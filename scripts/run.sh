@@ -330,6 +330,20 @@ pin_wasm_bindgen() {
   done < <(cargo_lock_packages "$ROOT/Cargo.lock")
 }
 
+# npm 10.9's arborist dies with "Cannot read properties of null (reading
+# 'edgesOut')" while resolving this tree (vitest's optional peers). npm 11
+# runs the same in-range update and still writes only package-lock.json.
+npm_update_web() {
+  local major
+  major="$(npm -v | cut -d. -f1)"
+  if [[ "$major" -ge 11 ]]; then
+    npm_in "$WEB" update
+    return
+  fi
+  log "npm $(npm -v) cannot update this tree; using npm 11"
+  npm_in "$WEB" exec --yes npm@11 -- update
+}
+
 # path<TAB>version for each installed package in a v2/v3 package-lock.json.
 npm_lock_packages() {
   local lock="$1"
@@ -394,7 +408,7 @@ cmd_update() {
   pin_wasm_bindgen "$before_cargo"
 
   log "npm update (web, within package.json ranges)"
-  npm_in "$WEB" update
+  npm_update_web
   if ! git -C "$ROOT" diff --quiet -- apps/web/package.json; then
     die "npm update changed apps/web/package.json; dependency ranges stay as written"
   fi
