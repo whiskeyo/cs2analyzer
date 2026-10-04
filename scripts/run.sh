@@ -520,11 +520,28 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     die "--local-network requires --dev or --prod"
   fi
 
-  [[ "$PREPARE" -eq 1 ]] && cmd_prepare
-  [[ "$UPDATE" -eq 1 ]] && cmd_update
-  [[ "$BUILD_WASM" -eq 1 ]] && cmd_build_wasm
-  [[ "$CHECK" -eq 1 ]] && cmd_check
-  [[ "$TEST" -eq 1 ]] && cmd_test
-  [[ "$DEV" -eq 1 ]] && cmd_dev
-  [[ "$PROD" -eq 1 ]] && cmd_prod
+  # `[[ flag -eq 1 ]] && cmd` returns 1 when the flag is off. That status
+  # becomes the script's exit code when it is the last command, so a
+  # successful --update (or any flag except --prod) looked failed.
+  if [[ "$PREPARE" -eq 1 ]]; then
+    cmd_prepare
+  fi
+  if [[ "$UPDATE" -eq 1 ]]; then
+    cmd_update
+  fi
+  if [[ "$BUILD_WASM" -eq 1 ]]; then
+    cmd_build_wasm
+  fi
+  if [[ "$CHECK" -eq 1 ]]; then
+    cmd_check
+  fi
+  if [[ "$TEST" -eq 1 ]]; then
+    cmd_test
+  fi
+  if [[ "$DEV" -eq 1 ]]; then
+    cmd_dev
+  fi
+  if [[ "$PROD" -eq 1 ]]; then
+    cmd_prod
+  fi
 fi
