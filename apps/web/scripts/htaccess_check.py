@@ -17,7 +17,8 @@ Default expectations (the fix):
   * known routes, with and without trailing slash: 200, text/html, canonical == route
     (no redirect; with --allow-slash-redirect a single 301 to the slash form is OK)
   * unknown URLs: 404 AND our NotFound page (title "Page not found" / .not-found / noindex)
-  * /404.html itself is that page (noindex, no canonical link), not a copy of /
+    and Cache-Control: no-cache
+  * /404.html itself is that page (noindex, no canonical link, Cache-Control: no-cache), not a copy of /
   * real assets: 200 with the right content-type; missing /assets/*: 404, never 200
   * /.htaccess: 403 or 404; / and index.html send Cache-Control: no-cache
   * --expect-rev: X-Htaccess-Rev on cache-busted /, a route, a 404, and the wasm
@@ -276,6 +277,9 @@ def main() -> int:
 
         check("route", path, ok, "200 html, canonical=route, no redirect")
 
+    def no_cache(response) -> bool:
+        return "no-cache" in response.headers.get("cache-control", "").lower()
+
     def ok404(chain, last, ctype):
         body = last.text.lower()
         return (
@@ -288,10 +292,11 @@ def main() -> int:
                 or "this page does not exist" in body
             )
             and "noindex" in body
+            and no_cache(last)
         )
 
     for path in UNKNOWN:
-        check("unknown", path, ok404, "404 + our 404 page (noindex), no redirect")
+        check("unknown", path, ok404, "404 + our 404 page (noindex, no-cache), no redirect")
 
     def ok_missing_asset(chain, last, ctype):
         # Status is what dynamic import() / WebAssembly fetch use. Our 404 HTML is OK; 200 is not.
@@ -381,9 +386,15 @@ def main() -> int:
             and ("page not found" in body or 'class="not-found"' in body)
             and canon_path(last.text) is None
             and "noindex" in body
+            and no_cache(last)
         )
 
-    check("static", "/404.html", ok_404_file, "200 our 404 page, noindex, no canonical link")
+    check(
+        "static",
+        "/404.html",
+        ok_404_file,
+        "200 our 404 page, noindex, no canonical link, no-cache",
+    )
     check(
         "dotfile",
         "/.htaccess",

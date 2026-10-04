@@ -17,6 +17,11 @@ AddType application/wasm .wasm
   <Files "index.html">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
   </Files>
+  # ErrorDocument responses are not 2xx, so `set` (onsuccess) would not apply.
+  # 404.html links hashed chunks; do not let a CDN keep a stale copy.
+  <Files "404.html">
+    Header always set Cache-Control "no-cache, no-store, must-revalidate"
+  </Files>
 </IfModule>
 
 # Local URL keeps the status (a full URL would 302 and turn the 404 into a redirect).
