@@ -390,21 +390,35 @@ print_version_delta() {
   rm -f "$removed" "$added"
 }
 
-# Paths --update rewrites: lockfiles, the web manifest, and generated WASM
-# bindings. A pre-existing edit would be mixed into the summary.
-require_clean_for_update() {
-  local dirty
-  dirty="$(
-    git -C "$ROOT" status --porcelain --untracked-files=all -- \
+# Paths --update and --upgrade refuse to mix with pre-existing edits.
+# Workspace Cargo.toml files are included because --upgrade rewrites them;
+# --update shares the check so a manifest edit is not mixed into a lock bump.
+dependency_tree_paths() {
+  {
+    printf '%s\n' \
       Cargo.lock \
       apps/web/package.json \
       apps/web/package-lock.json \
       apps/web/src/parser
+    git -C "$ROOT" ls-files -- ':(glob)**/Cargo.toml'
+  } | sort -u
+}
+
+require_clean_dependency_tree() {
+  local flag="$1"
+  local dirty path
+  local -a paths=()
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    paths+=("$path")
+  done < <(dependency_tree_paths)
+  dirty="$(
+    git -C "$ROOT" status --porcelain --untracked-files=all -- "${paths[@]}"
   )"
   [[ -n "$dirty" ]] || return 0
-  echo "error: --update refuses to run while these files have changes:" >&2
+  echo "error: ${flag} refuses to run while these files have changes:" >&2
   printf '%s\n' "$dirty" >&2
-  die "Commit or stash these changes before running --update."
+  die "Commit or stash these changes before running ${flag}."
 }
 
 file_sha256() {
@@ -412,7 +426,7 @@ file_sha256() {
 }
 
 cmd_update() {
-  require_clean_for_update
+  require_clean_dependency_tree --update
   ensure_rust
   ensure_node
 
