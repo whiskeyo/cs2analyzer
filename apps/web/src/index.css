@@ -1074,9 +1074,10 @@ code {
   margin: 0;
 }
 .series-round-strip {
+  --series-row-gap: 0.2rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--series-row-gap);
   padding: 0.25rem 0.6rem;
   background: #0d1116;
   min-width: 0;
@@ -1093,8 +1094,38 @@ code {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  /* Floor for a one-line row. Do not shrink: a capped strip would squeeze a
+     wrapped row below its chips and the next buy row would paint on top. */
+  flex: 0 0 auto;
   min-height: 24px;
   min-width: 0;
+}
+.series-round-scroll-tail {
+  display: none;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.series-round-strip.is-overflowing .series-round-scroll-tail {
+  /* Cancel the column gap so the tail height is the only extra scroll space. */
+  display: block;
+  flex-basis: calc(var(--series-strip-tail, 0px) + var(--series-row-gap));
+  height: calc(var(--series-strip-tail, 0px) + var(--series-row-gap));
+  margin-top: calc(-1 * var(--series-row-gap));
+}
+.map-column > .series-round-strip.is-overflowing {
+  overflow-y: scroll;
+  scrollbar-width: thin;
+  scrollbar-color: #9aafc2 #10161c;
+}
+.map-column > .series-round-strip.is-overflowing::-webkit-scrollbar {
+  width: 10px;
+}
+.map-column > .series-round-strip.is-overflowing::-webkit-scrollbar-track {
+  background: #10161c;
+}
+.map-column > .series-round-strip.is-overflowing::-webkit-scrollbar-thumb {
+  background: #9aafc2;
+  border-radius: 5px;
 }
 .series-round-row.is-split {
   align-items: flex-start;
@@ -4287,7 +4318,7 @@ button.link:hover:not(:disabled) {
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--series-row-gap, 0.2rem);
   padding: 0.25rem 0.6rem;
   height: auto;
   max-height: none;

@@ -3,6 +3,7 @@ import { GearIcon } from "@/components/weapons/WeaponIcon";
 import {
   aggregatedRoundRowNeededWidth,
   aggregatedRoundRowShouldSplit,
+  aggregatedStripFrame,
   aggregatedStripMaxHeight,
 } from "@/lib/playback/aggregatedRoundRowSplit";
 import { currentRound } from "@/lib/replay/sample";
@@ -257,10 +258,34 @@ function rowListKey(groups: SeriesRoundsByKind[]): string {
   return groups.map((group) => rowContentKey(group)).join("|");
 }
 
+/** Wait until a flick settles, then rest on a whole-row window. */
+const STRIP_SNAP_IDLE_MS = 80;
+/** Ignore subpixel leftovers when resting the scroll. */
+const STRIP_SNAP_SLOP_PX = 1;
+
+function rowEdges(strip: HTMLElement): { tops: number[]; bottoms: number[] } {
+  const stripRect = strip.getBoundingClientRect();
+  const tops: number[] = [];
+  const bottoms: number[] = [];
+  for (const node of strip.querySelectorAll(":scope > .series-round-row")) {
+    if (!(node instanceof HTMLElement)) continue;
+    const rect = node.getBoundingClientRect();
+    tops.push(rect.top - stripRect.top + strip.scrollTop);
+    bottoms.push(rect.bottom - stripRect.top + strip.scrollTop);
+  }
+  return { tops, bottoms };
+}
+
+function paddingBottomPx(strip: HTMLElement): number {
+  const parsed = Number.parseFloat(getComputedStyle(strip).paddingBottom);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 /** Cap the visible strip at the height those chips have across the whole stage. */
 function useFullStageStripCap(contentKey: string) {
   const stripRef = useRef<HTMLDivElement>(null);
   const sizerRef = useRef<HTMLDivElement>(null);
+  const snapOffsetsRef = useRef<number[]>([0]);
 
   useLayoutEffect(() => {
     const strip = stripRef.current;
@@ -274,17 +299,53 @@ function useFullStageStripCap(contentKey: string) {
       const cap = aggregatedStripMaxHeight(sizer.getBoundingClientRect().height);
       if (cap == null) {
         strip.style.removeProperty("--series-strip-cap");
+        strip.style.removeProperty("--series-strip-tail");
+        strip.classList.remove("is-overflowing");
+        snapOffsetsRef.current = [0];
         return;
       }
-      strip.style.setProperty("--series-strip-cap", `${cap}px`);
+      const { tops, bottoms } = rowEdges(strip);
+      const contentEnd = (bottoms[bottoms.length - 1] ?? 0) + paddingBottomPx(strip);
+      const frame = aggregatedStripFrame({ cap, rowTops: tops, rowBottoms: bottoms, contentEnd });
+      if (frame == null) return;
+      strip.style.setProperty("--series-strip-cap", `${frame.height}px`);
+      strip.style.setProperty("--series-strip-tail", `${frame.tail}px`);
+      strip.classList.toggle("is-overflowing", frame.scrolls);
+      snapOffsetsRef.current = frame.snapOffsets;
     };
 
     apply();
-    if (typeof ResizeObserver === "undefined") return;
+    let snapTimer = 0;
+    const onScroll = () => {
+      window.clearTimeout(snapTimer);
+      snapTimer = window.setTimeout(() => {
+        const points = snapOffsetsRef.current;
+        if (points.length === 0) return;
+        const top = strip.scrollTop;
+        const nearest = points.reduce((best, point) =>
+          Math.abs(point - top) < Math.abs(best - top) ? point : best,
+        );
+        if (Math.abs(nearest - top) > STRIP_SNAP_SLOP_PX) strip.scrollTop = nearest;
+      }, STRIP_SNAP_IDLE_MS);
+    };
+    strip.addEventListener("scroll", onScroll, { passive: true });
+
+    if (typeof ResizeObserver === "undefined") {
+      return () => {
+        window.clearTimeout(snapTimer);
+        strip.removeEventListener("scroll", onScroll);
+      };
+    }
     const observer = new ResizeObserver(apply);
     observer.observe(stage);
     observer.observe(sizer);
-    return () => observer.disconnect();
+    observer.observe(strip);
+    for (const node of strip.querySelectorAll(":scope > .series-round-row")) observer.observe(node);
+    return () => {
+      window.clearTimeout(snapTimer);
+      strip.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+    };
   }, [contentKey]);
 
   return { stripRef, sizerRef };
@@ -327,6 +388,7 @@ export const SeriesAggregatedRoundStrip = memo(function SeriesAggregatedRoundStr
     <>
       <div ref={stripRef} className="series-round-strip" role="list" data-tutorial="rounds">
         {renderRows(false)}
+        <div className="series-round-scroll-tail" aria-hidden="true" />
       </div>
       <div ref={sizerRef} className="series-round-sizer" aria-hidden="true" inert>
         {renderRows(true)}
