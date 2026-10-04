@@ -165,6 +165,7 @@ jobs:
         with:
           name: web-dist
           path: apps/web/dist
+          include-hidden-files: true
 
   deploy:
     name: Deploy to OVH
