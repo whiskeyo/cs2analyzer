@@ -14,6 +14,14 @@ export function normalizePath(pathname: string): string {
   return pathname || ROUTES.home;
 }
 
+/**
+ * Address-bar form of a pathname. Prerendered routes and canonicals are slashless;
+ * Apache also serves the slash form as 200, and the client collapses it before hydrate.
+ */
+export function canonicalLocation(pathname: string, search = "", hash = ""): string {
+  return `${normalizePath(pathname)}${search}${hash}`;
+}
+
 export function isHomePath(pathname: string): boolean {
   return normalizePath(pathname) === ROUTES.home;
 }

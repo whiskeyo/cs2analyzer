@@ -1,7 +1,7 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { FAQ_ITEMS } from "./faq";
-import { PRERENDER_PATHS } from "./prerender";
+import { NOT_FOUND_PRERENDER_PATH, PRERENDER_PATHS } from "./prerender";
 import { renderApp } from "./renderApp";
 
 describe("renderApp", () => {
@@ -52,5 +52,22 @@ describe("renderApp", () => {
       }
       expect(html).not.toMatch(/GOTV viewer/i);
     }
+  });
+
+  it("renders NotFound for the 404 prerender path, not the home page", () => {
+    const html = renderToString(renderApp(NOT_FOUND_PRERENDER_PATH));
+    expect(html).toContain("This page does not exist. Are you sure the link is correct?");
+    expect(html).toContain('class="not-found"');
+    expect(html).not.toContain("Watch Counter-Strike 2 demos");
+  });
+
+  it("keeps the Analyzer shell when the URL has a trailing slash", () => {
+    // NavLink `end` compares pathnames exactly, so the slash form is not
+    // `is-active`. main.tsx collapses that slash before hydrate.
+    const html = renderToString(renderApp("/analyzer/"));
+    expect(html).toContain("Drop a demo");
+    expect(html).toContain("try the Tutorial first");
+    expect(html).not.toContain("This page does not exist");
+    expect(html).not.toContain("Watch Counter-Strike 2 demos");
   });
 });

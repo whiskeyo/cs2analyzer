@@ -62,7 +62,10 @@ export type JsonLdBlock = {
 export type PageHead = {
   title: string;
   description: string;
-  canonical: string;
+  /** Null on unknown paths: the page is noindex, and `/404` is not a public URL. */
+  canonical: string | null;
+  /** `noindex` on unknown paths; null on real routes (client must clear a previous tag). */
+  robots: string | null;
   openGraph: Record<string, string>;
   twitter: Record<string, string>;
   jsonLd: JsonLdBlock[];
@@ -158,6 +161,13 @@ export function pageMeta(pathname: string): PageMeta {
   return { ...copy, canonical: canonicalUrl(path) };
 }
 
+/** Unknown paths, including the file prerendered to `404.html`. */
+export function isNotFoundPath(pathname: string): boolean {
+  const path = normalizePath(pathname);
+  if (import.meta.env.DEV && isLayoutsPath(path)) return false;
+  return PAGE_META[path] == null;
+}
+
 export function pageTitle(pathname: string): string {
   return pageMeta(pathname).title;
 }
@@ -241,10 +251,12 @@ export function breadcrumbJsonLd(pathname: string): BreadcrumbListJsonLd | null 
 /** Title, social tags, and JSON-LD graphs for a pathname (prerender + client). */
 export function pageHead(pathname: string): PageHead {
   const { title, description, canonical } = pageMeta(pathname);
+  const notFound = isNotFoundPath(pathname);
   return {
     title,
     description,
-    canonical,
+    canonical: notFound ? null : canonical,
+    robots: notFound ? "noindex" : null,
     openGraph: {
       type: OG_TYPE,
       site_name: SITE_NAME,
@@ -318,7 +330,16 @@ export function applyPageMeta(pathname: string): void {
   const head = pageHead(pathname);
   document.title = head.title;
   upsertMeta("name", "description", head.description);
-  upsertLink("canonical", head.canonical);
+  if (head.canonical) {
+    upsertLink("canonical", head.canonical);
+  } else {
+    document.head.querySelector('link[rel="canonical"]')?.remove();
+  }
+  if (head.robots) {
+    upsertMeta("name", "robots", head.robots);
+  } else {
+    document.head.querySelector('meta[name="robots"]')?.remove();
+  }
 
   for (const [key, value] of Object.entries(head.openGraph)) {
     upsertMeta("property", `og:${key}`, value);
