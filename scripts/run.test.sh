@@ -274,6 +274,7 @@ grep -F -q 'before running --update' "${scratch}/dirty.err" \
 # Cargo.lock is still dirty. A failure before any edits must leave it that way.
 (
   ROOT="$guard_repo"
+  npm_in() { echo "npm_in $*" >>"${scratch}/npm-norestore.log"; }
   UPGRADE_STEP="cargo-edit preflight"
   UPGRADE_MUTATED=0
   UPGRADE_TMP_FILES=()
@@ -286,11 +287,18 @@ if grep -F -q 'restored' "${scratch}/norestore.err"; then
 fi
 git -C "$guard_repo" diff --quiet -- Cargo.lock \
   && fail "Cargo.lock should still be dirty before a mutating failure"
+test ! -e "${scratch}/npm-norestore.log" \
+  || fail "a failure before any edits should not run npm ci"
 
 echo changed >>"$guard_repo/apps/web/src/parser/cs2analyzer_wasm.js"
 echo extra >"$guard_repo/apps/web/src/parser/extra.js"
+echo 'upgraded' >>"$guard_repo/apps/web/package.json"
 (
   ROOT="$guard_repo"
+  npm_in() {
+    echo "npm_in $*" >>"${scratch}/npm-restore.log"
+    return 0
+  }
   UPGRADE_STEP="npm install"
   UPGRADE_MUTATED=1
   UPGRADE_TMP_FILES=()
@@ -300,12 +308,40 @@ grep -F -q 'failed during: npm install' "${scratch}/restore.err" \
   || fail "restore failure should name the step"
 grep -F -q 'restored to its pre-run state' "${scratch}/restore.err" \
   || fail "mutating failure should say the tree was restored"
-git -C "$guard_repo" diff --quiet -- Cargo.lock apps/web/src/parser/cs2analyzer_wasm.js \
-  || fail "Cargo.lock and parser output should be restored"
+grep -F -x -q "npm_in ${WEB} ci" "${scratch}/npm-restore.log" \
+  || fail "mutating failure should reinstall node_modules with npm ci"
+[[ "$(wc -l <"${scratch}/npm-restore.log")" -eq 1 ]] \
+  || fail "npm ci should run once when restore succeeds"
+git -C "$guard_repo" diff --quiet -- Cargo.lock apps/web/package.json apps/web/src/parser/cs2analyzer_wasm.js \
+  || fail "Cargo.lock, package.json, and parser output should be restored"
 test ! -e "$guard_repo/apps/web/src/parser/extra.js" \
   || fail "untracked parser file should be removed"
 grep -F -q dirty "$guard_repo/README.md" \
   || fail "files outside the dependency tree should stay dirty"
+
+echo 'upgraded again' >>"$guard_repo/apps/web/package-lock.json"
+(
+  ROOT="$guard_repo"
+  npm_in() {
+    echo "npm_in $*" >>"${scratch}/npm-ci-fail.log"
+    return 1
+  }
+  UPGRADE_STEP="tests"
+  UPGRADE_MUTATED=1
+  UPGRADE_TMP_FILES=()
+  false || upgrade_report_failure
+) 2>"${scratch}/npm-ci-fail.err"
+grep -F -q 'failed during: tests' "${scratch}/npm-ci-fail.err" \
+  || fail "npm ci failure should still name the upgrade step"
+grep -F -q 'Run it manually: (cd apps/web && npm ci)' "${scratch}/npm-ci-fail.err" \
+  || fail "a failed npm ci should tell the user to run it manually"
+if grep -F -q 'restored to its pre-run state' "${scratch}/npm-ci-fail.err"; then
+  fail "a failed npm ci should not claim the install was restored"
+fi
+[[ "$(wc -l <"${scratch}/npm-ci-fail.log")" -eq 1 ]] \
+  || fail "a failed npm ci must not be retried"
+git -C "$guard_repo" diff --quiet -- apps/web/package-lock.json \
+  || fail "package-lock.json should be restored even when npm ci fails"
 
 # 0.x minor bumps count as major; 1.x minor bumps do not.
 is_major_bump 1.2.3 2.0.0 || fail "1.x to 2.x is a major bump"

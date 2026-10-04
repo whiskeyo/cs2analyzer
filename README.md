@@ -71,7 +71,7 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 
 `--upgrade --latest` drops `--peer` and takes the newest versions even when another package's peer range cannot accept them. `--latest` on its own is an error.
 
-If a step fails after files have changed, the script puts every workspace `Cargo.toml`, `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` back to the pre-run state, names the step, and exits non-zero.
+If a step fails after files have changed, the script puts every workspace `Cargo.toml`, `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` back to the pre-run state, runs `npm ci` in `apps/web` so `node_modules` matches that lock, names the step, and exits non-zero. If `npm ci` fails, it tells you to run that command manually and does not try again.
 
 Not a CI step. On success, review `git diff` and commit the bumps you want to keep.
 

@@ -751,13 +751,25 @@ restore_upgrade_tree() {
   git -C "$ROOT" clean -fd -- "${paths[@]}"
 }
 
+# node_modules is gitignored, so checkout does not put it back. Reinstall from
+# the restored lock. A failed npm ci must not start another restore.
+restore_upgrade_node_modules() {
+  if npm_in "$WEB" ci; then
+    return 0
+  fi
+  echo "error: npm ci failed after restoring the lockfile. Run it manually: (cd apps/web && npm ci)" >&2
+  return 1
+}
+
 upgrade_report_failure() {
   local status=$?
   if [[ "$status" -ne 0 && -n "${UPGRADE_STEP:-}" ]]; then
     echo "error: --upgrade failed during: ${UPGRADE_STEP}" >&2
     if [[ "${UPGRADE_MUTATED:-0}" -eq 1 ]]; then
       if restore_upgrade_tree; then
-        echo "error: the dependency tree was restored to its pre-run state" >&2
+        if restore_upgrade_node_modules; then
+          echo "error: the dependency tree was restored to its pre-run state" >&2
+        fi
       else
         echo "error: could not restore the dependency tree" >&2
       fi
