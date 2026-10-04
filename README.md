@@ -55,7 +55,7 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 |---|---|
 | `--prepare` | Install Rust toolchain, `wasm-bindgen-cli`, and npm deps |
 | `--update` | Update Rust and npm deps within current semver ranges, keep `wasm-bindgen` pinned to the CLI, rebuild WASM, and run tests. Does not commit. |
-| `--upgrade` | Bump Rust and npm deps to the newest peer-compatible versions, including outside current semver ranges. Skips the `=0.5.8` `source2-demo` pin (`source2-demo`, `source2-demo-macros`, `source2-demo-protobufs`), `wasm-bindgen`, and `js-sys`. Rebuilds WASM, runs tests, then the production build. Does not commit. Restores the dependency tree on failure. |
+| `--upgrade` | Bump Rust and npm deps to the newest peer-compatible versions, including outside current semver ranges. Skips the `=0.5.8` `source2-demo` pin, every `wasm-bindgen*` crate, `js-sys`, and `web-sys`. Rebuilds WASM, runs tests, then the production build. Does not commit. Restores the dependency tree on failure. |
 | `--latest` | With `--upgrade` only. Take the newest versions even when they break peer dependencies. |
 | `--build-wasm` | Compile the parser WASM into the web app |
 | `--check` | rustfmt, clippy, prettier, eslint, typecheck |
@@ -79,9 +79,11 @@ Requires [cargo-edit](https://github.com/killercup/cargo-edit) (`cargo install c
 
 Left unchanged:
 
-- `source2-demo`, `source2-demo-macros`, and `source2-demo-protobufs` — pinned to `=0.5.8` in the workspace `Cargo.toml` (the last two are dev-dependencies of `cs2analyzer` only to hold the lock). `0.5.9` changes view-angle decoding; lift the pin with a real-demo angle test. `--upgrade` excludes all three by name and does not pass `--pinned` or `--incompatible` for them, with or without `--latest`.
-- `wasm-bindgen` — pinned to the installed `wasm-bindgen-cli` (currently 0.2.127)
-- `js-sys` — each release exact-pins `wasm-bindgen`, so the newest one would move that pin
+- `source2-demo`, `source2-demo-macros`, and `source2-demo-protobufs` — pinned to `=0.5.8` in the workspace `Cargo.toml` (the last two are dev-dependencies of `cs2analyzer` only to hold the lock). `0.5.9` changes view-angle decoding; lift the pin with a real-demo angle test.
+- `wasm-bindgen*` — the whole family stays on the `wasm-bindgen-cli` pin in `scripts/build-wasm.sh` (currently 0.2.127). A bump to 0.2.129 is a separate decision.
+- `js-sys` and `web-sys` — each release exact-pins `wasm-bindgen`, so the newest one would move that pin.
+
+`--upgrade` uses that as one skip list for `cargo upgrade --exclude` and for the `cargo update -p name@version` filter (prefix match for `wasm-bindgen*`). `--latest` does not drop it, and the Cargo step does not pass `--pinned` for those crates.
 
 Typical first run:
 

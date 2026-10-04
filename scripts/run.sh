@@ -4,18 +4,24 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINDGEN_VERSION="0.2.127"
-# `cargo upgrade --incompatible` skips these crates. `--latest` does not change
-# this list and must not pass `--pinned` (that flag rewrites exact requirements).
-# source2-demo, source2-demo-macros, and source2-demo-protobufs are pinned to
-# =0.5.8 in the workspace Cargo.toml. The macros and protobufs crates are
-# dev-dependencies of crates/cs2analyzer only to hold that lock. `--exclude`
-# keeps `--incompatible` off them. 0.5.9 changes view-angle decoding; lift the
-# pin together with a real-demo angle test.
-# wasm-bindgen: pinned to BINDGEN_VERSION next to wasm-bindgen-cli.
-# js-sys: each release exact-pins wasm-bindgen (`=0.2.N`). The newest js-sys
-# requires a newer wasm-bindgen than BINDGEN_VERSION, so it stays on the pin.
-SOURCE2_DEMO_PIN=(source2-demo source2-demo-macros source2-demo-protobufs)
-UPGRADE_CARGO_EXCLUDE=("${SOURCE2_DEMO_PIN[@]}" wasm-bindgen js-sys)
+# One skip list for `cargo upgrade --exclude` and the `cargo update -p` filter.
+# `--latest` does not change it and must not pass `--pinned`.
+# Exact names: source2-demo, source2-demo-macros, and source2-demo-protobufs
+# are pinned to =0.5.8 in the workspace Cargo.toml (the last two are
+# dev-dependencies of crates/cs2analyzer only to hold the lock). js-sys and
+# web-sys exact-pin a wasm-bindgen release, so a newer one would move that pin.
+# Prefix: every crate named wasm-bindgen or wasm-bindgen-* (macro, macro-support,
+# backend, shared, futures, and the rest). Those must stay matched to the
+# wasm-bindgen-cli pin in scripts/build-wasm.sh (BINDGEN_VERSION, currently
+# 0.2.127). Moving the family to 0.2.129 is a separate decision.
+UPGRADE_CARGO_SKIP_EXACT=(
+  source2-demo
+  source2-demo-macros
+  source2-demo-protobufs
+  js-sys
+  web-sys
+)
+UPGRADE_CARGO_SKIP_PREFIX=(wasm-bindgen)
 # npm-check-updates 23 requires Node ^22.22.2, ^24.15.0, or >=26, so Node 24.11
 # prints EBADENGINE. Major 22 accepts ^20.19.0, ^22.12.0, or >=24. npx installs
 # the newest 22.x. No global install.
@@ -32,8 +38,8 @@ fi
 
 usage() {
   local excluded
-  excluded="$(printf '%s, ' "${UPGRADE_CARGO_EXCLUDE[@]}")"
-  excluded="${excluded%, }"
+  excluded="$(printf '%s, ' "${UPGRADE_CARGO_SKIP_EXACT[@]}")"
+  excluded="${excluded%, }, ${UPGRADE_CARGO_SKIP_PREFIX[*]}*"
   cat <<EOF
 Usage: scripts/run.sh [flags]
 
@@ -231,14 +237,20 @@ cmd_test() {
   log "Tests passed"
 }
 
-# True when name is one of the =0.5.8 source2-demo pins.
-is_source2_demo_pin() {
+# True when --upgrade must not bump this crate. Exact names, plus the
+# wasm-bindgen* prefix. Shared by cargo upgrade --exclude and cargo update.
+upgrade_skips_crate() {
   local name="$1"
-  local pinned
-  for pinned in "${SOURCE2_DEMO_PIN[@]}"; do
-    if [[ "$pinned" == "$name" ]]; then
+  local exact prefix
+  for exact in "${UPGRADE_CARGO_SKIP_EXACT[@]}"; do
+    if [[ "$name" == "$exact" ]]; then
       return 0
     fi
+  done
+  for prefix in "${UPGRADE_CARGO_SKIP_PREFIX[@]}"; do
+    case "$name" in
+      "$prefix" | "$prefix"-*) return 0 ;;
+    esac
   done
   return 1
 }
@@ -263,7 +275,7 @@ cargo_lock_packages() {
 }
 
 # name@version for each locked package. cargo update needs the version when
-# more than one copy of a crate is locked.
+# more than one copy of a crate is locked (foldhash 0.1 and 0.2, for example).
 cargo_lock_package_specs() {
   local lock="$1"
   local name version
@@ -273,20 +285,58 @@ cargo_lock_package_specs() {
   done < <(cargo_lock_packages "$lock")
 }
 
-# Refresh the lock without selecting the =0.5.8 source2-demo pin.
-# `cargo update` has no --exclude. Naming every other package leaves the pin
-# alone. Do not pass --breaking, --precise, --pinned, or --incompatible.
-cargo_update_except_source2_demo_pin() {
+# --exclude names: the exact skip list, the wasm-bindgen prefix itself, and
+# every locked crate the prefix matches. cargo-edit matches names exactly.
+upgrade_cargo_exclude_names() {
+  local lock="$1"
+  local name version candidate
+  local -a names=()
+  local -A seen=()
+  for candidate in "${UPGRADE_CARGO_SKIP_EXACT[@]}" "${UPGRADE_CARGO_SKIP_PREFIX[@]}"; do
+    if [[ -z "${seen[$candidate]+x}" ]]; then
+      seen["$candidate"]=1
+      names+=("$candidate")
+    fi
+  done
+  if [[ -n "${lock:-}" && -f "$lock" ]]; then
+    while IFS=$'\t' read -r name version; do
+      upgrade_skips_crate "$name" || continue
+      if [[ -z "${seen[$name]+x}" ]]; then
+        seen["$name"]=1
+        names+=("$name")
+      fi
+    done < <(cargo_lock_packages "$lock")
+  fi
+  if [[ ${#names[@]} -gt 0 ]]; then
+    printf '%s\n' "${names[@]}"
+  fi
+}
+
+# Locked name@version lines cargo update may select. Skipped crates are omitted.
+# Each copy of a duplicated crate stays name@version.
+cargo_update_select_specs() {
+  local lock="$1"
   local spec name
-  local -a args=()
   while IFS= read -r spec; do
     [[ -n "$spec" ]] || continue
     name="${spec%%@*}"
-    if is_source2_demo_pin "$name"; then
+    if upgrade_skips_crate "$name"; then
       continue
     fi
+    printf '%s\n' "$spec"
+  done < <(cargo_lock_package_specs "$lock")
+}
+
+# `cargo update` has no --exclude. Pass every other locked package as
+# name@version so this invocation cannot select the skip list. Do not pass
+# --breaking, --precise, --pinned, or --incompatible.
+cargo_update_except_upgrade_skips() {
+  local spec
+  local -a args=()
+  while IFS= read -r spec; do
+    [[ -n "$spec" ]] || continue
     args+=(-p "$spec")
-  done < <(cargo_lock_package_specs "$ROOT/Cargo.lock")
+  done < <(cargo_update_select_specs "$ROOT/Cargo.lock")
   if [[ ${#args[@]} -eq 0 ]]; then
     die "cargo update package list was empty"
   fi
@@ -741,23 +791,23 @@ cmd_upgrade() {
 
   UPGRADE_STEP="cargo upgrade"
   UPGRADE_MUTATED=1
-  for crate in "${UPGRADE_CARGO_EXCLUDE[@]}"; do
+  while IFS= read -r crate; do
+    [[ -n "$crate" ]] || continue
     exclude_args+=(--exclude "$crate")
-  done
+  done < <(upgrade_cargo_exclude_names "$ROOT/Cargo.lock")
   # `--incompatible allow` is workspace-wide. `--exclude` is what keeps it off
-  # the =0.5.8 source2-demo pin. Do not pass `--pinned` (default ignore): that
-  # would rewrite those exact requirements. `--latest` does not add it.
+  # the skip list. Do not pass `--pinned` (default ignore): that would rewrite
+  # exact requirements. `--latest` does not add it.
   log "cargo upgrade --manifest-path ${ROOT}/Cargo.toml --incompatible allow ${exclude_args[*]}"
   cargo upgrade --manifest-path "$ROOT/Cargo.toml" --incompatible allow "${exclude_args[@]}"
 
-  # `cargo update` has no --exclude and no --pinned/--incompatible. Selecting
-  # every other locked package by name leaves the =0.5.8 pin unselected, so
-  # this step cannot bump it. Do not pass --breaking.
+  # Do not pass --breaking. Specs are name@version, minus the shared skip list.
   UPGRADE_STEP="cargo update"
-  log "cargo update --manifest-path ${ROOT}/Cargo.toml -p <locked packages except ${SOURCE2_DEMO_PIN[*]}>"
-  cargo_update_except_source2_demo_pin
+  log "cargo update --manifest-path ${ROOT}/Cargo.toml -p <locked name@version except ${UPGRADE_CARGO_SKIP_EXACT[*]} and ${UPGRADE_CARGO_SKIP_PREFIX[*]}*>"
+  cargo_update_except_upgrade_skips
 
-  # `^0.2.127` still floats to the newest 0.2.x. Put the family back on the CLI.
+  # The lock refresh does not select wasm-bindgen*. If a resolve still moved
+  # the family, put it back on the wasm-bindgen-cli pin.
   UPGRADE_STEP="wasm-bindgen pin"
   log "Pin wasm-bindgen to ${BINDGEN_VERSION}"
   pin_wasm_bindgen "$before_cargo"
