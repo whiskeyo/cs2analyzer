@@ -1080,10 +1080,12 @@ code {
   padding: 0.25rem 0.6rem;
   background: #0d1116;
   min-width: 0;
-  /* Stay in flow at content height so a wrapped row shrinks the map instead of covering it.
-     The cap scrolls inside this box once the rows would crowd out the toolbar. */
-  flex: 0 0 auto;
-  max-height: 50%;
+  /* Content height in the column, so a wrapped row pushes the map up.
+     It may shrink once the toolbar and map have their space, and the cap
+     scrolls inside this box instead of covering them. */
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 50vh;
   overflow: auto;
 }
 .series-round-row {
@@ -4841,23 +4843,33 @@ button.link:hover:not(:disabled) {
     grid-template-columns: 1fr;
   }
   .stage {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    /* Minimum is the toolbar plus the map floor. The sidebar can shrink. */
+    min-height: min-content;
+    overflow: hidden;
   }
   .radar-col {
-    grid-column: auto;
-    grid-row: auto;
     display: flex;
     flex-direction: column;
+    flex: 1 0 auto;
+    min-height: min-content;
+    overflow: hidden;
+  }
+  .viewer .radar-stage {
+    flex: 1 1 auto;
+    min-height: 4.5rem;
   }
   .sidebar {
-    grid-column: auto;
-    grid-row: auto;
     display: flex;
     flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 40%;
+    overflow: auto;
     border-left: none;
     border-top: 1px solid #1e2732;
-    max-height: 40vh;
     width: auto !important;
     min-width: 0;
   }
