@@ -63,6 +63,8 @@ export type PageHead = {
   title: string;
   description: string;
   canonical: string;
+  /** `noindex` on unknown paths; null on real routes (client must clear a previous tag). */
+  robots: string | null;
   openGraph: Record<string, string>;
   twitter: Record<string, string>;
   jsonLd: JsonLdBlock[];
@@ -158,6 +160,13 @@ export function pageMeta(pathname: string): PageMeta {
   return { ...copy, canonical: canonicalUrl(path) };
 }
 
+/** Unknown paths, including the file prerendered to `404.html`. */
+export function isNotFoundPath(pathname: string): boolean {
+  const path = normalizePath(pathname);
+  if (import.meta.env.DEV && isLayoutsPath(path)) return false;
+  return PAGE_META[path] == null;
+}
+
 export function pageTitle(pathname: string): string {
   return pageMeta(pathname).title;
 }
@@ -245,6 +254,7 @@ export function pageHead(pathname: string): PageHead {
     title,
     description,
     canonical,
+    robots: isNotFoundPath(pathname) ? "noindex" : null,
     openGraph: {
       type: OG_TYPE,
       site_name: SITE_NAME,
@@ -319,6 +329,11 @@ export function applyPageMeta(pathname: string): void {
   document.title = head.title;
   upsertMeta("name", "description", head.description);
   upsertLink("canonical", head.canonical);
+  if (head.robots) {
+    upsertMeta("name", "robots", head.robots);
+  } else {
+    document.head.querySelector('meta[name="robots"]')?.remove();
+  }
 
   for (const [key, value] of Object.entries(head.openGraph)) {
     upsertMeta("property", `og:${key}`, value);

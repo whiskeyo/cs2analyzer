@@ -15,6 +15,12 @@ export const PRERENDER_PATHS = [
   ROUTES.contact,
 ] as const;
 
+/**
+ * Path rendered into `dist/404.html`. Not a public route (must stay out of
+ * `PRERENDER_PATHS`, or `/404/` would be a 200 directory).
+ */
+export const NOT_FOUND_PRERENDER_PATH = "/404";
+
 /** React 19 `renderToString` emits image preloads into the body; `hydrateRoot` does not. */
 export function stripSsrHoistables(markup: string): string {
   return markup.replace(/<link\b[^>]*\brel="preload"[^>]*>/g, "");
@@ -43,6 +49,18 @@ function replaceMeta(
 ): string {
   const tag = `<meta ${kind}="${key}" content="${escapeAttr(content)}" />`;
   const re = new RegExp(`<meta\\b[^>]*\\b${kind}="${escapeRegExp(key)}"[^>]*>`, "i");
+  if (re.test(html)) {
+    return html.replace(re, tag);
+  }
+  return html.replace("</head>", `    ${tag}\n  </head>`);
+}
+
+function replaceRobots(html: string, content: string | null): string {
+  const re = /<meta\b[^>]*\bname="robots"[^>]*>/i;
+  if (content == null) {
+    return html.replace(re, "");
+  }
+  const tag = `<meta name="robots" content="${escapeAttr(content)}" />`;
   if (re.test(html)) {
     return html.replace(re, tag);
   }
@@ -93,6 +111,7 @@ export function injectPrerenderedPage(template: string, pathname: string, body: 
   let html = template.replace(/<title>[^<]*<\/title>/, `<title>${escapeAttr(head.title)}</title>`);
   html = replaceMeta(html, "name", "description", head.description);
   html = replaceCanonical(html, head.canonical);
+  html = replaceRobots(html, head.robots);
   for (const [key, value] of Object.entries(head.openGraph)) {
     html = replaceMeta(html, "property", `og:${key}`, value);
   }

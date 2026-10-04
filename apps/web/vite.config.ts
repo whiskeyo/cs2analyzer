@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -98,7 +98,14 @@ function writeLayoutPlugin(): Plugin {
           layout.map = map;
           await mkdir(layoutsDir, { recursive: true });
           await writeFile(path.join(layoutsDir, file), formatLayout(layout), "utf8");
-          send(res, 200, JSON.stringify({ ok: true, path: `apps/web/public/layouts/${file}` }));
+          send(
+            res,
+            200,
+            JSON.stringify({
+              ok: true,
+              path: `apps/web/public/layouts/${file}`,
+            }),
+          );
         } catch (err: unknown) {
           send(res, 400, JSON.stringify({ error: errorMessage(err) || "save failed" }));
         }
@@ -118,14 +125,21 @@ function gitShortHash(): string {
   }
 }
 
-/** Vite's public copy can skip dotfiles; Apache on OVH still needs this name. */
+const HTACCESS_REV = "__HTACCESS_REV__";
+
+/** Vite's public copy skips dotfiles; stamp the git SHA Apache will echo back. */
 function copyHtaccess() {
   return {
     name: "copy-htaccess",
     closeBundle() {
-      const from = `${root}public/.htaccess`;
-      const to = `${root}dist/.htaccess`;
-      if (existsSync(from)) copyFileSync(from, to);
+      const from = path.join(root, "public", ".htaccess");
+      const to = path.join(root, "dist", ".htaccess");
+      if (!existsSync(from)) return;
+      const raw = readFileSync(from, "utf8");
+      if (!raw.includes(HTACCESS_REV)) {
+        throw new Error("public/.htaccess is missing __HTACCESS_REV__");
+      }
+      writeFileSync(to, raw.replaceAll(HTACCESS_REV, gitShortHash()));
     },
   };
 }
@@ -134,6 +148,7 @@ type PrerenderModule = {
   render: (url: string) => string;
   injectPrerenderedPage: (template: string, pathname: string, markup: string) => string;
   PRERENDER_PATHS: readonly string[];
+  NOT_FOUND_PRERENDER_PATH: string;
   prerenderFilePath: (pathname: string) => string;
 };
 
@@ -171,9 +186,17 @@ function prerenderPages(): Plugin {
           mkdirSync(path.dirname(dest), { recursive: true });
           writeFileSync(dest, html);
         }
-        copyFileSync(path.join(outDir, "index.html"), path.join(outDir, "404.html"));
+        const notFound = mod.injectPrerenderedPage(
+          template,
+          mod.NOT_FOUND_PRERENDER_PATH,
+          mod.render(mod.NOT_FOUND_PRERENDER_PATH),
+        );
+        if (!notFound.includes('class="not-found"') || !notFound.includes("noindex")) {
+          throw new Error("prerender: 404.html is not the NotFound page");
+        }
+        writeFileSync(path.join(outDir, "404.html"), notFound);
         console.info(
-          `[prerender] wrote ${mod.PRERENDER_PATHS.length} routes under ${path.relative(root, outDir)}`,
+          `[prerender] wrote ${mod.PRERENDER_PATHS.length} routes and 404.html under ${path.relative(root, outDir)}`,
         );
       } finally {
         await server.close();
