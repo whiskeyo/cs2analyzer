@@ -14,7 +14,13 @@ import type { LayoutCallout } from "@/lib/radar/layouts";
 import type { TickBuffers } from "@/lib/replay/replayTypes";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import { buildSeries, loadedDemo } from "./session";
-import { aggregateSeriesGroupHits, formatGroupHitPercent } from "./seriesGroupHits";
+import {
+  aggregateSeriesGroupHits,
+  countRoundGroupSamples,
+  formatGroupHitPercent,
+  layoutGroupSampleLookupsCount,
+  resetLayoutGroupSampleLookups,
+} from "./seriesGroupHits";
 
 const FOCAL = "Team A";
 
@@ -291,5 +297,88 @@ describe("aggregateSeriesGroupHits", () => {
     expect(hits.entries).toEqual([]);
     expect(hits.roundCount).toBe(1);
     expect(hits.sampleCount).toBe(0);
+  });
+
+  it("binary search matches a linear scan that starts at frame 0", () => {
+    const prefix = Array.from({ length: 40 }, (_, index) => ({
+      tick: index,
+      players: [ctAt(B_SITE)],
+    }));
+    const replay = makeReplay({
+      header: { team_ct: FOCAL, team_t: "Enemy", map_name: "de_mirage", tick_rate: 64 },
+      players: [makePlayer(0, "CT", "Donk", 100)],
+      ticks: ticksFromFrames(1, [
+        ...prefix,
+        { tick: 64, players: [ctAt(A_SITE)] },
+        { tick: 128, players: [ctAt(PALACE)] },
+        { tick: 500, players: [ctAt(TOP_MID)] },
+      ]),
+      rounds: [
+        makeRound({
+          number: 1,
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 400,
+          team_ct: FOCAL,
+          team_t: "Enemy",
+        }),
+      ],
+    });
+    const wanted = new Set(["A", "Mid", "B", "Others"]);
+    const linear = countRoundGroupSamples(replay, 64, 400, places, [0], wanted, "linear");
+    const binary = countRoundGroupSamples(replay, 64, 400, places, [0], wanted, "binary");
+    expect([...binary.entries()].sort()).toEqual([...linear.entries()].sort());
+    expect(binary.get("A")).toBe(2);
+    expect(binary.has("B")).toBe(false);
+    expect(binary.has("Mid")).toBe(false);
+  });
+
+  it("reuses grouped samples when the side or buy filter changes", () => {
+    const replay = makeReplay({
+      header: { team_ct: FOCAL, team_t: "Enemy", map_name: "de_mirage", tick_rate: 64 },
+      players: [makePlayer(0, "CT", "Donk", 100)],
+      ticks: ticksFromFrames(1, [
+        { tick: 64, players: [ctAt(A_SITE)] },
+        { tick: 128, players: [ctAt(PALACE)] },
+        { tick: 500, players: [ctAt(B_SITE)] },
+        { tick: 564, players: [ctAt(B_APPS)] },
+      ]),
+      rounds: [
+        makeRound({
+          number: 1,
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 400,
+          team_ct: FOCAL,
+          team_t: "Enemy",
+        }),
+        makeRound({
+          number: 2,
+          start_tick: 450,
+          freeze_end_tick: 500,
+          end_tick: 900,
+          team_ct: FOCAL,
+          team_t: "Enemy",
+        }),
+      ],
+    });
+    const series = buildSeries(
+      "de_mirage",
+      [loadedDemo(replay, "memo.dem", new File([], "memo.dem"))],
+      FOCAL,
+    );
+    resetLayoutGroupSampleLookups();
+    const pistol = aggregateSeriesGroupHits(series, { side: "CT", kind: "pistol" }, places);
+    const lookedUp = layoutGroupSampleLookupsCount();
+    expect(lookedUp).toBeGreaterThan(0);
+    const eco = aggregateSeriesGroupHits(series, { side: "CT", kind: "eco" }, places);
+    const terror = aggregateSeriesGroupHits(series, { side: "T", kind: "pistol" }, places);
+    expect(layoutGroupSampleLookupsCount()).toBe(lookedUp);
+    expect(pistol.entries.find((entry) => entry.id === "A")?.samples).toBe(2);
+    expect(pistol.entries.find((entry) => entry.id === "B")?.samples).toBe(0);
+    expect(eco.entries.find((entry) => entry.id === "B")?.samples).toBe(2);
+    expect(eco.entries.find((entry) => entry.id === "A")?.samples).toBe(0);
+    expect(terror.roundCount).toBe(0);
+    expect(terror.sampleCount).toBe(0);
   });
 });
