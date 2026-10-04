@@ -36,6 +36,29 @@ if [[ -f "${HOME}/.cargo/env" ]]; then
   . "${HOME}/.cargo/env"
 fi
 
+# Help descriptions start at column 19. Other flags fit in 80 columns.
+help_wrap() {
+  local text="$1"
+  local indent='                   '
+  local width=61
+  local line='' word
+  local -a words=()
+  read -r -a words <<<"$text"
+  for word in "${words[@]}"; do
+    if [[ -z "$line" ]]; then
+      line="$word"
+    elif [[ $((${#line} + 1 + ${#word})) -le "$width" ]]; then
+      line="$line $word"
+    else
+      printf '%s%s\n' "$indent" "$line"
+      line="$word"
+    fi
+  done
+  if [[ -n "$line" ]]; then
+    printf '%s%s\n' "$indent" "$line"
+  fi
+}
+
 usage() {
   local excluded
   excluded="$(printf '%s, ' "${UPGRADE_CARGO_SKIP_EXACT[@]}")"
@@ -49,13 +72,10 @@ Usage: scripts/run.sh [flags]
                    WASM, and run cargo test plus the web suite. Does not commit.
   --upgrade        Bump crates and npm packages to the newest versions that
                    still satisfy peer dependencies (npm-check-updates --peer).
-                   Skips ${excluded}. Rebuilds WASM, runs tests, then the
-                   production build. Does not commit. On failure, restores
-                   the files it changed. Needs cargo-edit
-                   (cargo install cargo-edit).
+$(help_wrap "Skips ${excluded}. Rebuilds WASM, runs tests, then the production build. Does not commit. On failure, restores the files it changed. Needs cargo-edit (cargo install cargo-edit).")
   --latest         With --upgrade only. Skip the peer filter and take the
                    newest versions anyway.
-$(upgrade_latest_warning | sed 's/^/                   /')
+$(help_wrap "$(upgrade_latest_warning)")
   --build-wasm     Compile WASM and emit JS bindings into apps/web/src/parser/
   --check          rustfmt, clippy, prettier, eslint, typecheck
   --test           cargo test and the web vitest suite
