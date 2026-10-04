@@ -4,6 +4,14 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINDGEN_VERSION="0.2.127"
+# `cargo upgrade --incompatible` skips these crates.
+# source2-demo: decoding changes belong in their own PR with real-demo tests.
+# wasm-bindgen: pinned to BINDGEN_VERSION next to wasm-bindgen-cli.
+# js-sys: each release exact-pins wasm-bindgen (`=0.2.N`). The newest js-sys
+# requires a newer wasm-bindgen than BINDGEN_VERSION, so it stays on the pin.
+UPGRADE_CARGO_EXCLUDE=(source2-demo wasm-bindgen js-sys)
+# npx installs the newest release of this major. No global npm-check-updates.
+NCU_MAJOR=23
 WEB="$ROOT/apps/web"
 DEV_PORT="${DEV_PORT:-5173}"
 PROD_PORT="${PROD_PORT:-4173}"
@@ -15,6 +23,9 @@ if [[ -f "${HOME}/.cargo/env" ]]; then
 fi
 
 usage() {
+  local excluded
+  excluded="$(printf '%s, ' "${UPGRADE_CARGO_EXCLUDE[@]}")"
+  excluded="${excluded%, }"
   cat <<EOF
 Usage: scripts/run.sh [flags]
 
@@ -22,6 +33,10 @@ Usage: scripts/run.sh [flags]
   --update         Update crates and npm packages within their current semver
                    ranges, keep wasm-bindgen pinned to the CLI version, rebuild
                    WASM, and run cargo test plus the web suite. Does not commit.
+  --upgrade        Bump crates and npm packages to the newest versions,
+                   including outside current semver ranges. Skips ${excluded}.
+                   Rebuilds WASM, runs tests, then the production build.
+                   Does not commit. Needs cargo-edit (cargo install cargo-edit).
   --build-wasm     Compile WASM and emit JS bindings into apps/web/src/parser/
   --check          rustfmt, clippy, prettier, eslint, typecheck
   --test           cargo test and the web vitest suite
@@ -34,7 +49,8 @@ Usage: scripts/run.sh [flags]
                    (open the printed LAN IP on the other device — not http://0.0.0.0/)
 
 Flags can be combined. They run in the order above; --dev / --prod are last and block.
-Do not pass both --dev and --prod. --local-network requires --dev or --prod.
+Do not pass both --dev and --prod, or both --update and --upgrade.
+--local-network requires --dev or --prod.
 EOF
 }
 
@@ -332,16 +348,20 @@ pin_wasm_bindgen() {
 
 # npm 10.9's arborist dies with "Cannot read properties of null (reading
 # 'edgesOut')" while resolving this tree (vitest's optional peers). npm 11
-# runs the same in-range update and still writes only package-lock.json.
-npm_update_web() {
+# runs the same command. `npm update` still writes only package-lock.json.
+npm_web_resolving() {
   local major
   major="$(npm -v | cut -d. -f1)"
   if [[ "$major" -ge 11 ]]; then
-    npm_in "$WEB" update
+    npm_in "$WEB" "$@"
     return
   fi
   log "npm $(npm -v) cannot update this tree; using npm 11"
-  npm_in "$WEB" exec --yes npm@11 -- update
+  npm_in "$WEB" exec --yes npm@11 -- "$@"
+}
+
+npm_update_web() {
+  npm_web_resolving update
 }
 
 # path<TAB>version for each installed package in a v2/v3 package-lock.json.
@@ -466,6 +486,224 @@ cmd_update() {
   rm -f "$before_cargo" "$before_npm" "$after_cargo" "$after_npm"
 }
 
+require_cargo_edit() {
+  if command -v cargo-upgrade >/dev/null 2>&1; then
+    return 0
+  fi
+  die "cargo upgrade (cargo-edit) is missing. Install it with: cargo install cargo-edit"
+}
+
+# 1.x: only the major component is breaking. Before 1.0 a minor bump is breaking
+# too (0.2.1 -> 0.3.0), matching Cargo's semver rule.
+is_major_bump() {
+  local old="$1"
+  local new="$2"
+  local old_major old_minor new_major new_minor
+  [[ "$old" =~ ^([0-9]+)\.([0-9]+) ]] || return 1
+  old_major="${BASH_REMATCH[1]}"
+  old_minor="${BASH_REMATCH[2]}"
+  [[ "$new" =~ ^([0-9]+)\.([0-9]+) ]] || return 1
+  new_major="${BASH_REMATCH[1]}"
+  new_minor="${BASH_REMATCH[2]}"
+  if [[ "$new_major" -gt "$old_major" ]]; then
+    return 0
+  fi
+  if [[ "$old_major" -eq 0 && "$new_major" -eq 0 && "$new_minor" -gt "$old_minor" ]]; then
+    return 0
+  fi
+  return 1
+}
+
+highest_version() {
+  printf '%s\n' "$1" | tr ',' '\n' | sort -V | tail -n 1
+}
+
+version_list_is_major_bump() {
+  local old_high new_high
+  old_high="$(highest_version "$1")"
+  new_high="$(highest_version "$2")"
+  is_major_bump "$old_high" "$new_high"
+}
+
+lock_package_label() {
+  local name="$1"
+  name="${name#node_modules/}"
+  printf '%s\n' "$name"
+}
+
+# Resolved name/version rows from a before/after lock snapshot.
+# `old` and `new` may be comma-separated when a package has several copies.
+version_delta_rows() {
+  local ecosystem="$1"
+  local before="$2"
+  local after="$3"
+  local removed added name old new label major
+  removed="$(mktemp)"
+  added="$(mktemp)"
+  comm -23 <(sort "$before") <(sort "$after") >"$removed"
+  comm -13 <(sort "$before") <(sort "$after") >"$added"
+  if [[ -s "$removed" || -s "$added" ]]; then
+    while IFS= read -r name; do
+      [[ -n "$name" ]] || continue
+      old="$(awk -F '\t' -v n="$name" '$1 == n { print $2 }' "$removed" | paste -sd, -)"
+      new="$(awk -F '\t' -v n="$name" '$1 == n { print $2 }' "$added" | paste -sd, -)"
+      [[ -z "$old" && -z "$new" ]] && continue
+      [[ "$old" == "$new" ]] && continue
+      label="$(lock_package_label "$name")"
+      if [[ -n "$old" && -n "$new" ]] && version_list_is_major_bump "$old" "$new"; then
+        major=yes
+      else
+        major=no
+      fi
+      printf '%s\t%s\t%s\t%s\t%s\n' "$ecosystem" "$label" "${old:--}" "${new:--}" "$major"
+    done < <({ cut -f1 "$removed"; cut -f1 "$added"; } | sort -u)
+  fi
+  rm -f "$removed" "$added"
+}
+
+# Majors first, then ecosystem, then package name.
+print_upgrade_table() {
+  local rows="$1"
+  local sorted eco pkg old new major
+  local w_eco=9 w_pkg=7 w_old=3 w_new=3
+  local total=0 majors=0
+  sorted="$(mktemp)"
+  sort -t $'\t' -k5,5r -k1,1 -k2,2 "$rows" >"$sorted"
+  while IFS=$'\t' read -r eco pkg old new major; do
+    [[ -n "$eco" ]] || continue
+    total=$((total + 1))
+    if [[ "$major" == yes ]]; then
+      majors=$((majors + 1))
+    fi
+    if [[ ${#eco} -gt $w_eco ]]; then w_eco=${#eco}; fi
+    if [[ ${#pkg} -gt $w_pkg ]]; then w_pkg=${#pkg}; fi
+    if [[ ${#old} -gt $w_old ]]; then w_old=${#old}; fi
+    if [[ ${#new} -gt $w_new ]]; then w_new=${#new}; fi
+  done <"$sorted"
+  if [[ "$total" -eq 0 ]]; then
+    log "No dependency version changes"
+    rm -f "$sorted"
+    return 0
+  fi
+  log "Upgraded packages: ${total} (${majors} major)"
+  printf "%-${w_eco}s  %-${w_pkg}s  %-${w_old}s  %-${w_new}s  %s\n" \
+    ecosystem package old new major
+  while IFS=$'\t' read -r eco pkg old new major; do
+    [[ -n "$eco" ]] || continue
+    printf "%-${w_eco}s  %-${w_pkg}s  %-${w_old}s  %-${w_new}s  %s\n" \
+      "$eco" "$pkg" "$old" "$new" "$major"
+  done <"$sorted"
+  rm -f "$sorted"
+}
+
+# Failure reporting for --upgrade. Returning 0 keeps the original exit status.
+# Temps are global so the trap still sees them if a called function exits the shell.
+UPGRADE_STEP=""
+UPGRADE_MUTATED=0
+UPGRADE_TMP_FILES=()
+
+upgrade_cleanup_tmp() {
+  if [[ ${#UPGRADE_TMP_FILES[@]} -gt 0 ]]; then
+    rm -f "${UPGRADE_TMP_FILES[@]}"
+  fi
+  UPGRADE_TMP_FILES=()
+}
+
+upgrade_report_failure() {
+  local status=$?
+  if [[ "$status" -ne 0 && -n "${UPGRADE_STEP:-}" ]]; then
+    echo "error: --upgrade failed during: ${UPGRADE_STEP}" >&2
+    if [[ "${UPGRADE_MUTATED:-0}" -eq 1 ]]; then
+      echo "error: changes were left in the working tree" >&2
+    fi
+  fi
+  upgrade_cleanup_tmp
+  UPGRADE_STEP=""
+  UPGRADE_MUTATED=0
+  return 0
+}
+
+cmd_upgrade() {
+  local before_cargo before_npm after_cargo after_npm rows crate
+  local -a exclude_args=()
+
+  UPGRADE_STEP="dirty-tree check"
+  UPGRADE_MUTATED=0
+  UPGRADE_TMP_FILES=()
+  trap upgrade_report_failure EXIT
+
+  require_clean_dependency_tree --upgrade
+
+  UPGRADE_STEP="cargo-edit preflight"
+  require_cargo_edit
+
+  UPGRADE_STEP="toolchain"
+  ensure_rust
+  ensure_node
+
+  before_cargo="$(mktemp)"
+  before_npm="$(mktemp)"
+  after_cargo="$(mktemp)"
+  after_npm="$(mktemp)"
+  rows="$(mktemp)"
+  UPGRADE_TMP_FILES=("$before_cargo" "$before_npm" "$after_cargo" "$after_npm" "$rows")
+
+  # Lock snapshots, not cargo/npm stdout: the table is the file diff.
+  cargo_lock_packages "$ROOT/Cargo.lock" | sort >"$before_cargo"
+  npm_lock_packages "$WEB/package-lock.json" | sort >"$before_npm"
+
+  UPGRADE_STEP="cargo upgrade"
+  UPGRADE_MUTATED=1
+  for crate in "${UPGRADE_CARGO_EXCLUDE[@]}"; do
+    exclude_args+=(--exclude "$crate")
+  done
+  log "cargo upgrade --incompatible (excluding ${UPGRADE_CARGO_EXCLUDE[*]})"
+  cargo upgrade --manifest-path "$ROOT/Cargo.toml" --incompatible allow "${exclude_args[@]}"
+
+  UPGRADE_STEP="cargo update"
+  log "cargo update"
+  cargo update --manifest-path "$ROOT/Cargo.toml"
+
+  # `^0.2.127` still floats to the newest 0.2.x. Put the family back on the CLI.
+  UPGRADE_STEP="wasm-bindgen pin"
+  log "Pin wasm-bindgen to ${BINDGEN_VERSION}"
+  pin_wasm_bindgen "$before_cargo"
+
+  UPGRADE_STEP="npm-check-updates"
+  log "npm-check-updates@${NCU_MAJOR} -u (web)"
+  (cd "$WEB" && npx --yes "npm-check-updates@${NCU_MAJOR}" -u)
+
+  UPGRADE_STEP="npm install"
+  log "npm install (web)"
+  npm_web_resolving install
+
+  UPGRADE_STEP="wasm build"
+  cmd_build_wasm
+
+  UPGRADE_STEP="tests"
+  cmd_test
+
+  # Prerender (`vite build`) catches React/router majors that Vitest does not.
+  UPGRADE_STEP="web production build"
+  log "web production build"
+  npm_in "$WEB" run build
+
+  cargo_lock_packages "$ROOT/Cargo.lock" | sort >"$after_cargo"
+  npm_lock_packages "$WEB/package-lock.json" | sort >"$after_npm"
+  version_delta_rows cargo "$before_cargo" "$after_cargo" >"$rows"
+  version_delta_rows npm "$before_npm" "$after_npm" >>"$rows"
+
+  UPGRADE_STEP=""
+  log "Upgrade summary (working tree only; nothing committed)"
+  log "git diff --stat"
+  git -C "$ROOT" diff --stat
+  print_upgrade_table "$rows"
+  log "Review the diff and commit the upgrades you want to keep."
+
+  upgrade_cleanup_tmp
+  trap - EXIT
+}
+
 # Listen on every interface. 0.0.0.0 is the bind address, not a URL for other PCs.
 vite_run() {
   local npm_script="$1"
@@ -532,6 +770,7 @@ cmd_prod() {
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   PREPARE=0
   UPDATE=0
+  UPGRADE=0
   BUILD_WASM=0
   CHECK=0
   TEST=0
@@ -548,6 +787,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     case "$arg" in
       --prepare) PREPARE=1 ;;
       --update) UPDATE=1 ;;
+      --upgrade) UPGRADE=1 ;;
       --build-wasm) BUILD_WASM=1 ;;
       --check) CHECK=1 ;;
       --test) TEST=1 ;;
@@ -567,6 +807,10 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     die "pass either --dev or --prod, not both"
   fi
 
+  if [[ "$UPDATE" -eq 1 && "$UPGRADE" -eq 1 ]]; then
+    die "--update and --upgrade are mutually exclusive"
+  fi
+
   if [[ "$LOCAL_NETWORK" -eq 1 && "$DEV" -eq 0 && "$PROD" -eq 0 ]]; then
     die "--local-network requires --dev or --prod"
   fi
@@ -579,6 +823,9 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   fi
   if [[ "$UPDATE" -eq 1 ]]; then
     cmd_update
+  fi
+  if [[ "$UPGRADE" -eq 1 ]]; then
+    cmd_upgrade
   fi
   if [[ "$BUILD_WASM" -eq 1 ]]; then
     cmd_build_wasm
