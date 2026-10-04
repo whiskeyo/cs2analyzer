@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type Side } from "@/lib/replay/replayTypes";
 import {
   ECO_MAX_EQUIPMENT,
   FORCE_BUY_MAX_EQUIPMENT,
   OVERTIME_START_MONEY,
 } from "@/lib/shared/constants";
-import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type Side } from "@/lib/replay/replayTypes";
 import { makePlayer, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
 import {
   bySide,
+  formatAverageEquipment,
   formatBuyRecord,
   formatBuyWinRate,
   matchEconomy,
@@ -29,6 +30,13 @@ describe("bySide", () => {
     const pair = { ct: "ct-value", t: "t-value" };
     expect(bySide(pair, "CT")).toBe("ct-value");
     expect(bySide(pair, "T")).toBe("t-value");
+  });
+});
+
+describe("formatAverageEquipment", () => {
+  it("rounds the per-player average before the avg label", () => {
+    expect(formatAverageEquipment(5020.4)).toBe("avg $5,020");
+    expect(formatAverageEquipment(5020.5)).toBe("avg $5,021");
   });
 });
 

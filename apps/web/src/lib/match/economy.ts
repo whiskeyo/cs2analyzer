@@ -1,6 +1,7 @@
 import { samplePlayers } from "@/lib/replay/sample";
 import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
 import { liveScoreboardPlayers } from "@/lib/stats/liveScore";
+import { formatMoney } from "@/lib/weapons/loadout";
 import {
   ECO_MAX_EQUIPMENT,
   FIRST_OVERTIME_ROUND,
@@ -108,6 +109,11 @@ export function formatBuyRecord(wins: number, rounds: number): string {
 export function formatBuyWinRate(wins: number, rounds: number): string {
   if (rounds <= 0) return "—";
   return `${Math.round((wins / rounds) * PERCENT_SCALE)}%`;
+}
+
+/** Per-player average freeze equipment, e.g. `avg $5,020`. */
+export function formatAverageEquipment(amount: number): string {
+  return `avg ${formatMoney(Math.round(amount))}`;
 }
 
 /**

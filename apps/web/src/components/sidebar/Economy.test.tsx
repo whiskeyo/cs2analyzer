@@ -44,8 +44,14 @@ describe("Economy", () => {
     expect(screen.getAllByText("100%").length).toBeGreaterThan(0);
 
     const cell = screen.getByRole("button", {
-      name: /Round 4 · Astralis \(CT\) · Anti-eco/,
+      name: "Round 4 · Astralis (CT) · Anti-eco · avg $3,700 · won",
     });
+    expect(cell).toHaveAttribute("title", "Round 4 · Astralis (CT) · Anti-eco · avg $3,700 · won");
+    expect(
+      screen.getByRole("button", {
+        name: "Round 4 · Vitality (T) · Eco · avg $1,999 · lost",
+      }),
+    ).toBeInTheDocument();
     expect(cell).toHaveClass("win");
     await userEvent.click(cell);
     expect(onJump).toHaveBeenCalledWith(1064);

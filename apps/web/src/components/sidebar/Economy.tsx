@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { formatMoney } from "@/lib/weapons/loadout";
 import {
   ECONOMY_BUY_LABEL,
   ECONOMY_BUY_ORDER,
+  formatAverageEquipment,
   formatBuyRecord,
   formatBuyWinRate,
   matchEconomy,
@@ -129,7 +129,7 @@ function buyClass(buy: EconomyBuy | null): string {
 function cellTitle(team: string, cell: EconomyCell): string {
   const buy = cell.buy ? ECONOMY_BUY_LABEL[cell.buy] : "No buy";
   const money =
-    cell.averageEquipment == null ? "" : ` · ${formatMoney(Math.round(cell.averageEquipment))}`;
+    cell.averageEquipment == null ? "" : ` · ${formatAverageEquipment(cell.averageEquipment)}`;
   let result = "no winner";
   if (cell.won) result = "won";
   else if (cell.decided) result = "lost";
