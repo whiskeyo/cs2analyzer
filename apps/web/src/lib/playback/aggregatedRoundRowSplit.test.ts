@@ -4,7 +4,20 @@ import { AGGREGATED_ROUND_ROW_SPLIT_HYSTERESIS_PX } from "@/lib/shared/constants
 import {
   aggregatedRoundRowNeededWidth,
   aggregatedRoundRowShouldSplit,
+  aggregatedStripMaxHeight,
 } from "./aggregatedRoundRowSplit";
+
+describe("aggregatedStripMaxHeight", () => {
+  it("uses the full-stage strip height as the cap", () => {
+    expect(aggregatedStripMaxHeight(140)).toBe(140);
+    expect(aggregatedStripMaxHeight(139.5625)).toBe(139.5625);
+  });
+
+  it("skips the cap until the full-stage strip has a height", () => {
+    expect(aggregatedStripMaxHeight(0)).toBeNull();
+    expect(aggregatedStripMaxHeight(Number.NaN)).toBeNull();
+  });
+});
 
 describe("aggregatedRoundRowShouldSplit", () => {
   it("keeps one line when the chips fit", () => {

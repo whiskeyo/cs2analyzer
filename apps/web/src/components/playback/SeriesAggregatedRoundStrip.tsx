@@ -3,6 +3,7 @@ import { GearIcon } from "@/components/weapons/WeaponIcon";
 import {
   aggregatedRoundRowNeededWidth,
   aggregatedRoundRowShouldSplit,
+  aggregatedStripMaxHeight,
 } from "@/lib/playback/aggregatedRoundRowSplit";
 import { currentRound } from "@/lib/replay/sample";
 import type { SeriesRoundChip, SeriesRoundsByKind } from "@/lib/parse/seriesAnalysis";
@@ -177,6 +178,7 @@ function SeriesRoundRow({
   onRoundJump,
   bucketEnabled,
   roundJumpEnabled,
+  mirror = false,
 }: {
   group: SeriesRoundsByKind;
   liveRoundNumber: number | null;
@@ -187,6 +189,8 @@ function SeriesRoundRow({
   onRoundJump: Props["onRoundJump"];
   bucketEnabled?: (kind: RoundKind) => boolean;
   roundJumpEnabled: boolean;
+  /** Full-stage height probe. Same boxes, no labels or titles. */
+  mirror?: boolean;
 }) {
   const ctRounds = group.rounds.filter((chip) => chip.side === "CT");
   const tRounds = group.rounds.filter((chip) => chip.side === "T");
@@ -211,30 +215,33 @@ function SeriesRoundRow({
   );
 
   return (
-    <div className={`series-round-row${split ? " is-split" : ""}`} role="listitem">
-      <span className="series-round-label">{group.label}</span>
+    <div
+      className={`series-round-row${split ? " is-split" : ""}`}
+      role={mirror ? undefined : "listitem"}
+    >
+      <span className="series-round-label">{mirror ? "\u00a0" : group.label}</span>
       <div
         ref={containerRef}
         className={`series-round-chips${split ? " is-split" : ""}`}
-        role="group"
-        aria-label={`${group.label} rounds`}
+        role={mirror ? undefined : "group"}
+        aria-label={mirror ? undefined : `${group.label} rounds`}
         data-split={split ? "true" : "false"}
       >
         {split ? (
           <>
             {ctRounds.length > 0 ? (
               <div className="series-round-line" data-side="CT">
-                {block("CT", ctRounds, false)}
+                {block("CT", ctRounds, mirror)}
               </div>
             ) : null}
             {tRounds.length > 0 ? (
               <div className="series-round-line" data-side="T">
-                {block("T", tRounds, false)}
+                {block("T", tRounds, mirror)}
               </div>
             ) : null}
           </>
         ) : (
-          <UnsplitSides ctRounds={ctRounds} tRounds={tRounds} measure={false} block={block} />
+          <UnsplitSides ctRounds={ctRounds} tRounds={tRounds} measure={mirror} block={block} />
         )}
         <div className="series-round-measure-host" aria-hidden="true">
           <div className="series-round-measure" data-measure="" ref={measureRef}>
@@ -244,6 +251,43 @@ function SeriesRoundRow({
       </div>
     </div>
   );
+}
+
+function rowListKey(groups: SeriesRoundsByKind[]): string {
+  return groups.map((group) => rowContentKey(group)).join("|");
+}
+
+/** Cap the visible strip at the height those chips have across the whole stage. */
+function useFullStageStripCap(contentKey: string) {
+  const stripRef = useRef<HTMLDivElement>(null);
+  const sizerRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const strip = stripRef.current;
+    const sizer = sizerRef.current;
+    const stage = strip?.closest(".stage");
+    if (!strip || !sizer || !(stage instanceof HTMLElement)) return;
+
+    const apply = () => {
+      if (stage.clientWidth <= 0) return;
+      sizer.style.width = `${stage.clientWidth}px`;
+      const cap = aggregatedStripMaxHeight(sizer.getBoundingClientRect().height);
+      if (cap == null) {
+        strip.style.removeProperty("--series-strip-cap");
+        return;
+      }
+      strip.style.setProperty("--series-strip-cap", `${cap}px`);
+    };
+
+    apply();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(apply);
+    observer.observe(stage);
+    observer.observe(sizer);
+    return () => observer.disconnect();
+  }, [contentKey]);
+
+  return { stripRef, sizerRef };
 }
 
 /** Series-wide round picker grouped by buy type (replaces per-demo round strip). */
@@ -261,23 +305,32 @@ export const SeriesAggregatedRoundStrip = memo(function SeriesAggregatedRoundStr
 }: Props) {
   const live = currentRound(replay, tick);
   const liveRoundNumber = live != null && !live.is_knife ? live.number : null;
+  const { stripRef, sizerRef } = useFullStageStripCap(rowListKey(groups));
+  const renderRows = (mirror: boolean) =>
+    groups.map((group) => (
+      <SeriesRoundRow
+        key={group.kind}
+        mirror={mirror}
+        group={group}
+        liveRoundNumber={liveRoundNumber}
+        demoColors={demoColors}
+        activeDemoId={activeDemoId}
+        bucketOverlay={bucketOverlay}
+        onBucketOverlay={onBucketOverlay}
+        onRoundJump={onRoundJump}
+        bucketEnabled={bucketEnabled}
+        roundJumpEnabled={roundJumpEnabled}
+      />
+    ));
 
   return (
-    <div className="series-round-strip" role="list" data-tutorial="rounds">
-      {groups.map((group) => (
-        <SeriesRoundRow
-          key={group.kind}
-          group={group}
-          liveRoundNumber={liveRoundNumber}
-          demoColors={demoColors}
-          activeDemoId={activeDemoId}
-          bucketOverlay={bucketOverlay}
-          onBucketOverlay={onBucketOverlay}
-          onRoundJump={onRoundJump}
-          bucketEnabled={bucketEnabled}
-          roundJumpEnabled={roundJumpEnabled}
-        />
-      ))}
-    </div>
+    <>
+      <div ref={stripRef} className="series-round-strip" role="list" data-tutorial="rounds">
+        {renderRows(false)}
+      </div>
+      <div ref={sizerRef} className="series-round-sizer" aria-hidden="true" inert>
+        {renderRows(true)}
+      </div>
+    </>
   );
 });

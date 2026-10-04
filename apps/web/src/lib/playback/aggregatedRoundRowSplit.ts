@@ -24,6 +24,17 @@ export function aggregatedRoundRowNeededWidth(measure: HTMLElement): number {
  * until the track is wider than the chips by {@link AGGREGATED_ROUND_ROW_SPLIT_HYSTERESIS_PX}.
  * A zero layout size keeps the current choice so a not-yet-laid-out row does not flap.
  */
+/**
+ * Height of the same chips laid out across the whole stage.
+ * The visible strip is only as wide as the map, so extra wraps scroll inside
+ * this cap instead of pushing the radar up.
+ * Keep the fraction: rounding up steals a pixel from the map.
+ */
+export function aggregatedStripMaxHeight(fullStageHeight: number): number | null {
+  if (!Number.isFinite(fullStageHeight) || fullStageHeight <= 0) return null;
+  return fullStageHeight;
+}
+
 export function aggregatedRoundRowShouldSplit(
   neededWidth: number,
   availableWidth: number,
