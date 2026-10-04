@@ -55,13 +55,28 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 |---|---|
 | `--prepare` | Install Rust toolchain, `wasm-bindgen-cli`, and npm deps |
 | `--update` | Update Rust and npm deps within current semver ranges, keep `wasm-bindgen` pinned to the CLI, rebuild WASM, and run tests. Does not commit. |
-
-`--update` requires a clean `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` (commit or stash those first).
+| `--upgrade` | Bump Rust and npm deps to the newest versions, including outside current semver ranges. Skips `source2-demo`, `wasm-bindgen`, and `js-sys`. Rebuilds WASM, runs tests, then the production build. Does not commit. |
 | `--build-wasm` | Compile the parser WASM into the web app |
 | `--check` | rustfmt, clippy, prettier, eslint, typecheck |
 | `--test` | Rust + web test suites |
 | `--dev` | Dev server at http://localhost:5173/ (layouts editor at `/layouts`) |
 | `--prod` | Production build + preview (default http://localhost:4173/) |
+
+`--update` and `--upgrade` need a clean dependency tree: every workspace `Cargo.toml`, `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/`. Commit or stash those first. The two flags are mutually exclusive.
+
+### `--upgrade`
+
+`--update` stays inside the ranges already written in the manifests. `--upgrade` rewrites those ranges to the newest published versions, refreshes the lockfiles, rebuilds WASM, and runs the Rust tests, the web tests, and `npm run build` (the production prerender). It prints a table of resolved version changes and leaves the diff in the working tree. It does not commit.
+
+Not a CI step. Review `git diff` and commit the bumps you want to keep.
+
+Requires [cargo-edit](https://github.com/killercup/cargo-edit) (`cargo install cargo-edit`). npm packages are bumped with `npx npm-check-updates` (no global install).
+
+Left unchanged:
+
+- `source2-demo` — decoding changes belong in their own PR with real-demo tests
+- `wasm-bindgen` — pinned to the installed `wasm-bindgen-cli` (currently 0.2.127)
+- `js-sys` — each release exact-pins `wasm-bindgen`, so the newest one would move that pin
 
 Typical first run:
 
@@ -69,7 +84,7 @@ Typical first run:
 ./scripts/run.sh --prepare --build-wasm --dev
 ```
 
-Flags combine and run in the order above; `--dev` and `--prod` are mutually exclusive and block while the server is up.
+Flags combine and run in the order above. `--dev` and `--prod` are mutually exclusive and block while the server is up. `--update` and `--upgrade` are mutually exclusive.
 
 ## Credits
 
