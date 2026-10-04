@@ -85,6 +85,7 @@ interface Slot {
   y: number;
   alive?: boolean;
   ct?: boolean;
+  present?: boolean;
 }
 
 function ticksFromFrames(
@@ -96,12 +97,13 @@ function ticksFromFrames(
     buf.ticks[frameIndex] = frame.tick;
     frame.players.forEach((player, playerIndex) => {
       const slot = frameIndex * playerCount + playerIndex;
+      buf.x[slot] = player.x;
+      buf.y[slot] = player.y;
+      if (player.present === false) return;
       let flags = FLAG_PRESENT;
       if (player.alive !== false) flags |= FLAG_ALIVE;
       if (player.ct !== false) flags |= FLAG_CT;
       buf.flags[slot] = flags;
-      buf.x[slot] = player.x;
-      buf.y[slot] = player.y;
       buf.health[slot] = player.alive === false ? 0 : FULL_HEALTH;
     });
   });
@@ -380,5 +382,82 @@ describe("aggregateSeriesGroupHits", () => {
     expect(eco.entries.find((entry) => entry.id === "A")?.samples).toBe(0);
     expect(terror.roundCount).toBe(0);
     expect(terror.sampleCount).toBe(0);
+  });
+
+  it("adds every teammate in the round", () => {
+    const replay = makeReplay({
+      header: { team_ct: FOCAL, team_t: "Enemy", map_name: "de_mirage", tick_rate: 64 },
+      players: [
+        makePlayer(0, "CT", "One", 1),
+        makePlayer(1, "CT", "Two", 2),
+        makePlayer(2, "CT", "Three", 3),
+      ],
+      ticks: ticksFromFrames(3, [
+        { tick: 64, players: [ctAt(A_SITE), ctAt(TOP_MID), ctAt(B_SITE)] },
+        { tick: 128, players: [ctAt(PALACE), ctAt(WINDOW), ctAt(B_APPS)] },
+      ]),
+      rounds: [
+        makeRound({
+          number: 1,
+          freeze_end_tick: 64,
+          end_tick: 400,
+          team_ct: FOCAL,
+          team_t: "Enemy",
+        }),
+      ],
+    });
+    const series = buildSeries(
+      "de_mirage",
+      [loadedDemo(replay, "trio.dem", new File([], "trio.dem"))],
+      FOCAL,
+    );
+    const hits = aggregateSeriesGroupHits(series, { side: "CT", kind: "pistol" }, places);
+    expect(hits.sampleCount).toBe(6);
+    expect(hits.entries.find((entry) => entry.id === "A")?.samples).toBe(2);
+    expect(hits.entries.find((entry) => entry.id === "Mid")?.samples).toBe(2);
+    expect(hits.entries.find((entry) => entry.id === "B")?.samples).toBe(2);
+    expect(hits.entries.find((entry) => entry.id === "A")?.share).toBeCloseTo(1 / 3);
+  });
+
+  it("keeps later samples when a player is missing for a few ticks", () => {
+    const series = seriesFrom(
+      [
+        { tick: 64, players: [ctAt(A_SITE)] },
+        { tick: 128, players: [{ ...ctAt(B_SITE), present: false }] },
+        { tick: 192, players: [ctAt(TOP_MID)] },
+      ],
+      "gap.dem",
+    );
+    const hits = aggregateSeriesGroupHits(series, { side: "CT", kind: "pistol" }, places);
+    expect(hits.entries.find((entry) => entry.id === "A")?.samples).toBe(1);
+    expect(hits.entries.find((entry) => entry.id === "Mid")?.samples).toBe(1);
+    expect(hits.entries.find((entry) => entry.id === "B")?.samples).toBe(0);
+  });
+
+  it("does not throw or divide by zero when a round has no samples", () => {
+    const replay = makeReplay({
+      header: { team_ct: FOCAL, team_t: "Enemy", map_name: "de_mirage", tick_rate: 64 },
+      players: [makePlayer(0, "CT", "Donk", 100)],
+      ticks: makeTicks(1, 0),
+      rounds: [
+        makeRound({
+          number: 1,
+          freeze_end_tick: 64,
+          end_tick: 400,
+          team_ct: FOCAL,
+          team_t: "Enemy",
+        }),
+      ],
+    });
+    const series = buildSeries(
+      "de_mirage",
+      [loadedDemo(replay, "nosamples.dem", new File([], "nosamples.dem"))],
+      FOCAL,
+    );
+    const hits = aggregateSeriesGroupHits(series, { side: "CT", kind: "pistol" }, places);
+    expect(hits.roundCount).toBe(1);
+    expect(hits.sampleCount).toBe(0);
+    expect(hits.entries).toEqual([]);
+    expect(formatGroupHitPercent(0, hits.sampleCount)).toBe("0%");
   });
 });

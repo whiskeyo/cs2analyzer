@@ -20,7 +20,7 @@ export interface SeriesGroupHitEntry {
 }
 
 export interface SeriesGroupHits {
-  /** Layout-filter order (same chips as grenade groups), including zeros. */
+  /** Layout-filter order (same chips as grenade groups), including zeros. Empty when no sample landed in a group. */
   entries: SeriesGroupHitEntry[];
   roundCount: number;
   /** Alive samples that landed in a playable layout group. */
@@ -265,15 +265,18 @@ export function aggregateSeriesGroupHits(
   }
 
   return {
-    entries: listed.map((group) => {
-      const samples = counts.get(group.id) ?? 0;
-      return {
-        id: group.id,
-        label: group.label,
-        samples,
-        share: branchShare(samples, sampleCount),
-      };
-    }),
+    entries:
+      sampleCount === 0
+        ? []
+        : listed.map((group) => {
+            const samples = counts.get(group.id) ?? 0;
+            return {
+              id: group.id,
+              label: group.label,
+              samples,
+              share: branchShare(samples, sampleCount),
+            };
+          }),
     roundCount,
     sampleCount,
   };
