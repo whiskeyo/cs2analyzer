@@ -1079,7 +1079,14 @@ code {
   gap: 0.2rem;
   padding: 0.25rem 0.6rem;
   background: #0d1116;
-  overflow-x: auto;
+  min-width: 0;
+  /* Content height in the column, so a wrapped row pushes the map up.
+     It may shrink once the toolbar and map have their space, and the cap
+     scrolls inside this box instead of covering them. */
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 50vh;
+  overflow: auto;
 }
 .series-round-row {
   display: flex;
@@ -1087,6 +1094,14 @@ code {
   gap: 0.45rem;
   min-height: 24px;
   min-width: 0;
+}
+.series-round-row.is-split {
+  align-items: flex-start;
+}
+.series-round-row.is-split .series-round-label {
+  display: flex;
+  align-items: center;
+  height: 24px;
 }
 .series-round-label {
   flex: 0 0 3.25rem;
@@ -1098,12 +1113,65 @@ code {
 }
 .series-round-chips {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
   flex: 1;
   min-width: 0;
-  overflow-x: auto;
+  position: relative;
+}
+.series-round-chips.is-split {
+  flex-direction: column;
+  align-items: stretch;
+}
+.series-round-line {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.series-round-line .series-round-side-group {
+  align-items: flex-start;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.series-round-side-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.series-round-line .series-round-side-chips {
+  flex: 1 1 auto;
+}
+/* Invisible nowrap copy. A zero-size host keeps its width out of the strip's scroll. */
+.series-round-measure-host {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.series-round-measure {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+  width: max-content;
+  visibility: hidden;
+}
+.series-round-measure .series-round-side-group,
+.series-round-measure .series-round-side-chips {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  width: max-content;
+  max-width: none;
 }
 .series-round-side-group {
   display: flex;
@@ -1111,6 +1179,8 @@ code {
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 .series-round-side {
   display: inline-flex;
@@ -1793,6 +1863,8 @@ a.ghost {
   grid-template-columns: 1fr auto;
   grid-template-rows: auto 1fr;
   min-height: 0;
+  /* Toolbar, legend, and sidebar stay inside this box when the round strip grows. */
+  overflow: hidden;
 }
 
 .radar-col {
@@ -1809,6 +1881,9 @@ a.ghost {
   flex: 1;
   min-width: 0;
   min-height: 0;
+}
+.viewer .radar-stage {
+  overflow: hidden;
 }
 .playbook-page {
   display: flex;
@@ -4768,23 +4843,33 @@ button.link:hover:not(:disabled) {
     grid-template-columns: 1fr;
   }
   .stage {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    /* Minimum is the toolbar plus the map floor. The sidebar can shrink. */
+    min-height: min-content;
+    overflow: hidden;
   }
   .radar-col {
-    grid-column: auto;
-    grid-row: auto;
     display: flex;
     flex-direction: column;
+    flex: 1 0 auto;
+    min-height: min-content;
+    overflow: hidden;
+  }
+  .viewer .radar-stage {
+    flex: 1 1 auto;
+    min-height: 4.5rem;
   }
   .sidebar {
-    grid-column: auto;
-    grid-row: auto;
     display: flex;
     flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 40%;
+    overflow: auto;
     border-left: none;
     border-top: 1px solid #1e2732;
-    max-height: 40vh;
     width: auto !important;
     min-width: 0;
   }
