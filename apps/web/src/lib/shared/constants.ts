@@ -126,6 +126,13 @@ export const SERIES_HABITS_WINDOW_MIN_SECONDS = 5;
 export const SERIES_HABITS_WINDOW_MAX_SECONDS = 60;
 
 /**
+ * Spare width, in CSS pixels, before a split aggregated round row returns to one line.
+ * About one chip wide, and larger than the thin scrollbar, so the row does not flap
+ * when that scrollbar appears or disappears.
+ */
+export const AGGREGATED_ROUND_ROW_SPLIT_HYSTERESIS_PX = 24;
+
+/**
  * Aggregated Overall: merge overlapping samples within this world-unit radius.
  * ~2–3 player widths / a tight corridor so spawn scatter stays one trunk.
  * Preferences clamp: PATH_BRANCH_MERGE_MIN … PATH_BRANCH_MERGE_MAX.

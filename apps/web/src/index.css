@@ -1079,7 +1079,8 @@ code {
   gap: 0.2rem;
   padding: 0.25rem 0.6rem;
   background: #0d1116;
-  overflow-x: auto;
+  min-width: 0;
+  overflow-x: hidden;
 }
 .series-round-row {
   display: flex;
@@ -1087,6 +1088,14 @@ code {
   gap: 0.45rem;
   min-height: 24px;
   min-width: 0;
+}
+.series-round-row.is-split {
+  align-items: flex-start;
+}
+.series-round-row.is-split .series-round-label {
+  display: flex;
+  align-items: center;
+  height: 24px;
 }
 .series-round-label {
   flex: 0 0 3.25rem;
@@ -1103,7 +1112,45 @@ code {
   gap: 2px;
   flex: 1;
   min-width: 0;
-  overflow-x: auto;
+  position: relative;
+  overflow-x: hidden;
+}
+.series-round-chips.is-split {
+  flex-direction: column;
+  align-items: stretch;
+}
+.series-round-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.series-round-line .series-round-side-group {
+  flex-wrap: wrap;
+  flex-shrink: 1;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.series-round-line .series-round-side-group > .rs,
+.series-round-line .series-round-side-group > .series-round-side {
+  flex-shrink: 0;
+}
+/* Invisible nowrap copy. Its width is the unsplit row, independent of the split layout. */
+.series-round-measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
 }
 .series-round-side-group {
   display: flex;
