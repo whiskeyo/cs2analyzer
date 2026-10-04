@@ -1121,23 +1121,30 @@ code {
 }
 .series-round-line {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   gap: 2px;
   width: 100%;
   min-width: 0;
   max-width: 100%;
 }
 .series-round-line .series-round-side-group {
-  flex-wrap: wrap;
-  flex-shrink: 1;
+  align-items: flex-start;
+  flex: 1;
   width: 100%;
   min-width: 0;
   max-width: 100%;
 }
-.series-round-line .series-round-side-group > .rs,
-.series-round-line .series-round-side-group > .series-round-side {
-  flex-shrink: 0;
+.series-round-side-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.series-round-line .series-round-side-chips {
+  flex: 1;
+  flex-wrap: wrap;
 }
 /* Invisible nowrap copy. Its width is the unsplit row, independent of the split layout. */
 .series-round-measure {

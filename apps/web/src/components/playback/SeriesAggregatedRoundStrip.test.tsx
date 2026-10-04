@@ -279,6 +279,27 @@ describe("aggregated round row overflow", () => {
     expect(lineSides(full)).toEqual(["CT", "T"]);
   });
 
+  it("keeps a wrapped side's chips beside the icon, not under it", async () => {
+    renderGroups([kindGroup("full", "Full", 3, 2)]);
+    setTrackSize("Full", 200, 800);
+    await apply();
+
+    const ctLine = trackFor("Full").querySelector('[data-side="CT"]');
+    expect(ctLine).toBeInstanceOf(HTMLElement);
+    const group = (ctLine as HTMLElement).querySelector(".series-round-side-group");
+    expect(group).toBeInstanceOf(HTMLElement);
+    const icon = (group as HTMLElement).querySelector(":scope > .series-round-side");
+    const chips = (group as HTMLElement).querySelector(":scope > .series-round-side-chips");
+    expect(icon).toBeInstanceOf(HTMLElement);
+    expect(chips).toBeInstanceOf(HTMLElement);
+    expect((chips as HTMLElement).querySelector(".series-round-side")).toBeNull();
+    expect(
+      within(chips as HTMLElement).getByTitle("Full · CT · all rounds overlay"),
+    ).toBeInTheDocument();
+    expect(within(chips as HTMLElement).getByTitle("Full · CT #1")).toBeInTheDocument();
+    expect(within(chips as HTMLElement).getByTitle("Full · CT #3")).toBeInTheDocument();
+  });
+
   it("does not unsplit until the track clears the hysteresis slack", async () => {
     const needed = 400;
     renderGroups([kindGroup("eco", "Eco", 2, 2)]);

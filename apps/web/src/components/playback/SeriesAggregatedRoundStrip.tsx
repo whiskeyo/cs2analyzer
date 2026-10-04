@@ -99,45 +99,47 @@ function SideBlock({
       <span className="series-round-side" aria-hidden="true">
         <GearIcon name={icon} title={measure ? undefined : side} />
       </span>
-      <button
-        type="button"
-        tabIndex={measure ? -1 : undefined}
-        className={`rs series-round-chip bucket ${side === "CT" ? "ct" : "t"}${bucketOn ? " on" : ""}${bucketLive ? "" : " is-inactive"}`}
-        title={measure ? undefined : bucketTitle}
-        disabled={!bucketLive}
-        onClick={measure ? undefined : () => onBucketOverlay(kind, side)}
-      >
-        A
-      </button>
-      {rounds.map((chip) => {
-        const on =
-          !bucketOn &&
-          activeDemoId === chip.demoId &&
-          liveRoundNumber != null &&
-          liveRoundNumber === chip.roundNumber;
-        const demoColor = demoColors.get(chip.demoId);
-        const chipTitle = roundJumpEnabled
-          ? `${groupLabel} · ${chip.side} #${chip.indexInKind}`
-          : `${groupLabel} · ${chip.side} #${chip.indexInKind} · not playable in the tutorial`;
-        return (
-          <button
-            key={`${chip.demoId}-${chip.roundNumber}`}
-            type="button"
-            tabIndex={measure ? -1 : undefined}
-            className={`rs series-round-chip ${chip.side === "CT" ? "ct" : "t"}${on ? " on" : ""}${roundJumpEnabled ? "" : " is-inactive"}`}
-            style={demoColor ? ({ "--demo-color": demoColor } as CSSProperties) : undefined}
-            title={measure ? undefined : chipTitle}
-            disabled={!roundJumpEnabled}
-            onClick={
-              measure
-                ? undefined
-                : () => onRoundJump({ demoId: chip.demoId, jumpTick: chip.jumpTick })
-            }
-          >
-            {chip.indexInKind}
-          </button>
-        );
-      })}
+      <div className="series-round-side-chips">
+        <button
+          type="button"
+          tabIndex={measure ? -1 : undefined}
+          className={`rs series-round-chip bucket ${side === "CT" ? "ct" : "t"}${bucketOn ? " on" : ""}${bucketLive ? "" : " is-inactive"}`}
+          title={measure ? undefined : bucketTitle}
+          disabled={!bucketLive}
+          onClick={measure ? undefined : () => onBucketOverlay(kind, side)}
+        >
+          A
+        </button>
+        {rounds.map((chip) => {
+          const on =
+            !bucketOn &&
+            activeDemoId === chip.demoId &&
+            liveRoundNumber != null &&
+            liveRoundNumber === chip.roundNumber;
+          const demoColor = demoColors.get(chip.demoId);
+          const chipTitle = roundJumpEnabled
+            ? `${groupLabel} · ${chip.side} #${chip.indexInKind}`
+            : `${groupLabel} · ${chip.side} #${chip.indexInKind} · not playable in the tutorial`;
+          return (
+            <button
+              key={`${chip.demoId}-${chip.roundNumber}`}
+              type="button"
+              tabIndex={measure ? -1 : undefined}
+              className={`rs series-round-chip ${chip.side === "CT" ? "ct" : "t"}${on ? " on" : ""}${roundJumpEnabled ? "" : " is-inactive"}`}
+              style={demoColor ? ({ "--demo-color": demoColor } as CSSProperties) : undefined}
+              title={measure ? undefined : chipTitle}
+              disabled={!roundJumpEnabled}
+              onClick={
+                measure
+                  ? undefined
+                  : () => onRoundJump({ demoId: chip.demoId, jumpTick: chip.jumpTick })
+              }
+            >
+              {chip.indexInKind}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
