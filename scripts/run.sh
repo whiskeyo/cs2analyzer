@@ -36,7 +36,8 @@ Usage: scripts/run.sh [flags]
   --upgrade        Bump crates and npm packages to the newest versions that
                    still satisfy peer dependencies (npm-check-updates --peer).
                    Skips ${excluded}. Rebuilds WASM, runs tests, then the
-                   production build. Does not commit. Needs cargo-edit
+                   production build. Does not commit. On failure, restores
+                   the files it changed. Needs cargo-edit
                    (cargo install cargo-edit).
   --latest         With --upgrade only. Skip the peer filter and take the
                    newest versions anyway.
@@ -621,12 +622,33 @@ upgrade_cleanup_tmp() {
   UPGRADE_TMP_FILES=()
 }
 
+# The dirty-tree guard already required these paths to match HEAD, so
+# checkout plus clean puts back manifests, locks, and generated parser files.
+restore_upgrade_tree() {
+  local -a paths=()
+  local path
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    paths+=("$path")
+  done < <(dependency_tree_paths)
+  if [[ ${#paths[@]} -eq 0 ]]; then
+    echo "error: no dependency-tree paths to restore" >&2
+    return 1
+  fi
+  git -C "$ROOT" checkout -- "${paths[@]}"
+  git -C "$ROOT" clean -fd -- "${paths[@]}"
+}
+
 upgrade_report_failure() {
   local status=$?
   if [[ "$status" -ne 0 && -n "${UPGRADE_STEP:-}" ]]; then
     echo "error: --upgrade failed during: ${UPGRADE_STEP}" >&2
     if [[ "${UPGRADE_MUTATED:-0}" -eq 1 ]]; then
-      echo "error: changes were left in the working tree" >&2
+      if restore_upgrade_tree; then
+        echo "error: the dependency tree was restored to its pre-run state" >&2
+      else
+        echo "error: could not restore the dependency tree" >&2
+      fi
     fi
   fi
   upgrade_cleanup_tmp
