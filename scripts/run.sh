@@ -33,10 +33,13 @@ Usage: scripts/run.sh [flags]
   --update         Update crates and npm packages within their current semver
                    ranges, keep wasm-bindgen pinned to the CLI version, rebuild
                    WASM, and run cargo test plus the web suite. Does not commit.
-  --upgrade        Bump crates and npm packages to the newest versions,
-                   including outside current semver ranges. Skips ${excluded}.
-                   Rebuilds WASM, runs tests, then the production build.
-                   Does not commit. Needs cargo-edit (cargo install cargo-edit).
+  --upgrade        Bump crates and npm packages to the newest versions that
+                   still satisfy peer dependencies (npm-check-updates --peer).
+                   Skips ${excluded}. Rebuilds WASM, runs tests, then the
+                   production build. Does not commit. Needs cargo-edit
+                   (cargo install cargo-edit).
+  --latest         With --upgrade only. Skip the peer filter and take the
+                   newest versions anyway.
   --build-wasm     Compile WASM and emit JS bindings into apps/web/src/parser/
   --check          rustfmt, clippy, prettier, eslint, typecheck
   --test           cargo test and the web vitest suite
@@ -50,7 +53,7 @@ Usage: scripts/run.sh [flags]
 
 Flags can be combined. They run in the order above; --dev / --prod are last and block.
 Do not pass both --dev and --prod, or both --update and --upgrade.
---local-network requires --dev or --prod.
+--latest requires --upgrade. --local-network requires --dev or --prod.
 EOF
 }
 
@@ -493,6 +496,15 @@ require_cargo_edit() {
   die "cargo upgrade (cargo-edit) is missing. Install it with: cargo install cargo-edit"
 }
 
+# Default --upgrade keeps peer dependencies satisfiable (typescript-eslint
+# cannot take typescript 7). --latest drops the filter.
+ncu_upgrade_args() {
+  printf '%s\n' -u
+  if [[ "${LATEST:-0}" -eq 0 ]]; then
+    printf '%s\n' --peer
+  fi
+}
+
 # 1.x: only the major component is breaking. Before 1.0 a minor bump is breaking
 # too (0.2.1 -> 0.3.0), matching Cargo's semver rule.
 is_major_bump() {
@@ -624,8 +636,9 @@ upgrade_report_failure() {
 }
 
 cmd_upgrade() {
-  local before_cargo before_npm after_cargo after_npm rows crate
+  local before_cargo before_npm after_cargo after_npm rows crate ncu_arg
   local -a exclude_args=()
+  local -a ncu_args=()
 
   UPGRADE_STEP="dirty-tree check"
   UPGRADE_MUTATED=0
@@ -670,8 +683,11 @@ cmd_upgrade() {
   pin_wasm_bindgen "$before_cargo"
 
   UPGRADE_STEP="npm-check-updates"
-  log "npm-check-updates@${NCU_MAJOR} -u (web)"
-  (cd "$WEB" && npx --yes "npm-check-updates@${NCU_MAJOR}" -u)
+  while IFS= read -r ncu_arg; do
+    ncu_args+=("$ncu_arg")
+  done < <(ncu_upgrade_args)
+  log "npm-check-updates@${NCU_MAJOR} ${ncu_args[*]} (web)"
+  (cd "$WEB" && npx --yes "npm-check-updates@${NCU_MAJOR}" "${ncu_args[@]}")
 
   UPGRADE_STEP="npm install"
   log "npm install (web)"
@@ -771,6 +787,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   PREPARE=0
   UPDATE=0
   UPGRADE=0
+  LATEST=0
   BUILD_WASM=0
   CHECK=0
   TEST=0
@@ -788,6 +805,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
       --prepare) PREPARE=1 ;;
       --update) UPDATE=1 ;;
       --upgrade) UPGRADE=1 ;;
+      --latest) LATEST=1 ;;
       --build-wasm) BUILD_WASM=1 ;;
       --check) CHECK=1 ;;
       --test) TEST=1 ;;
@@ -809,6 +827,10 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 
   if [[ "$UPDATE" -eq 1 && "$UPGRADE" -eq 1 ]]; then
     die "--update and --upgrade are mutually exclusive"
+  fi
+
+  if [[ "$LATEST" -eq 1 && "$UPGRADE" -eq 0 ]]; then
+    die "--latest requires --upgrade"
   fi
 
   if [[ "$LOCAL_NETWORK" -eq 1 && "$DEV" -eq 0 && "$PROD" -eq 0 ]]; then
