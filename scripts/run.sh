@@ -55,6 +55,7 @@ Usage: scripts/run.sh [flags]
                    (cargo install cargo-edit).
   --latest         With --upgrade only. Skip the peer filter and take the
                    newest versions anyway.
+$(upgrade_latest_warning | sed 's/^/                   /')
   --build-wasm     Compile WASM and emit JS bindings into apps/web/src/parser/
   --check          rustfmt, clippy, prettier, eslint, typecheck
   --test           cargo test and the web vitest suite
@@ -599,6 +600,15 @@ require_cargo_edit() {
   die "cargo upgrade (cargo-edit) is missing. Install it with: cargo install cargo-edit"
 }
 
+# Shown next to --latest in --help and when --upgrade --latest starts.
+# --latest is a deliberate opt-in: no npm reject list, it takes the newest
+# versions including majors. Cargo skips are unchanged.
+upgrade_latest_warning() {
+  cat <<'EOF'
+warning: --latest drops --peer. It may move TypeScript beyond the range supported by typescript-eslint and may apply major bumps (for example Vite, Vitest, jsdom, react-router). The default --upgrade (with --peer) is the safe path.
+EOF
+}
+
 # Default --upgrade keeps peer dependencies satisfiable (typescript-eslint
 # cannot take typescript 7). --latest drops the filter.
 ncu_upgrade_args() {
@@ -763,6 +773,10 @@ cmd_upgrade() {
   local before_cargo before_npm after_cargo after_npm rows crate ncu_arg
   local -a exclude_args=()
   local -a ncu_args=()
+
+  if [[ "${LATEST:-0}" -eq 1 ]]; then
+    upgrade_latest_warning >&2
+  fi
 
   UPGRADE_STEP="dirty-tree check"
   UPGRADE_MUTATED=0

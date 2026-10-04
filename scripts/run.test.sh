@@ -58,6 +58,16 @@ fi
 grep -F -q -- '--latest requires --upgrade' "${scratch}/latest.err" \
   || fail "--latest with --update should say it requires --upgrade"
 
+"$ROOT/scripts/run.sh" --help >"${scratch}/help.out"
+grep -F -q 'warning: --latest drops --peer.' "${scratch}/help.out" \
+  || fail "--help should warn that --latest drops --peer"
+grep -F -q 'typescript-eslint' "${scratch}/help.out" \
+  || fail "--help should warn about typescript-eslint"
+grep -F -q 'Vite, Vitest, jsdom, react-router' "${scratch}/help.out" \
+  || fail "--help should name major-bump examples"
+grep -F -q 'default --upgrade (with --peer) is the safe path' "${scratch}/help.out" \
+  || fail "--help should call the default --upgrade the safe path"
+
 # Shared skip list for cargo upgrade --exclude and the cargo update filter.
 for crate in \
   source2-demo source2-demo-macros source2-demo-protobufs \
@@ -194,6 +204,27 @@ grep -F -q 'cargo install cargo-edit' "${scratch}/wire.err" \
   || fail "cmd_upgrade should run the cargo-edit preflight"
 grep -F -q 'failed during: cargo-edit preflight' "${scratch}/wire.err" \
   || fail "preflight failure should name its step"
+if grep -F -q 'warning: --latest drops --peer.' "${scratch}/wire.err"; then
+  fail "default --upgrade should not print the --latest warning"
+fi
+
+if (
+  LATEST=1
+  require_cargo_edit() {
+    die "cargo upgrade (cargo-edit) is missing. Install it with: cargo install cargo-edit"
+  }
+  cmd_upgrade
+) 2>"${scratch}/latest-warn.err"; then
+  fail "--upgrade --latest should still stop when cargo-edit is missing"
+fi
+grep -F -q 'warning: --latest drops --peer.' "${scratch}/latest-warn.err" \
+  || fail "--upgrade --latest should warn that it drops --peer"
+grep -F -q 'typescript-eslint' "${scratch}/latest-warn.err" \
+  || fail "--upgrade --latest should warn about typescript-eslint"
+grep -F -q 'Vite, Vitest, jsdom, react-router' "${scratch}/latest-warn.err" \
+  || fail "--upgrade --latest should name major-bump examples"
+grep -F -q 'default --upgrade (with --peer) is the safe path' "${scratch}/latest-warn.err" \
+  || fail "--upgrade --latest should call the default --upgrade the safe path"
 
 guard_repo="${scratch}/guard-repo"
 mkdir -p "$guard_repo/apps/web/src/parser" "$guard_repo/crates/demo"
