@@ -1,6 +1,9 @@
+import { en } from "@/lib/i18n/en";
+import type { Messages } from "@/lib/i18n/messages";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
 import { liveScoreboardPlayers } from "@/lib/stats/liveScore";
+import { formatMoney } from "@/lib/weapons/loadout";
 import {
   ECO_MAX_EQUIPMENT,
   FIRST_OVERTIME_ROUND,
@@ -108,6 +111,16 @@ export function formatBuyRecord(wins: number, rounds: number): string {
 export function formatBuyWinRate(wins: number, rounds: number): string {
   if (rounds <= 0) return "—";
   return `${Math.round((wins / rounds) * PERCENT_SCALE)}%`;
+}
+
+const AVERAGE_EQUIPMENT_AMOUNT = "{amount}";
+
+/** Per-player average freeze equipment, e.g. `avg $5,020` / `śr. $5,020`. */
+export function formatAverageEquipment(amount: number, messages: Messages = en): string {
+  return messages.economy.averageEquipment.replaceAll(
+    AVERAGE_EQUIPMENT_AMOUNT,
+    formatMoney(Math.round(amount)),
+  );
 }
 
 /**
