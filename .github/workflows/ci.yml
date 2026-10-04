@@ -218,4 +218,8 @@ jobs:
           ./scripts/ftp-publish.sh dist
       - uses: astral-sh/setup-uv@v10.2.0
       - name: Prod htaccess smoke
-        run: uv run apps/web/scripts/htaccess_check.py https://cs2analyzer.whiskeyo.pl --expect-rev "$(git rev-parse --short HEAD)"
+        run: |
+          rev="$(git rev-parse --short HEAD)"
+          uv run apps/web/scripts/htaccess_check.py https://cs2analyzer.whiskeyo.pl \
+            --expect-rev "$rev" \
+            --cache-bust "$rev"

@@ -7,6 +7,7 @@
 Usage:
   uv run apps/web/scripts/htaccess_check.py https://cs2analyzer.whiskeyo.pl
   uv run apps/web/scripts/htaccess_check.py http://127.0.0.1:18088 --expect-rev <sha>
+  uv run apps/web/scripts/htaccess_check.py URL --expect-rev <sha> --cache-bust <sha>
   uv run apps/web/scripts/htaccess_check.py URL --expect baseline   # describe, never fail
   uv run apps/web/scripts/htaccess_check.py URL --allow-slash-redirect
 
@@ -20,6 +21,8 @@ Default expectations (the fix):
   * real assets: 200 with the right content-type; missing /assets/*: 404, never 200
   * /.htaccess: 403 or 404; / and index.html send Cache-Control: no-cache
   * --expect-rev: X-Htaccess-Rev on cache-busted /, a route, a 404, and the wasm
+  * --cache-bust TOKEN: append cb=TOKEN to every request (?cb= or &cb=) so a CDN
+    cannot answer the smoke with a cached pre-deploy response
 Exit code 1 if any expectation fails.
 """
 
@@ -30,7 +33,7 @@ import re
 import sys
 import uuid
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import quote, urljoin, urlsplit
 
 import httpx
 
@@ -118,8 +121,22 @@ def classify(body: str, ctype: str) -> str:
     return f"page canonical={c} title={t!r}"
 
 
-def fetch(client: httpx.Client, base: str, path: str, max_hops: int = 5):
-    url = base + path
+def bust_path(path: str, token: str | None) -> str:
+    """Append cb=TOKEN without dropping a query the path already has."""
+    if not token:
+        return path
+    sep = "&" if "?" in path else "?"
+    return f"{path}{sep}cb={quote(token, safe='')}"
+
+
+def fetch(
+    client: httpx.Client,
+    base: str,
+    path: str,
+    max_hops: int = 5,
+    cache_bust: str | None = None,
+):
+    url = base + bust_path(path, cache_bust)
     chain = []
     for _ in range(max_hops):
         response = client.get(url)
@@ -152,8 +169,14 @@ def main() -> int:
         "checked on cache-busted requests for /, a route, an unknown 404 and the wasm",
     )
     parser.add_argument("--wasm", help="override the real wasm path (default: discovered via JS)")
+    parser.add_argument(
+        "--cache-bust",
+        metavar="TOKEN",
+        help="append cb=TOKEN to every request so a CDN cannot reuse a cached response",
+    )
     args = parser.parse_args()
     base = args.base.rstrip("/")
+    cache_bust = args.cache_bust
     prerender_paths = load_prerender_paths()
     routes = [path for path in prerender_paths if path != "/"]
     client = httpx.Client(
@@ -162,7 +185,10 @@ def main() -> int:
         headers={"User-Agent": "cs2a-qa-htaccess/1"},
     )
 
-    home = client.get(base + "/")
+    def get(path: str, headers: dict[str, str] | None = None) -> httpx.Response:
+        return client.get(base + bust_path(path, cache_bust), headers=headers)
+
+    home = get("/")
     assets = sorted(set(re.findall(r'(/assets/[^"\']+\.(?:js|css))', home.text)))
     seen: set[str] = set()
     queue = [item for item in assets if item.endswith(".js")]
@@ -172,7 +198,7 @@ def main() -> int:
         if js in seen:
             continue
         seen.add(js)
-        src = client.get(base + js).text
+        src = get(js).text
         for match in re.findall(r'([A-Za-z0-9_.-]+\.(?:wasm|js))["\'`]', src):
             if "-" not in match:
                 continue
@@ -189,7 +215,7 @@ def main() -> int:
 
     def check(group: str, path: str, ok_fn, why: str) -> None:
         nonlocal fails
-        chain = fetch(client, base, path)
+        chain = fetch(client, base, path, cache_bust=cache_bust)
         loop = chain[-1] is None
         chain = [item for item in chain if item is not None]
         first, last = chain[0], chain[-1]
@@ -386,8 +412,8 @@ def main() -> int:
 
     if args.expect_rev:
         for path in ["/", "/analyzer/", "/analyzer", "/nie-ma-takiej"] + ([wasm] if wasm else []):
-            response = client.get(
-                f"{base}{path}?qa-nocache={uuid.uuid4().hex}",
+            response = get(
+                f"{path}?qa-nocache={uuid.uuid4().hex}",
                 headers={"Cache-Control": "no-cache"},
             )
             got = response.headers.get("x-htaccess-rev", "")
