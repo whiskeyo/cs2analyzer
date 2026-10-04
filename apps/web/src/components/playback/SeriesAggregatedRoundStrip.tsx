@@ -236,8 +236,10 @@ function SeriesRoundRow({
         ) : (
           <UnsplitSides ctRounds={ctRounds} tRounds={tRounds} measure={false} block={block} />
         )}
-        <div className="series-round-measure" data-measure="" ref={measureRef} aria-hidden="true">
-          <UnsplitSides ctRounds={ctRounds} tRounds={tRounds} measure block={block} />
+        <div className="series-round-measure-host" aria-hidden="true">
+          <div className="series-round-measure" data-measure="" ref={measureRef}>
+            <UnsplitSides ctRounds={ctRounds} tRounds={tRounds} measure block={block} />
+          </div>
         </div>
       </div>
     </div>
