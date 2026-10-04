@@ -66,6 +66,7 @@ function useAggregatedRoundRowSplit(contentKey: string) {
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(apply);
     observer.observe(container);
+    observer.observe(measure);
     return () => observer.disconnect();
   }, [contentKey]);
 

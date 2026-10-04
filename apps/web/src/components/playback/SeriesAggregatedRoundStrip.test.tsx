@@ -158,16 +158,22 @@ function lineSides(track: HTMLElement): string[] {
 }
 
 function installResizeObserver() {
-  const instances: { callback: ResizeObserverCallback }[] = [];
+  const instances: { callback: ResizeObserverCallback; observed: Set<Element> }[] = [];
   class Observer {
     callback: ResizeObserverCallback;
+    observed = new Set<Element>();
     constructor(callback: ResizeObserverCallback) {
       this.callback = callback;
       instances.push(this);
     }
-    observe() {}
-    unobserve() {}
+    observe(target: Element) {
+      this.observed.add(target);
+    }
+    unobserve(target: Element) {
+      this.observed.delete(target);
+    }
     disconnect() {
+      this.observed.clear();
       const index = instances.indexOf(this);
       if (index >= 0) instances.splice(index, 1);
     }
@@ -176,6 +182,13 @@ function installResizeObserver() {
   return {
     flush() {
       for (const instance of [...instances]) {
+        instance.callback([], instance as unknown as ResizeObserver);
+      }
+    },
+    /** Fire only observers that are watching this element. */
+    notify(target: Element) {
+      for (const instance of [...instances]) {
+        if (!instance.observed.has(target)) continue;
         instance.callback([], instance as unknown as ResizeObserver);
       }
     },
@@ -277,6 +290,24 @@ describe("aggregated round row overflow", () => {
     expect(within(pistol).getByTitle("Pistol · T #1")).toBeInTheDocument();
     expect(full).toHaveAttribute("data-split", "true");
     expect(lineSides(full)).toEqual(["CT", "T"]);
+  });
+
+  it("splits when the measured width changes without the track resizing", async () => {
+    renderGroups([kindGroup("full", "Full", 2, 2)]);
+    const track = setTrackSize("Full", 500, 200);
+    const measure = track.querySelector("[data-measure]");
+    expect(measure).toBeInstanceOf(HTMLElement);
+    await act(async () => {
+      resize.notify(track);
+    });
+    expect(track).toHaveAttribute("data-split", "false");
+
+    Object.defineProperty(measure, "scrollWidth", { configurable: true, value: 900 });
+    await act(async () => {
+      resize.notify(measure as HTMLElement);
+    });
+    expect(trackFor("Full")).toHaveAttribute("data-split", "true");
+    expect(lineSides(trackFor("Full"))).toEqual(["CT", "T"]);
   });
 
   it("keeps a wrapped side's chips beside the icon, not under it", async () => {
