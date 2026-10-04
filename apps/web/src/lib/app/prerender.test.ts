@@ -70,7 +70,7 @@ describe("injectPrerenderedPage", () => {
     expect(html).not.toContain("noindex");
   });
 
-  it("stamps the not-found page with its own canonical and noindex", () => {
+  it("stamps the not-found page with noindex and no canonical link", () => {
     const html = injectPrerenderedPage(
       TEMPLATE,
       NOT_FOUND_PRERENDER_PATH,
@@ -78,8 +78,9 @@ describe("injectPrerenderedPage", () => {
     );
     expect(html).toContain("<title>CS2 Analyzer — Page not found</title>");
     expect(html).toContain('name="robots" content="noindex"');
-    expect(html).toContain(`href="${SITE_ORIGIN}${NOT_FOUND_PRERENDER_PATH}"`);
+    expect(html).not.toMatch(/rel="canonical"/i);
     expect(html).not.toContain(`href="${SITE_ORIGIN}/"`);
+    expect(html).not.toContain(`href="${SITE_ORIGIN}${NOT_FOUND_PRERENDER_PATH}"`);
     expect(html).toContain('class="not-found"');
   });
 

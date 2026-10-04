@@ -62,7 +62,8 @@ export type JsonLdBlock = {
 export type PageHead = {
   title: string;
   description: string;
-  canonical: string;
+  /** Null on unknown paths: the page is noindex, and `/404` is not a public URL. */
+  canonical: string | null;
   /** `noindex` on unknown paths; null on real routes (client must clear a previous tag). */
   robots: string | null;
   openGraph: Record<string, string>;
@@ -250,11 +251,12 @@ export function breadcrumbJsonLd(pathname: string): BreadcrumbListJsonLd | null 
 /** Title, social tags, and JSON-LD graphs for a pathname (prerender + client). */
 export function pageHead(pathname: string): PageHead {
   const { title, description, canonical } = pageMeta(pathname);
+  const notFound = isNotFoundPath(pathname);
   return {
     title,
     description,
-    canonical,
-    robots: isNotFoundPath(pathname) ? "noindex" : null,
+    canonical: notFound ? null : canonical,
+    robots: notFound ? "noindex" : null,
     openGraph: {
       type: OG_TYPE,
       site_name: SITE_NAME,
@@ -328,7 +330,11 @@ export function applyPageMeta(pathname: string): void {
   const head = pageHead(pathname);
   document.title = head.title;
   upsertMeta("name", "description", head.description);
-  upsertLink("canonical", head.canonical);
+  if (head.canonical) {
+    upsertLink("canonical", head.canonical);
+  } else {
+    document.head.querySelector('link[rel="canonical"]')?.remove();
+  }
   if (head.robots) {
     upsertMeta("name", "robots", head.robots);
   } else {

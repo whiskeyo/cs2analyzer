@@ -17,7 +17,7 @@ Default expectations (the fix):
   * known routes, with and without trailing slash: 200, text/html, canonical == route
     (no redirect; with --allow-slash-redirect a single 301 to the slash form is OK)
   * unknown URLs: 404 AND our NotFound page (title "Page not found" / .not-found / noindex)
-  * /404.html itself is that page (own canonical, noindex), not a copy of /
+  * /404.html itself is that page (noindex, no canonical link), not a copy of /
   * real assets: 200 with the right content-type; missing /assets/*: 404, never 200
   * /.htaccess: 403 or 404; / and index.html send Cache-Control: no-cache
   * --expect-rev: X-Htaccess-Rev on cache-busted /, a route, a 404, and the wasm
@@ -374,17 +374,16 @@ def main() -> int:
 
     def ok_404_file(chain, last, ctype):
         body = last.text.lower()
-        canon = canon_path(last.text)
         return (
             no_redirect(chain)
             and last.status_code == 200
             and "text/html" in ctype
             and ("page not found" in body or 'class="not-found"' in body)
-            and canon != "/"
+            and canon_path(last.text) is None
             and "noindex" in body
         )
 
-    check("static", "/404.html", ok_404_file, "200 our 404 page, noindex, canonical is not /")
+    check("static", "/404.html", ok_404_file, "200 our 404 page, noindex, no canonical link")
     check(
         "dotfile",
         "/.htaccess",

@@ -117,13 +117,15 @@ describe("applyPageMeta", () => {
     expect(metaContent("property", "og:type")).toBe(OG_TYPE);
   });
 
-  it("uses 404 copy, its own canonical, and noindex for unknown paths", () => {
+  it("uses 404 copy and noindex, and drops the canonical link", () => {
+    applyPageMeta("/faq");
+    expect(canonicalHref()).toBe(`${SITE_ORIGIN}/faq`);
     applyPageMeta("/this-page-does-not-exist");
     const missing = pageMeta("/this-page-does-not-exist");
     expect(document.title).toBe("CS2 Analyzer — Page not found");
     expect(metaContent("name", "description")).toBe("This page does not exist.");
-    expect(canonicalHref()).toBe(`${SITE_ORIGIN}/this-page-does-not-exist`);
-    expect(canonicalHref()).not.toBe(`${SITE_ORIGIN}/`);
+    expect(pageHead("/this-page-does-not-exist").canonical).toBeNull();
+    expect(canonicalHref()).toBeNull();
     expect(metaContent("name", "robots")).toBe("noindex");
     expect(metaContent("property", "og:title")).toBe(missing.title);
     expect(metaContent("property", "og:description")).toBe(missing.description);

@@ -67,9 +67,12 @@ function replaceRobots(html: string, content: string | null): string {
   return html.replace("</head>", `    ${tag}\n  </head>`);
 }
 
-function replaceCanonical(html: string, href: string): string {
-  const tag = `<link rel="canonical" href="${escapeAttr(href)}" />`;
+function replaceCanonical(html: string, href: string | null): string {
   const re = /<link\b[^>]*\brel="canonical"[^>]*>/i;
+  if (href == null) {
+    return html.replace(re, "");
+  }
+  const tag = `<link rel="canonical" href="${escapeAttr(href)}" />`;
   if (re.test(html)) {
     return html.replace(re, tag);
   }
