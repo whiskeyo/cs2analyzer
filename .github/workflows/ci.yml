@@ -182,7 +182,7 @@ jobs:
           path: dist
       - name: Artifact contains .htaccess
         run: test -f dist/.htaccess
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0
       - name: Apache matrix
         run: ./apps/web/scripts/check-htaccess.sh dist
 
@@ -216,6 +216,6 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq lftp
           ./scripts/ftp-publish.sh dist
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0
       - name: Prod htaccess smoke
         run: uv run apps/web/scripts/htaccess_check.py https://cs2analyzer.whiskeyo.pl --expect-rev "$(git rev-parse --short HEAD)"
