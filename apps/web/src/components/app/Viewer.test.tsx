@@ -283,9 +283,9 @@ describe("Viewer", () => {
 
   it("shows the last parse notice on the loaded viewer", () => {
     const state = viewerState();
-    state.status.notice = "Series: 2 de_mirage demos · NaVi";
+    state.status.notice = "Parse cancelled.";
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     render(<Viewer />);
-    expect(screen.getByText("Series: 2 de_mirage demos · NaVi")).toBeInTheDocument();
+    expect(screen.getByText("Parse cancelled.")).toBeInTheDocument();
   });
 });

@@ -267,7 +267,10 @@ describe("useDemoSession", () => {
       await result.current.parseDemo(file);
     });
     expect(result.current.parsing).toBe(true);
-    expect(result.current.parseFiles?.[0]).toMatchObject({ name: "match.dem", state: "parsing" });
+    expect(result.current.parseFiles?.[0]).toMatchObject({
+      name: "match.dem",
+      state: "parsing",
+    });
 
     act(() => {
       result.current.cancelParse();
@@ -306,7 +309,11 @@ describe("useDemoSession", () => {
     const demoA = loadedDemo(replayA, "a.dem", fileA);
 
     let resolvePool!: (
-      value: { file: File; demo?: ReturnType<typeof loadedDemo>; timings?: typeof TIMINGS }[],
+      value: {
+        file: File;
+        demo?: ReturnType<typeof loadedDemo>;
+        timings?: typeof TIMINGS;
+      }[],
     ) => void;
     vi.mocked(runParsePool).mockImplementation(
       () =>
@@ -414,7 +421,7 @@ describe("useDemoSession", () => {
     expect(result.current.selectedMapName).toBe("de_ancient");
     expect(result.current.series?.demos).toEqual([demoA, demoB]);
     expect(result.current.demo).toBe(demoA);
-    expect(status.setNotice).toHaveBeenCalledWith("Series: 2 de_ancient demos · Spirit");
+    expect(status.setNotice).not.toHaveBeenCalled();
     expect(status.setNotice).not.toHaveBeenCalledWith(expect.stringContaining("Parsed in"));
     const breakdown = "Parsed in 10ms (WASM 2ms, JSON 3ms, buffers 4ms)";
     expect(
@@ -487,7 +494,7 @@ describe("useDemoSession", () => {
     });
 
     expect(status.setNotice).toHaveBeenCalledWith(seriesRamWarning());
-    expect(status.setNotice).toHaveBeenCalledWith(expect.stringContaining(seriesRamWarning()));
+    expect(status.setNotice).not.toHaveBeenCalledWith(expect.stringContaining("Series:"));
     expect(result.current.series?.demos).toHaveLength(13);
   });
 
@@ -650,7 +657,9 @@ describe("useDemoSession", () => {
 
   it("installs a series the Aggregated session can consume", () => {
     const { result } = renderSession();
-    const replay = makeReplay({ header: { map_name: "de_dust2", team_ct: "A", team_t: "B" } });
+    const replay = makeReplay({
+      header: { map_name: "de_dust2", team_ct: "A", team_t: "B" },
+    });
     const a = loadedDemo(replay, "a.dem", new File([], "a.dem"));
     const b = loadedDemo(replay, "b.dem", new File([], "b.dem"));
     const series = buildSeries("de_dust2", [a, b]);

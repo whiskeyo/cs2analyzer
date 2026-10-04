@@ -176,7 +176,7 @@ describe("useDemoSession append", () => {
     expect(result.current.parsedDemos).toHaveLength(2);
     expect(result.current.mapGroups).toHaveLength(1);
     expect(result.current.selectedMapName).toBe("de_mirage");
-    expect(status.setNotice).toHaveBeenCalledWith("Series: 2 de_mirage demos · NaVi");
+    expect(status.setNotice).not.toHaveBeenCalled();
   });
 
   it("folds an appended file into an existing series and keeps the open demo", async () => {
@@ -229,7 +229,9 @@ describe("useDemoSession append", () => {
 
     const ancientFile = demoFile("ancient.dem");
     const ancient = loadedDemo(
-      makeReplay({ header: { map_name: "de_ancient", team_ct: "NaVi", team_t: "FaZe" } }),
+      makeReplay({
+        header: { map_name: "de_ancient", team_ct: "NaVi", team_t: "FaZe" },
+      }),
       "ancient.dem",
       ancientFile,
     );
@@ -285,7 +287,11 @@ describe("useDemoSession append", () => {
     const extra = demoFile("extra.dem");
 
     let resolvePool!: (
-      value: { file: File; demo?: ReturnType<typeof loadedDemo>; timings?: typeof TIMINGS }[],
+      value: {
+        file: File;
+        demo?: ReturnType<typeof loadedDemo>;
+        timings?: typeof TIMINGS;
+      }[],
     ) => void;
     vi.mocked(runParsePool).mockImplementation(
       () =>

@@ -3,7 +3,6 @@ import { makeReplay } from "@/lib/testing/fixtures";
 import {
   duplicateSeriesNotice,
   existingSessionDemos,
-  formatSeriesNotice,
   loadedSessionCount,
   mergeAppendedDemos,
 } from "./appendSeries";
@@ -12,7 +11,9 @@ import { buildSeries, loadedDemo } from "./session";
 function demo(name: string, mapName: string, extra = name, teamCt = "Spirit", teamT = "G2") {
   const file = new File([extra], name);
   return loadedDemo(
-    makeReplay({ header: { map_name: mapName, team_ct: teamCt, team_t: teamT } }),
+    makeReplay({
+      header: { map_name: mapName, team_ct: teamCt, team_t: teamT },
+    }),
     name,
     file,
   );
@@ -127,32 +128,6 @@ describe("mergeAppendedDemos", () => {
       focalTeam: "NaVi",
     });
     expect(merged.series.focalTeam).toBe("NaVi");
-  });
-});
-
-describe("formatSeriesNotice", () => {
-  it("matches the multi-file drop sentence for one map", () => {
-    const a = demo("a.dem", "de_ancient");
-    const b = demo("b.dem", "de_ancient");
-    const series = buildSeries("de_ancient", [a, b]);
-    expect(formatSeriesNotice([{ mapName: "de_ancient", demos: [a, b] }], series)).toBe(
-      "Series: 2 de_ancient demos · Spirit",
-    );
-  });
-
-  it("names every map group when the session is mixed", () => {
-    const mirage = demo("m.dem", "de_mirage");
-    const ancient = demo("a.dem", "de_ancient");
-    const series = buildSeries("de_mirage", [mirage]);
-    expect(
-      formatSeriesNotice(
-        [
-          { mapName: "de_mirage", demos: [mirage] },
-          { mapName: "de_ancient", demos: [ancient] },
-        ],
-        series,
-      ),
-    ).toBe("Series: 1 de_mirage demo · Spirit · 2 maps (1× de_mirage, 1× de_ancient)");
   });
 });
 
