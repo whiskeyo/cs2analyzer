@@ -1,4 +1,4 @@
-# Stamped at build time (__HTACCESS_REV__ → git short SHA). Proves Apache read this file.
+# X-Htaccess-Rev below is stamped at build time with the git short SHA.
 Options -Indexes -MultiViews
 DirectorySlash Off
 DirectoryIndex index.html

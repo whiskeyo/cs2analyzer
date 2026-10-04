@@ -20,7 +20,7 @@ Default expectations (the fix):
     and Cache-Control: no-cache
   * /404.html itself is that page (noindex, no canonical link, Cache-Control: no-cache), not a copy of /
   * real assets: 200 with the right content-type; missing /assets/*: 404, never 200
-  * /.htaccess: 403 or 404; / and index.html send Cache-Control: no-cache
+  * /.htaccess: 403 or 404; / sends Cache-Control: no-cache
   * --expect-rev: X-Htaccess-Rev on cache-busted /, a route, a 404, and the wasm
   * --cache-bust TOKEN: append cb=TOKEN to every request (?cb= or &cb=) so a CDN
     cannot answer the smoke with a cached pre-deploy response

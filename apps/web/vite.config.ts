@@ -98,14 +98,7 @@ function writeLayoutPlugin(): Plugin {
           layout.map = map;
           await mkdir(layoutsDir, { recursive: true });
           await writeFile(path.join(layoutsDir, file), formatLayout(layout), "utf8");
-          send(
-            res,
-            200,
-            JSON.stringify({
-              ok: true,
-              path: `apps/web/public/layouts/${file}`,
-            }),
-          );
+          send(res, 200, JSON.stringify({ ok: true, path: `apps/web/public/layouts/${file}` }));
         } catch (err: unknown) {
           send(res, 400, JSON.stringify({ error: errorMessage(err) || "save failed" }));
         }
@@ -125,7 +118,8 @@ function gitShortHash(): string {
   }
 }
 
-const HTACCESS_REV = "__HTACCESS_REV__";
+/** Only the Header directive is stamped. A comment that mentions the token must stay literal. */
+const HTACCESS_REV_LINE = /^([ \t]*Header always set X-Htaccess-Rev ")__HTACCESS_REV__(")\s*$/m;
 
 /** Vite's public copy skips dotfiles; stamp the git SHA Apache will echo back. */
 function copyHtaccess() {
@@ -136,10 +130,11 @@ function copyHtaccess() {
       const to = path.join(root, "dist", ".htaccess");
       if (!existsSync(from)) return;
       const raw = readFileSync(from, "utf8");
-      if (!raw.includes(HTACCESS_REV)) {
-        throw new Error("public/.htaccess is missing __HTACCESS_REV__");
+      const stamped = raw.replace(HTACCESS_REV_LINE, `$1${gitShortHash()}$2`);
+      if (stamped === raw) {
+        throw new Error("public/.htaccess is missing the X-Htaccess-Rev placeholder");
       }
-      writeFileSync(to, raw.replaceAll(HTACCESS_REV, gitShortHash()));
+      writeFileSync(to, stamped);
     },
   };
 }

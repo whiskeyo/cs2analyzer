@@ -86,7 +86,6 @@ if ! cmp -s "$LOCAL_DIR/.htaccess" "$uploaded"; then
 fi
 
 lftp "$FTP_HOST" <<EOF
-set cmd:fail-exit yes
 set ssl:verify-certificate no
 set ftp:ssl-allow yes
 set ftp:list-options -a
