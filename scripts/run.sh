@@ -354,7 +354,8 @@ pin_wasm_bindgen() {
 
 # npm 10.9's arborist dies with "Cannot read properties of null (reading
 # 'edgesOut')" while resolving this tree (vitest's optional peers). npm 11
-# runs the same command. `npm update` still writes only package-lock.json.
+# runs the same in-range update and still writes only package-lock.json.
+# --upgrade reuses this for `npm install`.
 npm_web_resolving() {
   local major
   major="$(npm -v | cut -d. -f1)"
