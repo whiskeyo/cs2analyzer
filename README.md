@@ -55,6 +55,8 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 |---|---|
 | `--prepare` | Install Rust toolchain, `wasm-bindgen-cli`, and npm deps |
 | `--update` | Update Rust and npm deps within current semver ranges, keep `wasm-bindgen` pinned to the CLI, rebuild WASM, and run tests. Does not commit. |
+
+`--update` requires a clean `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` (commit or stash those first).
 | `--build-wasm` | Compile the parser WASM into the web app |
 | `--check` | rustfmt, clippy, prettier, eslint, typecheck |
 | `--test` | Rust + web test suites |

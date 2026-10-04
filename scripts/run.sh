@@ -390,11 +390,33 @@ print_version_delta() {
   rm -f "$removed" "$added"
 }
 
+# Paths --update rewrites: lockfiles, the web manifest, and generated WASM
+# bindings. A pre-existing edit would be mixed into the summary.
+require_clean_for_update() {
+  local dirty
+  dirty="$(
+    git -C "$ROOT" status --porcelain --untracked-files=all -- \
+      Cargo.lock \
+      apps/web/package.json \
+      apps/web/package-lock.json \
+      apps/web/src/parser
+  )"
+  [[ -n "$dirty" ]] || return 0
+  echo "error: --update refuses to run while these files have changes:" >&2
+  printf '%s\n' "$dirty" >&2
+  die "Commit or stash these changes before running --update."
+}
+
+file_sha256() {
+  sha256sum "$1" | awk '{ print $1 }'
+}
+
 cmd_update() {
+  require_clean_for_update
   ensure_rust
   ensure_node
 
-  local before_cargo before_npm after_cargo after_npm
+  local before_cargo before_npm after_cargo after_npm package_json_sha
   before_cargo="$(mktemp)"
   before_npm="$(mktemp)"
   after_cargo="$(mktemp)"
@@ -408,8 +430,9 @@ cmd_update() {
   pin_wasm_bindgen "$before_cargo"
 
   log "npm update (web, within package.json ranges)"
+  package_json_sha="$(file_sha256 "$WEB/package.json")"
   npm_update_web
-  if ! git -C "$ROOT" diff --quiet -- apps/web/package.json; then
+  if [[ "$(file_sha256 "$WEB/package.json")" != "$package_json_sha" ]]; then
     die "npm update changed apps/web/package.json; dependency ranges stay as written"
   fi
 
