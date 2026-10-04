@@ -1,3 +1,4 @@
+import { PRERENDER_PATH_ATTR } from "./hydrateDocument";
 import { JSON_LD_SOFTWARE, pageHead, type JsonLdGraph } from "./pageMeta";
 import { normalizePath, ROUTES } from "./routes";
 
@@ -103,7 +104,11 @@ export function injectPrerenderedPage(template: string, pathname: string, body: 
     html = upsertJsonLdHtml(html, block.id, block.payload);
   }
   const markup = stripSsrHoistables(body);
-  const withRoot = html.replace(/<div id="root">\s*<\/div>/, `<div id="root">${markup}</div>`);
+  const renderedFor = escapeAttr(normalizePath(pathname));
+  const withRoot = html.replace(
+    /<div id="root">\s*<\/div>/,
+    `<div id="root" ${PRERENDER_PATH_ATTR}="${renderedFor}">${markup}</div>`,
+  );
   if (withRoot === html) {
     throw new Error(`prerender: missing empty #root in template (${pathname})`);
   }

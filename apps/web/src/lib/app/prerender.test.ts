@@ -54,7 +54,9 @@ describe("injectPrerenderedPage", () => {
     expect(html).toContain("<title>CS2 Analyzer — FAQ</title>");
     expect(html).toContain(`content="${faq.description}"`);
     expect(html).toContain(`href="${SITE_ORIGIN}/faq"`);
-    expect(html).toContain(`<div id="root"><h2>FAQ</h2><p>What is CS2 Analyzer?</p></div>`);
+    expect(html).toContain(
+      `<div id="root" data-prerender-path="/faq"><h2>FAQ</h2><p>What is CS2 Analyzer?</p></div>`,
+    );
     expect(html).toContain(`data-seo="${JSON_LD_SOFTWARE}"`);
     expect(html).toContain(`data-seo="${JSON_LD_BREADCRUMB}"`);
     expect(html).toContain('"@type":"BreadcrumbList"');
@@ -70,7 +72,7 @@ describe("injectPrerenderedPage", () => {
     expect(html).toContain("SoftwareApplication");
     expect(html).not.toContain("BreadcrumbList");
     expect(html).not.toContain(`data-seo="${JSON_LD_BREADCRUMB}"`);
-    expect(html).toContain(`<div id="root"><h1>${SITE_NAME}</h1></div>`);
+    expect(html).toContain(`<div id="root" data-prerender-path="/"><h1>${SITE_NAME}</h1></div>`);
   });
 
   it("throws when the template has no empty #root", () => {
@@ -83,7 +85,7 @@ describe("injectPrerenderedPage", () => {
       "/",
       `<link rel="preload" as="image" href="/favicon.svg"/><h1>${SITE_NAME}</h1>`,
     );
-    expect(html).toContain(`<div id="root"><h1>${SITE_NAME}</h1></div>`);
+    expect(html).toContain(`<div id="root" data-prerender-path="/"><h1>${SITE_NAME}</h1></div>`);
     expect(html).not.toContain('rel="preload"');
   });
 });
