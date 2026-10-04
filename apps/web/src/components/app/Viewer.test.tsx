@@ -66,7 +66,11 @@ function viewerState(replay = makeReplay()) {
       roundAutoplay: false,
       setRoundAutoplay: vi.fn(),
     },
-    review: { notes: [], notesDemoId: null as string | null, commitNotes: vi.fn() },
+    review: {
+      notes: [],
+      notesDemoId: null as string | null,
+      commitNotes: vi.fn(),
+    },
     view: { selected: null, select: vi.fn() },
     places: null,
     habits: {
@@ -116,6 +120,21 @@ describe("Viewer", () => {
     expect(screen.getByText(/Space play/)).toBeInTheDocument();
   });
 
+  it("keeps the round strip in the map column and the transport below the stage", () => {
+    vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
+    render(<Viewer />);
+    const stage = document.querySelector(".stage");
+    const column = document.querySelector(".map-column");
+    const strip = screen.getByTestId("round-strip");
+    const sidebar = screen.getByTestId("sidebar");
+    const controls = screen.getByTestId("controls");
+    expect(column).toContainElement(strip);
+    expect(column).toContainElement(screen.getByTestId("radar-stage"));
+    expect(column).not.toContainElement(sidebar);
+    expect(stage).toContainElement(sidebar);
+    expect(stage).not.toContainElement(controls);
+  });
+
   it("shows bucket controls in aggregated overlay mode", () => {
     const replay = makeReplay();
     const series = buildSeries("de_mirage", [
@@ -138,6 +157,13 @@ describe("Viewer", () => {
     expect(screen.getByTestId("bucket-controls")).toBeInTheDocument();
     expect(screen.queryByTestId("round-strip")).not.toBeInTheDocument();
     expect(screen.queryByTestId("controls")).not.toBeInTheDocument();
+    const column = document.querySelector(".map-column");
+    const strip = screen.getByTestId("aggregated-round-strip");
+    expect(column).toContainElement(strip);
+    expect(column).not.toContainElement(screen.getByTestId("sidebar"));
+    expect(document.querySelector(".stage")).not.toContainElement(
+      screen.getByTestId("bucket-controls"),
+    );
   });
 
   it("hides live-round notes on the Aggregated transport and after a demo mismatch", () => {
@@ -161,7 +187,11 @@ describe("Viewer", () => {
     vi.mocked(useApp).mockReturnValue({
       ...base,
       session: { ...base.session, series, demo: series.demos[0] },
-      review: { notes: noted, notesDemoId: series.demos[0]?.id ?? null, commitNotes: vi.fn() },
+      review: {
+        notes: noted,
+        notesDemoId: series.demos[0]?.id ?? null,
+        commitNotes: vi.fn(),
+      },
     } as unknown as ReturnType<typeof useApp>);
     const { rerender } = render(<Viewer />);
     expect(controlsProbe.notes).toEqual(noted);
@@ -169,7 +199,11 @@ describe("Viewer", () => {
     vi.mocked(useApp).mockReturnValue({
       ...base,
       session: { ...base.session, series, demo: series.demos[0] },
-      review: { notes: noted, notesDemoId: series.demos[0]?.id ?? null, commitNotes: vi.fn() },
+      review: {
+        notes: noted,
+        notesDemoId: series.demos[0]?.id ?? null,
+        commitNotes: vi.fn(),
+      },
       habits: { ...base.habits, aggregated: true },
     } as unknown as ReturnType<typeof useApp>);
     rerender(<Viewer />);
@@ -178,7 +212,11 @@ describe("Viewer", () => {
     vi.mocked(useApp).mockReturnValue({
       ...base,
       session: { ...base.session, series, demo: series.demos[1] },
-      review: { notes: noted, notesDemoId: series.demos[0]?.id ?? null, commitNotes: vi.fn() },
+      review: {
+        notes: noted,
+        notesDemoId: series.demos[0]?.id ?? null,
+        commitNotes: vi.fn(),
+      },
       habits: { ...base.habits, aggregated: false },
     } as unknown as ReturnType<typeof useApp>);
     rerender(<Viewer />);
@@ -223,7 +261,9 @@ describe("Viewer", () => {
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     const { container } = render(<Viewer />);
     const viewer = container.querySelector(".viewer") as HTMLElement;
-    fireEvent.drop(viewer, { dataTransfer: { files: [new File(["fake"], "extra.dem")] } });
+    fireEvent.drop(viewer, {
+      dataTransfer: { files: [new File(["fake"], "extra.dem")] },
+    });
     await waitFor(() =>
       expect(state.appendFiles).toHaveBeenCalledWith([
         expect.objectContaining({ name: "extra.dem" }),
