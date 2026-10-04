@@ -55,7 +55,8 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 |---|---|
 | `--prepare` | Install Rust toolchain, `wasm-bindgen-cli`, and npm deps |
 | `--update` | Update Rust and npm deps within current semver ranges, keep `wasm-bindgen` pinned to the CLI, rebuild WASM, and run tests. Does not commit. |
-| `--upgrade` | Bump Rust and npm deps to the newest versions, including outside current semver ranges. Skips `source2-demo`, `wasm-bindgen`, and `js-sys`. Rebuilds WASM, runs tests, then the production build. Does not commit. |
+| `--upgrade` | Bump Rust and npm deps to the newest peer-compatible versions, including outside current semver ranges. Skips `source2-demo`, `wasm-bindgen`, and `js-sys`. Rebuilds WASM, runs tests, then the production build. Does not commit. Restores the dependency tree on failure. |
+| `--latest` | With `--upgrade` only. Take the newest versions even when they break peer dependencies. |
 | `--build-wasm` | Compile the parser WASM into the web app |
 | `--check` | rustfmt, clippy, prettier, eslint, typecheck |
 | `--test` | Rust + web test suites |
@@ -66,11 +67,15 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 
 ### `--upgrade`
 
-`--update` stays inside the ranges already written in the manifests. `--upgrade` rewrites those ranges to the newest published versions, refreshes the lockfiles, rebuilds WASM, and runs the Rust tests, the web tests, and `npm run build` (the production prerender). It prints a table of resolved version changes and leaves the diff in the working tree. It does not commit.
+`--update` stays inside the ranges already written in the manifests. `--upgrade` rewrites those ranges to the newest published versions that still satisfy peer dependencies (`npm-check-updates --peer`), refreshes the lockfiles, rebuilds WASM, and runs the Rust tests, the web tests, and `npm run build` (the production prerender). It prints a table of resolved version changes and leaves the diff in the working tree. It does not commit.
 
-Not a CI step. Review `git diff` and commit the bumps you want to keep.
+`--upgrade --latest` drops `--peer` and takes the newest versions even when another package's peer range cannot accept them. `--latest` on its own is an error.
 
-Requires [cargo-edit](https://github.com/killercup/cargo-edit) (`cargo install cargo-edit`). npm packages are bumped with `npx npm-check-updates` (no global install).
+If a step fails after files have changed, the script puts every workspace `Cargo.toml`, `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` back to the pre-run state, names the step, and exits non-zero.
+
+Not a CI step. On success, review `git diff` and commit the bumps you want to keep.
+
+Requires [cargo-edit](https://github.com/killercup/cargo-edit) (`cargo install cargo-edit`). npm packages are bumped with `npx npm-check-updates@22` (no global install). Major 23 rejects Node 24.11 (`^24.15.0`); major 22 accepts `>=24`.
 
 Left unchanged:
 

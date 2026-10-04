@@ -47,6 +47,22 @@ if "$ROOT/scripts/run.sh" --upgrade --update >"${scratch}/excl.out" 2>"${scratch
   fail "--upgrade and --update together should exit 1"
 fi
 
+if "$ROOT/scripts/run.sh" --latest >"${scratch}/latest.out" 2>"${scratch}/latest.err"; then
+  fail "--latest alone should exit 1"
+fi
+grep -F -q -- '--latest requires --upgrade' "${scratch}/latest.err" \
+  || fail "--latest alone should say it requires --upgrade"
+if "$ROOT/scripts/run.sh" --update --latest >"${scratch}/latest.out" 2>"${scratch}/latest.err"; then
+  fail "--latest with --update should exit 1"
+fi
+grep -F -q -- '--latest requires --upgrade' "${scratch}/latest.err" \
+  || fail "--latest with --update should say it requires --upgrade"
+
+peer_args="$(LATEST=0 ncu_upgrade_args | paste -sd' ' -)"
+[[ "$peer_args" == "-u --peer" ]] || fail "default upgrade should pass --peer (got: ${peer_args})"
+latest_args="$(LATEST=1 ncu_upgrade_args | paste -sd' ' -)"
+[[ "$latest_args" == "-u" ]] || fail "--latest should drop --peer (got: ${latest_args})"
+
 # Hide cargo-upgrade even when it is installed. run.sh does not put it back on PATH.
 if (
   PATH="/usr/bin:/bin"
@@ -116,6 +132,42 @@ fi
 grep -F -q 'Cargo.lock' "${scratch}/dirty.err" || fail "dirty message should name Cargo.lock"
 grep -F -q 'before running --update' "${scratch}/dirty.err" \
   || fail "dirty message should name --update"
+
+# Cargo.lock is still dirty. A failure before any edits must leave it that way.
+(
+  ROOT="$guard_repo"
+  UPGRADE_STEP="cargo-edit preflight"
+  UPGRADE_MUTATED=0
+  UPGRADE_TMP_FILES=()
+  false || upgrade_report_failure
+) 2>"${scratch}/norestore.err"
+grep -F -q 'failed during: cargo-edit preflight' "${scratch}/norestore.err" \
+  || fail "preflight failure should name its step"
+if grep -F -q 'restored' "${scratch}/norestore.err"; then
+  fail "a failure before any edits should not restore the tree"
+fi
+git -C "$guard_repo" diff --quiet -- Cargo.lock \
+  && fail "Cargo.lock should still be dirty before a mutating failure"
+
+echo changed >>"$guard_repo/apps/web/src/parser/cs2analyzer_wasm.js"
+echo extra >"$guard_repo/apps/web/src/parser/extra.js"
+(
+  ROOT="$guard_repo"
+  UPGRADE_STEP="npm install"
+  UPGRADE_MUTATED=1
+  UPGRADE_TMP_FILES=()
+  false || upgrade_report_failure
+) 2>"${scratch}/restore.err"
+grep -F -q 'failed during: npm install' "${scratch}/restore.err" \
+  || fail "restore failure should name the step"
+grep -F -q 'restored to its pre-run state' "${scratch}/restore.err" \
+  || fail "mutating failure should say the tree was restored"
+git -C "$guard_repo" diff --quiet -- Cargo.lock apps/web/src/parser/cs2analyzer_wasm.js \
+  || fail "Cargo.lock and parser output should be restored"
+test ! -e "$guard_repo/apps/web/src/parser/extra.js" \
+  || fail "untracked parser file should be removed"
+grep -F -q dirty "$guard_repo/README.md" \
+  || fail "files outside the dependency tree should stay dirty"
 
 # 0.x minor bumps count as major; 1.x minor bumps do not.
 is_major_bump 1.2.3 2.0.0 || fail "1.x to 2.x is a major bump"
