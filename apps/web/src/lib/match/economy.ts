@@ -1,5 +1,3 @@
-import { en } from "@/lib/i18n/en";
-import type { Messages } from "@/lib/i18n/messages";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
 import { liveScoreboardPlayers } from "@/lib/stats/liveScore";
@@ -113,14 +111,9 @@ export function formatBuyWinRate(wins: number, rounds: number): string {
   return `${Math.round((wins / rounds) * PERCENT_SCALE)}%`;
 }
 
-const AVERAGE_EQUIPMENT_AMOUNT = "{amount}";
-
-/** Per-player average freeze equipment, e.g. `avg $5,020` / `śr. $5,020`. */
-export function formatAverageEquipment(amount: number, messages: Messages = en): string {
-  return messages.economy.averageEquipment.replaceAll(
-    AVERAGE_EQUIPMENT_AMOUNT,
-    formatMoney(Math.round(amount)),
-  );
+/** Per-player average freeze equipment, e.g. `avg $5,020`. */
+export function formatAverageEquipment(amount: number): string {
+  return `avg ${formatMoney(Math.round(amount))}`;
 }
 
 /**

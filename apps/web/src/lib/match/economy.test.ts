@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { pl } from "@/lib/i18n/pl";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type Side } from "@/lib/replay/replayTypes";
 import {
   ECO_MAX_EQUIPMENT,
@@ -35,11 +34,9 @@ describe("bySide", () => {
 });
 
 describe("formatAverageEquipment", () => {
-  it("labels the rounded per-player average in English and Polish", () => {
-    expect(formatAverageEquipment(5020)).toBe("avg $5,020");
+  it("rounds the per-player average before the avg label", () => {
     expect(formatAverageEquipment(5020.4)).toBe("avg $5,020");
     expect(formatAverageEquipment(5020.5)).toBe("avg $5,021");
-    expect(formatAverageEquipment(5020, pl)).toBe("śr. $5,020");
   });
 });
 
