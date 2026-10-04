@@ -407,6 +407,41 @@ grep -F -x -q "npm_in ${WEB} ci" "${scratch}/npm-term.log" \
 git -C "$guard_repo" diff --quiet -- apps/web/package.json \
   || fail "package.json should be restored after SIGTERM"
 
+echo 'during restore' >>"$guard_repo/Cargo.lock"
+set +e
+(
+  ROOT="$guard_repo"
+  # Second SIGINT is raised from inside the restore's npm ci.
+  # shellcheck disable=SC2317
+  npm_in() {
+    echo "npm_in $*" >>"${scratch}/npm-int-during.log"
+    kill -INT "$BASHPID"
+    return 1
+  }
+  UPGRADE_STEP="npm install"
+  UPGRADE_MUTATED=1
+  UPGRADE_RESTORE_DONE=0
+  UPGRADE_TMP_FILES=()
+  upgrade_install_traps
+  kill -INT "$BASHPID"
+  echo 'handler did not exit' >&2
+  exit 1
+) 2>"${scratch}/int-during.err"
+during_status=$?
+set -e
+[[ "$during_status" -eq 130 ]] \
+  || fail "SIGINT during restore should exit 130 (got ${during_status})"
+[[ "$(grep -F -c 'interrupted during:' "${scratch}/int-during.err")" -eq 1 ]] \
+  || fail "interrupted-during should print once when restore is interrupted"
+grep -F -q 'interrupted during: npm install' "${scratch}/int-during.err" \
+  || fail "the first SIGINT should name the original step"
+[[ "$(grep -F -c 'interrupted while restoring; run (cd apps/web && npm ci)' "${scratch}/int-during.err")" -eq 1 ]] \
+  || fail "SIGINT during restore should print the manual npm ci hint once"
+[[ "$(wc -l <"${scratch}/npm-int-during.log")" -eq 1 ]] \
+  || fail "SIGINT during restore must not start npm ci again"
+git -C "$guard_repo" diff --quiet -- Cargo.lock \
+  || fail "lockfiles restored before npm ci should stay restored"
+
 # 0.x minor bumps count as major; 1.x minor bumps do not.
 is_major_bump 1.2.3 2.0.0 || fail "1.x to 2.x is a major bump"
 is_major_bump 1.2.3 1.9.0 && fail "1.x minor is not a major bump"

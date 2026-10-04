@@ -763,7 +763,8 @@ restore_upgrade_node_modules() {
 }
 
 # File checkout plus npm ci. The signal trap and the EXIT trap can both run;
-# the flag makes the second one a no-op.
+# the flag makes the second one a no-op. The step is `restore` for the whole
+# cleanup so a second Ctrl-C can tell that npm ci is already in progress.
 upgrade_restore_after_mutation() {
   if [[ "${UPGRADE_MUTATED:-0}" -ne 1 ]]; then
     return 0
@@ -772,6 +773,7 @@ upgrade_restore_after_mutation() {
     return 0
   fi
   UPGRADE_RESTORE_DONE=1
+  UPGRADE_STEP="restore"
   if restore_upgrade_tree; then
     if restore_upgrade_node_modules; then
       echo "error: the dependency tree was restored to its pre-run state" >&2
@@ -795,10 +797,19 @@ upgrade_report_failure() {
 
 # Foreground Ctrl-C delivers SIGINT to this shell as well as cargo/npm.
 # 130 = 128+SIGINT, 143 = 128+SIGTERM. EXIT still runs afterwards and must
-# not restore a second time.
+# not restore a second time. A second signal during restore must not start
+# npm ci again: that deletes node_modules and would leave it empty.
 upgrade_on_interrupt() {
   local status="$1"
+  if [[ "${UPGRADE_STEP:-}" == "restore" ]]; then
+    echo "error: interrupted while restoring; run (cd apps/web && npm ci)" >&2
+    upgrade_cleanup_tmp
+    UPGRADE_STEP=""
+    UPGRADE_MUTATED=0
+    exit "$status"
+  fi
   echo "error: --upgrade interrupted during: ${UPGRADE_STEP:-unknown}" >&2
+  UPGRADE_STEP="restore"
   upgrade_restore_after_mutation
   upgrade_cleanup_tmp
   UPGRADE_STEP=""
