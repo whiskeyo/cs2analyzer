@@ -837,7 +837,7 @@ upgrade_report_failure() {
 upgrade_on_interrupt() {
   local status="$1"
   if [[ "${UPGRADE_STEP:-}" == "restore" ]]; then
-    echo "error: interrupted while restoring; run (cd apps/web && npm ci)" >&2
+    echo "error: interrupted while restoring; check git status, then run (cd apps/web && npm ci)" >&2
     upgrade_cleanup_tmp
     UPGRADE_STEP=""
     UPGRADE_MUTATED=0

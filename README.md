@@ -71,7 +71,7 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 
 `--upgrade --latest` drops `--peer` and takes the newest versions even when another package's peer range cannot accept them. `--latest` on its own is an error.
 
-If a step fails after files have changed, or the run is interrupted with Ctrl-C or SIGTERM, the script puts every workspace `Cargo.toml`, `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` back to the pre-run state, runs `npm ci` in `apps/web` so `node_modules` matches that lock, and does that restore only once. A failed step names the step and exits non-zero. Ctrl-C exits 130 and SIGTERM exits 143. If `npm ci` fails, it tells you to run that command manually and does not try again. A second interrupt during that restore leaves the restored lockfiles in place and prints that same manual `npm ci` hint once.
+If a step fails after files have changed, or the run is interrupted with Ctrl-C or SIGTERM, the script puts every workspace `Cargo.toml`, `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` back to the pre-run state, runs `npm ci` in `apps/web` so `node_modules` matches that lock, and does that restore only once. A failed step names the step and exits non-zero. Ctrl-C exits 130 and SIGTERM exits 143. If `npm ci` fails, it tells you to run that command manually and does not try again. A second interrupt during that restore leaves whatever was already restored in place and prints once: check `git status`, then run `npm ci` in `apps/web`.
 
 Not a CI step. On success, review `git diff` and commit the bumps you want to keep.
 

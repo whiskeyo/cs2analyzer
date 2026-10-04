@@ -437,8 +437,8 @@ set -e
   || fail "interrupted-during should print once when restore is interrupted"
 grep -F -q 'interrupted during: npm install' "${scratch}/int-during.err" \
   || fail "the first SIGINT should name the original step"
-[[ "$(grep -F -c 'interrupted while restoring; run (cd apps/web && npm ci)' "${scratch}/int-during.err")" -eq 1 ]] \
-  || fail "SIGINT during restore should print the manual npm ci hint once"
+[[ "$(grep -F -c 'interrupted while restoring; check git status, then run (cd apps/web && npm ci)' "${scratch}/int-during.err")" -eq 1 ]] \
+  || fail "SIGINT during restore should print the git status and npm ci hint once"
 [[ "$(wc -l <"${scratch}/npm-int-during.log")" -eq 1 ]] \
   || fail "SIGINT during restore must not start npm ci again"
 git -C "$guard_repo" diff --quiet -- Cargo.lock \
