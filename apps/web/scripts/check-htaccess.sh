@@ -56,7 +56,7 @@ docker run -d --name "$NAME" \
   -v "${DIST}:/usr/local/apache2/htdocs:ro" \
   --entrypoint bash \
   "$IMAGE" \
-  -lc 'set -e
+  -c 'set -e
 sed -i "s/^#LoadModule rewrite_module/LoadModule rewrite_module/" /usr/local/apache2/conf/httpd.conf
 sed -i -E "s/AllowOverride [Nn]one/AllowOverride All/g" /usr/local/apache2/conf/httpd.conf
 printf "\n# OVH ships no .wasm type unless .htaccess adds one.\nRemoveType .wasm\n" >> /usr/local/apache2/conf/httpd.conf
