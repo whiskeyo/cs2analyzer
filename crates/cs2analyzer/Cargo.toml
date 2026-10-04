@@ -10,6 +10,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 source2-demo = { workspace = true }
+# Only here to keep the source2-demo stack on 0.5.8. Remove together with the source2-demo pin.
+source2-demo-macros = { workspace = true }
+source2-demo-protobufs = { workspace = true }
 
 [features]
 default = ["mimalloc", "match-stats"]

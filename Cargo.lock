@@ -101,6 +101,8 @@ dependencies = [
  "serde",
  "serde_json",
  "source2-demo",
+ "source2-demo-macros",
+ "source2-demo-protobufs",
  "thiserror 2.0.20",
 ]
 
