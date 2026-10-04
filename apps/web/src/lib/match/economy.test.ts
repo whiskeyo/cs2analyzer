@@ -6,7 +6,14 @@ import {
 } from "@/lib/shared/constants";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type Side } from "@/lib/replay/replayTypes";
 import { makePlayer, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
-import { formatBuyRecord, formatBuyWinRate, matchEconomy, spendBuy } from "./economy";
+import {
+  bySide,
+  formatBuyRecord,
+  formatBuyWinRate,
+  matchEconomy,
+  roundTeamName,
+  spendBuy,
+} from "./economy";
 
 describe("spendBuy", () => {
   it("uses the shared eco and force equipment cutoffs", () => {
@@ -14,6 +21,14 @@ describe("spendBuy", () => {
     expect(spendBuy(ECO_MAX_EQUIPMENT)).toBe("force");
     expect(spendBuy(FORCE_BUY_MAX_EQUIPMENT - 1)).toBe("force");
     expect(spendBuy(FORCE_BUY_MAX_EQUIPMENT)).toBe("full");
+  });
+});
+
+describe("bySide", () => {
+  it("reads the field for the given side", () => {
+    const pair = { ct: "ct-value", t: "t-value" };
+    expect(bySide(pair, "CT")).toBe("ct-value");
+    expect(bySide(pair, "T")).toBe("t-value");
   });
 });
 
@@ -179,24 +194,141 @@ describe("matchEconomy", () => {
     );
     expect(economy.rates).toEqual([
       {
-        team: "Astralis",
-        rows: [
-          { buy: "pistol", rounds: 2, wins: 2 },
-          { buy: "anti-eco", rounds: 1, wins: 1 },
-        ],
-      },
-      {
         team: "Vitality",
         rows: [
           { buy: "pistol", rounds: 2, wins: 0 },
           { buy: "eco", rounds: 1, wins: 0 },
         ],
       },
+      {
+        team: "Astralis",
+        rows: [
+          { buy: "pistol", rounds: 2, wins: 2 },
+          { buy: "anti-eco", rounds: 1, wins: 1 },
+        ],
+      },
     ]);
-    const swapped = economy.rows[0]?.cells[2];
+    const swapped = economy.rows.find((row) => row.team === "Astralis")?.cells[2];
     expect(swapped?.side).toBe("T");
     expect(swapped?.won).toBe(true);
     expect(swapped?.buy).toBe("pistol");
+  });
+
+  it("names each side from that round, including after the half swap", () => {
+    const replay = economyReplay([
+      {
+        number: 1,
+        winner: "CT",
+        ctEquip: 800,
+        tEquip: 800,
+        team_ct: "Astralis",
+        team_t: "Vitality",
+      },
+      {
+        number: 13,
+        winner: "T",
+        ctEquip: 800,
+        tEquip: 800,
+        team_ct: "Vitality",
+        team_t: "Astralis",
+      },
+    ]);
+    expect(roundTeamName(replay, replay.rounds[0]!, "CT")).toBe("Astralis");
+    expect(roundTeamName(replay, replay.rounds[0]!, "T")).toBe("Vitality");
+    expect(roundTeamName(replay, replay.rounds[1]!, "CT")).toBe("Vitality");
+    expect(roundTeamName(replay, replay.rounds[1]!, "T")).toBe("Astralis");
+  });
+
+  it("ignores a leftover dead $0 controller when averaging a side", () => {
+    const players = [
+      makePlayer(0, "CT", "C"),
+      makePlayer(1, "T", "T"),
+      makePlayer(2, "CT", "Ghost"),
+    ];
+    const ticks = makeTicks(3, 1);
+    const freeze = 64;
+    ticks.ticks[0] = freeze;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[2] = FLAG_PRESENT | FLAG_CT;
+    ticks.equip[0] = 5000;
+    ticks.equip[1] = 5000;
+    ticks.equip[2] = 0;
+    ticks.money[2] = 0;
+    const replay = makeReplay({
+      players,
+      ticks,
+      rounds: [
+        makeRound({
+          number: 4,
+          winner: "CT",
+          start_tick: 0,
+          freeze_end_tick: freeze,
+          end_tick: 800,
+        }),
+      ],
+    });
+    const economy = matchEconomy(replay);
+    expect(economy.rounds[0]?.ct.buy).toBe("full");
+    expect(economy.rounds[0]?.ct.averageEquipment).toBe(5000);
+    expect(economy.rounds[0]?.t.buy).toBe("full");
+  });
+
+  it("classifies half edges and overtime from equipment, except the second pistol", () => {
+    const economy = matchEconomy(
+      economyReplay([
+        {
+          number: 12,
+          winner: "CT",
+          ctEquip: 4500,
+          tEquip: 4500,
+          team_ct: "Astralis",
+          team_t: "Vitality",
+        },
+        {
+          number: 13,
+          winner: "T",
+          ctEquip: 5000,
+          tEquip: 4200,
+          team_ct: "Vitality",
+          team_t: "Astralis",
+        },
+        { number: 24, winner: "CT", ctEquip: 800, tEquip: 800 },
+        { number: 25, winner: "CT", ctEquip: 4500, tEquip: 4500 },
+        // Synthetic. A real match starts each OT half with OVERTIME_START_MONEY ($10,000)
+        // on both teams. This row only guards that no OT round is classified as pistol.
+        { number: 28, winner: "T", ctEquip: 800, tEquip: 5000 },
+        { number: 31, winner: "CT", ctEquip: 2500, tEquip: 2500 },
+      ]),
+    );
+    expect(economy.rounds.map((round) => [round.round, round.ct.buy, round.t.buy])).toEqual([
+      [12, "full", "full"],
+      [13, "pistol", "pistol"],
+      [24, "eco", "eco"],
+      [25, "full", "full"],
+      [28, "eco", "anti-eco"],
+      [31, "force", "force"],
+    ]);
+    const pistolRounds = economy.rounds
+      .filter((round) => round.ct.buy === "pistol" || round.t.buy === "pistol")
+      .map((round) => round.round);
+    expect(pistolRounds).toEqual([13]);
+    expect(economy.rounds[0]?.t.team).toBe("Vitality");
+    expect(economy.rounds[1]?.ct.team).toBe("Vitality");
+    expect(economy.rounds[1]?.t.team).toBe("Astralis");
+  });
+
+  it("classifies a repeated round number from that round's own freeze", () => {
+    const economy = matchEconomy(
+      economyReplay([
+        { number: 8, winner: "CT", ctEquip: 5000, tEquip: 5000 },
+        { number: 8, winner: "T", ctEquip: 500, tEquip: 500 },
+      ]),
+    );
+    expect(economy.rounds).toHaveLength(2);
+    expect(economy.rounds[0]?.ct.buy).toBe("full");
+    expect(economy.rounds[1]?.ct.buy).toBe("eco");
+    expect(economy.rounds[0]?.jumpTick).not.toBe(economy.rounds[1]?.jumpTick);
   });
 
   it("leaves the buy empty when a side is missing at freeze", () => {
