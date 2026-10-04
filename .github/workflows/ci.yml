@@ -15,6 +15,9 @@
 # bindings. Do not add crates/** to the Web filter. Root *.md is README.md /
 # AGENTS.md only (`*` does not cross `/`). FAQ articles live under
 # apps/web/src/content/faq/ and still run Web.
+#
+# Apache htaccess runs whenever Web does (PRs and push). It serves the
+# downloaded web-dist artifact, not the Web job's workspace. Deploy needs it.
 
 name: CI
 
@@ -161,24 +164,41 @@ jobs:
       - name: build
         run: npm run build
       - uses: actions/upload-artifact@v7
-        if: github.event_name == 'push'
         with:
           name: web-dist
           path: apps/web/dist
           include-hidden-files: true
 
+  htaccess:
+    name: Apache htaccess
+    needs: [changes, web]
+    if: needs.changes.outputs.web == 'true' && needs.web.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: dist
+      - name: Artifact contains .htaccess
+        run: test -f dist/.htaccess
+      - uses: astral-sh/setup-uv@v10
+      - name: Apache matrix
+        run: ./apps/web/scripts/check-htaccess.sh dist
+
   deploy:
     name: Deploy to OVH
     runs-on: ubuntu-latest
-    needs: [rust, web, wasm]
+    needs: [rust, web, wasm, htaccess]
     # Web-only master pushes skip Rust and Wasm; still publish. Rust-only
-    # skips deploy (no new web-dist). A failed Rust or Wasm job on a mixed
-    # change still blocks.
+    # skips deploy (no new web-dist). A failed Rust, Wasm, or htaccess job
+    # on a mixed change still blocks.
     if: >
       !cancelled() &&
       github.event_name == 'push' &&
       (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') &&
       needs.web.result == 'success' &&
+      needs.htaccess.result == 'success' &&
       (needs.rust.result == 'success' || needs.rust.result == 'skipped') &&
       (needs.wasm.result == 'success' || needs.wasm.result == 'skipped')
     steps:
@@ -196,3 +216,6 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq lftp
           ./scripts/ftp-publish.sh dist
+      - uses: astral-sh/setup-uv@v10
+      - name: Prod htaccess smoke
+        run: uv run apps/web/scripts/htaccess_check.py https://cs2analyzer.whiskeyo.pl --expect-rev "$(git rev-parse --short HEAD)"
