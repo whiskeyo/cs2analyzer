@@ -36,12 +36,13 @@ if [[ -f "${HOME}/.cargo/env" ]]; then
   . "${HOME}/.cargo/env"
 fi
 
-# Help descriptions start at column 19. Other flags fit in 80 columns.
+# Help descriptions start at column 19. Every help line fits in 80 columns.
 help_wrap() {
   local text="$1"
+  local first_prefix="${2:-}"
   local indent='                   '
   local width=61
-  local line='' word
+  local line='' word started=0
   local -a words=()
   read -r -a words <<<"$text"
   for word in "${words[@]}"; do
@@ -50,13 +51,30 @@ help_wrap() {
     elif [[ $((${#line} + 1 + ${#word})) -le "$width" ]]; then
       line="$line $word"
     else
-      printf '%s%s\n' "$indent" "$line"
+      if [[ "$started" -eq 0 && -n "$first_prefix" ]]; then
+        printf '%s%s\n' "$first_prefix" "$line"
+      else
+        printf '%s%s\n' "$indent" "$line"
+      fi
+      started=1
       line="$word"
     fi
   done
   if [[ -n "$line" ]]; then
-    printf '%s%s\n' "$indent" "$line"
+    if [[ "$started" -eq 0 && -n "$first_prefix" ]]; then
+      printf '%s%s\n' "$first_prefix" "$line"
+    else
+      printf '%s%s\n' "$indent" "$line"
+    fi
   fi
+}
+
+help_flag() {
+  local flag="$1"
+  local text="$2"
+  local prefix
+  prefix="$(printf '  %-17s' "$flag")"
+  help_wrap "$text" "$prefix"
 }
 
 usage() {
@@ -79,15 +97,12 @@ $(help_wrap "$(upgrade_latest_warning)")
   --build-wasm     Compile WASM and emit JS bindings into apps/web/src/parser/
   --check          rustfmt, clippy, prettier, eslint, typecheck
   --test           cargo test and the web vitest suite
-  --dev            Start the Vite dev server (http://localhost:${DEV_PORT}/; layouts at /layouts).
-                   Requires complete apps/web/src/parser/ artifacts (auto-builds if the
-                   wasm toolchain is already installed).
-  --prod           Build the production bundle and preview it (http://localhost:${PROD_PORT}/).
-                   Same parser check as --dev, then npm run build.
-  --local-network  With --dev or --prod, bind 0.0.0.0 so other devices on the LAN can open it
-                   (open the printed LAN IP on the other device — not http://0.0.0.0/)
+$(help_flag --dev "Start the Vite dev server (http://localhost:${DEV_PORT}/; layouts at /layouts). Requires complete apps/web/src/parser/ artifacts (auto-builds if the wasm toolchain is already installed).")
+$(help_flag --prod "Build the production bundle and preview it (http://localhost:${PROD_PORT}/). Same parser check as --dev, then npm run build.")
+$(help_flag --local-network "With --dev or --prod, bind 0.0.0.0 so other devices on the LAN can open it (open the printed LAN IP on the other device — not http://0.0.0.0/).")
 
-Flags can be combined. They run in the order above; --dev / --prod are last and block.
+Flags can be combined. They run in the order above; --dev / --prod
+are last and block.
 Do not pass both --dev and --prod, or both --update and --upgrade.
 --latest requires --upgrade. --local-network requires --dev or --prod.
 EOF

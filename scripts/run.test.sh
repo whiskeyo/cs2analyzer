@@ -67,8 +67,8 @@ grep -F -q 'Vite, Vitest, jsdom, react-router' "${scratch}/help.out" \
   || fail "--help should name major-bump examples"
 grep -F -q 'default --upgrade (with --peer) is the safe path' "${scratch}/help.out" \
   || fail "--help should call the default --upgrade the safe path"
-help_wide="$(awk 'length > 93 { print length, $0 }' "${scratch}/help.out")"
-[[ -z "$help_wide" ]] || fail "--help lines should wrap like the other flags: ${help_wide}"
+help_wide="$(awk 'length > 80 { print length, $0 }' "${scratch}/help.out")"
+[[ -z "$help_wide" ]] || fail "--help lines should fit in 80 columns: ${help_wide}"
 
 # Shared skip list for cargo upgrade --exclude and the cargo update filter.
 for crate in \
