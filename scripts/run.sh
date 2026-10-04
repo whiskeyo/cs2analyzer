@@ -725,6 +725,7 @@ print_upgrade_table() {
 # Temps are global so the trap still sees them if a called function exits the shell.
 UPGRADE_STEP=""
 UPGRADE_MUTATED=0
+UPGRADE_RESTORE_DONE=0
 UPGRADE_TMP_FILES=()
 
 upgrade_cleanup_tmp() {
@@ -761,24 +762,58 @@ restore_upgrade_node_modules() {
   return 1
 }
 
+# File checkout plus npm ci. The signal trap and the EXIT trap can both run;
+# the flag makes the second one a no-op.
+upgrade_restore_after_mutation() {
+  if [[ "${UPGRADE_MUTATED:-0}" -ne 1 ]]; then
+    return 0
+  fi
+  if [[ "${UPGRADE_RESTORE_DONE:-0}" -eq 1 ]]; then
+    return 0
+  fi
+  UPGRADE_RESTORE_DONE=1
+  if restore_upgrade_tree; then
+    if restore_upgrade_node_modules; then
+      echo "error: the dependency tree was restored to its pre-run state" >&2
+    fi
+  else
+    echo "error: could not restore the dependency tree" >&2
+  fi
+}
+
 upgrade_report_failure() {
   local status=$?
   if [[ "$status" -ne 0 && -n "${UPGRADE_STEP:-}" ]]; then
     echo "error: --upgrade failed during: ${UPGRADE_STEP}" >&2
-    if [[ "${UPGRADE_MUTATED:-0}" -eq 1 ]]; then
-      if restore_upgrade_tree; then
-        if restore_upgrade_node_modules; then
-          echo "error: the dependency tree was restored to its pre-run state" >&2
-        fi
-      else
-        echo "error: could not restore the dependency tree" >&2
-      fi
-    fi
+    upgrade_restore_after_mutation
   fi
   upgrade_cleanup_tmp
   UPGRADE_STEP=""
   UPGRADE_MUTATED=0
   return 0
+}
+
+# Foreground Ctrl-C delivers SIGINT to this shell as well as cargo/npm.
+# 130 = 128+SIGINT, 143 = 128+SIGTERM. EXIT still runs afterwards and must
+# not restore a second time.
+upgrade_on_interrupt() {
+  local status="$1"
+  echo "error: --upgrade interrupted during: ${UPGRADE_STEP:-unknown}" >&2
+  upgrade_restore_after_mutation
+  upgrade_cleanup_tmp
+  UPGRADE_STEP=""
+  UPGRADE_MUTATED=0
+  exit "$status"
+}
+
+upgrade_install_traps() {
+  trap upgrade_report_failure EXIT
+  trap 'upgrade_on_interrupt 130' INT
+  trap 'upgrade_on_interrupt 143' TERM
+}
+
+upgrade_clear_traps() {
+  trap - EXIT INT TERM
 }
 
 cmd_upgrade() {
@@ -792,8 +827,9 @@ cmd_upgrade() {
 
   UPGRADE_STEP="dirty-tree check"
   UPGRADE_MUTATED=0
+  UPGRADE_RESTORE_DONE=0
   UPGRADE_TMP_FILES=()
-  trap upgrade_report_failure EXIT
+  upgrade_install_traps
 
   require_clean_dependency_tree --upgrade
 
@@ -873,7 +909,7 @@ cmd_upgrade() {
   log "Review the diff and commit the upgrades you want to keep."
 
   upgrade_cleanup_tmp
-  trap - EXIT
+  upgrade_clear_traps
 }
 
 # Listen on every interface. 0.0.0.0 is the bind address, not a URL for other PCs.

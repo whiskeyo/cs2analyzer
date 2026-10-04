@@ -343,6 +343,70 @@ fi
 git -C "$guard_repo" diff --quiet -- apps/web/package-lock.json \
   || fail "package-lock.json should be restored even when npm ci fails"
 
+echo 'interrupted' >>"$guard_repo/Cargo.lock"
+set +e
+(
+  ROOT="$guard_repo"
+  # Called from the interrupt trap; shellcheck does not follow kill into it.
+  # shellcheck disable=SC2317
+  npm_in() {
+    echo "npm_in $*" >>"${scratch}/npm-int.log"
+    return 0
+  }
+  UPGRADE_STEP="tests"
+  UPGRADE_MUTATED=1
+  UPGRADE_RESTORE_DONE=0
+  UPGRADE_TMP_FILES=()
+  upgrade_install_traps
+  kill -INT "$BASHPID"
+  echo 'SIGINT handler did not exit' >&2
+  exit 1
+) 2>"${scratch}/int.err"
+int_status=$?
+set -e
+[[ "$int_status" -eq 130 ]] || fail "SIGINT should exit 130 (got ${int_status})"
+grep -F -q 'interrupted during: tests' "${scratch}/int.err" \
+  || fail "SIGINT should name the step"
+grep -F -q 'restored to its pre-run state' "${scratch}/int.err" \
+  || fail "SIGINT should restore the dependency tree"
+grep -F -x -q "npm_in ${WEB} ci" "${scratch}/npm-int.log" \
+  || fail "SIGINT should reinstall node_modules with npm ci"
+[[ "$(wc -l <"${scratch}/npm-int.log")" -eq 1 ]] \
+  || fail "SIGINT and the EXIT trap should npm ci only once"
+git -C "$guard_repo" diff --quiet -- Cargo.lock \
+  || fail "Cargo.lock should be restored after SIGINT"
+
+echo 'terminated' >>"$guard_repo/apps/web/package.json"
+set +e
+(
+  ROOT="$guard_repo"
+  # Called from the interrupt trap; shellcheck does not follow kill into it.
+  # shellcheck disable=SC2317
+  npm_in() {
+    echo "npm_in $*" >>"${scratch}/npm-term.log"
+    return 0
+  }
+  UPGRADE_STEP="cargo test"
+  UPGRADE_MUTATED=1
+  UPGRADE_RESTORE_DONE=0
+  UPGRADE_TMP_FILES=()
+  upgrade_install_traps
+  kill -TERM "$BASHPID"
+  echo 'SIGTERM handler did not exit' >&2
+  exit 1
+) 2>"${scratch}/term.err"
+term_status=$?
+set -e
+[[ "$term_status" -eq 143 ]] || fail "SIGTERM should exit 143 (got ${term_status})"
+grep -F -q 'interrupted during: cargo test' "${scratch}/term.err" \
+  || fail "SIGTERM should name the step"
+grep -F -x -q "npm_in ${WEB} ci" "${scratch}/npm-term.log" \
+  || fail "SIGTERM should reinstall node_modules with npm ci"
+[[ "$(wc -l <"${scratch}/npm-term.log")" -eq 1 ]] \
+  || fail "SIGTERM and the EXIT trap should npm ci only once"
+git -C "$guard_repo" diff --quiet -- apps/web/package.json \
+  || fail "package.json should be restored after SIGTERM"
+
 # 0.x minor bumps count as major; 1.x minor bumps do not.
 is_major_bump 1.2.3 2.0.0 || fail "1.x to 2.x is a major bump"
 is_major_bump 1.2.3 1.9.0 && fail "1.x minor is not a major bump"
