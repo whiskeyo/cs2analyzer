@@ -64,7 +64,7 @@ pub(crate) struct GrenadeDet {
     pub x: f32,
     pub y: f32,
     pub z: f32,
-    /// Steam id from `inferno_startburn`'s `userid`. Empty for projectile detonates.
+    /// Steam id from `userid` when the event has one, otherwise `CInferno.m_hOwnerEntity`.
     pub thrower: Option<u64>,
     pub source: GrenadeDetSource,
 }
@@ -294,6 +294,7 @@ impl Collector {
                 continue;
             }
             let entity = e.index();
+            self.note_inferno_thrower(ctx, e, tick);
             seen.insert(entity);
             self.track_inferno(e, tick);
         }
@@ -396,6 +397,46 @@ fn steam_from_game_event(c: &Collector, ctx: &Context, ge: &GameEvent<'_>) -> Op
     ev_i32(ge, "userid_pawn")
         .and_then(|h| steam_from_pawn_handle(c, ctx, h))
         .or_else(|| ev_i32(ge, "userid").and_then(|uid| steam_from_userid(c, ctx, uid)))
+}
+
+impl Collector {
+    /// Premier `inferno_startburn` has no `userid`. The inferno's `m_hOwnerEntity`
+    /// is the thrower pawn, and it appears on the tick after the event.
+    fn note_inferno_thrower(&mut self, ctx: &Context, inferno: &Entity, tick: u32) {
+        let Some(steam) =
+            steam_from_pawn_handle(self, ctx, prop_u32(inferno, "m_hOwnerEntity") as i32)
+        else {
+            return;
+        };
+        fill_inferno_thrower(
+            &mut self.grenade_dets,
+            inferno.index() as i32,
+            tick,
+            steam,
+            crate::constants::INFERNO_OWNER_LAG_TICKS,
+        );
+    }
+}
+
+/// Copy `steam` onto the latest `inferno_startburn` for `entity` that still has
+/// no thrower and started within `lag_ticks`. A `userid` already on the event is left alone.
+pub(crate) fn fill_inferno_thrower(
+    dets: &mut [GrenadeDet],
+    entity: i32,
+    tick: u32,
+    steam: u64,
+    lag_ticks: u32,
+) {
+    let Some(det) = dets.iter_mut().rev().find(|det| {
+        det.source == GrenadeDetSource::InfernoStart
+            && det.entity == entity
+            && det.thrower.is_none()
+            && det.tick <= tick
+            && tick.saturating_sub(det.tick) <= lag_ticks
+    }) else {
+        return;
+    };
+    det.thrower = Some(steam);
 }
 
 /// Controllers with `m_steamID == 0` are bots (or an empty slot after a leave).
@@ -1027,8 +1068,9 @@ impl Collector {
             }
             "inferno_startburn" => {
                 // Premier demos have no `molotov_detonate`. `entityid` is the
-                // inferno, `userid` is the thrower. Pair `inferno_expire` later
-                // by this same entity id.
+                // inferno. This build's event descriptor is entityid/x/y/z with
+                // no `userid`; `note_inferno_thrower` copies `m_hOwnerEntity`
+                // when the inferno entity appears. Pair `inferno_expire` by entity id.
                 self.grenade_dets.push(GrenadeDet {
                     tick,
                     kind: GrenadeKind::Molotov,

@@ -954,12 +954,14 @@ fn appeared_items(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::{DEFAULT_TICK_STRIDE, GRENADE_DET_LATE_STRIDES};
+    use crate::constants::{
+        DEFAULT_TICK_STRIDE, GRENADE_DET_LATE_STRIDES, INFERNO_OWNER_LAG_TICKS,
+    };
     use crate::observer::{
         accept_blind_duration, bind_userid_steam, controller_dump_interesting, controller_identity,
-        controller_steam_playable, new_flash_duration, snapshot_controller_dump_now, Collector,
-        FireSpan, GrenadeDet, GrenadeDetSource, PlayerMeta, RawFrame, RawFramePlayer, RawHurt,
-        RawKill,
+        controller_steam_playable, fill_inferno_thrower, new_flash_duration,
+        snapshot_controller_dump_now, Collector, FireSpan, GrenadeDet, GrenadeDetSource,
+        PlayerMeta, RawFrame, RawFramePlayer, RawHurt, RawKill,
     };
     use crate::{bot_steam_id, is_bot_steam_id, ControllerDump, ParseOptions, FLAG_ALIVE, FLAG_CT};
 
@@ -1087,6 +1089,46 @@ mod tests {
         attach_molotov_fires(&c, &mut grenades);
         assert_eq!(grenades[0].fires.len(), 1);
         assert_eq!(grenades[0].end_tick, 400);
+    }
+
+    #[test]
+    fn inferno_owner_fills_only_the_recent_startburn() {
+        let mut dets = vec![
+            GrenadeDet {
+                tick: 1000,
+                kind: GrenadeKind::Molotov,
+                entity: 415,
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                thrower: None,
+                source: GrenadeDetSource::InfernoStart,
+            },
+            GrenadeDet {
+                tick: 13420,
+                kind: GrenadeKind::Molotov,
+                entity: 415,
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                thrower: Some(9),
+                source: GrenadeDetSource::InfernoStart,
+            },
+            GrenadeDet {
+                tick: 13422,
+                kind: GrenadeKind::Molotov,
+                entity: 415,
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                thrower: None,
+                source: GrenadeDetSource::InfernoStart,
+            },
+        ];
+        fill_inferno_thrower(&mut dets, 415, 13423, 42, INFERNO_OWNER_LAG_TICKS);
+        assert_eq!(dets[0].thrower, None);
+        assert_eq!(dets[1].thrower, Some(9));
+        assert_eq!(dets[2].thrower, Some(42));
     }
 
     #[test]

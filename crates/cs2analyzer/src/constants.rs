@@ -72,6 +72,12 @@ pub const GRENADE_DET_LEAD_TICKS: u32 = 16;
 /// `inferno_startburn` only pairs a molotov/incendiary whose last sample is at or before the burn.
 pub const GRENADE_DET_LATE_STRIDES: u32 = 10;
 
+/// Ticks after `inferno_startburn` during which `CInferno.m_hOwnerEntity` may
+/// still be copied onto that burn. Premier's event descriptor has no `userid`;
+/// the inferno entity appears on the following tick. One second does not reach
+/// a later burn that reused the entity id.
+pub const INFERNO_OWNER_LAG_TICKS: u32 = DEFAULT_TICK_RATE as u32;
+
 pub const SMOKE_SECONDS: f32 = 18.0;
 pub const MOLOTOV_SECONDS: f32 = 7.0;
 pub const HE_DECOY_SECONDS: f32 = 0.5;
