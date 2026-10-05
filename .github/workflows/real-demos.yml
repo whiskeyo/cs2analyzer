@@ -1,4 +1,8 @@
-# Parse the release demos on Rust pull requests and pushes to master.
+# The job always runs on pull requests and pushes to master. There is no
+# workflow-level paths filter: a required check that never starts sits on
+# "Expected — waiting". Changes are detected inside the job; unrelated PRs
+# skip the download and parse and finish green.
+#
 # A weekly run touches the demo cache so GitHub does not evict it after
 # 7 days without a Rust change. Local `cargo test` still skips these tests
 # until ./scripts/run.sh --fetch-demos.
@@ -12,22 +16,8 @@ on:
     - cron: "0 4 * * 1"
   pull_request:
     branches: [master]
-    paths:
-      - "crates/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "test-demos/manifest.json"
-      - "scripts/run.sh"
-      - ".github/workflows/real-demos.yml"
   push:
     branches: [master]
-    paths:
-      - "crates/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "test-demos/manifest.json"
-      - "scripts/run.sh"
-      - ".github/workflows/real-demos.yml"
 
 env:
   CARGO_TERM_COLOR: always
@@ -37,26 +27,59 @@ jobs:
     name: Real demos
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
+        id: filter
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        with:
+          filters: |
+            demos:
+              - 'crates/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'test-demos/manifest.json'
+              - 'scripts/run.sh'
+              - '.github/workflows/real-demos.yml'
+      - name: Decide whether to parse demos
+        id: gate
+        run: |
+          event="${{ github.event_name }}"
+          changed="${{ steps.filter.outputs.demos }}"
+          if [[ "$event" == "schedule" || "$event" == "workflow_dispatch" || "$changed" == "true" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Parsing release demos (event=$event changed=$changed)"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No changes under crates, Cargo.toml, Cargo.lock, test-demos/manifest.json, scripts/run.sh, or this workflow. Skipping download and parse."
+          fi
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.gate.outputs.run == 'true'
       # Separate from the debug Rust job so a release target does not replace it.
       - uses: Swatinem/rust-cache@v2
+        if: steps.gate.outputs.run == 'true'
         with:
           prefix-key: real-demos
+      # Exact manifest hash only. No restore-keys, so an older demo set is never restored.
       - uses: actions/cache@v4
         id: demos
+        if: steps.gate.outputs.run == 'true'
         with:
           path: test-demos/files
           key: test-demos-${{ hashFiles('test-demos/manifest.json') }}
       - name: Verify sha256 or download demos
+        if: steps.gate.outputs.run == 'true'
         run: |
           if [[ "${{ steps.demos.outputs.cache-hit }}" == "true" ]]; then
-            echo "demo cache hit; sha256 is checked and matching files are not downloaded"
+            echo "demo cache hit; hashing every file and re-downloading any mismatch"
           else
             echo "demo cache miss; downloading"
           fi
           ./scripts/run.sh --fetch-demos
       # --nocapture prints each demo's release parse_ms in the job log.
       - name: Ignored tests (release)
+        if: steps.gate.outputs.run == 'true'
         run: cargo test --release -p cs2analyzer -- --ignored --nocapture
