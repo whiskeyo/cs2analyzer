@@ -83,7 +83,8 @@ pub(crate) struct Collector {
     pub prev_win_status: i32,
     pub grenade_dets: Vec<GrenadeDet>,
     pub grenade_ends: Vec<(i32, u32)>,
-    /// `inferno_extinguish` (entity id, tick). Empty on the release demos; smoke can still end a fire early.
+    /// `inferno_extinguish` (entity id, tick). The release demos never emit this
+    /// event. A smoke puts the fire out with an earlier `inferno_expire`.
     pub inferno_extinguish: Vec<(i32, u32)>,
     pub proj_points: Vec<ProjPoint>,
     pub final_winner: Option<Side>,
