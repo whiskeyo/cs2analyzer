@@ -1,14 +1,33 @@
-# Optional end-to-end parse of the assets-v1 demos. Not part of pull-request CI:
-# the files are large, and `cargo test` already skips the ignored tests.
-# Run it from the Actions tab, or wait for the nightly schedule.
+# Parse the release demos on Rust pull requests and pushes to master.
+# A weekly run touches the demo cache so GitHub does not evict it after
+# 7 days without a Rust change. Local `cargo test` still skips these tests
+# until ./scripts/run.sh --fetch-demos.
 
 name: Real demos
 
 on:
   workflow_dispatch:
   schedule:
-    # 04:00 UTC every day.
-    - cron: "0 4 * * *"
+    # Monday 04:00 UTC.
+    - cron: "0 4 * * 1"
+  pull_request:
+    branches: [master]
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "test-demos/manifest.json"
+      - "scripts/run.sh"
+      - ".github/workflows/real-demos.yml"
+  push:
+    branches: [master]
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "test-demos/manifest.json"
+      - "scripts/run.sh"
+      - ".github/workflows/real-demos.yml"
 
 env:
   CARGO_TERM_COLOR: always
@@ -21,12 +40,23 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
+      # Separate from the debug Rust job so a release target does not replace it.
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: real-demos
       - uses: actions/cache@v4
+        id: demos
         with:
           path: test-demos/files
           key: test-demos-${{ hashFiles('test-demos/manifest.json') }}
-      - name: Fetch demos
-        run: ./scripts/run.sh --fetch-demos
-      - name: Ignored tests
-        run: cargo test --release -- --ignored
+      - name: Verify sha256 or download demos
+        run: |
+          if [[ "${{ steps.demos.outputs.cache-hit }}" == "true" ]]; then
+            echo "demo cache hit; sha256 is checked and matching files are not downloaded"
+          else
+            echo "demo cache miss; downloading"
+          fi
+          ./scripts/run.sh --fetch-demos
+      # --nocapture prints each demo's release parse_ms in the job log.
+      - name: Ignored tests (release)
+        run: cargo test --release -p cs2analyzer -- --ignored --nocapture
