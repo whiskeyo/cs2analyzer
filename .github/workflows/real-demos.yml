@@ -42,6 +42,7 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'test-demos/manifest.json'
+              - 'test-demos/output-hashes.json'
               - 'scripts/run.sh'
               - '.github/workflows/real-demos.yml'
       - name: Decide whether to parse demos
@@ -54,7 +55,7 @@ jobs:
             echo "Parsing release demos (event=$event changed=$changed)"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "No changes under crates, Cargo.toml, Cargo.lock, test-demos/manifest.json, scripts/run.sh, or this workflow. Skipping download and parse."
+            echo "No changes under crates, Cargo.toml, Cargo.lock, test-demos/manifest.json, test-demos/output-hashes.json, scripts/run.sh, or this workflow. Skipping download and parse."
           fi
       - uses: dtolnay/rust-toolchain@stable
         if: steps.gate.outputs.run == 'true'
@@ -79,7 +80,14 @@ jobs:
             echo "demo cache miss; downloading"
           fi
           ./scripts/run.sh --fetch-demos
-      # --nocapture prints each demo's release parse_ms in the job log.
+      # --nocapture prints each demo's release parse_ms. One test thread keeps
+      # the per-demo RSS sample from overlapping another parse. time -v is
+      # informational; the harness still fails the step when a test fails.
       - name: Ignored tests (release)
         if: steps.gate.outputs.run == 'true'
-        run: cargo test --release -p cs2analyzer -- --ignored --nocapture
+        run: |
+          if [[ ! -x /usr/bin/time ]]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq time
+          fi
+          /usr/bin/time -v cargo test --release -p cs2analyzer -- --ignored --nocapture --test-threads=1

@@ -54,7 +54,7 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 | Flag | What it does |
 |---|---|
 | `--prepare` | Install Rust toolchain, `wasm-bindgen-cli`, and npm deps |
-| `--fetch-demos` | Download test demos listed in `test-demos/manifest.json` into `test-demos/files/` (skip when sha256 matches). Every pull request and push to master runs the Real demos check; the ignored release tests run only when crates, Cargo.toml, Cargo.lock, the manifest, `scripts/run.sh`, or that workflow changed. A cached demo dir is still sha256-checked. |
+| `--fetch-demos` | Download test demos listed in `test-demos/manifest.json` into `test-demos/files/` (skip when sha256 matches). Every pull request and push to master runs the Real demos check; the ignored release tests run only when crates, Cargo.toml, Cargo.lock, the manifest, `test-demos/output-hashes.json`, `scripts/run.sh`, or that workflow changed. A cached demo dir is still sha256-checked. |
 | `--update` | Update Rust and npm deps within current semver ranges, keep `wasm-bindgen` pinned to the CLI, rebuild WASM, and run tests. Does not commit. |
 
 `--update` requires a clean `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` (commit or stash those first).

@@ -399,7 +399,12 @@ fn build_grenades(
     let mut used_dets = vec![false; c.grenade_dets.len()];
     let mut out = Vec::new();
 
-    for (entity, mut points) in by_entity {
+    // Entity id order. HashMap iteration made detonation claims, and the
+    // grenade JSON the WASM boundary returns, differ from parse to parse.
+    let mut groups: Vec<(u32, Vec<ProjSample>)> = by_entity.into_iter().collect();
+    groups.sort_unstable_by_key(|(entity, _)| *entity);
+
+    for (entity, mut points) in groups {
         points.sort_by_key(|p| p.0);
         for seg in split_proj_track(points, gap) {
             let Some((first, rest)) = seg.split_first() else {
@@ -553,7 +558,10 @@ fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow]) {
     }
 
     let mut claimed = vec![false; grenades.len()];
-    for (entity, spans) in by_entity {
+    // Same entity order as `build_grenades`, so a contested inferno claim is stable.
+    let mut groups: Vec<(u32, Vec<&crate::observer::FireSpan>)> = by_entity.into_iter().collect();
+    groups.sort_unstable_by_key(|(entity, _)| *entity);
+    for (entity, spans) in groups {
         let t0 = spans.iter().map(|s| s.start_tick).min().unwrap_or(0);
         let t1 = spans.iter().map(|s| s.end_tick).max().unwrap_or(t0);
         let (mut cx, mut cy) = (0.0f32, 0.0f32);
