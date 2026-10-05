@@ -291,6 +291,19 @@ pub(crate) fn is_utility_weapon(weapon: &str) -> bool {
         || w.contains("incgrenade")
 }
 
+/// `weapon_fire` name for a molotov or incendiary. `weapon_incgrenade` and
+/// `weapon_molotov` are the demo strings; the short names are accepted too.
+pub(crate) fn fire_grenade_kind(weapon: &str) -> Option<crate::types::GrenadeKind> {
+    let w = weapon.to_ascii_lowercase();
+    if w.contains("incgrenade") {
+        Some(crate::types::GrenadeKind::Incendiary)
+    } else if w.contains("molotov") {
+        Some(crate::types::GrenadeKind::Molotov)
+    } else {
+        None
+    }
+}
+
 pub(crate) fn is_bullet_weapon(weapon: &str) -> bool {
     let w = weapon.to_ascii_lowercase();
     let skip = [
@@ -336,6 +349,19 @@ mod tests {
         assert_eq!(hurt_hitgroup(Some(HITGROUP_GEAR as i32)), HITGROUP_GEAR);
         assert_eq!(hurt_hitgroup(Some(-1)), HITGROUP_GENERIC);
         assert_eq!(hurt_hitgroup(Some(99)), HITGROUP_GEAR);
+    }
+
+    #[test]
+    fn fire_weapon_names_split_incendiary_and_molotov() {
+        assert_eq!(
+            fire_grenade_kind("weapon_incgrenade"),
+            Some(GrenadeKind::Incendiary)
+        );
+        assert_eq!(
+            fire_grenade_kind("weapon_molotov"),
+            Some(GrenadeKind::Molotov)
+        );
+        assert_eq!(fire_grenade_kind("ak47"), None);
     }
 
     #[test]

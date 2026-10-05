@@ -5,8 +5,8 @@ use crate::analysis::compute_stats;
 use crate::analysis::starting_team_scores;
 use crate::constants::{
     DEFAULT_TICK_RATE, FLASH_POP_SECONDS, GRENADE_DET_LATE_STRIDES, GRENADE_DET_LEAD_TICKS,
-    HE_DECOY_SECONDS, KNIFE_ROUND_MAX_EQUIPMENT, KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_SECONDS,
-    SMOKE_SECONDS,
+    HE_DECOY_SECONDS, INCENDIARY_BURN_TICKS, KNIFE_ROUND_MAX_EQUIPMENT,
+    KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_BURN_TICKS, MOLOTOV_SECONDS, SMOKE_SECONDS,
 };
 use crate::inventory::{
     weapon_buy_cost, GEAR_DECOY, GEAR_DEFUSER, GEAR_FLASH, GEAR_FLASH2, GEAR_HE, GEAR_HELMET,
@@ -441,7 +441,8 @@ fn build_grenades(
             }
         });
         let (detonate_tick, land_x, land_y, land_z, end_tick) = if let Some(det) = matched {
-            let end_tick = grenade_end_tick(c, det, tick_rate, rounds);
+            let end_tick =
+                grenade_end_tick(c, det, Some(flight.kind), flight.thrower, tick_rate, rounds);
             (det.tick, det.x, det.y, det.z, end_tick)
         } else {
             (
@@ -508,7 +509,7 @@ fn build_grenades(
                 continue;
             }
         }
-        let end_tick = grenade_end_tick(c, det, tick_rate, rounds);
+        let end_tick = grenade_end_tick(c, det, None, det.thrower, tick_rate, rounds);
         // No projectile entity: sort after flights that spawned on this tick.
         let inferno = if det.source == GrenadeDetSource::InfernoStart {
             Some(det.entity)
@@ -545,7 +546,9 @@ fn build_grenades(
     });
     let inferno_of: Vec<Option<i32>> = out.iter().map(|built| built.inferno).collect();
     let mut grenades: Vec<GrenadeThrow> = out.into_iter().map(|built| built.grenade).collect();
+    let open_end = open_fire_ends(c, &grenades, &inferno_of);
     attach_molotov_fires(c, &mut grenades, &inferno_of);
+    apply_open_fire_ends(c, &mut grenades, &inferno_of, &open_end);
     grenades
 }
 
@@ -799,46 +802,123 @@ fn default_end(kind: GrenadeKind, detonate: u32, tick_rate: f32) -> u32 {
     detonate.saturating_add((secs * tick_rate).round() as u32)
 }
 
-/// `inferno_expire` when the demo has one. A burn that is still going when the
-/// round or the demo ends has no expire; close it there instead of the full
-/// 7s life. Smoke puts a fire out with an earlier expire, so that tick stays.
-fn grenade_end_tick(c: &Collector, det: &DetEvent, tick_rate: f32, rounds: &[Round]) -> u32 {
+/// `inferno_expire` when the demo has one. A burn with no expire keeps going
+/// for [`INCENDIARY_BURN_TICKS`] or [`MOLOTOV_BURN_TICKS`], capped at the next
+/// freeze or the last demo tick. Smoke puts a fire out with an earlier expire,
+/// so that tick stays.
+fn grenade_end_tick(
+    c: &Collector,
+    det: &DetEvent,
+    projectile: Option<GrenadeKind>,
+    thrower: Option<u64>,
+    tick_rate: f32,
+    rounds: &[Round],
+) -> u32 {
     if let Some(end) = paired_end(&c.grenade_ends, det.entity, det.tick) {
         return end;
     }
-    if det.kind.is_fire() && det.source == GrenadeDetSource::InfernoStart {
-        return missing_expire_end(det.kind, det.tick, tick_rate, rounds, c.last_cap);
+    let projectile_fire = projectile.filter(|kind| kind.is_fire());
+    if det.source == GrenadeDetSource::InfernoStart
+        && (det.kind.is_fire() || projectile_fire.is_some())
+    {
+        let kind = projectile_fire.or_else(|| thrown_fire_kind(&c.fire_throws, thrower, det.tick));
+        return missing_expire_end(kind, det.tick, rounds, c.last_cap);
     }
     default_end(det.kind, det.tick, tick_rate)
 }
 
-/// Last tick a fire with no `inferno_expire` is allowed to burn.
-///
-/// `currentRound` is the last round whose `start_tick` is at or before the burn.
-/// Use that round's `end_tick` when the round has finished, otherwise the last
-/// sampled demo tick. Never return a tick before the burn, and never the open
-/// molotov lifetime once a real horizon exists.
-fn missing_expire_end(
-    kind: GrenadeKind,
+/// Latest `weapon_fire` of a molotov or incendiary by this thrower at or before the burn.
+fn thrown_fire_kind(
+    throws: &[(u32, u64, GrenadeKind)],
+    thrower: Option<u64>,
     burn_tick: u32,
-    tick_rate: f32,
+) -> Option<GrenadeKind> {
+    let thrower = thrower?;
+    throws
+        .iter()
+        .enumerate()
+        .filter(|(_, (tick, steam, _))| *steam == thrower && *tick <= burn_tick)
+        .max_by_key(|(index, (tick, _, _))| (*tick, *index))
+        .map(|(_, (_, _, kind))| *kind)
+}
+
+/// End tick of a fire that has no `inferno_expire`.
+///
+/// Incendiary is 352 ticks, molotov and an unknown type are 450. The fire keeps
+/// burning after the current round's `end_tick`. Stop at the next round's freeze
+/// start, or at the last demo tick when this is the last round.
+fn missing_expire_end(
+    kind: Option<GrenadeKind>,
+    burn_tick: u32,
     rounds: &[Round],
     last_cap: u32,
 ) -> u32 {
-    let natural = default_end(kind, burn_tick, tick_rate);
-    let round_end = rounds
+    let life = match kind {
+        Some(GrenadeKind::Incendiary) => INCENDIARY_BURN_TICKS,
+        _ => MOLOTOV_BURN_TICKS,
+    };
+    let natural = burn_tick.saturating_add(life);
+    let next_freeze = rounds
         .iter()
-        .rev()
-        .find(|round| round.start_tick <= burn_tick)
-        .map(|round| round.end_tick)
-        .filter(|end| *end >= burn_tick);
-    let horizon = match (round_end, last_cap >= burn_tick) {
-        (Some(end), true) => end.min(last_cap),
-        (Some(end), false) => end,
+        .map(|round| round.start_tick)
+        .filter(|start| *start > burn_tick)
+        .min();
+    let horizon = match (next_freeze, last_cap >= burn_tick) {
+        (Some(start), true) => start.min(last_cap),
+        (Some(start), false) => start,
         (None, true) => last_cap,
         (None, false) => return natural,
     };
     natural.min(horizon).max(burn_tick)
+}
+
+/// Lifetime already chosen for a burn with no expire, before flame samples shorten it.
+fn open_fire_ends(
+    c: &Collector,
+    grenades: &[GrenadeThrow],
+    inferno_of: &[Option<i32>],
+) -> Vec<Option<u32>> {
+    grenades
+        .iter()
+        .zip(inferno_of)
+        .map(|(grenade, inferno)| {
+            let entity = (*inferno)?;
+            if !grenade.kind.is_fire() {
+                return None;
+            }
+            if paired_end(&c.grenade_ends, entity, grenade.detonate_tick).is_some() {
+                return None;
+            }
+            Some(grenade.end_tick)
+        })
+        .collect()
+}
+
+/// Put the no-expire lifetime back after sampled flames, and stop every cell there.
+fn apply_open_fire_ends(
+    c: &Collector,
+    grenades: &mut [GrenadeThrow],
+    inferno_of: &[Option<i32>],
+    planned: &[Option<u32>],
+) {
+    for ((grenade, inferno), planned) in grenades.iter_mut().zip(inferno_of).zip(planned) {
+        let Some(limit) = *planned else {
+            continue;
+        };
+        let mut end = limit;
+        if let Some(entity) = *inferno {
+            if let Some(ext) = paired_end(&c.inferno_extinguish, entity, grenade.detonate_tick) {
+                if ext >= grenade.detonate_tick {
+                    end = end.min(ext);
+                }
+            }
+        }
+        grenade.end_tick = end;
+        grenade.fires.retain(|cell| cell.start_tick <= end);
+        for cell in &mut grenade.fires {
+            cell.end_tick = end;
+        }
+    }
 }
 
 /// Fire cells belong to the inferno that was paired to a grenade. An airburst
@@ -1253,30 +1333,62 @@ mod tests {
     fn missing_expire_clamps_fire_to_round_or_demo_end() {
         let thrower = 42u64;
         let burn = 1000u32;
-        let open_life = burn + (MOLOTOV_SECONDS * DEFAULT_TICK_RATE).round() as u32;
+        // Sampled flames die at the round, before either lifetime.
+        let span_end = 1100u32;
+        let far = 8000u32;
 
-        let mut round_ended = freeze_round();
-        round_ended.start_tick = 64;
-        round_ended.end_tick = 1200;
-        let ended = burning_without_expire(thrower, burn, 1600, 8000, &[round_ended]);
-        assert_eq!(ended.detonate_tick, burn);
-        assert_eq!(ended.end_tick, 1200);
-        assert_eq!(ended.fires.len(), 1);
-        assert_eq!(ended.fires[0].end_tick, 1200);
-        assert_ne!(ended.end_tick, open_life);
+        let inc =
+            burning_without_expire(GrenadeKind::Incendiary, thrower, burn, span_end, far, &[]);
+        assert_eq!(inc.kind, GrenadeKind::Incendiary);
+        assert_eq!(inc.detonate_tick, burn);
+        assert_eq!(inc.end_tick, burn + INCENDIARY_BURN_TICKS);
+        assert_eq!(inc.fires.len(), 1);
+        assert_eq!(inc.fires[0].end_tick, burn + INCENDIARY_BURN_TICKS);
 
-        let mut still_open = freeze_round();
-        still_open.start_tick = 64;
-        still_open.end_tick = 0;
-        let demo_end = burning_without_expire(thrower, burn, 1600, 1100, &[still_open]);
-        assert_eq!(demo_end.detonate_tick, burn);
-        assert_eq!(demo_end.end_tick, 1100);
-        assert_eq!(demo_end.fires.len(), 1);
-        assert_eq!(demo_end.fires[0].end_tick, 1100);
-        assert_ne!(demo_end.end_tick, open_life);
+        let molo = burning_without_expire(GrenadeKind::Molotov, thrower, burn, span_end, far, &[]);
+        assert_eq!(molo.kind, GrenadeKind::Molotov);
+        assert_eq!(molo.end_tick, burn + MOLOTOV_BURN_TICKS);
+        assert_eq!(molo.fires[0].end_tick, burn + MOLOTOV_BURN_TICKS);
+
+        // Next freeze is 1300. The current round ends at 1100 and must not close the fire.
+        let mut this_round = freeze_round();
+        this_round.start_tick = 64;
+        this_round.end_tick = span_end;
+        let mut next_round = freeze_round();
+        next_round.start_tick = 1300;
+        next_round.end_tick = 2000;
+        let at_next_freeze = burning_without_expire(
+            GrenadeKind::Molotov,
+            thrower,
+            burn,
+            2000,
+            far,
+            &[this_round.clone(), next_round],
+        );
+        assert_eq!(at_next_freeze.end_tick, 1300);
+        assert_eq!(at_next_freeze.fires[0].end_tick, 1300);
+        assert_ne!(at_next_freeze.end_tick, this_round.end_tick);
+
+        let at_demo_end = burning_without_expire(
+            GrenadeKind::Molotov,
+            thrower,
+            burn,
+            2000,
+            1200,
+            &[this_round],
+        );
+        assert_eq!(at_demo_end.end_tick, 1200);
+        assert_eq!(at_demo_end.fires[0].end_tick, 1200);
+
+        let from_weapon_fire =
+            burning_from_weapon_fire(thrower, burn, Some(GrenadeKind::Incendiary));
+        assert_eq!(from_weapon_fire.end_tick, burn + INCENDIARY_BURN_TICKS);
+        let unknown = burning_from_weapon_fire(thrower, burn, None);
+        assert_eq!(unknown.end_tick, burn + MOLOTOV_BURN_TICKS);
     }
 
     fn burning_without_expire(
+        kind: GrenadeKind,
         thrower: u64,
         burn: u32,
         span_end: u32,
@@ -1288,14 +1400,15 @@ mod tests {
         c.proj_points.push((
             7,
             burn.saturating_sub(20),
-            GrenadeKind::Molotov,
+            kind,
             1.0,
             2.0,
             3.0,
             Some(thrower),
         ));
         c.proj_points
-            .push((7, burn, GrenadeKind::Molotov, 4.0, 5.0, 6.0, Some(thrower)));
+            .push((7, burn, kind, 4.0, 5.0, 6.0, Some(thrower)));
+        // startburn itself is stored as molotov; the projectile class is the type.
         c.grenade_dets.push(GrenadeDet {
             tick: burn,
             kind: GrenadeKind::Molotov,
@@ -1317,6 +1430,32 @@ mod tests {
             .into_iter()
             .next()
             .unwrap_or_else(|| panic!("burning molotov missing"))
+    }
+
+    fn burning_from_weapon_fire(
+        thrower: u64,
+        burn: u32,
+        kind: Option<GrenadeKind>,
+    ) -> GrenadeThrow {
+        let mut c = Collector::new(ParseOptions::default());
+        c.last_cap = 8000;
+        if let Some(kind) = kind {
+            c.fire_throws.push((burn.saturating_sub(30), thrower, kind));
+        }
+        c.grenade_dets.push(GrenadeDet {
+            tick: burn,
+            kind: GrenadeKind::Molotov,
+            entity: 415,
+            x: 4.0,
+            y: 5.0,
+            z: 6.0,
+            thrower: Some(thrower),
+            source: GrenadeDetSource::InfernoStart,
+        });
+        build_grenades(&c, &|_| 1, DEFAULT_TICK_RATE, &[])
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| panic!("unmatched burn missing"))
     }
 
     #[test]

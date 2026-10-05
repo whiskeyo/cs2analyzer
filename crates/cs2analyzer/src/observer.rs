@@ -86,6 +86,9 @@ pub(crate) struct Collector {
     /// `inferno_extinguish` (entity id, tick). The release demos never emit this
     /// event. A smoke puts the fire out with an earlier `inferno_expire`.
     pub inferno_extinguish: Vec<(i32, u32)>,
+    /// `weapon_fire` for `weapon_molotov` / `weapon_incgrenade`: tick, thrower, kind.
+    /// Fallback type when a burn has no expire and no matched projectile.
+    pub fire_throws: Vec<(u32, u64, GrenadeKind)>,
     pub proj_points: Vec<ProjPoint>,
     pub final_winner: Option<Side>,
     pub final_reason: i32,
@@ -191,6 +194,7 @@ impl Collector {
             grenade_dets: Vec::new(),
             grenade_ends: Vec::new(),
             inferno_extinguish: Vec::new(),
+            fire_throws: Vec::new(),
             proj_points: Vec::new(),
             final_winner: None,
             final_reason: 0,
@@ -1125,6 +1129,12 @@ impl Collector {
             }
             "weapon_fire" => {
                 let w = ev_str(ge, "weapon").unwrap_or_default();
+                if let Some(kind) = fire_grenade_kind(&w) {
+                    if let Some(steam) = steam_from_game_event(self, ctx, ge) {
+                        self.fire_throws.push((tick, steam, kind));
+                    }
+                    return Ok(());
+                }
                 if !is_bullet_weapon(&w) {
                     return Ok(());
                 }
