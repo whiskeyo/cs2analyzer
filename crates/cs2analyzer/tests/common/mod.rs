@@ -31,10 +31,32 @@ fn manifest_names(root: &Path) -> Vec<String> {
     manifest.files.into_iter().map(|file| file.name).collect()
 }
 
+/// True when this test process was started with `--ignored` or `--include-ignored`.
+pub fn running_ignored_tests() -> bool {
+    std::env::args().any(|arg| arg == "--ignored" || arg == "--include-ignored")
+}
+
+/// `cargo test` without `--ignored` never reaches the download. That path stays
+/// a skip. `--ignored` with no files is a failed run: the message must not
+/// start with `skip:`, or CI treats a missing download as a pass.
+pub fn demos_unavailable_message(dir: &Path, running_ignored: bool) -> String {
+    if running_ignored {
+        format!(
+            "release demos are missing: {} has none of the manifest files. Run ./scripts/run.sh --fetch-demos before cargo test -- --ignored",
+            dir.display()
+        )
+    } else {
+        format!(
+            "skip: {} is missing or has none of the manifest demos; run ./scripts/run.sh --fetch-demos",
+            dir.display()
+        )
+    }
+}
+
 /// Every manifest demo on disk, in manifest order.
 ///
-/// A missing or empty download directory is a failed run, not a pass: `cargo test`
-/// already skips these tests via `#[ignore]`.
+/// A missing or empty download directory fails a `--ignored` run. Plain
+/// `cargo test` skips these tests via `#[ignore]` before this is called.
 pub fn require_demo_files() -> Vec<PathBuf> {
     let root = repo_root();
     let dir = root.join("test-demos/files");
@@ -45,8 +67,8 @@ pub fn require_demo_files() -> Vec<PathBuf> {
         .collect();
     if present.is_empty() {
         panic!(
-            "skip: {} is missing or has none of the manifest demos; run ./scripts/run.sh --fetch-demos",
-            dir.display()
+            "{}",
+            demos_unavailable_message(&dir, running_ignored_tests())
         );
     }
     let missing: Vec<&str> = names

@@ -6,9 +6,29 @@
 #[path = "common/mod.rs"]
 mod common;
 
+use std::path::Path;
 use std::time::Instant;
 
 use cs2analyzer::{parse_demo, BombKind, ParseOptions};
+
+#[test]
+fn missing_demos_with_ignored_is_a_failure_not_a_skip() {
+    let dir = Path::new("test-demos/files");
+    let failure = common::demos_unavailable_message(dir, true);
+    assert!(
+        !failure.starts_with("skip:"),
+        "a --ignored run with no demos must fail, not look like a skip: {failure}"
+    );
+    assert!(
+        failure.contains("missing"),
+        "failure message should say the demos are missing: {failure}"
+    );
+    let skip = common::demos_unavailable_message(dir, false);
+    assert!(
+        skip.starts_with("skip:"),
+        "a run that is not --ignored keeps the plain skip: {skip}"
+    );
+}
 
 #[test]
 #[ignore = "needs ./scripts/run.sh --fetch-demos"]
