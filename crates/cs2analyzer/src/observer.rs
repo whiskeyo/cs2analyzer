@@ -48,6 +48,27 @@ pub(crate) struct RawFrame {
 pub(crate) type ProjPoint = (u32, u32, GrenadeKind, f32, f32, f32, Option<u64>);
 pub(crate) type BombRec = (u32, BombKind, Option<u64>, f32, f32, f32, bool, Option<u8>);
 
+/// `inferno_startburn` is the inferno entity (and the thrower). Projectile
+/// detonates, including optional `molotov_detonate`, name the projectile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GrenadeDetSource {
+    Projectile,
+    InfernoStart,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct GrenadeDet {
+    pub tick: u32,
+    pub kind: GrenadeKind,
+    pub entity: i32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    /// Steam id from `inferno_startburn`'s `userid`. Empty for projectile detonates.
+    pub thrower: Option<u64>,
+    pub source: GrenadeDetSource,
+}
+
 pub(crate) struct Collector {
     pub opts: ParseOptions,
     pub map_name: String,
@@ -60,7 +81,7 @@ pub(crate) struct Collector {
     pub pre_restarts: Vec<u32>,
     pub synth_ends: Vec<(u32, Option<Side>, i32)>,
     pub prev_win_status: i32,
-    pub grenade_dets: Vec<(u32, GrenadeKind, i32, f32, f32, f32)>,
+    pub grenade_dets: Vec<GrenadeDet>,
     pub grenade_ends: Vec<(i32, u32)>,
     pub proj_points: Vec<ProjPoint>,
     pub final_winner: Option<Side>,
@@ -199,7 +220,8 @@ impl Collector {
     }
 
     pub(crate) fn finish_infernos(&mut self, tick: u32) {
-        let ents: Vec<u32> = self.inferno_live.keys().copied().collect();
+        let mut ents: Vec<u32> = self.inferno_live.keys().copied().collect();
+        ents.sort_unstable();
         for entity in ents {
             self.close_inferno(entity, tick);
         }
@@ -275,12 +297,13 @@ impl Collector {
             seen.insert(entity);
             self.track_inferno(e, tick);
         }
-        let stale: Vec<u32> = self
+        let mut stale: Vec<u32> = self
             .inferno_live
             .keys()
             .copied()
             .filter(|k| !seen.contains(k))
             .collect();
+        stale.sort_unstable();
         for entity in stale {
             self.close_inferno(entity, tick.saturating_sub(1));
         }
@@ -1002,15 +1025,29 @@ impl Collector {
                 self.bomb_events
                     .push((tick, kind, player, x, y, z, ev_haskit(ge), site));
             }
+            "inferno_startburn" => {
+                // Premier demos have no `molotov_detonate`. `entityid` is the
+                // inferno, `userid` is the thrower. Pair `inferno_expire` later
+                // by this same entity id.
+                self.grenade_dets.push(GrenadeDet {
+                    tick,
+                    kind: GrenadeKind::Molotov,
+                    entity: ev_i32(ge, "entityid").unwrap_or(0),
+                    x: ev_f32(ge, "x"),
+                    y: ev_f32(ge, "y"),
+                    z: ev_f32(ge, "z"),
+                    thrower: steam_from_game_event(self, ctx, ge),
+                    source: GrenadeDetSource::InfernoStart,
+                });
+            }
             name @ ("smokegrenade_detonate"
-            | "inferno_startburn"
             | "hegrenade_detonate"
             | "flashbang_detonate"
             | "decoy_detonate"
             | "molotov_detonate") => {
                 let kind = match name {
                     "smokegrenade_detonate" => GrenadeKind::Smoke,
-                    "inferno_startburn" | "molotov_detonate" => GrenadeKind::Molotov,
+                    "molotov_detonate" => GrenadeKind::Molotov,
                     "hegrenade_detonate" => GrenadeKind::He,
                     "flashbang_detonate" => GrenadeKind::Flash,
                     _ => GrenadeKind::Decoy,
@@ -1021,14 +1058,16 @@ impl Collector {
                         self.last_flash_thrower = Some(thrower);
                     }
                 }
-                self.grenade_dets.push((
+                self.grenade_dets.push(GrenadeDet {
                     tick,
                     kind,
-                    id,
-                    ev_f32(ge, "x"),
-                    ev_f32(ge, "y"),
-                    ev_f32(ge, "z"),
-                ));
+                    entity: id,
+                    x: ev_f32(ge, "x"),
+                    y: ev_f32(ge, "y"),
+                    z: ev_f32(ge, "z"),
+                    thrower: None,
+                    source: GrenadeDetSource::Projectile,
+                });
             }
             "smokegrenade_expired" | "inferno_expire" => {
                 let id = ev_i32(ge, "entityid").unwrap_or(0);

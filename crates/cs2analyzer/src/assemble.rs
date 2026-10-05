@@ -13,7 +13,7 @@ use crate::inventory::{
     GEAR_INC, GEAR_KEVLAR, GEAR_MOLLY, GEAR_SMOKE, GEAR_ZEUS, WID_DECOY, WID_DEFUSER, WID_FLASH,
     WID_HE, WID_HELMET, WID_INC, WID_KEVLAR, WID_MOLLY, WID_SMOKE, WID_TASER,
 };
-use crate::observer::Collector;
+use crate::observer::{Collector, GrenadeDetSource};
 use crate::types::*;
 use crate::{FLAG_PRESENT, MAX_PLAYERS};
 use std::collections::{BTreeMap, HashMap};
@@ -418,12 +418,14 @@ fn build_grenades(
         .grenade_dets
         .iter()
         .map(|det| DetEvent {
-            tick: det.0,
-            kind: det.1,
-            entity: det.2,
-            x: det.3,
-            y: det.4,
-            z: det.5,
+            tick: det.tick,
+            kind: det.kind,
+            entity: det.entity,
+            x: det.x,
+            y: det.y,
+            z: det.z,
+            thrower: det.thrower,
+            source: det.source,
         })
         .collect();
     let claimed = assign_detonations(&flights, &dets, gap);
@@ -432,11 +434,7 @@ fn build_grenades(
     for (flight_index, flight) in flights.iter().enumerate() {
         let matched = claimed[flight_index].map(|det_index| &dets[det_index]);
         let (detonate_tick, land_x, land_y, land_z, end_tick) = if let Some(det) = matched {
-            let end_tick = c
-                .grenade_ends
-                .iter()
-                .find(|(id, tick)| *id == det.entity && *tick >= det.tick)
-                .map(|(_, tick)| *tick)
+            let end_tick = paired_end(&c.grenade_ends, det.entity, det.tick)
                 .unwrap_or_else(|| default_end(flight.kind, det.tick, tick_rate));
             (det.tick, det.x, det.y, det.z, end_tick)
         } else {
@@ -502,11 +500,7 @@ fn build_grenades(
                 continue;
             }
         }
-        let end_tick = c
-            .grenade_ends
-            .iter()
-            .find(|(id, tick)| *id == det.entity && *tick >= det.tick)
-            .map(|(_, tick)| *tick)
+        let end_tick = paired_end(&c.grenade_ends, det.entity, det.tick)
             .unwrap_or_else(|| default_end(det.kind, det.tick, tick_rate));
         // No projectile entity: sort after flights that spawned on this tick.
         out.push((
@@ -577,21 +571,143 @@ struct DetEvent {
     x: f32,
     y: f32,
     z: f32,
+    thrower: Option<u64>,
+    source: GrenadeDetSource,
+}
+
+/// Earliest `inferno_expire` / `smokegrenade_expired` for this entity at or after `start`.
+/// Entity id is an exact pair (inferno 415 start 13422 expires at 13872). Vec order is irrelevant.
+fn paired_end(ends: &[(i32, u32)], entity: i32, start: u32) -> Option<u32> {
+    ends.iter()
+        .filter(|(id, tick)| *id == entity && *tick >= start)
+        .map(|(_, tick)| *tick)
+        .min()
 }
 
 /// Which flight owns each detonation, or `None` when that flight has no match.
 ///
-/// A detonation with `entity > 0` only matches that entity. `entity <= 0` may
-/// match any flight of the same kind inside the window
-/// (`det_tick + GRENADE_DET_LEAD_TICKS >= start_tick` and
-/// `det_tick <= last_tick + gap`). The smallest `|det_tick - last_tick|` wins,
-/// then the lower entity index, then the earlier detonation, then the earlier
-/// flight in `(entity, start_tick)` order. Greedy in that order, so two
-/// molotovs cannot swap a detonation because a map bucket was visited first.
+/// `inferno_startburn` is primary for molotov and incendiary. Its `entity` is the
+/// inferno, not the projectile, so it never matches on entity id. The thrower's
+/// latest molotov/incendiary whose last sample is at or before the burn tick wins;
+/// then the smallest distance from that last position to the burn position; then
+/// the lower projectile entity index. Pairs are sorted, so map iteration cannot
+/// change the claim. A contested projectile goes to the burn it disappeared just
+/// before (smallest `burn_tick - last_tick` among equal last ticks).
+///
+/// `molotov_detonate` and other projectile detonates are optional. They run after
+/// startburn and only claim a flight startburn left free. A named projectile
+/// (`entity > 0`) stays on that entity. An unnamed one uses the nearest tick,
+/// then the lower entity index.
 fn assign_detonations(flights: &[Flight], dets: &[DetEvent], gap: u32) -> Vec<Option<usize>> {
+    let mut assigned = vec![None; flights.len()];
+    let mut flight_used = vec![false; flights.len()];
+    let mut det_used = vec![false; dets.len()];
+    assign_inferno_starts(
+        flights,
+        dets,
+        &mut assigned,
+        &mut flight_used,
+        &mut det_used,
+    );
+    assign_projectile_dets(
+        flights,
+        dets,
+        gap,
+        &mut assigned,
+        &mut flight_used,
+        &mut det_used,
+    );
+    assigned
+}
+
+struct InfernoPair {
+    last_tick: u32,
+    gap: u32,
+    dist2: f32,
+    entity: u32,
+    det_entity: i32,
+    det_index: usize,
+    flight_index: usize,
+}
+
+fn assign_inferno_starts(
+    flights: &[Flight],
+    dets: &[DetEvent],
+    assigned: &mut [Option<usize>],
+    flight_used: &mut [bool],
+    det_used: &mut [bool],
+) {
+    let mut pairs: Vec<InfernoPair> = Vec::new();
+    for (flight_index, flight) in flights.iter().enumerate() {
+        if !flight.kind.is_fire() {
+            continue;
+        }
+        let Some(thrower) = flight.thrower else {
+            continue;
+        };
+        for (det_index, det) in dets.iter().enumerate() {
+            if det.source != GrenadeDetSource::InfernoStart || det.thrower != Some(thrower) {
+                continue;
+            }
+            if flight.last_tick > det.tick {
+                continue;
+            }
+            pairs.push(InfernoPair {
+                last_tick: flight.last_tick,
+                gap: det.tick - flight.last_tick,
+                dist2: position_dist2(flight, det),
+                entity: flight.entity,
+                det_entity: det.entity,
+                det_index,
+                flight_index,
+            });
+        }
+    }
+    pairs.sort_by(|left, right| {
+        right
+            .last_tick
+            .cmp(&left.last_tick)
+            .then(left.gap.cmp(&right.gap))
+            .then(left.dist2.total_cmp(&right.dist2))
+            .then(left.entity.cmp(&right.entity))
+            .then(left.det_entity.cmp(&right.det_entity))
+            .then(left.det_index.cmp(&right.det_index))
+            .then(left.flight_index.cmp(&right.flight_index))
+    });
+    for pair in pairs {
+        if flight_used[pair.flight_index] || det_used[pair.det_index] {
+            continue;
+        }
+        flight_used[pair.flight_index] = true;
+        det_used[pair.det_index] = true;
+        assigned[pair.flight_index] = Some(pair.det_index);
+    }
+}
+
+fn position_dist2(flight: &Flight, det: &DetEvent) -> f32 {
+    let dx = flight.last_x - det.x;
+    let dy = flight.last_y - det.y;
+    let dz = flight.last_z - det.z;
+    dx * dx + dy * dy + dz * dz
+}
+
+fn assign_projectile_dets(
+    flights: &[Flight],
+    dets: &[DetEvent],
+    gap: u32,
+    assigned: &mut [Option<usize>],
+    flight_used: &mut [bool],
+    det_used: &mut [bool],
+) {
     let mut pairs: Vec<(u32, u32, usize, usize)> = Vec::new();
     for (flight_index, flight) in flights.iter().enumerate() {
+        if flight_used[flight_index] {
+            continue;
+        }
         for (det_index, det) in dets.iter().enumerate() {
+            if det_used[det_index] || det.source != GrenadeDetSource::Projectile {
+                continue;
+            }
             if det.kind != flight.kind || !detonation_in_flight(flight, det.tick, gap) {
                 continue;
             }
@@ -607,9 +723,6 @@ fn assign_detonations(flights: &[Flight], dets: &[DetEvent], gap: u32) -> Vec<Op
         }
     }
     pairs.sort_unstable();
-    let mut assigned = vec![None; flights.len()];
-    let mut flight_used = vec![false; flights.len()];
-    let mut det_used = vec![false; dets.len()];
     for (_, _, det_index, flight_index) in pairs {
         if flight_used[flight_index] || det_used[det_index] {
             continue;
@@ -618,7 +731,6 @@ fn assign_detonations(flights: &[Flight], dets: &[DetEvent], gap: u32) -> Vec<Op
         det_used[det_index] = true;
         assigned[flight_index] = Some(det_index);
     }
-    assigned
 }
 
 fn detonation_in_flight(flight: &Flight, det_tick: u32, gap: u32) -> bool {
@@ -661,16 +773,13 @@ fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow]) {
     if c.fire_spans.is_empty() {
         return;
     }
-    let mut by_entity: HashMap<u32, Vec<&crate::observer::FireSpan>> = HashMap::new();
+    let mut by_entity: BTreeMap<u32, Vec<&crate::observer::FireSpan>> = BTreeMap::new();
     for span in &c.fire_spans {
         by_entity.entry(span.entity).or_default().push(span);
     }
 
     let mut claimed = vec![false; grenades.len()];
-    // Same entity order as `build_grenades`, so a contested inferno claim is stable.
-    let mut groups: Vec<(u32, Vec<&crate::observer::FireSpan>)> = by_entity.into_iter().collect();
-    groups.sort_unstable_by_key(|(entity, _)| *entity);
-    for (entity, spans) in groups {
+    for (entity, spans) in by_entity {
         let t0 = spans.iter().map(|s| s.start_tick).min().unwrap_or(0);
         let t1 = spans.iter().map(|s| s.end_tick).max().unwrap_or(t0);
         let (mut cx, mut cy) = (0.0f32, 0.0f32);
@@ -685,8 +794,9 @@ fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow]) {
         let det_tick = c
             .grenade_dets
             .iter()
-            .find(|d| d.1.is_fire() && d.2 as u32 == entity)
-            .map(|d| d.0);
+            .filter(|det| det.kind.is_fire() && det.entity as u32 == entity)
+            .min_by_key(|det| (det.source != GrenadeDetSource::InfernoStart, det.tick))
+            .map(|det| det.tick);
 
         let mut best = None;
         let mut best_score = f32::MAX;
@@ -848,7 +958,8 @@ mod tests {
     use crate::observer::{
         accept_blind_duration, bind_userid_steam, controller_dump_interesting, controller_identity,
         controller_steam_playable, new_flash_duration, snapshot_controller_dump_now, Collector,
-        FireSpan, PlayerMeta, RawFrame, RawFramePlayer, RawHurt, RawKill,
+        FireSpan, GrenadeDet, GrenadeDetSource, PlayerMeta, RawFrame, RawFramePlayer, RawHurt,
+        RawKill,
     };
     use crate::{bot_steam_id, is_bot_steam_id, ControllerDump, ParseOptions, FLAG_ALIVE, FLAG_CT};
 
@@ -924,8 +1035,13 @@ mod tests {
             start_tick: 200,
             end_tick: 500,
         });
-        c.grenade_dets
-            .push((200, GrenadeKind::Molotov, 10, 100.0, 120.0, 0.0));
+        c.grenade_dets.push(fire_det(
+            200,
+            10,
+            GrenadeDetSource::InfernoStart,
+            100.0,
+            120.0,
+        ));
         let mut grenades = vec![molly(200, 100.0, 120.0), molly(800, 2000.0, 2000.0)];
         attach_molotov_fires(&c, &mut grenades);
         assert_eq!(grenades[0].fires.len(), 1);
@@ -944,8 +1060,16 @@ mod tests {
             start_tick: 200,
             end_tick: 400,
         });
-        c.grenade_dets
-            .push((200, GrenadeKind::Incendiary, 11, 50.0, 60.0, 0.0));
+        c.grenade_dets.push(GrenadeDet {
+            tick: 200,
+            kind: GrenadeKind::Incendiary,
+            entity: 11,
+            x: 50.0,
+            y: 60.0,
+            z: 0.0,
+            thrower: None,
+            source: GrenadeDetSource::InfernoStart,
+        });
         let mut grenades = vec![GrenadeThrow {
             thrower: 0,
             kind: GrenadeKind::Incendiary,
@@ -966,59 +1090,196 @@ mod tests {
     }
 
     #[test]
-    fn nearest_tick_claims_the_molotov() {
-        let gap = DEFAULT_TICK_STRIDE * GRENADE_DET_LATE_STRIDES;
-        let flights = vec![
-            flight(1, GrenadeKind::Molotov, 50, 100),
-            flight(9, GrenadeKind::Molotov, 50, 110),
-        ];
-        // Farther from entity 1 (|100-109| = 9) than from entity 9 (|110-109| = 1).
-        let dets = vec![det_event(109, GrenadeKind::Molotov, 0)];
+    fn same_thrower_latest_molotov_before_startburn_wins() {
+        let thrower = 1001u64;
+        // Closer to the burn, but the projectile disappeared earlier.
+        let early = flight_at(
+            2,
+            GrenadeKind::Molotov,
+            Some(thrower),
+            80,
+            100,
+            (10.0, 10.0, 0.0),
+        );
+        // Farther, and gone at the burn tick. Latest disappearance wins.
+        let late = flight_at(
+            9,
+            GrenadeKind::Molotov,
+            Some(thrower),
+            90,
+            112,
+            (80.0, 0.0, 0.0),
+        );
+        // Still in the air after the burn, so it is not a candidate.
+        let after = flight_at(
+            3,
+            GrenadeKind::Molotov,
+            Some(thrower),
+            100,
+            113,
+            (10.0, 10.0, 0.0),
+        );
+        let dets = vec![startburn(112, 415, Some(thrower), 10.0, 10.0, 0.0)];
         assert_eq!(
-            assign_detonations(&flights, &dets, gap),
-            vec![None, Some(0)]
+            assign_detonations(&[early, late, after], &dets, 0),
+            vec![None, Some(0), None]
         );
     }
 
     #[test]
-    fn equal_tick_distance_prefers_lower_entity() {
+    fn startburn_tie_breaks_distance_then_entity() {
+        let thrower = 1001u64;
         let gap = DEFAULT_TICK_STRIDE * GRENADE_DET_LATE_STRIDES;
-        let flights = vec![
-            flight(8, GrenadeKind::Molotov, 50, 140),
-            flight(2, GrenadeKind::Molotov, 50, 100),
-        ];
-        let dets = vec![det_event(120, GrenadeKind::Molotov, 0)];
+        let far = flight_at(
+            1,
+            GrenadeKind::Molotov,
+            Some(thrower),
+            50,
+            100,
+            (40.0, 0.0, 0.0),
+        );
+        let near_high = flight_at(
+            8,
+            GrenadeKind::Molotov,
+            Some(thrower),
+            50,
+            100,
+            (3.0, 0.0, 0.0),
+        );
+        let near_low = flight_at(
+            4,
+            GrenadeKind::Incendiary,
+            Some(thrower),
+            50,
+            100,
+            (-3.0, 0.0, 0.0),
+        );
+        let dets = vec![startburn(100, 415, Some(thrower), 0.0, 0.0, 0.0)];
+        // Same disappearance tick. Entity 1 is farther, so it loses to either
+        // neighbor. Entity 4 and 8 are the same distance, so the lower index wins.
         assert_eq!(
-            assign_detonations(&flights, &dets, gap),
-            vec![None, Some(0)]
+            assign_detonations(&[far, near_high, near_low], &dets, gap),
+            vec![None, None, Some(0)]
         );
     }
 
     #[test]
-    fn named_detonation_stays_on_its_entity() {
+    fn two_throwers_same_tick_follow_userid() {
+        let thrower_a = 11u64;
+        let thrower_b = 22u64;
+        // B's grenade sits on A's burn, and the reverse. Thrower still wins.
+        let flight_a = flight_at(
+            4,
+            GrenadeKind::Molotov,
+            Some(thrower_a),
+            50,
+            100,
+            (500.0, 0.0, 0.0),
+        );
+        let flight_b = flight_at(
+            7,
+            GrenadeKind::Incendiary,
+            Some(thrower_b),
+            50,
+            100,
+            (0.0, 0.0, 0.0),
+        );
+        let dets = vec![
+            startburn(100, 415, Some(thrower_a), 0.0, 0.0, 0.0),
+            startburn(100, 416, Some(thrower_b), 500.0, 0.0, 0.0),
+        ];
+        assert_eq!(
+            assign_detonations(&[flight_a, flight_b], &dets, 0),
+            vec![Some(0), Some(1)]
+        );
+    }
+
+    #[test]
+    fn inferno_expire_pairs_by_entity_id() {
+        let thrower = 42u64;
+        let mut c = Collector::new(ParseOptions::default());
+        c.proj_points
+            .push((7, 13400, GrenadeKind::Molotov, 1.0, 2.0, 3.0, Some(thrower)));
+        c.proj_points
+            .push((7, 13420, GrenadeKind::Molotov, 4.0, 5.0, 6.0, Some(thrower)));
+        c.grenade_dets.push(GrenadeDet {
+            tick: 13422,
+            kind: GrenadeKind::Molotov,
+            entity: 415,
+            x: 4.0,
+            y: 5.0,
+            z: 6.0,
+            thrower: Some(thrower),
+            source: GrenadeDetSource::InfernoStart,
+        });
+        // Optional projectile detonate must not replace the startburn tick.
+        c.grenade_dets.push(GrenadeDet {
+            tick: 13400,
+            kind: GrenadeKind::Molotov,
+            entity: 7,
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+            thrower: None,
+            source: GrenadeDetSource::Projectile,
+        });
+        c.grenade_ends.push((415, 12000));
+        c.grenade_ends.push((999, 13800));
+        c.grenade_ends.push((415, 13872));
+        let grenades = build_grenades(&c, &|_| 3, 64.0);
+        assert_eq!(grenades.len(), 1);
+        assert_eq!(grenades[0].thrower, 3);
+        assert_eq!(grenades[0].start_tick, 13400);
+        assert_eq!(grenades[0].detonate_tick, 13422);
+        assert_eq!(grenades[0].end_tick, 13872);
+    }
+
+    #[test]
+    fn named_projectile_detonation_stays_on_its_entity() {
         let gap = DEFAULT_TICK_STRIDE * GRENADE_DET_LATE_STRIDES;
         let flights = vec![
-            flight(2, GrenadeKind::Molotov, 50, 100),
-            flight(8, GrenadeKind::Molotov, 50, 140),
+            flight_at(2, GrenadeKind::Smoke, None, 50, 100, (0.0, 0.0, 0.0)),
+            flight_at(8, GrenadeKind::Smoke, None, 50, 140, (0.0, 0.0, 0.0)),
         ];
-        // Tick-nearest to entity 8, but the event names entity 2.
-        let dets = vec![det_event(140, GrenadeKind::Molotov, 2)];
+        // Tick-nearest to entity 8, but the detonate names entity 2.
+        let dets = vec![projectile_det(140, GrenadeKind::Smoke, 2)];
         assert_eq!(
             assign_detonations(&flights, &dets, gap),
             vec![Some(0), None]
         );
     }
 
-    fn flight(entity: u32, kind: GrenadeKind, start: u32, last: u32) -> Flight {
-        let mut samples = vec![(start, kind, 0.0, 0.0, 0.0, None)];
+    fn flight_at(
+        entity: u32,
+        kind: GrenadeKind,
+        thrower: Option<u64>,
+        start: u32,
+        last: u32,
+        pos: (f32, f32, f32),
+    ) -> Flight {
+        let (x, y, z) = pos;
+        let mut samples = vec![(start, kind, x, y, z, thrower)];
         if last != start {
-            samples.push((last, kind, 0.0, 0.0, 0.0, None));
+            samples.push((last, kind, x, y, z, thrower));
         }
         Flight::from_segment(entity, samples)
             .unwrap_or_else(|| panic!("flight {entity} needs a sample"))
     }
 
-    fn det_event(tick: u32, kind: GrenadeKind, entity: i32) -> DetEvent {
+    fn startburn(tick: u32, entity: i32, thrower: Option<u64>, x: f32, y: f32, z: f32) -> DetEvent {
+        DetEvent {
+            tick,
+            kind: GrenadeKind::Molotov,
+            entity,
+            x,
+            y,
+            z,
+            thrower,
+            source: GrenadeDetSource::InfernoStart,
+        }
+    }
+
+    fn projectile_det(tick: u32, kind: GrenadeKind, entity: i32) -> DetEvent {
         DetEvent {
             tick,
             kind,
@@ -1026,6 +1287,21 @@ mod tests {
             x: 0.0,
             y: 0.0,
             z: 0.0,
+            thrower: None,
+            source: GrenadeDetSource::Projectile,
+        }
+    }
+
+    fn fire_det(tick: u32, entity: i32, source: GrenadeDetSource, x: f32, y: f32) -> GrenadeDet {
+        GrenadeDet {
+            tick,
+            kind: GrenadeKind::Molotov,
+            entity,
+            x,
+            y,
+            z: 0.0,
+            thrower: None,
+            source,
         }
     }
 
