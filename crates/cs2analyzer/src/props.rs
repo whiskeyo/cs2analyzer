@@ -123,6 +123,16 @@ pub(crate) fn gamerules_i32(ctx: &Context, name: &str) -> Option<i32> {
     }
 }
 
+/// `CCSGameRules.m_nRoundStartCount` on the rules proxy.
+///
+/// assets-v1 demos list a legacy `round_start` game event and do not fire it.
+/// demoparser2 still reports `round_start`: it emits one row each time this
+/// counter changes. `None` when the proxy or the prop is missing.
+pub(crate) fn round_start_count(ctx: &Context) -> Option<i32> {
+    let proxy = ctx.entities().get_by_class_name("CCSGameRulesProxy").ok()?;
+    prop_i32_opt(proxy, "m_pGameRules.m_nRoundStartCount")
+}
+
 /// Round length in seconds (`CCSGameRules.m_iRoundTime` via `m_pGameRules`).
 /// `0` when the proxy or the prop is missing, or the value is not positive.
 pub(crate) fn round_time_seconds(ctx: &Context) -> u32 {

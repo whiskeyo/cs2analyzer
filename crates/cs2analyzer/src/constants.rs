@@ -86,18 +86,10 @@ pub const MOLOTOV_SECONDS: f32 = 7.0;
 /// demos: an incendiary's expire is always 352 ticks after startburn, and a
 /// molotov's is 449 or 450. These are demo ticks, not `seconds * tick_rate`.
 /// An unknown grenade uses the molotov length. Cap the result at the next
-/// round-open tick or the last demo tick.
+/// `round_start` tick or the last demo tick.
 pub const INCENDIARY_BURN_TICKS: u32 = 352;
 pub const MOLOTOV_BURN_TICKS: u32 = 450;
 
-/// Players spawning on one tick open the next round.
-///
-/// assets-v1 demos list `round_start` and do not fire it (including the ESL
-/// legacy file). The freeze begins on the `player_spawn` wave at that same
-/// tick. One player spawning is a reconnect. Two is a round open, which is
-/// what a `round_start` event would have marked. Restart and warmup waves are
-/// separate ticks, so this list can be longer than `round_end`.
-pub const ROUND_OPEN_SPAWN_COUNT: u8 = 2;
 pub const HE_DECOY_SECONDS: f32 = 0.5;
 pub const FLASH_POP_SECONDS: f32 = 0.4;
 

@@ -802,8 +802,8 @@ fn default_end(kind: GrenadeKind, detonate: u32, tick_rate: f32) -> u32 {
 
 /// `inferno_expire` when the demo has one. A burn with no expire keeps going
 /// for [`INCENDIARY_BURN_TICKS`] or [`MOLOTOV_BURN_TICKS`], capped at the next
-/// freeze or the last demo tick. Smoke puts a fire out with an earlier expire,
-/// so that tick stays.
+/// `round_start` or the last demo tick. Smoke puts a fire out with an earlier
+/// expire, so that tick stays.
 fn grenade_end_tick(
     c: &Collector,
     det: &DetEvent,
@@ -842,12 +842,11 @@ fn thrown_fire_kind(
 /// End tick of a fire that has no `inferno_expire`.
 ///
 /// Incendiary is 352 ticks, molotov and an unknown type are 450. The fire keeps
-/// burning after the current round's `end_tick`. Stop at the first round-open
-/// tick strictly after startburn — a `round_start` event, or the `player_spawn`
-/// wave that opens the freeze when that event is absent. Do not use the next
-/// round by index: warmup and restarts make that list longer than `round_end`,
-/// and `Round.start_tick` falls back to freeze end. With no later open, stop
-/// at the last demo tick.
+/// burning after the current round's `end_tick`. Stop at the first `round_start`
+/// tick strictly after startburn (`m_nRoundStartCount` changing, or a fired
+/// `round_start`). Do not use the next round by index: warmup and restarts make
+/// that list longer than `round_end`, and `Round.start_tick` falls back to
+/// freeze end. With no later open, stop at the last demo tick.
 fn missing_expire_end(
     kind: Option<GrenadeKind>,
     burn_tick: u32,
@@ -1461,6 +1460,31 @@ mod tests {
         assert_eq!(from_weapon_fire.end_tick, burn + INCENDIARY_BURN_TICKS);
         let unknown = burning_from_weapon_fire(thrower, burn, None);
         assert_eq!(unknown.end_tick, burn + MOLOTOV_BURN_TICKS);
+    }
+
+    #[test]
+    fn off_round_spawn_wave_does_not_cap_before_round_start() {
+        // FACEIT spawns players off-round (0eb2df7f: 3 at 73235). That wave is
+        // earlier than the next `m_nRoundStartCount` change and must not end the fire.
+        let mut c = Collector::new(ParseOptions::default());
+        let burn = 73_100u32;
+        let spawn_wave = 73_235u32;
+        let round_start = 73_400u32;
+        c.note_round_start_count(spawn_wave, 4);
+        c.note_round_start_count(spawn_wave, 4);
+        c.note_round_start_count(round_start, 5);
+        assert!(
+            !c.round_open_ticks.contains(&spawn_wave),
+            "spawn wave entered the cap list"
+        );
+        assert_eq!(c.round_open_ticks, vec![round_start]);
+        let end = missing_expire_end(
+            Some(GrenadeKind::Molotov),
+            burn,
+            &c.round_open_ticks,
+            80_000,
+        );
+        assert_eq!(end, round_start);
     }
 
     fn burning_without_expire(
