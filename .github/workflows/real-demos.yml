@@ -1,0 +1,32 @@
+# Optional end-to-end parse of the assets-v1 demos. Not part of pull-request CI:
+# the files are large, and `cargo test` already skips the ignored tests.
+# Run it from the Actions tab, or wait for the nightly schedule.
+
+name: Real demos
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 04:00 UTC every day.
+    - cron: "0 4 * * *"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  real-demos:
+    name: Real demos
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache@v4
+        with:
+          path: test-demos/files
+          key: test-demos-${{ hashFiles('test-demos/manifest.json') }}
+      - name: Fetch demos
+        run: ./scripts/run.sh --fetch-demos
+      - name: Ignored tests
+        run: cargo test --release -- --ignored
