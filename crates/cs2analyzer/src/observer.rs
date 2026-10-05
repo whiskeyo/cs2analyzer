@@ -59,6 +59,9 @@ pub(crate) struct Collector {
     pub official_ends: Vec<(u32, Option<Side>, i32)>,
     pub pre_restarts: Vec<u32>,
     pub synth_ends: Vec<(u32, Option<Side>, i32)>,
+    /// Every `begin_new_match` tick. FACEIT fires this again after the knife
+    /// round and resets the score; the last one is the match restart.
+    pub begin_new_match_ticks: Vec<u32>,
     pub prev_win_status: i32,
     pub grenade_dets: Vec<(u32, GrenadeKind, i32, f32, f32, f32)>,
     pub grenade_ends: Vec<(i32, u32)>,
@@ -163,6 +166,7 @@ impl Collector {
             official_ends: Vec::new(),
             pre_restarts: Vec::new(),
             synth_ends: Vec::new(),
+            begin_new_match_ticks: Vec::new(),
             prev_win_status: 0,
             grenade_dets: Vec::new(),
             grenade_ends: Vec::new(),
@@ -847,6 +851,14 @@ impl Collector {
     #[on_game_event]
     fn on_game_event(&mut self, ctx: &Context, ge: &GameEvent) -> ObserverResult {
         let tick = ctx.tick();
+        // Record even during warmup. The last tick is the match restart:
+        // FACEIT fires this after the knife round, while Premier and HLTV fire
+        // it only before the first round ends. `round_announce_match_start` is
+        // not a substitute — FACEIT emits that on the knife round and again
+        // on the real pistol.
+        if ge.name() == "begin_new_match" && tick != u32::MAX {
+            self.begin_new_match_ticks.push(tick);
+        }
         if self.opts.skip_warmup && in_warmup(ctx) {
             return Ok(());
         }
