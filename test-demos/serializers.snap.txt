@@ -4,7 +4,7 @@
 # "-" means the protobuf omitted that value. Context::game_build() is 0 on the cs2 feature.
 # Regenerate: UPDATE_SNAPSHOT=1 cargo test -p cs2analyzer --test serializers -- --ignored
 demo	1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem	build_num=10924	patch_version=14188
-demo	1-849924e9-b643-45d6-a374-a9fb6616cbb2-1-1.dem	build_num=10924	patch_version=14188
+demo	1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem	build_num=10896	patch_version=14181
 demo	1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem	build_num=10896	patch_version=14180
 demo	legacy-vs-spirit-m2-ancient.dem	build_num=10847	patch_version=14174
 demo	premier-d2.dem	build_num=10924	patch_version=14188
@@ -2874,25 +2874,32 @@ field	CCSPlayerCamera	CBodyComponent	CBodyComponent	-	-	-	-	-
 field	CCSPlayerCamera	m_MoveCollide	MoveCollide_t	-	-	-	-	-
 field	CCSPlayerCamera	m_MoveType	MoveType_t	-	-	-	-	-
 field	CCSPlayerCamera	m_bAnimatedEveryTick	bool	-	-	-	-	-
+field	CCSPlayerCamera	m_bClipCameraOffset	bool	-	-	-	-	-
 field	CCSPlayerCamera	m_bEnabled	bool	-	-	-	-	-
+field	CCSPlayerCamera	m_bFollowEyes	bool	-	-	-	-	-
 field	CCSPlayerCamera	m_bGravityDisabled	bool	-	-	-	-	-
 field	CCSPlayerCamera	m_bIsControllingAngles	bool	-	-	-	-	-
 field	CCSPlayerCamera	m_fEffects	uint32	-	-	-	-	-
 field	CCSPlayerCamera	m_flAnimTime	float32	-	-	-	-	-
+field	CCSPlayerCamera	m_flCameraOffsetReturnStrength	float32	32	-	-	-	-
 field	CCSPlayerCamera	m_flCreateTime	GameTime_t	32	-	-	-	-
 field	CCSPlayerCamera	m_flElasticity	float32	-	coord	-	-	-
 field	CCSPlayerCamera	m_flGravityScale	float32	32	-	-	-	-
 field	CCSPlayerCamera	m_flNavIgnoreUntilTime	GameTime_t	32	-	-	-	-
 field	CCSPlayerCamera	m_flSimulationTime	float32	-	-	-	-	-
 field	CCSPlayerCamera	m_hEffectEntity	CHandle< CBaseEntity >	-	-	-	-	-
+field	CCSPlayerCamera	m_hFollowEntity	CHandle< CBaseEntity >	-	-	-	-	-
 field	CCSPlayerCamera	m_hOwnerEntity	CHandle< CBaseEntity >	-	-	-	-	-
 field	CCSPlayerCamera	m_hPawn	CHandle< CCSPlayerPawnBase >	-	-	-	-	-
 field	CCSPlayerCamera	m_iTeamNum	uint8	-	-	-	-	-
 field	CCSPlayerCamera	m_nBloodType	BloodType	-	-	-	-	-
+field	CCSPlayerCamera	m_nCameraMode	CustomCameraMode_t	-	-	-	-	-
 field	CCSPlayerCamera	m_nPlatformType	EntityPlatformTypes_t	-	-	-	-	-
 field	CCSPlayerCamera	m_nSubclassID	CUtlStringToken	-	-	-	-	-
 field	CCSPlayerCamera	m_pEntity	CEntityIdentity*	-	-	-	-	-
 field	CCSPlayerCamera	m_ubInterpolationFrame	uint8	-	-	-	-	-
+field	CCSPlayerCamera	m_vecCameraOffset	Vector	32	-	-	-	-
+field	CCSPlayerCamera	m_vecFollowOffset	Vector	32	-	-	-	-
 field	CCSPlayerController	m_bCanControlObservedBot	bool	-	-	-	-	-
 field	CCSPlayerController	m_bControllingBot	bool	-	-	-	-	-
 field	CCSPlayerController	m_bEverPlayedOnTeam	bool	-	-	-	-	-
