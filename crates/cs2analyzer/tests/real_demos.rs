@@ -245,3 +245,36 @@ fn open_fires_end_at_the_next_freeze_in_the_round_they_were_thrown() {
         );
     }
 }
+
+/// A flame cell belongs to the burn that was already going when it started.
+#[test]
+#[ignore = "needs ./scripts/run.sh --fetch-demos"]
+fn molotov_flames_stay_inside_their_burn_window() {
+    let demos = common::require_demo_files();
+    for path in demos {
+        let name = path
+            .file_name()
+            .and_then(|file| file.to_str())
+            .unwrap_or("demo");
+        let bytes =
+            std::fs::read(&path).unwrap_or_else(|err| panic!("could not read {name}: {err}"));
+        let parsed = parse_demo(&bytes, ParseOptions::default())
+            .unwrap_or_else(|err| panic!("{name} failed to parse: {err}"));
+        let outside = parsed
+            .grenades
+            .iter()
+            .filter(|grenade| {
+                grenade.kind.is_fire()
+                    && grenade.fires.iter().any(|cell| {
+                        cell.start_tick < grenade.detonate_tick
+                            || cell.start_tick > grenade.end_tick
+                    })
+            })
+            .count();
+        eprintln!("out-of-window {name} {outside}");
+        assert_eq!(
+            outside, 0,
+            "{name} has {outside} molotovs with flames outside the burn window"
+        );
+    }
+}

@@ -926,74 +926,90 @@ fn apply_open_fire_ends(
     }
 }
 
-/// Fire cells belong to the inferno that was paired to a grenade. An airburst
-/// has no `inferno_startburn`, so it keeps an empty `fires` list. Spans are
-/// grouped in a `BTreeMap` and sorted, so claim order does not follow a `HashMap`.
+/// Fire cells belong to the inferno burn whose window contains them.
+///
+/// An entity index is reused across the match, so a group keyed only by that
+/// index would all land on the first molotov. A group is the spans of one
+/// entity that share a burn. It goes to the molotov with that entity whose
+/// `[detonate_tick, end_tick]` contains the group's first tick. When two
+/// windows overlap, the later startburn wins. Spans outside every window stay
+/// unattached. An airburst has no `inferno_startburn`, so it keeps an empty
+/// `fires` list. Spans are sorted before the claim, so order does not follow
+/// a `HashMap`.
 fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow], inferno_of: &[Option<i32>]) {
     if c.fire_spans.is_empty() || grenades.is_empty() {
         return;
     }
-    let mut by_entity: BTreeMap<u32, Vec<&crate::observer::FireSpan>> = BTreeMap::new();
-    for span in &c.fire_spans {
-        by_entity.entry(span.entity).or_default().push(span);
-    }
-    for spans in by_entity.values_mut() {
-        spans.sort_by(|left, right| {
-            left.start_tick
-                .cmp(&right.start_tick)
-                .then(left.end_tick.cmp(&right.end_tick))
-                .then(left.x.total_cmp(&right.x))
-                .then(left.y.total_cmp(&right.y))
-        });
-    }
-
-    for (entity, spans) in by_entity {
-        let Some(index) = inferno_of
-            .iter()
-            .position(|inferno| *inferno == Some(entity as i32))
-        else {
+    let mut by_entity: BTreeMap<i32, Vec<usize>> = BTreeMap::new();
+    for (index, inferno) in inferno_of.iter().enumerate() {
+        let Some(entity) = *inferno else {
             continue;
         };
-        if index >= grenades.len() || !grenades[index].kind.is_fire() {
-            continue;
+        if grenades
+            .get(index)
+            .is_some_and(|grenade| grenade.kind.is_fire())
+        {
+            by_entity.entry(entity).or_default().push(index);
         }
+    }
+
+    let mut spans: Vec<&crate::observer::FireSpan> = c.fire_spans.iter().collect();
+    spans.sort_by(|left, right| {
+        left.entity
+            .cmp(&right.entity)
+            .then(left.start_tick.cmp(&right.start_tick))
+            .then(left.end_tick.cmp(&right.end_tick))
+            .then(left.x.total_cmp(&right.x))
+            .then(left.y.total_cmp(&right.y))
+    });
+
+    let mut cells_of: Vec<Vec<FireCell>> = vec![Vec::new(); grenades.len()];
+    for span in spans {
+        let Some(candidates) = by_entity.get(&(span.entity as i32)) else {
+            continue;
+        };
+        let Some(index) = flame_owner(grenades, candidates, span.start_tick) else {
+            continue;
+        };
         let burn_tick = grenades[index].detonate_tick;
-        let expire = paired_end(&c.grenade_ends, entity as i32, burn_tick);
-        let extinguish = paired_end(&c.inferno_extinguish, entity as i32, burn_tick);
-        // No expire: the grenade end is already the round or demo tick. Flame
-        // cells must not keep burning past that close.
+        let entity = span.entity as i32;
+        let expire = paired_end(&c.grenade_ends, entity, burn_tick);
+        let extinguish = paired_end(&c.inferno_extinguish, entity, burn_tick);
         let closed = if expire.is_none() {
             Some(grenades[index].end_tick)
         } else {
             None
         };
-        let mut cells = Vec::new();
-        for span in spans {
-            let mut end = span.end_tick;
-            if let Some(limit) = closed {
-                if limit < span.start_tick {
-                    continue;
-                }
-                end = end.min(limit);
+        let mut end = span.end_tick;
+        if let Some(limit) = closed {
+            if limit < span.start_tick {
+                continue;
             }
-            if let Some(ext) = extinguish {
-                if ext < span.start_tick {
-                    continue;
-                }
-                end = end.min(ext);
-            }
-            cells.push(FireCell {
-                x: span.x,
-                y: span.y,
-                start_tick: span.start_tick,
-                end_tick: end.max(span.start_tick),
-            });
+            end = end.min(limit);
         }
         if let Some(ext) = extinguish {
-            grenades[index].end_tick = grenades[index].end_tick.min(ext);
+            if ext < span.start_tick {
+                continue;
+            }
+            end = end.min(ext);
         }
+        cells_of[index].push(FireCell {
+            x: span.x,
+            y: span.y,
+            start_tick: span.start_tick,
+            end_tick: end.max(span.start_tick),
+        });
+    }
+
+    for (index, cells) in cells_of.into_iter().enumerate() {
         if cells.is_empty() {
             continue;
+        }
+        let burn_tick = grenades[index].detonate_tick;
+        if let Some(entity) = inferno_of[index] {
+            if let Some(ext) = paired_end(&c.inferno_extinguish, entity, burn_tick) {
+                grenades[index].end_tick = grenades[index].end_tick.min(ext);
+            }
         }
         let last_flame = cells
             .iter()
@@ -1003,6 +1019,18 @@ fn attach_molotov_fires(c: &Collector, grenades: &mut [GrenadeThrow], inferno_of
         grenades[index].fires = cells;
         grenades[index].end_tick = last_flame.min(grenades[index].end_tick);
     }
+}
+
+/// Latest fire with this entity whose burn window contains `tick`.
+fn flame_owner(grenades: &[GrenadeThrow], candidates: &[usize], tick: u32) -> Option<usize> {
+    candidates
+        .iter()
+        .copied()
+        .filter(|index| {
+            let grenade = &grenades[*index];
+            grenade.detonate_tick <= tick && tick <= grenade.end_tick
+        })
+        .max_by_key(|index| (grenades[*index].detonate_tick, *index))
 }
 
 fn fill_missing_bomb_positions(events: &mut [BombEvent], ticks: &TickBuffer) {
@@ -1332,6 +1360,59 @@ mod tests {
         assert_eq!(grenades[0].fires.len(), 1);
         assert_eq!(grenades[0].fires[0].end_tick, 13600);
         assert_eq!(grenades[0].end_tick, 13600);
+    }
+
+    #[test]
+    fn reused_inferno_entity_keeps_flames_inside_each_burn() {
+        // The first burn's end reaches past the second startburn. The later
+        // window still owns the flames that begin inside it.
+        let mut c = Collector::new(ParseOptions::default());
+        c.fire_spans.push(FireSpan {
+            entity: 415,
+            x: 1.0,
+            y: 1.0,
+            start_tick: 1000,
+            end_tick: 1400,
+        });
+        c.fire_spans.push(FireSpan {
+            entity: 415,
+            x: 9.0,
+            y: 9.0,
+            start_tick: 5000,
+            end_tick: 5200,
+        });
+        c.fire_spans.push(FireSpan {
+            entity: 415,
+            x: 3.0,
+            y: 3.0,
+            start_tick: 7000,
+            end_tick: 7100,
+        });
+        let mut grenades = vec![open_fire(1000, 6000), open_fire(5000, 5450)];
+        attach_molotov_fires(&c, &mut grenades, &[Some(415), Some(415)]);
+        assert_eq!(grenades[0].fires.len(), 1);
+        assert_eq!(grenades[0].fires[0].x, 1.0);
+        assert_eq!(grenades[0].fires[0].start_tick, 1000);
+        assert_eq!(grenades[1].fires.len(), 1);
+        assert_eq!(grenades[1].fires[0].x, 9.0);
+        assert_eq!(grenades[1].fires[0].start_tick, 5000);
+        assert!(grenades
+            .iter()
+            .all(|grenade| grenade.fires.iter().all(|cell| {
+                cell.start_tick >= grenade.detonate_tick && cell.start_tick <= grenade.end_tick
+            })));
+    }
+
+    fn open_fire(detonate_tick: u32, end_tick: u32) -> GrenadeThrow {
+        GrenadeThrow {
+            thrower: 1,
+            kind: GrenadeKind::Molotov,
+            start_tick: detonate_tick.saturating_sub(20),
+            detonate_tick,
+            end_tick,
+            points: Vec::new(),
+            fires: Vec::new(),
+        }
     }
 
     #[test]
