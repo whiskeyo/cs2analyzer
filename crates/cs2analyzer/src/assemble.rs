@@ -4,9 +4,10 @@
 use crate::analysis::compute_stats;
 use crate::analysis::starting_team_scores;
 use crate::constants::{
-    DEFAULT_TICK_RATE, FLASH_POP_SECONDS, GRENADE_DET_LATE_STRIDES, GRENADE_DET_LEAD_TICKS,
-    HE_DECOY_SECONDS, INCENDIARY_BURN_TICKS, KNIFE_ROUND_MAX_EQUIPMENT,
-    KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_BURN_TICKS, MOLOTOV_SECONDS, SMOKE_SECONDS,
+    DEFAULT_TICK_RATE, FLASH_POP_SECONDS, FREEZE_START_AFTER_PRE_RESTART_TICKS,
+    GRENADE_DET_LATE_STRIDES, GRENADE_DET_LEAD_TICKS, HE_DECOY_SECONDS, INCENDIARY_BURN_TICKS,
+    KNIFE_ROUND_MAX_EQUIPMENT, KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_BURN_TICKS,
+    MOLOTOV_SECONDS, SMOKE_SECONDS,
 };
 use crate::inventory::{
     weapon_buy_cost, GEAR_DECOY, GEAR_DEFUSER, GEAR_FLASH, GEAR_FLASH2, GEAR_HE, GEAR_HELMET,
@@ -845,8 +846,12 @@ fn thrown_fire_kind(
 /// End tick of a fire that has no `inferno_expire`.
 ///
 /// Incendiary is 352 ticks, molotov and an unknown type are 450. The fire keeps
-/// burning after the current round's `end_tick`. Stop at the next round's freeze
-/// start, or at the last demo tick when this is the last round.
+/// burning after the current round's `end_tick`. Stop at the next freeze start,
+/// or at the last demo tick when this is the last round.
+///
+/// assets-v1 demos do not emit `round_start`, so `Round.start_tick` is the
+/// freeze end. The freeze start is [`FREEZE_START_AFTER_PRE_RESTART_TICKS`]
+/// after that round's `cs_pre_restart` (`playback_end_tick`).
 fn missing_expire_end(
     kind: Option<GrenadeKind>,
     burn_tick: u32,
@@ -858,18 +863,30 @@ fn missing_expire_end(
         _ => MOLOTOV_BURN_TICKS,
     };
     let natural = burn_tick.saturating_add(life);
-    let next_freeze = rounds
+    let next_start = rounds
         .iter()
         .map(|round| round.start_tick)
         .filter(|start| *start > burn_tick)
         .min();
-    let horizon = match (next_freeze, last_cap >= burn_tick) {
-        (Some(start), true) => start.min(last_cap),
-        (Some(start), false) => start,
-        (None, true) => last_cap,
-        (None, false) => return natural,
-    };
-    natural.min(horizon).max(burn_tick)
+    let from_restart = rounds
+        .iter()
+        .rev()
+        .find(|round| round.start_tick <= burn_tick)
+        .filter(|round| round.playback_end_tick > burn_tick)
+        .map(|round| {
+            round
+                .playback_end_tick
+                .saturating_add(FREEZE_START_AFTER_PRE_RESTART_TICKS)
+        });
+    let demo_end = (last_cap >= burn_tick).then_some(last_cap);
+    let horizon = [next_start, from_restart, demo_end]
+        .into_iter()
+        .flatten()
+        .min();
+    match horizon {
+        Some(end) => natural.min(end).max(burn_tick),
+        None => natural,
+    }
 }
 
 /// Lifetime already chosen for a burn with no expire, before flame samples shorten it.
@@ -1368,6 +1385,28 @@ mod tests {
         assert_eq!(at_next_freeze.end_tick, 1300);
         assert_eq!(at_next_freeze.fires[0].end_tick, 1300);
         assert_ne!(at_next_freeze.end_tick, this_round.end_tick);
+
+        // No `round_start`: the next stored start is the freeze end. The freeze
+        // itself starts 19 ticks after `cs_pre_restart`.
+        let mut restarted = freeze_round();
+        restarted.start_tick = 64;
+        restarted.end_tick = 900;
+        restarted.playback_end_tick = 1200;
+        let mut live_later = freeze_round();
+        live_later.start_tick = 3000;
+        live_later.freeze_end_tick = 3000;
+        live_later.end_tick = 4000;
+        let at_restart = burning_without_expire(
+            GrenadeKind::Molotov,
+            thrower,
+            burn,
+            2000,
+            far,
+            &[restarted, live_later],
+        );
+        let freeze_start = 1200 + FREEZE_START_AFTER_PRE_RESTART_TICKS;
+        assert_eq!(at_restart.end_tick, freeze_start);
+        assert_eq!(at_restart.fires[0].end_tick, freeze_start);
 
         let at_demo_end = burning_without_expire(
             GrenadeKind::Molotov,

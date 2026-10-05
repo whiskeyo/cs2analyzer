@@ -86,9 +86,16 @@ pub const MOLOTOV_SECONDS: f32 = 7.0;
 /// demos: an incendiary's expire is always 352 ticks after startburn, and a
 /// molotov's is 449 or 450. These are demo ticks, not `seconds * tick_rate`.
 /// An unknown grenade uses the molotov length. Cap the result at the next
-/// round's freeze start (`Round.start_tick`) or the last demo tick.
+/// round's freeze start or the last demo tick.
 pub const INCENDIARY_BURN_TICKS: u32 = 352;
 pub const MOLOTOV_BURN_TICKS: u32 = 450;
+
+/// Ticks from `cs_pre_restart` to the next round's freeze start on demos that
+/// do not emit `round_start`. Verified on the assets-v1 open fires: the cap is
+/// always 19 ticks after that event, including when the following freeze runs
+/// long. `Round.start_tick` falls back to `round_freeze_end` in those demos,
+/// which is the live start, not the freeze start.
+pub const FREEZE_START_AFTER_PRE_RESTART_TICKS: u32 = 19;
 pub const HE_DECOY_SECONDS: f32 = 0.5;
 pub const FLASH_POP_SECONDS: f32 = 0.4;
 
