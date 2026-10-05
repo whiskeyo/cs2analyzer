@@ -76,6 +76,12 @@ pub(crate) struct Collector {
     pub meta_order: Vec<u64>,
     pub meta: HashMap<u64, PlayerMeta>,
     pub round_starts: Vec<u32>,
+    /// Round-open ticks for the fire cap: a fired `round_start`, or a tick where
+    /// at least [`crate::constants::ROUND_OPEN_SPAWN_COUNT`] players spawn.
+    /// Not paired with `freeze_ends` by index. Warmup and restarts add extra ticks.
+    pub round_open_ticks: Vec<u32>,
+    spawn_tick: u32,
+    spawn_count: u8,
     pub freeze_ends: Vec<u32>,
     pub official_ends: Vec<(u32, Option<Side>, i32)>,
     pub pre_restarts: Vec<u32>,
@@ -186,6 +192,9 @@ impl Collector {
             meta_order: Vec::new(),
             meta: HashMap::new(),
             round_starts: Vec::new(),
+            round_open_ticks: Vec::new(),
+            spawn_tick: u32::MAX,
+            spawn_count: 0,
             freeze_ends: Vec::new(),
             official_ends: Vec::new(),
             pre_restarts: Vec::new(),
@@ -224,6 +233,31 @@ impl Collector {
             fire_spans: Vec::new(),
             inferno_live: HashMap::new(),
             last_ammo: HashMap::new(),
+        }
+    }
+
+    fn push_round_open(&mut self, tick: u32) {
+        if self
+            .round_open_ticks
+            .last()
+            .is_some_and(|previous| *previous >= tick)
+        {
+            return;
+        }
+        self.round_open_ticks.push(tick);
+    }
+
+    /// The second player to spawn on `tick` marks a round open. Later spawns on
+    /// that same tick do not add another boundary.
+    fn note_player_spawn(&mut self, tick: u32) {
+        if tick == self.spawn_tick {
+            self.spawn_count = self.spawn_count.saturating_add(1);
+        } else {
+            self.spawn_tick = tick;
+            self.spawn_count = 1;
+        }
+        if self.spawn_count == crate::constants::ROUND_OPEN_SPAWN_COUNT {
+            self.push_round_open(tick);
         }
     }
 
@@ -919,6 +953,11 @@ impl Collector {
     #[on_game_event]
     fn on_game_event(&mut self, ctx: &Context, ge: &GameEvent) -> ObserverResult {
         let tick = ctx.tick();
+        match ge.name() {
+            "player_spawn" => self.note_player_spawn(tick),
+            "round_start" => self.push_round_open(tick),
+            _ => {}
+        }
         if self.opts.skip_warmup && in_warmup(ctx) {
             return Ok(());
         }
