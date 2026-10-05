@@ -10,8 +10,10 @@
 //! name, a newline, the decimal byte length, a newline, then the exact bytes
 //! (`serde_json::to_string` for the JSON getters, decimal ASCII for
 //! `playerCount` and `frameCount`). The demo hash frames every section the
-//! same way. Section hashes cover the payload only, so a mismatch names the
-//! events blob or the tick column that moved.
+//! same way. `events` is that whole blob. Each getter also has its own hash
+//! (`header`, `grenades`, …) so a mismatch names the field. Those piece
+//! hashes are not mixed into the demo sha256 a second time. Tick-column
+//! hashes cover that column's bytes only.
 //!
 //! None of those JSON types contain a map. Object keys are struct fields in
 //! declaration order, so they do not follow `HashMap` iteration. `serde_json`
@@ -32,8 +34,21 @@ use cs2analyzer::{parse_demo, Match, ParseOptions, TickBuffer};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-const SECTION_ORDER: [&str; 17] = [
+const SECTION_ORDER: [&str; 30] = [
     "events",
+    "header",
+    "players",
+    "rounds",
+    "grenades",
+    "shots",
+    "kills",
+    "hurts",
+    "blinds",
+    "bomb_events",
+    "buy_events",
+    "controller_dump",
+    "player_count",
+    "frame_count",
     "ticks",
     "x",
     "y",
@@ -68,6 +83,20 @@ struct DemoHash {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct SectionHashes {
     events: String,
+    /// Hash of each WASM getter inside `events`. Not mixed into `sha256` again.
+    header: String,
+    players: String,
+    rounds: String,
+    grenades: String,
+    shots: String,
+    kills: String,
+    hurts: String,
+    blinds: String,
+    bomb_events: String,
+    buy_events: String,
+    controller_dump: String,
+    player_count: String,
+    frame_count: String,
     ticks: String,
     x: String,
     y: String,
@@ -87,9 +116,22 @@ struct SectionHashes {
 }
 
 impl SectionHashes {
-    fn values(&self) -> [(&str, &str); 17] {
+    fn values(&self) -> [(&str, &str); 30] {
         [
             ("events", self.events.as_str()),
+            ("header", self.header.as_str()),
+            ("players", self.players.as_str()),
+            ("rounds", self.rounds.as_str()),
+            ("grenades", self.grenades.as_str()),
+            ("shots", self.shots.as_str()),
+            ("kills", self.kills.as_str()),
+            ("hurts", self.hurts.as_str()),
+            ("blinds", self.blinds.as_str()),
+            ("bomb_events", self.bomb_events.as_str()),
+            ("buy_events", self.buy_events.as_str()),
+            ("controller_dump", self.controller_dump.as_str()),
+            ("player_count", self.player_count.as_str()),
+            ("frame_count", self.frame_count.as_str()),
             ("ticks", self.ticks.as_str()),
             ("x", self.x.as_str()),
             ("y", self.y.as_str()),
@@ -136,37 +178,87 @@ fn push_part(buf: &mut Vec<u8>, name: &str, bytes: &[u8]) {
     buf.extend_from_slice(bytes);
 }
 
-fn push_json(buf: &mut Vec<u8>, name: &str, value: &impl Serialize) {
+fn digest_bytes(bytes: &[u8]) -> String {
+    let mut section = Sha256::new();
+    section.update(bytes);
+    finalize_hex(section)
+}
+
+fn push_json(buf: &mut Vec<u8>, name: &str, value: &impl Serialize) -> String {
     let json = serde_json::to_string(value)
         .unwrap_or_else(|err| panic!("could not serialize {name}: {err}"));
     push_part(buf, name, json.as_bytes());
+    digest_bytes(json.as_bytes())
 }
 
-/// Non-column WASM getters. `stats` is not one of them.
-fn events_payload(parsed: &Match) -> Vec<u8> {
+fn push_text(buf: &mut Vec<u8>, name: &str, text: &str) -> String {
+    push_part(buf, name, text.as_bytes());
+    digest_bytes(text.as_bytes())
+}
+
+/// Non-column WASM getters, plus a hash of each getter's own bytes.
+/// `stats` is not one of them. The piece hashes are for the diff report.
+/// `sha256` still hashes `payload` once, not each piece again.
+struct EventPieces {
+    payload: Vec<u8>,
+    header: String,
+    players: String,
+    rounds: String,
+    grenades: String,
+    shots: String,
+    kills: String,
+    hurts: String,
+    blinds: String,
+    bomb_events: String,
+    buy_events: String,
+    controller_dump: String,
+    player_count: String,
+    frame_count: String,
+}
+
+fn event_pieces(parsed: &Match) -> EventPieces {
     let mut buf = Vec::new();
-    push_json(&mut buf, "headerJson", &parsed.header);
-    push_json(&mut buf, "playersJson", &parsed.players);
-    push_json(&mut buf, "roundsJson", &parsed.rounds);
-    push_json(&mut buf, "grenadesJson", &parsed.grenades);
-    push_json(&mut buf, "shotsJson", &parsed.shots);
-    push_json(&mut buf, "killsJson", &parsed.kills);
-    push_json(&mut buf, "hurtsJson", &parsed.hurts);
-    push_json(&mut buf, "blindsJson", &parsed.blinds);
-    push_json(&mut buf, "bombEventsJson", &parsed.bomb_events);
-    push_json(&mut buf, "buyEventsJson", &parsed.buy_events);
-    push_json(&mut buf, "controllerDumpJson", &parsed.controller_dump);
-    push_part(
+    let header = push_json(&mut buf, "headerJson", &parsed.header);
+    let players = push_json(&mut buf, "playersJson", &parsed.players);
+    let rounds = push_json(&mut buf, "roundsJson", &parsed.rounds);
+    let grenades = push_json(&mut buf, "grenadesJson", &parsed.grenades);
+    let shots = push_json(&mut buf, "shotsJson", &parsed.shots);
+    let kills = push_json(&mut buf, "killsJson", &parsed.kills);
+    let hurts = push_json(&mut buf, "hurtsJson", &parsed.hurts);
+    let blinds = push_json(&mut buf, "blindsJson", &parsed.blinds);
+    let bomb_events = push_json(&mut buf, "bombEventsJson", &parsed.bomb_events);
+    let buy_events = push_json(&mut buf, "buyEventsJson", &parsed.buy_events);
+    let controller_dump = push_json(&mut buf, "controllerDumpJson", &parsed.controller_dump);
+    let player_count = push_text(
         &mut buf,
         "playerCount",
-        parsed.ticks.player_count.to_string().as_bytes(),
+        &parsed.ticks.player_count.to_string(),
     );
-    push_part(
+    let frame_count = push_text(
         &mut buf,
         "frameCount",
-        parsed.ticks.frame_count.to_string().as_bytes(),
+        &parsed.ticks.frame_count.to_string(),
     );
-    buf
+    EventPieces {
+        payload: buf,
+        header,
+        players,
+        rounds,
+        grenades,
+        shots,
+        kills,
+        hurts,
+        blinds,
+        bomb_events,
+        buy_events,
+        controller_dump,
+        player_count,
+        frame_count,
+    }
+}
+
+fn events_payload(parsed: &Match) -> Vec<u8> {
+    event_pieces(parsed).payload
 }
 
 fn push_payload(overall: &mut Sha256, name: &str, payload: &[u8]) -> String {
@@ -208,10 +300,24 @@ fn push_encoded<T, const N: usize>(
 
 fn hash_match(parsed: &Match) -> (String, SectionHashes) {
     let mut overall = Sha256::new();
-    let events = events_payload(parsed);
+    let pieces = event_pieces(parsed);
     let ticks = &parsed.ticks;
+    // Piece hashes stay out of `overall`. The events blob already contains them.
     let sections = SectionHashes {
-        events: push_payload(&mut overall, "events", &events),
+        events: push_payload(&mut overall, "events", &pieces.payload),
+        header: pieces.header,
+        players: pieces.players,
+        rounds: pieces.rounds,
+        grenades: pieces.grenades,
+        shots: pieces.shots,
+        kills: pieces.kills,
+        hurts: pieces.hurts,
+        blinds: pieces.blinds,
+        bomb_events: pieces.bomb_events,
+        buy_events: pieces.buy_events,
+        controller_dump: pieces.controller_dump,
+        player_count: pieces.player_count,
+        frame_count: pieces.frame_count,
         ticks: push_encoded(&mut overall, "ticks", &ticks.ticks, |value| {
             value.to_le_bytes()
         }),
@@ -424,7 +530,22 @@ fn wasm_boundary_hashes_json_and_little_endian_columns() {
     let (changed_sha, changed_sections) = hash_match(&changed);
     assert_ne!(sha256, changed_sha);
     assert_eq!(sections.events, changed_sections.events);
+    assert_eq!(sections.header, changed_sections.header);
+    assert_eq!(sections.grenades, changed_sections.grenades);
     assert_ne!(sections.yaw, changed_sections.yaw);
+
+    let mut renamed = parsed.clone();
+    renamed.header.map_name = "de_nuke".to_string();
+    let (_, renamed_sections) = hash_match(&renamed);
+    assert_ne!(sections.header, renamed_sections.header);
+    assert_ne!(sections.events, renamed_sections.events);
+    assert_eq!(sections.kills, renamed_sections.kills);
+    assert_eq!(sections.grenades, renamed_sections.grenades);
+    assert_eq!(
+        sections.header,
+        hex_bytes(&Sha256::digest(header.as_bytes())),
+        "header hash is the header JSON bytes, not the framed events blob"
+    );
 }
 
 #[test]
@@ -517,6 +638,19 @@ fn demo_hash(name: &str, sha256: &str, events: &str, x: &str) -> DemoHash {
         sha256: sha256.to_string(),
         sections: SectionHashes {
             events: events.to_string(),
+            header: "header".to_string(),
+            players: "players".to_string(),
+            rounds: "rounds".to_string(),
+            grenades: "grenades".to_string(),
+            shots: "shots".to_string(),
+            kills: "kills".to_string(),
+            hurts: "hurts".to_string(),
+            blinds: "blinds".to_string(),
+            bomb_events: "bomb_events".to_string(),
+            buy_events: "buy_events".to_string(),
+            controller_dump: "controller_dump".to_string(),
+            player_count: "player_count".to_string(),
+            frame_count: "frame_count".to_string(),
             ticks: "ticks".to_string(),
             x: x.to_string(),
             y: "y".to_string(),
