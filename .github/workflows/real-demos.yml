@@ -3,7 +3,7 @@
 # "Expected — waiting". Changes are detected inside the job; unrelated PRs
 # skip the download and parse and finish green.
 #
-# A weekly run touches the demo cache so GitHub does not evict it after
+# Two runs a week touch the demo cache so GitHub does not evict it after
 # 7 days without a Rust change. Local `cargo test` still skips these tests
 # until ./scripts/run.sh --fetch-demos.
 
@@ -12,8 +12,8 @@ name: Real demos
 on:
   workflow_dispatch:
   schedule:
-    # Monday 04:00 UTC.
-    - cron: "0 4 * * 1"
+    # Monday and Thursday 04:00 UTC. One weekly run can miss the 7-day eviction.
+    - cron: "0 4 * * 1,4"
   pull_request:
     branches: [master]
   push:
