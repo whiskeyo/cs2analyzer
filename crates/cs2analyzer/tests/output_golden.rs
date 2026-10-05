@@ -597,10 +597,30 @@ fn output_matches_wasm_boundary_hashes() {
             .unwrap_or_else(|err| panic!("{name} failed to parse: {err}"));
         let (sha256, sections) = hash_match(&parsed);
         let rss = watch.peak_kib();
+        let burn_ticks =
+            (cs2analyzer::MOLOTOV_SECONDS * cs2analyzer::DEFAULT_TICK_RATE).round() as u32;
+        let mut fire_grenades = 0u32;
+        let mut airburst = 0u32;
+        for grenade in &parsed.grenades {
+            if !grenade.kind.is_fire() {
+                continue;
+            }
+            fire_grenades += 1;
+            // No inferno: detonate at disappearance and the default burn length, no flame cells.
+            if grenade.fires.is_empty()
+                && grenade.end_tick.saturating_sub(grenade.detonate_tick) == burn_ticks
+            {
+                airburst += 1;
+            }
+        }
         drop(parsed);
         match rss {
-            Some(kib) => eprintln!("output-golden {name} sha256={sha256} rss_kib={kib}"),
-            None => eprintln!("output-golden {name} sha256={sha256} rss_kib=n/a"),
+            Some(kib) => eprintln!(
+                "output-golden {name} sha256={sha256} rss_kib={kib} fire_grenades={fire_grenades} airburst={airburst}"
+            ),
+            None => eprintln!(
+                "output-golden {name} sha256={sha256} rss_kib=n/a fire_grenades={fire_grenades} airburst={airburst}"
+            ),
         }
         demos.push(DemoHash {
             name,

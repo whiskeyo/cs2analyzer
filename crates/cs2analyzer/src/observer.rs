@@ -83,6 +83,8 @@ pub(crate) struct Collector {
     pub prev_win_status: i32,
     pub grenade_dets: Vec<GrenadeDet>,
     pub grenade_ends: Vec<(i32, u32)>,
+    /// `inferno_extinguish` (entity id, tick). Empty on the release demos; smoke can still end a fire early.
+    pub inferno_extinguish: Vec<(i32, u32)>,
     pub proj_points: Vec<ProjPoint>,
     pub final_winner: Option<Side>,
     pub final_reason: i32,
@@ -187,6 +189,7 @@ impl Collector {
             prev_win_status: 0,
             grenade_dets: Vec::new(),
             grenade_ends: Vec::new(),
+            inferno_extinguish: Vec::new(),
             proj_points: Vec::new(),
             final_winner: None,
             final_reason: 0,
@@ -1114,6 +1117,10 @@ impl Collector {
             "smokegrenade_expired" | "inferno_expire" => {
                 let id = ev_i32(ge, "entityid").unwrap_or(0);
                 self.grenade_ends.push((id, tick));
+            }
+            "inferno_extinguish" => {
+                let id = ev_i32(ge, "entityid").unwrap_or(0);
+                self.inferno_extinguish.push((id, tick));
             }
             "weapon_fire" => {
                 let w = ev_str(ge, "weapon").unwrap_or_default();
