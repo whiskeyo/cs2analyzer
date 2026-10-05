@@ -47,12 +47,7 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     let rounds = build_rounds(c);
     apply_match_start_sides(&mut players, &ticks, &rounds);
     c.finish_infernos(c.last_cap);
-    let restart = match_restart_tick(c);
-    drop_events_before_match_restart(c, restart);
     let mut grenades = build_grenades(c, &idx_of, tick_rate(c));
-    if let Some(cut) = restart {
-        grenades.retain(|throw_| throw_.start_tick >= cut);
-    }
     attach_molotov_fires(c, &mut grenades);
     let shots: Vec<Shot> = c
         .shots
@@ -329,6 +324,15 @@ fn build_rounds(c: &Collector) -> Vec<Round> {
         }
     }
 
+    let mut n_comp = 0u32;
+    for r in &mut rounds {
+        if r.is_knife {
+            r.number = 0;
+        } else {
+            n_comp += 1;
+            r.number = n_comp;
+        }
+    }
     if let Some(r) = rounds.last_mut() {
         if r.winner.is_none() {
             if let Some(w) = c.final_winner {
@@ -340,48 +344,7 @@ fn build_rounds(c: &Collector) -> Vec<Round> {
             r.end_tick = c.last_cap;
         }
     }
-
-    // FACEIT knife (and anything else before a match restart) is not a played
-    // round. HLTV and Premier either have no `begin_new_match`, or only early
-    // ones before the first round ends, so this keeps them intact.
-    if let Some(restart) = match_restart_tick(c) {
-        rounds.retain(|round| round.end_tick >= restart);
-    }
-
-    let mut n_comp = 0u32;
-    for r in &mut rounds {
-        if r.is_knife {
-            r.number = 0;
-        } else {
-            n_comp += 1;
-            r.number = n_comp;
-        }
-    }
     rounds
-}
-
-/// Last `begin_new_match`. `None` when the demo never restarts the match.
-fn match_restart_tick(c: &Collector) -> Option<u32> {
-    c.begin_new_match_ticks.last().copied()
-}
-
-/// Kills, damage, utility, bomb, and freeze-economy samples from rounds that
-/// ended before the restart. Tick snapshots stay so the radar can still seek
-/// there; they are not a played round.
-fn drop_events_before_match_restart(c: &mut Collector, restart: Option<u32>) {
-    let Some(cut) = restart else {
-        return;
-    };
-    c.kills.retain(|event| event.tick >= cut);
-    c.hurts.retain(|event| event.tick >= cut);
-    c.blinds.retain(|event| event.0 >= cut);
-    c.shots.retain(|event| event.0 >= cut);
-    c.bomb_events.retain(|event| event.0 >= cut);
-    c.grenade_dets.retain(|event| event.0 >= cut);
-    c.grenade_ends.retain(|event| event.1 >= cut);
-    c.proj_points.retain(|event| event.1 >= cut);
-    c.fire_spans.retain(|span| span.start_tick >= cut);
-    c.controller_freeze.retain(|row| row.tick >= cut);
 }
 
 /// First `cs_pre_restart` after live play ends — GOTV post-round / win panel beat.
@@ -786,204 +749,6 @@ mod tests {
             }],
             fires: Vec::new(),
         }
-    }
-
-    fn faceit_knife_then_live(restart_ticks: &[u32]) -> Collector {
-        let steam = 76_561_198_000_000_001;
-        let mut c = Collector::new(ParseOptions::default());
-        c.last_cap = 5000;
-        c.meta_order.push(steam);
-        c.meta.insert(steam, meta(steam, "A", Side::Ct, false));
-        c.begin_new_match_ticks.extend(restart_ticks);
-        c.round_starts.extend([100, 1000, 2500]);
-        c.freeze_ends.extend([200, 1100, 2600]);
-        c.synth_ends.extend([
-            (500, Some(Side::Ct), 8),
-            (2000, Some(Side::T), 7),
-            (4000, Some(Side::Ct), 8),
-        ]);
-        c.round_scores.insert(200, (0, 0));
-        c.round_scores.insert(1100, (0, 0));
-        c.round_scores.insert(2600, (0, 1));
-        c.round_equip.insert(200, 4000);
-        c.round_equip.insert(1100, 4000);
-        c.round_equip.insert(2600, 4000);
-        c.round_names
-            .insert(200, ("Knife CT".into(), "Knife T".into()));
-        c.round_names
-            .insert(1100, ("Real CT".into(), "Real T".into()));
-        c.round_names
-            .insert(2600, ("Real CT".into(), "Real T".into()));
-        c.frames.push(RawFrame {
-            tick: 100,
-            players: vec![player_buy(
-                steam,
-                FLAG_PRESENT | FLAG_ALIVE | FLAG_CT,
-                4000,
-                0,
-            )],
-        });
-        c.frames.push(RawFrame {
-            tick: 160,
-            players: vec![player_buy(
-                steam,
-                FLAG_PRESENT | FLAG_ALIVE | FLAG_CT,
-                1300,
-                crate::inventory::WID_AK47,
-            )],
-        });
-        c.frames.push(RawFrame {
-            tick: 1000,
-            players: vec![player_buy(steam, FLAG_PRESENT | FLAG_ALIVE, 4000, 0)],
-        });
-        c.frames.push(RawFrame {
-            tick: 1060,
-            players: vec![player_buy(
-                steam,
-                FLAG_PRESENT | FLAG_ALIVE,
-                1300,
-                crate::inventory::WID_AK47,
-            )],
-        });
-        c.kills
-            .extend([raw_kill(400, "ak47"), raw_kill(1500, "awp")]);
-        c.hurts.extend([raw_hurt(420), raw_hurt(1550)]);
-        c.shots.extend([
-            (410, Some(steam), 1.0, 2.0, 3.0),
-            (1540, Some(steam), 1.0, 2.0, 3.0),
-        ]);
-        c.blinds.extend([
-            (430, Some(steam), 2.0, Some(steam)),
-            (1560, Some(steam), 2.0, Some(steam)),
-        ]);
-        c.bomb_events.extend([
-            (
-                450,
-                BombKind::Planted,
-                Some(steam),
-                1.0,
-                2.0,
-                3.0,
-                false,
-                Some(0),
-            ),
-            (
-                1600,
-                BombKind::Planted,
-                Some(steam),
-                4.0,
-                5.0,
-                6.0,
-                false,
-                Some(1),
-            ),
-        ]);
-        c.grenade_dets.extend([
-            (440, GrenadeKind::Flash, 1, 0.0, 0.0, 0.0),
-            (1570, GrenadeKind::Smoke, 2, 1.0, 1.0, 1.0),
-        ]);
-        c
-    }
-
-    fn player_buy(steam: u64, flags: u8, money: u16, primary: u8) -> RawFramePlayer {
-        let mut player = raw_player(steam, flags);
-        player.money = money;
-        player.primary = primary;
-        player
-    }
-
-    fn raw_kill(tick: u32, weapon: &str) -> RawKill {
-        RawKill {
-            tick,
-            attacker: None,
-            victim: None,
-            assister: None,
-            weapon: weapon.into(),
-            headshot: false,
-            assisted_flash: false,
-            wallbang: false,
-            noscope: false,
-            through_smoke: false,
-            attacker_blind: false,
-            attacker_airborne: false,
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-            attacker_x: 0.0,
-            attacker_y: 0.0,
-            attacker_z: 0.0,
-        }
-    }
-
-    fn raw_hurt(tick: u32) -> RawHurt {
-        RawHurt {
-            tick,
-            attacker: None,
-            victim: None,
-            damage: 50,
-            damage_armor: 0,
-            hitgroup: 1,
-            health: 50,
-            armor: 0,
-            weapon: "ak47".into(),
-        }
-    }
-
-    #[test]
-    fn last_begin_new_match_drops_the_knife_round_and_its_events() {
-        // An earlier begin_new_match (warmup / veto) must not be the cutoff.
-        let mut c = faceit_knife_then_live(&[40, 800]);
-        let m = assemble(&mut c, 5000, 80.0);
-        assert_eq!(m.rounds.len(), 2);
-        assert_eq!(m.rounds[0].number, 1);
-        assert_eq!(m.rounds[1].number, 2);
-        assert!(!m.rounds[0].is_knife);
-        assert_eq!(m.rounds[0].start_tick, 1000);
-        assert_eq!(m.rounds[0].score_ct, 0);
-        assert_eq!(m.rounds[0].score_t, 0);
-        assert_eq!(m.rounds[1].score_ct, 0);
-        assert_eq!(m.rounds[1].score_t, 1);
-        assert_eq!(m.header.team_ct, "Real CT");
-        assert_eq!(m.header.team_t, "Real T");
-        assert_eq!(m.header.score_ct, 1);
-        assert_eq!(m.header.score_t, 1);
-        assert_eq!(m.players[0].start_side, Side::T);
-        assert_eq!(m.kills.len(), 1);
-        assert_eq!(m.kills[0].tick, 1500);
-        assert_eq!(m.kills[0].weapon, "awp");
-        assert_eq!(m.hurts.len(), 1);
-        assert_eq!(m.hurts[0].tick, 1550);
-        assert_eq!(m.shots.len(), 1);
-        assert_eq!(m.shots[0].tick, 1540);
-        assert_eq!(m.blinds.len(), 1);
-        assert_eq!(m.blinds[0].tick, 1560);
-        assert_eq!(m.bomb_events.len(), 1);
-        assert_eq!(m.bomb_events[0].tick, 1600);
-        assert_eq!(m.grenades.len(), 1);
-        assert_eq!(m.grenades[0].start_tick, 1570);
-        assert_eq!(m.buy_events.len(), 1);
-        assert_eq!(m.buy_events[0].tick, 1060);
-        assert_eq!(m.buy_events[0].weapon, crate::inventory::WID_AK47);
-    }
-
-    #[test]
-    fn no_begin_new_match_keeps_the_opening_round() {
-        let mut c = faceit_knife_then_live(&[]);
-        let m = assemble(&mut c, 5000, 80.0);
-        assert_eq!(m.rounds.len(), 3);
-        assert_eq!(m.rounds[0].start_tick, 100);
-        assert_eq!(m.rounds[0].number, 1);
-        assert_eq!(m.kills.len(), 2);
-        assert_eq!(m.bomb_events.len(), 2);
-        assert_eq!(m.buy_events.len(), 2);
-    }
-
-    #[test]
-    fn begin_new_match_before_the_first_round_keeps_them() {
-        let mut c = faceit_knife_then_live(&[40]);
-        let m = assemble(&mut c, 5000, 80.0);
-        assert_eq!(m.rounds.len(), 3);
-        assert_eq!(m.rounds[0].end_tick, 500);
     }
 
     #[test]
