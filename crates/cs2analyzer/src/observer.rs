@@ -48,6 +48,27 @@ pub(crate) struct RawFrame {
 pub(crate) type ProjPoint = (u32, u32, GrenadeKind, f32, f32, f32, Option<u64>);
 pub(crate) type BombRec = (u32, BombKind, Option<u64>, f32, f32, f32, bool, Option<u8>);
 
+/// `inferno_startburn` is the inferno entity (and the thrower). Projectile
+/// detonates, including optional `molotov_detonate`, name the projectile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GrenadeDetSource {
+    Projectile,
+    InfernoStart,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct GrenadeDet {
+    pub tick: u32,
+    pub kind: GrenadeKind,
+    pub entity: i32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    /// Steam id from `userid` when the event has one, otherwise `CInferno.m_hOwnerEntity`.
+    pub thrower: Option<u64>,
+    pub source: GrenadeDetSource,
+}
+
 pub(crate) struct Collector {
     pub opts: ParseOptions,
     pub map_name: String,
@@ -60,8 +81,11 @@ pub(crate) struct Collector {
     pub pre_restarts: Vec<u32>,
     pub synth_ends: Vec<(u32, Option<Side>, i32)>,
     pub prev_win_status: i32,
-    pub grenade_dets: Vec<(u32, GrenadeKind, i32, f32, f32, f32)>,
+    pub grenade_dets: Vec<GrenadeDet>,
     pub grenade_ends: Vec<(i32, u32)>,
+    /// `inferno_extinguish` (entity id, tick). The release demos never emit this
+    /// event. A smoke puts the fire out with an earlier `inferno_expire`.
+    pub inferno_extinguish: Vec<(i32, u32)>,
     pub proj_points: Vec<ProjPoint>,
     pub final_winner: Option<Side>,
     pub final_reason: i32,
@@ -166,6 +190,7 @@ impl Collector {
             prev_win_status: 0,
             grenade_dets: Vec::new(),
             grenade_ends: Vec::new(),
+            inferno_extinguish: Vec::new(),
             proj_points: Vec::new(),
             final_winner: None,
             final_reason: 0,
@@ -199,7 +224,8 @@ impl Collector {
     }
 
     pub(crate) fn finish_infernos(&mut self, tick: u32) {
-        let ents: Vec<u32> = self.inferno_live.keys().copied().collect();
+        let mut ents: Vec<u32> = self.inferno_live.keys().copied().collect();
+        ents.sort_unstable();
         for entity in ents {
             self.close_inferno(entity, tick);
         }
@@ -272,15 +298,17 @@ impl Collector {
                 continue;
             }
             let entity = e.index();
+            self.note_inferno_thrower(ctx, e, tick);
             seen.insert(entity);
             self.track_inferno(e, tick);
         }
-        let stale: Vec<u32> = self
+        let mut stale: Vec<u32> = self
             .inferno_live
             .keys()
             .copied()
             .filter(|k| !seen.contains(k))
             .collect();
+        stale.sort_unstable();
         for entity in stale {
             self.close_inferno(entity, tick.saturating_sub(1));
         }
@@ -373,6 +401,46 @@ fn steam_from_game_event(c: &Collector, ctx: &Context, ge: &GameEvent<'_>) -> Op
     ev_i32(ge, "userid_pawn")
         .and_then(|h| steam_from_pawn_handle(c, ctx, h))
         .or_else(|| ev_i32(ge, "userid").and_then(|uid| steam_from_userid(c, ctx, uid)))
+}
+
+impl Collector {
+    /// Premier `inferno_startburn` has no `userid`. The inferno's `m_hOwnerEntity`
+    /// is the thrower pawn, and it appears on the tick after the event.
+    fn note_inferno_thrower(&mut self, ctx: &Context, inferno: &Entity, tick: u32) {
+        let Some(steam) =
+            steam_from_pawn_handle(self, ctx, prop_u32(inferno, "m_hOwnerEntity") as i32)
+        else {
+            return;
+        };
+        fill_inferno_thrower(
+            &mut self.grenade_dets,
+            inferno.index() as i32,
+            tick,
+            steam,
+            crate::constants::INFERNO_OWNER_LAG_TICKS,
+        );
+    }
+}
+
+/// Copy `steam` onto the latest `inferno_startburn` for `entity` that still has
+/// no thrower and started within `lag_ticks`. A `userid` already on the event is left alone.
+pub(crate) fn fill_inferno_thrower(
+    dets: &mut [GrenadeDet],
+    entity: i32,
+    tick: u32,
+    steam: u64,
+    lag_ticks: u32,
+) {
+    let Some(det) = dets.iter_mut().rev().find(|det| {
+        det.source == GrenadeDetSource::InfernoStart
+            && det.entity == entity
+            && det.thrower.is_none()
+            && det.tick <= tick
+            && tick.saturating_sub(det.tick) <= lag_ticks
+    }) else {
+        return;
+    };
+    det.thrower = Some(steam);
 }
 
 /// Controllers with `m_steamID == 0` are bots (or an empty slot after a leave).
@@ -1002,15 +1070,30 @@ impl Collector {
                 self.bomb_events
                     .push((tick, kind, player, x, y, z, ev_haskit(ge), site));
             }
+            "inferno_startburn" => {
+                // Premier demos have no `molotov_detonate`. `entityid` is the
+                // inferno. This build's event descriptor is entityid/x/y/z with
+                // no `userid`; `note_inferno_thrower` copies `m_hOwnerEntity`
+                // when the inferno entity appears. Pair `inferno_expire` by entity id.
+                self.grenade_dets.push(GrenadeDet {
+                    tick,
+                    kind: GrenadeKind::Molotov,
+                    entity: ev_i32(ge, "entityid").unwrap_or(0),
+                    x: ev_f32(ge, "x"),
+                    y: ev_f32(ge, "y"),
+                    z: ev_f32(ge, "z"),
+                    thrower: steam_from_game_event(self, ctx, ge),
+                    source: GrenadeDetSource::InfernoStart,
+                });
+            }
             name @ ("smokegrenade_detonate"
-            | "inferno_startburn"
             | "hegrenade_detonate"
             | "flashbang_detonate"
             | "decoy_detonate"
             | "molotov_detonate") => {
                 let kind = match name {
                     "smokegrenade_detonate" => GrenadeKind::Smoke,
-                    "inferno_startburn" | "molotov_detonate" => GrenadeKind::Molotov,
+                    "molotov_detonate" => GrenadeKind::Molotov,
                     "hegrenade_detonate" => GrenadeKind::He,
                     "flashbang_detonate" => GrenadeKind::Flash,
                     _ => GrenadeKind::Decoy,
@@ -1021,18 +1104,24 @@ impl Collector {
                         self.last_flash_thrower = Some(thrower);
                     }
                 }
-                self.grenade_dets.push((
+                self.grenade_dets.push(GrenadeDet {
                     tick,
                     kind,
-                    id,
-                    ev_f32(ge, "x"),
-                    ev_f32(ge, "y"),
-                    ev_f32(ge, "z"),
-                ));
+                    entity: id,
+                    x: ev_f32(ge, "x"),
+                    y: ev_f32(ge, "y"),
+                    z: ev_f32(ge, "z"),
+                    thrower: None,
+                    source: GrenadeDetSource::Projectile,
+                });
             }
             "smokegrenade_expired" | "inferno_expire" => {
                 let id = ev_i32(ge, "entityid").unwrap_or(0);
                 self.grenade_ends.push((id, tick));
+            }
+            "inferno_extinguish" => {
+                let id = ev_i32(ge, "entityid").unwrap_or(0);
+                self.inferno_extinguish.push((id, tick));
             }
             "weapon_fire" => {
                 let w = ev_str(ge, "weapon").unwrap_or_default();

@@ -1,0 +1,211 @@
+{
+  "demos": [
+    {
+      "name": "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem",
+      "sha256": "5bedc1fc2c3fa356231b3bb87eeee6e317cc3c93a73f17af9eb8069669d83438",
+      "sections": {
+        "events": "21bb7f7a527c5541f1bc19e1cca419f6ba027e156a5d90cdd4eea0d9891aed47",
+        "ticks": "db575771a9c02fc39bff29b5dd3390befd301cbd882189e4011b4fc357d03b5a",
+        "x": "d4fe34fd820f7d31a70ef132fb0a4484f8809cdf288e12a906ec677b2341e1c5",
+        "y": "f11880bf038f15249457d596516ed4ef52dc695177f881e0684d3efcc84ff034",
+        "z": "495e9a0c9806d145bd9f9744f41c1af19444a79f9dc7d64ec2d54207841a4fe8",
+        "yaw": "936fb7906dc2f8c01e244fa047ae9f58c8b7290dcf0e6b8eb70fdc3fa243443f",
+        "health": "346c387ae00b7198229be1f357443d2e6ba4c62f2bca33f88d20da260dd8884e",
+        "armor": "728d8a6a8698c02ff92c52b893d5ca5945bb34b7dc296ce278076ea8107acd64",
+        "flags": "215dae7738765c89e63263ed6aa610b39f840ed192f767bd84f0554927b83407",
+        "money": "f8fddbc3801609ed47693d34a2e1faae1303f1e95ccb2e9d9f63a51899684dd4",
+        "equip": "2b19e0dae355e13882c16ababe58854e3a3b907b9e52dffef025f96ba1d4f9dd",
+        "gear": "c6cc017255d55e9f6191fec3ee71897977f28b273b0d0b3fe470092cdc92ee52",
+        "primary": "43244a49ecc832ca3286129636b85a4e831e3763aeeddbc835bd4c16598a8bae",
+        "secondary": "ed15c5e0b9bfc6cbbac9fd91f969d0a7e262b5df27f9c610ed9d28836c6435dc",
+        "active": "d58a427a65b6a8c42584d8ac5dffd8e131eb587a316fe027fd3acae7e7c4aed5",
+        "clip": "51cb459c0592b8e8a9cc4fea9365ecb11edd5869977b2f048ded630b687b41c6",
+        "reserve": "6b59e059d0700963393dcea266187e5df14b92d9589a46c01a52ba122fc46aeb"
+      }
+    },
+    {
+      "name": "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem",
+      "sha256": "21cbafd910d08bb96d05e3e8df972b378c82d837d932f019f96daeb924052fbe",
+      "sections": {
+        "events": "144921b6c990ab54e6afe3a4b96571560958c291a1272844600853ab19248918",
+        "ticks": "2e573e16ba7dda315c5b33a2e35ab05eb6a0d70287dc405dfeef069814c556ac",
+        "x": "91931e0e6f84678e1f87f23a71277d3962345631d509ce637c39941fc7e3e359",
+        "y": "a6417aca7a4603a6081e4e7b00daac1b2944cfef7b050e34274a26022df70cf0",
+        "z": "d6d67f182ada5977dd3a0982c76d465373045e97067bb5c1030c11d5742256ff",
+        "yaw": "332d786c23a3f2ffb628eeedc5fd1f81ed3a6e7e7f19563d8a2f21ae8bd9cb23",
+        "health": "f4a284a7adc6e45d51b99cc331064ceedb78c184edddc9b409cf2b981afe5c50",
+        "armor": "f95365f866513e78f6eae648b5bfd4a61ca1970914d2d86b17ff475834d1dc6e",
+        "flags": "fa28018d3419ed81697c16235bac35a0324b7bce28de17e6c7f5ce2d733caf6d",
+        "money": "4d1561f1a391d6dd982ab9d9b9edee8b61c207a603fb83bc81873502b70f6975",
+        "equip": "ab9671c9a8b3f7821a485c48d7d7113333957857b85f0181705f28ed212f629d",
+        "gear": "9bb6f51bf924b685438480bcef7fb57f36eb2e7b04a6d7af4a9e403ed9102004",
+        "primary": "e62d3ee0b64ea08c6ec588d489a286275737681ad2c2e866a044e303732a7915",
+        "secondary": "131bb6178d20ba0ede82eb259790ca8f3a2f1b22540950c77f5daa7f0cf719b6",
+        "active": "b389f20312d7f2077d5f8ae1beee4de01b5815c6285b515c74f33a2406a97288",
+        "clip": "4fae4475d15942eafac0f41adec4a500d10dc2b2aaa599f6a7bfae98d5259bf3",
+        "reserve": "30091c095a2baadd62766b4d207f81f5adf65b9a354a00b8b433a4b7819becd2"
+      }
+    },
+    {
+      "name": "1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem",
+      "sha256": "4eff19d0121ab351dd14a42014c77ac16898175ef4c1cd87a2e00aae0739cd90",
+      "sections": {
+        "events": "963bbb8a7d9a49d690d2721d3683e07ded8e9876d6e88a6189f9ef0f34f64f1c",
+        "ticks": "0bba8e32f5bb6391583464d91390ab8b2f0e643f16974b706c9e8a669ea4615e",
+        "x": "8a1038a76897715645cc24f62cdb57a62fc66bbed69d32cca8ec779f7b9800ee",
+        "y": "ee1698ff92c41a26cbb22569635ea3accfaa293350fb10318b37ebeeb9e167b2",
+        "z": "f75d1fefdb9c6ca8b6bbfc0b315c6176a4256cfd56076f16390e27250d8867b8",
+        "yaw": "49716e5a807018169925418a513545926f59729a0e2f1ec96440424ed3e27a57",
+        "health": "d921280d33b49785223c5a941a606432d8be6ddbef73f3c528678a5c7a73345e",
+        "armor": "af9577fc617465dc2585f762adaf00f3b3191f38b003a2442ffcd2f95ffe6680",
+        "flags": "4eb19131f78910b101ef28b8c03b463c6afd0f41203734fb47e209ff16bca698",
+        "money": "094a000fbf215bf84e9d1e6291311c92fa5da137df8f6859d6c1e14fd1287f53",
+        "equip": "af0f6aecfe532e369f3b45b9b9af5e46369bba602d08f2839c05a5301be637d5",
+        "gear": "8c0eb018345a507daaaceb22342cc644d2e783ff86d68b5e249284df7ffe1231",
+        "primary": "edc03f06e28775190c28bcdc3eca8ee15009e2c68a747e408d7958a6b50445de",
+        "secondary": "9f6608e8972306e5bf96058e2976900460c154511fcffc91367f0aa1d97fc313",
+        "active": "da78d395fd65f8f48ea54c4f8fe13d453de0251f6349b205e0e63e8298447377",
+        "clip": "80cc706d9dc12f313a3f2af0f97c165d235b6c4a012149fbdc5d4e6b03aca98a",
+        "reserve": "dc00f14515ffa92e29d783521fd2e41149a265603e5bc81f2cac06d21ceb1ded"
+      }
+    },
+    {
+      "name": "legacy-vs-spirit-m2-ancient.dem",
+      "sha256": "77968624c542fda0decdae06d4f7f949ba5f64fd6bddd3999f6b85f25cdf4a6f",
+      "sections": {
+        "events": "b7c47e0c5f9e778cf5806c339b42c1ae8474e6679651875f4450c68831f0fa0c",
+        "ticks": "7280e7ec8500d18165e7687c7079f3603a53c8fbcdacc8fffb8e24a653d06c3e",
+        "x": "c33e1c86a7f009b6fbb26ad4c5a26625d41ff3be0a05623fdb6fcd21d7f277da",
+        "y": "e61bfdc719f92467663b5cc264814a5888031ab38ae9ef6d7a74a3c9950c400f",
+        "z": "d23a54dc83b5b15f859d433b08c2ac554ea4d5f7f1ab31bc7a54529bd9d1155a",
+        "yaw": "585bbd717cd8cb6b5bd9f40bd3af195474283338f56978237c97800d28eb63c9",
+        "health": "5a49425cbe35e627d81f30a922632cc820e2aab7b6dc9a5eab90955e057d7bc8",
+        "armor": "f6589bed1ab508d17e9a551eea009744898d6dffa8e238a0d6b83cd8ecfa2bb3",
+        "flags": "1e0e5b25bef4246c1f46a72c425586b53a702ea5614b46126d17ef7ab57a87fd",
+        "money": "568b9420a7a87cc01b5bb7a5dfdc0a35a964b44128a231d2b15a29fe0d9dc49d",
+        "equip": "a2946f47f3bbeb7192cd6629926a00b68547cf18f53c3cf0565f3027455ebd8a",
+        "gear": "3c7ad9c6bf207e9df03ac802ba9da9ec7998d37500ba42f7e337ae7f5b2eac00",
+        "primary": "cb116274a8a3031a230f5bc4f39df449c55456b8e106f78ad72f7698814b7961",
+        "secondary": "a9f1ca29116d4f53cb0e2100c0a42f509ea61d51df1f3894104c19d257346621",
+        "active": "11ecef4b506c4ec3affbdf7c1ce2ca22bb355870a5ec44ffc31eb8ae3582cc75",
+        "clip": "973c40ec63745a9170e4e43077a838784e302c52409a082f3d79b12a05b4a3d7",
+        "reserve": "8148157936e32d3cc8dcad80a45434b7d6055e9e8a57b7df1ad7a6b1475dd65f"
+      }
+    },
+    {
+      "name": "premier-d2.dem",
+      "sha256": "e6ce862c46d942a3db3ecc7c3092c80f6b7bc9e813bbf958d49c52e8593ee80e",
+      "sections": {
+        "events": "5d46818600c5dab10f6550282baf139456bc240148044da314873ccf71e73541",
+        "ticks": "853727bbd389b8b0e364f4f902a95a40640ba12c808a7cef7c0cef8371415ade",
+        "x": "25ea036ee0bebf3320732a8a6af40b4c73d1c2d4dc106e94719691b84ccfb004",
+        "y": "a012e7869570101be367f0cd67309c5c4143685ae6a17d2af5d6b201070d3975",
+        "z": "b7da1ed3f8f5d6335c39b2745c541e98f05ca6864b38c173d35d0b6c7533ef8d",
+        "yaw": "64f535ad991551a86773f7d8622fe9577701b2590b07ad16c2962e8c460057f6",
+        "health": "68348326f32a41c66b30b78528b47adffb1bc1f1fcd662f3d95f83425ef75f16",
+        "armor": "25808c4bdeae2e8e7785331bd8c28bdf1ce0376136279490727295f3c2a84fe2",
+        "flags": "9182c06c1bff28fe2d14e91382c43e70d3cb73882714524fb0750a4b990cdfd6",
+        "money": "9be34dcedf8f114f8744b7f4243705d083e54530cd32f4a63cf9e94e7255bd07",
+        "equip": "e8d086e78fb0ab0b5cda3c59f444527ec7492d9d1a77685e62ceb51ed9b2cf3a",
+        "gear": "6ad2ee4fefc7b94b3b514321cb0b13b7d72fe0312a00cd64580c4494a0ca34fb",
+        "primary": "625057860da6286441d893bed73270ec7ff51abd87fe180c7a166b6249784f95",
+        "secondary": "bb3842d736e6a46b19a84f32f74e734e4a14fa8605d3cbbb6bd5ac0bcac72ee5",
+        "active": "43548ad4ddcd3e785affe606892c2a0cda3c16370827726bc488b42921d22d29",
+        "clip": "05f20117e576027e49950ae6afafa023076e068a831ceff6020fb2f2c104b002",
+        "reserve": "e0650a98f8f4f6be49201a39c56fd30fad51d9aa6efd8a00836b195449acb78f"
+      }
+    },
+    {
+      "name": "spirit-vs-dendele-m1-ancient.dem",
+      "sha256": "c965e514c96e8c2cc8085c4f28c644346da5af581e69158410f66d8dd68c545c",
+      "sections": {
+        "events": "08e3d8ad23c4e358365ac21879ebc8ecd72fba3fdab7749a52e9b5cff8c88ebf",
+        "ticks": "7767ff19420f036adacab70a807628b6cb13daeed6170f87db79d4c5b2076546",
+        "x": "eefd0808a2471b387b2198a8a09437e1e4d3e7f33bdc1e434f35284f7888064f",
+        "y": "3dcb7c443a74c410f992caf397a737a45d5233d28d075323a5b8a185e07c1077",
+        "z": "3c3019793bfa292f0d4273774a9c8d00b6abad931ee487feac4622ac194914fd",
+        "yaw": "200a2cc52a93c727e153f8c5ef13f95df0ec895e234a056906601d2a44e15bb6",
+        "health": "b45f137c8dbebb92677cb5fdcc5ede8e7d6d47df8917e12b1820322287407909",
+        "armor": "4566d82793fb5c6f36dbcfa8e7a4d7f35806b1403f02c149f02f1f9cc2fe302a",
+        "flags": "995fa1d2a86044fd39907464e38dfae083768868da8812246f9ec256d91db0e0",
+        "money": "d00a60cacde3a798b2800fd59babb7d3ce320cd475d7469dd27eb476ec2867a5",
+        "equip": "e30c1cf232ad7d0f3762f4f1c72e88e541680cb39968bb787ee05a91818b7283",
+        "gear": "6828e079115c98931ffc701fec0ddcdc01ab01f3fec81880a87c86498c2ea4aa",
+        "primary": "78053695e769831e861bd032ad7976672d704a3ee49211af4eb339d69f841616",
+        "secondary": "d90b2381fc36adfc71494f08742da56d8d3cd30dbe28fcefcc73285befc9b977",
+        "active": "95d65fffdf70454a6e2f03236ce4bb64201354a0222c35080b4c33bcc9329591",
+        "clip": "8abc7dd795f82fe0c78e75c1bb3fbd158d22b5346952b08f6ccbf4f733e5e8e0",
+        "reserve": "4eed0c8317a7dc9b699757eb35164c8807e6af20949911cf89afdec98c649b17"
+      }
+    },
+    {
+      "name": "spirit-vs-furia-m1-ancient.dem",
+      "sha256": "f5d6e2f92c606975c41b0b3eb2850e3db401c2fe663f7d5b01ec9464cd651dda",
+      "sections": {
+        "events": "f5ea4f487d344fcaaeb995fbd97dd388b244491327d8cb024e1e13479f57f051",
+        "ticks": "327892550ece566bc9cf087c757d2ffb65e7e966b712f28eb7b4486a1a478e29",
+        "x": "85bdc8a0afa0e62f3bdda8f6e6e85a5d3c7d8b32aa8ce239101f16090e5bb23a",
+        "y": "19645e9ed79efb47914966f588c7e4baacbc0517c092c7259f5949e3028c5178",
+        "z": "39e020f02d76aa3db055e9e9d10032e1593f9760642d8a58fbf33ece2380d1bc",
+        "yaw": "57e2c898453e96fc9a6a017bc7034d50307df9b77ceb2d930e8755b60291605b",
+        "health": "3d5b8ebfe6d5276aea5e96810c0e8cb0253a77c53997a7d236b583ec82966761",
+        "armor": "488fc4d163b5676ed4bd59e10a22f7faa5ca5a04dab84bf3b51de1d299f9bc9e",
+        "flags": "fd5fdeda39004482ce46743b4e6d5b2cb30dda35d83b1af2e6cc9192411cf3f2",
+        "money": "fe1f035aee408884d90a4648f8c54c8c29c5d72de5b8f428353f13674ee236ca",
+        "equip": "34f0b7ba7eab3cb47792f13b79d8efa68e9d9ceb2f8e3ee0522d03925be412c9",
+        "gear": "992917a02af694c355b3c98b72b151b67f24fbf9d649631c4858f3fb187cc165",
+        "primary": "f6687d62b22ed0c7e0a7e2879bdc7de7da9012c5b7b43ed5b64f7be83b9190e3",
+        "secondary": "dd141f9f61801a3d3d0cd2f48b040e4361d496b1f05c068c650e35589c55eaa8",
+        "active": "fe98cc53671d39997b554ff1588dfd8925c54b9de29e37b7f72a9168270b2472",
+        "clip": "bc0a5282fe71c240fc5dc68c7d2a3bc456f1131eaef32f589980aa6fd5766b70",
+        "reserve": "0948cea0990750175e7ac73a5913b8dad5eeca7a0d35e5dda0c1e900f0258125"
+      }
+    },
+    {
+      "name": "spirit-vs-mouz-m3-ancient.dem",
+      "sha256": "ad374859bc64f543c4cef3bbf6e939915b300f34e0de3582de164d00426e70fd",
+      "sections": {
+        "events": "222903fc65b0680c5c58ad9d85a2f71755748b76f9c4f5d44f13459a0602dfcf",
+        "ticks": "f06ca5572a5b741982862584d4abe150d78d991c422dcb90671bc067e3b30c06",
+        "x": "2e5b7ff39eac8af8a70ecea2429e8d2daa77d4c2a7871123a7251cde9ea00796",
+        "y": "7097ebf210c420aef7da83f3738f42a164e1a029f00b6c19a01f9afda6598f61",
+        "z": "047d531a451ae4e2b80a0a596f3826d3cac2c030805d6970569413c9800a61e1",
+        "yaw": "dc7a533dd90233eca939dd44c3a0e17b168bb9388c27bad4c7e5a81056ab1936",
+        "health": "888ae7e95a0f4bd45581ffd97aedfbbe97772d74a8c5300bd8810c1f0ac72283",
+        "armor": "6d870d4330a0fa5f4790ec368dc1c2140e818a4d83545a1330b3eeff070e7d70",
+        "flags": "11b8fbed97002310cfa06d3990c28f8b7290287b2180e6bcc341bd73e1fb86ea",
+        "money": "b9ee46456717f0d8e5f497d9b50530eb92f1b51e7c62041ec413e193a2051b14",
+        "equip": "9a7ca69bc2ca33e826270709f4d5ec16c22d93a2c4d3965db7dae2df1072cb65",
+        "gear": "1dc2b3d4ec62ee63fd4fa8a9c1246520672cb0d89125812c69fd52a500518026",
+        "primary": "3c97d2a75b70374a947c137132dc2ff2d0503917e566d1b55974f091f3dea99a",
+        "secondary": "38e0e6923b80282315065ddf5f24218be040baaa8143fcfbf9a3cc3bb58e5176",
+        "active": "5a37e556eddff9f9205346caf13732e8c8618792c5136cff393c1eb781f17078",
+        "clip": "7cb27fabf0a2c0bd8e93ea54da8f41826901ea52c88bb98fa7074e56261b94eb",
+        "reserve": "c77fdee5bb2b6cff82d534dcf7b82bc3e7f454a151ef9187c38a56fe729f49e2"
+      }
+    },
+    {
+      "name": "spirit-vs-mouz-m4-nuke.dem",
+      "sha256": "f20be9c1509074a581a285659ba6b9db82eba86f95c1dd7d07bd9e36fca3b707",
+      "sections": {
+        "events": "84ac9dfba838e8d1c757ca169e99f3e47239e735002d63013077a701dbea9d05",
+        "ticks": "e3760ddbdc724a1bf93860e92095b06aa845fa64edeb847ab7e54d79ffe2711d",
+        "x": "955bf9e8096a5899b8ee9ff53673b6cd21432b75daba0ae5954639dc6273adae",
+        "y": "021c96e83b93b2498ce8409863b4dede20b274ea96afefa28ebcdb5a55459013",
+        "z": "586169aeed3f1e2de301ea85add5a53027813dd9cf705226801cc1b799ff35f6",
+        "yaw": "78350acf1593e939ee261b36d1278a117e983c0e621a268d5b605be334ab725e",
+        "health": "e0b1d41c74917634e424a3bb80d192781e67c57e6290fe40348553d9876d1af4",
+        "armor": "8298367b73ddd6ad055542dbb43f0efd8429fe8fb4584be456a363c77ede72dc",
+        "flags": "fdbb5728377ea97478c65f771d8bd9f8ee783497a74893fe486d83e38c92880c",
+        "money": "7c56b56b6e50cd3b2777a9ae190694b72d4f6e7ee8f5a047660c0b3fab7fbb36",
+        "equip": "ca42b41002d7e110815bf23e5b0dc4b107cdd041a53bbf2b2db96df2b4cfaad6",
+        "gear": "edd7b262a9938520cfb99e6423f5f3545a55bd6b6f0216b13c794f40dd98849a",
+        "primary": "7182db529353b91bc53363176fc5b15eb98abb9c07409d84abbecb63c56696bc",
+        "secondary": "1b272147a9bb290e49e70bef7450077687b37a3e7fc1c897d47ba7737dcce3d0",
+        "active": "3caa36f8dcd6c57f87fb2ba66b81f9b82d14b00016dd01830d4533c16f22ab73",
+        "clip": "cb5278fb02e4ec12bcbcd350e1df5e9af39e169d4e7966ec0cc56e78326dfba8",
+        "reserve": "3b819b13ef69d7c715cad1c51de01ed6d6b699cfd90acfe471f69250f0751ebb"
+      }
+    }
+  ]
+}

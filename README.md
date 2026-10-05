@@ -54,7 +54,7 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 | Flag | What it does |
 |---|---|
 | `--prepare` | Install Rust toolchain, `wasm-bindgen-cli`, and npm deps |
-| `--fetch-demos` | Download test demos listed in `test-demos/manifest.json` into `test-demos/files/` (skip when sha256 matches). Every pull request and push to master runs the Real demos check; the ignored release tests run only when crates, Cargo.toml, Cargo.lock, the manifest, `scripts/run.sh`, or that workflow changed. A cached demo dir is still sha256-checked. |
+| `--fetch-demos` | Download test demos listed in `test-demos/manifest.json` into `test-demos/files/` (skip when sha256 matches). Every pull request and push to master runs the Real demos check; the ignored release tests run only when crates, Cargo.toml, Cargo.lock, the manifest, `test-demos/output-hashes.json`, `scripts/run.sh`, or that workflow changed. A cached demo dir is still sha256-checked. |
 | `--update` | Update Rust and npm deps within current semver ranges, keep `wasm-bindgen` pinned to the CLI, rebuild WASM, and run tests. Does not commit. |
 
 `--update` requires a clean `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` (commit or stash those first).
@@ -71,6 +71,11 @@ Typical first run:
 ```
 
 Flags combine and run in the order above; `--dev` and `--prod` are mutually exclusive and block while the server is up.
+
+Ignored release-demo checks, after `--fetch-demos`:
+
+- `UPDATE_SNAPSHOT=1 cargo test -p cs2analyzer --test serializers -- --ignored` rewrites `test-demos/serializers.snap.txt`.
+- `UPDATE_HASHES=1 cargo test --release -p cs2analyzer --test output_golden -- --ignored` rewrites `test-demos/output-hashes.json`. The events JSON is struct fields in declaration order (no `HashMap`), and `serde_json` prints each `f32` with the same text for the same bits.
 
 ## Credits
 

@@ -7,6 +7,9 @@
 //! `ProtoFlattenedSerializerFieldT` (`var_type`, `bit_count`, `var_encoder`,
 //! `low_value`, `high_value`, `encode_flags`). `DemSendTables` wraps that
 //! message in a varint length prefix, which is the framing the parser uses.
+//!
+//! Regenerate with `UPDATE_SNAPSHOT=1`. Output hashes use `UPDATE_HASHES=1`
+//! in `tests/output_golden.rs`.
 
 #[path = "common/mod.rs"]
 mod common;
