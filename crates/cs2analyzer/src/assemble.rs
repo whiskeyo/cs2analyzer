@@ -4,8 +4,9 @@
 use crate::analysis::compute_stats;
 use crate::analysis::starting_team_scores;
 use crate::constants::{
-    DEFAULT_TICK_RATE, FLASH_POP_SECONDS, HE_DECOY_SECONDS, KNIFE_ROUND_MAX_EQUIPMENT,
-    KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_SECONDS, SMOKE_SECONDS,
+    DEFAULT_TICK_RATE, FLASH_POP_SECONDS, GRENADE_DET_LATE_STRIDES, GRENADE_DET_LEAD_TICKS,
+    HE_DECOY_SECONDS, KNIFE_ROUND_MAX_EQUIPMENT, KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_SECONDS,
+    SMOKE_SECONDS,
 };
 use crate::inventory::{
     weapon_buy_cost, GEAR_DECOY, GEAR_DEFUSER, GEAR_FLASH, GEAR_FLASH2, GEAR_HE, GEAR_HELMET,
@@ -15,7 +16,7 @@ use crate::inventory::{
 use crate::observer::Collector;
 use crate::types::*;
 use crate::{FLAG_PRESENT, MAX_PLAYERS};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f32) -> Match {
     let mut steam_to_idx: HashMap<u64, u8> = HashMap::new();
@@ -387,8 +388,14 @@ fn build_grenades(
     idx_of: &impl Fn(Option<u64>) -> i8,
     tick_rate: f32,
 ) -> Vec<GrenadeThrow> {
-    let gap = c.opts.tick_stride.max(1) * 10;
-    let mut by_entity: HashMap<u32, Vec<ProjSample>> = HashMap::new();
+    let gap = c
+        .opts
+        .tick_stride
+        .max(1)
+        .saturating_mul(GRENADE_DET_LATE_STRIDES);
+    // Entity handle order. A `HashMap` here used to change both grenade order
+    // and which flight claimed a detonation.
+    let mut by_entity: BTreeMap<u32, Vec<ProjSample>> = BTreeMap::new();
     for (entity, tick, kind, x, y, z, thrower) in &c.proj_points {
         by_entity
             .entry(*entity)
@@ -396,96 +403,100 @@ fn build_grenades(
             .push((*tick, *kind, *x, *y, *z, *thrower));
     }
 
-    let mut used_dets = vec![false; c.grenade_dets.len()];
-    let mut out = Vec::new();
-
-    // Entity id order. HashMap iteration made detonation claims, and the
-    // grenade JSON the WASM boundary returns, differ from parse to parse.
-    let mut groups: Vec<(u32, Vec<ProjSample>)> = by_entity.into_iter().collect();
-    groups.sort_unstable_by_key(|(entity, _)| *entity);
-
-    for (entity, mut points) in groups {
-        points.sort_by_key(|p| p.0);
-        for seg in split_proj_track(points, gap) {
-            let Some((first, rest)) = seg.split_first() else {
-                continue;
-            };
-            let kind = first.1;
-            let thrower = seg.iter().find_map(|p| p.5);
-            let start_tick = first.0;
-            let last = rest.last().copied().unwrap_or(*first);
-
-            let mut detonate_tick = last.0;
-            let mut land = (last.2, last.3, last.4);
-            let matched = c.grenade_dets.iter().enumerate().find(|(i, d)| {
-                if used_dets[*i] || d.1 != kind {
-                    return false;
-                }
-                let in_window = d.0 + 16 >= start_tick && d.0 <= last.0.saturating_add(gap);
-                if !in_window {
-                    return false;
-                }
-                d.2 as u32 == entity || d.2 <= 0
-            });
-            let matched = matched.or_else(|| {
-                c.grenade_dets.iter().enumerate().find(|(i, d)| {
-                    !used_dets[*i]
-                        && d.1 == kind
-                        && d.0 + 16 >= start_tick
-                        && d.0 <= last.0.saturating_add(gap)
-                })
-            });
-
-            let end_tick = if let Some((i, det)) = matched {
-                used_dets[i] = true;
-                detonate_tick = det.0;
-                land = (det.3, det.4, det.5);
-                c.grenade_ends
-                    .iter()
-                    .find(|(id, t)| *id == det.2 && *t >= detonate_tick)
-                    .map(|(_, t)| *t)
-                    .unwrap_or_else(|| default_end(kind, detonate_tick, tick_rate))
-            } else {
-                default_end(kind, detonate_tick, tick_rate)
-            };
-
-            let mut pts: Vec<GrenadePoint> = seg
-                .into_iter()
-                .filter(|(tick, _, _, _, _, _)| *tick <= detonate_tick)
-                .map(|(tick, _, x, y, z, _)| GrenadePoint { tick, x, y, z })
-                .collect();
-            if pts.last().map(|p| p.tick) != Some(detonate_tick) {
-                pts.push(GrenadePoint {
-                    tick: detonate_tick,
-                    x: land.0,
-                    y: land.1,
-                    z: land.2,
-                });
+    let mut flights: Vec<Flight> = Vec::new();
+    for (entity, mut points) in by_entity {
+        points.sort_by_key(|point| point.0);
+        for segment in split_proj_track(points, gap) {
+            if let Some(flight) = Flight::from_segment(entity, segment) {
+                flights.push(flight);
             }
-
-            out.push(GrenadeThrow {
-                thrower: idx_of(thrower),
-                kind,
-                start_tick,
-                detonate_tick,
-                end_tick,
-                points: pts,
-                fires: Vec::new(),
-            });
         }
     }
+    flights.sort_by_key(|flight| (flight.entity, flight.start_tick));
 
-    for (i, det) in c.grenade_dets.iter().enumerate() {
-        if used_dets[i] {
+    let dets: Vec<DetEvent> = c
+        .grenade_dets
+        .iter()
+        .map(|det| DetEvent {
+            tick: det.0,
+            kind: det.1,
+            entity: det.2,
+            x: det.3,
+            y: det.4,
+            z: det.5,
+        })
+        .collect();
+    let claimed = assign_detonations(&flights, &dets, gap);
+
+    let mut out: Vec<(u32, GrenadeThrow)> = Vec::with_capacity(flights.len() + dets.len());
+    for (flight_index, flight) in flights.iter().enumerate() {
+        let matched = claimed[flight_index].map(|det_index| &dets[det_index]);
+        let (detonate_tick, land_x, land_y, land_z, end_tick) = if let Some(det) = matched {
+            let end_tick = c
+                .grenade_ends
+                .iter()
+                .find(|(id, tick)| *id == det.entity && *tick >= det.tick)
+                .map(|(_, tick)| *tick)
+                .unwrap_or_else(|| default_end(flight.kind, det.tick, tick_rate));
+            (det.tick, det.x, det.y, det.z, end_tick)
+        } else {
+            (
+                flight.last_tick,
+                flight.last_x,
+                flight.last_y,
+                flight.last_z,
+                default_end(flight.kind, flight.last_tick, tick_rate),
+            )
+        };
+        let mut points: Vec<GrenadePoint> = flight
+            .samples
+            .iter()
+            .filter(|sample| sample.0 <= detonate_tick)
+            .map(|sample| GrenadePoint {
+                tick: sample.0,
+                x: sample.2,
+                y: sample.3,
+                z: sample.4,
+            })
+            .collect();
+        if points.last().map(|point| point.tick) != Some(detonate_tick) {
+            points.push(GrenadePoint {
+                tick: detonate_tick,
+                x: land_x,
+                y: land_y,
+                z: land_z,
+            });
+        }
+        out.push((
+            flight.entity,
+            GrenadeThrow {
+                thrower: idx_of(flight.thrower),
+                kind: flight.kind,
+                start_tick: flight.start_tick,
+                detonate_tick,
+                end_tick,
+                points,
+                fires: Vec::new(),
+            },
+        ));
+    }
+
+    let mut used = vec![false; dets.len()];
+    for det_index in claimed.into_iter().flatten() {
+        used[det_index] = true;
+    }
+    for (det_index, det) in dets.iter().enumerate() {
+        if used[det_index] {
             continue;
         }
-        if det.1.is_fire() {
-            let nearby = out.iter().any(|g| {
-                g.kind.is_fire()
-                    && g.detonate_tick.abs_diff(det.0) <= 48
-                    && g.points
+        if det.kind.is_fire() {
+            let nearby = out.iter().any(|(_, grenade)| {
+                grenade.kind.is_fire()
+                    && grenade.detonate_tick.abs_diff(det.tick) <= 48
+                    && grenade
+                        .points
                         .last()
-                        .is_some_and(|p| (p.x - det.3).hypot(p.y - det.4) < 400.0)
+                        .is_some_and(|point| (point.x - det.x).hypot(point.y - det.y) < 400.0)
             });
             if nearby {
                 continue;
@@ -494,27 +505,125 @@ fn build_grenades(
         let end_tick = c
             .grenade_ends
             .iter()
-            .find(|(id, t)| *id == det.2 && *t >= det.0)
-            .map(|(_, t)| *t)
-            .unwrap_or_else(|| default_end(det.1, det.0, tick_rate));
-        out.push(GrenadeThrow {
-            thrower: -1,
-            kind: det.1,
-            start_tick: det.0,
-            detonate_tick: det.0,
-            end_tick,
-            points: vec![GrenadePoint {
-                tick: det.0,
-                x: det.3,
-                y: det.4,
-                z: det.5,
-            }],
-            fires: Vec::new(),
-        });
+            .find(|(id, tick)| *id == det.entity && *tick >= det.tick)
+            .map(|(_, tick)| *tick)
+            .unwrap_or_else(|| default_end(det.kind, det.tick, tick_rate));
+        // No projectile entity: sort after flights that spawned on this tick.
+        out.push((
+            u32::MAX,
+            GrenadeThrow {
+                thrower: -1,
+                kind: det.kind,
+                start_tick: det.tick,
+                detonate_tick: det.tick,
+                end_tick,
+                points: vec![GrenadePoint {
+                    tick: det.tick,
+                    x: det.x,
+                    y: det.y,
+                    z: det.z,
+                }],
+                fires: Vec::new(),
+            },
+        ));
     }
 
-    out.sort_by_key(|g| g.start_tick);
-    out
+    out.sort_by(|left, right| {
+        left.1
+            .start_tick
+            .cmp(&right.1.start_tick)
+            .then(left.0.cmp(&right.0))
+    });
+    out.into_iter().map(|(_, grenade)| grenade).collect()
+}
+
+struct Flight {
+    entity: u32,
+    kind: GrenadeKind,
+    thrower: Option<u64>,
+    start_tick: u32,
+    last_tick: u32,
+    last_x: f32,
+    last_y: f32,
+    last_z: f32,
+    samples: Vec<ProjSample>,
+}
+
+impl Flight {
+    fn from_segment(entity: u32, samples: Vec<ProjSample>) -> Option<Self> {
+        let (first, rest) = samples.split_first()?;
+        let last = rest.last().copied().unwrap_or(*first);
+        let kind = first.1;
+        let start_tick = first.0;
+        let thrower = samples.iter().find_map(|sample| sample.5);
+        Some(Self {
+            entity,
+            kind,
+            thrower,
+            start_tick,
+            last_tick: last.0,
+            last_x: last.2,
+            last_y: last.3,
+            last_z: last.4,
+            samples,
+        })
+    }
+}
+
+struct DetEvent {
+    tick: u32,
+    kind: GrenadeKind,
+    entity: i32,
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+/// Which flight owns each detonation, or `None` when that flight has no match.
+///
+/// A detonation with `entity > 0` only matches that entity. `entity <= 0` may
+/// match any flight of the same kind inside the window
+/// (`det_tick + GRENADE_DET_LEAD_TICKS >= start_tick` and
+/// `det_tick <= last_tick + gap`). The smallest `|det_tick - last_tick|` wins,
+/// then the lower entity index, then the earlier detonation, then the earlier
+/// flight in `(entity, start_tick)` order. Greedy in that order, so two
+/// molotovs cannot swap a detonation because a map bucket was visited first.
+fn assign_detonations(flights: &[Flight], dets: &[DetEvent], gap: u32) -> Vec<Option<usize>> {
+    let mut pairs: Vec<(u32, u32, usize, usize)> = Vec::new();
+    for (flight_index, flight) in flights.iter().enumerate() {
+        for (det_index, det) in dets.iter().enumerate() {
+            if det.kind != flight.kind || !detonation_in_flight(flight, det.tick, gap) {
+                continue;
+            }
+            if det.entity > 0 && det.entity as u32 != flight.entity {
+                continue;
+            }
+            pairs.push((
+                flight.last_tick.abs_diff(det.tick),
+                flight.entity,
+                det_index,
+                flight_index,
+            ));
+        }
+    }
+    pairs.sort_unstable();
+    let mut assigned = vec![None; flights.len()];
+    let mut flight_used = vec![false; flights.len()];
+    let mut det_used = vec![false; dets.len()];
+    for (_, _, det_index, flight_index) in pairs {
+        if flight_used[flight_index] || det_used[det_index] {
+            continue;
+        }
+        flight_used[flight_index] = true;
+        det_used[det_index] = true;
+        assigned[flight_index] = Some(det_index);
+    }
+    assigned
+}
+
+fn detonation_in_flight(flight: &Flight, det_tick: u32, gap: u32) -> bool {
+    det_tick.saturating_add(GRENADE_DET_LEAD_TICKS) >= flight.start_tick
+        && det_tick <= flight.last_tick.saturating_add(gap)
 }
 
 type ProjSample = (u32, GrenadeKind, f32, f32, f32, Option<u64>);
@@ -735,6 +844,7 @@ fn appeared_items(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::{DEFAULT_TICK_STRIDE, GRENADE_DET_LATE_STRIDES};
     use crate::observer::{
         accept_blind_duration, bind_userid_steam, controller_dump_interesting, controller_identity,
         controller_steam_playable, new_flash_duration, snapshot_controller_dump_now, Collector,
@@ -853,6 +963,70 @@ mod tests {
         attach_molotov_fires(&c, &mut grenades);
         assert_eq!(grenades[0].fires.len(), 1);
         assert_eq!(grenades[0].end_tick, 400);
+    }
+
+    #[test]
+    fn nearest_tick_claims_the_molotov() {
+        let gap = DEFAULT_TICK_STRIDE * GRENADE_DET_LATE_STRIDES;
+        let flights = vec![
+            flight(1, GrenadeKind::Molotov, 50, 100),
+            flight(9, GrenadeKind::Molotov, 50, 110),
+        ];
+        // Farther from entity 1 (|100-109| = 9) than from entity 9 (|110-109| = 1).
+        let dets = vec![det_event(109, GrenadeKind::Molotov, 0)];
+        assert_eq!(
+            assign_detonations(&flights, &dets, gap),
+            vec![None, Some(0)]
+        );
+    }
+
+    #[test]
+    fn equal_tick_distance_prefers_lower_entity() {
+        let gap = DEFAULT_TICK_STRIDE * GRENADE_DET_LATE_STRIDES;
+        let flights = vec![
+            flight(8, GrenadeKind::Molotov, 50, 140),
+            flight(2, GrenadeKind::Molotov, 50, 100),
+        ];
+        let dets = vec![det_event(120, GrenadeKind::Molotov, 0)];
+        assert_eq!(
+            assign_detonations(&flights, &dets, gap),
+            vec![None, Some(0)]
+        );
+    }
+
+    #[test]
+    fn named_detonation_stays_on_its_entity() {
+        let gap = DEFAULT_TICK_STRIDE * GRENADE_DET_LATE_STRIDES;
+        let flights = vec![
+            flight(2, GrenadeKind::Molotov, 50, 100),
+            flight(8, GrenadeKind::Molotov, 50, 140),
+        ];
+        // Tick-nearest to entity 8, but the event names entity 2.
+        let dets = vec![det_event(140, GrenadeKind::Molotov, 2)];
+        assert_eq!(
+            assign_detonations(&flights, &dets, gap),
+            vec![Some(0), None]
+        );
+    }
+
+    fn flight(entity: u32, kind: GrenadeKind, start: u32, last: u32) -> Flight {
+        let mut samples = vec![(start, kind, 0.0, 0.0, 0.0, None)];
+        if last != start {
+            samples.push((last, kind, 0.0, 0.0, 0.0, None));
+        }
+        Flight::from_segment(entity, samples)
+            .unwrap_or_else(|| panic!("flight {entity} needs a sample"))
+    }
+
+    fn det_event(tick: u32, kind: GrenadeKind, entity: i32) -> DetEvent {
+        DetEvent {
+            tick,
+            kind,
+            entity,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
     }
 
     #[test]

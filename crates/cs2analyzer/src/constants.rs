@@ -63,6 +63,12 @@ pub const SERIES_HABITS_WINDOW_MAX_SECONDS: u32 = 60;
 /// C4 arm time (hold E). GOTV completed plants are ~3.12s.
 pub const PLANT_SECONDS: f32 = 3.2;
 
+/// A detonation event may be recorded this many ticks before the projectile's first sample.
+pub const GRENADE_DET_LEAD_TICKS: u32 = 16;
+
+/// After the last projectile sample, a detonation may still match for this many tick-strides.
+pub const GRENADE_DET_LATE_STRIDES: u32 = 10;
+
 pub const SMOKE_SECONDS: f32 = 18.0;
 pub const MOLOTOV_SECONDS: f32 = 7.0;
 pub const HE_DECOY_SECONDS: f32 = 0.5;
