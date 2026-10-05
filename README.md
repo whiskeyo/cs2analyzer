@@ -72,6 +72,11 @@ Typical first run:
 
 Flags combine and run in the order above; `--dev` and `--prod` are mutually exclusive and block while the server is up.
 
+Ignored release-demo checks, after `--fetch-demos`:
+
+- `UPDATE_SNAPSHOT=1 cargo test -p cs2analyzer --test serializers -- --ignored` rewrites `test-demos/serializers.snap.txt`.
+- `UPDATE_HASHES=1 cargo test --release -p cs2analyzer --test output_golden -- --ignored` rewrites `test-demos/output-hashes.json`. The events JSON is struct fields in declaration order (no `HashMap`), and `serde_json` prints each `f32` with the same text for the same bits.
+
 ## Credits
 
 Radar map images are vendored from [cs2-map-icons](https://github.com/MurkyYT/cs2-map-icons). Weapon / killfeed icons from [ChetdeJong/cs2-killfeed-generator](https://github.com/ChetdeJong/cs2-killfeed-generator) and [Juknum/counter-strike-icons](https://github.com/Juknum/counter-strike-icons). Offline use only — we do not claim ownership of those assets.

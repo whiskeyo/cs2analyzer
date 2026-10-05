@@ -13,8 +13,13 @@
 //! same way. Section hashes cover the payload only, so a mismatch names the
 //! events blob or the tick column that moved.
 //!
-//! `cargo test` skips the demo run. Regenerate with
-//! `UPDATE_SNAPSHOT=1 cargo test --release -p cs2analyzer --test output_golden -- --ignored`.
+//! None of those JSON types contain a map. Object keys are struct fields in
+//! declaration order, so they do not follow `HashMap` iteration. `serde_json`
+//! prints each `f32` with the same text for the same bits.
+//!
+//! `cargo test` skips the demo run. Regenerate this file with
+//! `UPDATE_HASHES=1 cargo test --release -p cs2analyzer --test output_golden -- --ignored`.
+//! The serializer snapshot stays on `UPDATE_SNAPSHOT=1` (`tests/serializers.rs`).
 
 #[path = "common/mod.rs"]
 mod common;
@@ -363,7 +368,7 @@ fn write_hashes(path: &std::path::Path, hashes: &OutputHashes) {
 fn read_hashes(path: &std::path::Path) -> OutputHashes {
     let text = std::fs::read_to_string(path).unwrap_or_else(|err| {
         panic!(
-            "could not read {} ({err}); set UPDATE_SNAPSHOT=1 to create it",
+            "could not read {} ({err}); set UPDATE_HASHES=1 to create it",
             path.display()
         );
     });
@@ -450,6 +455,60 @@ fn mismatch_names_the_sections_that_differ() {
         report.contains("gone.dem: in output-hashes.json but not parsed"),
         "{report}"
     );
+}
+
+#[test]
+fn events_json_keys_follow_struct_fields_not_a_map() {
+    let parsed = sample_match();
+    let header = serde_json::to_string(&parsed.header)
+        .unwrap_or_else(|err| panic!("could not serialize header: {err}"));
+    // Declaration order. A `HashMap` or `BTreeMap` would not emit `map_name` first.
+    assert_eq!(
+        header,
+        r#"{"map_name":"de_dust2","tick_rate":64.0,"tick_stride":4,"duration_s":1.0,"playback_ticks":64,"team_ct":"CT","team_t":"T","score_ct":0,"score_t":0}"#
+    );
+    let players = serde_json::to_string(&parsed.players)
+        .unwrap_or_else(|err| panic!("could not serialize players: {err}"));
+    assert_eq!(players, "[]");
+    let again = events_payload(&parsed);
+    assert_eq!(events_payload(&parsed), again);
+}
+
+#[test]
+fn serde_json_f32_text_is_stable() {
+    let values = [
+        0.0f32,
+        -0.0,
+        1.0,
+        -1.0,
+        0.5,
+        -1.25,
+        0.1,
+        64.0,
+        90.0,
+        1.0e20,
+        f32::MIN_POSITIVE,
+        16_777_216.0,
+    ];
+    for value in values {
+        let once = json_f32(value);
+        let twice = json_f32(value);
+        assert_eq!(once, twice, "{value:?}");
+        let back: f32 = serde_json::from_str(&once)
+            .unwrap_or_else(|err| panic!("could not parse {once}: {err}"));
+        assert_eq!(back.to_bits(), value.to_bits(), "{once} did not round-trip");
+    }
+    assert_eq!(json_f32(0.0), "0.0");
+    assert_eq!(json_f32(-0.0), "-0.0");
+    assert_eq!(json_f32(64.0), "64.0");
+    assert_eq!(json_f32(0.5), "0.5");
+    assert_eq!(json_f32(-1.25), "-1.25");
+    assert_eq!(json_f32(0.1), "0.1");
+}
+
+fn json_f32(value: f32) -> String {
+    serde_json::to_string(&value)
+        .unwrap_or_else(|err| panic!("could not serialize {value:?}: {err}"))
 }
 
 fn demo_hash(name: &str, sha256: &str, events: &str, x: &str) -> DemoHash {
@@ -551,7 +610,7 @@ fn output_matches_wasm_boundary_hashes() {
     }
     let actual = OutputHashes { demos };
     let path = hashes_path();
-    if std::env::var("UPDATE_SNAPSHOT").ok().as_deref() == Some("1") {
+    if std::env::var("UPDATE_HASHES").ok().as_deref() == Some("1") {
         write_hashes(&path, &actual);
         eprintln!("updated {}", path.display());
         return;
@@ -560,7 +619,7 @@ fn output_matches_wasm_boundary_hashes() {
     let report = diff_report(&expected, &actual);
     assert!(
         report.is_empty(),
-        "WASM output hash mismatch in {}\n{report}set UPDATE_SNAPSHOT=1 to regenerate",
+        "WASM output hash mismatch in {}\n{report}set UPDATE_HASHES=1 to regenerate",
         path.display()
     );
 }
