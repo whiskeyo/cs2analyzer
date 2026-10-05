@@ -2,9 +2,9 @@
   "demos": [
     {
       "name": "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem",
-      "sha256": "e6958c08f8342abdf4abb43f4815335212f75d635afbffb6ac2637ddec65796f",
+      "sha256": "1ed218eeac12c1f7ee88d2171fa92ee295f7c8813b6f2066aecfa0124b5974bc",
       "sections": {
-        "events": "cf1db0df270757d2537019f98ca9f383cb16214bf2a984db04510cf140496525",
+        "events": "ad62cfe90b367cb4be5ef29522b9b72c95a58125368a86e8a918b72955902b29",
         "ticks": "db575771a9c02fc39bff29b5dd3390befd301cbd882189e4011b4fc357d03b5a",
         "x": "d4fe34fd820f7d31a70ef132fb0a4484f8809cdf288e12a906ec677b2341e1c5",
         "y": "f11880bf038f15249457d596516ed4ef52dc695177f881e0684d3efcc84ff034",
@@ -25,9 +25,9 @@
     },
     {
       "name": "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem",
-      "sha256": "44753c91d1d8251a27d08dd0bac418eec9943d64764c83b3076257d86f0a6829",
+      "sha256": "79c3d2e6d5f1b307119039fb430d9a9394ba28ec29465966d772df727dd1e393",
       "sections": {
-        "events": "7e9156bfce46cccf0320bb22f1db96fd78aab8e082dde6c846f7b835c6a4b55d",
+        "events": "0170732a3bafc41472936203a7259b1bd26847dd187ac5e376e96fdfbdc97e2e",
         "ticks": "2e573e16ba7dda315c5b33a2e35ab05eb6a0d70287dc405dfeef069814c556ac",
         "x": "91931e0e6f84678e1f87f23a71277d3962345631d509ce637c39941fc7e3e359",
         "y": "a6417aca7a4603a6081e4e7b00daac1b2944cfef7b050e34274a26022df70cf0",
@@ -48,9 +48,9 @@
     },
     {
       "name": "1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem",
-      "sha256": "7c8dde91ef0f0396be2bc034afcd1ed573d8d0b3466f2b7e6dfb7492bdcdff0c",
+      "sha256": "ef9fc1f46428eb5de0ac574018513cf3a9ed884e1329ceef3b1fa52b47085469",
       "sections": {
-        "events": "5831fcc0fd3a7a718ef168a02eeb6de72ce84d0840421b4e2430d16bd2907bbb",
+        "events": "270dffdf987100cf5b6679a2c7a47b897f9185b9537c6c3058bab9188d8021f1",
         "ticks": "0bba8e32f5bb6391583464d91390ab8b2f0e643f16974b706c9e8a669ea4615e",
         "x": "8a1038a76897715645cc24f62cdb57a62fc66bbed69d32cca8ec779f7b9800ee",
         "y": "ee1698ff92c41a26cbb22569635ea3accfaa293350fb10318b37ebeeb9e167b2",
@@ -71,9 +71,9 @@
     },
     {
       "name": "legacy-vs-spirit-m2-ancient.dem",
-      "sha256": "a65c5bcec10bda9314eb3d7b82515f306f782cca67bfbae4cf218134c32ee2d3",
+      "sha256": "ef4767cb06d1243771d99b7b8da56ca0f687315fac0bfffd1a1981153ec755d7",
       "sections": {
-        "events": "44af16d6bc058073aef1ecafabfcbdd91519f0ad1c175afc1f95912a96de0db8",
+        "events": "8e44410bec251758d67d2fa7e05db7216c090a45fdb543ec984af6afbeed2f37",
         "ticks": "7280e7ec8500d18165e7687c7079f3603a53c8fbcdacc8fffb8e24a653d06c3e",
         "x": "c33e1c86a7f009b6fbb26ad4c5a26625d41ff3be0a05623fdb6fcd21d7f277da",
         "y": "e61bfdc719f92467663b5cc264814a5888031ab38ae9ef6d7a74a3c9950c400f",
@@ -94,9 +94,9 @@
     },
     {
       "name": "premier-d2.dem",
-      "sha256": "80685854d8e05434b3b597a887d570442d38a404275d772ebf6c5324f5ede83b",
+      "sha256": "eb8d444b289f13166e06cfb19908bfa30f1c350d94b17f06df7e2761db0c182a",
       "sections": {
-        "events": "1e7d9c254f09de91a6744a61a70b3c3acb62c2193edef993cf4bc6237b7dbc8a",
+        "events": "b69146162f1e02ef096a9e0c2034708596d5c0ea6f4d4b26b6b5a5189bca6749",
         "ticks": "853727bbd389b8b0e364f4f902a95a40640ba12c808a7cef7c0cef8371415ade",
         "x": "25ea036ee0bebf3320732a8a6af40b4c73d1c2d4dc106e94719691b84ccfb004",
         "y": "a012e7869570101be367f0cd67309c5c4143685ae6a17d2af5d6b201070d3975",
@@ -117,9 +117,9 @@
     },
     {
       "name": "spirit-vs-dendele-m1-ancient.dem",
-      "sha256": "a4b50fc308cf9a770f469447a5c8843b6cda068cdca097616d4d080de458ffff",
+      "sha256": "6c336086f1b91505d9d195cfb352fb3540e2107e83191eee70a04a3304aa1b8d",
       "sections": {
-        "events": "487523fb406137a22fa9dc0c9c8659373fd99ec9a137b7d738b7d1777dc0b354",
+        "events": "eb43dcb2856b0372300c7b4b372f5eb7b7ae47578bf0c01d0e1574d5a7d84bf1",
         "ticks": "7767ff19420f036adacab70a807628b6cb13daeed6170f87db79d4c5b2076546",
         "x": "eefd0808a2471b387b2198a8a09437e1e4d3e7f33bdc1e434f35284f7888064f",
         "y": "3dcb7c443a74c410f992caf397a737a45d5233d28d075323a5b8a185e07c1077",
@@ -140,9 +140,9 @@
     },
     {
       "name": "spirit-vs-furia-m1-ancient.dem",
-      "sha256": "c1270d2ab069e19f6777ce0071960236f2ce25d2df9c4105f45141d9973f8e5d",
+      "sha256": "937c4c4b88bb3c83c783df316068e752255c45b363cba2f7190e583fe4207456",
       "sections": {
-        "events": "209c19bc204b1dcfb1a9b4dc7cac363f3438c5e9f174bc762225553eeee55fe4",
+        "events": "6eedc5e8877a8d6e67cdc9efb099b43a18ea5c9b0250caadfe90c1fede7c53f1",
         "ticks": "327892550ece566bc9cf087c757d2ffb65e7e966b712f28eb7b4486a1a478e29",
         "x": "85bdc8a0afa0e62f3bdda8f6e6e85a5d3c7d8b32aa8ce239101f16090e5bb23a",
         "y": "19645e9ed79efb47914966f588c7e4baacbc0517c092c7259f5949e3028c5178",
@@ -163,9 +163,9 @@
     },
     {
       "name": "spirit-vs-mouz-m3-ancient.dem",
-      "sha256": "88456898be508104887a8c0e3e6fcb80aef18a04b46bf48d045a5b21205c9e88",
+      "sha256": "362e613e6a95432eb02ce15f3048b2ac4a95f80e4f5edac84946751aa2ec337b",
       "sections": {
-        "events": "e8d6563ca51fd9ec4f076b0bca151c2b22a8db084d12f35113ea5e5279ad6b62",
+        "events": "66254b9f5a858a87fc84e89551de6b4ae60ac6eab36943b777689c7dedee91a4",
         "ticks": "f06ca5572a5b741982862584d4abe150d78d991c422dcb90671bc067e3b30c06",
         "x": "2e5b7ff39eac8af8a70ecea2429e8d2daa77d4c2a7871123a7251cde9ea00796",
         "y": "7097ebf210c420aef7da83f3738f42a164e1a029f00b6c19a01f9afda6598f61",
@@ -186,9 +186,9 @@
     },
     {
       "name": "spirit-vs-mouz-m4-nuke.dem",
-      "sha256": "00e72ea8b3f60a99bb516f5c48795eb7dbeb6eb26051adf5959e4f3ee52812c4",
+      "sha256": "78f606d1419bb8f86f61210806be32555fff98e36b3580cc3cc43696edfc4a7f",
       "sections": {
-        "events": "380de8f0f6267b7a4a313b8e5415082d1086fcafd1ab47c9bef7896819cdc016",
+        "events": "bb61def12d6f0ae3852d66f3d9fb252fe636c2400dfbe8f36b48518e9269f05f",
         "ticks": "e3760ddbdc724a1bf93860e92095b06aa845fa64edeb847ab7e54d79ffe2711d",
         "x": "955bf9e8096a5899b8ee9ff53673b6cd21432b75daba0ae5954639dc6273adae",
         "y": "021c96e83b93b2498ce8409863b4dede20b274ea96afefa28ebcdb5a55459013",
