@@ -12,7 +12,8 @@ name: Real demos
 on:
   workflow_dispatch:
   schedule:
-    # Monday and Thursday 04:00 UTC. One weekly run can miss the 7-day eviction.
+    # Monday and Thursday 04:00 UTC. GitHub cron is UTC: 06:00 CEST, and
+    # 05:00 CET after 25 Oct. One weekly run can miss the 7-day eviction.
     - cron: "0 4 * * 1,4"
   pull_request:
     branches: [master]
