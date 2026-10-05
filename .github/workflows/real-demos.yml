@@ -99,9 +99,10 @@ jobs:
           path: test-demos/files
           key: test-demos-${{ hashFiles('test-demos/manifest.json') }}
       # --nocapture prints each demo's release parse_ms. One test thread keeps
-      # the per-demo RSS sample from overlapping another parse. --no-fail-fast
-      # still runs the later demos after one assertion fails. time -v is
-      # informational; the harness still fails the step when a test fails.
+      # the per-demo RSS sample from overlapping another parse. Cargo's
+      # --no-fail-fast (before `--`) still runs the later targets after one
+      # fails. The test harness has no such flag. time -v is informational;
+      # the harness still fails the step when a test fails.
       - name: Ignored tests (release)
         if: steps.gate.outputs.run == 'true'
         run: |
@@ -109,4 +110,4 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y -qq time
           fi
-          /usr/bin/time -v cargo test --release -p cs2analyzer -- --ignored --nocapture --test-threads=1 --no-fail-fast
+          /usr/bin/time -v cargo test --release --no-fail-fast -p cs2analyzer -- --ignored --nocapture --test-threads=1
