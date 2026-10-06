@@ -14,6 +14,9 @@ source2-demo = { workspace = true }
 [dev-dependencies]
 sha2 = "0.10"
 source2-demo = { workspace = true }
+# Constrain resolution without linking into the parser. Remove with the pin.
+source2-demo-macros = { workspace = true }
+source2-demo-protobufs = { workspace = true }
 
 [features]
 default = ["mimalloc", "match-stats"]
