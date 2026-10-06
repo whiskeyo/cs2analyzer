@@ -216,15 +216,25 @@ describe("smokeOpacity", () => {
     expect(smokeOpacity(shortEnd, shortEnd, 64)).toBe(0);
   });
 
-  it("does not fade early just because the scrub range ended", () => {
-    const roundEnd = 200;
-    const playbackEnd = roundEnd + 64;
-    const g = smoke({ end_tick: end });
-    const visibleEnd = nadeVisibleEnd(g, 64, roundEnd);
+  it("stays at 1 at playback end when the smoke lasts at least 4s past it", () => {
+    const playbackEnd = 1_000;
+    const end = playbackEnd + 64 * SMOKE_FADE_SECONDS;
+    const g = smoke({ detonate_tick: 100, end_tick: end });
+    const visibleEnd = nadeVisibleEnd(g, 64, 400);
     expect(visibleEnd).toBe(end);
-    expect(smokeOpacity(visibleEnd, roundEnd, 64)).toBe(1);
     expect(smokeOpacity(visibleEnd, playbackEnd, 64)).toBe(1);
-    expect(smokeOpacity(visibleEnd, end - 64 * 2, 64)).toBeCloseTo(0.5, 5);
+    const later = playbackEnd + 64 * (SMOKE_FADE_SECONDS + 1);
+    expect(smokeOpacity(later, playbackEnd, 64)).toBe(1);
+  });
+
+  it("is about half faded at playback end when the smoke ends 2s later", () => {
+    const playbackEnd = 1_000;
+    const end = playbackEnd + 64 * 2;
+    const g = smoke({ detonate_tick: 100, end_tick: end });
+    const visibleEnd = nadeVisibleEnd(g, 64, 400);
+    expect(visibleEnd).toBe(end);
+    expect(visibleEnd).toBeGreaterThan(playbackEnd);
+    expect(smokeOpacity(visibleEnd, playbackEnd, 64)).toBeCloseTo(0.5, 5);
   });
 });
 
