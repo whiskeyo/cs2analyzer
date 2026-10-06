@@ -152,7 +152,7 @@ export const CLIP_EXPORT_BITRATE_1440 = 20_000_000;
 
 /**
  * AVC profiles probed with `VideoEncoder.isConfigSupported`, highest first.
- * `mp4-muxer` needs `avc` (length-prefixed) output, not Annex B.
+ * Mediabunny needs `avc` (length-prefixed) output, not Annex B.
  */
 export const CLIP_H264_CODECS = [
   "avc1.640033",

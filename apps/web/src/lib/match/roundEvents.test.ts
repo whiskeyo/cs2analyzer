@@ -86,6 +86,31 @@ describe("eventsForRound", () => {
     ]);
   });
 
+  it("keeps a molotov thrown after round end until the next freeze", () => {
+    const gap = round({
+      number: 1,
+      winner: "T",
+      start_tick: 0,
+      freeze_end_tick: 64,
+      end_tick: 2000,
+    });
+    const next = round({
+      number: 2,
+      winner: "CT",
+      start_tick: 2200,
+      freeze_end_tick: 2264,
+      end_tick: 4000,
+    });
+    const late = nade(2080, 0, "molotov");
+    const m = makeReplay({
+      players: roster,
+      rounds: [gap, next],
+      grenades: [late, nade(2300, 1, "flash")],
+    });
+    expect(eventsForRound(m, gap).map((event) => event.tick)).toEqual([2080]);
+    expect(eventsForRound(m, next).map((event) => event.tick)).toEqual([2300]);
+  });
+
   it("ignores events from other rounds", () => {
     const m = makeReplay({
       players: roster,

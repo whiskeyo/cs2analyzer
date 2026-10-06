@@ -1,3 +1,4 @@
+import { grenadeRoundLastTick } from "@/lib/replay/sample";
 import { tickRate } from "@/lib/shared/constants";
 import { LEAD_IN_STORAGE_KEY } from "@/lib/shared/storageKeys";
 import type {
@@ -118,8 +119,9 @@ export function eventsForRound(replay: Replay, round: Round): RoundEvent[] {
     if (k.tick < from || k.tick > to) return;
     out.push(killEvent(k, i));
   });
+  const grenadeLast = grenadeRoundLastTick(replay.rounds, round);
   replay.grenades.forEach((g, i) => {
-    if (g.start_tick < from || g.start_tick > to) return;
+    if (g.start_tick < from || g.start_tick > grenadeLast) return;
     out.push(nadeEvent(g, i));
   });
   replay.bombEvents.forEach((e, i) => {

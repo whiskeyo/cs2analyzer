@@ -1,0 +1,58 @@
+{
+  "files": [
+    {
+      "name": "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem",
+      "size": 433824338,
+      "sha256": "5bd6752f58408dad853c803c4b45ce9e9c8eee3e6184c03604d5fed43485b808",
+      "release_tag": "assets-v1"
+    },
+    {
+      "name": "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem",
+      "size": 200586632,
+      "sha256": "f01fe3fc9ad07727e60781da25188abce5313cd2072688cbee4a731aed866246",
+      "release_tag": "assets-v1"
+    },
+    {
+      "name": "1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem",
+      "size": 323490025,
+      "sha256": "00341c70efe468ceaa60ebc7b3a7bcfbfafce233de43985076fa64368b1f3491",
+      "release_tag": "assets-v1"
+    },
+    {
+      "name": "legacy-vs-spirit-m2-ancient.dem",
+      "size": 382043408,
+      "sha256": "2d813769cb8e3a744500f3e90814a5d901f641303cc3818b6def3452ce45910e",
+      "release_tag": "assets-v1"
+    },
+    {
+      "name": "premier-d2.dem",
+      "size": 137609318,
+      "sha256": "d3e0c08f5c821ba8772076b15ec6a53b7fad3a3b43584006150bfffd18c98617",
+      "release_tag": "assets-v1"
+    },
+    {
+      "name": "spirit-vs-dendele-m1-ancient.dem",
+      "size": 363366093,
+      "sha256": "4ca95bb8cea207c0169c0640fb34a603e4e1e0d50382d8331fb65adb16579577",
+      "release_tag": "assets-v1"
+    },
+    {
+      "name": "spirit-vs-furia-m1-ancient.dem",
+      "size": 360943418,
+      "sha256": "1038a5ea60a758bde67a96619d03bd14cf7b9e9ccd032cc3af731f0d948fd93c",
+      "release_tag": "assets-v1"
+    },
+    {
+      "name": "spirit-vs-mouz-m3-ancient.dem",
+      "size": 345772543,
+      "sha256": "4ddc87a2b87ff604ccfeb5ee498f543b45afa1f22e8366163db73e828eeb0785",
+      "release_tag": "assets-v1"
+    },
+    {
+      "name": "spirit-vs-mouz-m4-nuke.dem",
+      "size": 400043212,
+      "sha256": "11596e71c48615b49248b9b3e915ca0b1beaaf29230af90ceb8cbde9267b4337",
+      "release_tag": "assets-v1"
+    }
+  ]
+}

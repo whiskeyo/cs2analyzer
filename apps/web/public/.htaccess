@@ -1,29 +1,39 @@
-AddType application/wasm .wasm
+# X-Htaccess-Rev below is stamped at build time with the git short SHA.
+Options -Indexes -MultiViews
+DirectorySlash Off
+DirectoryIndex index.html
 
+AddType application/wasm .wasm
 <FilesMatch "\.wasm$">
   ForceType application/wasm
 </FilesMatch>
 
 <IfModule mod_headers.c>
+  # `always` so the rev is present on 404 and 403, not only on 200.
+  Header always set X-Htaccess-Rev "__HTACCESS_REV__"
   <FilesMatch "\.wasm$">
     Header set Content-Type "application/wasm"
   </FilesMatch>
   <Files "index.html">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
   </Files>
+  # ErrorDocument responses are not 2xx, so `set` (onsuccess) would not apply.
+  # 404.html links hashed chunks; do not let a CDN keep a stale copy.
+  <Files "404.html">
+    Header always set Cache-Control "no-cache, no-store, must-revalidate"
+  </Files>
 </IfModule>
+
+# Local URL keeps the status (a full URL would 302 and turn the 404 into a redirect).
+ErrorDocument 404 /404.html
+ErrorDocument 403 /404.html
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^ index.html [L]
+  # /route and /route/ → that directory's index.html. DirectorySlash Off is what
+  # stops OVH's 301 to https://host:443/route/ ; this rewrite still serves the file.
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteCond %{REQUEST_FILENAME}/index.html -f
+  RewriteRule ^(.+?)/?$ $1/index.html [L]
 </IfModule>
-
-<IfModule mod_dir.c>
-  DirectoryIndex index.html
-</IfModule>
-
-FallbackResource /index.html
-ErrorDocument 404 /index.html

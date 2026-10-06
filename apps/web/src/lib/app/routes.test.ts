@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canonicalLocation,
   isAnalyzerPath,
   isContactPath,
   isFaqPath,
@@ -19,6 +20,15 @@ describe("normalizePath", () => {
     expect(normalizePath("/contact/")).toBe("/contact");
     expect(normalizePath("/analyzer/")).toBe("/analyzer");
     expect(normalizePath("")).toBe("/");
+  });
+});
+
+describe("canonicalLocation", () => {
+  it("drops a trailing slash and keeps the query and hash", () => {
+    expect(canonicalLocation("/analyzer/", "?x=1", "#top")).toBe("/analyzer?x=1#top");
+    expect(canonicalLocation("/tutorial/single/", "", "")).toBe("/tutorial/single");
+    expect(canonicalLocation("/", "", "")).toBe("/");
+    expect(canonicalLocation("/faq", "", "")).toBe("/faq");
   });
 });
 

@@ -48,4 +48,11 @@ describe("hydrateAction", () => {
     expect(hydrateAction("/", "/", false)).toBe("render");
     expect(hydrateAction("/analyzer", "/analyzer", false)).toBe("render");
   });
+
+  it("hydrates an unstamped document and the not-found page on any URL", () => {
+    expect(hydrateAction(null, "/analyzer", true)).toBe("hydrate");
+    expect(hydrateAction("", "/tutorial", true)).toBe("hydrate");
+    expect(hydrateAction("/404", "/missing-page", true)).toBe("hydrate");
+    expect(hydrateAction("/404/", "/missing-page/", true)).toBe("hydrate");
+  });
 });

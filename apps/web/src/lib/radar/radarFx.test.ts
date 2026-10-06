@@ -152,9 +152,15 @@ describe("nadeVisibleEnd", () => {
     expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * 7);
   });
 
-  it("clips to round end", () => {
+  it("clips a smoke to round end and leaves a fire burning", () => {
     const g = smoke();
     expect(nadeVisibleEnd(g, 64, 200)).toBe(200);
+    const fire = molotov({
+      detonate_tick: 100,
+      end_tick: 450,
+      fires: [{ x: 0, y: 0, start_tick: 100, end_tick: 450 }],
+    });
+    expect(nadeVisibleEnd(fire, 64, 200)).toBe(450);
   });
 });
 
