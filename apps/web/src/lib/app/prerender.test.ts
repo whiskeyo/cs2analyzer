@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { FAQ_ITEMS } from "./faq";
 import { JSON_LD_BREADCRUMB, JSON_LD_SOFTWARE, SITE_NAME, SITE_ORIGIN, pageMeta } from "./pageMeta";
-import { injectPrerenderedPage, PRERENDER_PATHS, prerenderFilePath } from "./prerender";
+import {
+  injectPrerenderedPage,
+  NOT_FOUND_PRERENDER_PATH,
+  PRERENDER_PATHS,
+  prerenderFilePath,
+} from "./prerender";
 import { ROUTES } from "./routes";
 
 const TEMPLATE = `<!doctype html>
@@ -36,6 +41,7 @@ describe("PRERENDER_PATHS", () => {
       ROUTES.contact,
     ]);
     expect(PRERENDER_PATHS).not.toContain(ROUTES.layouts);
+    expect(PRERENDER_PATHS).not.toContain(NOT_FOUND_PRERENDER_PATH);
     expect(prerenderFilePath("/")).toBe("index.html");
     expect(prerenderFilePath("/faq")).toBe("faq/index.html");
     expect(prerenderFilePath("/faq/")).toBe("faq/index.html");
@@ -61,6 +67,21 @@ describe("injectPrerenderedPage", () => {
     expect(html).toContain(`"${SITE_ORIGIN}/faq"`);
     expect(html).not.toMatch(/viewer/i);
     expect(html).not.toContain("/layouts");
+    expect(html).not.toContain("noindex");
+  });
+
+  it("stamps the not-found page with noindex and no canonical link", () => {
+    const html = injectPrerenderedPage(
+      TEMPLATE,
+      NOT_FOUND_PRERENDER_PATH,
+      '<article class="not-found"><h2>This page does not exist. Are you sure the link is correct?</h2></article>',
+    );
+    expect(html).toContain("<title>CS2 Analyzer — Page not found</title>");
+    expect(html).toContain('name="robots" content="noindex"');
+    expect(html).not.toMatch(/rel="canonical"/i);
+    expect(html).not.toContain(`href="${SITE_ORIGIN}/"`);
+    expect(html).not.toContain(`href="${SITE_ORIGIN}${NOT_FOUND_PRERENDER_PATH}"`);
+    expect(html).toContain('class="not-found"');
   });
 
   it("keeps SoftwareApplication JSON-LD on home and omits breadcrumbs", () => {

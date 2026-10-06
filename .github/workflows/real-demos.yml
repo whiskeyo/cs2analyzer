@@ -1,0 +1,113 @@
+# The job always runs on pull requests and pushes to master. There is no
+# workflow-level paths filter: a required check that never starts sits on
+# "Expected — waiting". Changes are detected inside the job; unrelated PRs
+# skip the download and parse and finish green.
+#
+# Two runs a week touch the demo cache so GitHub does not evict it after
+# 7 days without a Rust change. Local `cargo test` still skips these tests
+# until ./scripts/run.sh --fetch-demos.
+
+name: Real demos
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Monday and Thursday 04:00 UTC. GitHub cron is UTC: 06:00 CEST, and
+    # 05:00 CET after 25 Oct. One weekly run can miss the 7-day eviction.
+    - cron: "0 4 * * 1,4"
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+# A new push on a pull request cancels the parse already running for that PR.
+# Master, the schedule, and workflow_dispatch each keep their own group and
+# are not cancelled.
+concurrency:
+  group: real-demos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  real-demos:
+    name: Real demos
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
+        id: filter
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        with:
+          filters: |
+            demos:
+              - 'crates/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'test-demos/manifest.json'
+              - 'test-demos/output-hashes.json'
+              - 'scripts/run.sh'
+              - '.github/workflows/real-demos.yml'
+      - name: Decide whether to parse demos
+        id: gate
+        run: |
+          event="${{ github.event_name }}"
+          changed="${{ steps.filter.outputs.demos }}"
+          if [[ "$event" == "schedule" || "$event" == "workflow_dispatch" || "$changed" == "true" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Parsing release demos (event=$event changed=$changed)"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No changes under crates, Cargo.toml, Cargo.lock, test-demos/manifest.json, test-demos/output-hashes.json, scripts/run.sh, or this workflow. Skipping download and parse."
+          fi
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.gate.outputs.run == 'true'
+      # Separate from the debug Rust job so a release target does not replace it.
+      - uses: Swatinem/rust-cache@v2
+        if: steps.gate.outputs.run == 'true'
+        with:
+          prefix-key: real-demos
+      # Exact manifest hash only. No restore-keys, so an older demo set is never restored.
+      # Pull requests only restore. A PR-scoped save of this ~2.9 GB dir evicts
+      # the master entry from GitHub's 10 GB cache limit.
+      - uses: actions/cache/restore@v4
+        id: demos
+        if: steps.gate.outputs.run == 'true'
+        with:
+          path: test-demos/files
+          key: test-demos-${{ hashFiles('test-demos/manifest.json') }}
+      - name: Verify sha256 or download demos
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          if [[ "${{ steps.demos.outputs.cache-hit }}" == "true" ]]; then
+            echo "demo cache hit; hashing every file and re-downloading any mismatch"
+          else
+            echo "demo cache miss; downloading"
+          fi
+          ./scripts/run.sh --fetch-demos
+      - uses: actions/cache/save@v4
+        if: >-
+          steps.gate.outputs.run == 'true' &&
+          steps.demos.outputs.cache-hit != 'true' &&
+          (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        with:
+          path: test-demos/files
+          key: test-demos-${{ hashFiles('test-demos/manifest.json') }}
+      # --nocapture prints each demo's release parse_ms. One test thread keeps
+      # the per-demo RSS sample from overlapping another parse. Cargo's
+      # --no-fail-fast (before `--`) still runs the later targets after one
+      # fails. The test harness has no such flag. time -v is informational;
+      # the harness still fails the step when a test fails.
+      - name: Ignored tests (release)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          if [[ ! -x /usr/bin/time ]]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq time
+          fi
+          /usr/bin/time -v cargo test --release --no-fail-fast -p cs2analyzer -- --ignored --nocapture --test-threads=1
