@@ -6,14 +6,14 @@ use crate::analysis::starting_team_scores;
 use crate::constants::{
     DEFAULT_TICK_RATE, FLASH_POP_SECONDS, GRENADE_DET_LATE_STRIDES, GRENADE_DET_LEAD_TICKS,
     HE_DECOY_SECONDS, INCENDIARY_BURN_TICKS, KNIFE_ROUND_MAX_EQUIPMENT,
-    KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_BURN_TICKS, MOLOTOV_SECONDS, SMOKE_SECONDS,
+    KNIFE_ROUND_RESET_MAX_EQUIPMENT, MOLOTOV_BURN_TICKS, MOLOTOV_SECONDS, SMOKE_DURATION_SECONDS,
 };
 use crate::inventory::{
     weapon_buy_cost, GEAR_DECOY, GEAR_DEFUSER, GEAR_FLASH, GEAR_FLASH2, GEAR_HE, GEAR_HELMET,
     GEAR_INC, GEAR_KEVLAR, GEAR_MOLLY, GEAR_SMOKE, GEAR_ZEUS, WID_DECOY, WID_DEFUSER, WID_FLASH,
     WID_HE, WID_HELMET, WID_INC, WID_KEVLAR, WID_MOLLY, WID_SMOKE, WID_TASER,
 };
-use crate::observer::{Collector, GrenadeDetSource};
+use crate::observer::{Collector, GrenadeDet, GrenadeDetSource};
 use crate::types::*;
 use crate::{FLAG_PRESENT, MAX_PLAYERS};
 use std::collections::{BTreeMap, HashMap};
@@ -448,7 +448,7 @@ fn build_grenades(
                 flight.last_x,
                 flight.last_y,
                 flight.last_z,
-                default_end(flight.kind, flight.last_tick, tick_rate),
+                projectile_end_without_detonate(c, flight.kind, flight.last_tick, tick_rate),
             )
         };
         let mut points: Vec<GrenadePoint> = flight
@@ -601,8 +601,9 @@ struct DetEvent {
     source: GrenadeDetSource,
 }
 
-/// Earliest `inferno_expire` / `smokegrenade_expired` for this entity at or after `start`.
+/// Earliest `inferno_expire` for this entity at or after `start`.
 /// Entity id is an exact pair (inferno 415 start 13422 expires at 13872). Vec order is irrelevant.
+/// Smoke expires are not in this list; they use [`smoke_expire_in_window`].
 fn paired_end(ends: &[(i32, u32)], entity: i32, start: u32) -> Option<u32> {
     ends.iter()
         .filter(|(id, tick)| *id == entity && *tick >= start)
@@ -792,7 +793,7 @@ fn split_proj_track(points: Vec<ProjSample>, gap: u32) -> Vec<Vec<ProjSample>> {
 
 fn default_end(kind: GrenadeKind, detonate: u32, tick_rate: f32) -> u32 {
     let secs = match kind {
-        GrenadeKind::Smoke => SMOKE_SECONDS,
+        GrenadeKind::Smoke => SMOKE_DURATION_SECONDS,
         GrenadeKind::Molotov | GrenadeKind::Incendiary => MOLOTOV_SECONDS,
         GrenadeKind::He | GrenadeKind::Decoy => HE_DECOY_SECONDS,
         GrenadeKind::Flash => FLASH_POP_SECONDS,
@@ -800,10 +801,23 @@ fn default_end(kind: GrenadeKind, detonate: u32, tick_rate: f32) -> u32 {
     detonate.saturating_add((secs * tick_rate).round() as u32)
 }
 
+/// A projectile that disappeared without a detonate event.
+fn projectile_end_without_detonate(
+    c: &Collector,
+    kind: GrenadeKind,
+    tick: u32,
+    tick_rate: f32,
+) -> u32 {
+    if kind == GrenadeKind::Smoke {
+        return missing_smoke_end(tick, tick_rate, &c.round_open_ticks, c.last_cap);
+    }
+    default_end(kind, tick, tick_rate)
+}
+
 /// `inferno_expire` when the demo has one. A burn with no expire keeps going
 /// for [`INCENDIARY_BURN_TICKS`] or [`MOLOTOV_BURN_TICKS`], capped at the next
 /// `round_start` or the last demo tick. Smoke puts a fire out with an earlier
-/// expire, so that tick stays.
+/// expire, so that tick stays. A smoke's own end is [`smoke_end_tick`].
 fn grenade_end_tick(
     c: &Collector,
     det: &DetEvent,
@@ -811,6 +825,9 @@ fn grenade_end_tick(
     thrower: Option<u64>,
     tick_rate: f32,
 ) -> u32 {
+    if det.kind == GrenadeKind::Smoke {
+        return smoke_end_tick(c, det.entity, det.tick, tick_rate);
+    }
     if let Some(end) = paired_end(&c.grenade_ends, det.entity, det.tick) {
         return end;
     }
@@ -822,6 +839,69 @@ fn grenade_end_tick(
         return missing_expire_end(kind, det.tick, &c.round_open_ticks, c.last_cap);
     }
     default_end(det.kind, det.tick, tick_rate)
+}
+
+/// End of one smoke.
+///
+/// The expire is the `smokegrenade_expired` with this entity id that falls
+/// after the detonate and before the next `smokegrenade_detonate` on that same
+/// id. The first expire with the id is not enough: the index is reused, so a
+/// later cloud's expire would close this one. With no expire in the window,
+/// stop at the shorter of 22s (scaled by this demo's tick rate), the next
+/// round-open tick, and the last sampled demo tick. Do not clip to the round's
+/// `end_tick` — a smoke keeps covering through the post-round gap.
+fn smoke_end_tick(c: &Collector, entity: i32, detonate: u32, tick_rate: f32) -> u32 {
+    if let Some(end) = smoke_expire_in_window(&c.smoke_ends, &c.grenade_dets, entity, detonate) {
+        return end;
+    }
+    missing_smoke_end(detonate, tick_rate, &c.round_open_ticks, c.last_cap)
+}
+
+/// Earliest `smokegrenade_expired` inside `(detonate, next detonate on entity)`.
+fn smoke_expire_in_window(
+    ends: &[(i32, u32)],
+    dets: &[GrenadeDet],
+    entity: i32,
+    detonate: u32,
+) -> Option<u32> {
+    let next_detonate = dets
+        .iter()
+        .filter(|det| {
+            det.kind == GrenadeKind::Smoke
+                && det.source == GrenadeDetSource::Projectile
+                && det.entity == entity
+                && det.tick > detonate
+        })
+        .map(|det| det.tick)
+        .min();
+    ends.iter()
+        .filter(|(id, tick)| {
+            if *id != entity || *tick <= detonate {
+                return false;
+            }
+            next_detonate.is_none_or(|next| *tick < next)
+        })
+        .map(|(_, tick)| *tick)
+        .min()
+}
+
+/// End tick of a smoke that has no `smokegrenade_expired` in its window.
+///
+/// 22s at this demo's tick rate, then the first `m_nRoundStartCount` edge
+/// strictly after detonate (the same list as the open-fire cap), then the last
+/// sampled demo tick. A round-win tick in between does not shorten the cloud.
+fn missing_smoke_end(detonate: u32, tick_rate: f32, round_opens: &[u32], last_cap: u32) -> u32 {
+    let life = (SMOKE_DURATION_SECONDS * tick_rate).round() as u32;
+    let natural = detonate.saturating_add(life);
+    let next_open = round_opens.iter().copied().find(|tick| *tick > detonate);
+    let mut end = natural;
+    if let Some(open) = next_open {
+        end = end.min(open);
+    }
+    if last_cap >= detonate {
+        end = end.min(last_cap);
+    }
+    end.max(detonate)
 }
 
 /// Latest `weapon_fire` of a molotov or incendiary by this thrower at or before the burn.
@@ -1742,6 +1822,135 @@ mod tests {
         assert_eq!(grenades[0].start_tick, 13400);
         assert_eq!(grenades[0].detonate_tick, 13422);
         assert_eq!(grenades[0].end_tick, 13872);
+    }
+
+    fn push_smoke(c: &mut Collector, tick: u32, entity: i32) {
+        c.grenade_dets.push(GrenadeDet {
+            tick,
+            kind: GrenadeKind::Smoke,
+            entity,
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+            thrower: None,
+            source: GrenadeDetSource::Projectile,
+        });
+    }
+
+    fn smoke_pairs(c: &Collector, tick_rate: f32) -> Vec<(u32, u32)> {
+        build_grenades(c, &|_| -1, tick_rate)
+            .into_iter()
+            .filter(|grenade| grenade.kind == GrenadeKind::Smoke)
+            .map(|grenade| (grenade.detonate_tick, grenade.end_tick))
+            .collect()
+    }
+
+    #[test]
+    fn reused_smoke_entity_pairs_the_expire_inside_its_window() {
+        let life = (SMOKE_DURATION_SECONDS * 64.0).round() as u32;
+        let mut c = Collector::new(ParseOptions::default());
+        c.last_cap = 20_000;
+        // Entity 70 pops twice. The expire before the first detonate, and the
+        // second cloud's expire, are outside the first window.
+        push_smoke(&mut c, 1_000, 70);
+        push_smoke(&mut c, 5_000, 70);
+        c.smoke_ends.push((70, 500));
+        c.smoke_ends.push((70, 1_000 + life));
+        c.smoke_ends.push((70, 5_000 + life));
+        // An inferno that reused the index must not close the smoke.
+        c.grenade_ends.push((70, 1_200));
+        // Entity 71's first cloud has no expire. The only expire belongs to the
+        // second detonate, so the old "first expire with this id" pair is wrong.
+        push_smoke(&mut c, 8_000, 71);
+        push_smoke(&mut c, 9_000, 71);
+        c.smoke_ends.push((71, 9_100));
+        // Round win sits inside the first cloud and must not clip it.
+        c.synth_ends.push((1_500, Some(Side::Ct), 1));
+        assert_eq!(
+            smoke_pairs(&c, 64.0),
+            vec![
+                (1_000, 1_000 + life),
+                (5_000, 5_000 + life),
+                (8_000, 8_000 + life),
+                (9_000, 9_100),
+            ]
+        );
+        assert!(1_000 + life > 1_500);
+    }
+
+    #[test]
+    fn smoke_expire_on_the_window_boundary_stays_outside() {
+        let life = (SMOKE_DURATION_SECONDS * 64.0).round() as u32;
+        let mut c = Collector::new(ParseOptions::default());
+        c.last_cap = 20_000;
+        // Same tick as the detonate: not after it.
+        push_smoke(&mut c, 1_000, 80);
+        c.smoke_ends.push((80, 1_000));
+        // Same tick as the next detonate: not before that detonate.
+        push_smoke(&mut c, 3_000, 81);
+        push_smoke(&mut c, 4_000, 81);
+        c.smoke_ends.push((81, 4_000));
+        c.smoke_ends.push((81, 4_010));
+        // One tick before the next detonate is inside the window.
+        push_smoke(&mut c, 6_000, 82);
+        push_smoke(&mut c, 7_000, 82);
+        c.smoke_ends.push((82, 6_999));
+        assert_eq!(
+            smoke_pairs(&c, 64.0),
+            vec![
+                (1_000, 1_000 + life),
+                (3_000, 3_000 + life),
+                (4_000, 4_010),
+                (6_000, 6_999),
+                (7_000, 7_000 + life),
+            ]
+        );
+    }
+
+    #[test]
+    fn missing_smoke_expire_caps_at_duration_next_round_or_demo_end() {
+        assert_eq!(SMOKE_DURATION_SECONDS, 22.0);
+        let life_64 = (SMOKE_DURATION_SECONDS * 64.0).round() as u32;
+        assert_eq!(life_64, 1_408);
+
+        let mut open = Collector::new(ParseOptions::default());
+        open.last_cap = 50_000;
+        open.round_open_ticks.push(1_800);
+        open.synth_ends.push((1_200, Some(Side::Ct), 1));
+        push_smoke(&mut open, 1_000, 90);
+        assert_eq!(smoke_pairs(&open, 64.0), vec![(1_000, 1_800)]);
+
+        let mut demo_end = Collector::new(ParseOptions::default());
+        demo_end.last_cap = 1_300;
+        demo_end.round_open_ticks.push(5_000);
+        push_smoke(&mut demo_end, 1_000, 90);
+        assert_eq!(smoke_pairs(&demo_end, 64.0), vec![(1_000, 1_300)]);
+
+        let mut full = Collector::new(ParseOptions::default());
+        full.last_cap = 50_000;
+        full.synth_ends.push((1_200, Some(Side::Ct), 1));
+        push_smoke(&mut full, 1_000, 90);
+        assert_eq!(smoke_pairs(&full, 64.0), vec![(1_000, 1_000 + life_64)]);
+
+        // Tick rate comes from the demo interval. 128 is not 64 * 2 written in.
+        let mut fast = Collector::new(ParseOptions::default());
+        fast.tick_interval = 1.0 / 128.0;
+        fast.last_cap = 50_000;
+        let rate = tick_rate(&fast);
+        let life_128 = (SMOKE_DURATION_SECONDS * rate).round() as u32;
+        assert_eq!(life_128, 2_816);
+        assert_ne!(life_128, life_64);
+        push_smoke(&mut fast, 1_000, 90);
+        assert_eq!(smoke_pairs(&fast, rate), vec![(1_000, 1_000 + life_128)]);
+
+        let mut fast_open = Collector::new(ParseOptions::default());
+        fast_open.tick_interval = 1.0 / 128.0;
+        fast_open.last_cap = 50_000;
+        fast_open.round_open_ticks.push(1_500);
+        let fast_rate = tick_rate(&fast_open);
+        push_smoke(&mut fast_open, 1_000, 90);
+        assert_eq!(smoke_pairs(&fast_open, fast_rate), vec![(1_000, 1_500)]);
+        assert!(1_500 < 1_000 + (SMOKE_DURATION_SECONDS * fast_rate).round() as u32);
     }
 
     #[test]

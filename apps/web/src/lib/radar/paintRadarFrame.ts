@@ -173,12 +173,15 @@ function paintNade(
 
   const at = toScreen(nade.at.x, nade.at.y);
   if (nade.phase === "linger") {
+    // Fade the cloud only. The countdown dial and the in-flight thrower icon
+    // stay at the layer opacity.
+    const cover = opacity * nade.opacity;
     ctx.fillStyle = color;
     ctx.strokeStyle = color;
-    ctx.globalAlpha = 0.22 * opacity;
+    ctx.globalAlpha = 0.22 * cover;
     circle(ctx, at, nade.radius);
     ctx.fill();
-    ctx.globalAlpha = 0.4 * opacity;
+    ctx.globalAlpha = 0.4 * cover;
     ctx.lineWidth = 1.4;
     circle(ctx, at, nade.radius);
     ctx.stroke();
