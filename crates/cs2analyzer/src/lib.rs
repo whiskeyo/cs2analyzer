@@ -25,7 +25,8 @@ use source2_demo::prelude::*;
 pub struct ParseOptions {
     /// Keep one snapshot every N demo ticks. CS2 is 64-tick; `4` ≈ 16 Hz.
     pub tick_stride: u32,
-    /// Drop warmup ticks and events.
+    /// Drop warmup events. Pawn frames stay dropped until a live round has
+    /// opened; a later warmup before `begin_new_match` keeps frames.
     pub skip_warmup: bool,
 }
 

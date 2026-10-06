@@ -125,6 +125,13 @@ pub(crate) struct Collector {
     /// Freeze-end fill candidates. One walk per `round_freeze_end`, not per tick.
     pub controller_freeze: Vec<crate::ControllerDump>,
     pub last_cap: u32,
+    /// Last pawn frame stored while `m_bWarmupPeriod` is set again after a live
+    /// round. Kept off `last_cap` so the live sample grid does not shift.
+    restart_cap: u32,
+    /// A non-warmup `round_freeze_end` has been recorded.
+    live_round_opened: bool,
+    /// `begin_new_match` has fired. Warmup after that stays dropped.
+    match_restarted: bool,
     pub total_ticks: u32,
     pub last_progress_tick: u32,
     pub progress: Option<Box<dyn FnMut(u32, u32)>>,
@@ -226,6 +233,9 @@ impl Collector {
             controller_last: HashMap::new(),
             controller_freeze: Vec::new(),
             last_cap: 0,
+            restart_cap: 0,
+            live_round_opened: false,
+            match_restarted: false,
             total_ticks: 0,
             last_progress_tick: 0,
             progress: None,
@@ -758,6 +768,46 @@ fn ev_haskit(ge: &GameEvent<'_>) -> bool {
 
 const PROGRESS_TICK_INTERVAL: u32 = 512;
 
+/// Pawn frames during warmup after a live round opened, before `begin_new_match`.
+///
+/// FACEIT sets `m_bWarmupPeriod` again for the side-pick / `mp_restartgame`
+/// restarts between the knife round and round 1. Those ticks still have pawns.
+/// Initial warmup has not opened a live round, so it stays dropped. Events
+/// stay on the warmup skip path either way.
+pub(crate) fn sample_pawns_in_later_warmup(live_round_opened: bool, match_restarted: bool) -> bool {
+    live_round_opened && !match_restarted
+}
+
+/// Stride anchor for pawn frames taken during that later warmup.
+///
+/// `live_cap` is the last non-warmup sample and does not move, so the first
+/// live tick after warmup lands on the same grid as before.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RestartPawnCadence {
+    pub live_cap: u32,
+    pub restart_cap: u32,
+}
+
+impl RestartPawnCadence {
+    pub(crate) fn take(self, tick: u32, stride: u32) -> (Self, bool) {
+        let anchor = if self.restart_cap == 0 {
+            self.live_cap
+        } else {
+            self.restart_cap
+        };
+        if anchor != 0 && tick.wrapping_sub(anchor) < stride {
+            return (self, false);
+        }
+        (
+            Self {
+                live_cap: self.live_cap,
+                restart_cap: tick,
+            },
+            true,
+        )
+    }
+}
+
 #[observer]
 #[uses_all]
 impl Collector {
@@ -810,26 +860,42 @@ impl Collector {
         }
 
         let warmup = in_warmup(ctx);
-        if self.opts.skip_warmup && warmup {
+        let restart_pawns = self.opts.skip_warmup
+            && warmup
+            && sample_pawns_in_later_warmup(self.live_round_opened, self.match_restarted);
+        if self.opts.skip_warmup && warmup && !restart_pawns {
             return Ok(());
         }
 
-        let win_status = gamerules_i32(ctx, "m_pGameRules.m_iRoundWinStatus").unwrap_or(0);
-        if win_status != 0 && self.prev_win_status == 0 && !warmup {
-            let winner = side_of(win_status);
-            let reason = gamerules_i32(ctx, "m_pGameRules.m_eRoundWinReason").unwrap_or(0);
-            self.synth_ends.push((tick, winner, reason));
+        if !restart_pawns {
+            let win_status = gamerules_i32(ctx, "m_pGameRules.m_iRoundWinStatus").unwrap_or(0);
+            if win_status != 0 && self.prev_win_status == 0 && !warmup {
+                let winner = side_of(win_status);
+                let reason = gamerules_i32(ctx, "m_pGameRules.m_eRoundWinReason").unwrap_or(0);
+                self.synth_ends.push((tick, winner, reason));
+            }
+            self.prev_win_status = win_status;
+
+            self.sample_infernos(ctx, tick);
+            self.sample_flash_blinds(ctx, tick);
+            self.sample_ammo(ctx);
         }
-        self.prev_win_status = win_status;
 
-        self.sample_infernos(ctx, tick);
-        self.sample_flash_blinds(ctx, tick);
-        self.sample_ammo(ctx);
-
-        if tick.wrapping_sub(self.last_cap) < self.opts.tick_stride && self.last_cap != 0 {
+        if restart_pawns {
+            let (cadence, take) = RestartPawnCadence {
+                live_cap: self.last_cap,
+                restart_cap: self.restart_cap,
+            }
+            .take(tick, self.opts.tick_stride);
+            if !take {
+                return Ok(());
+            }
+            self.restart_cap = cadence.restart_cap;
+        } else if tick.wrapping_sub(self.last_cap) < self.opts.tick_stride && self.last_cap != 0 {
             return Ok(());
+        } else {
+            self.last_cap = tick;
         }
-        self.last_cap = tick;
 
         let inventory = collect_loadouts(ctx, &self.pawn_to_steam);
         let planters = c4_arming_steams(ctx, &self.pawn_to_steam);
@@ -860,6 +926,11 @@ impl Collector {
             };
 
             if !self.meta.contains_key(&steam) {
+                // A new roster entry would shift every tick column. Restart
+                // frames only fill players already seen in the live round.
+                if restart_pawns {
+                    continue;
+                }
                 self.meta_order.push(steam);
                 self.meta.insert(
                     steam,
@@ -936,6 +1007,10 @@ impl Collector {
         }
         self.frames.push(RawFrame { tick, players });
 
+        if restart_pawns {
+            return Ok(());
+        }
+
         for e in ctx.entities().iter() {
             if let Some(kind) = proj_kind(e) {
                 let (x, y, z) = entity_xyz(e);
@@ -961,6 +1036,9 @@ impl Collector {
     #[on_game_event]
     fn on_game_event(&mut self, ctx: &Context, ge: &GameEvent) -> ObserverResult {
         let tick = ctx.tick();
+        if ge.name() == "begin_new_match" {
+            self.match_restarted = true;
+        }
         if ge.name() == "round_start" {
             self.push_round_open(tick);
         }
@@ -984,6 +1062,7 @@ impl Collector {
             }
             "round_freeze_end" => {
                 if !in_warmup(ctx) {
+                    self.live_round_opened = true;
                     self.freeze_ends.push(tick);
                     self.round_scores.insert(tick, team_scores(ctx));
                     self.round_times.insert(tick, round_time_seconds(ctx));
@@ -1230,5 +1309,40 @@ impl Collector {
             _ => {}
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{sample_pawns_in_later_warmup, RestartPawnCadence};
+
+    #[test]
+    fn later_warmup_keeps_pawns_only_between_live_round_and_match_restart() {
+        assert!(!sample_pawns_in_later_warmup(false, false));
+        assert!(sample_pawns_in_later_warmup(true, false));
+        assert!(!sample_pawns_in_later_warmup(true, true));
+        assert!(!sample_pawns_in_later_warmup(false, true));
+    }
+
+    #[test]
+    fn restart_pawn_cadence_fills_the_warmup_grid_without_moving_live_cap() {
+        // 0eb2df7f: last live sample before `m_bWarmupPeriod` is tick 3065.
+        // Warmup is visible on tick_start 3067..=3491. The next live tick is 3492.
+        let mut cadence = RestartPawnCadence {
+            live_cap: 3065,
+            restart_cap: 0,
+        };
+        let mut taken = Vec::new();
+        for tick in 3067..=3491 {
+            let (next, take) = cadence.take(tick, 4);
+            cadence = next;
+            if take {
+                taken.push(tick);
+            }
+        }
+        assert_eq!(taken.first().copied(), Some(3069));
+        assert_eq!(taken.last().copied(), Some(3489));
+        assert_eq!(cadence.live_cap, 3065);
+        assert!(3492_u32.wrapping_sub(cadence.live_cap) >= 4);
     }
 }
