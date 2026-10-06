@@ -56,13 +56,35 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 | `--prepare` | Install Rust toolchain, `wasm-bindgen-cli`, and npm deps |
 | `--fetch-demos` | Download test demos listed in `test-demos/manifest.json` into `test-demos/files/` (skip when sha256 matches). Every pull request and push to master runs the Real demos check; the ignored release tests run only when crates, Cargo.toml, Cargo.lock, the manifest, `test-demos/output-hashes.json`, `scripts/run.sh`, or that workflow changed. A cached demo dir is still sha256-checked. |
 | `--update` | Update Rust and npm deps within current semver ranges, keep `wasm-bindgen` pinned to the CLI, rebuild WASM, and run tests. Does not commit. |
-
-`--update` requires a clean `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` (commit or stash those first).
+| `--upgrade` | Bump Rust and npm deps to the newest peer-compatible versions, including outside current semver ranges. Skips the `=0.5.9` `source2-demo` pin, every `wasm-bindgen*` crate, `js-sys`, and `web-sys`. Rebuilds WASM, runs tests, then the production build. Does not commit. Restores the dependency tree on failure. |
+| `--latest` | With `--upgrade` only. Take the newest versions even when they break peer dependencies. |
 | `--build-wasm` | Compile the parser WASM into the web app |
 | `--check` | rustfmt, clippy, prettier, eslint, typecheck |
 | `--test` | Rust + web test suites |
 | `--dev` | Dev server at http://localhost:5173/ (layouts editor at `/layouts`) |
 | `--prod` | Production build + preview (default http://localhost:4173/) |
+
+`--update` and `--upgrade` need a clean dependency tree: every workspace `Cargo.toml`, `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/`. Commit or stash those first. The two flags are mutually exclusive.
+
+### `--upgrade`
+
+`--update` stays inside the ranges already written in the manifests. `--upgrade` rewrites those ranges to the newest published versions that still satisfy peer dependencies (`npm-check-updates --peer`), refreshes the lockfiles, rebuilds WASM, and runs the Rust tests, the web tests, and `npm run build` (the production prerender). It prints a table of resolved version changes and leaves the diff in the working tree. It does not commit.
+
+`--upgrade --latest` drops `--peer` and takes the newest versions even when another package's peer range cannot accept them. `--latest` on its own is an error.
+
+If a step fails after files have changed, or the run is interrupted with Ctrl-C or SIGTERM, the script puts every workspace `Cargo.toml`, `Cargo.lock`, `apps/web/package.json`, `apps/web/package-lock.json`, and `apps/web/src/parser/` back to the pre-run state, runs `npm ci` in `apps/web` so `node_modules` matches that lock, and does that restore only once. A failed step names the step and exits non-zero. Ctrl-C exits 130 and SIGTERM exits 143. If `npm ci` fails, it tells you to run that command manually and does not try again. A second interrupt during that restore leaves whatever was already restored in place and prints once: check `git status`, then run `npm ci` in `apps/web`.
+
+Not a CI step. On success, review `git diff` and commit the bumps you want to keep.
+
+Requires [cargo-edit](https://github.com/killercup/cargo-edit) (`cargo install cargo-edit`). npm packages are bumped with `npx npm-check-updates@22` (no global install). Major 23 rejects Node 24.11 (`^24.15.0`); major 22 accepts `>=24`.
+
+Left unchanged:
+
+- `source2-demo`, `source2-demo-macros`, and `source2-demo-protobufs` — pinned to `=0.5.9` in the workspace `Cargo.toml` after the assets-v1 demo comparison (the last two are dev-dependencies of `cs2analyzer` only to hold the lock). `source2-demo` 0.5.9 depends on the macros and protobuf crates as `^0.5.9`, so those are pinned too. Remove the three pins together.
+- `wasm-bindgen*` — the whole family stays on the `wasm-bindgen-cli` pin in `scripts/build-wasm.sh` (currently 0.2.127). A bump to 0.2.129 is a separate decision.
+- `js-sys` and `web-sys` — each release exact-pins `wasm-bindgen`, so the newest one would move that pin.
+
+`--upgrade` uses that as one skip list for `cargo upgrade --exclude` and for the `cargo update -p name@version` filter (prefix match for `wasm-bindgen*`). `--latest` does not drop it, and the Cargo step does not pass `--pinned` for those crates.
 
 Typical first run:
 
@@ -70,7 +92,7 @@ Typical first run:
 ./scripts/run.sh --prepare --build-wasm --dev
 ```
 
-Flags combine and run in the order above; `--dev` and `--prod` are mutually exclusive and block while the server is up.
+Flags combine and run in the order above. `--dev` and `--prod` are mutually exclusive and block while the server is up. `--update` and `--upgrade` are mutually exclusive.
 
 Ignored release-demo checks, after `--fetch-demos`:
 
