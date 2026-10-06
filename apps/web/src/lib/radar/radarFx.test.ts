@@ -3,7 +3,6 @@ import {
   FLASH_FULL_SECONDS,
   HE_BURST_SECONDS,
   KILL_LINE_MIN_LENGTH,
-  SMOKE_DURATION_SECONDS,
   SMOKE_FADE_SECONDS,
   SMOKE_SECONDS,
 } from "@/lib/shared/constants";
@@ -140,17 +139,14 @@ describe("firesAt", () => {
 });
 
 describe("nadeVisibleEnd", () => {
-  it("caps a stretched end_tick at one full smoke", () => {
-    const g = smoke({ end_tick: 50_000 });
-    expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * SMOKE_DURATION_SECONDS);
-  });
-
-  it("shows a smoke until its end_tick, including past round end", () => {
-    const end = 100 + 64 * SMOKE_DURATION_SECONDS;
+  it("uses the parser end_tick for a smoke, including past round end", () => {
+    const end = 100 + 64 * 22;
     const g = smoke({ end_tick: end });
     expect(nadeVisibleEnd(g, 64, 200)).toBe(end);
-    const early = smoke({ end_tick: 100 + 64 * 10 });
-    expect(nadeVisibleEnd(early, 64, 200)).toBe(100 + 64 * 10);
+    const stretched = smoke({ end_tick: 50_000 });
+    expect(nadeVisibleEnd(stretched, 64, 200)).toBe(50_000);
+    const early = smoke({ end_tick: 100 + 64 * 2 });
+    expect(nadeVisibleEnd(early, 64, 200)).toBe(100 + 64 * 2);
   });
 
   it("hides when occupancy dies early (molly hole)", () => {
@@ -187,42 +183,48 @@ describe("nadeVisibleEnd", () => {
 
 describe("smokeOpacity", () => {
   const pop = 100;
-  const end = pop + 64 * SMOKE_DURATION_SECONDS;
-  const fadeStart = end - 64 * SMOKE_FADE_SECONDS;
+  const end = pop + 64 * 22;
 
-  it("stays solid through mid-life", () => {
-    expect(smokeOpacity(pop, end, pop, 64)).toBe(1);
-    expect(smokeOpacity(pop, end, pop + 64 * (SMOKE_SECONDS / 2), 64)).toBe(1);
-    expect(smokeOpacity(pop, end, fadeStart, 64)).toBe(1);
+  it("stays solid until the last 4s", () => {
+    expect(smokeOpacity(end, pop, 64)).toBe(1);
+    expect(smokeOpacity(end, pop + 64 * (SMOKE_SECONDS / 2), 64)).toBe(1);
+    expect(smokeOpacity(end, end - 64 * SMOKE_FADE_SECONDS, 64)).toBe(1);
   });
 
-  it("fades linearly across the last 4s", () => {
-    expect(smokeOpacity(pop, end, end - 64 * 2, 64)).toBeCloseTo(0.5, 5);
-    expect(smokeOpacity(pop, end, end - 64, 64)).toBeCloseTo(0.25, 5);
+  it("is about 0.5 two seconds before the end and 0 from visibleEnd", () => {
+    expect(smokeOpacity(end, end - 64 * 2, 64)).toBeCloseTo(0.5, 5);
+    expect(smokeOpacity(end, end, 64)).toBe(0);
+    expect(smokeOpacity(end, end + 1, 64)).toBe(0);
   });
 
-  it("is gone at and after the end tick", () => {
-    expect(smokeOpacity(pop, end, end, 64)).toBe(0);
-    expect(smokeOpacity(pop, end, end + 1, 64)).toBe(0);
-    expect(smokeOpacity(pop, end, pop - 1, 64)).toBe(0);
+  it("scales the fade with the tick rate instead of a hardcoded 64", () => {
+    const rate = 128;
+    const fastEnd = pop + rate * 22;
+    expect(smokeOpacity(fastEnd, fastEnd - rate * 2, rate)).toBeCloseTo(0.5, 5);
+    expect(smokeOpacity(fastEnd, fastEnd - rate * SMOKE_FADE_SECONDS, rate)).toBe(1);
   });
 
-  it("still fades an older 18s end across its last 4s", () => {
-    const oldEnd = pop + 64 * SMOKE_SECONDS;
-    expect(nadeVisibleEnd(smoke({ end_tick: oldEnd }), 64, 200)).toBe(oldEnd);
-    expect(smokeOpacity(pop, oldEnd, pop + 64 * 9, 64)).toBe(1);
-    expect(smokeOpacity(pop, oldEnd, oldEnd - 64 * 2, 64)).toBeCloseTo(0.5, 5);
+  it("starts a smoke shorter than 4s below 1 and never exceeds 1", () => {
+    const shortEnd = pop + 64 * 2;
+    expect(nadeVisibleEnd(smoke({ end_tick: shortEnd }), 64, 200)).toBe(shortEnd);
+    const atPop = smokeOpacity(shortEnd, pop, 64);
+    const mid = smokeOpacity(shortEnd, pop + 64, 64);
+    expect(atPop).toBeCloseTo(0.5, 5);
+    expect(mid).toBeCloseTo(0.25, 5);
+    expect(atPop).toBeLessThanOrEqual(1);
+    expect(mid).toBeLessThanOrEqual(1);
+    expect(smokeOpacity(shortEnd, shortEnd, 64)).toBe(0);
   });
 
-  it("keeps a smoke that outlives the round solid until its own fade", () => {
+  it("does not fade early just because the scrub range ended", () => {
     const roundEnd = 200;
+    const playbackEnd = roundEnd + 64;
     const g = smoke({ end_tick: end });
-    expect(nadeVisibleEnd(g, 64, roundEnd)).toBe(end);
-    expect(smokeOpacity(pop, nadeVisibleEnd(g, 64, roundEnd), roundEnd, 64)).toBe(1);
-    expect(smokeOpacity(pop, nadeVisibleEnd(g, 64, roundEnd), end - 64 * 2, 64)).toBeCloseTo(
-      0.5,
-      5,
-    );
+    const visibleEnd = nadeVisibleEnd(g, 64, roundEnd);
+    expect(visibleEnd).toBe(end);
+    expect(smokeOpacity(visibleEnd, roundEnd, 64)).toBe(1);
+    expect(smokeOpacity(visibleEnd, playbackEnd, 64)).toBe(1);
+    expect(smokeOpacity(visibleEnd, end - 64 * 2, 64)).toBeCloseTo(0.5, 5);
   });
 });
 

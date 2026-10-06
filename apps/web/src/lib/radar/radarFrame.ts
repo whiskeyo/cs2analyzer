@@ -195,7 +195,11 @@ export type NadeRender =
       radius: number;
       dialRadius: number;
       left: number;
-      /** 1 while a smoke is solid, fading to 0 over its last ~4s. Fires stay at 1. */
+      /**
+       * Smoke fill/outline multiplier. 1 until the last ~4s, then
+       * `clamp((end - tick) / (4s * tick rate), 0, 1)`. Fires stay at 1.
+       * The in-flight thrower icon does not use this.
+       */
       opacity: number;
       trail: Point[];
     }
@@ -380,7 +384,7 @@ export function nadeRenderAt(
       radius,
       dialRadius: Math.max(7, 8 * zoom),
       left: lingerRemaining(popAt, visibleEnd, tick),
-      opacity: g.kind === "smoke" ? smokeOpacity(popAt, visibleEnd, tick, tps) : 1,
+      opacity: g.kind === "smoke" ? smokeOpacity(visibleEnd, tick, tps) : 1,
       trail,
     };
   }

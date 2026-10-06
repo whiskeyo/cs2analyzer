@@ -173,6 +173,8 @@ function paintNade(
 
   const at = toScreen(nade.at.x, nade.at.y);
   if (nade.phase === "linger") {
+    // Fade the cloud only. The countdown dial and the in-flight thrower icon
+    // stay at the layer opacity.
     const cover = opacity * nade.opacity;
     ctx.fillStyle = color;
     ctx.strokeStyle = color;
@@ -183,7 +185,7 @@ function paintNade(
     ctx.lineWidth = 1.4;
     circle(ctx, at, nade.radius);
     ctx.stroke();
-    dial(ctx, at, nade.dialRadius, nade.left, color, cover);
+    dial(ctx, at, nade.dialRadius, nade.left, color, opacity);
     return;
   }
   if (nade.phase === "burst") {
