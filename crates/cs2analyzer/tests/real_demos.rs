@@ -596,6 +596,7 @@ fn expected_smoke_census(name: &str) -> &'static SmokeCensus {
 fn smokes_end_on_the_expire_inside_their_entity_window() {
     let demos = common::require_demo_files();
     let mut missing_expire = 0usize;
+    let mut ended_at_round_open = 0usize;
     let mut ended_at_demo_end: Vec<(String, u32, u32)> = Vec::new();
     for path in demos {
         let name = path
@@ -678,10 +679,14 @@ fn smokes_end_on_the_expire_inside_their_entity_window() {
                     grenade.detonate_tick
                 );
                 let duration_cap = grenade.detonate_tick.saturating_add(life);
+                // The +22s term is the earliest of the three only in the synthetic
+                // test. On these demos the next round open or the last sample is
+                // strictly sooner.
                 assert!(
-                    grenade.end_tick <= duration_cap,
-                    "{name} smoke entity {entity} at {} runs past {life} ticks",
-                    grenade.detonate_tick
+                    grenade.end_tick < duration_cap,
+                    "{name} smoke entity {entity} {} -> {} landed on the {life}-tick cap {duration_cap}",
+                    grenade.detonate_tick,
+                    grenade.end_tick
                 );
                 let next_open = round_opens
                     .iter()
@@ -695,6 +700,9 @@ fn smokes_end_on_the_expire_inside_their_entity_window() {
                     grenade.detonate_tick,
                     grenade.end_tick
                 );
+                if at_next_open && !at_demo_end {
+                    ended_at_round_open += 1;
+                }
                 if at_demo_end && !at_next_open {
                     ended_at_demo_end.push((
                         name.to_string(),
@@ -722,6 +730,10 @@ fn smokes_end_on_the_expire_inside_their_entity_window() {
         );
     }
     assert_eq!(missing_expire, 69, "smokes with no in-window expire");
+    assert_eq!(
+        ended_at_round_open, 67,
+        "missing-expire smokes that stop on the next m_nRoundStartCount edge"
+    );
     ended_at_demo_end.sort_unstable();
     // 228691 and 81808 are the detonate ticks. Both clouds stop on the last
     // sampled tick (a couple of ticks before playback_ticks), not on +22s.
