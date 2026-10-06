@@ -39,6 +39,13 @@ describe("SiteNav", () => {
     expect(screen.getByRole("link", { name: "FAQ" })).not.toHaveAttribute("aria-current");
   });
 
+  it("marks Analyzer as the current page when the URL has a trailing slash", () => {
+    renderNav("/analyzer/");
+    expect(screen.getByRole("link", { name: "Analyzer" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Analyzer" })).toHaveClass("is-active");
+    expect(screen.getByRole("link", { name: "Playbook" })).not.toHaveAttribute("aria-current");
+  });
+
   it("marks FAQ as the current page on /faq", () => {
     renderNav("/faq");
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");

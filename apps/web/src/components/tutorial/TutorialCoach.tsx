@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
@@ -18,6 +18,23 @@ import {
 import { parseTutorialPath } from "@/lib/tutorial/query";
 
 const CALLOUT_FALLBACK = { width: 280, height: 120 };
+
+function subscribeHydrated(): () => void {
+  return () => {};
+}
+
+/**
+ * False for prerender and the hydrating render, true on the next client render.
+ * The coach portal is client-only; putting it in the first client render makes
+ * `hydrateRoot` mismatch the static HTML (React error #418).
+ */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeHydrated,
+    () => true,
+    () => false,
+  );
+}
 
 function useCoachTargets(targets: readonly TutorialCoachTarget[]): Box[] {
   const [boxes, setBoxes] = useState<Box[]>([]);
@@ -170,6 +187,7 @@ export function TutorialCoach() {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(true);
   const [routeEpoch, setRouteEpoch] = useState(route);
+  const hydrated = useHydrated();
   if (route !== routeEpoch) {
     setRouteEpoch(route);
     setIndex(0);
@@ -189,9 +207,10 @@ export function TutorialCoach() {
   };
 
   // Playable tutorial routes always show marks. `tutorialCompleted` only skips
-  // Home prefetch; IndexedDB `ready` must not hide the first callout. No DOM
-  // during prerender — coach hydrates on the client.
-  if (typeof document === "undefined" || route == null || !open || !current) {
+  // Home prefetch; IndexedDB `ready` must not hide the first callout.
+  // Stay empty until after hydration so the portal is not compared to the
+  // prerendered page.
+  if (!hydrated || route == null || !open || !current) {
     return null;
   }
 

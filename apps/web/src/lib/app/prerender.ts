@@ -1,5 +1,8 @@
+import { NOT_FOUND_PRERENDER_PATH, PRERENDER_PATH_ATTR } from "./hydrateDocument";
 import { JSON_LD_SOFTWARE, pageHead, type JsonLdGraph } from "./pageMeta";
 import { normalizePath, ROUTES } from "./routes";
+
+export { NOT_FOUND_PRERENDER_PATH };
 
 /** Public routes emitted as real HTML at build time. `/layouts` is DEV-only. */
 export const PRERENDER_PATHS = [
@@ -16,10 +19,9 @@ export const PRERENDER_PATHS = [
 ] as const;
 
 /**
- * Path rendered into `dist/404.html`. Not a public route (must stay out of
- * `PRERENDER_PATHS`, or `/404/` would be a 200 directory).
+ * `NOT_FOUND_PRERENDER_PATH` is rendered into `dist/404.html`. Not a public
+ * route (must stay out of `PRERENDER_PATHS`, or `/404/` would be a 200 directory).
  */
-export const NOT_FOUND_PRERENDER_PATH = "/404";
 
 /** React 19 `renderToString` emits image preloads into the body; `hydrateRoot` does not. */
 export function stripSsrHoistables(markup: string): string {
@@ -125,7 +127,11 @@ export function injectPrerenderedPage(template: string, pathname: string, body: 
     html = upsertJsonLdHtml(html, block.id, block.payload);
   }
   const markup = stripSsrHoistables(body);
-  const withRoot = html.replace(/<div id="root">\s*<\/div>/, `<div id="root">${markup}</div>`);
+  const renderedFor = escapeAttr(normalizePath(pathname));
+  const withRoot = html.replace(
+    /<div id="root">\s*<\/div>/,
+    `<div id="root" ${PRERENDER_PATH_ATTR}="${renderedFor}">${markup}</div>`,
+  );
   if (withRoot === html) {
     throw new Error(`prerender: missing empty #root in template (${pathname})`);
   }
