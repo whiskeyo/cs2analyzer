@@ -173,16 +173,17 @@ function paintNade(
 
   const at = toScreen(nade.at.x, nade.at.y);
   if (nade.phase === "linger") {
+    const cover = opacity * nade.opacity;
     ctx.fillStyle = color;
     ctx.strokeStyle = color;
-    ctx.globalAlpha = 0.22 * opacity;
+    ctx.globalAlpha = 0.22 * cover;
     circle(ctx, at, nade.radius);
     ctx.fill();
-    ctx.globalAlpha = 0.4 * opacity;
+    ctx.globalAlpha = 0.4 * cover;
     ctx.lineWidth = 1.4;
     circle(ctx, at, nade.radius);
     ctx.stroke();
-    dial(ctx, at, nade.dialRadius, nade.left, color, opacity);
+    dial(ctx, at, nade.dialRadius, nade.left, color, cover);
     return;
   }
   if (nade.phase === "burst") {

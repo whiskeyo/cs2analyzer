@@ -3,6 +3,8 @@ import {
   DEFAULT_TICK_RATE,
   BOMB_SECONDS,
   MOLOTOV_SECONDS,
+  SMOKE_DURATION_SECONDS,
+  SMOKE_FADE_SECONDS,
   SMOKE_SECONDS,
 } from "@/lib/shared/constants";
 import { DEFAULT_LAYERS, DEFAULT_SUMMARY_FILTER, type MapLayers } from "@/lib/notes/types";
@@ -174,6 +176,42 @@ describe("buildRadarFrame nades", () => {
     expect(nade.phase).toBe("burst");
     if (nade.phase !== "burst") return;
     expect(nade.progress).toBe(0);
+  });
+
+  it("keeps a smoke on the radar after round end until it fades out", () => {
+    const pop = 120;
+    const end = pop + SMOKE_DURATION_SECONDS * tps;
+    const smoke = makeGrenade({
+      kind: "smoke",
+      start_tick: 80,
+      detonate_tick: pop,
+      end_tick: end,
+      points: [
+        { tick: 80, x: 0, y: 0, z: 0 },
+        { tick: pop, x: 20, y: 20, z: 0 },
+      ],
+    });
+    const replay = matchReplay({
+      rounds: [
+        makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 400 }),
+        makeRound({
+          number: 2,
+          start_tick: end + 10,
+          freeze_end_tick: end + 74,
+          end_tick: end + 800,
+        }),
+      ],
+      grenades: [smoke],
+    });
+    const afterRound = frame(replay, 500).nades[0];
+    expect(afterRound?.phase).toBe("linger");
+    if (afterRound?.phase !== "linger") return;
+    expect(afterRound.opacity).toBe(1);
+    const fading = frame(replay, end - SMOKE_FADE_SECONDS * tps * 0.5).nades[0];
+    expect(fading?.phase).toBe("linger");
+    if (fading?.phase !== "linger") return;
+    expect(fading.opacity).toBeCloseTo(0.5, 5);
+    expect(frame(replay, end + 1).nades).toEqual([]);
   });
 
   it("skips throws that belong to another round", () => {

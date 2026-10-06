@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { FLASH_FULL_SECONDS, HE_BURST_SECONDS, KILL_LINE_MIN_LENGTH } from "@/lib/shared/constants";
+import {
+  FLASH_FULL_SECONDS,
+  HE_BURST_SECONDS,
+  KILL_LINE_MIN_LENGTH,
+  SMOKE_DURATION_SECONDS,
+  SMOKE_FADE_SECONDS,
+  SMOKE_SECONDS,
+} from "@/lib/shared/constants";
 import {
   blindsAt,
   formatBlindLeft,
@@ -15,6 +22,7 @@ import {
   nadesForSummary,
   openingDuel,
   shortenSegment,
+  smokeOpacity,
 } from "./radarFx";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT, type GrenadeThrow } from "@/lib/replay/replayTypes";
 import { DEFAULT_SUMMARY_FILTER } from "@/lib/notes/types";
@@ -132,9 +140,17 @@ describe("firesAt", () => {
 });
 
 describe("nadeVisibleEnd", () => {
-  it("caps a stretched end_tick at 18s from pop", () => {
+  it("caps a stretched end_tick at one full smoke", () => {
     const g = smoke({ end_tick: 50_000 });
-    expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * 18);
+    expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * SMOKE_DURATION_SECONDS);
+  });
+
+  it("shows a smoke until its end_tick, including past round end", () => {
+    const end = 100 + 64 * SMOKE_DURATION_SECONDS;
+    const g = smoke({ end_tick: end });
+    expect(nadeVisibleEnd(g, 64, 200)).toBe(end);
+    const early = smoke({ end_tick: 100 + 64 * 10 });
+    expect(nadeVisibleEnd(early, 64, 200)).toBe(100 + 64 * 10);
   });
 
   it("hides when occupancy dies early (molly hole)", () => {
@@ -152,15 +168,61 @@ describe("nadeVisibleEnd", () => {
     expect(nadeVisibleEnd(g, 64)).toBe(100 + 64 * 7);
   });
 
-  it("clips a smoke to round end and leaves a fire burning", () => {
-    const g = smoke();
-    expect(nadeVisibleEnd(g, 64, 200)).toBe(200);
+  it("leaves a fire burning past round end and still clips a flash", () => {
     const fire = molotov({
       detonate_tick: 100,
       end_tick: 450,
       fires: [{ x: 0, y: 0, start_tick: 100, end_tick: 450 }],
     });
     expect(nadeVisibleEnd(fire, 64, 200)).toBe(450);
+    const flash = makeGrenade({
+      kind: "flash",
+      detonate_tick: 100,
+      end_tick: 400,
+      points: [{ tick: 100, x: 1, y: 1, z: 0 }],
+    });
+    expect(nadeVisibleEnd(flash, 64, 110)).toBe(110);
+  });
+});
+
+describe("smokeOpacity", () => {
+  const pop = 100;
+  const end = pop + 64 * SMOKE_DURATION_SECONDS;
+  const fadeStart = end - 64 * SMOKE_FADE_SECONDS;
+
+  it("stays solid through mid-life", () => {
+    expect(smokeOpacity(pop, end, pop, 64)).toBe(1);
+    expect(smokeOpacity(pop, end, pop + 64 * (SMOKE_SECONDS / 2), 64)).toBe(1);
+    expect(smokeOpacity(pop, end, fadeStart, 64)).toBe(1);
+  });
+
+  it("fades linearly across the last 4s", () => {
+    expect(smokeOpacity(pop, end, end - 64 * 2, 64)).toBeCloseTo(0.5, 5);
+    expect(smokeOpacity(pop, end, end - 64, 64)).toBeCloseTo(0.25, 5);
+  });
+
+  it("is gone at and after the end tick", () => {
+    expect(smokeOpacity(pop, end, end, 64)).toBe(0);
+    expect(smokeOpacity(pop, end, end + 1, 64)).toBe(0);
+    expect(smokeOpacity(pop, end, pop - 1, 64)).toBe(0);
+  });
+
+  it("still fades an older 18s end across its last 4s", () => {
+    const oldEnd = pop + 64 * SMOKE_SECONDS;
+    expect(nadeVisibleEnd(smoke({ end_tick: oldEnd }), 64, 200)).toBe(oldEnd);
+    expect(smokeOpacity(pop, oldEnd, pop + 64 * 9, 64)).toBe(1);
+    expect(smokeOpacity(pop, oldEnd, oldEnd - 64 * 2, 64)).toBeCloseTo(0.5, 5);
+  });
+
+  it("keeps a smoke that outlives the round solid until its own fade", () => {
+    const roundEnd = 200;
+    const g = smoke({ end_tick: end });
+    expect(nadeVisibleEnd(g, 64, roundEnd)).toBe(end);
+    expect(smokeOpacity(pop, nadeVisibleEnd(g, 64, roundEnd), roundEnd, 64)).toBe(1);
+    expect(smokeOpacity(pop, nadeVisibleEnd(g, 64, roundEnd), end - 64 * 2, 64)).toBeCloseTo(
+      0.5,
+      5,
+    );
   });
 });
 

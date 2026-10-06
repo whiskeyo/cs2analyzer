@@ -26,6 +26,7 @@ import {
   nadePopTick,
   nadeVisibleEnd,
   nadesForSummary,
+  smokeOpacity,
   openingDuel,
   TRACER_SECONDS,
 } from "@/lib/radar/radarFx";
@@ -194,6 +195,8 @@ export type NadeRender =
       radius: number;
       dialRadius: number;
       left: number;
+      /** 1 while a smoke is solid, fading to 0 over its last ~4s. Fires stay at 1. */
+      opacity: number;
       trail: Point[];
     }
   | {
@@ -377,6 +380,7 @@ export function nadeRenderAt(
       radius,
       dialRadius: Math.max(7, 8 * zoom),
       left: lingerRemaining(popAt, visibleEnd, tick),
+      opacity: g.kind === "smoke" ? smokeOpacity(popAt, visibleEnd, tick, tps) : 1,
       trail,
     };
   }

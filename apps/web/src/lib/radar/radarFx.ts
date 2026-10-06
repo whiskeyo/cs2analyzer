@@ -1,4 +1,5 @@
 import {
+  DEFAULT_TICK_RATE,
   FLASH_POP_SECONDS,
   FLASH_OVERLAY_SPIKE_SECONDS,
   FLASH_BURST_SECONDS,
@@ -6,6 +7,8 @@ import {
   HE_DECOY_SECONDS,
   KILL_LINE_MIN_LENGTH,
   MOLOTOV_SECONDS,
+  SMOKE_DURATION_SECONDS,
+  SMOKE_FADE_SECONDS,
   SMOKE_SECONDS,
 } from "@/lib/shared/constants";
 import { currentRound, samplePlayer } from "@/lib/replay/sample";
@@ -45,7 +48,7 @@ export const NADE_COLORS: Record<GrenadeKind, string> = {
 /** Ticks the HE/flash pop ring stays after detonate. */
 export function nadeBurstSpan(kind: GrenadeKind, tickRate: number): number {
   const secs = kind === "he" ? HE_BURST_SECONDS : kind === "flash" ? FLASH_BURST_SECONDS : 0;
-  return Math.round(secs * (tickRate || 64));
+  return Math.round(secs * (tickRate || DEFAULT_TICK_RATE));
 }
 
 /** Draw larger nades first so flashes sit on top of stacked smokes. */
@@ -140,13 +143,48 @@ export function nadePopTick(g: GrenadeThrow): number {
 }
 
 /**
+ * Last tick a smoke should stay on the radar.
+ *
+ * Trust `end_tick` (the expire, or the parser's 22s / next-round cap). Do not
+ * cut the cloud off at this round's end. A missing end, or one stretched by an
+ * older parse that glued on a later expire, still stops after one full cloud.
+ */
+function smokeVisibleEnd(pop: number, endTick: number, rate: number): number {
+  const full = pop + Math.round(SMOKE_DURATION_SECONDS * rate);
+  if (endTick > pop) return Math.min(endTick, full);
+  return pop + Math.round(SMOKE_SECONDS * rate);
+}
+
+/**
+ * Smoke cover: opaque until the last ~4s, then a linear fade to 0.
+ * `visibleEnd` is the tick from `nadeVisibleEnd`. At and after that tick the
+ * cloud is gone. A life shorter than the fade still thins across what remains.
+ */
+export function smokeOpacity(
+  popTick: number,
+  visibleEnd: number,
+  tick: number,
+  tickRate: number,
+): number {
+  if (tick < popTick || tick >= visibleEnd) return 0;
+  const fade = Math.round(SMOKE_FADE_SECONDS * (tickRate || DEFAULT_TICK_RATE));
+  if (fade <= 0) return 1;
+  const fadeStart = visibleEnd - fade;
+  if (tick <= fadeStart) return 1;
+  const span = visibleEnd - fadeStart;
+  return Math.min(1, Math.max(0, (visibleEnd - tick) / span));
+}
+
+/**
  * Last tick the nade should stay on the radar.
  * Caps a stretched `end_tick` (entity lingered in GOTV) and shortens when occupancy dies early.
+ * Smokes are the exception: they draw until their own `end_tick`, including past round end.
  */
 export function nadeVisibleEnd(g: GrenadeThrow, tickRate: number, roundEnd?: number): number {
-  const rate = tickRate || 64;
-  const secs = NADE_SECS[g.kind] ?? 0.5;
+  const rate = tickRate || DEFAULT_TICK_RATE;
   const pop = nadePopTick(g);
+  if (g.kind === "smoke") return smokeVisibleEnd(pop, g.end_tick, rate);
+  const secs = NADE_SECS[g.kind] ?? 0.5;
   let end = pop + Math.round(secs * rate);
   if (g.end_tick > 0) end = Math.min(end, g.end_tick);
   const cells = occupancyOf(g);
@@ -159,6 +197,7 @@ export function nadeVisibleEnd(g: GrenadeThrow, tickRate: number, roundEnd?: num
   }
   // Fires keep burning after round_end. Their `end_tick` already stops at the
   // next freeze, so clipping them to this round's end would hide that burn.
+  // Smokes returned above: they also outlive the round and must not clip here.
   if (roundEnd != null && roundEnd > 0 && !isFireGrenade(g.kind)) {
     end = Math.min(end, roundEnd);
   }

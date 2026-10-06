@@ -92,6 +92,7 @@ describe("nadePiecePos", () => {
       radius: 1,
       dialRadius: 1,
       left: 1,
+      opacity: 1,
       trail: [
         { x: 0, y: 0 },
         { x: 5, y: 6 },
@@ -191,6 +192,7 @@ describe("frameToPieces", () => {
             radius: 1,
             dialRadius: 1,
             left: 1,
+            opacity: 1,
             trail: [
               { x: 0, y: 0 },
               { x: 30, y: 40 },
