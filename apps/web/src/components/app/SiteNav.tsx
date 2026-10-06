@@ -1,5 +1,5 @@
-import { NavLink } from "react-router";
-import { ROUTES } from "@/lib/app/routes";
+import { Link, useLocation } from "react-router";
+import { normalizePath, ROUTES } from "@/lib/app/routes";
 
 const LINKS = [
   { to: ROUTES.analyzer, label: "Analyzer" },
@@ -10,18 +10,23 @@ const LINKS = [
 ] as const;
 
 export function SiteNav() {
+  const { pathname } = useLocation();
+  const here = normalizePath(pathname);
   return (
     <nav className="site-nav" aria-label="Site">
-      {LINKS.map((link) => (
-        <NavLink
-          key={link.to}
-          to={link.to}
-          className={({ isActive }) => (isActive ? "site-nav-link is-active" : "site-nav-link")}
-          end
-        >
-          {link.label}
-        </NavLink>
-      ))}
+      {LINKS.map((link) => {
+        const active = here === normalizePath(link.to);
+        return (
+          <Link
+            key={link.to}
+            to={link.to}
+            className={active ? "site-nav-link is-active" : "site-nav-link"}
+            {...(active ? { "aria-current": "page" as const } : {})}
+          >
+            {link.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }
