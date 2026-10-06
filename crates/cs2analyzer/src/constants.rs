@@ -63,8 +63,33 @@ pub const SERIES_HABITS_WINDOW_MAX_SECONDS: u32 = 60;
 /// C4 arm time (hold E). GOTV completed plants are ~3.12s.
 pub const PLANT_SECONDS: f32 = 3.2;
 
+/// A projectile detonate (`smokegrenade_detonate`, optional `molotov_detonate`, …)
+/// may be recorded this many ticks before the projectile's first sample.
+/// `inferno_startburn` does not use this window.
+pub const GRENADE_DET_LEAD_TICKS: u32 = 16;
+
+/// After the last projectile sample, a projectile detonate may still match for this many tick-strides.
+/// `inferno_startburn` only pairs a molotov/incendiary whose last sample is at or before the burn.
+pub const GRENADE_DET_LATE_STRIDES: u32 = 10;
+
+/// Ticks after `inferno_startburn` during which `CInferno.m_hOwnerEntity` may
+/// still be copied onto that burn. Premier's event descriptor has no `userid`;
+/// the inferno entity appears on the following tick. One second does not reach
+/// a later burn that reused the entity id.
+pub const INFERNO_OWNER_LAG_TICKS: u32 = DEFAULT_TICK_RATE as u32;
+
 pub const SMOKE_SECONDS: f32 = 18.0;
 pub const MOLOTOV_SECONDS: f32 = 7.0;
+
+/// Ticks from `inferno_startburn` until a full burn when `inferno_expire` never
+/// arrives. The fire keeps going after the round ends. Verified on the assets-v1
+/// demos: an incendiary's expire is always 352 ticks after startburn, and a
+/// molotov's is 449 or 450. These are demo ticks, not `seconds * tick_rate`.
+/// An unknown grenade uses the molotov length. Cap the result at the next
+/// `round_start` tick or the last demo tick.
+pub const INCENDIARY_BURN_TICKS: u32 = 352;
+pub const MOLOTOV_BURN_TICKS: u32 = 450;
+
 pub const HE_DECOY_SECONDS: f32 = 0.5;
 pub const FLASH_POP_SECONDS: f32 = 0.4;
 

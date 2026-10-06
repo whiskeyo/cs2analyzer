@@ -19,6 +19,9 @@ usage() {
 Usage: scripts/run.sh [flags]
 
   --prepare        Install Rust toolchain, wasm-bindgen-cli, and npm deps
+  --fetch-demos    Download release demos listed in test-demos/manifest.json
+                   into test-demos/files/. Skip a file whose sha256 matches.
+                   Delete the partial and exit non-zero on a sha256 mismatch.
   --update         Update crates and npm packages within their current semver
                    ranges, keep wasm-bindgen pinned to the CLI version, rebuild
                    WASM, and run cargo test plus the web suite. Does not commit.
@@ -411,6 +414,123 @@ file_sha256() {
   sha256sum "$1" | awk '{ print $1 }'
 }
 
+# Public GitHub release asset. No token: the URL is the browser download.
+demo_release_url() {
+  local tag="$1"
+  local name="$2"
+  printf 'https://github.com/whiskeyo/cs2analyzer/releases/download/%s/%s' "$tag" "$name"
+}
+
+# Download one manifest entry. A matching sha256 is left in place. A failed
+# download or a bad hash removes the partial so the next run starts clean.
+fetch_demo_file() {
+  local dest_dir="$1"
+  local name="$2"
+  local size="$3"
+  local sha="$4"
+  local tag="$5"
+  local dest="$dest_dir/$name"
+  local partial="$dest_dir/$name.partial"
+
+  if [[ -f "$dest" ]]; then
+    local got
+    got="$(file_sha256 "$dest")"
+    if [[ "$got" == "$sha" ]]; then
+      log "skip $name (sha256 matches)"
+      return 0
+    fi
+    log "$name on disk does not match the manifest sha256; downloading again"
+    rm -f "$dest"
+  fi
+
+  rm -f "$partial"
+  cleanup_partial() { rm -f "$partial"; }
+  trap cleanup_partial EXIT
+
+  log "download $name"
+  if ! curl -fL --retry 5 --retry-delay 2 -o "$partial" "$(demo_release_url "$tag" "$name")"; then
+    rm -f "$partial"
+    trap - EXIT
+    die "download failed for $name"
+  fi
+
+  local got actual_size
+  got="$(file_sha256 "$partial")"
+  actual_size="$(wc -c <"$partial" | tr -d ' ')"
+  if [[ "$actual_size" != "$size" ]]; then
+    rm -f "$partial"
+    trap - EXIT
+    die "$name size mismatch (expected $size bytes, got $actual_size)"
+  fi
+  if [[ "$got" != "$sha" ]]; then
+    rm -f "$partial"
+    trap - EXIT
+    die "$name sha256 mismatch (expected $sha, got $got)"
+  fi
+
+  trap - EXIT
+  mv "$partial" "$dest" || die "could not save $name"
+}
+
+cmd_fetch_demos() {
+  local manifest="$ROOT/test-demos/manifest.json"
+  local dest_dir="$ROOT/test-demos/files"
+  [[ -f "$manifest" ]] || die "missing test-demos/manifest.json"
+  command -v curl >/dev/null 2>&1 || die "curl is required to download test demos"
+  command -v python3 >/dev/null 2>&1 || die "python3 is required to read test-demos/manifest.json"
+  mkdir -p "$dest_dir"
+
+  local rows
+  rows="$(
+    python3 - "$manifest" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+files = data.get("files")
+if not isinstance(files, list) or not files:
+    raise SystemExit("manifest files must be a non-empty list")
+for item in files:
+    if not isinstance(item, dict):
+        raise SystemExit("manifest files entries must be objects")
+    for key in ("name", "size", "sha256", "release_tag"):
+        if key not in item:
+            raise SystemExit(f"manifest entry missing {key}")
+    name = item["name"]
+    if (
+        not isinstance(name, str)
+        or "/" in name
+        or "\\" in name
+        or name.startswith(".")
+        or not name.endswith(".dem")
+    ):
+        raise SystemExit(f"refusing manifest name {name!r}")
+    size = item["size"]
+    if not isinstance(size, int) or isinstance(size, bool) or size < 0:
+        raise SystemExit(f"{name} size must be a non-negative integer")
+    sha = item["sha256"]
+    if (
+        not isinstance(sha, str)
+        or len(sha) != 64
+        or any(c not in "0123456789abcdef" for c in sha)
+    ):
+        raise SystemExit(f"{name} sha256 must be 64 lowercase hex characters")
+    tag = item["release_tag"]
+    if not isinstance(tag, str) or not tag or "/" in tag or ".." in tag:
+        raise SystemExit(f"{name} release_tag is not a release tag")
+    print(f"{name}\t{size}\t{sha}\t{tag}")
+PY
+  )"
+
+  while IFS=$'\t' read -r name size sha tag; do
+    [[ -n "${name:-}" ]] || continue
+    fetch_demo_file "$dest_dir" "$name" "$size" "$sha" "$tag"
+  done <<<"$rows"
+  log "Test demos are in test-demos/files"
+}
+
 cmd_update() {
   require_clean_for_update
   ensure_rust
@@ -517,6 +637,7 @@ cmd_prod() {
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   PREPARE=0
+  FETCH_DEMOS=0
   UPDATE=0
   BUILD_WASM=0
   CHECK=0
@@ -533,6 +654,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   for arg in "$@"; do
     case "$arg" in
       --prepare) PREPARE=1 ;;
+      --fetch-demos) FETCH_DEMOS=1 ;;
       --update) UPDATE=1 ;;
       --build-wasm) BUILD_WASM=1 ;;
       --check) CHECK=1 ;;
@@ -562,6 +684,9 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   # successful --update (or any flag except --prod) looked failed.
   if [[ "$PREPARE" -eq 1 ]]; then
     cmd_prepare
+  fi
+  if [[ "$FETCH_DEMOS" -eq 1 ]]; then
+    cmd_fetch_demos
   fi
   if [[ "$UPDATE" -eq 1 ]]; then
     cmd_update

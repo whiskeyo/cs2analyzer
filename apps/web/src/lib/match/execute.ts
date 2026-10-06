@@ -8,7 +8,7 @@ import {
   T_PUSH_STEP_SECONDS,
   tickRate,
 } from "@/lib/shared/constants";
-import { samplePlayers } from "@/lib/replay/sample";
+import { grenadeRoundLastTick, samplePlayers } from "@/lib/replay/sample";
 import {
   placeAt,
   placeFromLandings,
@@ -130,7 +130,11 @@ function clusterUtil(nades: GrenadeThrow[], gap: number): GrenadeThrow[][] {
   return out;
 }
 
-function utilScore(nades: GrenadeThrow[]): { smokes: number; mollys: number; total: number } {
+function utilScore(nades: GrenadeThrow[]): {
+  smokes: number;
+  mollys: number;
+  total: number;
+} {
   let smokes = 0;
   let mollys = 0;
   for (const g of nades) {
@@ -304,13 +308,14 @@ function beatsForRound(
   const killGap = Math.round(5 * rate);
   const mergeGap = Math.round(12 * rate);
 
+  const grenadeLast = grenadeRoundLastTick(replay.rounds, round);
   const nades = (replay.grenades ?? []).filter(
     (g) =>
       UTIL.has(g.kind) &&
       g.start_tick >= round.start_tick &&
-      g.start_tick <= round.end_tick &&
+      g.start_tick <= grenadeLast &&
       g.detonate_tick >= from &&
-      g.detonate_tick <= round.end_tick,
+      g.detonate_tick <= grenadeLast,
   );
   const tNades = nades.filter(
     (g) => g.thrower >= 0 && currentSide(replay, g.thrower, g.detonate_tick) === "T",

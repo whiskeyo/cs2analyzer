@@ -188,6 +188,26 @@ describe("buildRadarFrame nades", () => {
     expect(frame(replay, 600).nades).toEqual([]);
   });
 
+  it("draws a molotov thrown after round end until the next freeze", () => {
+    const molly = makeGrenade({
+      kind: "molotov",
+      start_tick: 520,
+      detonate_tick: 540,
+      end_tick: 700,
+      points: [{ tick: 540, x: 10, y: 20, z: 0 }],
+      fires: [{ x: 10, y: 20, start_tick: 540, end_tick: 700 }],
+    });
+    const replay = matchReplay({
+      rounds: [
+        makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 500 }),
+        makeRound({ number: 2, start_tick: 700, freeze_end_tick: 764, end_tick: 1400 }),
+      ],
+      grenades: [molly],
+    });
+    expect(frame(replay, 600).nades).toHaveLength(1);
+    expect(frame(replay, 700).nades).toEqual([]);
+  });
+
   it("scales the linger radius with the zoom, up to a cap", () => {
     const replay = matchReplay({ grenades: [flight] });
     const near = frame(replay, 120, { scale: 1 }).nades[0];
