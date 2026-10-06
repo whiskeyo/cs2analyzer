@@ -77,8 +77,9 @@ pub(crate) struct Collector {
     pub meta: HashMap<u64, PlayerMeta>,
     pub round_starts: Vec<u32>,
     /// Ticks where `m_nRoundStartCount` changed, plus a fired `round_start` if
-    /// one arrives. The fire cap only. Not paired with `freeze_ends` by index,
-    /// so `Round.start_tick` stays the freeze end.
+    /// one arrives. Caps a molotov with no `inferno_expire`, and a smoke with
+    /// no `smokegrenade_expired`. Not paired with `freeze_ends` by index, so
+    /// `Round.start_tick` stays the freeze end.
     pub round_open_ticks: Vec<u32>,
     /// Last `m_nRoundStartCount` seen. `None` until the prop exists.
     round_start_count: Option<i32>,
@@ -88,7 +89,11 @@ pub(crate) struct Collector {
     pub synth_ends: Vec<(u32, Option<Side>, i32)>,
     pub prev_win_status: i32,
     pub grenade_dets: Vec<GrenadeDet>,
+    /// `inferno_expire` (entity id, tick). Smoke expires live in [`Self::smoke_ends`].
     pub grenade_ends: Vec<(i32, u32)>,
+    /// `smokegrenade_expired` (entity id, tick). Kept off [`Self::grenade_ends`]
+    /// because a later inferno can reuse the same entity index.
+    pub smoke_ends: Vec<(i32, u32)>,
     /// `inferno_extinguish` (entity id, tick). The release demos never emit this
     /// event. A smoke puts the fire out with an earlier `inferno_expire`.
     pub inferno_extinguish: Vec<(i32, u32)>,
@@ -201,6 +206,7 @@ impl Collector {
             prev_win_status: 0,
             grenade_dets: Vec::new(),
             grenade_ends: Vec::new(),
+            smoke_ends: Vec::new(),
             inferno_extinguish: Vec::new(),
             fire_throws: Vec::new(),
             proj_points: Vec::new(),
@@ -1164,7 +1170,11 @@ impl Collector {
                     source: GrenadeDetSource::Projectile,
                 });
             }
-            "smokegrenade_expired" | "inferno_expire" => {
+            "smokegrenade_expired" => {
+                let id = ev_i32(ge, "entityid").unwrap_or(0);
+                self.smoke_ends.push((id, tick));
+            }
+            "inferno_expire" => {
                 let id = ev_i32(ge, "entityid").unwrap_or(0);
                 self.grenade_ends.push((id, tick));
             }

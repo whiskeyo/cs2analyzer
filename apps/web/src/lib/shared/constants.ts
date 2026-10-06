@@ -214,7 +214,15 @@ export const MIN_REVIEW_FLASH_SECONDS = 0.4;
 /** Loose C4 radar ping (cycles per second). */
 export const LOOSE_C4_PULSE_HZ = 1.4;
 
+/** Full cover before a smoke thins out. The cloud is gone at `SMOKE_DURATION_SECONDS`. */
 export const SMOKE_SECONDS = 18;
+/** Dissipating tail. CS2 stays opaque for ~18s, then fades over ~4s. */
+export const SMOKE_FADE_SECONDS = 4;
+/**
+ * `smokegrenade_detonate` to `smokegrenade_expired` when the demo omits the expire.
+ * Keep aligned with `crates/cs2analyzer/src/constants.rs`.
+ */
+export const SMOKE_DURATION_SECONDS = SMOKE_SECONDS + SMOKE_FADE_SECONDS;
 export const MOLOTOV_SECONDS = 7;
 export const HE_DECOY_SECONDS = 0.5;
 export const FLASH_POP_SECONDS = 0.4;
