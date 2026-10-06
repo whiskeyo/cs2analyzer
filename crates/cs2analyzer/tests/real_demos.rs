@@ -9,7 +9,7 @@ mod common;
 use std::path::Path;
 use std::time::Instant;
 
-use cs2analyzer::{parse_demo, BombKind, GrenadeKind, ParseOptions, Round};
+use cs2analyzer::{parse_demo, BombKind, GrenadeKind, ParseOptions, Round, DEFAULT_TICK_STRIDE};
 
 #[test]
 fn missing_demos_with_ignored_is_a_failure_not_a_skip() {
@@ -138,6 +138,162 @@ const OPEN_FIRES: &[OpenFire] = &[
         end: 202395,
     },
 ];
+
+struct PlayerFrameSpan {
+    /// Substring of the demo file name.
+    demo: &'static str,
+    /// First tick of the QA window (inclusive).
+    from: u32,
+    /// Last tick of the QA window (inclusive).
+    to: u32,
+}
+
+/// Knife-round end and round-1 start, as the parser already records them.
+/// The restart warmup sits in `[end_tick, round_one_start)` and must not move either edge.
+struct KnifeDeadTime {
+    demo: &'static str,
+    end_tick: u32,
+    round_one_start: u32,
+}
+
+/// Spans where the raw demo has pawns on every tick and our output used to omit frames.
+///
+/// `m_bWarmupPeriod` is set again for the FACEIT side-pick / `mp_restartgame`
+/// restarts. `on_tick_start` used to return before pushing a frame.
+const RESTART_FRAME_SPANS: &[PlayerFrameSpan] = &[
+    PlayerFrameSpan {
+        demo: "1-0eb2df7f",
+        from: 3041,
+        to: 3492,
+    },
+    PlayerFrameSpan {
+        demo: "1-b3ea81e1",
+        from: 2753,
+        to: 3041,
+    },
+    PlayerFrameSpan {
+        demo: "1-898c8041",
+        from: 2501,
+        to: 2531,
+    },
+];
+
+const KNIFE_DEAD_TIME: &[KnifeDeadTime] = &[
+    KnifeDeadTime {
+        demo: "1-0eb2df7f",
+        end_tick: 2892,
+        round_one_start: 5295,
+    },
+    KnifeDeadTime {
+        demo: "1-b3ea81e1",
+        end_tick: 2630,
+        round_one_start: 4858,
+    },
+    KnifeDeadTime {
+        demo: "1-898c8041",
+        end_tick: 2330,
+        round_one_start: 4318,
+    },
+];
+
+fn frame_gap_overlapping(ticks: &[u32], from: u32, to: u32) -> Option<(u32, u32, u32)> {
+    let mut previous: Option<u32> = None;
+    for tick in ticks {
+        if let Some(start) = previous {
+            let delta = tick.saturating_sub(start);
+            if delta > DEFAULT_TICK_STRIDE && *tick > from && start < to {
+                return Some((start, *tick, delta));
+            }
+        }
+        previous = Some(*tick);
+    }
+    None
+}
+
+#[test]
+#[ignore = "needs ./scripts/run.sh --fetch-demos"]
+fn knife_restart_warmup_keeps_player_frames() {
+    let demos = common::require_demo_files();
+    for path in &demos {
+        let name = path
+            .file_name()
+            .and_then(|file| file.to_str())
+            .unwrap_or("demo");
+        let bytes =
+            std::fs::read(path).unwrap_or_else(|err| panic!("could not read {name}: {err}"));
+        let parsed = parse_demo(&bytes, ParseOptions::default())
+            .unwrap_or_else(|err| panic!("{name} failed to parse: {err}"));
+        let (played, knife) = expected_rounds(name);
+        let played_now = parsed.rounds.iter().filter(|round| !round.is_knife).count();
+        let knife_now = parsed.rounds.iter().filter(|round| round.is_knife).count();
+        assert_eq!(played_now, played, "{name} played rounds");
+        assert_eq!(knife_now, knife, "{name} knife rounds");
+
+        let ticks = parsed.ticks.ticks.as_slice();
+        if let Some(first) = parsed.rounds.first() {
+            let hole = frame_gap_overlapping(ticks, first.start_tick, u32::MAX);
+            assert!(
+                hole.is_none(),
+                "{name} player-frame gap {:?} after round start {}",
+                hole,
+                first.start_tick
+            );
+        }
+
+        for span in RESTART_FRAME_SPANS
+            .iter()
+            .filter(|span| name.contains(span.demo))
+        {
+            assert!(
+                ticks.iter().any(|tick| *tick <= span.from),
+                "{name} has no frame at or before {}",
+                span.from
+            );
+            assert!(
+                ticks.iter().any(|tick| *tick >= span.to),
+                "{name} has no frame at or after {}",
+                span.to
+            );
+            let hole = frame_gap_overlapping(ticks, span.from, span.to);
+            assert!(
+                hole.is_none(),
+                "{name} player-frame gap {hole:?} inside {}..={}",
+                span.from,
+                span.to
+            );
+        }
+
+        for edge in KNIFE_DEAD_TIME
+            .iter()
+            .filter(|edge| name.contains(edge.demo))
+        {
+            let knife_round = parsed
+                .rounds
+                .iter()
+                .find(|round| round.is_knife)
+                .unwrap_or_else(|| panic!("{name} has no knife round"));
+            assert_eq!(knife_round.number, 0, "{name} knife number");
+            assert_eq!(knife_round.end_tick, edge.end_tick, "{name} knife end_tick");
+            let round_one = parsed
+                .rounds
+                .iter()
+                .find(|round| round.number == 1)
+                .unwrap_or_else(|| panic!("{name} has no round 1"));
+            assert!(!round_one.is_knife, "{name} round 1");
+            assert_eq!(
+                round_one.start_tick, edge.round_one_start,
+                "{name} round 1 start_tick"
+            );
+            let hole = frame_gap_overlapping(ticks, edge.end_tick, edge.round_one_start);
+            assert!(
+                hole.is_none(),
+                "{name} player-frame gap {hole:?} in knife dead time {}..{}",
+                edge.end_tick,
+                edge.round_one_start
+            );
+        }
+    }
+}
 
 /// Last round whose freeze has started at `tick`: `[start_tick, next start)`.
 fn round_owning(rounds: &[Round], tick: u32) -> Option<usize> {
