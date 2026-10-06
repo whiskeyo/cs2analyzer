@@ -331,6 +331,10 @@ struct SmokeExpire {
 struct SmokeEvents {
     detonates: Vec<SmokeDetonate>,
     expires: Vec<SmokeExpire>,
+    /// Last `m_nRoundStartCount`. `None` until the prop exists.
+    round_start_count: Option<i32>,
+    /// Ticks where `m_nRoundStartCount` changed. The first sighting is not an edge.
+    round_opens: Vec<u32>,
 }
 
 fn event_i32(ge: &GameEvent<'_>, key: &str) -> i32 {
@@ -390,9 +394,40 @@ impl SmokeEvents {
         }
         Ok(())
     }
+
+    /// Same edge as the parser: a change in `m_nRoundStartCount`, not the first
+    /// time the prop is visible, and not a fired `round_start` (assets-v1 does
+    /// not fire that event).
+    #[on_tick_end]
+    fn on_tick_end(&mut self, ctx: &Context) -> ObserverResult {
+        let tick = ctx.tick();
+        if tick == u32::MAX {
+            return Ok(());
+        }
+        let Ok(proxy) = ctx.entities().get_by_class_name("CCSGameRulesProxy") else {
+            return Ok(());
+        };
+        // Same widths as `prop_i32_opt`. Signed32/Unsigned32 alone misses this prop.
+        let count = match proxy.get_property("m_pGameRules.m_nRoundStartCount") {
+            Ok(FieldValue::Signed32(value)) => *value,
+            Ok(FieldValue::Signed16(value)) => i32::from(*value),
+            Ok(FieldValue::Signed8(value)) => i32::from(*value),
+            Ok(FieldValue::Unsigned32(value)) => *value as i32,
+            Ok(FieldValue::Unsigned16(value)) => i32::from(*value),
+            Ok(FieldValue::Unsigned8(value)) => i32::from(*value),
+            _ => return Ok(()),
+        };
+        let previous = self.round_start_count.replace(count);
+        if previous.is_some_and(|seen| seen != count)
+            && self.round_opens.last().is_none_or(|seen| *seen < tick)
+        {
+            self.round_opens.push(tick);
+        }
+        Ok(())
+    }
 }
 
-fn collect_smoke_events(bytes: &[u8]) -> (Vec<SmokeDetonate>, Vec<SmokeExpire>) {
+fn collect_smoke_events(bytes: &[u8]) -> (Vec<SmokeDetonate>, Vec<SmokeExpire>, Vec<u32>) {
     let mut parser = Parser::new(bytes)
         .unwrap_or_else(|err| panic!("could not open demo for smoke events: {err}"));
     let handle = parser.add_observer(SmokeEvents::default());
@@ -400,7 +435,11 @@ fn collect_smoke_events(bytes: &[u8]) -> (Vec<SmokeDetonate>, Vec<SmokeExpire>) 
         .run_to_end()
         .unwrap_or_else(|err| panic!("could not read smoke events: {err}"));
     let events = handle.borrow();
-    (events.detonates.clone(), events.expires.clone())
+    (
+        events.detonates.clone(),
+        events.expires.clone(),
+        events.round_opens.clone(),
+    )
 }
 
 fn claim_detonate(
@@ -556,6 +595,8 @@ fn expected_smoke_census(name: &str) -> &'static SmokeCensus {
 #[ignore = "needs ./scripts/run.sh --fetch-demos"]
 fn smokes_end_on_the_expire_inside_their_entity_window() {
     let demos = common::require_demo_files();
+    let mut missing_expire = 0usize;
+    let mut ended_at_demo_end: Vec<(String, u32, u32)> = Vec::new();
     for path in demos {
         let name = path
             .file_name()
@@ -565,16 +606,14 @@ fn smokes_end_on_the_expire_inside_their_entity_window() {
             std::fs::read(&path).unwrap_or_else(|err| panic!("could not read {name}: {err}"));
         let parsed = parse_demo(&bytes, ParseOptions::default())
             .unwrap_or_else(|err| panic!("{name} failed to parse: {err}"));
-        let (detonates, expires) = collect_smoke_events(&bytes);
+        let (detonates, expires, round_opens) = collect_smoke_events(&bytes);
         let life = (SMOKE_DURATION_SECONDS * parsed.header.tick_rate).round() as u32;
-        let last_tick = parsed.header.playback_ticks.max(
-            parsed
-                .ticks
-                .ticks
-                .last()
-                .copied()
-                .unwrap_or(parsed.header.playback_ticks),
-        );
+        let last_tick = parsed
+            .ticks
+            .ticks
+            .last()
+            .copied()
+            .unwrap_or(parsed.header.playback_ticks);
         let mut used = vec![false; detonates.len()];
         let mut smokes = 0usize;
         let mut with_expire = 0usize;
@@ -638,12 +677,33 @@ fn smokes_end_on_the_expire_inside_their_entity_window() {
                     "{name} smoke entity {entity} at {} paired with an expire outside its window",
                     grenade.detonate_tick
                 );
+                let duration_cap = grenade.detonate_tick.saturating_add(life);
                 assert!(
-                    grenade.end_tick <= grenade.detonate_tick.saturating_add(life),
+                    grenade.end_tick <= duration_cap,
                     "{name} smoke entity {entity} at {} runs past {life} ticks",
                     grenade.detonate_tick
                 );
+                let next_open = round_opens
+                    .iter()
+                    .copied()
+                    .find(|tick| *tick > grenade.detonate_tick);
+                let at_next_open = next_open.is_some_and(|open| grenade.end_tick == open);
+                let at_demo_end = grenade.end_tick == last_tick;
+                assert!(
+                    at_next_open || at_demo_end,
+                    "{name} smoke entity {entity} {} -> {} is not the next m_nRoundStartCount edge ({next_open:?}) or the last sampled tick {last_tick} (22s cap {duration_cap})",
+                    grenade.detonate_tick,
+                    grenade.end_tick
+                );
+                if at_demo_end && !at_next_open {
+                    ended_at_demo_end.push((
+                        name.to_string(),
+                        grenade.detonate_tick,
+                        grenade.end_tick,
+                    ));
+                }
                 without_expire += 1;
+                missing_expire += 1;
             }
         }
         eprintln!(
@@ -661,4 +721,20 @@ fn smokes_end_on_the_expire_inside_their_entity_window() {
             "{name} ending after round end"
         );
     }
+    assert_eq!(missing_expire, 69, "smokes with no in-window expire");
+    ended_at_demo_end.sort_unstable();
+    // 228691 and 81808 are the detonate ticks. Both clouds stop on the last
+    // sampled tick (a couple of ticks before playback_ticks), not on +22s.
+    assert_eq!(
+        ended_at_demo_end,
+        vec![
+            (
+                "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem".to_string(),
+                228_691,
+                230_008,
+            ),
+            ("premier-d2.dem".to_string(), 81_808, 83_030),
+        ],
+        "missing-expire smokes that stop on the last sampled tick"
+    );
 }
