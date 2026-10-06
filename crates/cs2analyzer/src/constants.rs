@@ -78,7 +78,14 @@ pub const GRENADE_DET_LATE_STRIDES: u32 = 10;
 /// a later burn that reused the entity id.
 pub const INFERNO_OWNER_LAG_TICKS: u32 = DEFAULT_TICK_RATE as u32;
 
+/// Full cover before a smoke thins out. The cloud is gone at [`SMOKE_DURATION_SECONDS`].
 pub const SMOKE_SECONDS: f32 = 18.0;
+/// Dissipating tail after the full cover. Keep aligned with the web constants.
+pub const SMOKE_FADE_SECONDS: f32 = 4.0;
+/// `smokegrenade_detonate` to `smokegrenade_expired` when that event never arrives.
+/// assets-v1 demos: about 95% of smokes last exactly this long (18s cover + 4s fade).
+/// Scale by the demo tick rate (`1 / tick_interval`), not a fixed 64.
+pub const SMOKE_DURATION_SECONDS: f32 = SMOKE_SECONDS + SMOKE_FADE_SECONDS;
 pub const MOLOTOV_SECONDS: f32 = 7.0;
 
 /// Ticks from `inferno_startburn` until a full burn when `inferno_expire` never
