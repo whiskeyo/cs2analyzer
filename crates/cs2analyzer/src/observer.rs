@@ -76,6 +76,12 @@ pub(crate) struct Collector {
     pub meta_order: Vec<u64>,
     pub meta: HashMap<u64, PlayerMeta>,
     pub round_starts: Vec<u32>,
+    /// Ticks where `m_nRoundStartCount` changed, plus a fired `round_start` if
+    /// one arrives. The fire cap only. Not paired with `freeze_ends` by index,
+    /// so `Round.start_tick` stays the freeze end.
+    pub round_open_ticks: Vec<u32>,
+    /// Last `m_nRoundStartCount` seen. `None` until the prop exists.
+    round_start_count: Option<i32>,
     pub freeze_ends: Vec<u32>,
     pub official_ends: Vec<(u32, Option<Side>, i32)>,
     pub pre_restarts: Vec<u32>,
@@ -86,6 +92,9 @@ pub(crate) struct Collector {
     /// `inferno_extinguish` (entity id, tick). The release demos never emit this
     /// event. A smoke puts the fire out with an earlier `inferno_expire`.
     pub inferno_extinguish: Vec<(i32, u32)>,
+    /// `weapon_fire` for `weapon_molotov` / `weapon_incgrenade`: tick, thrower, kind.
+    /// Fallback type when a burn has no expire and no matched projectile.
+    pub fire_throws: Vec<(u32, u64, GrenadeKind)>,
     pub proj_points: Vec<ProjPoint>,
     pub final_winner: Option<Side>,
     pub final_reason: i32,
@@ -183,6 +192,8 @@ impl Collector {
             meta_order: Vec::new(),
             meta: HashMap::new(),
             round_starts: Vec::new(),
+            round_open_ticks: Vec::new(),
+            round_start_count: None,
             freeze_ends: Vec::new(),
             official_ends: Vec::new(),
             pre_restarts: Vec::new(),
@@ -191,6 +202,7 @@ impl Collector {
             grenade_dets: Vec::new(),
             grenade_ends: Vec::new(),
             inferno_extinguish: Vec::new(),
+            fire_throws: Vec::new(),
             proj_points: Vec::new(),
             final_winner: None,
             final_reason: 0,
@@ -220,6 +232,30 @@ impl Collector {
             fire_spans: Vec::new(),
             inferno_live: HashMap::new(),
             last_ammo: HashMap::new(),
+        }
+    }
+
+    fn push_round_open(&mut self, tick: u32) {
+        if self
+            .round_open_ticks
+            .last()
+            .is_some_and(|previous| *previous >= tick)
+        {
+            return;
+        }
+        self.round_open_ticks.push(tick);
+    }
+
+    /// A change in `m_nRoundStartCount` is a round open. The first time the prop
+    /// is visible is not a change. An off-round `player_spawn` wave does not
+    /// come through here.
+    pub(crate) fn note_round_start_count(&mut self, tick: u32, count: i32) {
+        if tick == u32::MAX {
+            return;
+        }
+        let previous = self.round_start_count.replace(count);
+        if previous.is_some_and(|seen| seen != count) {
+            self.push_round_open(tick);
         }
     }
 
@@ -912,9 +948,22 @@ impl Collector {
         Ok(())
     }
 
+    /// Entity updates for this tick are already applied. `on_tick_start` still
+    /// sees the previous tick's rules.
+    #[on_tick_end]
+    fn on_tick_end(&mut self, ctx: &Context) -> ObserverResult {
+        if let Some(count) = round_start_count(ctx) {
+            self.note_round_start_count(ctx.tick(), count);
+        }
+        Ok(())
+    }
+
     #[on_game_event]
     fn on_game_event(&mut self, ctx: &Context, ge: &GameEvent) -> ObserverResult {
         let tick = ctx.tick();
+        if ge.name() == "round_start" {
+            self.push_round_open(tick);
+        }
         if self.opts.skip_warmup && in_warmup(ctx) {
             return Ok(());
         }
@@ -1125,6 +1174,12 @@ impl Collector {
             }
             "weapon_fire" => {
                 let w = ev_str(ge, "weapon").unwrap_or_default();
+                if let Some(kind) = fire_grenade_kind(&w) {
+                    if let Some(steam) = steam_from_game_event(self, ctx, ge) {
+                        self.fire_throws.push((tick, steam, kind));
+                    }
+                    return Ok(());
+                }
                 if !is_bullet_weapon(&w) {
                     return Ok(());
                 }

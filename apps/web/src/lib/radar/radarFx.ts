@@ -157,7 +157,11 @@ export function nadeVisibleEnd(g: GrenadeThrow, tickRate: number, roundEnd?: num
     }
     if (last > 0 && last < end) end = last;
   }
-  if (roundEnd != null && roundEnd > 0) end = Math.min(end, roundEnd);
+  // Fires keep burning after round_end. Their `end_tick` already stops at the
+  // next freeze, so clipping them to this round's end would hide that burn.
+  if (roundEnd != null && roundEnd > 0 && !isFireGrenade(g.kind)) {
+    end = Math.min(end, roundEnd);
+  }
   return end;
 }
 

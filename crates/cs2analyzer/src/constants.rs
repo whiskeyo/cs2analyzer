@@ -80,6 +80,16 @@ pub const INFERNO_OWNER_LAG_TICKS: u32 = DEFAULT_TICK_RATE as u32;
 
 pub const SMOKE_SECONDS: f32 = 18.0;
 pub const MOLOTOV_SECONDS: f32 = 7.0;
+
+/// Ticks from `inferno_startburn` until a full burn when `inferno_expire` never
+/// arrives. The fire keeps going after the round ends. Verified on the assets-v1
+/// demos: an incendiary's expire is always 352 ticks after startburn, and a
+/// molotov's is 449 or 450. These are demo ticks, not `seconds * tick_rate`.
+/// An unknown grenade uses the molotov length. Cap the result at the next
+/// `round_start` tick or the last demo tick.
+pub const INCENDIARY_BURN_TICKS: u32 = 352;
+pub const MOLOTOV_BURN_TICKS: u32 = 450;
+
 pub const HE_DECOY_SECONDS: f32 = 0.5;
 pub const FLASH_POP_SECONDS: f32 = 0.4;
 

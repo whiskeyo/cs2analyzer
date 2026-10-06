@@ -9,7 +9,7 @@ import {
 import { nadeLandPos } from "@/lib/radar/radarFx";
 import { NADE_LABEL } from "@/lib/match/roundEvents";
 import { attackerLabel } from "@/lib/replay/playerLabel";
-import { currentRound, samplePlayer } from "@/lib/replay/sample";
+import { currentRound, grenadeRoundLastTick, samplePlayer } from "@/lib/replay/sample";
 import { calloutsInLocation, placeAt, type MapPlaces, type SiteCallout } from "./sites";
 import { clusterLayoutCallouts, groupLabel, type MapLayout } from "@/lib/radar/layouts";
 import { inKnifeRound, isEnemy } from "@/lib/stats/stats";
@@ -456,13 +456,14 @@ function buildRoundUtilCache(
     if (round.is_knife) continue;
     const rows = grouped.get(round.number);
     if (!rows || rows.length === 0) continue;
-    attachBlinds(rows, replay, round.end_tick);
-    attachDamage(rows, replay, round.end_tick);
+    const until = grenadeRoundLastTick(replay.rounds, round);
+    attachBlinds(rows, replay, until);
+    attachDamage(rows, replay, until);
   }
   return grouped;
 }
 
-/** All util throws in one round, with blinds/damage through round end (cached per replay). */
+/** All util throws in one round, with blinds/damage until the next freeze (cached per replay). */
 export function utilThrowsForRound(
   replay: Replay,
   roundNumber: number,
