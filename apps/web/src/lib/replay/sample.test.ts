@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   currentRound,
   grenadeRoundLastTick,
+  knifeSideChoiceGap,
   samplePlayer,
   samplePlayers,
   trailingFlagStart,
@@ -15,6 +16,10 @@ import {
   type Replay,
 } from "@/lib/replay/replayTypes";
 import { makePlayer, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
+
+/** Smallest FACEIT K→R1 player-frame hole on master (demo 1-898c8041). */
+const FACEIT_KNIFE_FRAME = 2501;
+const FACEIT_ROUND_FRAME = 2531;
 
 describe("samplePlayer", () => {
   it("returns one pawn and null for a missing slot", () => {
@@ -199,5 +204,103 @@ describe("trailingFlagStart", () => {
         );
       }
     }
+  });
+});
+
+function pawnFrames(frameTicks: number[], xs: number[]) {
+  const ticks = makeTicks(1, frameTicks.length);
+  for (let frame = 0; frame < frameTicks.length; frame++) {
+    ticks.ticks[frame] = frameTicks[frame] ?? 0;
+    ticks.x[frame] = xs[frame] ?? 0;
+    ticks.flags[frame] = FLAG_PRESENT | FLAG_ALIVE;
+  }
+  return ticks;
+}
+
+function knifeThenRound(frameTicks: number[], xs: number[], r1Start: number, knifeEnd: number) {
+  return makeReplay({
+    header: { tick_stride: 4 },
+    players: [makePlayer(0, "CT", "A")],
+    rounds: [
+      makeRound({
+        number: 0,
+        is_knife: true,
+        start_tick: 0,
+        freeze_end_tick: 64,
+        end_tick: knifeEnd,
+      }),
+      makeRound({
+        number: 1,
+        start_tick: r1Start,
+        freeze_end_tick: r1Start + 64,
+        end_tick: r1Start + 800,
+      }),
+    ],
+    ticks: pawnFrames(frameTicks, xs),
+  });
+}
+
+describe("knife side-choice frame gap", () => {
+  it("holds the last knife frame across a FACEIT hole instead of blending toward round 1", () => {
+    const from = FACEIT_KNIFE_FRAME;
+    const to = FACEIT_ROUND_FRAME;
+    const replay = knifeThenRound([from - 4, from, to, to + 4], [90, 100, 130, 138], to, from);
+    expect(knifeSideChoiceGap(replay)).toEqual({ from, to });
+    // 30 units over 30 ticks is inside the blend limit, which is what used to slide.
+    const mid = from + (to - from) / 2;
+    expect(samplePlayer(replay, 0, mid)).toMatchObject({ x: 100, present: true, alive: true });
+    expect(samplePlayers(replay, mid)).toHaveLength(1);
+    expect(samplePlayers(replay, mid)).toBe(samplePlayers(replay, mid));
+    expect(samplePlayer(replay, 0, from)?.x).toBe(100);
+    expect(samplePlayer(replay, 0, to)?.x).toBe(130);
+    // Ordinary strides on either side of the hole still blend.
+    expect(samplePlayer(replay, 0, from - 2)?.x).toBe(95);
+    expect(samplePlayer(replay, 0, to + 2)?.x).toBe(134);
+  });
+
+  it("holds the knife frame even when the round-1 sample would have snapped", () => {
+    const from = FACEIT_KNIFE_FRAME;
+    const to = FACEIT_ROUND_FRAME;
+    const replay = knifeThenRound([from, to], [100, 5000], to, from);
+    const mid = from + (to - from) / 2;
+    expect(samplePlayer(replay, 0, mid)?.x).toBe(100);
+    expect(samplePlayer(replay, 0, to)?.x).toBe(5000);
+  });
+
+  it("keeps blending when knife and round 1 have no frame hole", () => {
+    const stride = 4;
+    const knifeEnd = 1000;
+    const r1Start = 1100;
+    const frameTicks: number[] = [];
+    const xs: number[] = [];
+    for (let tick = knifeEnd - stride; tick <= r1Start + stride; tick += stride) {
+      frameTicks.push(tick);
+      xs.push(tick);
+    }
+    const replay = knifeThenRound(frameTicks, xs, r1Start, knifeEnd);
+    expect(knifeSideChoiceGap(replay)).toBeNull();
+    expect(samplePlayer(replay, 0, knifeEnd + stride / 2)?.x).toBe(knifeEnd + stride / 2);
+    expect(samplePlayer(replay, 0, r1Start + stride / 2)?.x).toBe(r1Start + stride / 2);
+  });
+
+  it("keeps blending when round 1 starts on the next stride", () => {
+    const from = 100;
+    const to = 104;
+    const replay = knifeThenRound([from, to], [0, 8], to, from);
+    expect(knifeSideChoiceGap(replay)).toBeNull();
+    expect(samplePlayer(replay, 0, from + 2)?.x).toBe(4);
+  });
+
+  it("keeps blending a large hole when the demo has no knife round", () => {
+    const from = FACEIT_KNIFE_FRAME;
+    const to = FACEIT_ROUND_FRAME;
+    const replay = makeReplay({
+      header: { tick_stride: 4 },
+      players: [makePlayer(0, "CT", "A")],
+      rounds: [makeRound({ number: 1, start_tick: 0, end_tick: to + 800 })],
+      ticks: pawnFrames([from, to], [100, 130]),
+    });
+    expect(knifeSideChoiceGap(replay)).toBeNull();
+    expect(samplePlayer(replay, 0, from + (to - from) / 2)?.x).toBe(115);
   });
 });
