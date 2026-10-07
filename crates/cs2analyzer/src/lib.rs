@@ -23,6 +23,30 @@ use std::rc::Rc;
 use observer::Collector;
 use source2_demo::prelude::*;
 
+/// Completed `run_to_end` parses in this process. Test-only: WASM and the CLI
+/// build without `test-hooks`, so they do not carry the counter.
+#[cfg(any(test, feature = "test-hooks"))]
+static FULL_PARSE_PASSES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// How many times a parse has run to the end since [`reset_full_parse_passes`].
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn full_parse_passes() -> u64 {
+    FULL_PARSE_PASSES.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Zero [`full_parse_passes`] at the start of a real-demo walk.
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn reset_full_parse_passes() {
+    FULL_PARSE_PASSES.store(0, std::sync::atomic::Ordering::Relaxed);
+}
+
+#[cfg(any(test, feature = "test-hooks"))]
+fn note_full_parse() {
+    FULL_PARSE_PASSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
 /// Options for a single demo parse.
 #[derive(Debug, Clone)]
 pub struct ParseOptions {
@@ -56,6 +80,8 @@ pub fn parse_demo_with_progress(
     parser
         .run_to_end()
         .map_err(|e| ParseError::Demo(e.to_string()))?;
+    #[cfg(any(test, feature = "test-hooks"))]
+    note_full_parse();
     Ok(assemble_match(&parser, &handle))
 }
 
@@ -80,6 +106,8 @@ where
     parser
         .run_to_end()
         .map_err(|e| ParseError::Demo(e.to_string()))?;
+    #[cfg(any(test, feature = "test-hooks"))]
+    note_full_parse();
     let parsed = assemble_match(&parser, &handle);
     let observed = extra.borrow().clone();
     Ok((parsed, observed))

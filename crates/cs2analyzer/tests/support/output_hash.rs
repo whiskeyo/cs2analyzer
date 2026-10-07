@@ -385,12 +385,17 @@ fn vm_rss_kib() -> Option<u64> {
 }
 
 /// Samples `VmRSS` while a demo is parsed. Informational; missing `/proc` yields `None`.
+///
+/// The real-demo walk no longer uses this. Per-demo RSS is `VmHWM` after
+/// writing `5` to `/proc/self/clear_refs`, because this peak only grows.
+#[allow(dead_code)]
 pub struct RssWatch {
     stop: Arc<AtomicBool>,
     peak: Arc<AtomicU64>,
     handle: Option<std::thread::JoinHandle<()>>,
 }
 
+#[allow(dead_code)]
 impl RssWatch {
     pub fn start() -> Self {
         let stop = Arc::new(AtomicBool::new(false));
@@ -461,36 +466,9 @@ pub fn read_hashes(path: &std::path::Path) -> OutputHashes {
         .unwrap_or_else(|err| panic!("could not parse {}: {err}", path.display()))
 }
 
-/// Hash one parsed demo and log the same line the golden walk used to print.
-///
-/// `watch` keeps sampling through [`hash_match`], then this stops it. That is
-/// the same window as the old golden test: parse, hash, then read the peak.
-pub fn log_parsed_demo(name: &str, parsed: &Match, watch: &mut RssWatch) -> DemoHash {
+/// Hash one parsed demo. The real-demo log prints the sha256 on the `output-hash` line.
+pub fn log_parsed_demo(name: &str, parsed: &Match, _rss_kib: Option<u64>) -> DemoHash {
     let (sha256, sections) = hash_match(parsed);
-    let rss_kib = watch.peak_kib();
-    let burn_ticks = (cs2analyzer::MOLOTOV_SECONDS * cs2analyzer::DEFAULT_TICK_RATE).round() as u32;
-    let mut fire_grenades = 0u32;
-    let mut airburst = 0u32;
-    for grenade in &parsed.grenades {
-        if !grenade.kind.is_fire() {
-            continue;
-        }
-        fire_grenades += 1;
-        // No inferno: detonate at disappearance and the default burn length, no flame cells.
-        if grenade.fires.is_empty()
-            && grenade.end_tick.saturating_sub(grenade.detonate_tick) == burn_ticks
-        {
-            airburst += 1;
-        }
-    }
-    match rss_kib {
-        Some(kib) => eprintln!(
-            "output-golden {name} sha256={sha256} rss_kib={kib} fire_grenades={fire_grenades} airburst={airburst}"
-        ),
-        None => eprintln!(
-            "output-golden {name} sha256={sha256} rss_kib=n/a fire_grenades={fire_grenades} airburst={airburst}"
-        ),
-    }
     DemoHash {
         name: name.to_string(),
         sha256,

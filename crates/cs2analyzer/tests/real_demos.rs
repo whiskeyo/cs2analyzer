@@ -25,8 +25,8 @@ use std::path::Path;
 use std::time::Instant;
 
 use cs2analyzer::{
-    parse_demo_with_test_observer, BombKind, GrenadeKind, GrenadeThrow, Match, ParseOptions, Round,
-    SMOKE_DURATION_SECONDS,
+    full_parse_passes, parse_demo_with_test_observer, reset_full_parse_passes, BombKind,
+    GrenadeKind, GrenadeThrow, Match, ParseOptions, Round, SMOKE_DURATION_SECONDS,
 };
 use source2_demo::prelude::*;
 
@@ -49,113 +49,164 @@ fn missing_demos_with_ignored_is_a_failure_not_a_skip() {
     );
 }
 
+const CHECK_RSS: &str = "rss";
 const CHECK_ROUND_COUNTS: &str = "round-counts";
 const CHECK_MOLOTOV: &str = "molotov-burn-window";
 const CHECK_SMOKE: &str = "smoke-end";
 const CHECK_DEMO_END: &str = "demo-end-smoke";
 const CHECK_OUTPUT_HASH: &str = "output-hash";
+const CHECK_PARSE_PASSES: &str = "parse-passes";
 const CHECK_PARSE: &str = "parse";
 const CHECK_READ: &str = "read";
 const CHECK_COUNT: &str = "check-count";
 /// Cross-demo rollups. Not a file name.
 const ALL_DEMOS: &str = "all";
-const GLOBAL_CHECK_COUNT: usize = 5;
+const GLOBAL_CHECK_COUNT: usize = 6;
 const MISSING_DEMO: &str = "demo was not in this run";
+/// Smokes that hit the +22s cap. Assets-v1 has none.
+const EXPECTED_DURATION_CAP: usize = 0;
+/// `5` written to `/proc/self/clear_refs` resets `VmHWM` to current `VmRSS`.
+const CLEAR_REFS_RESET_PEAK: &str = "5";
 
 /// Round counts from #111 and the smoke census measured on assets-v1.
 struct DemoExpect {
     name: &'static str,
+    /// Short label for the per-check log. The failure line still uses `name`.
+    label: &'static str,
     /// Played rounds, excluding `is_knife`.
     played: usize,
     knife: usize,
     smokes: usize,
     with_expire: usize,
+    /// No in-window `smokegrenade_expired`.
     without_expire: usize,
+    /// Of `without_expire`, those that end on the next `m_nRoundStartCount` edge.
+    ended_at_round_open: usize,
+    /// Of `without_expire`, those that end on the last sampled tick.
+    ended_at_demo_end: usize,
     after_round_end: usize,
+    /// Ceiling for `VmHWM` after `clear_refs`, in KiB. Linux only.
+    rss_limit_kib: u64,
 }
 
 /// FACEIT keeps the knife round (`is_knife`, number 0). HLTV and Premier have none.
 const DEMO_EXPECTATIONS: &[DemoExpect] = &[
     DemoExpect {
         name: "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem",
+        label: "0eb2df7f",
         played: 35,
         knife: 1,
         smokes: 160,
         with_expire: 146,
         without_expire: 14,
+        ended_at_round_open: 13,
+        ended_at_demo_end: 1,
         after_round_end: 25,
+        rss_limit_kib: 800_000,
     },
     DemoExpect {
         name: "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem",
+        label: "898c8041",
         played: 16,
         knife: 1,
         smokes: 52,
         with_expire: 44,
         without_expire: 8,
+        ended_at_round_open: 8,
+        ended_at_demo_end: 0,
         after_round_end: 10,
+        rss_limit_kib: 800_000,
     },
     DemoExpect {
         name: "1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem",
+        label: "b3ea81e1",
         played: 29,
         knife: 1,
         smokes: 124,
         with_expire: 116,
         without_expire: 8,
+        ended_at_round_open: 8,
+        ended_at_demo_end: 0,
         after_round_end: 20,
+        rss_limit_kib: 650_000,
     },
     DemoExpect {
         name: "legacy-vs-spirit-m2-ancient.dem",
+        label: "legacy-m2",
         played: 22,
         knife: 0,
         smokes: 149,
         with_expire: 145,
         without_expire: 4,
+        ended_at_round_open: 4,
+        ended_at_demo_end: 0,
         after_round_end: 8,
+        rss_limit_kib: 1_200_000,
     },
     DemoExpect {
         name: "premier-d2.dem",
+        label: "premier-d2",
         played: 15,
         knife: 0,
         smokes: 45,
         with_expire: 38,
         without_expire: 7,
+        ended_at_round_open: 6,
+        ended_at_demo_end: 1,
         after_round_end: 13,
+        rss_limit_kib: 850_000,
     },
     DemoExpect {
         name: "spirit-vs-dendele-m1-ancient.dem",
+        label: "dendele-m1",
         played: 21,
         knife: 0,
         smokes: 139,
         with_expire: 133,
         without_expire: 6,
+        ended_at_round_open: 6,
+        ended_at_demo_end: 0,
         after_round_end: 8,
+        rss_limit_kib: 700_000,
     },
     DemoExpect {
         name: "spirit-vs-furia-m1-ancient.dem",
+        label: "furia-m1",
         played: 23,
         knife: 0,
         smokes: 160,
         with_expire: 152,
         without_expire: 8,
+        ended_at_round_open: 8,
+        ended_at_demo_end: 0,
         after_round_end: 20,
+        rss_limit_kib: 700_000,
     },
     DemoExpect {
         name: "spirit-vs-mouz-m3-ancient.dem",
+        label: "mouz-m3",
         played: 22,
         knife: 0,
         smokes: 149,
         with_expire: 143,
         without_expire: 6,
+        ended_at_round_open: 6,
+        ended_at_demo_end: 0,
         after_round_end: 11,
+        rss_limit_kib: 700_000,
     },
     DemoExpect {
         name: "spirit-vs-mouz-m4-nuke.dem",
+        label: "mouz-m4",
         played: 23,
         knife: 0,
         smokes: 176,
         with_expire: 168,
         without_expire: 8,
+        ended_at_round_open: 8,
+        ended_at_demo_end: 0,
         after_round_end: 15,
+        rss_limit_kib: 1_250_000,
     },
 ];
 
@@ -232,35 +283,65 @@ const DEMO_END_SMOKES: &[DemoEndSmoke] = &[
     },
 ];
 
-/// Literal so a dropped `report.run` fails the count even if the name list
-/// and the call were edited together. Keep this, [`demo_check_names`], and
-/// [`run_demo_checks`] in step.
+/// Applicable checks for one demo. `rss` is included only on Linux, from
+/// `target_os`, not from whether `/proc` could be read. Open fires come from
+/// [`OPEN_FIRES`] keyed by the manifest name.
 fn expected_check_count(name: &str) -> usize {
-    match name {
-        "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem" => 6,
-        "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem" => 6,
-        "spirit-vs-furia-m1-ancient.dem" => 7,
-        "spirit-vs-mouz-m3-ancient.dem" => 6,
-        "spirit-vs-mouz-m4-nuke.dem" => 6,
-        _ => 5,
-    }
+    let fires = OPEN_FIRES.iter().filter(|fire| fire.demo == name).count();
+    let rss = usize::from(cfg!(target_os = "linux"));
+    // round-counts, molotov-burn-window, smoke-end, demo-end-smoke, output-hash
+    5 + fires + rss
 }
 
 fn open_fire_check_name(entity: i32) -> String {
     format!("open-fire-{entity}")
 }
 
-fn demo_check_names(demo: &str) -> Vec<String> {
-    let mut names = vec![CHECK_ROUND_COUNTS.to_string(), CHECK_MOLOTOV.to_string()];
+fn demo_check_catalog() -> Vec<String> {
+    let mut names = vec![
+        CHECK_RSS.to_string(),
+        CHECK_ROUND_COUNTS.to_string(),
+        CHECK_MOLOTOV.to_string(),
+    ];
     for fire in OPEN_FIRES {
-        if fire.demo == demo {
-            names.push(open_fire_check_name(fire.entity));
-        }
+        names.push(open_fire_check_name(fire.entity));
     }
     names.push(CHECK_SMOKE.to_string());
     names.push(CHECK_DEMO_END.to_string());
     names.push(CHECK_OUTPUT_HASH.to_string());
     names
+}
+
+/// Static row: which catalog checks apply to this manifest name.
+fn check_applies(demo: &str, check: &str) -> bool {
+    if check == CHECK_RSS {
+        return cfg!(target_os = "linux");
+    }
+    if let Some(fire) = OPEN_FIRES
+        .iter()
+        .find(|fire| open_fire_check_name(fire.entity) == check)
+    {
+        return fire.demo == demo;
+    }
+    matches!(
+        check,
+        CHECK_ROUND_COUNTS | CHECK_MOLOTOV | CHECK_SMOKE | CHECK_DEMO_END | CHECK_OUTPUT_HASH
+    )
+}
+
+fn demo_check_names(demo: &str) -> Vec<String> {
+    demo_check_catalog()
+        .into_iter()
+        .filter(|check| check_applies(demo, check))
+        .collect()
+}
+
+fn demo_label(name: &str) -> &str {
+    DEMO_EXPECTATIONS
+        .iter()
+        .find(|row| row.name == name)
+        .map(|row| row.label)
+        .unwrap_or(name)
 }
 
 fn lookup_demo(name: &str) -> Option<&'static DemoExpect> {
@@ -269,18 +350,49 @@ fn lookup_demo(name: &str) -> Option<&'static DemoExpect> {
 
 struct AssertSink {
     failures: Vec<String>,
+    detail: String,
 }
 
 impl AssertSink {
     fn fail(&mut self, message: impl Into<String>) {
         self.failures.push(message.into());
     }
+
+    fn set_detail(&mut self, detail: impl Into<String>) {
+        self.detail = detail.into();
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CheckStatus {
+    Pass,
+    Fail,
+    Skip,
+}
+
+impl CheckStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Pass => "PASS",
+            Self::Fail => "FAIL",
+            Self::Skip => "SKIP",
+        }
+    }
+}
+
+struct CheckLog {
+    demo: String,
+    check: String,
+    status: CheckStatus,
+    detail: String,
+    duration_ms: Option<u128>,
 }
 
 #[derive(Default)]
 struct FailureReport {
     lines: Vec<String>,
     executed: BTreeMap<String, usize>,
+    logs: Vec<CheckLog>,
 }
 
 impl FailureReport {
@@ -291,18 +403,58 @@ impl FailureReport {
     /// Counts the check as executed, then records every assert that fails.
     /// A panic inside the check is one more line. Later checks still run.
     fn run(&mut self, demo: &str, check: &str, body: impl FnOnce(&mut AssertSink)) {
+        let started = Instant::now();
         *self.executed.entry(demo.to_string()).or_default() += 1;
         let mut sink = AssertSink {
             failures: Vec::new(),
+            detail: String::new(),
         };
         let panicked = catch_unwind(AssertUnwindSafe(|| body(&mut sink)));
+        let mut failed = false;
+        let mut notes = Vec::new();
+        if !sink.detail.is_empty() {
+            notes.push(sink.detail);
+        }
         for message in sink.failures {
             self.lines.push(failure_line(demo, check, &message));
+            notes.push(message);
+            failed = true;
         }
         if let Err(payload) = panicked {
-            self.lines
-                .push(failure_line(demo, check, &panic_message(payload)));
+            let message = panic_message(payload);
+            self.lines.push(failure_line(demo, check, &message));
+            notes.push(message);
+            failed = true;
         }
+        let status = if failed {
+            CheckStatus::Fail
+        } else {
+            CheckStatus::Pass
+        };
+        let detail = if notes.is_empty() {
+            "ok".to_string()
+        } else if status == CheckStatus::Pass {
+            notes[0].clone()
+        } else {
+            notes.join("; ")
+        };
+        self.logs.push(CheckLog {
+            demo: demo.to_string(),
+            check: check.to_string(),
+            status,
+            detail,
+            duration_ms: Some(started.elapsed().as_millis()),
+        });
+    }
+
+    fn skip(&mut self, demo: &str, check: &str, reason: &str) {
+        self.logs.push(CheckLog {
+            demo: demo.to_string(),
+            check: check.to_string(),
+            status: CheckStatus::Skip,
+            detail: reason.to_string(),
+            duration_ms: None,
+        });
     }
 
     fn fail(&mut self, demo: &str, check: &str, message: impl std::fmt::Display) {
@@ -354,7 +506,7 @@ fn visit_demo<T, F, C>(
     demo: &str,
     parse: F,
     checks: C,
-    expected_checks: usize,
+    expected_checks: Option<usize>,
 ) -> Option<T>
 where
     F: FnOnce() -> Result<T, String>,
@@ -375,17 +527,20 @@ where
     if let Some(value) = &value {
         checks(report, value);
     }
-    enforce_check_count(report, demo, expected_checks);
+    if let Some(expected) = expected_checks {
+        enforce_check_count(report, demo, expected);
+    }
     value
 }
 
 fn record_missing_demo(report: &mut FailureReport, demo: &str) {
     for check_name in demo_check_names(demo) {
         report.run(demo, &check_name, |check| {
+            check.set_detail(MISSING_DEMO.to_string());
             check.fail(MISSING_DEMO);
         });
     }
-    enforce_check_count(report, demo, expected_check_count(demo));
+    close_demo(report, demo, None, None);
 }
 
 struct ParsedDemo {
@@ -402,9 +557,9 @@ struct SmokeRollup {
 }
 
 struct OutputHashCheck<'a> {
-    watch: &'a mut output_hash::RssWatch,
     recorded: &'a mut Vec<output_hash::DemoHash>,
     expected: Option<&'a output_hash::OutputHashes>,
+    rss_kib: Option<u64>,
 }
 
 /// One ignored test. Each file is read, parsed, checked, and dropped before
@@ -420,7 +575,8 @@ fn parses_each_release_demo_once() {
         Some(output_hash::read_hashes(&output_hash::hashes_path()))
     };
     let mut recorded = Vec::new();
-    let mut full_parse_passes = 0usize;
+    let mut reads = 0usize;
+    reset_full_parse_passes();
     let mut report = FailureReport::default();
     let mut rollup = SmokeRollup::default();
     let mut seen = BTreeSet::new();
@@ -431,12 +587,20 @@ fn parses_each_release_demo_once() {
             Ok(bytes) => bytes,
             Err(err) => {
                 report.fail(&name, CHECK_READ, format!("could not read {name}: {err}"));
-                enforce_check_count(&mut report, &name, expected_check_count(&name));
+                close_demo(&mut report, &name, None, None);
                 continue;
             }
         };
-        let mut watch = output_hash::RssWatch::start();
-        full_parse_passes += 1;
+        // Drop the previous demo before this reset. `VmHWM` only grows, so the
+        // peak has to be cleared or this file inherits the last one.
+        let reset = if cfg!(target_os = "linux") {
+            Some(reset_peak_rss())
+        } else {
+            None
+        };
+        reads += 1;
+        let mut header_ms = None;
+        let mut header_rss = None;
         let held = visit_demo(
             &mut report,
             &name,
@@ -456,10 +620,19 @@ fn parses_each_release_demo_once() {
                 })
             },
             |report, timed| {
+                header_ms = Some(timed.parse_ms);
+                let sample = match &reset {
+                    None => None,
+                    Some(Err(message)) => Some(Err(message.clone())),
+                    Some(Ok(())) => Some(read_vm_hwm_kib()),
+                };
+                if let Some(Ok(kib)) = sample {
+                    header_rss = Some(kib);
+                }
                 let mut hash_check = OutputHashCheck {
-                    watch: &mut watch,
                     recorded: &mut recorded,
                     expected: expected_hashes.as_ref(),
+                    rss_kib: header_rss,
                 };
                 run_demo_checks(
                     report,
@@ -469,13 +642,14 @@ fn parses_each_release_demo_once() {
                     timed.parse_ms,
                     &mut rollup,
                     &mut hash_check,
+                    sample,
                 );
             },
-            expected_check_count(&name),
+            None,
         );
         drop(held);
         drop(bytes);
-        drop(watch);
+        close_demo(&mut report, &name, header_ms, header_rss);
     }
     for row in DEMO_EXPECTATIONS {
         if !seen.contains(row.name) {
@@ -488,18 +662,20 @@ fn parses_each_release_demo_once() {
         expected_hashes.as_ref(),
         &recorded,
         &seen,
+        reads,
     );
     if update_hashes && report.lines.is_empty() {
         let path = output_hash::hashes_path();
         output_hash::write_hashes(&path, &output_hash::OutputHashes { demos: recorded });
         eprintln!("updated {}", path.display());
     }
-    eprintln!("full_parse_passes={full_parse_passes} demos={}", seen.len());
+    print_summary(&report, full_parse_passes(), reads);
     report.finish();
 }
 
 /// New per-demo checks go in this function, in [`demo_check_names`], and as a
 /// literal arm of [`expected_check_count`].
+#[allow(clippy::too_many_arguments)]
 fn run_demo_checks(
     report: &mut FailureReport,
     name: &str,
@@ -508,7 +684,13 @@ fn run_demo_checks(
     parse_ms: u128,
     rollup: &mut SmokeRollup,
     hashes: &mut OutputHashCheck<'_>,
+    rss_sample: Option<Result<u64, String>>,
 ) {
+    if check_applies(name, CHECK_RSS) {
+        report.run(name, CHECK_RSS, |check| {
+            check_rss(check, name, rss_sample.clone(), rss_limit_kib(name));
+        });
+    }
     report.run(name, CHECK_ROUND_COUNTS, |check| {
         check_round_counts(check, name, parsed, parse_ms);
     });
@@ -538,7 +720,8 @@ fn check_output_hash(
     parsed: &Match,
     hashes: &mut OutputHashCheck<'_>,
 ) {
-    let row = output_hash::log_parsed_demo(name, parsed, hashes.watch);
+    let row = output_hash::log_parsed_demo(name, parsed, hashes.rss_kib);
+    check.set_detail(format!("sha256={} (expected match)", row.sha256));
     if let Some(expected) = hashes.expected {
         let actual = output_hash::OutputHashes {
             demos: vec![row.clone()],
@@ -567,9 +750,13 @@ fn check_round_counts(check: &mut AssertSink, name: &str, parsed: &Match, parse_
         .iter()
         .filter(|event| event.kind == BombKind::BeginDefuse)
         .count();
-    eprintln!(
-        "real-demo {name} played={played} knife={knife} parse_ms={parse_ms} bomb_begindefuse={begin_defuse}"
-    );
+    let _ = parse_ms;
+    if let Some(expected) = lookup_demo(name) {
+        check.set_detail(format!(
+            "played={played} knife={knife} bomb_begindefuse={begin_defuse} (expected {}/{})",
+            expected.played, expected.knife
+        ));
+    }
     match lookup_demo(name) {
         Some(expected) => {
             if played != expected.played {
@@ -608,7 +795,7 @@ fn check_molotov_burn_window(check: &mut AssertSink, name: &str, parsed: &Match)
                 })
         })
         .count();
-    eprintln!("out-of-window {name} {outside}");
+    check.set_detail(format!("out_of_window={outside} (expected 0)"));
     if outside != 0 {
         check.fail(format!(
             "{name} has {outside} molotovs with flames outside the burn window"
@@ -710,14 +897,14 @@ fn check_open_fire(check: &mut AssertSink, name: &str, parsed: &Match, fire: &Op
             fire.entity, round.number
         ));
     }
-    eprintln!(
-        "open-fire {name} inferno {} round {} {} -> {} cells {}",
-        fire.entity,
-        owner.number,
+    check.set_detail(format!(
+        "startburn={} end={} cells={} (expected {}/{})",
         fire.startburn,
         grenade.end_tick,
-        grenade.fires.len()
-    );
+        grenade.fires.len(),
+        fire.startburn,
+        fire.end
+    ));
 }
 
 fn check_smoke_end(
@@ -742,6 +929,9 @@ fn check_smoke_end(
     let mut with_expire = 0usize;
     let mut without_expire = 0usize;
     let mut after_round_end = 0usize;
+    let mut ended_at_round_open = 0usize;
+    let mut ended_at_demo_end = 0usize;
+    let mut duration_cap_hits = 0usize;
     for grenade in parsed
         .grenades
         .iter()
@@ -803,6 +993,7 @@ fn check_smoke_end(
             }
             let duration_cap = grenade.detonate_tick.saturating_add(life);
             if grenade.end_tick >= duration_cap {
+                duration_cap_hits += 1;
                 check.fail(format!(
                     "{name} smoke entity {entity} {} -> {} landed on the {life}-tick cap {duration_cap}",
                     grenade.detonate_tick, grenade.end_tick
@@ -821,9 +1012,11 @@ fn check_smoke_end(
                 ));
             }
             if at_next_open && !at_demo_end {
+                ended_at_round_open += 1;
                 rollup.ended_at_round_open += 1;
             }
             if at_demo_end && !at_next_open {
+                ended_at_demo_end += 1;
                 rollup.ended_at_demo_end.push((
                     name.to_string(),
                     grenade.detonate_tick,
@@ -834,9 +1027,6 @@ fn check_smoke_end(
             rollup.missing_expire += 1;
         }
     }
-    eprintln!(
-        "smoke-end {name} smokes={smokes} with_expire={with_expire} without_expire={without_expire} after_round_end={after_round_end}"
-    );
     let Some(expected) = lookup_demo(name) else {
         check.fail(format!("no smoke census for {name}"));
         return;
@@ -865,6 +1055,37 @@ fn check_smoke_end(
             expected.after_round_end
         ));
     }
+    if ended_at_round_open != expected.ended_at_round_open {
+        check.fail(format!(
+            "{name} missing-expire smokes that stop on the next round-open edge: got {ended_at_round_open}, expected {}",
+            expected.ended_at_round_open
+        ));
+    }
+    if ended_at_demo_end != expected.ended_at_demo_end {
+        check.fail(format!(
+            "{name} missing-expire smokes that stop on the last sampled tick: got {ended_at_demo_end}, expected {}",
+            expected.ended_at_demo_end
+        ));
+    }
+    if duration_cap_hits != EXPECTED_DURATION_CAP {
+        check.fail(format!(
+            "{name} smokes that landed on the 22s cap: got {duration_cap_hits}, expected {EXPECTED_DURATION_CAP}"
+        ));
+    }
+    if ended_at_round_open + ended_at_demo_end != without_expire {
+        check.fail(format!(
+            "{name} missing-expire split {ended_at_round_open}+{ended_at_demo_end} != without_expire {without_expire}"
+        ));
+    }
+    check.set_detail(format!(
+        "smokes={smokes} with_expire={with_expire} without_expire={without_expire} ended_at_round_open={ended_at_round_open} ended_at_demo_end={ended_at_demo_end} duration_cap={duration_cap_hits} (expected {}/{}/{}/{}/{}/{})",
+        expected.smokes,
+        expected.with_expire,
+        expected.without_expire,
+        expected.ended_at_round_open,
+        expected.ended_at_demo_end,
+        EXPECTED_DURATION_CAP
+    ));
 }
 
 fn check_demo_end_smoke(check: &mut AssertSink, name: &str, rollup: &SmokeRollup) {
@@ -879,6 +1100,7 @@ fn check_demo_end_smoke(check: &mut AssertSink, name: &str, rollup: &SmokeRollup
         .filter(|row| row.demo == name)
         .map(|row| (row.detonate, row.end))
         .collect();
+    check.set_detail(format!("got {got:?} (expected {expected:?})"));
     if got != expected {
         check.fail(format!(
             "{name} missing-expire smokes that stop on the last sampled tick: got {got:?}, expected {expected:?}"
@@ -892,8 +1114,10 @@ fn run_global_checks(
     expected_hashes: Option<&output_hash::OutputHashes>,
     recorded: &[output_hash::DemoHash],
     seen: &BTreeSet<String>,
+    reads: usize,
 ) {
     report.run(ALL_DEMOS, "open-fire-inventory", |check| {
+        check.set_detail(format!("open_fires={} (expected 6)", OPEN_FIRES.len()));
         if OPEN_FIRES.len() != 6 {
             check.fail(format!("open fires: got {}, expected 6", OPEN_FIRES.len()));
         }
@@ -907,6 +1131,10 @@ fn run_global_checks(
         }
     });
     report.run(ALL_DEMOS, "missing-expire-total", |check| {
+        check.set_detail(format!(
+            "without_expire={} (expected 69)",
+            rollup.missing_expire
+        ));
         if rollup.missing_expire != 69 {
             check.fail(format!(
                 "smokes with no in-window expire: got {}, expected 69",
@@ -915,6 +1143,10 @@ fn run_global_checks(
         }
     });
     report.run(ALL_DEMOS, "missing-expire-round-open", |check| {
+        check.set_detail(format!(
+            "ended_at_round_open={} (expected 67)",
+            rollup.ended_at_round_open
+        ));
         if rollup.ended_at_round_open != 67 {
             check.fail(format!(
                 "missing-expire smokes that stop on the next m_nRoundStartCount edge: got {}, expected 67",
@@ -923,6 +1155,10 @@ fn run_global_checks(
         }
     });
     report.run(ALL_DEMOS, "missing-expire-demo-end", |check| {
+        check.set_detail(format!(
+            "ended_at_demo_end={} (expected 2)",
+            rollup.ended_at_demo_end.len()
+        ));
         let mut ended = rollup.ended_at_demo_end.clone();
         ended.sort_unstable();
         let expected = vec![
@@ -964,7 +1200,24 @@ fn run_global_checks(
             }
         },
     );
+    report.run(ALL_DEMOS, CHECK_PARSE_PASSES, |check| {
+        let passes = full_parse_passes();
+        let per_demo = if reads == 0 {
+            0.0
+        } else {
+            passes as f64 / reads as f64
+        };
+        check.set_detail(format!(
+            "full_parse_passes={passes} demos={reads} ({per_demo:.1} per demo)"
+        ));
+        if passes != reads as u64 {
+            check.fail(format!(
+                "full parse passes {passes}, demos read {reads} (expected 1.0 per demo)"
+            ));
+        }
+    });
     enforce_check_count(report, ALL_DEMOS, GLOBAL_CHECK_COUNT);
+    print_global_log(report);
 }
 
 /// Last round whose freeze has started at `tick`: `[start_tick, next start)`.
@@ -1175,7 +1428,7 @@ fn parse_failure_is_reported_and_the_next_demo_still_runs() {
         "a.dem",
         || -> Result<(), String> { panic!("parser exploded") },
         |_, _| {},
-        1,
+        Some(1),
     );
     assert!(panicked.is_none());
     let errored: Option<()> = visit_demo(
@@ -1183,7 +1436,7 @@ fn parse_failure_is_reported_and_the_next_demo_still_runs() {
         "c.dem",
         || Err("bad header".to_string()),
         |_, _| {},
-        2,
+        Some(2),
     );
     assert!(errored.is_none());
     let mut ran = false;
@@ -1195,7 +1448,7 @@ fn parse_failure_is_reported_and_the_next_demo_still_runs() {
             ran = true;
             report.run("b.dem", CHECK_ROUND_COUNTS, |_| {});
         },
-        1,
+        Some(1),
     );
     assert!(ok.is_some());
     assert!(ran);
@@ -1249,9 +1502,10 @@ fn each_demo_has_an_expected_check_count() {
         ("spirit-vs-mouz-m4-nuke.dem", 6),
     ];
     assert_eq!(cases.len(), DEMO_EXPECTATIONS.len());
+    let rss = usize::from(cfg!(target_os = "linux"));
     for (name, expected) in cases {
-        assert_eq!(expected_check_count(name), expected, "{name}");
-        assert_eq!(demo_check_names(name).len(), expected, "{name}");
+        assert_eq!(expected_check_count(name), expected + rss, "{name}");
+        assert_eq!(demo_check_names(name).len(), expected + rss, "{name}");
         assert!(
             DEMO_EXPECTATIONS.iter().any(|row| row.name == name),
             "{name}"
@@ -1259,9 +1513,43 @@ fn each_demo_has_an_expected_check_count() {
     }
     assert_eq!(OPEN_FIRES.len(), 6);
     assert_eq!(DEMO_END_SMOKES.len(), 2);
-    assert_eq!(GLOBAL_CHECK_COUNT, 5);
+    assert_eq!(GLOBAL_CHECK_COUNT, 6);
     let without_expire: usize = DEMO_EXPECTATIONS.iter().map(|row| row.without_expire).sum();
     assert_eq!(without_expire, 69);
+    let round_open: usize = DEMO_EXPECTATIONS
+        .iter()
+        .map(|row| row.ended_at_round_open)
+        .sum();
+    let demo_end: usize = DEMO_EXPECTATIONS
+        .iter()
+        .map(|row| row.ended_at_demo_end)
+        .sum();
+    assert_eq!(round_open, 67);
+    assert_eq!(demo_end, 2);
+    for row in DEMO_EXPECTATIONS {
+        assert_eq!(
+            row.ended_at_round_open + row.ended_at_demo_end,
+            row.without_expire,
+            "{}",
+            row.label
+        );
+    }
+    if cfg!(target_os = "linux") {
+        assert_eq!(
+            expected_check_count("premier-d2.dem"),
+            6,
+            "premier-d2 has no open fire; rss applies on linux"
+        );
+        assert_eq!(
+            expected_check_count("spirit-vs-furia-m1-ancient.dem"),
+            8,
+            "furia has two open fires"
+        );
+        assert_eq!(
+            expected_check_count("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem"),
+            7
+        );
+    }
     let faceit = DEMO_END_SMOKES
         .iter()
         .find(|row| row.demo == "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem");
@@ -1283,4 +1571,420 @@ fn each_demo_has_an_expected_check_count() {
             fire.demo
         );
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum RssDisposition {
+    Skip,
+    Pass { kib: u64 },
+    Fail { message: String },
+}
+
+/// Linux always measures. Other targets skip from `target_os` alone: a failed
+/// read must not turn the check into a skip, and a successful read must not
+/// turn a non-Linux run into a measurement.
+fn classify_rss(linux: bool, sample: Result<u64, String>, limit_kib: u64) -> RssDisposition {
+    if !linux {
+        return RssDisposition::Skip;
+    }
+    match sample {
+        Err(message) => RssDisposition::Fail { message },
+        Ok(kib) if kib > limit_kib => RssDisposition::Fail {
+            message: format!("VmHWM {kib} KiB exceeds limit {limit_kib} KiB"),
+        },
+        Ok(kib) => RssDisposition::Pass { kib },
+    }
+}
+
+fn reset_peak_rss() -> Result<(), String> {
+    std::fs::write("/proc/self/clear_refs", CLEAR_REFS_RESET_PEAK)
+        .map_err(|err| format!("could not reset VmHWM via /proc/self/clear_refs: {err}"))
+}
+
+fn read_vm_hwm_kib() -> Result<u64, String> {
+    let text = std::fs::read_to_string("/proc/self/status")
+        .map_err(|err| format!("could not read /proc/self/status: {err}"))?;
+    for line in text.lines() {
+        let Some(rest) = line.strip_prefix("VmHWM:") else {
+            continue;
+        };
+        let Some(kib) = rest.split_whitespace().next() else {
+            return Err("VmHWM line has no value".to_string());
+        };
+        return kib
+            .parse()
+            .map_err(|err| format!("could not parse VmHWM {kib}: {err}"));
+    }
+    Err("VmHWM missing from /proc/self/status".to_string())
+}
+
+fn rss_limit_kib(name: &str) -> u64 {
+    lookup_demo(name).map(|row| row.rss_limit_kib).unwrap_or(0)
+}
+
+fn check_rss(
+    check: &mut AssertSink,
+    name: &str,
+    sample: Option<Result<u64, String>>,
+    limit_kib: u64,
+) {
+    let Some(sample) = sample else {
+        check.fail(format!("{name} rss sample missing on linux"));
+        return;
+    };
+    match classify_rss(true, sample, limit_kib) {
+        RssDisposition::Pass { kib } => {
+            check.set_detail(format!("VmHWM={kib} KiB (limit {limit_kib} KiB)"));
+        }
+        RssDisposition::Fail { message } => check.fail(message),
+        RssDisposition::Skip => check.fail(format!("{name} rss skip is not valid on linux")),
+    }
+}
+
+struct Tally {
+    pass: usize,
+    fail: usize,
+    skip: usize,
+}
+
+fn tally(report: &FailureReport, demo: &str) -> Tally {
+    let mut tally = Tally {
+        pass: 0,
+        fail: 0,
+        skip: 0,
+    };
+    for row in report.logs.iter().filter(|row| row.demo == demo) {
+        match row.status {
+            CheckStatus::Pass => tally.pass += 1,
+            CheckStatus::Fail => tally.fail += 1,
+            CheckStatus::Skip => tally.skip += 1,
+        }
+    }
+    tally
+}
+
+fn duration_suffix(duration_ms: Option<u128>) -> String {
+    match duration_ms {
+        Some(ms) if ms >= 1 => format!(" ({ms}ms)"),
+        _ => String::new(),
+    }
+}
+
+/// Fill SKIP from the static table, FAIL any applicable check that never ran,
+/// then assert PASS+FAIL and SKIP against that table.
+fn close_demo(
+    report: &mut FailureReport,
+    demo: &str,
+    parse_ms: Option<u128>,
+    rss_kib: Option<u64>,
+) {
+    let catalog = demo_check_catalog();
+    for check in &catalog {
+        if report
+            .logs
+            .iter()
+            .any(|row| row.demo == demo && row.check == *check)
+        {
+            continue;
+        }
+        if check_applies(demo, check) {
+            let message = "check did not run";
+            report.fail(demo, check, message);
+            report.logs.push(CheckLog {
+                demo: demo.to_string(),
+                check: check.clone(),
+                status: CheckStatus::Fail,
+                detail: message.to_string(),
+                duration_ms: None,
+            });
+        } else {
+            let reason = if check == CHECK_RSS {
+                "target_os is not linux"
+            } else {
+                "not this demo"
+            };
+            report.skip(demo, check, reason);
+        }
+    }
+    let tally = tally(report, demo);
+    let applicable = catalog
+        .iter()
+        .filter(|check| check_applies(demo, check))
+        .count();
+    let non_applicable = catalog.len() - applicable;
+    if tally.pass + tally.fail != applicable || tally.skip != non_applicable {
+        report.fail(
+            demo,
+            CHECK_COUNT,
+            format!(
+                "pass={} fail={} skip={}, applicable={applicable}, non_applicable={non_applicable}",
+                tally.pass, tally.fail, tally.skip
+            ),
+        );
+    }
+    print_demo(report, demo, parse_ms, rss_kib);
+}
+
+fn print_demo(report: &FailureReport, demo: &str, parse_ms: Option<u128>, rss_kib: Option<u64>) {
+    let label = demo_label(demo);
+    let parse = parse_ms
+        .map(|ms| ms.to_string())
+        .unwrap_or_else(|| "n/a".to_string());
+    let rss = if cfg!(target_os = "linux") {
+        rss_kib
+            .map(|kib| kib.to_string())
+            .unwrap_or_else(|| "n/a".to_string())
+    } else {
+        "unavailable".to_string()
+    };
+    eprintln!("[{label}] parse_ms={parse} rss_kib={rss}");
+    for check in demo_check_catalog() {
+        let Some(row) = report
+            .logs
+            .iter()
+            .find(|row| row.demo == demo && row.check == check)
+        else {
+            eprintln!("[{label}] FAIL {check}: missing log row");
+            continue;
+        };
+        eprintln!(
+            "[{label}] {} {check}: {}{}",
+            row.status.as_str(),
+            row.detail,
+            duration_suffix(row.duration_ms)
+        );
+    }
+}
+
+fn print_global_log(report: &FailureReport) {
+    for row in report.logs.iter().filter(|row| row.demo == ALL_DEMOS) {
+        eprintln!(
+            "[all] {} {}: {}{}",
+            row.status.as_str(),
+            row.check,
+            row.detail,
+            duration_suffix(row.duration_ms)
+        );
+    }
+}
+
+fn print_summary(report: &FailureReport, passes: u64, reads: usize) {
+    let catalog = demo_check_catalog();
+    let mut plain = String::from("summary\n");
+    plain.push_str(&format!("demo\t{}\n", catalog.join("\t")));
+    let mut markdown = String::from("### Real demos\n\n");
+    markdown.push_str("| demo |");
+    for check in &catalog {
+        markdown.push_str(&format!(" {check} |"));
+    }
+    markdown.push('\n');
+    markdown.push_str("| --- |");
+    for _ in &catalog {
+        markdown.push_str(" --- |");
+    }
+    markdown.push('\n');
+    let mut totals = vec![(0usize, 0usize, 0usize); catalog.len()];
+    for row in DEMO_EXPECTATIONS {
+        plain.push_str(row.label);
+        markdown.push_str(&format!("| {} |", row.label));
+        for (index, check) in catalog.iter().enumerate() {
+            let status = report
+                .logs
+                .iter()
+                .find(|log| log.demo == row.name && log.check == *check)
+                .map(|log| log.status.as_str())
+                .unwrap_or("-");
+            plain.push('\t');
+            plain.push_str(status);
+            markdown.push_str(&format!(" {status} |"));
+            match status {
+                "PASS" => totals[index].0 += 1,
+                "FAIL" => totals[index].1 += 1,
+                "SKIP" => totals[index].2 += 1,
+                _ => {}
+            }
+        }
+        plain.push('\n');
+        markdown.push('\n');
+    }
+    plain.push_str("TOTAL");
+    markdown.push_str("| TOTAL |");
+    for (pass, fail, skip) in &totals {
+        let cell = format!("{pass}/{fail}/{skip}");
+        plain.push('\t');
+        plain.push_str(&cell);
+        markdown.push_str(&format!(" {cell} |"));
+    }
+    plain.push('\n');
+    markdown.push('\n');
+    let per_demo = if reads == 0 {
+        0.0
+    } else {
+        passes as f64 / reads as f64
+    };
+    let footer = format!("full_parse_passes={passes} demos={reads} ({per_demo:.1} per demo)\n");
+    plain.push_str(&footer);
+    markdown.push('\n');
+    markdown.push_str(&footer);
+    markdown.push_str("\n### Global\n\n| check | result | detail |\n| --- | --- | --- |\n");
+    for row in report.logs.iter().filter(|row| row.demo == ALL_DEMOS) {
+        let detail = row.detail.replace('|', "/");
+        markdown.push_str(&format!(
+            "| {} | {} | {detail} |\n",
+            row.check,
+            row.status.as_str()
+        ));
+        plain.push_str(&format!(
+            "[all]\t{}\t{}\t{detail}\n",
+            row.check,
+            row.status.as_str()
+        ));
+    }
+    eprint!("{plain}");
+    append_step_summary(&markdown);
+}
+
+fn append_step_summary(markdown: &str) {
+    let Ok(path) = std::env::var("GITHUB_STEP_SUMMARY") else {
+        return;
+    };
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .unwrap_or_else(|err| panic!("could not append {path}: {err}"));
+    use std::io::Write;
+    write!(file, "{markdown}").unwrap_or_else(|err| panic!("could not write {path}: {err}"));
+}
+
+#[test]
+fn rss_failure_is_linux_only_and_skip_is_not_a_runtime_fallback() {
+    let boom = Err("could not reset VmHWM".to_string());
+    assert_eq!(
+        classify_rss(false, boom.clone(), 1),
+        RssDisposition::Skip,
+        "a non-linux target skips even when the sample failed"
+    );
+    assert_eq!(
+        classify_rss(false, Ok(999), 1),
+        RssDisposition::Skip,
+        "a non-linux target skips even when a sample exists"
+    );
+    match classify_rss(true, boom, 1) {
+        RssDisposition::Fail { message } => assert!(
+            message.contains("reset"),
+            "linux reports the reset or read error: {message}"
+        ),
+        other => panic!("linux reset failure must FAIL, got {other:?}"),
+    }
+    match classify_rss(true, Ok(10), 5) {
+        RssDisposition::Fail { message } => {
+            assert!(message.contains("10"), "{message}");
+            assert!(message.contains("5"), "{message}");
+        }
+        other => panic!("over the limit must FAIL, got {other:?}"),
+    }
+    assert_eq!(
+        classify_rss(true, Ok(5), 5),
+        RssDisposition::Pass { kib: 5 }
+    );
+    assert_eq!(
+        classify_rss(true, Ok(4), 5),
+        RssDisposition::Pass { kib: 4 }
+    );
+}
+
+#[test]
+fn skip_count_matches_the_static_table() {
+    let mut report = FailureReport::default();
+    let demo = "premier-d2.dem";
+    close_demo(&mut report, demo, None, None);
+    let catalog = demo_check_catalog();
+    let applicable = catalog
+        .iter()
+        .filter(|check| check_applies(demo, check))
+        .count();
+    let logs: Vec<_> = report.logs.iter().filter(|row| row.demo == demo).collect();
+    let pass = logs
+        .iter()
+        .filter(|row| row.status == CheckStatus::Pass)
+        .count();
+    let fail = logs
+        .iter()
+        .filter(|row| row.status == CheckStatus::Fail)
+        .count();
+    let skip = logs
+        .iter()
+        .filter(|row| row.status == CheckStatus::Skip)
+        .count();
+    assert_eq!(pass + fail, applicable);
+    assert_eq!(skip, catalog.len() - applicable);
+    assert!(logs.iter().any(|row| {
+        row.check == "open-fire-783"
+            && row.status == CheckStatus::Skip
+            && row.detail == "not this demo"
+    }));
+    assert!(logs
+        .iter()
+        .any(|row| row.check == CHECK_SMOKE && row.status == CheckStatus::Fail));
+    if cfg!(target_os = "linux") {
+        assert!(logs
+            .iter()
+            .any(|row| row.check == CHECK_RSS && row.status == CheckStatus::Fail));
+        assert_eq!(skip, OPEN_FIRES.len());
+    } else {
+        assert!(logs.iter().any(|row| {
+            row.check == CHECK_RSS
+                && row.status == CheckStatus::Skip
+                && row.detail == "target_os is not linux"
+        }));
+    }
+}
+
+/// Writing `5` to `/proc/self/clear_refs` resets `VmHWM` to current `VmRSS`.
+/// Documented here because the real-demo limit uses that reset: without it the
+/// peak only grows and every later demo inherits the earlier max.
+#[test]
+#[cfg(target_os = "linux")]
+fn clear_refs_resets_vm_hwm() {
+    // Anonymous mmap, not the process allocator: mimalloc keeps freed heap
+    // pages resident, so `VmHWM` would not fall after `drop`.
+    const MAP_BYTES: usize = 64 * 1024 * 1024;
+    const PROT_READ_WRITE: i32 = 1 | 2;
+    const MAP_PRIVATE_ANONYMOUS: i32 = 0x02 | 0x20;
+    unsafe extern "C" {
+        fn mmap(addr: *mut u8, len: usize, prot: i32, flags: i32, fd: i32, offset: i64) -> *mut u8;
+        fn munmap(addr: *mut u8, len: usize) -> i32;
+    }
+    reset_peak_rss().unwrap_or_else(|err| panic!("{err}"));
+    let baseline = read_vm_hwm_kib().unwrap_or_else(|err| panic!("{err}"));
+    let ptr = unsafe {
+        mmap(
+            std::ptr::null_mut(),
+            MAP_BYTES,
+            PROT_READ_WRITE,
+            MAP_PRIVATE_ANONYMOUS,
+            -1,
+            0,
+        )
+    };
+    assert!(!ptr.is_null() && ptr != (-1isize as *mut u8), "mmap failed");
+    for offset in (0..MAP_BYTES).step_by(4096) {
+        unsafe {
+            std::ptr::write_volatile(ptr.add(offset), 1);
+        }
+    }
+    let high = read_vm_hwm_kib().unwrap_or_else(|err| panic!("{err}"));
+    assert!(
+        high > baseline + 32_000,
+        "touching 64 MiB should raise VmHWM: baseline={baseline} high={high}"
+    );
+    let unmapped = unsafe { munmap(ptr, MAP_BYTES) };
+    assert_eq!(unmapped, 0, "munmap failed");
+    reset_peak_rss().unwrap_or_else(|err| panic!("{err}"));
+    let low = read_vm_hwm_kib().unwrap_or_else(|err| panic!("{err}"));
+    assert!(
+        low + 32_000 < high,
+        "VmHWM should drop after clear_refs once the mapping is gone: high={high} low={low}"
+    );
 }
