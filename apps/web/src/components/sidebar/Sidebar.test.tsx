@@ -10,12 +10,15 @@ import { UserSettingsProvider } from "@/lib/settings/useUserSettings";
 import { clearUserSettingsForTests, saveUserSettings } from "@/lib/settings/userSettingsStore";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { playerIdentityKey } from "@/lib/parse/seriesRoster";
+import { UNRATED_RATING } from "@/lib/stats/format";
+import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import {
   makeFreezeTicks,
   makeKill,
   makePlayer,
   makeReplay,
   makeRound,
+  makeTicks,
 } from "@/lib/testing/fixtures";
 import { Sidebar } from "./Sidebar";
 
@@ -56,18 +59,20 @@ function sidebarAppState({
   replay = sidebarReplay(),
   selected = null,
   onSelect = vi.fn(),
+  tick = 640,
   session = {},
   habits = {},
 }: {
   replay?: ReturnType<typeof sidebarReplay>;
   selected?: number | null;
   onSelect?: (index: number | null) => void;
+  tick?: number;
   session?: Record<string, unknown>;
   habits?: Record<string, unknown>;
 } = {}) {
   return {
     session: { series: null, replay, fileName: "match.dem", ...session },
-    playback: { tick: 640, jump: vi.fn(), activeRound: null },
+    playback: { tick, jump: vi.fn(), activeRound: null },
     review: { notes: [], commitNotes: vi.fn(), floorMode: "auto" },
     view: { selected, select: onSelect, setFollow: vi.fn() },
     places: null,
@@ -177,6 +182,29 @@ describe("Sidebar", () => {
     mockSidebar({ selected: 0 });
     render(<Sidebar />);
     expect(screen.getByText(/rating through this tick/)).toBeInTheDocument();
+  });
+
+  it("shows an em dash in the rating hint while the playhead is in the knife round", () => {
+    const ticks = makeTicks(1, 1);
+    ticks.ticks[0] = 64;
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "Alice")],
+      rounds: [
+        makeRound({
+          number: 0,
+          is_knife: true,
+          winner: "CT",
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 200,
+        }),
+      ],
+      ticks,
+    });
+    mockSidebar({ replay, selected: 0, tick: 64 });
+    render(<Sidebar />);
+    expect(screen.getByText(`${UNRATED_RATING} rating through this tick`)).toBeInTheDocument();
   });
 
   it("shows series bucket content in aggregated action view", async () => {

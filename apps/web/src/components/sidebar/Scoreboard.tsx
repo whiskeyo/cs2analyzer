@@ -76,7 +76,7 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
               <td>{formatAdr(s.adr)}</td>
               <td>{formatKast(s.kast)}</td>
               <td>
-                <RatingValue value={s.rating} />
+                <RatingValue value={s.rating} rounds={s.rounds} />
               </td>
               <td className="sb-entry">
                 <span className="entry-main">
@@ -120,7 +120,7 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
             </dd>
             <dt>Rating</dt>
             <dd>
-              <RatingValue value={sel.rating} />
+              <RatingValue value={sel.rating} rounds={sel.rounds} />
             </dd>
             <dt>Firepower / Impact / Support / Clutch</dt>
             <dd>

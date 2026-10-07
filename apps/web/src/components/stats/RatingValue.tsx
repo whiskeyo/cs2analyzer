@@ -1,9 +1,13 @@
+import { formatRating, UNRATED_RATING } from "@/lib/stats/format";
 import { ratingBandClass, ratingRangeFor } from "@/lib/stats/rating";
 
-export function RatingValue({ value }: { value: number }) {
+export function RatingValue({ value, rounds }: { value: number; rounds?: number }) {
+  if (rounds === 0) {
+    return <span className="rating-unrated">{UNRATED_RATING}</span>;
+  }
   return (
     <span className={ratingBandClass(value)} title={ratingRangeFor(value).label}>
-      {value.toFixed(2)}
+      {formatRating(value, rounds)}
     </span>
   );
 }

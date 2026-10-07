@@ -13,7 +13,13 @@ import { Economy } from "./Economy";
 import { RoundList } from "./RoundList";
 import { Scoreboard } from "./Scoreboard";
 import { usePanelResize } from "@/lib/shared/usePanelResize";
-import { computeStats, matchEndTick, weaponBreakdown } from "@/lib/stats/stats";
+import {
+  computeStats,
+  formatRating,
+  matchEndTick,
+  UNRATED_RATING,
+  weaponBreakdown,
+} from "@/lib/stats/stats";
 import { weaponHeadshotLabel } from "@/lib/weapons/weapons";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { Utility } from "./Utility";
@@ -306,9 +312,7 @@ function RatingHint({
   selected: number;
 }) {
   const stats = computeStats(replay, tick);
-  return (
-    <p className="muted tab-hint">
-      {stats.find((s) => s.player === selected)?.rating.toFixed(2)} rating through this tick
-    </p>
-  );
+  const row = stats.find((s) => s.player === selected);
+  const rating = row ? formatRating(row.rating, row.rounds) : UNRATED_RATING;
+  return <p className="muted tab-hint">{rating} rating through this tick</p>;
 }
