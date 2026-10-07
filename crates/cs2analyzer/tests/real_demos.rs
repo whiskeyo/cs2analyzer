@@ -9,6 +9,9 @@
 //! from a test-only observer on that same parse. The `Match` does not store
 //! those events, and the observer does not feed the pairing logic. The output
 //! hash, its RSS sample, and `UPDATE_HASHES` use that same `Match`.
+//! A missing or unparsable hash file is `<demo> :: hashes :: ...` for that
+//! demo; the walk does not panic inside the loop. `HASH_DEMOS` narrows only
+//! that check, and is rejected when `CI` is set.
 //!
 //! A failed check is a line `<demo> :: <check> :: <message>`. The walk keeps
 //! going and panics at the end with every line.
@@ -54,7 +57,7 @@ const CHECK_ROUND_COUNTS: &str = "round-counts";
 const CHECK_MOLOTOV: &str = "molotov-burn-window";
 const CHECK_SMOKE: &str = "smoke-end";
 const CHECK_DEMO_END: &str = "demo-end-smoke";
-const CHECK_OUTPUT_HASH: &str = "output-hash";
+const CHECK_HASHES: &str = "hashes";
 const CHECK_PARSE_PASSES: &str = "parse-passes";
 const CHECK_PARSE: &str = "parse";
 const CHECK_READ: &str = "read";
@@ -289,7 +292,7 @@ const DEMO_END_SMOKES: &[DemoEndSmoke] = &[
 fn expected_check_count(name: &str) -> usize {
     let fires = OPEN_FIRES.iter().filter(|fire| fire.demo == name).count();
     let rss = usize::from(cfg!(target_os = "linux"));
-    // round-counts, molotov-burn-window, smoke-end, demo-end-smoke, output-hash
+    // round-counts, molotov-burn-window, smoke-end, demo-end-smoke, hashes
     5 + fires + rss
 }
 
@@ -308,7 +311,7 @@ fn demo_check_catalog() -> Vec<String> {
     }
     names.push(CHECK_SMOKE.to_string());
     names.push(CHECK_DEMO_END.to_string());
-    names.push(CHECK_OUTPUT_HASH.to_string());
+    names.push(CHECK_HASHES.to_string());
     names
 }
 
@@ -325,8 +328,62 @@ fn check_applies(demo: &str, check: &str) -> bool {
     }
     matches!(
         check,
-        CHECK_ROUND_COUNTS | CHECK_MOLOTOV | CHECK_SMOKE | CHECK_DEMO_END | CHECK_OUTPUT_HASH
+        CHECK_ROUND_COUNTS | CHECK_MOLOTOV | CHECK_SMOKE | CHECK_DEMO_END | CHECK_HASHES
     )
+}
+
+/// `HASH_DEMOS` may drop the hash check for a demo. Every other check stays.
+fn check_applies_for_run(demo: &str, check: &str, hash_selected: bool) -> bool {
+    if check == CHECK_HASHES && !hash_selected {
+        return false;
+    }
+    check_applies(demo, check)
+}
+
+/// `None` hashes every demo. `CI` plus `HASH_DEMOS` is rejected so a CI run
+/// cannot drop the hash check. Blank and unknown names are also rejected.
+/// This does not filter [`common::require_demo_files`].
+fn resolve_hash_demos(
+    ci: bool,
+    raw: Option<&str>,
+    manifest: &[String],
+) -> Result<Option<Vec<String>>, String> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    if ci {
+        return Err(
+            "HASH_DEMOS is set but CI is set; the hash check must cover every demo".to_string(),
+        );
+    }
+    let names: Vec<String> = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .collect();
+    if names.is_empty() {
+        return Err("HASH_DEMOS is set but names no demos".to_string());
+    }
+    let unknown: Vec<&str> = names
+        .iter()
+        .filter(|name| !manifest.iter().any(|demo| demo == *name))
+        .map(String::as_str)
+        .collect();
+    if !unknown.is_empty() {
+        return Err(format!(
+            "HASH_DEMOS not in test-demos/manifest.json: {}",
+            unknown.join(", ")
+        ));
+    }
+    Ok(Some(names))
+}
+
+fn hash_check_selected(name: &str, selected: Option<&[String]>) -> bool {
+    match selected {
+        None => true,
+        Some(names) => names.iter().any(|demo| demo == name),
+    }
 }
 
 fn demo_check_names(demo: &str) -> Vec<String> {
@@ -533,14 +590,17 @@ where
     value
 }
 
-fn record_missing_demo(report: &mut FailureReport, demo: &str) {
-    for check_name in demo_check_names(demo) {
+fn record_missing_demo(report: &mut FailureReport, demo: &str, hash_selected: bool) {
+    for check_name in demo_check_catalog() {
+        if !check_applies_for_run(demo, &check_name, hash_selected) {
+            continue;
+        }
         report.run(demo, &check_name, |check| {
             check.set_detail(MISSING_DEMO.to_string());
             check.fail(MISSING_DEMO);
         });
     }
-    close_demo(report, demo, None, None);
+    close_demo(report, demo, None, None, hash_selected);
 }
 
 struct ParsedDemo {
@@ -556,10 +616,44 @@ struct SmokeRollup {
     ended_at_demo_end: Vec<(String, u32, u32)>,
 }
 
+enum HashLoad {
+    /// `UPDATE_HASHES=1`: record hashes, do not read the file.
+    Updating,
+    /// Combined `output-hashes.json`, or the error from reading it.
+    /// A per-demo file uses [`output_hash::read_demo_hash_file`] inside the check.
+    Combined(Result<output_hash::OutputHashes, String>),
+    /// One `test-demos/output-hashes/<demo>.json` per demo.
+    PerDemo(std::path::PathBuf),
+}
+
 struct OutputHashCheck<'a> {
     recorded: &'a mut Vec<output_hash::DemoHash>,
-    expected: Option<&'a output_hash::OutputHashes>,
+    load: &'a HashLoad,
+    /// False when `HASH_DEMOS` names other demos. Other checks still run.
+    selected: bool,
     rss_kib: Option<u64>,
+}
+
+fn stored_hash(load: &HashLoad, name: &str) -> Result<Option<output_hash::DemoHash>, String> {
+    match load {
+        HashLoad::Updating => Ok(None),
+        HashLoad::Combined(Err(message)) => Err(message.clone()),
+        HashLoad::Combined(Ok(all)) => all
+            .demos
+            .iter()
+            .find(|demo| demo.name == name)
+            .cloned()
+            .map(Some)
+            .ok_or_else(|| {
+                format!(
+                    "missing hash for {name} in {}",
+                    output_hash::hashes_path().display()
+                )
+            }),
+        HashLoad::PerDemo(dir) => {
+            output_hash::read_demo_hash_file(&dir.join(format!("{name}.json"))).map(Some)
+        }
+    }
 }
 
 /// One ignored test. Each file is read, parsed, checked, and dropped before
@@ -568,11 +662,21 @@ struct OutputHashCheck<'a> {
 #[ignore = "needs ./scripts/run.sh --fetch-demos"]
 fn parses_each_release_demo_once() {
     let demos = common::require_demo_files();
+    let manifest: Vec<String> = demos
+        .iter()
+        .map(|path| output_hash::demo_name(path))
+        .collect();
+    let hash_demos = resolve_hash_demos(
+        std::env::var_os("CI").is_some(),
+        std::env::var("HASH_DEMOS").ok().as_deref(),
+        &manifest,
+    )
+    .unwrap_or_else(|err| panic!("{err}"));
     let update_hashes = std::env::var("UPDATE_HASHES").ok().as_deref() == Some("1");
-    let expected_hashes = if update_hashes {
-        None
+    let hash_load = if update_hashes {
+        HashLoad::Updating
     } else {
-        Some(output_hash::read_hashes(&output_hash::hashes_path()))
+        HashLoad::Combined(output_hash::read_hashes(&output_hash::hashes_path()))
     };
     let mut recorded = Vec::new();
     let mut reads = 0usize;
@@ -587,7 +691,13 @@ fn parses_each_release_demo_once() {
             Ok(bytes) => bytes,
             Err(err) => {
                 report.fail(&name, CHECK_READ, format!("could not read {name}: {err}"));
-                close_demo(&mut report, &name, None, None);
+                close_demo(
+                    &mut report,
+                    &name,
+                    None,
+                    None,
+                    hash_check_selected(&name, hash_demos.as_deref()),
+                );
                 continue;
             }
         };
@@ -599,6 +709,7 @@ fn parses_each_release_demo_once() {
             None
         };
         reads += 1;
+        let hash_selected = hash_check_selected(&name, hash_demos.as_deref());
         let mut header_ms = None;
         let mut header_rss = None;
         let held = visit_demo(
@@ -631,7 +742,8 @@ fn parses_each_release_demo_once() {
                 }
                 let mut hash_check = OutputHashCheck {
                     recorded: &mut recorded,
-                    expected: expected_hashes.as_ref(),
+                    load: &hash_load,
+                    selected: hash_selected,
                     rss_kib: header_rss,
                 };
                 run_demo_checks(
@@ -649,21 +761,18 @@ fn parses_each_release_demo_once() {
         );
         drop(held);
         drop(bytes);
-        close_demo(&mut report, &name, header_ms, header_rss);
+        close_demo(&mut report, &name, header_ms, header_rss, hash_selected);
     }
     for row in DEMO_EXPECTATIONS {
         if !seen.contains(row.name) {
-            record_missing_demo(&mut report, row.name);
+            record_missing_demo(
+                &mut report,
+                row.name,
+                hash_check_selected(row.name, hash_demos.as_deref()),
+            );
         }
     }
-    run_global_checks(
-        &mut report,
-        &rollup,
-        expected_hashes.as_ref(),
-        &recorded,
-        &seen,
-        reads,
-    );
+    run_global_checks(&mut report, &rollup, &hash_load, &recorded, &seen, reads);
     if update_hashes && report.lines.is_empty() {
         let path = output_hash::hashes_path();
         output_hash::write_hashes(&path, &output_hash::OutputHashes { demos: recorded });
@@ -709,9 +818,11 @@ fn run_demo_checks(
     report.run(name, CHECK_DEMO_END, |check| {
         check_demo_end_smoke(check, name, rollup);
     });
-    report.run(name, CHECK_OUTPUT_HASH, |check| {
-        check_output_hash(check, name, parsed, hashes);
-    });
+    if hashes.selected {
+        report.run(name, CHECK_HASHES, |check| {
+            check_output_hash(check, name, parsed, hashes);
+        });
+    }
 }
 
 fn check_output_hash(
@@ -721,22 +832,22 @@ fn check_output_hash(
     hashes: &mut OutputHashCheck<'_>,
 ) {
     let row = output_hash::log_parsed_demo(name, parsed, hashes.rss_kib);
-    check.set_detail(format!("sha256={} (expected match)", row.sha256));
-    if let Some(expected) = hashes.expected {
-        let actual = output_hash::OutputHashes {
-            demos: vec![row.clone()],
-        };
-        let only = output_hash::OutputHashes {
-            demos: expected
-                .demos
-                .iter()
-                .filter(|demo| demo.name == name)
-                .cloned()
-                .collect(),
-        };
-        let report = output_hash::diff_report(&only, &actual);
-        if !report.is_empty() {
-            check.fail(report);
+    let stored = stored_hash(hashes.load, name);
+    match stored {
+        Err(message) => check.fail(message),
+        Ok(None) => check.set_detail(format!("sha256={} (will write)", row.sha256)),
+        Ok(Some(expected)) => {
+            check.set_detail(format!("sha256={} (expected match)", row.sha256));
+            let actual = output_hash::OutputHashes {
+                demos: vec![row.clone()],
+            };
+            let only = output_hash::OutputHashes {
+                demos: vec![expected],
+            };
+            let report = output_hash::diff_report(&only, &actual);
+            if !report.is_empty() {
+                check.fail(report);
+            }
         }
     }
     hashes.recorded.push(row);
@@ -1111,7 +1222,7 @@ fn check_demo_end_smoke(check: &mut AssertSink, name: &str, rollup: &SmokeRollup
 fn run_global_checks(
     report: &mut FailureReport,
     rollup: &SmokeRollup,
-    expected_hashes: Option<&output_hash::OutputHashes>,
+    hash_load: &HashLoad,
     recorded: &[output_hash::DemoHash],
     seen: &BTreeSet<String>,
     reads: usize,
@@ -1175,31 +1286,39 @@ fn run_global_checks(
             ));
         }
     });
-    report.run(
-        ALL_DEMOS,
-        "output-hash-roster",
-        |check| match expected_hashes {
-            Some(expected) => {
-                for demo in &expected.demos {
-                    if !recorded.iter().any(|row| row.name == demo.name) {
-                        check.fail(format!(
-                            "{}: in output-hashes.json but not parsed",
-                            demo.name
-                        ));
-                    }
+    report.run(ALL_DEMOS, "output-hash-roster", |check| match hash_load {
+        HashLoad::Combined(Ok(expected)) => {
+            for demo in &expected.demos {
+                if !recorded.iter().any(|row| row.name == demo.name) {
+                    check.fail(format!(
+                        "{}: in output-hashes.json but not parsed",
+                        demo.name
+                    ));
                 }
             }
-            None => {
-                for name in seen {
-                    if !recorded.iter().any(|row| row.name == *name) {
-                        check.fail(format!(
-                            "{name}: not hashed, so UPDATE_HASHES will not write"
-                        ));
-                    }
+            check.set_detail(format!(
+                "recorded={} expected={}",
+                recorded.len(),
+                expected.demos.len()
+            ));
+        }
+        HashLoad::Updating => {
+            for name in seen {
+                if !recorded.iter().any(|row| row.name == *name) {
+                    check.fail(format!(
+                        "{name}: not hashed, so UPDATE_HASHES will not write"
+                    ));
                 }
             }
-        },
-    );
+            check.set_detail(format!("recorded={}", recorded.len()));
+        }
+        HashLoad::Combined(Err(message)) => {
+            check.set_detail(format!("hash file unreadable: {message}"));
+        }
+        HashLoad::PerDemo(dir) => {
+            check.set_detail(format!("per-demo hash files in {}", dir.display()));
+        }
+    });
     report.run(ALL_DEMOS, CHECK_PARSE_PASSES, |check| {
         let passes = full_parse_passes();
         let per_demo = if reads == 0 {
@@ -1467,7 +1586,7 @@ fn parse_failure_is_reported_and_the_next_demo_still_runs() {
 fn missing_demo_fails_every_named_check() {
     let mut report = FailureReport::default();
     let demo = "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem";
-    record_missing_demo(&mut report, demo);
+    record_missing_demo(&mut report, demo, true);
     let names = demo_check_names(demo);
     assert!(
         names.iter().any(|name| name == "open-fire-783"),
@@ -1677,6 +1796,7 @@ fn close_demo(
     demo: &str,
     parse_ms: Option<u128>,
     rss_kib: Option<u64>,
+    hash_selected: bool,
 ) {
     let catalog = demo_check_catalog();
     for check in &catalog {
@@ -1687,7 +1807,7 @@ fn close_demo(
         {
             continue;
         }
-        if check_applies(demo, check) {
+        if check_applies_for_run(demo, check, hash_selected) {
             let message = "check did not run";
             report.fail(demo, check, message);
             report.logs.push(CheckLog {
@@ -1700,6 +1820,8 @@ fn close_demo(
         } else {
             let reason = if check == CHECK_RSS {
                 "target_os is not linux"
+            } else if check == CHECK_HASHES {
+                "not selected by HASH_DEMOS"
             } else {
                 "not this demo"
             };
@@ -1709,7 +1831,7 @@ fn close_demo(
     let tally = tally(report, demo);
     let applicable = catalog
         .iter()
-        .filter(|check| check_applies(demo, check))
+        .filter(|check| check_applies_for_run(demo, check, hash_selected))
         .count();
     let non_applicable = catalog.len() - applicable;
     if tally.pass + tally.fail != applicable || tally.skip != non_applicable {
@@ -1858,6 +1980,180 @@ fn append_step_summary(markdown: &str) {
 }
 
 #[test]
+fn hash_file_errors_fail_that_demo_and_the_loop_continues() {
+    let dir = std::env::temp_dir().join(format!("cs2-hash-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap_or_else(|err| panic!("could not create temp dir: {err}"));
+    let missing = output_hash::read_demo_hash_file(&dir.join("premier-d2.dem.json"));
+    let missing = match missing {
+        Err(message) => message,
+        Ok(_) => panic!("a missing hash file must be an error, not a parsed hash"),
+    };
+    assert!(
+        missing.contains("premier-d2.dem.json"),
+        "missing-file message names the demo: {missing}"
+    );
+    let corrupt_path = dir.join("legacy-vs-spirit-m2-ancient.dem.json");
+    std::fs::write(&corrupt_path, b"{not json")
+        .unwrap_or_else(|err| panic!("could not write corrupt hash: {err}"));
+    let corrupt = output_hash::read_demo_hash_file(&corrupt_path);
+    let corrupt = match corrupt {
+        Err(message) => message,
+        Ok(_) => panic!("corrupt JSON must be an error, not a parsed hash"),
+    };
+    assert!(
+        corrupt.contains("could not parse"),
+        "unparsable file message: {corrupt}"
+    );
+
+    let mut report = FailureReport::default();
+    let loads: [(&str, Result<(), String>); 2] = [
+        ("premier-d2.dem", Err(missing)),
+        ("legacy-vs-spirit-m2-ancient.dem", Err(corrupt)),
+    ];
+    for (demo, stored) in loads {
+        report.run(demo, CHECK_HASHES, |check| {
+            if let Err(message) = stored {
+                check.fail(message);
+            }
+        });
+        report.run(demo, CHECK_ROUND_COUNTS, |check| {
+            check.set_detail("ran");
+        });
+    }
+    assert_eq!(report.lines.len(), 2, "{:?}", report.lines);
+    assert!(
+        report.lines[0].starts_with("premier-d2.dem :: hashes :: "),
+        "{}",
+        report.lines[0]
+    );
+    assert!(
+        report.lines[1].starts_with("legacy-vs-spirit-m2-ancient.dem :: hashes :: "),
+        "{}",
+        report.lines[1]
+    );
+    assert_eq!(report.executed("premier-d2.dem"), 2);
+    assert_eq!(report.executed("legacy-vs-spirit-m2-ancient.dem"), 2);
+    assert!(report.logs.iter().any(|row| {
+        row.demo == "legacy-vs-spirit-m2-ancient.dem"
+            && row.check == CHECK_ROUND_COUNTS
+            && row.status == CheckStatus::Pass
+    }));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn per_demo_hash_file_round_trip_and_combined_file_errors_do_not_panic() {
+    let dir = std::env::temp_dir().join(format!("cs2-hash-round-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap_or_else(|err| panic!("could not create temp dir: {err}"));
+    let sections = serde_json::from_str::<output_hash::SectionHashes>(
+        r#"{
+            "events":"e","header":"h","players":"p","rounds":"r","grenades":"g",
+            "shots":"s","kills":"k","hurts":"hu","blinds":"b","bomb_events":"be",
+            "buy_events":"bu","controller_dump":"c","player_count":"pc","frame_count":"f",
+            "ticks":"t","x":"x","y":"y","z":"z","yaw":"ya","health":"he","armor":"a",
+            "flags":"fl","money":"m","equip":"eq","gear":"ge","primary":"pr",
+            "secondary":"se","active":"ac","clip":"cl","reserve":"re"
+        }"#,
+    )
+    .unwrap_or_else(|err| panic!("sample sections: {err}"));
+    let demo = output_hash::DemoHash {
+        name: "premier-d2.dem".to_string(),
+        sha256: "abc".to_string(),
+        sections,
+    };
+    let path = dir.join("premier-d2.dem.json");
+    output_hash::write_hashes(
+        &dir.join("output-hashes.json"),
+        &output_hash::OutputHashes {
+            demos: vec![demo.clone()],
+        },
+    );
+    let text = serde_json::to_string_pretty(&demo)
+        .unwrap_or_else(|err| panic!("could not encode sample hash: {err}"));
+    std::fs::write(&path, text).unwrap_or_else(|err| panic!("could not write sample hash: {err}"));
+    let loaded = output_hash::read_demo_hash_file(&path)
+        .unwrap_or_else(|err| panic!("readable hash file must not fail: {err}"));
+    assert_eq!(loaded.name, "premier-d2.dem");
+    let combined = output_hash::read_hashes(&dir.join("output-hashes.json"))
+        .unwrap_or_else(|err| panic!("readable combined file must not fail: {err}"));
+    assert_eq!(combined.demos.len(), 1);
+    let missing = output_hash::read_hashes(&dir.join("nope.json"));
+    assert!(missing.is_err(), "a missing combined file is an error");
+    std::fs::write(dir.join("bad.json"), b"[]")
+        .unwrap_or_else(|err| panic!("could not write bad hash: {err}"));
+    let bad = output_hash::read_hashes(&dir.join("bad.json"));
+    assert!(bad.is_err(), "unparsable combined JSON is an error");
+    let per_demo = stored_hash(&HashLoad::PerDemo(dir.clone()), "premier-d2.dem")
+        .unwrap_or_else(|err| panic!("per-demo load: {err}"));
+    assert!(per_demo.is_some());
+    let gone = stored_hash(&HashLoad::PerDemo(dir.clone()), "missing.dem");
+    let gone = match gone {
+        Err(message) => message,
+        Ok(_) => panic!("missing per-demo file must fail the hash check"),
+    };
+    assert!(gone.contains("missing.dem.json"), "{gone}");
+    let mut report = FailureReport::default();
+    let load = HashLoad::PerDemo(dir.clone());
+    report.run("missing.dem", CHECK_HASHES, |check| {
+        if let Err(message) = stored_hash(&load, "missing.dem") {
+            check.fail(message);
+        }
+    });
+    report.run("premier-d2.dem", CHECK_ROUND_COUNTS, |check| {
+        check.set_detail("ran");
+    });
+    assert_eq!(
+        report.lines,
+        vec![format!("missing.dem :: hashes :: {gone}")]
+    );
+    assert_eq!(report.executed("premier-d2.dem"), 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn hash_demos_narrows_only_the_hash_check_and_ci_rejects_it() {
+    let manifest: Vec<String> = DEMO_EXPECTATIONS
+        .iter()
+        .map(|row| row.name.to_string())
+        .collect();
+    let rejected = resolve_hash_demos(true, Some("premier-d2.dem"), &manifest);
+    let rejected = match rejected {
+        Err(message) => message,
+        Ok(_) => panic!("HASH_DEMOS under CI must be rejected"),
+    };
+    assert!(rejected.contains("CI"), "{rejected}");
+    assert!(rejected.contains("HASH_DEMOS"), "{rejected}");
+    let blank = resolve_hash_demos(false, Some(" , "), &manifest);
+    assert!(blank.is_err(), "blank HASH_DEMOS must be rejected");
+    let unknown = resolve_hash_demos(false, Some("nope.dem"), &manifest);
+    let unknown = match unknown {
+        Err(message) => message,
+        Ok(_) => panic!("unknown HASH_DEMOS names must be rejected"),
+    };
+    assert!(
+        unknown.contains("nope.dem"),
+        "unknown name stays in the message: {unknown}"
+    );
+    assert!(resolve_hash_demos(false, None, &manifest)
+        .unwrap_or_else(|err| panic!("{err}"))
+        .is_none());
+    let selected = resolve_hash_demos(false, Some("premier-d2.dem"), &manifest)
+        .unwrap_or_else(|err| panic!("{err}"));
+    let excluded = "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem";
+    assert!(!hash_check_selected(excluded, selected.as_deref()));
+    assert!(hash_check_selected("premier-d2.dem", selected.as_deref()));
+    assert!(!check_applies_for_run(excluded, CHECK_HASHES, false));
+    assert!(check_applies_for_run(excluded, CHECK_ROUND_COUNTS, false));
+    assert!(check_applies_for_run(excluded, CHECK_SMOKE, false));
+    assert!(check_applies_for_run(excluded, CHECK_MOLOTOV, false));
+    assert!(check_applies_for_run(excluded, CHECK_DEMO_END, false));
+    assert!(check_applies_for_run(excluded, "open-fire-783", false));
+    assert!(check_applies_for_run("premier-d2.dem", CHECK_HASHES, true));
+}
+
+#[test]
 fn rss_failure_is_linux_only_and_skip_is_not_a_runtime_fallback() {
     let boom = Err("could not reset VmHWM".to_string());
     assert_eq!(
@@ -1898,7 +2194,7 @@ fn rss_failure_is_linux_only_and_skip_is_not_a_runtime_fallback() {
 fn skip_count_matches_the_static_table() {
     let mut report = FailureReport::default();
     let demo = "premier-d2.dem";
-    close_demo(&mut report, demo, None, None);
+    close_demo(&mut report, demo, None, None, true);
     let catalog = demo_check_catalog();
     let applicable = catalog
         .iter()

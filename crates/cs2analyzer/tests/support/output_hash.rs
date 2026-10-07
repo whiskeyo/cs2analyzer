@@ -455,15 +455,26 @@ pub fn write_hashes(path: &std::path::Path, hashes: &OutputHashes) {
         .unwrap_or_else(|err| panic!("could not write {}: {err}", path.display()));
 }
 
-pub fn read_hashes(path: &std::path::Path) -> OutputHashes {
-    let text = std::fs::read_to_string(path).unwrap_or_else(|err| {
-        panic!(
+/// Read the combined hash file. Missing or unparsable input is `Err`.
+/// The real-demo loop turns that into `<demo> :: hashes :: ...` and continues.
+pub fn read_hashes(path: &std::path::Path) -> Result<OutputHashes, String> {
+    let text = std::fs::read_to_string(path).map_err(|err| {
+        format!(
             "could not read {} ({err}); set UPDATE_HASHES=1 to create it",
             path.display()
-        );
-    });
-    serde_json::from_str(&text)
-        .unwrap_or_else(|err| panic!("could not parse {}: {err}", path.display()))
+        )
+    })?;
+    serde_json::from_str(&text).map_err(|err| format!("could not parse {}: {err}", path.display()))
+}
+
+/// Read one `test-demos/output-hashes/<demo>.json`.
+///
+/// A missing, unreadable, or unparsable file is `Err` with the path in the
+/// message. Callers record that string and keep walking the other demos.
+pub fn read_demo_hash_file(path: &std::path::Path) -> Result<DemoHash, String> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|err| format!("missing hash file {} ({err})", path.display()))?;
+    serde_json::from_str(&text).map_err(|err| format!("could not parse {}: {err}", path.display()))
 }
 
 /// Hash one parsed demo. The real-demo log prints the sha256 on the `output-hash` line.

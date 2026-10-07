@@ -57,6 +57,8 @@ pub fn demos_unavailable_message(dir: &Path, running_ignored: bool) -> String {
 ///
 /// A missing or empty download directory fails a `--ignored` run. Plain
 /// `cargo test` skips these tests via `#[ignore]` before this is called.
+/// `HASH_DEMOS` is not read here: it may narrow only the hash check, and the
+/// real-demo walk rejects it when `CI` is set.
 pub fn require_demo_files() -> Vec<PathBuf> {
     let root = repo_root();
     let dir = root.join("test-demos/files");
