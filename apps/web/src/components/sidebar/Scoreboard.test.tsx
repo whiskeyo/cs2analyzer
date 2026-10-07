@@ -238,7 +238,7 @@ describe("Scoreboard", () => {
     expect(detailMark).toHaveTextContent(formatted);
   });
 
-  it("shows an em dash for rating in the knife round and a number once round 1 starts", () => {
+  it("shows an em dash for rating and its sub-scores in the knife round, then numbers once round 1 starts", () => {
     const ticks = makeTicks(2, 2);
     ticks.ticks[0] = 64;
     ticks.ticks[1] = 400;
@@ -280,6 +280,9 @@ describe("Scoreboard", () => {
     const during = computeStats(match, 64).find((s) => s.player === 0);
     expect(during?.rounds).toBe(0);
     expect(screen.queryByText(during?.rating.toFixed(2) ?? "")).not.toBeInTheDocument();
+    const pillarLabel = screen.getByText("Firepower / Impact / Support / Clutch");
+    const unratedPillars = `${UNRATED_RATING} / ${UNRATED_RATING} / ${UNRATED_RATING} / ${UNRATED_RATING}`;
+    expect(pillarLabel.nextElementSibling).toHaveTextContent(unratedPillars);
 
     rerender(<Scoreboard replay={match} tick={400} selected={0} onSelect={() => {}} />);
     expect(
@@ -293,5 +296,18 @@ describe("Scoreboard", () => {
     expect(within(row as HTMLElement).getByText(formatted)).toBeInTheDocument();
     const detail = screen.getByRole("heading", { name: "Alice" }).closest(".detail");
     expect(within(detail as HTMLElement).getByText(formatted)).toBeInTheDocument();
+    if (!alice) throw new Error("missing Alice stats");
+    const ratedPillars = [
+      alice.rating_firepower,
+      alice.rating_impact,
+      alice.rating_support,
+      alice.rating_clutch,
+    ]
+      .map((value) => value.toFixed(2))
+      .join(" / ");
+    expect(
+      screen.getByText("Firepower / Impact / Support / Clutch").nextElementSibling,
+    ).toHaveTextContent(ratedPillars);
+    expect(ratedPillars).not.toContain(UNRATED_RATING);
   });
 });

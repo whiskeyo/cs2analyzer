@@ -4,6 +4,7 @@ import {
   currentSide,
   formatAdr,
   formatKast,
+  formatRating,
   liveScoreboardPlayers,
   liveTeams,
   teamEntryShare,
@@ -124,8 +125,10 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
             </dd>
             <dt>Firepower / Impact / Support / Clutch</dt>
             <dd>
-              {sel.rating_firepower.toFixed(2)} / {sel.rating_impact.toFixed(2)} /{" "}
-              {sel.rating_support.toFixed(2)} / {sel.rating_clutch.toFixed(2)}
+              {formatRating(sel.rating_firepower, sel.rounds)} /{" "}
+              {formatRating(sel.rating_impact, sel.rounds)} /{" "}
+              {formatRating(sel.rating_support, sel.rounds)} /{" "}
+              {formatRating(sel.rating_clutch, sel.rounds)}
             </dd>
             <dt>Kills / round · Deaths / round</dt>
             <dd>
