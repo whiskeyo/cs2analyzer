@@ -17,6 +17,9 @@ pub use error::ParseError;
 pub use radar::{calibration, MapCalibration, VerticalSection, MAPS};
 pub use types::*;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use observer::Collector;
 use source2_demo::prelude::*;
 
@@ -49,6 +52,44 @@ pub fn parse_demo_with_progress(
     opts: ParseOptions,
     progress: Option<Box<dyn FnMut(u32, u32)>>,
 ) -> Result<Match, ParseError> {
+    let (mut parser, handle) = prepare_parser(bytes, opts, progress)?;
+    parser
+        .run_to_end()
+        .map_err(|e| ParseError::Demo(e.to_string()))?;
+    Ok(assemble_match(&parser, &handle))
+}
+
+/// Parse a demo and return a read-only observer that ran after [`Collector`].
+///
+/// Integration tests are not `cfg(test)` for this crate, so the hook is also
+/// gated on the `test-hooks` feature (a default feature; WASM and the CLI turn
+/// default features off). Registering the extra observer does not change the
+/// `Match`: [`Collector`] is still first and already uses every interest.
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn parse_demo_with_test_observer<O>(
+    bytes: &[u8],
+    opts: ParseOptions,
+    observer: O,
+) -> Result<(Match, O), ParseError>
+where
+    O: Observer + Clone + 'static,
+{
+    let (mut parser, handle) = prepare_parser(bytes, opts, None)?;
+    let extra = parser.add_observer(observer);
+    parser
+        .run_to_end()
+        .map_err(|e| ParseError::Demo(e.to_string()))?;
+    let parsed = assemble_match(&parser, &handle);
+    let observed = extra.borrow().clone();
+    Ok((parsed, observed))
+}
+
+fn prepare_parser<'a>(
+    bytes: &'a [u8],
+    opts: ParseOptions,
+    progress: Option<Box<dyn FnMut(u32, u32)>>,
+) -> Result<(Parser<'a>, Rc<RefCell<Collector>>), ParseError> {
     let opts = ParseOptions {
         tick_stride: opts.tick_stride.max(1),
         skip_warmup: opts.skip_warmup,
@@ -59,17 +100,14 @@ pub fn parse_demo_with_progress(
     let total = parser.replay_info().playback_ticks().max(0) as u32;
     collector.total_ticks = total;
     let handle = parser.add_observer(collector);
-    parser
-        .run_to_end()
-        .map_err(|e| ParseError::Demo(e.to_string()))?;
+    Ok((parser, handle))
+}
+
+fn assemble_match(parser: &Parser, handle: &Rc<RefCell<Collector>>) -> Match {
     let playback_ticks = parser.replay_info().playback_ticks();
     let playback_time = parser.replay_info().playback_time();
     let mut collector = handle.borrow_mut();
-    Ok(assemble::assemble(
-        &mut collector,
-        playback_ticks,
-        playback_time,
-    ))
+    assemble::assemble(&mut collector, playback_ticks, playback_time)
 }
 
 /// Bit in [`TickBuffer::flags`]: player has a pawn this frame.

@@ -10,7 +10,7 @@ name = "cs2analyzer"
 path = "src/main.rs"
 
 [dependencies]
-cs2analyzer = { workspace = true }
+cs2analyzer = { workspace = true, features = ["mimalloc", "match-stats"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

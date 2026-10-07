@@ -5,8 +5,9 @@
 //!
 //! Each demo is parsed once. Every check for that demo runs on that `Match`,
 //! then the `Match` is dropped before the next file so the peak is one demo.
-//! Smoke checks still take one raw `Parser` pass: they read `smokegrenade_*`
-//! events and `m_nRoundStartCount` edges the `Match` does not store.
+//! Smoke checks read `smokegrenade_*` events and `m_nRoundStartCount` edges
+//! from a test-only observer on that same parse. The `Match` does not store
+//! those events, and the observer does not feed the pairing logic.
 //!
 //! A failed check is a line `<demo> :: <check> :: <message>`. The walk keeps
 //! going and panics at the end with every line.
@@ -20,7 +21,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use cs2analyzer::{
-    parse_demo, BombKind, GrenadeKind, GrenadeThrow, Match, ParseOptions, Round,
+    parse_demo_with_test_observer, BombKind, GrenadeKind, GrenadeThrow, Match, ParseOptions, Round,
     SMOKE_DURATION_SECONDS,
 };
 use source2_demo::prelude::*;
@@ -383,6 +384,7 @@ fn record_missing_demo(report: &mut FailureReport, demo: &str) {
 
 struct ParsedDemo {
     parsed: Match,
+    smoke: SmokeEvents,
     parse_ms: u128,
 }
 
@@ -425,17 +427,25 @@ fn parses_each_release_demo_once() {
             &name,
             || {
                 let started = Instant::now();
-                let result =
-                    parse_demo(&bytes, ParseOptions::default()).map_err(|err| err.to_string());
+                let result = parse_demo_with_test_observer(
+                    &bytes,
+                    ParseOptions::default(),
+                    SmokeEvents::default(),
+                )
+                .map_err(|err| err.to_string());
                 let parse_ms = started.elapsed().as_millis();
-                result.map(|parsed| ParsedDemo { parsed, parse_ms })
+                result.map(|(parsed, smoke)| ParsedDemo {
+                    parsed,
+                    smoke,
+                    parse_ms,
+                })
             },
             |report, timed| {
                 run_demo_checks(
                     report,
                     &name,
                     &timed.parsed,
-                    &bytes,
+                    &timed.smoke,
                     timed.parse_ms,
                     &mut rollup,
                 );
@@ -460,7 +470,7 @@ fn run_demo_checks(
     report: &mut FailureReport,
     name: &str,
     parsed: &Match,
-    bytes: &[u8],
+    smoke: &SmokeEvents,
     parse_ms: u128,
     rollup: &mut SmokeRollup,
 ) {
@@ -477,7 +487,7 @@ fn run_demo_checks(
         });
     }
     report.run(name, CHECK_SMOKE, |check| {
-        check_smoke_end(check, name, parsed, bytes, rollup);
+        check_smoke_end(check, name, parsed, smoke, rollup);
     });
     report.run(name, CHECK_DEMO_END, |check| {
         check_demo_end_smoke(check, name, rollup);
@@ -649,10 +659,12 @@ fn check_smoke_end(
     check: &mut AssertSink,
     name: &str,
     parsed: &Match,
-    bytes: &[u8],
+    events: &SmokeEvents,
     rollup: &mut SmokeRollup,
 ) {
-    let (detonates, expires, round_opens) = collect_smoke_events(bytes);
+    let detonates = &events.detonates;
+    let expires = &events.expires;
+    let round_opens = &events.round_opens;
     let life = (SMOKE_DURATION_SECONDS * parsed.header.tick_rate).round() as u32;
     let last_tick = parsed
         .ticks
@@ -671,7 +683,7 @@ fn check_smoke_end(
         .filter(|grenade| grenade.kind == GrenadeKind::Smoke)
     {
         smokes += 1;
-        let Some(index) = claim_detonate(grenade, &detonates, &mut used) else {
+        let Some(index) = claim_detonate(grenade, detonates, &mut used) else {
             let same_tick = detonates
                 .iter()
                 .filter(|detonate| detonate.tick == grenade.detonate_tick)
@@ -686,7 +698,7 @@ fn check_smoke_end(
         };
         used[index] = true;
         let entity = detonates[index].entity;
-        let next = next_smoke_detonate(&detonates, entity, grenade.detonate_tick);
+        let next = next_smoke_detonate(detonates, entity, grenade.detonate_tick);
         let Some(owner_index) = round_owning(&parsed.rounds, grenade.detonate_tick) else {
             check.fail(format!(
                 "{name} smoke at {} is before every round",
@@ -706,7 +718,7 @@ fn check_smoke_end(
         if grenade.end_tick > owner.end_tick {
             after_round_end += 1;
         }
-        if let Some(expire) = expire_in_window(&expires, entity, grenade.detonate_tick, next) {
+        if let Some(expire) = expire_in_window(expires, entity, grenade.detonate_tick, next) {
             if grenade.end_tick != expire {
                 check.fail(format!(
                     "{name} smoke entity {entity} at {} paired outside its window (expire {expire}, next {next:?})",
@@ -879,7 +891,7 @@ struct SmokeExpire {
     tick: u32,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct SmokeEvents {
     detonates: Vec<SmokeDetonate>,
     expires: Vec<SmokeExpire>,
@@ -977,21 +989,6 @@ impl SmokeEvents {
         }
         Ok(())
     }
-}
-
-fn collect_smoke_events(bytes: &[u8]) -> (Vec<SmokeDetonate>, Vec<SmokeExpire>, Vec<u32>) {
-    let mut parser = Parser::new(bytes)
-        .unwrap_or_else(|err| panic!("could not open demo for smoke events: {err}"));
-    let handle = parser.add_observer(SmokeEvents::default());
-    parser
-        .run_to_end()
-        .unwrap_or_else(|err| panic!("could not read smoke events: {err}"));
-    let events = handle.borrow();
-    (
-        events.detonates.clone(),
-        events.expires.clone(),
-        events.round_opens.clone(),
-    )
 }
 
 fn claim_detonate(

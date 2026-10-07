@@ -19,9 +19,14 @@ source2-demo-macros = { workspace = true }
 source2-demo-protobufs = { workspace = true }
 
 [features]
-default = ["mimalloc", "match-stats"]
+default = ["mimalloc", "match-stats", "test-hooks"]
 mimalloc = ["source2-demo/mimalloc"]
 match-stats = []
+# Integration tests are not `cfg(test)` for this library. On by default so
+# `cargo test -p cs2analyzer` can attach a read-only observer to the same parse.
+# WASM depends with `default-features = false`. The CLI lists `mimalloc` and
+# `match-stats` only. The hook does not change `Match` output.
+test-hooks = []
 
 [lints]
 workspace = true
