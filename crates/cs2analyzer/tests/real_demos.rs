@@ -7,13 +7,17 @@
 //! then the `Match` is dropped before the next file so the peak is one demo.
 //! Smoke checks read `smokegrenade_*` events and `m_nRoundStartCount` edges
 //! from a test-only observer on that same parse. The `Match` does not store
-//! those events, and the observer does not feed the pairing logic.
+//! those events, and the observer does not feed the pairing logic. The output
+//! hash, its RSS sample, and `UPDATE_HASHES` use that same `Match`.
 //!
 //! A failed check is a line `<demo> :: <check> :: <message>`. The walk keeps
 //! going and panics at the end with every line.
 
 #[path = "common/mod.rs"]
 mod common;
+
+#[path = "support/output_hash.rs"]
+mod output_hash;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -49,12 +53,13 @@ const CHECK_ROUND_COUNTS: &str = "round-counts";
 const CHECK_MOLOTOV: &str = "molotov-burn-window";
 const CHECK_SMOKE: &str = "smoke-end";
 const CHECK_DEMO_END: &str = "demo-end-smoke";
+const CHECK_OUTPUT_HASH: &str = "output-hash";
 const CHECK_PARSE: &str = "parse";
 const CHECK_READ: &str = "read";
 const CHECK_COUNT: &str = "check-count";
 /// Cross-demo rollups. Not a file name.
 const ALL_DEMOS: &str = "all";
-const GLOBAL_CHECK_COUNT: usize = 4;
+const GLOBAL_CHECK_COUNT: usize = 5;
 const MISSING_DEMO: &str = "demo was not in this run";
 
 /// Round counts from #111 and the smoke census measured on assets-v1.
@@ -232,12 +237,12 @@ const DEMO_END_SMOKES: &[DemoEndSmoke] = &[
 /// [`run_demo_checks`] in step.
 fn expected_check_count(name: &str) -> usize {
     match name {
-        "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem" => 5,
-        "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem" => 5,
-        "spirit-vs-furia-m1-ancient.dem" => 6,
-        "spirit-vs-mouz-m3-ancient.dem" => 5,
-        "spirit-vs-mouz-m4-nuke.dem" => 5,
-        _ => 4,
+        "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem" => 6,
+        "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem" => 6,
+        "spirit-vs-furia-m1-ancient.dem" => 7,
+        "spirit-vs-mouz-m3-ancient.dem" => 6,
+        "spirit-vs-mouz-m4-nuke.dem" => 6,
+        _ => 5,
     }
 }
 
@@ -254,6 +259,7 @@ fn demo_check_names(demo: &str) -> Vec<String> {
     }
     names.push(CHECK_SMOKE.to_string());
     names.push(CHECK_DEMO_END.to_string());
+    names.push(CHECK_OUTPUT_HASH.to_string());
     names
 }
 
@@ -395,11 +401,10 @@ struct SmokeRollup {
     ended_at_demo_end: Vec<(String, u32, u32)>,
 }
 
-fn demo_file_name(path: &Path) -> String {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("demo")
-        .to_string()
+struct OutputHashCheck<'a> {
+    watch: &'a mut output_hash::RssWatch,
+    recorded: &'a mut Vec<output_hash::DemoHash>,
+    expected: Option<&'a output_hash::OutputHashes>,
 }
 
 /// One ignored test. Each file is read, parsed, checked, and dropped before
@@ -408,11 +413,19 @@ fn demo_file_name(path: &Path) -> String {
 #[ignore = "needs ./scripts/run.sh --fetch-demos"]
 fn parses_each_release_demo_once() {
     let demos = common::require_demo_files();
+    let update_hashes = std::env::var("UPDATE_HASHES").ok().as_deref() == Some("1");
+    let expected_hashes = if update_hashes {
+        None
+    } else {
+        Some(output_hash::read_hashes(&output_hash::hashes_path()))
+    };
+    let mut recorded = Vec::new();
+    let mut full_parse_passes = 0usize;
     let mut report = FailureReport::default();
     let mut rollup = SmokeRollup::default();
     let mut seen = BTreeSet::new();
     for path in demos {
-        let name = demo_file_name(&path);
+        let name = output_hash::demo_name(&path);
         seen.insert(name.clone());
         let bytes = match std::fs::read(&path) {
             Ok(bytes) => bytes,
@@ -422,6 +435,8 @@ fn parses_each_release_demo_once() {
                 continue;
             }
         };
+        let mut watch = output_hash::RssWatch::start();
+        full_parse_passes += 1;
         let held = visit_demo(
             &mut report,
             &name,
@@ -441,6 +456,11 @@ fn parses_each_release_demo_once() {
                 })
             },
             |report, timed| {
+                let mut hash_check = OutputHashCheck {
+                    watch: &mut watch,
+                    recorded: &mut recorded,
+                    expected: expected_hashes.as_ref(),
+                };
                 run_demo_checks(
                     report,
                     &name,
@@ -448,19 +468,33 @@ fn parses_each_release_demo_once() {
                     &timed.smoke,
                     timed.parse_ms,
                     &mut rollup,
+                    &mut hash_check,
                 );
             },
             expected_check_count(&name),
         );
         drop(held);
         drop(bytes);
+        drop(watch);
     }
     for row in DEMO_EXPECTATIONS {
         if !seen.contains(row.name) {
             record_missing_demo(&mut report, row.name);
         }
     }
-    run_global_checks(&mut report, &rollup);
+    run_global_checks(
+        &mut report,
+        &rollup,
+        expected_hashes.as_ref(),
+        &recorded,
+        &seen,
+    );
+    if update_hashes && report.lines.is_empty() {
+        let path = output_hash::hashes_path();
+        output_hash::write_hashes(&path, &output_hash::OutputHashes { demos: recorded });
+        eprintln!("updated {}", path.display());
+    }
+    eprintln!("full_parse_passes={full_parse_passes} demos={}", seen.len());
     report.finish();
 }
 
@@ -473,6 +507,7 @@ fn run_demo_checks(
     smoke: &SmokeEvents,
     parse_ms: u128,
     rollup: &mut SmokeRollup,
+    hashes: &mut OutputHashCheck<'_>,
 ) {
     report.run(name, CHECK_ROUND_COUNTS, |check| {
         check_round_counts(check, name, parsed, parse_ms);
@@ -492,6 +527,36 @@ fn run_demo_checks(
     report.run(name, CHECK_DEMO_END, |check| {
         check_demo_end_smoke(check, name, rollup);
     });
+    report.run(name, CHECK_OUTPUT_HASH, |check| {
+        check_output_hash(check, name, parsed, hashes);
+    });
+}
+
+fn check_output_hash(
+    check: &mut AssertSink,
+    name: &str,
+    parsed: &Match,
+    hashes: &mut OutputHashCheck<'_>,
+) {
+    let row = output_hash::log_parsed_demo(name, parsed, hashes.watch);
+    if let Some(expected) = hashes.expected {
+        let actual = output_hash::OutputHashes {
+            demos: vec![row.clone()],
+        };
+        let only = output_hash::OutputHashes {
+            demos: expected
+                .demos
+                .iter()
+                .filter(|demo| demo.name == name)
+                .cloned()
+                .collect(),
+        };
+        let report = output_hash::diff_report(&only, &actual);
+        if !report.is_empty() {
+            check.fail(report);
+        }
+    }
+    hashes.recorded.push(row);
 }
 
 fn check_round_counts(check: &mut AssertSink, name: &str, parsed: &Match, parse_ms: u128) {
@@ -821,7 +886,13 @@ fn check_demo_end_smoke(check: &mut AssertSink, name: &str, rollup: &SmokeRollup
     }
 }
 
-fn run_global_checks(report: &mut FailureReport, rollup: &SmokeRollup) {
+fn run_global_checks(
+    report: &mut FailureReport,
+    rollup: &SmokeRollup,
+    expected_hashes: Option<&output_hash::OutputHashes>,
+    recorded: &[output_hash::DemoHash],
+    seen: &BTreeSet<String>,
+) {
     report.run(ALL_DEMOS, "open-fire-inventory", |check| {
         if OPEN_FIRES.len() != 6 {
             check.fail(format!("open fires: got {}, expected 6", OPEN_FIRES.len()));
@@ -868,6 +939,31 @@ fn run_global_checks(report: &mut FailureReport, rollup: &SmokeRollup) {
             ));
         }
     });
+    report.run(
+        ALL_DEMOS,
+        "output-hash-roster",
+        |check| match expected_hashes {
+            Some(expected) => {
+                for demo in &expected.demos {
+                    if !recorded.iter().any(|row| row.name == demo.name) {
+                        check.fail(format!(
+                            "{}: in output-hashes.json but not parsed",
+                            demo.name
+                        ));
+                    }
+                }
+            }
+            None => {
+                for name in seen {
+                    if !recorded.iter().any(|row| row.name == *name) {
+                        check.fail(format!(
+                            "{name}: not hashed, so UPDATE_HASHES will not write"
+                        ));
+                    }
+                }
+            }
+        },
+    );
     enforce_check_count(report, ALL_DEMOS, GLOBAL_CHECK_COUNT);
 }
 
@@ -1142,15 +1238,15 @@ fn missing_demo_fails_every_named_check() {
 #[test]
 fn each_demo_has_an_expected_check_count() {
     let cases = [
-        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 5),
-        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 5),
-        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 4),
-        ("legacy-vs-spirit-m2-ancient.dem", 4),
-        ("premier-d2.dem", 4),
-        ("spirit-vs-dendele-m1-ancient.dem", 4),
-        ("spirit-vs-furia-m1-ancient.dem", 6),
-        ("spirit-vs-mouz-m3-ancient.dem", 5),
-        ("spirit-vs-mouz-m4-nuke.dem", 5),
+        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 6),
+        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 6),
+        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 5),
+        ("legacy-vs-spirit-m2-ancient.dem", 5),
+        ("premier-d2.dem", 5),
+        ("spirit-vs-dendele-m1-ancient.dem", 5),
+        ("spirit-vs-furia-m1-ancient.dem", 7),
+        ("spirit-vs-mouz-m3-ancient.dem", 6),
+        ("spirit-vs-mouz-m4-nuke.dem", 6),
     ];
     assert_eq!(cases.len(), DEMO_EXPECTATIONS.len());
     for (name, expected) in cases {
@@ -1163,7 +1259,7 @@ fn each_demo_has_an_expected_check_count() {
     }
     assert_eq!(OPEN_FIRES.len(), 6);
     assert_eq!(DEMO_END_SMOKES.len(), 2);
-    assert_eq!(GLOBAL_CHECK_COUNT, 4);
+    assert_eq!(GLOBAL_CHECK_COUNT, 5);
     let without_expire: usize = DEMO_EXPECTATIONS.iter().map(|row| row.without_expire).sum();
     assert_eq!(without_expire, 69);
     let faceit = DEMO_END_SMOKES
