@@ -92,6 +92,7 @@ describe("nadePiecePos", () => {
       radius: 1,
       dialRadius: 1,
       left: 1,
+      opacity: 1,
       trail: [
         { x: 0, y: 0 },
         { x: 5, y: 6 },
@@ -191,6 +192,7 @@ describe("frameToPieces", () => {
             radius: 1,
             dialRadius: 1,
             left: 1,
+            opacity: 1,
             trail: [
               { x: 0, y: 0 },
               { x: 30, y: 40 },
@@ -325,7 +327,7 @@ describe("snapshotPieces", () => {
           kind: "smoke",
           start_tick: 80,
           detonate_tick: 120,
-          end_tick: 0,
+          end_tick: 120 + SMOKE_SECONDS * tps,
           points: [
             { tick: 80, x: 0, y: 0, z: 0 },
             { tick: 120, x: 70, y: 80, z: 0 },

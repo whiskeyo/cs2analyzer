@@ -18,6 +18,13 @@ if [[ ! -f "$LOCAL_DIR/index.html" ]]; then
   exit 1
 fi
 
+# upload-artifact drops dotfiles unless include-hidden-files is set. Never swap
+# a tree that would go live without the Apache rules.
+if [[ ! -f "$LOCAL_DIR/.htaccess" ]]; then
+  echo "refusing to publish: $LOCAL_DIR/.htaccess is missing" >&2
+  exit 1
+fi
+
 # `-u user` with LFTP_PASSWORD still prompts; with no TTY lftp logs in anonymous
 # and OVH returns 530. ~/.netrc is how lftp picks up a password non-interactively.
 work="$(mktemp -d)"
@@ -54,6 +61,9 @@ if lftp -c "set -a" 2>/dev/null | grep -F -q "mirror:skip-dotfiles"; then
   skip_dotfiles="set mirror:skip-dotfiles no"
 fi
 
+uploaded="$work/uploaded.htaccess"
+
+# Upload first. Do not rename live until the staged .htaccess round-trips.
 lftp "$FTP_HOST" <<EOF
 set cmd:fail-exit yes
 set ssl:verify-certificate no
@@ -63,6 +73,24 @@ $skip_dotfiles
 set net:max-retries 3
 set net:timeout 30
 mirror -R --delete --verbose --parallel=8 --exclude-glob .git "$LOCAL_DIR" "$STAGING"
+put "$LOCAL_DIR/.htaccess" -o "$STAGING/.htaccess"
+get "$STAGING/.htaccess" -o "$uploaded"
+set cmd:fail-exit no
+cls -a "$STAGING/.htaccess"
+bye
+EOF
+
+if ! cmp -s "$LOCAL_DIR/.htaccess" "$uploaded"; then
+  echo "refusing to publish: staged .htaccess does not match $LOCAL_DIR/.htaccess" >&2
+  exit 1
+fi
+
+lftp "$FTP_HOST" <<EOF
+set ssl:verify-certificate no
+set ftp:ssl-allow yes
+set ftp:list-options -a
+set net:max-retries 3
+set net:timeout 30
 set cmd:fail-exit no
 rm -r -f "$PREV"
 mv "$LIVE" "$PREV"

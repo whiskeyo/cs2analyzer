@@ -4,6 +4,30 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINDGEN_VERSION="0.2.127"
+# One skip list for `cargo upgrade --exclude` and the `cargo update -p` filter.
+# `--latest` does not change it and must not pass `--pinned`.
+# Exact names: source2-demo, source2-demo-macros, and source2-demo-protobufs
+# are pinned to =0.5.9 in the workspace Cargo.toml after the assets-v1 demo
+# comparison. source2-demo 0.5.9 depends on the macros and protobuf crates as
+# ^0.5.9, so those are pinned too (the last two are dev-dependencies of
+# crates/cs2analyzer only to hold the lock). Remove the three pins together.
+# js-sys and web-sys exact-pin a wasm-bindgen release, so a newer one would move that pin.
+# Prefix: every crate named wasm-bindgen or wasm-bindgen-* (macro, macro-support,
+# backend, shared, futures, and the rest). Those must stay matched to the
+# wasm-bindgen-cli pin in scripts/build-wasm.sh (BINDGEN_VERSION, currently
+# 0.2.127). Moving the family to 0.2.129 is a separate decision.
+UPGRADE_CARGO_SKIP_EXACT=(
+  source2-demo
+  source2-demo-macros
+  source2-demo-protobufs
+  js-sys
+  web-sys
+)
+UPGRADE_CARGO_SKIP_PREFIX=(wasm-bindgen)
+# npm-check-updates 23 requires Node ^22.22.2, ^24.15.0, or >=26, so Node 24.11
+# prints EBADENGINE. Major 22 accepts ^20.19.0, ^22.12.0, or >=24. npx installs
+# the newest 22.x. No global install.
+NCU_MAJOR=22
 WEB="$ROOT/apps/web"
 DEV_PORT="${DEV_PORT:-5173}"
 PROD_PORT="${PROD_PORT:-4173}"
@@ -14,27 +38,78 @@ if [[ -f "${HOME}/.cargo/env" ]]; then
   . "${HOME}/.cargo/env"
 fi
 
+# Help descriptions start at column 19. Every help line fits in 80 columns.
+help_wrap() {
+  local text="$1"
+  local first_prefix="${2:-}"
+  local indent='                   '
+  local width=61
+  local line='' word started=0
+  local -a words=()
+  read -r -a words <<<"$text"
+  for word in "${words[@]}"; do
+    if [[ -z "$line" ]]; then
+      line="$word"
+    elif [[ $((${#line} + 1 + ${#word})) -le "$width" ]]; then
+      line="$line $word"
+    else
+      if [[ "$started" -eq 0 && -n "$first_prefix" ]]; then
+        printf '%s%s\n' "$first_prefix" "$line"
+      else
+        printf '%s%s\n' "$indent" "$line"
+      fi
+      started=1
+      line="$word"
+    fi
+  done
+  if [[ -n "$line" ]]; then
+    if [[ "$started" -eq 0 && -n "$first_prefix" ]]; then
+      printf '%s%s\n' "$first_prefix" "$line"
+    else
+      printf '%s%s\n' "$indent" "$line"
+    fi
+  fi
+}
+
+help_flag() {
+  local flag="$1"
+  local text="$2"
+  local prefix
+  prefix="$(printf '  %-17s' "$flag")"
+  help_wrap "$text" "$prefix"
+}
+
 usage() {
+  local excluded
+  excluded="$(printf '%s, ' "${UPGRADE_CARGO_SKIP_EXACT[@]}")"
+  excluded="${excluded%, }, ${UPGRADE_CARGO_SKIP_PREFIX[*]}*"
   cat <<EOF
 Usage: scripts/run.sh [flags]
 
   --prepare        Install Rust toolchain, wasm-bindgen-cli, and npm deps
+  --fetch-demos    Download release demos listed in test-demos/manifest.json
+                   into test-demos/files/. Skip a file whose sha256 matches.
+                   Delete the partial and exit non-zero on a sha256 mismatch.
   --update         Update crates and npm packages within their current semver
                    ranges, keep wasm-bindgen pinned to the CLI version, rebuild
                    WASM, and run cargo test plus the web suite. Does not commit.
+  --upgrade        Bump crates and npm packages to the newest versions that
+                   still satisfy peer dependencies (npm-check-updates --peer).
+$(help_wrap "Skips ${excluded}. Rebuilds WASM, runs tests, then the production build. Does not commit. On failure, restores the files it changed. Needs cargo-edit (cargo install cargo-edit).")
+  --latest         With --upgrade only. Skip the peer filter and take the
+                   newest versions anyway.
+$(help_wrap "$(upgrade_latest_warning)")
   --build-wasm     Compile WASM and emit JS bindings into apps/web/src/parser/
   --check          rustfmt, clippy, prettier, eslint, typecheck
   --test           cargo test and the web vitest suite
-  --dev            Start the Vite dev server (http://localhost:${DEV_PORT}/; layouts at /layouts).
-                   Requires complete apps/web/src/parser/ artifacts (auto-builds if the
-                   wasm toolchain is already installed).
-  --prod           Build the production bundle and preview it (http://localhost:${PROD_PORT}/).
-                   Same parser check as --dev, then npm run build.
-  --local-network  With --dev or --prod, bind 0.0.0.0 so other devices on the LAN can open it
-                   (open the printed LAN IP on the other device — not http://0.0.0.0/)
+$(help_flag --dev "Start the Vite dev server (http://localhost:${DEV_PORT}/; layouts at /layouts). Requires complete apps/web/src/parser/ artifacts (auto-builds if the wasm toolchain is already installed).")
+$(help_flag --prod "Build the production bundle and preview it (http://localhost:${PROD_PORT}/). Same parser check as --dev, then npm run build.")
+$(help_flag --local-network "With --dev or --prod, bind 0.0.0.0 so other devices on the LAN can open it (open the printed LAN IP on the other device — not http://0.0.0.0/).")
 
-Flags can be combined. They run in the order above; --dev / --prod are last and block.
-Do not pass both --dev and --prod. --local-network requires --dev or --prod.
+Flags can be combined. They run in the order above; --dev / --prod
+are last and block.
+Do not pass both --dev and --prod, or both --update and --upgrade.
+--latest requires --upgrade. --local-network requires --dev or --prod.
 EOF
 }
 
@@ -203,6 +278,24 @@ cmd_test() {
   log "Tests passed"
 }
 
+# True when --upgrade must not bump this crate. Exact names, plus the
+# wasm-bindgen* prefix. Shared by cargo upgrade --exclude and cargo update.
+upgrade_skips_crate() {
+  local name="$1"
+  local exact prefix
+  for exact in "${UPGRADE_CARGO_SKIP_EXACT[@]}"; do
+    if [[ "$name" == "$exact" ]]; then
+      return 0
+    fi
+  done
+  for prefix in "${UPGRADE_CARGO_SKIP_PREFIX[@]}"; do
+    case "$name" in
+      "$prefix" | "$prefix"-*) return 0 ;;
+    esac
+  done
+  return 1
+}
+
 # name<TAB>version for each [[package]] in a Cargo.lock (v3 or v4).
 cargo_lock_packages() {
   local lock="$1"
@@ -220,6 +313,75 @@ cargo_lock_packages() {
       in_pkg = 0
     }
   ' "$lock"
+}
+
+# name@version for each locked package. cargo update needs the version when
+# more than one copy of a crate is locked (foldhash 0.1 and 0.2, for example).
+cargo_lock_package_specs() {
+  local lock="$1"
+  local name version
+  while IFS=$'\t' read -r name version; do
+    [[ -n "$name" && -n "$version" ]] || continue
+    printf '%s@%s\n' "$name" "$version"
+  done < <(cargo_lock_packages "$lock")
+}
+
+# --exclude names: the exact skip list, the wasm-bindgen prefix itself, and
+# every locked crate the prefix matches. cargo-edit matches names exactly.
+upgrade_cargo_exclude_names() {
+  local lock="$1"
+  local name version candidate
+  local -a names=()
+  local -A seen=()
+  for candidate in "${UPGRADE_CARGO_SKIP_EXACT[@]}" "${UPGRADE_CARGO_SKIP_PREFIX[@]}"; do
+    if [[ -z "${seen[$candidate]+x}" ]]; then
+      seen["$candidate"]=1
+      names+=("$candidate")
+    fi
+  done
+  if [[ -n "${lock:-}" && -f "$lock" ]]; then
+    while IFS=$'\t' read -r name version; do
+      upgrade_skips_crate "$name" || continue
+      if [[ -z "${seen[$name]+x}" ]]; then
+        seen["$name"]=1
+        names+=("$name")
+      fi
+    done < <(cargo_lock_packages "$lock")
+  fi
+  if [[ ${#names[@]} -gt 0 ]]; then
+    printf '%s\n' "${names[@]}"
+  fi
+}
+
+# Locked name@version lines cargo update may select. Skipped crates are omitted.
+# Each copy of a duplicated crate stays name@version.
+cargo_update_select_specs() {
+  local lock="$1"
+  local spec name
+  while IFS= read -r spec; do
+    [[ -n "$spec" ]] || continue
+    name="${spec%%@*}"
+    if upgrade_skips_crate "$name"; then
+      continue
+    fi
+    printf '%s\n' "$spec"
+  done < <(cargo_lock_package_specs "$lock")
+}
+
+# `cargo update` has no --exclude. Pass every other locked package as
+# name@version so this invocation cannot select the skip list. Do not pass
+# --breaking, --precise, --pinned, or --incompatible.
+cargo_update_except_upgrade_skips() {
+  local spec
+  local -a args=()
+  while IFS= read -r spec; do
+    [[ -n "$spec" ]] || continue
+    args+=(-p "$spec")
+  done < <(cargo_update_select_specs "$ROOT/Cargo.lock")
+  if [[ ${#args[@]} -eq 0 ]]; then
+    die "cargo update package list was empty"
+  fi
+  cargo update --manifest-path "$ROOT/Cargo.toml" "${args[@]}"
 }
 
 # True when every locked copy of pkg is exactly version (and at least one exists).
@@ -333,15 +495,20 @@ pin_wasm_bindgen() {
 # npm 10.9's arborist dies with "Cannot read properties of null (reading
 # 'edgesOut')" while resolving this tree (vitest's optional peers). npm 11
 # runs the same in-range update and still writes only package-lock.json.
-npm_update_web() {
+# --upgrade reuses this for `npm install`.
+npm_web_resolving() {
   local major
   major="$(npm -v | cut -d. -f1)"
   if [[ "$major" -ge 11 ]]; then
-    npm_in "$WEB" update
+    npm_in "$WEB" "$@"
     return
   fi
   log "npm $(npm -v) cannot update this tree; using npm 11"
-  npm_in "$WEB" exec --yes npm@11 -- update
+  npm_in "$WEB" exec --yes npm@11 -- "$@"
+}
+
+npm_update_web() {
+  npm_web_resolving update
 }
 
 # path<TAB>version for each installed package in a v2/v3 package-lock.json.
@@ -390,29 +557,160 @@ print_version_delta() {
   rm -f "$removed" "$added"
 }
 
-# Paths --update rewrites: lockfiles, the web manifest, and generated WASM
-# bindings. A pre-existing edit would be mixed into the summary.
-require_clean_for_update() {
-  local dirty
-  dirty="$(
-    git -C "$ROOT" status --porcelain --untracked-files=all -- \
+# Paths --update and --upgrade refuse to mix with pre-existing edits.
+# Workspace Cargo.toml files are included because --upgrade rewrites them;
+# --update shares the check so a manifest edit is not mixed into a lock bump.
+dependency_tree_paths() {
+  {
+    printf '%s\n' \
       Cargo.lock \
       apps/web/package.json \
       apps/web/package-lock.json \
       apps/web/src/parser
+    git -C "$ROOT" ls-files -- ':(glob)**/Cargo.toml'
+  } | sort -u
+}
+
+require_clean_dependency_tree() {
+  local flag="$1"
+  local dirty path
+  local -a paths=()
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    paths+=("$path")
+  done < <(dependency_tree_paths)
+  dirty="$(
+    git -C "$ROOT" status --porcelain --untracked-files=all -- "${paths[@]}"
   )"
   [[ -n "$dirty" ]] || return 0
-  echo "error: --update refuses to run while these files have changes:" >&2
+  echo "error: ${flag} refuses to run while these files have changes:" >&2
   printf '%s\n' "$dirty" >&2
-  die "Commit or stash these changes before running --update."
+  die "Commit or stash these changes before running ${flag}."
 }
 
 file_sha256() {
   sha256sum "$1" | awk '{ print $1 }'
 }
 
+# Public GitHub release asset. No token: the URL is the browser download.
+demo_release_url() {
+  local tag="$1"
+  local name="$2"
+  printf 'https://github.com/whiskeyo/cs2analyzer/releases/download/%s/%s' "$tag" "$name"
+}
+
+# Download one manifest entry. A matching sha256 is left in place. A failed
+# download or a bad hash removes the partial so the next run starts clean.
+fetch_demo_file() {
+  local dest_dir="$1"
+  local name="$2"
+  local size="$3"
+  local sha="$4"
+  local tag="$5"
+  local dest="$dest_dir/$name"
+  local partial="$dest_dir/$name.partial"
+
+  if [[ -f "$dest" ]]; then
+    local got
+    got="$(file_sha256 "$dest")"
+    if [[ "$got" == "$sha" ]]; then
+      log "skip $name (sha256 matches)"
+      return 0
+    fi
+    log "$name on disk does not match the manifest sha256; downloading again"
+    rm -f "$dest"
+  fi
+
+  rm -f "$partial"
+  cleanup_partial() { rm -f "$partial"; }
+  trap cleanup_partial EXIT
+
+  log "download $name"
+  if ! curl -fL --retry 5 --retry-delay 2 -o "$partial" "$(demo_release_url "$tag" "$name")"; then
+    rm -f "$partial"
+    trap - EXIT
+    die "download failed for $name"
+  fi
+
+  local got actual_size
+  got="$(file_sha256 "$partial")"
+  actual_size="$(wc -c <"$partial" | tr -d ' ')"
+  if [[ "$actual_size" != "$size" ]]; then
+    rm -f "$partial"
+    trap - EXIT
+    die "$name size mismatch (expected $size bytes, got $actual_size)"
+  fi
+  if [[ "$got" != "$sha" ]]; then
+    rm -f "$partial"
+    trap - EXIT
+    die "$name sha256 mismatch (expected $sha, got $got)"
+  fi
+
+  trap - EXIT
+  mv "$partial" "$dest" || die "could not save $name"
+}
+
+cmd_fetch_demos() {
+  local manifest="$ROOT/test-demos/manifest.json"
+  local dest_dir="$ROOT/test-demos/files"
+  [[ -f "$manifest" ]] || die "missing test-demos/manifest.json"
+  command -v curl >/dev/null 2>&1 || die "curl is required to download test demos"
+  command -v python3 >/dev/null 2>&1 || die "python3 is required to read test-demos/manifest.json"
+  mkdir -p "$dest_dir"
+
+  local rows
+  rows="$(
+    python3 - "$manifest" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+files = data.get("files")
+if not isinstance(files, list) or not files:
+    raise SystemExit("manifest files must be a non-empty list")
+for item in files:
+    if not isinstance(item, dict):
+        raise SystemExit("manifest files entries must be objects")
+    for key in ("name", "size", "sha256", "release_tag"):
+        if key not in item:
+            raise SystemExit(f"manifest entry missing {key}")
+    name = item["name"]
+    if (
+        not isinstance(name, str)
+        or "/" in name
+        or "\\" in name
+        or name.startswith(".")
+        or not name.endswith(".dem")
+    ):
+        raise SystemExit(f"refusing manifest name {name!r}")
+    size = item["size"]
+    if not isinstance(size, int) or isinstance(size, bool) or size < 0:
+        raise SystemExit(f"{name} size must be a non-negative integer")
+    sha = item["sha256"]
+    if (
+        not isinstance(sha, str)
+        or len(sha) != 64
+        or any(c not in "0123456789abcdef" for c in sha)
+    ):
+        raise SystemExit(f"{name} sha256 must be 64 lowercase hex characters")
+    tag = item["release_tag"]
+    if not isinstance(tag, str) or not tag or "/" in tag or ".." in tag:
+        raise SystemExit(f"{name} release_tag is not a release tag")
+    print(f"{name}\t{size}\t{sha}\t{tag}")
+PY
+  )"
+
+  while IFS=$'\t' read -r name size sha tag; do
+    [[ -n "${name:-}" ]] || continue
+    fetch_demo_file "$dest_dir" "$name" "$size" "$sha" "$tag"
+  done <<<"$rows"
+  log "Test demos are in test-demos/files"
+}
+
 cmd_update() {
-  require_clean_for_update
+  require_clean_dependency_tree --update
   ensure_rust
   ensure_node
 
@@ -450,6 +748,336 @@ cmd_update() {
   print_version_delta "npm packages" "$before_npm" "$after_npm"
 
   rm -f "$before_cargo" "$before_npm" "$after_cargo" "$after_npm"
+}
+
+require_cargo_edit() {
+  if command -v cargo-upgrade >/dev/null 2>&1; then
+    return 0
+  fi
+  die "cargo upgrade (cargo-edit) is missing. Install it with: cargo install cargo-edit"
+}
+
+# Shown next to --latest in --help and when --upgrade --latest starts.
+# --latest is a deliberate opt-in: no npm reject list, it takes the newest
+# versions including majors. Cargo skips are unchanged.
+upgrade_latest_warning() {
+  cat <<'EOF'
+warning: --latest drops --peer. It may move TypeScript beyond the range supported by typescript-eslint and may apply major bumps (for example Vite, Vitest, jsdom, react-router). The default --upgrade (with --peer) is the safe path.
+EOF
+}
+
+# Default --upgrade keeps peer dependencies satisfiable (typescript-eslint
+# cannot take typescript 7). --latest drops the filter.
+ncu_upgrade_args() {
+  printf '%s\n' -u
+  if [[ "${LATEST:-0}" -eq 0 ]]; then
+    printf '%s\n' --peer
+  fi
+}
+
+# 1.x: only the major component is breaking. Before 1.0 a minor bump is breaking
+# too (0.2.1 -> 0.3.0), matching Cargo's semver rule.
+is_major_bump() {
+  local old="$1"
+  local new="$2"
+  local old_major old_minor new_major new_minor
+  [[ "$old" =~ ^([0-9]+)\.([0-9]+) ]] || return 1
+  old_major="${BASH_REMATCH[1]}"
+  old_minor="${BASH_REMATCH[2]}"
+  [[ "$new" =~ ^([0-9]+)\.([0-9]+) ]] || return 1
+  new_major="${BASH_REMATCH[1]}"
+  new_minor="${BASH_REMATCH[2]}"
+  if [[ "$new_major" -gt "$old_major" ]]; then
+    return 0
+  fi
+  if [[ "$old_major" -eq 0 && "$new_major" -eq 0 && "$new_minor" -gt "$old_minor" ]]; then
+    return 0
+  fi
+  return 1
+}
+
+highest_version() {
+  printf '%s\n' "$1" | tr ',' '\n' | sort -V | tail -n 1
+}
+
+version_list_is_major_bump() {
+  local old_high new_high
+  old_high="$(highest_version "$1")"
+  new_high="$(highest_version "$2")"
+  is_major_bump "$old_high" "$new_high"
+}
+
+lock_package_label() {
+  local name="$1"
+  name="${name#node_modules/}"
+  printf '%s\n' "$name"
+}
+
+# Resolved name/version rows from a before/after lock snapshot.
+# `old` and `new` may be comma-separated when a package has several copies.
+version_delta_rows() {
+  local ecosystem="$1"
+  local before="$2"
+  local after="$3"
+  local removed added name old new label major
+  removed="$(mktemp)"
+  added="$(mktemp)"
+  comm -23 <(sort "$before") <(sort "$after") >"$removed"
+  comm -13 <(sort "$before") <(sort "$after") >"$added"
+  if [[ -s "$removed" || -s "$added" ]]; then
+    while IFS= read -r name; do
+      [[ -n "$name" ]] || continue
+      old="$(awk -F '\t' -v n="$name" '$1 == n { print $2 }' "$removed" | paste -sd, -)"
+      new="$(awk -F '\t' -v n="$name" '$1 == n { print $2 }' "$added" | paste -sd, -)"
+      [[ -z "$old" && -z "$new" ]] && continue
+      [[ "$old" == "$new" ]] && continue
+      label="$(lock_package_label "$name")"
+      if [[ -n "$old" && -n "$new" ]] && version_list_is_major_bump "$old" "$new"; then
+        major=yes
+      else
+        major=no
+      fi
+      printf '%s\t%s\t%s\t%s\t%s\n' "$ecosystem" "$label" "${old:--}" "${new:--}" "$major"
+    done < <({ cut -f1 "$removed"; cut -f1 "$added"; } | sort -u)
+  fi
+  rm -f "$removed" "$added"
+}
+
+# Majors first, then ecosystem, then package name.
+print_upgrade_table() {
+  local rows="$1"
+  local sorted eco pkg old new major
+  local w_eco=9 w_pkg=7 w_old=3 w_new=3
+  local total=0 majors=0
+  sorted="$(mktemp)"
+  sort -t $'\t' -k5,5r -k1,1 -k2,2 "$rows" >"$sorted"
+  while IFS=$'\t' read -r eco pkg old new major; do
+    [[ -n "$eco" ]] || continue
+    total=$((total + 1))
+    if [[ "$major" == yes ]]; then
+      majors=$((majors + 1))
+    fi
+    if [[ ${#eco} -gt $w_eco ]]; then w_eco=${#eco}; fi
+    if [[ ${#pkg} -gt $w_pkg ]]; then w_pkg=${#pkg}; fi
+    if [[ ${#old} -gt $w_old ]]; then w_old=${#old}; fi
+    if [[ ${#new} -gt $w_new ]]; then w_new=${#new}; fi
+  done <"$sorted"
+  if [[ "$total" -eq 0 ]]; then
+    log "No dependency version changes"
+    rm -f "$sorted"
+    return 0
+  fi
+  log "Upgraded packages: ${total} (${majors} major)"
+  printf "%-${w_eco}s  %-${w_pkg}s  %-${w_old}s  %-${w_new}s  %s\n" \
+    ecosystem package old new major
+  while IFS=$'\t' read -r eco pkg old new major; do
+    [[ -n "$eco" ]] || continue
+    printf "%-${w_eco}s  %-${w_pkg}s  %-${w_old}s  %-${w_new}s  %s\n" \
+      "$eco" "$pkg" "$old" "$new" "$major"
+  done <"$sorted"
+  rm -f "$sorted"
+}
+
+# Failure reporting for --upgrade. Returning 0 keeps the original exit status.
+# Temps are global so the trap still sees them if a called function exits the shell.
+UPGRADE_STEP=""
+UPGRADE_MUTATED=0
+UPGRADE_RESTORE_DONE=0
+UPGRADE_TMP_FILES=()
+
+upgrade_cleanup_tmp() {
+  if [[ ${#UPGRADE_TMP_FILES[@]} -gt 0 ]]; then
+    rm -f "${UPGRADE_TMP_FILES[@]}"
+  fi
+  UPGRADE_TMP_FILES=()
+}
+
+# The dirty-tree guard already required these paths to match HEAD, so
+# checkout plus clean puts back manifests, locks, and generated parser files.
+restore_upgrade_tree() {
+  local -a paths=()
+  local path
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    paths+=("$path")
+  done < <(dependency_tree_paths)
+  if [[ ${#paths[@]} -eq 0 ]]; then
+    echo "error: no dependency-tree paths to restore" >&2
+    return 1
+  fi
+  git -C "$ROOT" checkout -- "${paths[@]}"
+  git -C "$ROOT" clean -fd -- "${paths[@]}"
+}
+
+# node_modules is gitignored, so checkout does not put it back. Reinstall from
+# the restored lock. A failed npm ci must not start another restore.
+restore_upgrade_node_modules() {
+  if npm_in "$WEB" ci; then
+    return 0
+  fi
+  echo "error: npm ci failed after restoring the lockfile. Run it manually: (cd apps/web && npm ci)" >&2
+  return 1
+}
+
+# File checkout plus npm ci. The signal trap and the EXIT trap can both run;
+# the flag makes the second one a no-op. The step is `restore` for the whole
+# cleanup so a second Ctrl-C can tell that npm ci is already in progress.
+upgrade_restore_after_mutation() {
+  if [[ "${UPGRADE_MUTATED:-0}" -ne 1 ]]; then
+    return 0
+  fi
+  if [[ "${UPGRADE_RESTORE_DONE:-0}" -eq 1 ]]; then
+    return 0
+  fi
+  UPGRADE_RESTORE_DONE=1
+  UPGRADE_STEP="restore"
+  if restore_upgrade_tree; then
+    if restore_upgrade_node_modules; then
+      echo "error: the dependency tree was restored to its pre-run state" >&2
+    fi
+  else
+    echo "error: could not restore the dependency tree" >&2
+  fi
+}
+
+upgrade_report_failure() {
+  local status=$?
+  if [[ "$status" -ne 0 && -n "${UPGRADE_STEP:-}" ]]; then
+    echo "error: --upgrade failed during: ${UPGRADE_STEP}" >&2
+    upgrade_restore_after_mutation
+  fi
+  upgrade_cleanup_tmp
+  UPGRADE_STEP=""
+  UPGRADE_MUTATED=0
+  return 0
+}
+
+# Foreground Ctrl-C delivers SIGINT to this shell as well as cargo/npm.
+# 130 = 128+SIGINT, 143 = 128+SIGTERM. EXIT still runs afterwards and must
+# not restore a second time. A second signal during restore must not start
+# npm ci again: that deletes node_modules and would leave it empty.
+upgrade_on_interrupt() {
+  local status="$1"
+  if [[ "${UPGRADE_STEP:-}" == "restore" ]]; then
+    echo "error: interrupted while restoring; check git status, then run (cd apps/web && npm ci)" >&2
+    upgrade_cleanup_tmp
+    UPGRADE_STEP=""
+    UPGRADE_MUTATED=0
+    exit "$status"
+  fi
+  echo "error: --upgrade interrupted during: ${UPGRADE_STEP:-unknown}" >&2
+  UPGRADE_STEP="restore"
+  upgrade_restore_after_mutation
+  upgrade_cleanup_tmp
+  UPGRADE_STEP=""
+  UPGRADE_MUTATED=0
+  exit "$status"
+}
+
+upgrade_install_traps() {
+  trap upgrade_report_failure EXIT
+  trap 'upgrade_on_interrupt 130' INT
+  trap 'upgrade_on_interrupt 143' TERM
+}
+
+upgrade_clear_traps() {
+  trap - EXIT INT TERM
+}
+
+cmd_upgrade() {
+  local before_cargo before_npm after_cargo after_npm rows crate ncu_arg
+  local -a exclude_args=()
+  local -a ncu_args=()
+
+  if [[ "${LATEST:-0}" -eq 1 ]]; then
+    upgrade_latest_warning >&2
+  fi
+
+  UPGRADE_STEP="dirty-tree check"
+  UPGRADE_MUTATED=0
+  UPGRADE_RESTORE_DONE=0
+  UPGRADE_TMP_FILES=()
+  upgrade_install_traps
+
+  require_clean_dependency_tree --upgrade
+
+  UPGRADE_STEP="cargo-edit preflight"
+  require_cargo_edit
+
+  UPGRADE_STEP="toolchain"
+  ensure_rust
+  ensure_node
+
+  before_cargo="$(mktemp)"
+  before_npm="$(mktemp)"
+  after_cargo="$(mktemp)"
+  after_npm="$(mktemp)"
+  rows="$(mktemp)"
+  UPGRADE_TMP_FILES=("$before_cargo" "$before_npm" "$after_cargo" "$after_npm" "$rows")
+
+  # Lock snapshots, not cargo/npm stdout: the table is the file diff.
+  cargo_lock_packages "$ROOT/Cargo.lock" | sort >"$before_cargo"
+  npm_lock_packages "$WEB/package-lock.json" | sort >"$before_npm"
+
+  UPGRADE_STEP="cargo upgrade"
+  UPGRADE_MUTATED=1
+  while IFS= read -r crate; do
+    [[ -n "$crate" ]] || continue
+    exclude_args+=(--exclude "$crate")
+  done < <(upgrade_cargo_exclude_names "$ROOT/Cargo.lock")
+  # `--incompatible allow` is workspace-wide. `--exclude` is what keeps it off
+  # the skip list. Do not pass `--pinned` (default ignore): that would rewrite
+  # exact requirements. `--latest` does not add it.
+  log "cargo upgrade --manifest-path ${ROOT}/Cargo.toml --incompatible allow ${exclude_args[*]}"
+  cargo upgrade --manifest-path "$ROOT/Cargo.toml" --incompatible allow "${exclude_args[@]}"
+
+  # Do not pass --breaking. Specs are name@version, minus the shared skip list.
+  UPGRADE_STEP="cargo update"
+  log "cargo update --manifest-path ${ROOT}/Cargo.toml -p <locked name@version except ${UPGRADE_CARGO_SKIP_EXACT[*]} and ${UPGRADE_CARGO_SKIP_PREFIX[*]}*>"
+  cargo_update_except_upgrade_skips
+
+  # The lock refresh does not select wasm-bindgen*. If a resolve still moved
+  # the family, put it back on the wasm-bindgen-cli pin.
+  UPGRADE_STEP="wasm-bindgen pin"
+  log "Pin wasm-bindgen to ${BINDGEN_VERSION}"
+  pin_wasm_bindgen "$before_cargo"
+
+  UPGRADE_STEP="npm-check-updates"
+  while IFS= read -r ncu_arg; do
+    ncu_args+=("$ncu_arg")
+  done < <(ncu_upgrade_args)
+  log "npm-check-updates@${NCU_MAJOR} ${ncu_args[*]} (web)"
+  (cd "$WEB" && npx --yes "npm-check-updates@${NCU_MAJOR}" "${ncu_args[@]}")
+
+  UPGRADE_STEP="npm install"
+  log "npm install (web)"
+  npm_web_resolving install
+
+  UPGRADE_STEP="wasm build"
+  cmd_build_wasm
+
+  UPGRADE_STEP="tests"
+  cmd_test
+
+  # Prerender (`vite build`) catches React/router majors that Vitest does not.
+  UPGRADE_STEP="web production build"
+  log "web production build"
+  npm_in "$WEB" run build
+
+  cargo_lock_packages "$ROOT/Cargo.lock" | sort >"$after_cargo"
+  npm_lock_packages "$WEB/package-lock.json" | sort >"$after_npm"
+  version_delta_rows cargo "$before_cargo" "$after_cargo" >"$rows"
+  version_delta_rows npm "$before_npm" "$after_npm" >>"$rows"
+
+  UPGRADE_STEP=""
+  log "Upgrade summary (working tree only; nothing committed)"
+  log "git diff --stat"
+  git -C "$ROOT" diff --stat
+  print_upgrade_table "$rows"
+  log "Review the diff and commit the upgrades you want to keep."
+
+  upgrade_cleanup_tmp
+  upgrade_clear_traps
 }
 
 # Listen on every interface. 0.0.0.0 is the bind address, not a URL for other PCs.
@@ -517,7 +1145,10 @@ cmd_prod() {
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   PREPARE=0
+  FETCH_DEMOS=0
   UPDATE=0
+  UPGRADE=0
+  LATEST=0
   BUILD_WASM=0
   CHECK=0
   TEST=0
@@ -533,7 +1164,10 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   for arg in "$@"; do
     case "$arg" in
       --prepare) PREPARE=1 ;;
+      --fetch-demos) FETCH_DEMOS=1 ;;
       --update) UPDATE=1 ;;
+      --upgrade) UPGRADE=1 ;;
+      --latest) LATEST=1 ;;
       --build-wasm) BUILD_WASM=1 ;;
       --check) CHECK=1 ;;
       --test) TEST=1 ;;
@@ -553,6 +1187,14 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     die "pass either --dev or --prod, not both"
   fi
 
+  if [[ "$UPDATE" -eq 1 && "$UPGRADE" -eq 1 ]]; then
+    die "--update and --upgrade are mutually exclusive"
+  fi
+
+  if [[ "$LATEST" -eq 1 && "$UPGRADE" -eq 0 ]]; then
+    die "--latest requires --upgrade"
+  fi
+
   if [[ "$LOCAL_NETWORK" -eq 1 && "$DEV" -eq 0 && "$PROD" -eq 0 ]]; then
     die "--local-network requires --dev or --prod"
   fi
@@ -563,8 +1205,14 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   if [[ "$PREPARE" -eq 1 ]]; then
     cmd_prepare
   fi
+  if [[ "$FETCH_DEMOS" -eq 1 ]]; then
+    cmd_fetch_demos
+  fi
   if [[ "$UPDATE" -eq 1 ]]; then
     cmd_update
+  fi
+  if [[ "$UPGRADE" -eq 1 ]]; then
+    cmd_upgrade
   fi
   if [[ "$BUILD_WASM" -eq 1 ]]; then
     cmd_build_wasm

@@ -26,12 +26,19 @@ import {
   nadePopTick,
   nadeVisibleEnd,
   nadesForSummary,
+  smokeOpacity,
   openingDuel,
   TRACER_SECONDS,
 } from "@/lib/radar/radarFx";
 import { inTickWindow, upToTick } from "@/lib/replay/eventIndex";
 import { playerLabel } from "@/lib/replay/playerLabel";
-import { currentRound, samplePlayers, sampleTrail, type SampledPlayer } from "@/lib/replay/sample";
+import {
+  currentRound,
+  grenadeRoundLastTick,
+  samplePlayers,
+  sampleTrail,
+  type SampledPlayer,
+} from "@/lib/replay/sample";
 import { bombView, type BombView } from "@/lib/stats/hud";
 import type {
   GrenadeThrow,
@@ -188,6 +195,12 @@ export type NadeRender =
       radius: number;
       dialRadius: number;
       left: number;
+      /**
+       * Smoke fill/outline multiplier. 1 until the last ~4s, then
+       * `clamp((end - tick) / (4s * tick rate), 0, 1)`. Fires stay at 1.
+       * The in-flight thrower icon does not use this.
+       */
+      opacity: number;
       trail: Point[];
     }
   | {
@@ -371,6 +384,7 @@ export function nadeRenderAt(
       radius,
       dialRadius: Math.max(7, 8 * zoom),
       left: lingerRemaining(popAt, visibleEnd, tick),
+      opacity: g.kind === "smoke" ? smokeOpacity(visibleEnd, tick, tps) : 1,
       trail,
     };
   }
@@ -384,7 +398,15 @@ export function nadeRenderAt(
       trail,
     };
   }
-  return { phase: "puff", kind: g.kind, color, at, radius, alpha: burst ? 0.45 : 0.28, trail };
+  return {
+    phase: "puff",
+    kind: g.kind,
+    color,
+    at,
+    radius,
+    alpha: burst ? 0.45 : 0.28,
+    trail,
+  };
 }
 
 export function nadeRenders(
@@ -396,7 +418,12 @@ export function nadeRenders(
   const tps = tickRate(replay);
   const out: NadeRender[] = [];
   const throws = round
-    ? inTickWindow(replay.grenades, throwTick, round.start_tick, round.end_tick)
+    ? inTickWindow(
+        replay.grenades,
+        throwTick,
+        round.start_tick,
+        grenadeRoundLastTick(replay.rounds, round),
+      )
     : replay.grenades;
   for (const g of throws) {
     const render = nadeRenderAt(g, tick, tps, zoom, round?.end_tick);
@@ -409,7 +436,12 @@ function tracers(replay: Replay, tick: number, tps: number): Tracer[] {
   const life = tps * TRACER_SECONDS;
   const out: Tracer[] = [];
   for (const shot of inTickWindow(replay.shots, eventTick, tick - life, tick)) {
-    out.push({ x: shot.x, y: shot.y, yaw: shot.yaw, fade: 1 - (tick - shot.tick) / life });
+    out.push({
+      x: shot.x,
+      y: shot.y,
+      yaw: shot.yaw,
+      fade: 1 - (tick - shot.tick) / life,
+    });
   }
   return out;
 }
@@ -471,7 +503,10 @@ function playerTrails(
       worldOnRadar(cal, pt.x, pt.y),
     );
     if (points.length < 2) continue;
-    out.push({ points, color: sideColor(players.find((p) => p.index === id)?.ct ?? false) });
+    out.push({
+      points,
+      color: sideColor(players.find((p) => p.index === id)?.ct ?? false),
+    });
   }
   return out;
 }

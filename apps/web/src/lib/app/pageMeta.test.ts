@@ -117,18 +117,24 @@ describe("applyPageMeta", () => {
     expect(metaContent("property", "og:type")).toBe(OG_TYPE);
   });
 
-  it("uses 404 copy and a canonical for unknown paths", () => {
+  it("uses 404 copy and noindex, and drops the canonical link", () => {
+    applyPageMeta("/faq");
+    expect(canonicalHref()).toBe(`${SITE_ORIGIN}/faq`);
     applyPageMeta("/this-page-does-not-exist");
     const missing = pageMeta("/this-page-does-not-exist");
     expect(document.title).toBe("CS2 Analyzer — Page not found");
     expect(metaContent("name", "description")).toBe("This page does not exist.");
-    expect(canonicalHref()).toBe(`${SITE_ORIGIN}/this-page-does-not-exist`);
+    expect(pageHead("/this-page-does-not-exist").canonical).toBeNull();
+    expect(canonicalHref()).toBeNull();
+    expect(metaContent("name", "robots")).toBe("noindex");
     expect(metaContent("property", "og:title")).toBe(missing.title);
     expect(metaContent("property", "og:description")).toBe(missing.description);
     expect(metaContent("property", "og:url")).toBe(missing.canonical);
   });
 
   it("upserts tags instead of duplicating them", () => {
+    applyPageMeta("/this-page-does-not-exist");
+    expect(metaContent("name", "robots")).toBe("noindex");
     applyPageMeta("/");
     applyPageMeta("/faq");
     expect(document.head.querySelectorAll('link[rel="canonical"]')).toHaveLength(1);
@@ -136,6 +142,7 @@ describe("applyPageMeta", () => {
     expect(document.head.querySelectorAll('meta[name="twitter:card"]')).toHaveLength(1);
     expect(document.head.querySelectorAll('script[type="application/ld+json"]')).toHaveLength(2);
     expect(canonicalHref()).toBe(`${SITE_ORIGIN}/faq`);
+    expect(document.head.querySelector('meta[name="robots"]')).toBeNull();
   });
 
   it("leaves Google Search Console verification meta in place", () => {

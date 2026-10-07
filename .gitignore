@@ -10,6 +10,7 @@ apps/layouts/*.tsbuildinfo
 apps/layouts/coverage
 .DS_Store
 .demos/
+test-demos/files/
 testdata/*.dem
 testdata/*.bin
 .env

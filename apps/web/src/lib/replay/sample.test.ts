@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { currentRound, samplePlayer, samplePlayers, trailingFlagStart } from "./sample";
+import {
+  currentRound,
+  grenadeRoundLastTick,
+  samplePlayer,
+  samplePlayers,
+  trailingFlagStart,
+} from "./sample";
 import {
   FLAG_ALIVE,
   FLAG_CT,
@@ -42,7 +48,11 @@ describe("samplePlayer", () => {
     ticks.flags[1] = FLAG_PRESENT;
     const replay = makeReplay({ ticks, players: [makePlayer(0, "CT", "A")] });
     expect(samplePlayer(replay, 0, 0)).toMatchObject({ x: 0, alive: true });
-    expect(samplePlayer(replay, 0, 2)).toMatchObject({ x: 10, alive: false, present: true });
+    expect(samplePlayer(replay, 0, 2)).toMatchObject({
+      x: 10,
+      alive: false,
+      present: true,
+    });
   });
 
   it("reuses the snapshot for a tick it already sampled", () => {
@@ -75,6 +85,11 @@ describe("currentRound", () => {
   it("keeps the gap after a round inside that round", () => {
     // Round 1 ended at 900 but round 2 has not started, so 950 is still R1.
     expect(currentRound(replay, 950)?.number).toBe(1);
+  });
+
+  it("closes the grenade window on the tick before the next freeze", () => {
+    expect(grenadeRoundLastTick(rounds, rounds[1])).toBe(999);
+    expect(grenadeRoundLastTick(rounds, rounds[3])).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it("falls back to the first round before the demo starts, and null with no rounds", () => {

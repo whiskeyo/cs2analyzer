@@ -9,6 +9,7 @@ import {
   FLAG_PRESENT,
   FLAG_SCOPED,
   type Replay,
+  type Round,
 } from "@/lib/replay/replayTypes";
 
 export interface SampledPlayer {
@@ -114,7 +115,10 @@ export function samplePlayer(replay: Replay, player: number, tick: number): Samp
  * freezes, which is the widest pattern in `lib/match`.
  */
 const SAMPLE_CACHE_TICKS = 64;
-let sampleCache: { replay: Replay; byTick: Map<number, SampledPlayer[]> } | null = null;
+let sampleCache: {
+  replay: Replay;
+  byTick: Map<number, SampledPlayer[]>;
+} | null = null;
 
 export function samplePlayers(replay: Replay, tick: number): SampledPlayer[] {
   const pc = replay.ticks.playerCount;
@@ -155,6 +159,23 @@ export function currentRound(replay: Replay, tick: number) {
     else hi = mid - 1;
   }
   return rounds[lo];
+}
+
+/**
+ * Last tick a grenade or fire still belongs to `round`.
+ *
+ * The window is `[round.start_tick, next round start)`. A molotov that lands
+ * after `end_tick` stays in the round that was just played until the next
+ * freeze. The last round has no following start, so the window stays open.
+ */
+export function grenadeRoundLastTick(rounds: readonly Round[], round: Round): number {
+  let next = Number.POSITIVE_INFINITY;
+  for (const other of rounds) {
+    if (other.start_tick > round.start_tick && other.start_tick < next) {
+      next = other.start_tick;
+    }
+  }
+  return Number.isFinite(next) ? next - 1 : Number.MAX_SAFE_INTEGER;
 }
 
 function lastFrameAtOrBefore(ticks: Uint32Array, tick: number): number {
@@ -236,7 +257,15 @@ export function trailingFlagStart(
     startFrame = prev;
   }
   const start = Math.max(buf.ticks[startFrame], fromTick);
-  flagStartCache = { replay, player, flag, fromTick, start, startFrame, endFrame: end };
+  flagStartCache = {
+    replay,
+    player,
+    flag,
+    fromTick,
+    start,
+    startFrame,
+    endFrame: end,
+  };
   return start;
 }
 

@@ -1,5 +1,5 @@
 import { NADE_COLORS } from "@/lib/radar/radarFx";
-import { samplePlayer, samplePlayers } from "@/lib/replay/sample";
+import { grenadeRoundLastTick, samplePlayer, samplePlayers } from "@/lib/replay/sample";
 import type { DemoSeries } from "@/lib/parse/session";
 import type { GrenadeKind, GrenadeThrow, Kill, Replay, Round } from "@/lib/replay/replayTypes";
 import { FLAG_PRESENT } from "@/lib/replay/replayTypes";
@@ -285,7 +285,12 @@ function habitsNadesInTaggedRound(
   const out: HabitsNade[] = [];
   for (const g of replay.grenades) {
     if (g.start_tick < tag.freezeEndTick || g.start_tick > until) continue;
-    if (g.start_tick < round.start_tick || g.start_tick > round.end_tick) continue;
+    if (
+      g.start_tick < round.start_tick ||
+      g.start_tick > grenadeRoundLastTick(replay.rounds, round)
+    ) {
+      continue;
+    }
     if (inKnifeRound(replay, g.start_tick)) continue;
     if (!throwerOnFocalTeam(replay, tag, g.thrower, focal)) continue;
     if (playerKey != null && playerIdentityKey(replay, g.thrower) !== playerKey) continue;

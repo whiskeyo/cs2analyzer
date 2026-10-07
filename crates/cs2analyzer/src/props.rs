@@ -123,6 +123,16 @@ pub(crate) fn gamerules_i32(ctx: &Context, name: &str) -> Option<i32> {
     }
 }
 
+/// `CCSGameRules.m_nRoundStartCount` on the rules proxy.
+///
+/// assets-v1 demos list a legacy `round_start` game event and do not fire it.
+/// demoparser2 still reports `round_start`: it emits one row each time this
+/// counter changes. `None` when the proxy or the prop is missing.
+pub(crate) fn round_start_count(ctx: &Context) -> Option<i32> {
+    let proxy = ctx.entities().get_by_class_name("CCSGameRulesProxy").ok()?;
+    prop_i32_opt(proxy, "m_pGameRules.m_nRoundStartCount")
+}
+
 /// Round length in seconds (`CCSGameRules.m_iRoundTime` via `m_pGameRules`).
 /// `0` when the proxy or the prop is missing, or the value is not positive.
 pub(crate) fn round_time_seconds(ctx: &Context) -> u32 {
@@ -291,6 +301,19 @@ pub(crate) fn is_utility_weapon(weapon: &str) -> bool {
         || w.contains("incgrenade")
 }
 
+/// `weapon_fire` name for a molotov or incendiary. `weapon_incgrenade` and
+/// `weapon_molotov` are the demo strings; the short names are accepted too.
+pub(crate) fn fire_grenade_kind(weapon: &str) -> Option<crate::types::GrenadeKind> {
+    let w = weapon.to_ascii_lowercase();
+    if w.contains("incgrenade") {
+        Some(crate::types::GrenadeKind::Incendiary)
+    } else if w.contains("molotov") {
+        Some(crate::types::GrenadeKind::Molotov)
+    } else {
+        None
+    }
+}
+
 pub(crate) fn is_bullet_weapon(weapon: &str) -> bool {
     let w = weapon.to_ascii_lowercase();
     let skip = [
@@ -336,6 +359,19 @@ mod tests {
         assert_eq!(hurt_hitgroup(Some(HITGROUP_GEAR as i32)), HITGROUP_GEAR);
         assert_eq!(hurt_hitgroup(Some(-1)), HITGROUP_GENERIC);
         assert_eq!(hurt_hitgroup(Some(99)), HITGROUP_GEAR);
+    }
+
+    #[test]
+    fn fire_weapon_names_split_incendiary_and_molotov() {
+        assert_eq!(
+            fire_grenade_kind("weapon_incgrenade"),
+            Some(GrenadeKind::Incendiary)
+        );
+        assert_eq!(
+            fire_grenade_kind("weapon_molotov"),
+            Some(GrenadeKind::Molotov)
+        );
+        assert_eq!(fire_grenade_kind("ak47"), None);
     }
 
     #[test]

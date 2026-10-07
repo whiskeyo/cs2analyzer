@@ -48,6 +48,27 @@ pub(crate) struct RawFrame {
 pub(crate) type ProjPoint = (u32, u32, GrenadeKind, f32, f32, f32, Option<u64>);
 pub(crate) type BombRec = (u32, BombKind, Option<u64>, f32, f32, f32, bool, Option<u8>);
 
+/// `inferno_startburn` is the inferno entity (and the thrower). Projectile
+/// detonates, including optional `molotov_detonate`, name the projectile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GrenadeDetSource {
+    Projectile,
+    InfernoStart,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct GrenadeDet {
+    pub tick: u32,
+    pub kind: GrenadeKind,
+    pub entity: i32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    /// Steam id from `userid` when the event has one, otherwise `CInferno.m_hOwnerEntity`.
+    pub thrower: Option<u64>,
+    pub source: GrenadeDetSource,
+}
+
 pub(crate) struct Collector {
     pub opts: ParseOptions,
     pub map_name: String,
@@ -55,13 +76,30 @@ pub(crate) struct Collector {
     pub meta_order: Vec<u64>,
     pub meta: HashMap<u64, PlayerMeta>,
     pub round_starts: Vec<u32>,
+    /// Ticks where `m_nRoundStartCount` changed, plus a fired `round_start` if
+    /// one arrives. Caps a molotov with no `inferno_expire`, and a smoke with
+    /// no `smokegrenade_expired`. Not paired with `freeze_ends` by index, so
+    /// `Round.start_tick` stays the freeze end.
+    pub round_open_ticks: Vec<u32>,
+    /// Last `m_nRoundStartCount` seen. `None` until the prop exists.
+    round_start_count: Option<i32>,
     pub freeze_ends: Vec<u32>,
     pub official_ends: Vec<(u32, Option<Side>, i32)>,
     pub pre_restarts: Vec<u32>,
     pub synth_ends: Vec<(u32, Option<Side>, i32)>,
     pub prev_win_status: i32,
-    pub grenade_dets: Vec<(u32, GrenadeKind, i32, f32, f32, f32)>,
+    pub grenade_dets: Vec<GrenadeDet>,
+    /// `inferno_expire` (entity id, tick). Smoke expires live in [`Self::smoke_ends`].
     pub grenade_ends: Vec<(i32, u32)>,
+    /// `smokegrenade_expired` (entity id, tick). Kept off [`Self::grenade_ends`]
+    /// because a later inferno can reuse the same entity index.
+    pub smoke_ends: Vec<(i32, u32)>,
+    /// `inferno_extinguish` (entity id, tick). The release demos never emit this
+    /// event. A smoke puts the fire out with an earlier `inferno_expire`.
+    pub inferno_extinguish: Vec<(i32, u32)>,
+    /// `weapon_fire` for `weapon_molotov` / `weapon_incgrenade`: tick, thrower, kind.
+    /// Fallback type when a burn has no expire and no matched projectile.
+    pub fire_throws: Vec<(u32, u64, GrenadeKind)>,
     pub proj_points: Vec<ProjPoint>,
     pub final_winner: Option<Side>,
     pub final_reason: i32,
@@ -159,6 +197,8 @@ impl Collector {
             meta_order: Vec::new(),
             meta: HashMap::new(),
             round_starts: Vec::new(),
+            round_open_ticks: Vec::new(),
+            round_start_count: None,
             freeze_ends: Vec::new(),
             official_ends: Vec::new(),
             pre_restarts: Vec::new(),
@@ -166,6 +206,9 @@ impl Collector {
             prev_win_status: 0,
             grenade_dets: Vec::new(),
             grenade_ends: Vec::new(),
+            smoke_ends: Vec::new(),
+            inferno_extinguish: Vec::new(),
+            fire_throws: Vec::new(),
             proj_points: Vec::new(),
             final_winner: None,
             final_reason: 0,
@@ -198,8 +241,33 @@ impl Collector {
         }
     }
 
+    fn push_round_open(&mut self, tick: u32) {
+        if self
+            .round_open_ticks
+            .last()
+            .is_some_and(|previous| *previous >= tick)
+        {
+            return;
+        }
+        self.round_open_ticks.push(tick);
+    }
+
+    /// A change in `m_nRoundStartCount` is a round open. The first time the prop
+    /// is visible is not a change. An off-round `player_spawn` wave does not
+    /// come through here.
+    pub(crate) fn note_round_start_count(&mut self, tick: u32, count: i32) {
+        if tick == u32::MAX {
+            return;
+        }
+        let previous = self.round_start_count.replace(count);
+        if previous.is_some_and(|seen| seen != count) {
+            self.push_round_open(tick);
+        }
+    }
+
     pub(crate) fn finish_infernos(&mut self, tick: u32) {
-        let ents: Vec<u32> = self.inferno_live.keys().copied().collect();
+        let mut ents: Vec<u32> = self.inferno_live.keys().copied().collect();
+        ents.sort_unstable();
         for entity in ents {
             self.close_inferno(entity, tick);
         }
@@ -272,15 +340,17 @@ impl Collector {
                 continue;
             }
             let entity = e.index();
+            self.note_inferno_thrower(ctx, e, tick);
             seen.insert(entity);
             self.track_inferno(e, tick);
         }
-        let stale: Vec<u32> = self
+        let mut stale: Vec<u32> = self
             .inferno_live
             .keys()
             .copied()
             .filter(|k| !seen.contains(k))
             .collect();
+        stale.sort_unstable();
         for entity in stale {
             self.close_inferno(entity, tick.saturating_sub(1));
         }
@@ -373,6 +443,46 @@ fn steam_from_game_event(c: &Collector, ctx: &Context, ge: &GameEvent<'_>) -> Op
     ev_i32(ge, "userid_pawn")
         .and_then(|h| steam_from_pawn_handle(c, ctx, h))
         .or_else(|| ev_i32(ge, "userid").and_then(|uid| steam_from_userid(c, ctx, uid)))
+}
+
+impl Collector {
+    /// Premier `inferno_startburn` has no `userid`. The inferno's `m_hOwnerEntity`
+    /// is the thrower pawn, and it appears on the tick after the event.
+    fn note_inferno_thrower(&mut self, ctx: &Context, inferno: &Entity, tick: u32) {
+        let Some(steam) =
+            steam_from_pawn_handle(self, ctx, prop_u32(inferno, "m_hOwnerEntity") as i32)
+        else {
+            return;
+        };
+        fill_inferno_thrower(
+            &mut self.grenade_dets,
+            inferno.index() as i32,
+            tick,
+            steam,
+            crate::constants::INFERNO_OWNER_LAG_TICKS,
+        );
+    }
+}
+
+/// Copy `steam` onto the latest `inferno_startburn` for `entity` that still has
+/// no thrower and started within `lag_ticks`. A `userid` already on the event is left alone.
+pub(crate) fn fill_inferno_thrower(
+    dets: &mut [GrenadeDet],
+    entity: i32,
+    tick: u32,
+    steam: u64,
+    lag_ticks: u32,
+) {
+    let Some(det) = dets.iter_mut().rev().find(|det| {
+        det.source == GrenadeDetSource::InfernoStart
+            && det.entity == entity
+            && det.thrower.is_none()
+            && det.tick <= tick
+            && tick.saturating_sub(det.tick) <= lag_ticks
+    }) else {
+        return;
+    };
+    det.thrower = Some(steam);
 }
 
 /// Controllers with `m_steamID == 0` are bots (or an empty slot after a leave).
@@ -844,9 +954,22 @@ impl Collector {
         Ok(())
     }
 
+    /// Entity updates for this tick are already applied. `on_tick_start` still
+    /// sees the previous tick's rules.
+    #[on_tick_end]
+    fn on_tick_end(&mut self, ctx: &Context) -> ObserverResult {
+        if let Some(count) = round_start_count(ctx) {
+            self.note_round_start_count(ctx.tick(), count);
+        }
+        Ok(())
+    }
+
     #[on_game_event]
     fn on_game_event(&mut self, ctx: &Context, ge: &GameEvent) -> ObserverResult {
         let tick = ctx.tick();
+        if ge.name() == "round_start" {
+            self.push_round_open(tick);
+        }
         if self.opts.skip_warmup && in_warmup(ctx) {
             return Ok(());
         }
@@ -1002,15 +1125,30 @@ impl Collector {
                 self.bomb_events
                     .push((tick, kind, player, x, y, z, ev_haskit(ge), site));
             }
+            "inferno_startburn" => {
+                // Premier demos have no `molotov_detonate`. `entityid` is the
+                // inferno. This build's event descriptor is entityid/x/y/z with
+                // no `userid`; `note_inferno_thrower` copies `m_hOwnerEntity`
+                // when the inferno entity appears. Pair `inferno_expire` by entity id.
+                self.grenade_dets.push(GrenadeDet {
+                    tick,
+                    kind: GrenadeKind::Molotov,
+                    entity: ev_i32(ge, "entityid").unwrap_or(0),
+                    x: ev_f32(ge, "x"),
+                    y: ev_f32(ge, "y"),
+                    z: ev_f32(ge, "z"),
+                    thrower: steam_from_game_event(self, ctx, ge),
+                    source: GrenadeDetSource::InfernoStart,
+                });
+            }
             name @ ("smokegrenade_detonate"
-            | "inferno_startburn"
             | "hegrenade_detonate"
             | "flashbang_detonate"
             | "decoy_detonate"
             | "molotov_detonate") => {
                 let kind = match name {
                     "smokegrenade_detonate" => GrenadeKind::Smoke,
-                    "inferno_startburn" | "molotov_detonate" => GrenadeKind::Molotov,
+                    "molotov_detonate" => GrenadeKind::Molotov,
                     "hegrenade_detonate" => GrenadeKind::He,
                     "flashbang_detonate" => GrenadeKind::Flash,
                     _ => GrenadeKind::Decoy,
@@ -1021,21 +1159,37 @@ impl Collector {
                         self.last_flash_thrower = Some(thrower);
                     }
                 }
-                self.grenade_dets.push((
+                self.grenade_dets.push(GrenadeDet {
                     tick,
                     kind,
-                    id,
-                    ev_f32(ge, "x"),
-                    ev_f32(ge, "y"),
-                    ev_f32(ge, "z"),
-                ));
+                    entity: id,
+                    x: ev_f32(ge, "x"),
+                    y: ev_f32(ge, "y"),
+                    z: ev_f32(ge, "z"),
+                    thrower: None,
+                    source: GrenadeDetSource::Projectile,
+                });
             }
-            "smokegrenade_expired" | "inferno_expire" => {
+            "smokegrenade_expired" => {
+                let id = ev_i32(ge, "entityid").unwrap_or(0);
+                self.smoke_ends.push((id, tick));
+            }
+            "inferno_expire" => {
                 let id = ev_i32(ge, "entityid").unwrap_or(0);
                 self.grenade_ends.push((id, tick));
             }
+            "inferno_extinguish" => {
+                let id = ev_i32(ge, "entityid").unwrap_or(0);
+                self.inferno_extinguish.push((id, tick));
+            }
             "weapon_fire" => {
                 let w = ev_str(ge, "weapon").unwrap_or_default();
+                if let Some(kind) = fire_grenade_kind(&w) {
+                    if let Some(steam) = steam_from_game_event(self, ctx, ge) {
+                        self.fire_throws.push((tick, steam, kind));
+                    }
+                    return Ok(());
+                }
                 if !is_bullet_weapon(&w) {
                     return Ok(());
                 }
