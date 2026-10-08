@@ -72,6 +72,70 @@ pub fn parse_demo_with_progress(
     ))
 }
 
+/// Completed `run_to_end` parses through [`parse_demo_with_test_observer`].
+///
+/// Not part of the WASM or CLI build: `test-hooks` is not a default feature,
+/// and this block is compiled out without it. The production parse function
+/// above is unchanged from the shipped parser.
+#[cfg(any(test, feature = "test-hooks"))]
+static FULL_PARSE_PASSES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// How many times [`parse_demo_with_test_observer`] has run to the end since
+/// [`reset_full_parse_passes`].
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn full_parse_passes() -> u64 {
+    FULL_PARSE_PASSES.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Zero [`full_parse_passes`] at the start of a real-demo walk.
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn reset_full_parse_passes() {
+    FULL_PARSE_PASSES.store(0, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Parse a demo and return a read-only observer that ran after [`Collector`].
+///
+/// Integration tests are not `cfg(test)` for this crate, so the hook is also
+/// gated on the `test-hooks` feature. That feature is not a default; the
+/// package dev-dependency enables it for tests only. Registering the extra
+/// observer does not change the `Match`: [`Collector`] is still first and
+/// already uses every interest. Setup is duplicated here so the production
+/// parse path stays the shipped function.
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn parse_demo_with_test_observer<O>(
+    bytes: &[u8],
+    opts: ParseOptions,
+    observer: O,
+) -> Result<(Match, O), ParseError>
+where
+    O: Observer + Clone + 'static,
+{
+    let opts = ParseOptions {
+        tick_stride: opts.tick_stride.max(1),
+        skip_warmup: opts.skip_warmup,
+    };
+    let mut parser = Parser::new(bytes).map_err(|e| ParseError::Demo(e.to_string()))?;
+    let mut collector = Collector::new(opts);
+    collector.progress = None;
+    let total = parser.replay_info().playback_ticks().max(0) as u32;
+    collector.total_ticks = total;
+    let handle = parser.add_observer(collector);
+    let extra = parser.add_observer(observer);
+    parser
+        .run_to_end()
+        .map_err(|e| ParseError::Demo(e.to_string()))?;
+    FULL_PARSE_PASSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let playback_ticks = parser.replay_info().playback_ticks();
+    let playback_time = parser.replay_info().playback_time();
+    let mut collector = handle.borrow_mut();
+    let parsed = assemble::assemble(&mut collector, playback_ticks, playback_time);
+    let observed = extra.borrow().clone();
+    Ok((parsed, observed))
+}
+
 /// Bit in [`TickBuffer::flags`]: player has a pawn this frame.
 pub const FLAG_PRESENT: u8 = 1 << 0;
 /// Bit in [`TickBuffer::flags`]: player is alive.
