@@ -17,15 +17,17 @@ source2-demo = { workspace = true }
 # Constrain resolution without linking into the parser. Remove with the pin.
 source2-demo-macros = { workspace = true }
 source2-demo-protobufs = { workspace = true }
+# Enables `test-hooks` for this package's tests only. Downstream crates do not
+# see a dev-dependency, and the feature is not in `default`.
+cs2analyzer = { path = ".", features = ["test-hooks"] }
 
 [features]
-default = ["mimalloc", "match-stats", "test-hooks"]
+default = ["mimalloc", "match-stats"]
 mimalloc = ["source2-demo/mimalloc"]
 match-stats = []
-# Integration tests are not `cfg(test)` for this library. On by default so
-# `cargo test -p cs2analyzer` can attach a read-only observer to the same parse.
-# WASM depends with `default-features = false`. The CLI lists `mimalloc` and
-# `match-stats` only. The hook does not change `Match` output.
+# Integration tests are not `cfg(test)` for this library. Not a default
+# feature: WASM and the CLI must not compile it in. Tests enable it via the
+# dev-dependency above.
 test-hooks = []
 
 [lints]

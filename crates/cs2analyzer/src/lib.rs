@@ -17,35 +17,8 @@ pub use error::ParseError;
 pub use radar::{calibration, MapCalibration, VerticalSection, MAPS};
 pub use types::*;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use observer::Collector;
 use source2_demo::prelude::*;
-
-/// Completed `run_to_end` parses in this process. Test-only: WASM and the CLI
-/// build without `test-hooks`, so they do not carry the counter.
-#[cfg(any(test, feature = "test-hooks"))]
-static FULL_PARSE_PASSES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-
-/// How many times a parse has run to the end since [`reset_full_parse_passes`].
-#[cfg(any(test, feature = "test-hooks"))]
-#[doc(hidden)]
-pub fn full_parse_passes() -> u64 {
-    FULL_PARSE_PASSES.load(std::sync::atomic::Ordering::Relaxed)
-}
-
-/// Zero [`full_parse_passes`] at the start of a real-demo walk.
-#[cfg(any(test, feature = "test-hooks"))]
-#[doc(hidden)]
-pub fn reset_full_parse_passes() {
-    FULL_PARSE_PASSES.store(0, std::sync::atomic::Ordering::Relaxed);
-}
-
-#[cfg(any(test, feature = "test-hooks"))]
-fn note_full_parse() {
-    FULL_PARSE_PASSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-}
 
 /// Options for a single demo parse.
 #[derive(Debug, Clone)]
@@ -76,48 +49,6 @@ pub fn parse_demo_with_progress(
     opts: ParseOptions,
     progress: Option<Box<dyn FnMut(u32, u32)>>,
 ) -> Result<Match, ParseError> {
-    let (mut parser, handle) = prepare_parser(bytes, opts, progress)?;
-    parser
-        .run_to_end()
-        .map_err(|e| ParseError::Demo(e.to_string()))?;
-    #[cfg(any(test, feature = "test-hooks"))]
-    note_full_parse();
-    Ok(assemble_match(&parser, &handle))
-}
-
-/// Parse a demo and return a read-only observer that ran after [`Collector`].
-///
-/// Integration tests are not `cfg(test)` for this crate, so the hook is also
-/// gated on the `test-hooks` feature (a default feature; WASM and the CLI turn
-/// default features off). Registering the extra observer does not change the
-/// `Match`: [`Collector`] is still first and already uses every interest.
-#[cfg(any(test, feature = "test-hooks"))]
-#[doc(hidden)]
-pub fn parse_demo_with_test_observer<O>(
-    bytes: &[u8],
-    opts: ParseOptions,
-    observer: O,
-) -> Result<(Match, O), ParseError>
-where
-    O: Observer + Clone + 'static,
-{
-    let (mut parser, handle) = prepare_parser(bytes, opts, None)?;
-    let extra = parser.add_observer(observer);
-    parser
-        .run_to_end()
-        .map_err(|e| ParseError::Demo(e.to_string()))?;
-    #[cfg(any(test, feature = "test-hooks"))]
-    note_full_parse();
-    let parsed = assemble_match(&parser, &handle);
-    let observed = extra.borrow().clone();
-    Ok((parsed, observed))
-}
-
-fn prepare_parser<'a>(
-    bytes: &'a [u8],
-    opts: ParseOptions,
-    progress: Option<Box<dyn FnMut(u32, u32)>>,
-) -> Result<(Parser<'a>, Rc<RefCell<Collector>>), ParseError> {
     let opts = ParseOptions {
         tick_stride: opts.tick_stride.max(1),
         skip_warmup: opts.skip_warmup,
@@ -128,14 +59,81 @@ fn prepare_parser<'a>(
     let total = parser.replay_info().playback_ticks().max(0) as u32;
     collector.total_ticks = total;
     let handle = parser.add_observer(collector);
-    Ok((parser, handle))
-}
-
-fn assemble_match(parser: &Parser, handle: &Rc<RefCell<Collector>>) -> Match {
+    parser
+        .run_to_end()
+        .map_err(|e| ParseError::Demo(e.to_string()))?;
     let playback_ticks = parser.replay_info().playback_ticks();
     let playback_time = parser.replay_info().playback_time();
     let mut collector = handle.borrow_mut();
-    assemble::assemble(&mut collector, playback_ticks, playback_time)
+    Ok(assemble::assemble(
+        &mut collector,
+        playback_ticks,
+        playback_time,
+    ))
+}
+
+/// Completed `run_to_end` parses through [`parse_demo_with_test_observer`].
+///
+/// Not part of the WASM or CLI build: `test-hooks` is not a default feature,
+/// and this block is compiled out without it. The production parse function
+/// above is unchanged from the shipped parser.
+#[cfg(any(test, feature = "test-hooks"))]
+static FULL_PARSE_PASSES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// How many times [`parse_demo_with_test_observer`] has run to the end since
+/// [`reset_full_parse_passes`].
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn full_parse_passes() -> u64 {
+    FULL_PARSE_PASSES.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Zero [`full_parse_passes`] at the start of a real-demo walk.
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn reset_full_parse_passes() {
+    FULL_PARSE_PASSES.store(0, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Parse a demo and return a read-only observer that ran after [`Collector`].
+///
+/// Integration tests are not `cfg(test)` for this crate, so the hook is also
+/// gated on the `test-hooks` feature. That feature is not a default; the
+/// package dev-dependency enables it for tests only. Registering the extra
+/// observer does not change the `Match`: [`Collector`] is still first and
+/// already uses every interest. Setup is duplicated here so the production
+/// parse path stays the shipped function.
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn parse_demo_with_test_observer<O>(
+    bytes: &[u8],
+    opts: ParseOptions,
+    observer: O,
+) -> Result<(Match, O), ParseError>
+where
+    O: Observer + Clone + 'static,
+{
+    let opts = ParseOptions {
+        tick_stride: opts.tick_stride.max(1),
+        skip_warmup: opts.skip_warmup,
+    };
+    let mut parser = Parser::new(bytes).map_err(|e| ParseError::Demo(e.to_string()))?;
+    let mut collector = Collector::new(opts);
+    collector.progress = None;
+    let total = parser.replay_info().playback_ticks().max(0) as u32;
+    collector.total_ticks = total;
+    let handle = parser.add_observer(collector);
+    let extra = parser.add_observer(observer);
+    parser
+        .run_to_end()
+        .map_err(|e| ParseError::Demo(e.to_string()))?;
+    FULL_PARSE_PASSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let playback_ticks = parser.replay_info().playback_ticks();
+    let playback_time = parser.replay_info().playback_time();
+    let mut collector = handle.borrow_mut();
+    let parsed = assemble::assemble(&mut collector, playback_ticks, playback_time);
+    let observed = extra.borrow().clone();
+    Ok((parsed, observed))
 }
 
 /// Bit in [`TickBuffer::flags`]: player has a pawn this frame.

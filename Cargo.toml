@@ -13,11 +13,7 @@ license = "MIT"
 repository = "https://github.com/whiskeyo/cs2analyzer"
 
 [workspace.dependencies]
-# Default features stay off here so dependents opt in. The package's own
-# default (including `test-hooks`) still applies when cs2analyzer is the root,
-# which is how `cargo test -p cs2analyzer` sees the test observer. Overriding
-# a workspace `default-features = true` from a member needs edition 2024.
-cs2analyzer = { path = "crates/cs2analyzer", default-features = false }
+cs2analyzer = { path = "crates/cs2analyzer", default-features = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
