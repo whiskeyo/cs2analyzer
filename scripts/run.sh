@@ -7,10 +7,10 @@ BINDGEN_VERSION="0.2.127"
 # One skip list for `cargo upgrade --exclude` and the `cargo update -p` filter.
 # `--latest` does not change it and must not pass `--pinned`.
 # Exact names: source2-demo, source2-demo-macros, and source2-demo-protobufs
-# are pinned to =0.5.9 in the workspace Cargo.toml after the assets-v1 demo
-# comparison. source2-demo 0.5.9 depends on the macros and protobuf crates as
-# ^0.5.9, so those are pinned too (the last two are dev-dependencies of
-# crates/cs2analyzer only to hold the lock). Remove the three pins together.
+# are pinned to =0.5.10 in the workspace Cargo.toml. source2-demo depends on
+# the macros and protobuf crates as ^0.5.x, so those are pinned too (the last
+# two are dev-dependencies of crates/cs2analyzer only to hold the lock).
+# Remove the three pins together.
 # js-sys and web-sys exact-pin a wasm-bindgen release, so a newer one would move that pin.
 # Prefix: every crate named wasm-bindgen or wasm-bindgen-* (macro, macro-support,
 # backend, shared, futures, and the rest). Those must stay matched to the

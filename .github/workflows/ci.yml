@@ -117,11 +117,14 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: wasm
+          prefix-key: wasm-0.5.10
       - name: wasm-bindgen-cli 0.2.127
         run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
       - name: build wasm
-        run: ./scripts/build-wasm.sh
+        # Clean path-sensitive crates so the drift check matches a cold GHA rebuild.
+        run: |
+          cargo clean -p cs2analyzer-wasm -p cs2analyzer -p source2-demo -p source2-demo-protobufs
+          ./scripts/build-wasm.sh
       - name: parser drift
         run: |
           if git diff --exit-code -- apps/web/src/parser/; then
