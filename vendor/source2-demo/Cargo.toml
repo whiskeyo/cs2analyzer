@@ -1,0 +1,30 @@
+[package]
+name = "source2-demo"
+version = "0.5.9"
+edition = "2021"
+rust-version = "1.79"
+authors = ["Artem Rupasov <artemrupasov125@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "Dota 2 / Deadlock / CS2 replay parser written in Rust"
+repository = "https://github.com/Rupas1k/source2-demo"
+readme = "README.md"
+
+[features]
+default = ["mimalloc"]
+unsafe = []
+dota = ["source2-demo-protobufs/dota", "source2-demo-macros/dota"]
+deadlock = ["source2-demo-protobufs/citadel", "source2-demo-macros/citadel"]
+cs2 = ["source2-demo-protobufs/cs2", "source2-demo-macros/cs2"]
+
+[dependencies]
+hashbrown = "0.17"
+rustc-hash = "2.1"
+snap = "1.1"
+bitter = "0.9"
+thiserror = "2.0"
+anyhow = "1.0"
+prettytable = { version = "0.10", default-features = false }
+bitflags = "2.10"
+mimalloc = { version = "0.1", optional = true }
+source2-demo-protobufs = { path = "../source2-demo-protobufs", version = "0.5.9" }
+source2-demo-macros = "0.5.9"
