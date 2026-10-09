@@ -1,7 +1,9 @@
 //! SHA-256 of the parser output the WASM boundary exposes.
 //!
 //! Moved out of `output_golden.rs` so the real-demo walk can hash the same
-//! parse. The framing, section order, and hash file read/write are unchanged.
+//! parse. One pretty-printed file per manifest demo under
+//! `test-demos/output-hashes/<demo name>.json`. Stored files hold section
+//! hashes only; `events` and the demo `sha256` are derived from those sections.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -11,9 +13,10 @@ use cs2analyzer::Match;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+pub const HASHES_DIR: &str = "test-demos/output-hashes";
+
 #[allow(dead_code)]
-pub const SECTION_ORDER: [&str; 30] = [
-    "events",
+pub const SECTION_ORDER: [&str; 29] = [
     "header",
     "players",
     "rounds",
@@ -46,22 +49,19 @@ pub const SECTION_ORDER: [&str; 30] = [
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct OutputHashes {
-    pub demos: Vec<DemoHash>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct DemoHash {
     pub name: String,
-    pub sha256: String,
     pub sections: SectionHashes,
 }
 
-/// Payload hashes. Field order is the WASM boundary order.
+/// Stored payload hashes. Field order is the file key order.
+///
+/// `events` and the demo `sha256` are computed for tests and the log line.
+/// They are not fields here: see the module comment.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct SectionHashes {
-    pub events: String,
-    /// Hash of each WASM getter inside `events`. Not mixed into `sha256` again.
     pub header: String,
     pub players: String,
     pub rounds: String,
@@ -93,10 +93,18 @@ pub struct SectionHashes {
     pub reserve: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ComputedOutput {
+    /// Frames the events blob plus the tick columns. Not stored.
+    pub sha256: String,
+    /// Hash of the events blob. Not stored.
+    pub events: String,
+    pub sections: SectionHashes,
+}
+
 impl SectionHashes {
-    pub fn values(&self) -> [(&str, &str); 30] {
+    pub fn values(&self) -> [(&str, &str); 29] {
         [
-            ("events", self.events.as_str()),
             ("header", self.header.as_str()),
             ("players", self.players.as_str()),
             ("rounds", self.rounds.as_str()),
@@ -130,8 +138,75 @@ impl SectionHashes {
     }
 }
 
-pub fn hashes_path() -> std::path::PathBuf {
-    crate::common::repo_root().join("test-demos/output-hashes.json")
+pub fn hashes_dir() -> std::path::PathBuf {
+    crate::common::repo_root().join(HASHES_DIR)
+}
+
+pub fn hash_file_name(demo_name: &str) -> String {
+    format!("{demo_name}.json")
+}
+
+pub fn hash_file_path(demo_name: &str) -> std::path::PathBuf {
+    hashes_dir().join(hash_file_name(demo_name))
+}
+
+pub fn demo_name_from_hash_file(file_name: &str) -> Option<&str> {
+    let name = file_name.strip_suffix(".json")?;
+    if name.is_empty() || name.contains('/') || name.contains('\\') {
+        return None;
+    }
+    Some(name)
+}
+
+pub fn section_diff(demo_name: &str, expected: &SectionHashes, actual: &SectionHashes) -> String {
+    let mut sections = String::new();
+    for ((name, expected_hash), (_, actual_hash)) in
+        expected.values().into_iter().zip(actual.values())
+    {
+        if expected_hash != actual_hash {
+            sections.push_str(&format!(
+                "  {name}\n    expected {expected_hash}\n    got {actual_hash}\n"
+            ));
+        }
+    }
+    if sections.is_empty() {
+        return String::new();
+    }
+    let mut report = String::new();
+    report.push_str(demo_name);
+    report.push('\n');
+    report.push_str(&sections);
+    report
+}
+
+/// Missing files are demos we parsed. Orphans are hash files whose name is not
+/// a manifest demo. `report_orphans` is off when `HASH_DEMOS` limits the check.
+pub fn coverage_report(
+    manifest: &[String],
+    parsed: &[String],
+    hash_files: &[String],
+    report_orphans: bool,
+) -> String {
+    let mut report = String::new();
+    for name in parsed {
+        if !hash_files.iter().any(|file| file == name) {
+            report.push_str(&format!(
+                "{name}: missing hash file {HASHES_DIR}/{}\n",
+                hash_file_name(name)
+            ));
+        }
+    }
+    if report_orphans {
+        for name in hash_files {
+            if !manifest.iter().any(|demo| demo == name) {
+                report.push_str(&format!(
+                    "{name}: orphan hash file {HASHES_DIR}/{} has no manifest demo\n",
+                    hash_file_name(name)
+                ));
+            }
+        }
+    }
+    report
 }
 
 pub fn hex_bytes(bytes: &[u8]) -> String {
@@ -174,9 +249,6 @@ fn push_text(buf: &mut Vec<u8>, name: &str, text: &str) -> String {
     digest_bytes(text.as_bytes())
 }
 
-/// Non-column WASM getters, plus a hash of each getter's own bytes.
-/// `stats` is not one of them. The piece hashes are for the diff report.
-/// `sha256` still hashes `payload` once, not each piece again.
 struct EventPieces {
     payload: Vec<u8>,
     header: String,
@@ -277,13 +349,12 @@ fn push_encoded<T, const N: usize>(
     digest
 }
 
-pub fn hash_match(parsed: &Match) -> (String, SectionHashes) {
+pub fn hash_match(parsed: &Match) -> ComputedOutput {
     let mut overall = Sha256::new();
     let pieces = event_pieces(parsed);
     let ticks = &parsed.ticks;
-    // Piece hashes stay out of `overall`. The events blob already contains them.
+    let events = push_payload(&mut overall, "events", &pieces.payload);
     let sections = SectionHashes {
-        events: push_payload(&mut overall, "events", &pieces.payload),
         header: pieces.header,
         players: pieces.players,
         rounds: pieces.rounds,
@@ -324,52 +395,11 @@ pub fn hash_match(parsed: &Match) -> (String, SectionHashes) {
             value.to_le_bytes()
         }),
     };
-    (finalize_hex(overall), sections)
-}
-
-pub fn diff_report(expected: &OutputHashes, actual: &OutputHashes) -> String {
-    let mut report = String::new();
-    let mut seen = std::collections::BTreeSet::new();
-    for demo in &actual.demos {
-        seen.insert(demo.name.as_str());
-        let Some(prior) = expected.demos.iter().find(|row| row.name == demo.name) else {
-            report.push_str(&format!("{}: missing from output-hashes.json\n", demo.name));
-            continue;
-        };
-        let mut sections = String::new();
-        for ((name, expected_hash), (_, actual_hash)) in prior
-            .sections
-            .values()
-            .into_iter()
-            .zip(demo.sections.values())
-        {
-            if expected_hash != actual_hash {
-                sections.push_str(&format!(
-                    "  {name}\n    expected {expected_hash}\n    got {actual_hash}\n"
-                ));
-            }
-        }
-        if sections.is_empty() && prior.sha256 != demo.sha256 {
-            sections.push_str(&format!(
-                "  sha256\n    expected {}\n    got {}\n",
-                prior.sha256, demo.sha256
-            ));
-        }
-        if !sections.is_empty() {
-            report.push_str(&demo.name);
-            report.push('\n');
-            report.push_str(&sections);
-        }
+    ComputedOutput {
+        sha256: finalize_hex(overall),
+        events,
+        sections,
     }
-    for demo in &expected.demos {
-        if !seen.contains(demo.name.as_str()) {
-            report.push_str(&format!(
-                "{}: in output-hashes.json but not parsed\n",
-                demo.name
-            ));
-        }
-    }
-    report
 }
 
 fn vm_rss_kib() -> Option<u64> {
@@ -447,24 +477,21 @@ pub fn demo_name(path: &std::path::Path) -> String {
         .to_string()
 }
 
-pub fn write_hashes(path: &std::path::Path, hashes: &OutputHashes) {
-    let mut text = serde_json::to_string_pretty(hashes)
-        .unwrap_or_else(|err| panic!("could not encode {}: {err}", path.display()));
+fn encode_hash_file(demo: &DemoHash) -> String {
+    let mut text = serde_json::to_string_pretty(demo)
+        .unwrap_or_else(|err| panic!("could not encode hash file: {err}"));
     text.push('\n');
-    std::fs::write(path, text)
-        .unwrap_or_else(|err| panic!("could not write {}: {err}", path.display()));
+    text
 }
 
-/// Read the combined hash file. Missing or unparsable input is `Err`.
-/// The real-demo loop turns that into `<demo> :: hashes :: ...` and continues.
-pub fn read_hashes(path: &std::path::Path) -> Result<OutputHashes, String> {
-    let text = std::fs::read_to_string(path).map_err(|err| {
-        format!(
-            "could not read {} ({err}); set UPDATE_HASHES=1 to create it",
-            path.display()
-        )
-    })?;
-    serde_json::from_str(&text).map_err(|err| format!("could not parse {}: {err}", path.display()))
+pub fn write_demo_hash(demo: &DemoHash) {
+    let path = hash_file_path(&demo.name);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .unwrap_or_else(|err| panic!("could not create {}: {err}", parent.display()));
+    }
+    std::fs::write(&path, encode_hash_file(demo))
+        .unwrap_or_else(|err| panic!("could not write {}: {err}", path.display()));
 }
 
 /// Read one `test-demos/output-hashes/<demo>.json`.
@@ -477,12 +504,47 @@ pub fn read_demo_hash_file(path: &std::path::Path) -> Result<DemoHash, String> {
     serde_json::from_str(&text).map_err(|err| format!("could not parse {}: {err}", path.display()))
 }
 
-/// Hash one parsed demo. The real-demo log prints the sha256 on the `output-hash` line.
-pub fn log_parsed_demo(name: &str, parsed: &Match, _rss_kib: Option<u64>) -> DemoHash {
-    let (sha256, sections) = hash_match(parsed);
-    DemoHash {
-        name: name.to_string(),
-        sha256,
-        sections,
+pub fn list_hash_file_demos(dir: &std::path::Path) -> Vec<String> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
+        Err(err) => panic!("could not read {}: {err}", dir.display()),
+    };
+    let mut names = Vec::new();
+    for entry in entries {
+        let entry = entry.unwrap_or_else(|err| panic!("could not read {}: {err}", dir.display()));
+        let file_type = entry
+            .file_type()
+            .unwrap_or_else(|err| panic!("could not stat {}: {err}", entry.path().display()));
+        if !file_type.is_file() {
+            continue;
+        }
+        let file_name = entry.file_name();
+        let Some(file_name) = file_name.to_str() else {
+            continue;
+        };
+        let Some(demo_name) = demo_name_from_hash_file(file_name) else {
+            continue;
+        };
+        names.push(demo_name.to_string());
     }
+    names.sort();
+    names
+}
+
+pub fn delete_orphan_hash_files(dir: &std::path::Path, manifest: &[String]) {
+    for demo_name in list_hash_file_demos(dir) {
+        if manifest.iter().any(|name| name == &demo_name) {
+            continue;
+        }
+        let path = dir.join(hash_file_name(&demo_name));
+        std::fs::remove_file(&path)
+            .unwrap_or_else(|err| panic!("could not remove {}: {err}", path.display()));
+        eprintln!("removed orphan {}", path.display());
+    }
+}
+
+/// Hash one parsed demo. The real-demo log prints the sha256 on the `output-hash` line.
+pub fn log_parsed_demo(parsed: &Match, _rss_kib: Option<u64>) -> ComputedOutput {
+    hash_match(parsed)
 }

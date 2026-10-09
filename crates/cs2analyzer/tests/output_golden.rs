@@ -6,22 +6,30 @@
 //! little-endian bytes of those typed arrays (`Float32Array` / `Uint32Array` /
 //! `Uint16Array` / `Uint8Array`).
 //!
-//! The events section is every non-column getter. Each piece is the getter
-//! name, a newline, the decimal byte length, a newline, then the exact bytes
-//! (`serde_json::to_string` for the JSON getters, decimal ASCII for
-//! `playerCount` and `frameCount`). The demo hash frames every section the
-//! same way. `events` is that whole blob. Each getter also has its own hash
-//! (`header`, `grenades`, …) so a mismatch names the field. Those piece
-//! hashes are not mixed into the demo sha256 a second time. Tick-column
-//! hashes cover that column's bytes only.
+//! Each non-column getter is hashed on its own (`header`, `grenades`, …) so a
+//! mismatch names the field. Tick-column hashes cover that column's bytes only.
+//! The events blob frames those getters and concatenates them (`header` through
+//! `frame_count`, nothing else): getter name, a newline, the decimal byte
+//! length, a newline, then the exact bytes (`serde_json::to_string` for the
+//! JSON getters, decimal ASCII for `playerCount` and `frameCount`). The demo
+//! sha256 frames that blob plus the tick columns and nothing else. Piece hashes
+//! are not mixed into it a second time. Both combined hashes are determined by
+//! the stored sections, so the files omit `events` and `sha256`. A grenade
+//! change then touches only the `grenades` line.
 //!
 //! None of those JSON types contain a map. Object keys are struct fields in
 //! declaration order, so they do not follow `HashMap` iteration. `serde_json`
 //! prints each `f32` with the same text for the same bits.
 //!
+//! One pretty-printed file per manifest demo:
+//! `test-demos/output-hashes/<demo name>.json`.
+//!
 //! `cargo test` skips the demo run. Regenerate hashes with
 //! `UPDATE_HASHES=1 cargo test --release -p cs2analyzer --test real_demos -- --ignored`.
-//! The serializer snapshot stays on `UPDATE_SNAPSHOT=1` (`tests/serializers.rs`).
+//! That run writes every file and deletes hash files that are not in the manifest.
+//! `HASH_DEMOS=name1,name2` limits only the hash check in that test, and leaves
+//! other hash files alone. A non-empty `CI` variable rejects `HASH_DEMOS`. The
+//! serializer snapshot stays on `UPDATE_SNAPSHOT=1` (`tests/serializers.rs`).
 //! Hash framing lives in `output_hash.rs` so that walk can hash the one parse.
 
 #[allow(dead_code)]
@@ -34,8 +42,8 @@ mod output_hash;
 
 use cs2analyzer::{Match, TickBuffer};
 use output_hash::{
-    diff_report, events_payload, hash_match, hex_bytes, DemoHash, OutputHashes, SectionHashes,
-    SECTION_ORDER,
+    coverage_report, demo_name_from_hash_file, events_payload, hash_file_path, hash_match,
+    hex_bytes, DemoHash, SectionHashes, HASHES_DIR, SECTION_ORDER,
 };
 use sha2::{Digest, Sha256};
 
@@ -60,7 +68,8 @@ fn wasm_boundary_hashes_json_and_little_endian_columns() {
         "Match::stats is not on the WASM boundary"
     );
 
-    let (sha256, sections) = hash_match(&parsed);
+    let hashed = hash_match(&parsed);
+    let sections = &hashed.sections;
     assert_eq!(
         sections.x,
         hex_bytes(&Sha256::digest(1.0f32.to_le_bytes())),
@@ -84,20 +93,20 @@ fn wasm_boundary_hashes_json_and_little_endian_columns() {
 
     let mut changed = parsed.clone();
     changed.ticks.yaw[0] = 90.0;
-    let (changed_sha, changed_sections) = hash_match(&changed);
-    assert_ne!(sha256, changed_sha);
-    assert_eq!(sections.events, changed_sections.events);
-    assert_eq!(sections.header, changed_sections.header);
-    assert_eq!(sections.grenades, changed_sections.grenades);
-    assert_ne!(sections.yaw, changed_sections.yaw);
+    let changed_hash = hash_match(&changed);
+    assert_ne!(hashed.sha256, changed_hash.sha256);
+    assert_eq!(hashed.events, changed_hash.events);
+    assert_eq!(sections.header, changed_hash.sections.header);
+    assert_eq!(sections.grenades, changed_hash.sections.grenades);
+    assert_ne!(sections.yaw, changed_hash.sections.yaw);
 
     let mut renamed = parsed.clone();
     renamed.header.map_name = "de_nuke".to_string();
-    let (_, renamed_sections) = hash_match(&renamed);
-    assert_ne!(sections.header, renamed_sections.header);
-    assert_ne!(sections.events, renamed_sections.events);
-    assert_eq!(sections.kills, renamed_sections.kills);
-    assert_eq!(sections.grenades, renamed_sections.grenades);
+    let renamed_hash = hash_match(&renamed);
+    assert_ne!(sections.header, renamed_hash.sections.header);
+    assert_ne!(hashed.events, renamed_hash.events);
+    assert_eq!(sections.kills, renamed_hash.sections.kills);
+    assert_eq!(sections.grenades, renamed_hash.sections.grenades);
     assert_eq!(
         sections.header,
         hex_bytes(&Sha256::digest(header.as_bytes())),
@@ -107,31 +116,105 @@ fn wasm_boundary_hashes_json_and_little_endian_columns() {
 
 #[test]
 fn mismatch_names_the_sections_that_differ() {
-    let expected = OutputHashes {
-        demos: vec![
-            demo_hash("a.dem", "overall-a", "events-a", "x-a"),
-            demo_hash("gone.dem", "overall-g", "events-g", "x-g"),
-        ],
-    };
-    let actual = OutputHashes {
-        demos: vec![
-            demo_hash("a.dem", "overall-b", "events-b", "x-a"),
-            demo_hash("new.dem", "overall-n", "events-n", "x-n"),
-        ],
-    };
-    let report = diff_report(&expected, &actual);
-    assert!(report.contains("a.dem\n  events\n"), "{report}");
-    assert!(report.contains("expected events-a"), "{report}");
-    assert!(report.contains("got events-b"), "{report}");
+    let expected = demo_hash("a.dem", "grenades-a", "x-a");
+    let actual = demo_hash("a.dem", "grenades-b", "x-a");
+    let report = output_hash::section_diff("a.dem", &expected.sections, &actual.sections);
+    assert!(report.contains("a.dem\n  grenades\n"), "{report}");
+    assert!(report.contains("expected grenades-a"), "{report}");
+    assert!(report.contains("got grenades-b"), "{report}");
     assert!(!report.contains("  x\n"), "{report}");
     assert!(!report.contains("  yaw\n"), "{report}");
+    assert!(!report.contains("events"), "{report}");
+    assert!(!report.contains("sha256"), "{report}");
+}
+
+#[test]
+fn hash_file_path_keeps_the_manifest_demo_name() {
+    let path = hash_file_path("premier-d2.dem");
     assert!(
-        report.contains("new.dem: missing from output-hashes.json"),
+        path.ends_with("test-demos/output-hashes/premier-d2.dem.json"),
+        "{}",
+        path.display()
+    );
+    assert_eq!(
+        demo_name_from_hash_file("premier-d2.dem.json"),
+        Some("premier-d2.dem")
+    );
+    assert_eq!(demo_name_from_hash_file(".json"), None);
+}
+
+#[test]
+fn missing_and_orphan_hash_files_are_named() {
+    let manifest = vec!["a.dem".to_string(), "b.dem".to_string()];
+    let parsed = vec!["a.dem".to_string(), "new.dem".to_string()];
+    let files = vec![
+        "a.dem".to_string(),
+        "gone.dem".to_string(),
+        "b.dem".to_string(),
+    ];
+    let report = coverage_report(&manifest, &parsed, &files, true);
+    assert!(
+        report.contains(&format!(
+            "new.dem: missing hash file {HASHES_DIR}/new.dem.json"
+        )),
         "{report}"
     );
     assert!(
-        report.contains("gone.dem: in output-hashes.json but not parsed"),
+        report.contains(&format!(
+            "gone.dem: orphan hash file {HASHES_DIR}/gone.dem.json has no manifest demo"
+        )),
         "{report}"
+    );
+    assert!(!report.contains("a.dem:"), "{report}");
+    assert!(
+        !report.contains("b.dem:"),
+        "a manifest file that this run did not parse is not an orphan: {report}"
+    );
+}
+
+#[test]
+fn filtered_check_skips_orphan_files() {
+    let manifest = vec!["a.dem".to_string()];
+    let parsed = vec!["a.dem".to_string()];
+    let files = vec!["a.dem".to_string(), "gone.dem".to_string()];
+    let report = coverage_report(&manifest, &parsed, &files, false);
+    assert!(report.is_empty(), "{report}");
+}
+
+#[test]
+fn hash_file_is_pretty_and_omits_events_and_sha256() {
+    let demo = demo_hash("premier-d2.dem", "g", "x");
+    let text = serde_json::to_string_pretty(&demo)
+        .unwrap_or_else(|err| panic!("could not encode hash file: {err}"));
+    assert!(text.contains('\n'), "hash files are pretty-printed");
+    assert!(!text.contains("sha256"), "{text}");
+    assert!(!text.contains("\"events\""), "{text}");
+    let value: serde_json::Value =
+        serde_json::from_str(&text).unwrap_or_else(|err| panic!("hash file JSON: {err}"));
+    let mut with_sha = value.clone();
+    with_sha
+        .as_object_mut()
+        .unwrap_or_else(|| panic!("hash file root must be an object"))
+        .insert(
+            "sha256".to_string(),
+            serde_json::Value::String("abc".to_string()),
+        );
+    assert!(
+        serde_json::from_value::<DemoHash>(with_sha).is_err(),
+        "sha256 is not stored"
+    );
+    let mut with_events = value;
+    with_events
+        .get_mut("sections")
+        .and_then(serde_json::Value::as_object_mut)
+        .unwrap_or_else(|| panic!("sections must be an object"))
+        .insert(
+            "events".to_string(),
+            serde_json::Value::String("abc".to_string()),
+        );
+    assert!(
+        serde_json::from_value::<DemoHash>(with_events).is_err(),
+        "events is not stored"
     );
 }
 
@@ -189,16 +272,14 @@ fn json_f32(value: f32) -> String {
         .unwrap_or_else(|err| panic!("could not serialize {value:?}: {err}"))
 }
 
-fn demo_hash(name: &str, sha256: &str, events: &str, x: &str) -> DemoHash {
+fn demo_hash(name: &str, grenades: &str, x: &str) -> DemoHash {
     DemoHash {
         name: name.to_string(),
-        sha256: sha256.to_string(),
         sections: SectionHashes {
-            events: events.to_string(),
             header: "header".to_string(),
             players: "players".to_string(),
             rounds: "rounds".to_string(),
-            grenades: "grenades".to_string(),
+            grenades: grenades.to_string(),
             shots: "shots".to_string(),
             kills: "kills".to_string(),
             hurts: "hurts".to_string(),
