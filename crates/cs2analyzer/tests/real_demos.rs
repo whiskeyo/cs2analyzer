@@ -619,11 +619,8 @@ struct SmokeRollup {
 enum HashLoad {
     /// `UPDATE_HASHES=1`: record hashes, do not read the file.
     Updating,
-    /// Combined `output-hashes.json`, or the error from reading it.
-    /// A per-demo file uses [`output_hash::read_demo_hash_file`] inside the check.
-    Combined(Result<output_hash::OutputHashes, String>),
-    /// One `test-demos/output-hashes/<demo>.json` per demo.
-    PerDemo(std::path::PathBuf),
+    /// One `<dir>/<demo>.json` per demo (`test-demos/output-hashes` in CI).
+    Checking(std::path::PathBuf),
 }
 
 struct OutputHashCheck<'a> {
@@ -637,21 +634,8 @@ struct OutputHashCheck<'a> {
 fn stored_hash(load: &HashLoad, name: &str) -> Result<Option<output_hash::DemoHash>, String> {
     match load {
         HashLoad::Updating => Ok(None),
-        HashLoad::Combined(Err(message)) => Err(message.clone()),
-        HashLoad::Combined(Ok(all)) => all
-            .demos
-            .iter()
-            .find(|demo| demo.name == name)
-            .cloned()
-            .map(Some)
-            .ok_or_else(|| {
-                format!(
-                    "missing hash for {name} in {}",
-                    output_hash::hashes_path().display()
-                )
-            }),
-        HashLoad::PerDemo(dir) => {
-            output_hash::read_demo_hash_file(&dir.join(format!("{name}.json"))).map(Some)
+        HashLoad::Checking(dir) => {
+            output_hash::read_demo_hash_file(&dir.join(output_hash::hash_file_name(name))).map(Some)
         }
     }
 }
@@ -676,7 +660,7 @@ fn parses_each_release_demo_once() {
     let hash_load = if update_hashes {
         HashLoad::Updating
     } else {
-        HashLoad::Combined(output_hash::read_hashes(&output_hash::hashes_path()))
+        HashLoad::Checking(output_hash::hashes_dir())
     };
     let mut recorded = Vec::new();
     let mut reads = 0usize;
@@ -772,11 +756,28 @@ fn parses_each_release_demo_once() {
             );
         }
     }
-    run_global_checks(&mut report, &rollup, &hash_load, &recorded, &seen, reads);
+    run_global_checks(
+        &mut report,
+        &rollup,
+        &hash_load,
+        &recorded,
+        &seen,
+        reads,
+        &manifest,
+        hash_demos.as_deref(),
+    );
     if update_hashes && report.lines.is_empty() {
-        let path = output_hash::hashes_path();
-        output_hash::write_hashes(&path, &output_hash::OutputHashes { demos: recorded });
-        eprintln!("updated {}", path.display());
+        let dir = output_hash::hashes_dir();
+        for demo in &recorded {
+            output_hash::write_demo_hash(demo);
+            eprintln!(
+                "updated {}",
+                output_hash::hash_file_path(&demo.name).display()
+            );
+        }
+        if hash_demos.is_none() {
+            output_hash::delete_orphan_hash_files(&dir, &manifest);
+        }
     }
     print_summary(&report, full_parse_passes(), reads);
     report.finish();
@@ -831,26 +832,26 @@ fn check_output_hash(
     parsed: &Match,
     hashes: &mut OutputHashCheck<'_>,
 ) {
-    let row = output_hash::log_parsed_demo(name, parsed, hashes.rss_kib);
+    let computed = output_hash::log_parsed_demo(parsed, hashes.rss_kib);
     let stored = stored_hash(hashes.load, name);
     match stored {
         Err(message) => check.fail(message),
-        Ok(None) => check.set_detail(format!("sha256={} (will write)", row.sha256)),
+        Ok(None) => check.set_detail(format!("sha256={} (will write)", computed.sha256)),
         Ok(Some(expected)) => {
-            check.set_detail(format!("sha256={} (expected match)", row.sha256));
-            let actual = output_hash::OutputHashes {
-                demos: vec![row.clone()],
-            };
-            let only = output_hash::OutputHashes {
-                demos: vec![expected],
-            };
-            let report = output_hash::diff_report(&only, &actual);
+            check.set_detail(format!("sha256={} (expected match)", computed.sha256));
+            if expected.name != name {
+                check.fail(format!("{name}: hash file name field is {}", expected.name));
+            }
+            let report = output_hash::section_diff(name, &expected.sections, &computed.sections);
             if !report.is_empty() {
                 check.fail(report);
             }
         }
     }
-    hashes.recorded.push(row);
+    hashes.recorded.push(output_hash::DemoHash {
+        name: name.to_string(),
+        sections: computed.sections,
+    });
 }
 
 fn check_round_counts(check: &mut AssertSink, name: &str, parsed: &Match, parse_ms: u128) {
@@ -1219,6 +1220,7 @@ fn check_demo_end_smoke(check: &mut AssertSink, name: &str, rollup: &SmokeRollup
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_global_checks(
     report: &mut FailureReport,
     rollup: &SmokeRollup,
@@ -1226,6 +1228,8 @@ fn run_global_checks(
     recorded: &[output_hash::DemoHash],
     seen: &BTreeSet<String>,
     reads: usize,
+    manifest: &[String],
+    hash_demos: Option<&[String]>,
 ) {
     report.run(ALL_DEMOS, "open-fire-inventory", |check| {
         check.set_detail(format!("open_fires={} (expected 6)", OPEN_FIRES.len()));
@@ -1287,21 +1291,6 @@ fn run_global_checks(
         }
     });
     report.run(ALL_DEMOS, "output-hash-roster", |check| match hash_load {
-        HashLoad::Combined(Ok(expected)) => {
-            for demo in &expected.demos {
-                if !recorded.iter().any(|row| row.name == demo.name) {
-                    check.fail(format!(
-                        "{}: in output-hashes.json but not parsed",
-                        demo.name
-                    ));
-                }
-            }
-            check.set_detail(format!(
-                "recorded={} expected={}",
-                recorded.len(),
-                expected.demos.len()
-            ));
-        }
         HashLoad::Updating => {
             for name in seen {
                 if !recorded.iter().any(|row| row.name == *name) {
@@ -1312,11 +1301,19 @@ fn run_global_checks(
             }
             check.set_detail(format!("recorded={}", recorded.len()));
         }
-        HashLoad::Combined(Err(message)) => {
-            check.set_detail(format!("hash file unreadable: {message}"));
-        }
-        HashLoad::PerDemo(dir) => {
-            check.set_detail(format!("per-demo hash files in {}", dir.display()));
+        HashLoad::Checking(dir) => {
+            let parsed_names: Vec<String> = recorded.iter().map(|row| row.name.clone()).collect();
+            let files = output_hash::list_hash_file_demos(dir);
+            let coverage =
+                output_hash::coverage_report(manifest, &parsed_names, &files, hash_demos.is_none());
+            if !coverage.is_empty() {
+                check.fail(coverage);
+            }
+            check.set_detail(format!(
+                "recorded={} hash_files={}",
+                recorded.len(),
+                files.len()
+            ));
         }
     });
     report.run(ALL_DEMOS, CHECK_PARSE_PASSES, |check| {
@@ -2043,13 +2040,13 @@ fn hash_file_errors_fail_that_demo_and_the_loop_continues() {
 }
 
 #[test]
-fn per_demo_hash_file_round_trip_and_combined_file_errors_do_not_panic() {
+fn per_demo_hash_file_round_trip_errors_do_not_panic() {
     let dir = std::env::temp_dir().join(format!("cs2-hash-round-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap_or_else(|err| panic!("could not create temp dir: {err}"));
     let sections = serde_json::from_str::<output_hash::SectionHashes>(
         r#"{
-            "events":"e","header":"h","players":"p","rounds":"r","grenades":"g",
+            "header":"h","players":"p","rounds":"r","grenades":"g",
             "shots":"s","kills":"k","hurts":"hu","blinds":"b","bomb_events":"be",
             "buy_events":"bu","controller_dump":"c","player_count":"pc","frame_count":"f",
             "ticks":"t","x":"x","y":"y","z":"z","yaw":"ya","health":"he","armor":"a",
@@ -2060,42 +2057,32 @@ fn per_demo_hash_file_round_trip_and_combined_file_errors_do_not_panic() {
     .unwrap_or_else(|err| panic!("sample sections: {err}"));
     let demo = output_hash::DemoHash {
         name: "premier-d2.dem".to_string(),
-        sha256: "abc".to_string(),
         sections,
     };
     let path = dir.join("premier-d2.dem.json");
-    output_hash::write_hashes(
-        &dir.join("output-hashes.json"),
-        &output_hash::OutputHashes {
-            demos: vec![demo.clone()],
-        },
-    );
     let text = serde_json::to_string_pretty(&demo)
         .unwrap_or_else(|err| panic!("could not encode sample hash: {err}"));
     std::fs::write(&path, text).unwrap_or_else(|err| panic!("could not write sample hash: {err}"));
     let loaded = output_hash::read_demo_hash_file(&path)
         .unwrap_or_else(|err| panic!("readable hash file must not fail: {err}"));
     assert_eq!(loaded.name, "premier-d2.dem");
-    let combined = output_hash::read_hashes(&dir.join("output-hashes.json"))
-        .unwrap_or_else(|err| panic!("readable combined file must not fail: {err}"));
-    assert_eq!(combined.demos.len(), 1);
-    let missing = output_hash::read_hashes(&dir.join("nope.json"));
-    assert!(missing.is_err(), "a missing combined file is an error");
+    let missing = output_hash::read_demo_hash_file(&dir.join("nope.json"));
+    assert!(missing.is_err(), "a missing per-demo file is an error");
     std::fs::write(dir.join("bad.json"), b"[]")
         .unwrap_or_else(|err| panic!("could not write bad hash: {err}"));
-    let bad = output_hash::read_hashes(&dir.join("bad.json"));
-    assert!(bad.is_err(), "unparsable combined JSON is an error");
-    let per_demo = stored_hash(&HashLoad::PerDemo(dir.clone()), "premier-d2.dem")
+    let bad = output_hash::read_demo_hash_file(&dir.join("bad.json"));
+    assert!(bad.is_err(), "unparsable per-demo JSON is an error");
+    let per_demo = stored_hash(&HashLoad::Checking(dir.clone()), "premier-d2.dem")
         .unwrap_or_else(|err| panic!("per-demo load: {err}"));
     assert!(per_demo.is_some());
-    let gone = stored_hash(&HashLoad::PerDemo(dir.clone()), "missing.dem");
+    let gone = stored_hash(&HashLoad::Checking(dir.clone()), "missing.dem");
     let gone = match gone {
         Err(message) => message,
         Ok(_) => panic!("missing per-demo file must fail the hash check"),
     };
     assert!(gone.contains("missing.dem.json"), "{gone}");
     let mut report = FailureReport::default();
-    let load = HashLoad::PerDemo(dir.clone());
+    let load = HashLoad::Checking(dir.clone());
     report.run("missing.dem", CHECK_HASHES, |check| {
         if let Err(message) = stored_hash(&load, "missing.dem") {
             check.fail(message);

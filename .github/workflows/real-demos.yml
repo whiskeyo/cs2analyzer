@@ -50,7 +50,7 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'test-demos/manifest.json'
-              - 'test-demos/output-hashes.json'
+              - 'test-demos/output-hashes/**'
               - 'scripts/run.sh'
               - '.github/workflows/real-demos.yml'
       - name: Decide whether to parse demos
@@ -63,7 +63,7 @@ jobs:
             echo "Parsing release demos (event=$event changed=$changed)"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "No changes under crates/cs2analyzer, Cargo.toml, Cargo.lock, test-demos/manifest.json, test-demos/output-hashes.json, scripts/run.sh, or this workflow. Skipping download and parse."
+            echo "No changes under crates/cs2analyzer, Cargo.toml, Cargo.lock, test-demos/manifest.json, test-demos/output-hashes/**, scripts/run.sh, or this workflow. Skipping download and parse."
           fi
       - uses: dtolnay/rust-toolchain@stable
         if: steps.gate.outputs.run == 'true'
