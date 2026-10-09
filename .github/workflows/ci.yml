@@ -108,16 +108,10 @@ jobs:
     needs: changes
     if: needs.changes.outputs.wasm == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     env:
       SKIP_WASM_OPT: "1"
     steps:
       - uses: actions/checkout@v6
-        with:
-          # PR merge commits are detached; check out the branch tip so we can push.
-          ref: ${{ github.head_ref || github.ref_name }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -127,6 +121,7 @@ jobs:
       - name: wasm-bindgen-cli 0.2.127
         run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
       - name: build wasm
+        # Clean path-sensitive crates so the drift check matches a cold GHA rebuild.
         run: |
           cargo clean -p cs2analyzer-wasm -p cs2analyzer -p source2-demo -p source2-demo-protobufs
           ./scripts/build-wasm.sh
@@ -136,17 +131,7 @@ jobs:
             exit 0
           fi
           echo "Committed apps/web/src/parser/ does not match ./scripts/build-wasm.sh."
-          git --no-pager diff --stat -- apps/web/src/parser/ || true
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "Run ./scripts/build-wasm.sh (or run.sh --build-wasm), commit apps/web/src/parser/, and update decode.ts if JSON shapes changed."
-            exit 1
-          fi
-          # Laptop and GHA can still disagree on LTO bytes; commit the CI rebuild once.
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/web/src/parser/
-          git commit -m "Sync apps/web/src/parser with the CI WASM rebuild."
-          git push origin "HEAD:${{ github.head_ref }}"
+          echo "Run ./scripts/build-wasm.sh (or run.sh --build-wasm), commit apps/web/src/parser/, and update decode.ts if JSON shapes changed."
           exit 1
 
   web:
