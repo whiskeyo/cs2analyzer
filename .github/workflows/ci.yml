@@ -117,11 +117,15 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: wasm
+          # Bump when path-patched crates change shape (stale target/ fingerprints).
+          prefix-key: wasm-v2
       - name: wasm-bindgen-cli 0.2.127
         run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
       - name: build wasm
-        run: ./scripts/build-wasm.sh
+        run: |
+          # Path patches under vendor/ can keep stale fingerprints across cache restores.
+          cargo clean -p cs2analyzer-wasm -p cs2analyzer -p source2-demo -p source2-demo-protobufs
+          ./scripts/build-wasm.sh
       - name: parser drift
         run: |
           if git diff --exit-code -- apps/web/src/parser/; then
@@ -129,6 +133,7 @@ jobs:
           fi
           echo "Committed apps/web/src/parser/ does not match ./scripts/build-wasm.sh."
           echo "Run ./scripts/build-wasm.sh (or run.sh --build-wasm), commit apps/web/src/parser/, and update decode.ts if JSON shapes changed."
+          git --no-pager diff --stat -- apps/web/src/parser/ || true
           exit 1
 
   web:
