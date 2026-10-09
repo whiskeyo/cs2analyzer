@@ -784,8 +784,7 @@ checksum = "199905e6153d6405f9728fe44daace35f8f837bbf830bb6e85fbd5828709a886"
 [[package]]
 name = "source2-demo"
 version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5c9d45ac1d4fbd8bd9f3375a2f42bb4b9ea152be4afd62f1220605481f4ac98"
+source = "git+https://github.com/whiskeyo/source2-demo?rev=c28c63ebded6e97ca7005178162cf954e7e6a6b2#c28c63ebded6e97ca7005178162cf954e7e6a6b2"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -803,8 +802,7 @@ dependencies = [
 [[package]]
 name = "source2-demo-macros"
 version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c59c6aaa2a0d99a3ed01ac196cf3dda9bf007872f5616e4441fc3620c4e8ec84"
+source = "git+https://github.com/whiskeyo/source2-demo?rev=c28c63ebded6e97ca7005178162cf954e7e6a6b2#c28c63ebded6e97ca7005178162cf954e7e6a6b2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -814,8 +812,7 @@ dependencies = [
 [[package]]
 name = "source2-demo-protobufs"
 version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "914a6a95032e212d19c2aeb966a296f9c43311e098aae45417ea92cdc2bd6092"
+source = "git+https://github.com/whiskeyo/source2-demo?rev=c28c63ebded6e97ca7005178162cf954e7e6a6b2#c28c63ebded6e97ca7005178162cf954e7e6a6b2"
 dependencies = [
  "itertools",
  "prost",

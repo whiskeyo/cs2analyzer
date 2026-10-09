@@ -17,12 +17,12 @@ cs2analyzer = { path = "crates/cs2analyzer", default-features = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-# Exact pin after the assets-v1 demo comparison. source2-demo 0.5.9 depends on
-# the macros and protobuf crates as ^0.5.9, so those are pinned too. Remove
-# the three pins together.
-source2-demo = { version = "=0.5.9", default-features = false, features = ["cs2"] }
-source2-demo-macros = "=0.5.9"
-source2-demo-protobufs = "=0.5.9"
+# Temporary git pin: whiskeyo/source2-demo@c28c63e (lossy game-event val_string).
+# Was crates.io =0.5.9 after the assets-v1 comparison — switch back (or to a
+# released version) once that fix is on crates.io. Keep the three in lockstep.
+source2-demo = { git = "https://github.com/whiskeyo/source2-demo", rev = "c28c63ebded6e97ca7005178162cf954e7e6a6b2", default-features = false, features = ["cs2"] }
+source2-demo-macros = { git = "https://github.com/whiskeyo/source2-demo", rev = "c28c63ebded6e97ca7005178162cf954e7e6a6b2" }
+source2-demo-protobufs = { git = "https://github.com/whiskeyo/source2-demo", rev = "c28c63ebded6e97ca7005178162cf954e7e6a6b2" }
 
 [workspace.lints.clippy]
 unwrap_used = "deny"

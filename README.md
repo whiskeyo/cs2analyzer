@@ -56,7 +56,7 @@ Everything goes through [`scripts/run.sh`](scripts/run.sh):
 | `--prepare` | Install Rust toolchain, `wasm-bindgen-cli`, and npm deps |
 | `--fetch-demos` | Download test demos listed in `test-demos/manifest.json` into `test-demos/files/` (skip when sha256 matches). Every pull request and push to master runs the Real demos check; the ignored release tests run only when crates, Cargo.toml, Cargo.lock, the manifest, `test-demos/output-hashes.json`, `scripts/run.sh`, or that workflow changed. A cached demo dir is still sha256-checked. |
 | `--update` | Update Rust and npm deps within current semver ranges, keep `wasm-bindgen` pinned to the CLI, rebuild WASM, and run tests. Does not commit. |
-| `--upgrade` | Bump Rust and npm deps to the newest peer-compatible versions, including outside current semver ranges. Skips the `=0.5.9` `source2-demo` pin, every `wasm-bindgen*` crate, `js-sys`, and `web-sys`. Rebuilds WASM, runs tests, then the production build. Does not commit. Restores the dependency tree on failure. |
+| `--upgrade` | Bump Rust and npm deps to the newest peer-compatible versions, including outside current semver ranges. Skips the `source2-demo` git pin, every `wasm-bindgen*` crate, `js-sys`, and `web-sys`. Rebuilds WASM, runs tests, then the production build. Does not commit. Restores the dependency tree on failure. |
 | `--latest` | With `--upgrade` only. Take the newest versions even when they break peer dependencies. |
 | `--build-wasm` | Compile the parser WASM into the web app |
 | `--check` | rustfmt, clippy, prettier, eslint, typecheck |
@@ -80,7 +80,7 @@ Requires [cargo-edit](https://github.com/killercup/cargo-edit) (`cargo install c
 
 Left unchanged:
 
-- `source2-demo`, `source2-demo-macros`, and `source2-demo-protobufs` — pinned to `=0.5.9` in the workspace `Cargo.toml` after the assets-v1 demo comparison (the last two are dev-dependencies of `cs2analyzer` only to hold the lock). `source2-demo` 0.5.9 depends on the macros and protobuf crates as `^0.5.9`, so those are pinned too. Remove the three pins together.
+- `source2-demo`, `source2-demo-macros`, and `source2-demo-protobufs` — temporarily pinned to `whiskeyo/source2-demo` git rev `c28c63e` (lossy game-event `val_string`; the last two are dev-dependencies of `cs2analyzer` only to hold the lock). Switch back to crates.io together once that fix is released.
 - `wasm-bindgen*` — the whole family stays on the `wasm-bindgen-cli` pin in `scripts/build-wasm.sh` (currently 0.2.127). A bump to 0.2.129 is a separate decision.
 - `js-sys` and `web-sys` — each release exact-pins `wasm-bindgen`, so the newest one would move that pin.
 
