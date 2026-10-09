@@ -134,7 +134,32 @@ jobs:
           echo "Committed apps/web/src/parser/ does not match ./scripts/build-wasm.sh."
           echo "Run ./scripts/build-wasm.sh (or run.sh --build-wasm), commit apps/web/src/parser/, and update decode.ts if JSON shapes changed."
           git --no-pager diff --stat -- apps/web/src/parser/ || true
+          {
+            echo "### Parser drift (CI rebuild)"
+            echo ""
+            echo '```'
+            git --no-pager diff --stat -- apps/web/src/parser/ || true
+            echo '```'
+            echo ""
+            echo "sha256 of rebuilt wasm:"
+            echo '```'
+            sha256sum apps/web/src/parser/cs2analyzer_wasm_bg.wasm || true
+            echo '```'
+            echo ""
+            echo "Embedded path samples:"
+            echo '```'
+            strings apps/web/src/parser/cs2analyzer_wasm_bg.wasm | grep -E 'vendor/|/cargo/|/rustc/|crates/' | sort -u | head -40 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Upload rebuilt parser so we can commit the CI-native bytes if needed.
           exit 1
+      - name: upload rebuilt parser
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parser-rebuilt
+          path: apps/web/src/parser/
+          retention-days: 3
 
   web:
     name: Web
