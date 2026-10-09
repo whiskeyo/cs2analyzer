@@ -141,17 +141,42 @@ jobs:
             git --no-pager diff --stat -- apps/web/src/parser/ || true
             echo '```'
             echo ""
-            echo "sha256 of rebuilt wasm:"
+            echo "sha256 committed vs rebuilt:"
             echo '```'
-            sha256sum apps/web/src/parser/cs2analyzer_wasm_bg.wasm || true
+            git show HEAD:apps/web/src/parser/cs2analyzer_wasm_bg.wasm | sha256sum | sed 's|-|committed|'
+            sha256sum apps/web/src/parser/cs2analyzer_wasm_bg.wasm | sed 's|apps/web/src/parser/cs2analyzer_wasm_bg.wasm|rebuilt|'
             echo '```'
             echo ""
-            echo "Embedded path samples:"
+            echo "Embedded path samples (rebuilt):"
             echo '```'
             strings apps/web/src/parser/cs2analyzer_wasm_bg.wasm | grep -E 'vendor/|/cargo/|/rustc/|crates/' | sort -u | head -40 || true
             echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          # Upload rebuilt parser so we can commit the CI-native bytes if needed.
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          # PR comment so drift details are readable without job-log auth.
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "$PR_NUMBER" ]; then
+            {
+              echo "Parser drift details:"
+              echo
+              echo '```'
+              git --no-pager diff --stat -- apps/web/src/parser/ || true
+              echo
+              echo committed:
+              git show HEAD:apps/web/src/parser/cs2analyzer_wasm_bg.wasm | sha256sum
+              echo rebuilt:
+              sha256sum apps/web/src/parser/cs2analyzer_wasm_bg.wasm
+              echo
+              echo paths:
+              strings apps/web/src/parser/cs2analyzer_wasm_bg.wasm | grep -E 'vendor/|/cargo/git|/rustc/' | sort -u | head -20 || true
+              echo '```'
+            } > /tmp/drift-comment.md
+            curl -sS -X POST \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+              -d "$(python3 -c 'import json,pathlib; print(json.dumps({"body": pathlib.Path("/tmp/drift-comment.md").read_text()}))')" \
+              >/dev/null || true
+          fi
           exit 1
       - name: upload rebuilt parser
         if: failure()
