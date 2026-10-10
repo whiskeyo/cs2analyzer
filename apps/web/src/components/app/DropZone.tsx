@@ -16,6 +16,7 @@ import {
 } from "@/lib/notes/projectStore";
 import { RatingValue } from "@/components/stats/RatingValue";
 import { formatAdr, formatKast, type SavedPlayerSnapshot } from "@/lib/stats/stats";
+import { projectMatchesTag } from "@/lib/demo/tags";
 import { prettyMap } from "@/lib/weapons/weapons";
 import { ScorecardLabel } from "./ScorecardLabel";
 
@@ -31,6 +32,8 @@ interface Props {
   error: string | null;
   notice: string | null;
   saved: ReviewProject[];
+  /** Demo-tag rows keyed like saved notes, for the library filter. */
+  tagsByKey?: ReadonlyMap<string, readonly string[]>;
   showSavedNotes?: boolean;
   pageSize?: number;
   /** Optional sibling of the drop card. */
@@ -63,6 +66,8 @@ function noteTitle(p: ReviewProject): ReactNode {
   return <ScorecardLabel mapLabel={map} scorecard={p.scorecard} />;
 }
 
+const NO_TAGS: ReadonlyMap<string, readonly string[]> = new Map();
+
 function sortedSnapshots(rows: SavedPlayerSnapshot[]): SavedPlayerSnapshot[] {
   return [...rows].sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
 }
@@ -79,6 +84,7 @@ export function DropZone({
   error,
   notice,
   saved,
+  tagsByKey = NO_TAGS,
   showSavedNotes = false,
   pageSize = SAVED_NOTES_PAGE_SIZE,
   beside,
@@ -86,6 +92,7 @@ export function DropZone({
   children,
 }: Props) {
   const [page, setPage] = useState(0);
+  const [tagQuery, setTagQuery] = useState("");
   const [wantedDemo, setWantedDemo] = useState<{ fileName: string; linked: boolean } | null>(null);
   const [restoreHint, setRestoreHint] = useState<string | null>(null);
   const overallPct =
@@ -93,12 +100,16 @@ export function DropZone({
       ? Math.min(100, Math.round((100 * progress.current) / progress.total))
       : 0;
 
-  const pageCount = Math.max(1, Math.ceil(saved.length / pageSize));
+  const tagged = useMemo(
+    () => saved.filter((project) => projectMatchesTag(project.key, tagsByKey, tagQuery)),
+    [saved, tagsByKey, tagQuery],
+  );
+  const pageCount = Math.max(1, Math.ceil(tagged.length / pageSize));
   const safePage = Math.min(page, pageCount - 1);
   const pageItems = useMemo(() => {
     const start = safePage * pageSize;
-    return saved.slice(start, start + pageSize);
-  }, [saved, safePage, pageSize]);
+    return tagged.slice(start, start + pageSize);
+  }, [tagged, safePage, pageSize]);
 
   useEffect(() => {
     if (!wantedDemo) return;
@@ -180,6 +191,21 @@ export function DropZone({
           {saved.length > 0 && (
             <div className="saved-demos">
               <h2>Saved notes</h2>
+              <label className="saved-tag-filter">
+                <span className="saved-tag-filter-label">Filter by tag</span>
+                <input
+                  aria-label="Filter saved notes by tag"
+                  placeholder="nuke"
+                  value={tagQuery}
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(event) => {
+                    setTagQuery(event.target.value);
+                    setPage(0);
+                  }}
+                />
+              </label>
+              {tagged.length === 0 ? <p className="muted">No saved notes with that tag.</p> : null}
               <ul>
                 {pageItems.map((p) => (
                   <li key={p.key}>
@@ -201,6 +227,15 @@ export function DropZone({
                     >
                       <span className="saved-demo-map">{noteTitle(p)}</span>
                       <span className="saved-demo-file">{p.fileName || "unnamed.dem"}</span>
+                      {(tagsByKey.get(p.key) ?? []).length > 0 ? (
+                        <span className="saved-demo-tags">
+                          {(tagsByKey.get(p.key) ?? []).map((tag) => (
+                            <span key={tag} className="demo-tag demo-tag-static">
+                              #{tag}
+                            </span>
+                          ))}
+                        </span>
+                      ) : null}
                       <span className="saved-demo-meta">
                         {drawingCountLabel(p.notes)}
                         {p.fileSizeBytes ? ` · ${formatDemoSize(p.fileSizeBytes)}` : ""}

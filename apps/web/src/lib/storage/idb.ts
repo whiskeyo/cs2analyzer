@@ -1,10 +1,11 @@
 import { wrapIdbError } from "./quota";
 
 export const DB_NAME = "cs2analyzer";
-export const DB_VERSION = 6;
+export const DB_VERSION = 7;
 
 export const PROJECT_STORE = "projects";
 export const HANDLE_STORE = "demoHandles";
+export const DEMO_TAG_STORE = "demoTags";
 export const PLAYBOOK_STORE = "playbooks";
 export const PLAYBOOK_IMAGE_STORE = "playbookImages";
 export const SETTINGS_STORE = "settings";
@@ -26,6 +27,9 @@ function ensureStores(db: IDBDatabase): void {
   }
   if (!db.objectStoreNames.contains(HANDLE_STORE)) {
     db.createObjectStore(HANDLE_STORE, { keyPath: "key" });
+  }
+  if (!db.objectStoreNames.contains(DEMO_TAG_STORE)) {
+    db.createObjectStore(DEMO_TAG_STORE, { keyPath: "key" });
   }
   if (!db.objectStoreNames.contains(PLAYBOOK_STORE)) {
     db.createObjectStore(PLAYBOOK_STORE, { keyPath: "key" });
