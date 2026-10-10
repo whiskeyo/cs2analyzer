@@ -61,7 +61,6 @@ export function samplePlayer(replay: Replay, player: number, tick: number): Samp
   const j = Math.min(i + 1, buf.frameCount - 1);
   const a = i * pc + player;
   const b = j * pc + player;
-  const blend = holdsKnifeFrame(replay, buf.ticks[i], buf.ticks[j]) ? 0 : t;
   const pose = interpolatePawn(
     {
       x: buf.x[a],
@@ -77,7 +76,7 @@ export function samplePlayer(replay: Replay, player: number, tick: number): Samp
       yaw: buf.yaw[b],
       flags: buf.flags[b],
     },
-    blend,
+    t,
     buf.ticks[j] - buf.ticks[i],
     tickRate(replay),
   );
@@ -145,8 +144,10 @@ export function samplePlayers(replay: Replay, tick: number): SampledPlayer[] {
 
 /**
  * Last round that has started at `tick` — not the round containing `tick` by
- * `end_tick`, so the gap after a round still belongs to it. Rounds come out of
- * the parser ordered by `start_tick`, so this binary searches.
+ * `end_tick`, so the gap after a competitive round still belongs to it. Knife
+ * is the exception: once `tick` is past `end_tick`, the next round owns the
+ * playhead (FACEIT's long post-knife restart must not keep the K chip / R0
+ * rating alive). Rounds come out of the parser ordered by `start_tick`.
  */
 export function currentRound(replay: Replay, tick: number) {
   const rounds = replay.rounds;
@@ -159,7 +160,11 @@ export function currentRound(replay: Replay, tick: number) {
     if (rounds[mid].start_tick <= tick) lo = mid;
     else hi = mid - 1;
   }
-  return rounds[lo];
+  const round = rounds[lo];
+  if (round.is_knife && tick > round.end_tick && lo + 1 < rounds.length) {
+    return rounds[lo + 1];
+  }
+  return round;
 }
 
 /**
@@ -177,49 +182,6 @@ export function grenadeRoundLastTick(rounds: readonly Round[], round: Round): nu
     }
   }
   return Number.isFinite(next) ? next - 1 : Number.MAX_SAFE_INTEGER;
-}
-
-/**
- * FACEIT records no player frames between the last knife sample and the first
- * round-1 sample. Blending that hole slides pawns through ticks that have no
- * snapshot. The span is those two frame ticks. HLTV and Premier keep a normal
- * stride across the same boundary, so this stays null.
- */
-export function knifeSideChoiceGap(replay: Replay): { from: number; to: number } | null {
-  const ticks = replay.ticks.ticks;
-  if (ticks.length < 2) return null;
-  const knife = replay.rounds.find((round) => round.is_knife);
-  if (!knife) return null;
-  const r1 =
-    replay.rounds.find((round) => !round.is_knife && round.number === 1) ??
-    replay.rounds.find((round) => !round.is_knife && round.start_tick > knife.start_tick);
-  if (!r1) return null;
-
-  const last = lastFrameAtOrBefore(ticks, knife.end_tick);
-  if (last < 0 || last + 1 >= ticks.length) return null;
-  const from = ticks[last];
-  const to = ticks[last + 1];
-  if (from === undefined || to === undefined) return null;
-  if (from < knife.start_tick || from > knife.end_tick) return null;
-  if (currentRound(replay, to) !== r1) return null;
-  const stride = replay.header.tick_stride > 0 ? replay.header.tick_stride : 1;
-  if (to - from <= stride) return null;
-  return { from, to };
-}
-
-let knifeGapCache: { replay: Replay; gap: { from: number; to: number } | null } | null = null;
-
-function cachedKnifeSideChoiceGap(replay: Replay): { from: number; to: number } | null {
-  if (knifeGapCache?.replay === replay) return knifeGapCache.gap;
-  const gap = knifeSideChoiceGap(replay);
-  knifeGapCache = { replay, gap };
-  return gap;
-}
-
-/** True when `earlier` and `later` are the two frames of the knife side-choice hole. */
-function holdsKnifeFrame(replay: Replay, earlier: number, later: number): boolean {
-  const gap = cachedKnifeSideChoiceGap(replay);
-  return gap != null && earlier === gap.from && later === gap.to;
 }
 
 function lastFrameAtOrBefore(ticks: Uint32Array, tick: number): number {
