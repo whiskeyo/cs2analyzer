@@ -5,6 +5,7 @@ import { HITGROUP_HEAD, COST_AK47 } from "@/lib/shared/constants";
 import {
   makeFreezeTicks,
   makeHurt,
+  makeKill,
   makePlayer,
   makeReplay,
   makeRound,
@@ -99,5 +100,22 @@ describe("SpectatorEconomy", () => {
     expect(screen.getByTitle("AK-47")).toBeInTheDocument();
     rerender(<SpectatorEconomy replay={m} tick={64} selected={null} onSelect={() => {}} />);
     expect(screen.queryByTitle("AK-47")).not.toBeInTheDocument();
+  });
+
+  it("shows round frags beside the nick without x1, then x2 after a second kill", () => {
+    const m = replay();
+    m.kills = [makeKill(100, 0, 2, { headshot: true }), makeKill(200, 0, 3, { headshot: false })];
+    const { rerender } = render(
+      <SpectatorEconomy replay={m} tick={100} selected={null} onSelect={() => {}} />,
+    );
+    const alice = screen.getByText("Alice").closest(".spec-name-row");
+    expect(alice).toBeTruthy();
+    expect(alice!.querySelector('[title="Headshot"]')).toBeTruthy();
+    expect(alice!.textContent).not.toMatch(/x\d/);
+
+    rerender(<SpectatorEconomy replay={m} tick={200} selected={null} onSelect={() => {}} />);
+    const alice2 = screen.getByText("Alice").closest(".spec-name-row");
+    expect(alice2!.querySelector('[title="Kill"]')).toBeTruthy();
+    expect(alice2!.textContent).toMatch(/x2/);
   });
 });

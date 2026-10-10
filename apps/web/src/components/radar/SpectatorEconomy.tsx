@@ -14,6 +14,7 @@ import { playerLabel } from "@/lib/replay/playerLabel";
 import { samplePlayers, type SampledPlayer } from "@/lib/replay/sample";
 import { freezeBuysForPlayer } from "@/lib/match/buys";
 import { SIDE_DISPLAY_ORDER } from "@/lib/match/economy";
+import { playerRoundFrags, type RoundFrags } from "@/lib/stats/roundFrags";
 import { computeStats, liveScoreboardPlayers, liveTeams } from "@/lib/stats/stats";
 import { formatLastHit, lastHitTaken } from "@/lib/stats/lastHit";
 import type { Replay } from "@/lib/replay/replayTypes";
@@ -30,6 +31,7 @@ function PlayerCard({
   p,
   name,
   kd,
+  frags,
   lastHit,
   buys,
   selected,
@@ -38,6 +40,7 @@ function PlayerCard({
   p: SampledPlayer;
   name: string;
   kd: string;
+  frags: RoundFrags | null;
   lastHit: string | null;
   buys: ReturnType<typeof freezeBuysForPlayer>;
   selected: boolean;
@@ -69,7 +72,19 @@ function PlayerCard({
       </div>
       <div className="spec-body">
         <div className="spec-top">
-          <span className="spec-name">{name}</span>
+          <span className="spec-name-row">
+            <span className="spec-name">{name}</span>
+            {frags && (
+              <span className="spec-frags">
+                <GearIcon
+                  name={frags.headshot ? "headshot" : "skull"}
+                  title={frags.headshot ? "Headshot" : "Kill"}
+                  className="spec-frags-icon"
+                />
+                {frags.count >= 2 ? <span className="spec-frags-x">x{frags.count}</span> : null}
+              </span>
+            )}
+          </span>
           <span className="spec-kd">{kd}</span>
           <span className="spec-money" title="Cash · inventory">
             {formatMoney(p.money)}
@@ -131,6 +146,7 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
         p,
         name: playerLabel(replay.players[p.index]),
         kd: s ? `${s.kills}-${s.deaths}` : "0-0",
+        frags: playerRoundFrags(replay, tick, p.index),
       };
     });
   const t = rows.filter((r) => !r.p.ct);
@@ -151,12 +167,13 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
             <span className="spec-eq">{formatMoney(eq)}</span>
           </strong>
         </div>
-        {list.map(({ p, name, kd }) => (
+        {list.map(({ p, name, kd, frags }) => (
           <PlayerCard
             key={p.index}
             p={p}
             name={name}
             kd={kd}
+            frags={frags}
             lastHit={
               selected === p.index ? formatLastHit(lastHitTaken(replay, tick, p.index)) : null
             }
