@@ -42,7 +42,7 @@ env:
 jobs:
   changes:
     name: Changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: read
@@ -82,7 +82,7 @@ jobs:
     name: Rust
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
@@ -107,7 +107,7 @@ jobs:
     name: Wasm
     needs: changes
     if: needs.changes.outputs.wasm == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       SKIP_WASM_OPT: "1"
     steps:
@@ -138,7 +138,7 @@ jobs:
     name: Web
     needs: changes
     if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/web
@@ -176,7 +176,7 @@ jobs:
     name: Apache htaccess
     needs: [changes, web]
     if: needs.changes.outputs.web == 'true' && needs.web.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v8
@@ -191,7 +191,7 @@ jobs:
 
   deploy:
     name: Deploy to OVH
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [rust, web, wasm, htaccess]
     # Web-only master pushes skip Rust and Wasm; still publish. Rust-only
     # skips deploy (no new web-dist). A failed Rust, Wasm, or htaccess job
