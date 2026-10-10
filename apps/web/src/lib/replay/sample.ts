@@ -144,8 +144,10 @@ export function samplePlayers(replay: Replay, tick: number): SampledPlayer[] {
 
 /**
  * Last round that has started at `tick` — not the round containing `tick` by
- * `end_tick`, so the gap after a round still belongs to it. Rounds come out of
- * the parser ordered by `start_tick`, so this binary searches.
+ * `end_tick`, so the gap after a competitive round still belongs to it. Knife
+ * is the exception: once `tick` is past `end_tick`, the next round owns the
+ * playhead (FACEIT's long post-knife restart must not keep the K chip / R0
+ * rating alive). Rounds come out of the parser ordered by `start_tick`.
  */
 export function currentRound(replay: Replay, tick: number) {
   const rounds = replay.rounds;
@@ -158,7 +160,11 @@ export function currentRound(replay: Replay, tick: number) {
     if (rounds[mid].start_tick <= tick) lo = mid;
     else hi = mid - 1;
   }
-  return rounds[lo];
+  const round = rounds[lo];
+  if (round.is_knife && tick > round.end_tick && lo + 1 < rounds.length) {
+    return rounds[lo + 1];
+  }
+  return round;
 }
 
 /**

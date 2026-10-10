@@ -1,5 +1,18 @@
 import type { PlayerStats, Replay } from "@/lib/replay/replayTypes";
 
+/** Em dash shown while no competitive round has started (`rounds === 0`). */
+export const UNRATED_RATING = "\u2014";
+
+/**
+ * Match rating for the scoreboard. The formula still runs, but a playhead in
+ * the knife round has no competitive rounds yet, so the cell stays blank.
+ * Omit `rounds` for a saved end-of-match number that has no round count.
+ */
+export function formatRating(value: number, rounds?: number): string {
+  if (rounds === 0) return UNRATED_RATING;
+  return value.toFixed(2);
+}
+
 export function formatAdr(adr: number): string {
   return adr.toFixed(2);
 }

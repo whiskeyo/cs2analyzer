@@ -75,8 +75,9 @@ describe("RoundStrip", () => {
     render(<RoundStrip replay={replay} tick={300} notes={[]} places={null} />);
 
     await waitFor(() => expect(screen.getByRole("list")).toBeInTheDocument());
-    expect(screen.getByTitle("Knife")).toHaveTextContent("K");
-    expect(screen.getByTitle("Knife").querySelector(".round-buys.is-knife")).toBeTruthy();
+    const knife = screen.getByTitle("Knife · won by CT");
+    expect(knife).toHaveTextContent("K");
+    expect(knife.querySelector(".round-buys.is-knife")).toBeTruthy();
     const live = screen.getByTitle(`Round 1 · ${NO_BUY}`);
     expect(live).toHaveClass("on");
     expect(live).toHaveAccessibleName(`Round 1 · ${NO_BUY}`);

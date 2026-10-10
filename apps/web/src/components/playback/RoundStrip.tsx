@@ -9,6 +9,7 @@ import {
   type EconomyBuy,
 } from "@/lib/match/economy";
 import { activeExecute, findExecutes, type ExecuteBeat } from "@/lib/match/execute";
+import { knifeChipTitle } from "@/lib/match/knifeSideChoice";
 import type { MapPlaces } from "@/lib/match/sites";
 import { noteRounds } from "@/lib/notes";
 import type { RoundNote } from "@/lib/notes/types";
@@ -130,7 +131,7 @@ function roundChipLabel(
   hasNotes: boolean,
   enabled = true,
 ): string {
-  const parts = [round.is_knife ? "Knife" : `Round ${round.number}`];
+  const parts = [round.is_knife ? knifeChipTitle(replay, round) : `Round ${round.number}`];
   if (sides) {
     for (const side of SIDE_DISPLAY_ORDER) {
       const buy = bySide(sides, side);

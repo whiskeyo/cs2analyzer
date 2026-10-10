@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerStats } from "@/lib/replay/replayTypes";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
-import { exportStatsCsv, formatAdr, formatKast } from "./format";
+import { exportStatsCsv, formatAdr, formatKast, formatRating, UNRATED_RATING } from "./format";
+
+describe("formatRating", () => {
+  it("uses an em dash before any competitive round and a number after", () => {
+    expect(formatRating(1.77, 0)).toBe(UNRATED_RATING);
+    expect(UNRATED_RATING).toBe("\u2014");
+    expect(formatRating(5.25, 1)).toBe("5.25");
+    expect(formatRating(5.2)).toBe("5.20");
+  });
+});
 
 describe("formatAdr / formatKast", () => {
   it("formats ADR and KAST for display", () => {

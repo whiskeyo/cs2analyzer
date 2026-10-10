@@ -82,9 +82,15 @@ describe("currentRound", () => {
     expect(currentRound(replay, 99999)?.number).toBe(3);
   });
 
-  it("keeps the gap after a round inside that round", () => {
+  it("keeps the gap after a competitive round inside that round", () => {
     // Round 1 ended at 900 but round 2 has not started, so 950 is still R1.
     expect(currentRound(replay, 950)?.number).toBe(1);
+  });
+
+  it("leaves the knife round at end_tick so the post-knife restart is already R1", () => {
+    expect(currentRound(replay, 100)?.number).toBe(0);
+    expect(currentRound(replay, 101)?.number).toBe(1);
+    expect(currentRound(replay, 150)?.number).toBe(1);
   });
 
   it("closes the grenade window on the tick before the next freeze", () => {

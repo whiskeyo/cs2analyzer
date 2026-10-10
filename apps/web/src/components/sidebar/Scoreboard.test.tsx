@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import { FULL_HEALTH } from "@/lib/shared/constants";
+import { UNRATED_RATING } from "@/lib/stats/format";
 import { ratingBandClass, ratingRangeFor } from "@/lib/stats/rating";
 import { computeStats } from "@/lib/stats/stats";
 import {
@@ -235,5 +236,78 @@ describe("Scoreboard", () => {
     const detailMark = within(detail as HTMLElement).getByTitle(label);
     expect(detailMark).toHaveClass(band);
     expect(detailMark).toHaveTextContent(formatted);
+  });
+
+  it("shows an em dash for rating and its sub-scores in the knife round, then numbers once round 1 starts", () => {
+    const ticks = makeTicks(2, 2);
+    ticks.ticks[0] = 64;
+    ticks.ticks[1] = 400;
+    const alive = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[0] = alive | FLAG_CT;
+    ticks.flags[1] = alive;
+    ticks.flags[2] = alive | FLAG_CT;
+    ticks.flags[3] = alive;
+    ticks.health.fill(FULL_HEALTH);
+    const match = makeReplay({
+      header: { team_ct: "Astralis", team_t: "Vitality" },
+      players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Cara")],
+      rounds: [
+        makeRound({
+          number: 0,
+          is_knife: true,
+          winner: "T",
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 200,
+        }),
+        makeRound({
+          number: 1,
+          winner: "CT",
+          start_tick: 300,
+          freeze_end_tick: 364,
+          end_tick: 900,
+        }),
+      ],
+      ticks,
+    });
+
+    const { rerender } = render(
+      <Scoreboard replay={match} tick={64} selected={0} onSelect={() => {}} />,
+    );
+    const knifeMarks = screen.getAllByText(UNRATED_RATING, { selector: ".rating-unrated" });
+    // Alice and Cara on the board, plus Alice's detail.
+    expect(knifeMarks).toHaveLength(3);
+    const during = computeStats(match, 64).find((s) => s.player === 0);
+    expect(during?.rounds).toBe(0);
+    expect(screen.queryByText(during?.rating.toFixed(2) ?? "")).not.toBeInTheDocument();
+    const pillarLabel = screen.getByText("Firepower / Impact / Support / Clutch");
+    const unratedPillars = `${UNRATED_RATING} / ${UNRATED_RATING} / ${UNRATED_RATING} / ${UNRATED_RATING}`;
+    expect(pillarLabel.nextElementSibling).toHaveTextContent(unratedPillars);
+
+    rerender(<Scoreboard replay={match} tick={400} selected={0} onSelect={() => {}} />);
+    expect(
+      screen.queryByText(UNRATED_RATING, { selector: ".rating-unrated" }),
+    ).not.toBeInTheDocument();
+    const alice = computeStats(match, 400).find((s) => s.player === 0);
+    expect(alice?.rounds).toBe(1);
+    const formatted = alice?.rating.toFixed(2) ?? "";
+    expect(formatted).toMatch(/^\d+\.\d{2}$/);
+    const row = within(teamTable("Astralis")).getByText("Alice").closest("tr");
+    expect(within(row as HTMLElement).getByText(formatted)).toBeInTheDocument();
+    const detail = screen.getByRole("heading", { name: "Alice" }).closest(".detail");
+    expect(within(detail as HTMLElement).getByText(formatted)).toBeInTheDocument();
+    if (!alice) throw new Error("missing Alice stats");
+    const ratedPillars = [
+      alice.rating_firepower,
+      alice.rating_impact,
+      alice.rating_support,
+      alice.rating_clutch,
+    ]
+      .map((value) => value.toFixed(2))
+      .join(" / ");
+    expect(
+      screen.getByText("Firepower / Impact / Support / Clutch").nextElementSibling,
+    ).toHaveTextContent(ratedPillars);
+    expect(ratedPillars).not.toContain(UNRATED_RATING);
   });
 });
