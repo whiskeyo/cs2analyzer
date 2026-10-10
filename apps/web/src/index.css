@@ -4840,7 +4840,7 @@ button.link:hover:not(:disabled) {
   gap: 0.35rem;
 }
 .spec-mid {
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 .spec-eco.ct .spec-top,
 .spec-eco.ct .spec-mid,
@@ -4848,14 +4848,38 @@ button.link:hover:not(:disabled) {
 .spec-eco.ct .spec-buys {
   flex-direction: row-reverse;
 }
-.spec-name {
+.spec-name-row {
   flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+/* CT column is row-reversed: keep the nick on the outer (right) edge. */
+.spec-eco.ct .spec-name-row {
+  flex-direction: row-reverse;
+}
+.spec-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.78rem;
   font-weight: 650;
+}
+.spec-frags {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.12rem;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.spec-frags .spec-frags-icon {
+  height: 12px;
+  max-width: 12px;
 }
 .spec-eco.t .spec-name {
   color: #e8d48a;
@@ -4925,11 +4949,18 @@ button.link:hover:not(:disabled) {
   opacity: 0.32;
 }
 .spec-ammo {
-  margin-left: auto;
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   color: #c5d0da;
   font-weight: 600;
+  flex-shrink: 0;
+}
+/* Push ammo to the inner edge (toward the radar), mirrored for T / CT. */
+.spec-eco.t .spec-ammo {
+  margin-left: auto;
+}
+.spec-eco.ct .spec-ammo {
+  margin-right: auto;
 }
 .spec-gear,
 .spec-buys {
