@@ -211,13 +211,21 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         lossy_utf8: None,
     },
     // Mirage FACEIT (20–22, knife, OT). #118: non-UTF-8 game-event strings.
-    // TODO: smoke census stays a static SKIP. demoparser2 fails with MalformedMessage.
+    // Smoke census from demoinfocs-golang v5.2.0. The demo-end cloud detonates
+    // at 265459 and ends on this parse's last tick (reference 266675).
     DemoExpect {
         name: MIRAGE_LOSSY_UTF8_DEMO,
         label: "b5045d4d",
         played: 42,
         knife: 1,
-        smoke: None,
+        smoke: Some(SmokeCensus {
+            smokes: 160,
+            with_expire: 152,
+            without_expire: 8,
+            ended_at_round_open: 7,
+            ended_at_demo_end: 1,
+            after_round_end: None,
+        }),
         rss_limit_kib: None,
         lossy_utf8: Some(MIRAGE_LOSSY_UTF8),
     },
@@ -322,14 +330,16 @@ struct DemoEndSmoke {
     /// Detonate tick of the missing-expire smoke.
     detonate: u32,
     /// Last sampled tick, where that smoke ends.
-    /// `None` means this parse's last sampled tick (assets-v2 Inferno: the
-    /// reference file ends at 152468, and our sample can be 1–2 ticks earlier).
+    /// `None` means this parse's last sampled tick. Assets-v2 Inferno's
+    /// reference ends at 152468 and Mirage's at 266675; our sample is one
+    /// tick earlier in both cases.
     end: Option<u32>,
 }
 
 /// 228691 and 81808 are the detonate ticks. Both clouds stop on the last
 /// sampled tick (a couple of ticks before playback_ticks), not on +22s.
-/// 151283 is the Inferno demo-end smoke; its end tick is the last sample.
+/// 151283 is the Inferno demo-end smoke and 265459 is the Mirage one; each
+/// ends on this parse's last sample.
 const DEMO_END_SMOKES: &[DemoEndSmoke] = &[
     DemoEndSmoke {
         demo: "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem",
@@ -344,6 +354,11 @@ const DEMO_END_SMOKES: &[DemoEndSmoke] = &[
     DemoEndSmoke {
         demo: "fruju-vs-rooster-m1-inferno.dem",
         detonate: 151_283,
+        end: None,
+    },
+    DemoEndSmoke {
+        demo: MIRAGE_LOSSY_UTF8_DEMO,
+        detonate: 265_459,
         end: None,
     },
 ];
@@ -1859,7 +1874,7 @@ fn each_demo_has_an_expected_check_count() {
         ("spirit-vs-furia-m1-ancient.dem", 7, true),
         ("spirit-vs-mouz-m3-ancient.dem", 6, true),
         ("spirit-vs-mouz-m4-nuke.dem", 6, true),
-        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 4, false),
+        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 6, false),
         ("bushido-wildcats-vs-illyrians-m1-anubis.dem", 5, false),
         ("fruju-vs-rooster-m1-inferno.dem", 5, false),
     ];
@@ -1880,11 +1895,11 @@ fn each_demo_has_an_expected_check_count() {
         );
     }
     assert_eq!(OPEN_FIRES.len(), 6);
-    assert_eq!(DEMO_END_SMOKES.len(), 3);
+    assert_eq!(DEMO_END_SMOKES.len(), 4);
     assert_eq!(GLOBAL_CHECK_COUNT, 6);
-    assert_eq!(census_total(|row| row.without_expire), 98);
-    assert_eq!(census_total(|row| row.ended_at_round_open), 95);
-    assert_eq!(census_total(|row| row.ended_at_demo_end), 3);
+    assert_eq!(census_total(|row| row.without_expire), 106);
+    assert_eq!(census_total(|row| row.ended_at_round_open), 102);
+    assert_eq!(census_total(|row| row.ended_at_demo_end), 4);
     for row in DEMO_EXPECTATIONS {
         let Some(smoke) = row.smoke.as_ref() else {
             continue;
@@ -1933,10 +1948,20 @@ fn each_demo_has_an_expected_check_count() {
     assert_eq!(inferno.detonate, 151_283);
     assert_eq!(inferno.end, None);
     let mirage = "1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem";
-    assert!(
-        !check_applies(mirage, CHECK_SMOKE),
-        "mirage smoke stays a static skip until a reference exists"
-    );
+    let mirage_end = DEMO_END_SMOKES.iter().find(|row| row.demo == mirage);
+    let mirage_end =
+        mirage_end.unwrap_or_else(|| panic!("mirage demo-end smoke missing from the table"));
+    assert_eq!(mirage_end.detonate, 265_459);
+    assert_eq!(mirage_end.end, None);
+    let mirage_smoke = lookup_demo(mirage).and_then(|row| row.smoke.as_ref());
+    let mirage_smoke = mirage_smoke.unwrap_or_else(|| panic!("mirage smoke census missing"));
+    assert_eq!(mirage_smoke.smokes, 160);
+    assert_eq!(mirage_smoke.with_expire, 152);
+    assert_eq!(mirage_smoke.without_expire, 8);
+    assert_eq!(mirage_smoke.ended_at_round_open, 7);
+    assert_eq!(mirage_smoke.ended_at_demo_end, 1);
+    assert!(check_applies(mirage, CHECK_SMOKE));
+    assert!(check_applies(mirage, CHECK_DEMO_END));
     assert!(check_applies(mirage, CHECK_UTF8));
     assert!(
         !MIRAGE_LOSSY_UTF8.is_empty(),
@@ -1969,15 +1994,15 @@ fn assets_v2_checks_without_data_are_static_skips() {
         .iter()
         .find(|row| row.demo == MIRAGE_LOSSY_UTF8_DEMO && row.check == CHECK_SMOKE)
         .unwrap_or_else(|| panic!("mirage smoke row missing"));
-    assert_eq!(smoke.status, CheckStatus::Skip);
-    assert_eq!(smoke.detail, "no smoke census in the static table");
+    assert_eq!(smoke.status, CheckStatus::Fail);
+    assert_eq!(smoke.detail, "check did not run");
     let demo_end = report
         .logs
         .iter()
         .find(|row| row.demo == MIRAGE_LOSSY_UTF8_DEMO && row.check == CHECK_DEMO_END)
         .unwrap_or_else(|| panic!("mirage demo-end row missing"));
-    assert_eq!(demo_end.status, CheckStatus::Skip);
-    assert_eq!(demo_end.detail, skip_reason(CHECK_DEMO_END));
+    assert_eq!(demo_end.status, CheckStatus::Fail);
+    assert_eq!(demo_end.detail, "check did not run");
     if cfg!(target_os = "linux") {
         let rss = report
             .logs
