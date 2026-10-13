@@ -12,6 +12,9 @@ demo	spirit-vs-dendele-m1-ancient.dem	build_num=10847	patch_version=14174
 demo	spirit-vs-furia-m1-ancient.dem	build_num=10847	patch_version=14174
 demo	spirit-vs-mouz-m3-ancient.dem	build_num=10847	patch_version=14172
 demo	spirit-vs-mouz-m4-nuke.dem	build_num=10847	patch_version=14172
+demo	1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem	build_num=10924	patch_version=14189
+demo	bushido-wildcats-vs-illyrians-m1-anubis.dem	build_num=10924	patch_version=14190
+demo	fruju-vs-rooster-m1-inferno.dem	build_num=10924	patch_version=14190
 field	AnimGraph2SerializedPoseRecipeSlot_t	m_topology	CUtlBinaryBlock	-	-	-	-	-
 field	CAK47	CBodyComponent	CBodyComponent	-	-	-	-	-
 field	CAK47	m_AttributeManager.m_Item.m_AttributeList.m_Attributes	CUtlVector< CEconItemAttribute >	-	-	-	-	-
@@ -3120,6 +3123,7 @@ field	CCSPlayerPawn	m_flFriction	float32	8	-	-	4	1
 field	CCSPlayerPawn	m_flGlowBackfaceMult	float32	32	-	-	-	-
 field	CCSPlayerPawn	m_flGravityScale	float32	32	-	-	-	-
 field	CCSPlayerPawn	m_flHealthShotBoostExpirationTime	GameTime_t	32	-	-	-	-
+field	CCSPlayerPawn	m_flModifier0	float32	32	-	-	-	-
 field	CCSPlayerPawn	m_flNavIgnoreUntilTime	GameTime_t	32	-	-	-	-
 field	CCSPlayerPawn	m_flNextSprayDecalTime	GameTime_t	32	-	-	-	-
 field	CCSPlayerPawn	m_flProgressBarStartTime	float32	32	-	-	-	-
