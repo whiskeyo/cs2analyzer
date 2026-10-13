@@ -60,7 +60,11 @@ export interface Round {
   start_tick: number;
   freeze_end_tick: number;
   end_tick: number;
-  /** `cs_pre_restart` after live play; 0 when not seen (web falls back to a short cap). */
+  /**
+   * Post-round playback end. Usually the first `cs_pre_restart` after the win.
+   * When that restart would cross a skipped warmup, this is the last kept frame
+   * before the hole. `0` when none falls in the kept range (short web cap).
+   */
   playback_end_tick?: number;
   winner: Side | null;
   win_reason: number;
