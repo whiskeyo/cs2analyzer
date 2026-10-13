@@ -53,6 +53,50 @@ function frameAt(ticks: Uint32Array, tick: number): { i: number; t: number } {
   return { i: lo, t };
 }
 
+/**
+ * A gap this many times the median frame stride is a missing span, not a step
+ * to blend. Twice the stride still blends, so one skipped sample stays smooth.
+ */
+const FRAME_HOLE_STRIDE_FACTOR = 2;
+
+/** Lower median of positive tick deltas. One long hole does not move it. */
+function typicalFrameStride(ticks: Uint32Array): number {
+  const count = ticks.length;
+  if (count < 2) return 0;
+  const deltas: number[] = [];
+  for (let i = 1; i < count; i++) {
+    const delta = ticks[i] - ticks[i - 1];
+    if (delta > 0) deltas.push(delta);
+  }
+  if (deltas.length === 0) return 0;
+  deltas.sort((a, b) => a - b);
+  return deltas[(deltas.length - 1) >> 1];
+}
+
+let frameStrideCache: { replay: Replay; stride: number } | null = null;
+
+function cachedTypicalFrameStride(replay: Replay): number {
+  if (frameStrideCache?.replay === replay) return frameStrideCache.stride;
+  const stride = typicalFrameStride(replay.ticks.ticks);
+  frameStrideCache = { replay, stride };
+  return stride;
+}
+
+/**
+ * True when `earlier` and `later` are consecutive frames with a hole between
+ * them. Playback holds the earlier pose until `later`, then draws that frame.
+ * Generalizes the knife side-choice hold: any gap wider than
+ * {@link FRAME_HOLE_STRIDE_FACTOR} times the median stride, including warmup
+ * ticks `skip_warmup` removed, not only the FACEIT K→R1 pair.
+ */
+function holdsLastFrame(replay: Replay, earlier: number, later: number): boolean {
+  const delta = later - earlier;
+  if (!(delta > 0)) return false;
+  const stride = cachedTypicalFrameStride(replay);
+  if (!(stride > 0)) return false;
+  return delta > stride * FRAME_HOLE_STRIDE_FACTOR;
+}
+
 export function samplePlayer(replay: Replay, player: number, tick: number): SampledPlayer | null {
   const buf = replay.ticks;
   const pc = buf.playerCount;
@@ -61,6 +105,9 @@ export function samplePlayer(replay: Replay, player: number, tick: number): Samp
   const j = Math.min(i + 1, buf.frameCount - 1);
   const a = i * pc + player;
   const b = j * pc + player;
+  const earlierTick = buf.ticks[i];
+  const laterTick = buf.ticks[j];
+  const blend = holdsLastFrame(replay, earlierTick, laterTick) ? 0 : t;
   const pose = interpolatePawn(
     {
       x: buf.x[a],
@@ -76,8 +123,8 @@ export function samplePlayer(replay: Replay, player: number, tick: number): Samp
       yaw: buf.yaw[b],
       flags: buf.flags[b],
     },
-    t,
-    buf.ticks[j] - buf.ticks[i],
+    blend,
+    laterTick - earlierTick,
     tickRate(replay),
   );
   const flags = pose.snapped ? buf.flags[b] : buf.flags[a];
