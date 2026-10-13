@@ -44,7 +44,8 @@ export function pawnInterpMaxDistance(deltaTicks: number, tickRate: number): num
 /**
  * True when blending would slide across a death, a presence change, or a
  * horizontal jump faster than {@link PAWN_INTERP_MAX_SPEED}. `z` is ignored
- * so a Vertigo or Nuke drop stays a blend.
+ * so a Vertigo or Nuke drop stays a blend. A slow slide across a missing-frame
+ * hole is not a speed snap; `samplePlayer` holds the earlier pose across it.
  */
 export function pawnSamplesShouldSnap(
   earlier: InterpPawn,
