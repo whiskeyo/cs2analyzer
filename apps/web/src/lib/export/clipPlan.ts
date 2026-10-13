@@ -15,7 +15,11 @@ export interface ClipRoundClock {
   start_tick: number;
   freeze_end_tick: number;
   end_tick: number;
-  /** First `cs_pre_restart` after the win. 0 when the demo did not record one. */
+  /**
+   * Post-round playback end. Usually the first `cs_pre_restart` after the win.
+   * Capped at the last kept frame when that restart would cross a skipped warmup.
+   * `0` when the demo did not record one in the kept range.
+   */
   playback_end_tick?: number;
 }
 

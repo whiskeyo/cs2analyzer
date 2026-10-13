@@ -54,6 +54,7 @@ fn missing_demos_with_ignored_is_a_failure_not_a_skip() {
 
 const CHECK_RSS: &str = "rss";
 const CHECK_ROUND_COUNTS: &str = "round-counts";
+const CHECK_PLAYBACK_GAP: &str = "playback-no-gap";
 const CHECK_MOLOTOV: &str = "molotov-burn-window";
 const CHECK_SMOKE: &str = "smoke-end";
 const CHECK_DEMO_END: &str = "demo-end-smoke";
@@ -381,6 +382,7 @@ fn demo_check_catalog() -> Vec<String> {
     let mut names = vec![
         CHECK_RSS.to_string(),
         CHECK_ROUND_COUNTS.to_string(),
+        CHECK_PLAYBACK_GAP.to_string(),
         CHECK_MOLOTOV.to_string(),
     ];
     for fire in OPEN_FIRES {
@@ -409,7 +411,7 @@ fn check_applies(demo: &str, check: &str) -> bool {
         return fire.demo == demo;
     }
     match check {
-        CHECK_ROUND_COUNTS | CHECK_MOLOTOV | CHECK_HASHES => true,
+        CHECK_ROUND_COUNTS | CHECK_PLAYBACK_GAP | CHECK_MOLOTOV | CHECK_HASHES => true,
         CHECK_SMOKE | CHECK_DEMO_END => row.smoke.is_some(),
         CHECK_UTF8 => row.lossy_utf8.is_some(),
         _ => false,
@@ -909,6 +911,9 @@ fn run_demo_checks(
     report.run(name, CHECK_ROUND_COUNTS, |check| {
         check_round_counts(check, name, parsed, parse_ms);
     });
+    report.run(name, CHECK_PLAYBACK_GAP, |check| {
+        check_playback_no_gap(check, name, parsed);
+    });
     report.run(name, CHECK_MOLOTOV, |check| {
         check_molotov_burn_window(check, name, parsed);
     });
@@ -1022,6 +1027,57 @@ fn check_round_counts(check: &mut AssertSink, name: &str, parsed: &Match, parse_
     {
         check.fail(format!("{name} knife round should be number 0"));
     }
+}
+
+/// No round's playback window may contain two samples more than `tick_stride`
+/// apart. That hole is a skipped warmup: the viewer blends across it.
+fn check_playback_no_gap(check: &mut AssertSink, name: &str, parsed: &Match) {
+    let stride = parsed.header.tick_stride.max(1);
+    let ticks = &parsed.ticks.ticks;
+    let mut gaps = Vec::new();
+    for (index, round) in parsed.rounds.iter().enumerate() {
+        let next = parsed.rounds.get(index + 1).map(|round| round.start_tick);
+        let (start, end) = playback_window(round, next);
+        for pair in ticks.windows(2) {
+            let (left, right) = (pair[0], pair[1]);
+            let delta = right.saturating_sub(left);
+            if delta <= stride || left < start || right > end {
+                continue;
+            }
+            gaps.push(format!(
+                "R{} {start}..={end} contains {left}->{right} (delta {delta}, stride {stride})",
+                round.number
+            ));
+        }
+    }
+    if gaps.is_empty() {
+        check.set_detail(format!("gaps=0 stride={stride}"));
+        return;
+    }
+    check.set_detail(gaps.join("; "));
+    check.fail(format!(
+        "{name} playback window crosses a frame gap: {}",
+        gaps.join("; ")
+    ));
+}
+
+/// Inclusive playback span. `playback_end_tick` wins when it is past the win;
+/// otherwise the span stops on `end_tick`. The next round's freeze is excluded.
+fn playback_window(round: &Round, next_start: Option<u32>) -> (u32, u32) {
+    let mut end = if round.playback_end_tick > round.end_tick {
+        round.playback_end_tick
+    } else {
+        round.end_tick
+    };
+    if let Some(next) = next_start {
+        if next > 0 {
+            end = end.min(next.saturating_sub(1));
+        }
+    }
+    if end < round.start_tick {
+        end = round.start_tick;
+    }
+    (round.start_tick, end)
 }
 
 fn check_molotov_burn_window(check: &mut AssertSink, name: &str, parsed: &Match) {
@@ -1865,18 +1921,18 @@ fn missing_demo_fails_every_named_check() {
 #[test]
 fn each_demo_has_an_expected_check_count() {
     let cases = [
-        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 6, true),
-        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 6, true),
-        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 5, true),
-        ("legacy-vs-spirit-m2-ancient.dem", 5, true),
-        ("premier-d2.dem", 5, true),
-        ("spirit-vs-dendele-m1-ancient.dem", 5, true),
-        ("spirit-vs-furia-m1-ancient.dem", 7, true),
-        ("spirit-vs-mouz-m3-ancient.dem", 6, true),
-        ("spirit-vs-mouz-m4-nuke.dem", 6, true),
-        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 6, false),
-        ("bushido-wildcats-vs-illyrians-m1-anubis.dem", 5, false),
-        ("fruju-vs-rooster-m1-inferno.dem", 5, false),
+        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 7, true),
+        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 7, true),
+        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 6, true),
+        ("legacy-vs-spirit-m2-ancient.dem", 6, true),
+        ("premier-d2.dem", 6, true),
+        ("spirit-vs-dendele-m1-ancient.dem", 6, true),
+        ("spirit-vs-furia-m1-ancient.dem", 8, true),
+        ("spirit-vs-mouz-m3-ancient.dem", 7, true),
+        ("spirit-vs-mouz-m4-nuke.dem", 7, true),
+        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 7, false),
+        ("bushido-wildcats-vs-illyrians-m1-anubis.dem", 6, false),
+        ("fruju-vs-rooster-m1-inferno.dem", 6, false),
     ];
     assert_eq!(cases.len(), DEMO_EXPECTATIONS.len());
     let rss = usize::from(cfg!(target_os = "linux"));
@@ -1914,17 +1970,17 @@ fn each_demo_has_an_expected_check_count() {
     if cfg!(target_os = "linux") {
         assert_eq!(
             expected_check_count("premier-d2.dem"),
-            6,
+            7,
             "premier-d2 has no open fire; rss applies on linux"
         );
         assert_eq!(
             expected_check_count("spirit-vs-furia-m1-ancient.dem"),
-            8,
+            9,
             "furia has two open fires"
         );
         assert_eq!(
             expected_check_count("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem"),
-            7
+            8
         );
     }
     let faceit = DEMO_END_SMOKES

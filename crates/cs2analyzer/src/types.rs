@@ -91,7 +91,10 @@ pub struct Round {
     pub start_tick: u32,
     pub freeze_end_tick: u32,
     pub end_tick: u32,
-    /// `cs_pre_restart` after live play; 0 when not seen (web falls back to a short cap).
+    /// Post-round playback end. Usually the first `cs_pre_restart` after the win.
+    /// When that restart would cross a skipped warmup, this is the last kept
+    /// frame before the hole. `0` when no restart falls in the kept range
+    /// (the web falls back to a short cap).
     #[serde(default)]
     pub playback_end_tick: u32,
     pub winner: Option<Side>,

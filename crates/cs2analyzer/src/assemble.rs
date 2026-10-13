@@ -348,13 +348,56 @@ fn build_rounds(c: &Collector) -> Vec<Round> {
 }
 
 /// First `cs_pre_restart` after live play ends — GOTV post-round / win panel beat.
+///
+/// That restart is sometimes the match restart after a warmup, not the win
+/// panel. `skip_warmup` has already dropped the warmup frames, so a playback
+/// end past the hole makes the viewer blend the last kept sample into the
+/// first sample after warmup. Stop on the last kept frame before such a hole.
+/// A restart that does not cross a hole is unchanged. `0` when the only restart
+/// sits past a hole that begins on or before the win.
 fn playback_end_tick(c: &Collector, start: u32, end_tick: u32, next_start: Option<u32>) -> u32 {
     let bound = next_start.unwrap_or(c.last_cap);
-    c.pre_restarts
+    let Some(restart) = c
+        .pre_restarts
         .iter()
-        .find(|&&t| t > end_tick && t >= start && t <= bound)
         .copied()
-        .unwrap_or(0)
+        .find(|&tick| tick > end_tick && tick >= start && tick <= bound)
+    else {
+        return 0;
+    };
+    let window_end = match next_start {
+        Some(next) if next > 0 => restart.min(next.saturating_sub(1)),
+        _ => restart,
+    };
+    match kept_frame_before_playback_gap(c, start, end_tick, window_end) {
+        Some(cap) if cap > end_tick => cap,
+        Some(_) => 0,
+        None => restart,
+    }
+}
+
+/// Last sampled frame before a hole larger than the stride inside
+/// `[start, window_end]` that extends past the win.
+///
+/// Holes that end on or before `end_tick` are live-round gaps. They do not
+/// change the post-round beat.
+fn kept_frame_before_playback_gap(
+    c: &Collector,
+    start: u32,
+    end_tick: u32,
+    window_end: u32,
+) -> Option<u32> {
+    let stride = c.opts.tick_stride.max(1);
+    c.frames.windows(2).find_map(|pair| {
+        let left = pair[0].tick;
+        let right = pair[1].tick;
+        let delta = right.saturating_sub(left);
+        if delta > stride && left >= start && right <= window_end && right > end_tick {
+            Some(left)
+        } else {
+            None
+        }
+    })
 }
 
 /// Prefer the tick when `m_iRoundWinStatus` flips (in-game round over).
@@ -1270,6 +1313,45 @@ mod tests {
         assert_eq!(rounds[0].playback_end_tick, 520);
         assert_eq!(rounds[1].end_tick, 1500);
         assert_eq!(rounds[1].playback_end_tick, 1520);
+    }
+
+    #[test]
+    fn playback_end_tick_stops_before_a_skipped_frame_gap() {
+        let mut c = Collector::new(ParseOptions::default());
+        c.last_cap = 4500;
+        c.freeze_ends.push(100);
+        c.freeze_ends.push(4100);
+        c.synth_ends.push((500, Some(Side::Ct), 8));
+        c.synth_ends.push((4150, Some(Side::T), 1));
+        // 900 is the restart after the hole. 620 is a win-panel restart that
+        // stays on kept frames. The second round's restart never crosses a hole.
+        c.pre_restarts.push(900);
+        c.pre_restarts.push(4180);
+        push_stride_frames(&mut c, 100, 640);
+        push_stride_frames(&mut c, 800, 900);
+        push_stride_frames(&mut c, 4100, 4180);
+
+        let capped = build_rounds(&c);
+        assert_eq!(capped[0].end_tick, 500);
+        assert_eq!(capped[0].playback_end_tick, 640);
+        assert_eq!(capped[1].end_tick, 4150);
+        assert_eq!(capped[1].playback_end_tick, 4180);
+
+        c.pre_restarts[0] = 620;
+        let kept = build_rounds(&c);
+        assert_eq!(kept[0].playback_end_tick, 620);
+        assert_eq!(kept[1].playback_end_tick, 4180);
+    }
+
+    fn push_stride_frames(c: &mut Collector, from: u32, to: u32) {
+        let mut tick = from;
+        while tick <= to {
+            c.frames.push(RawFrame {
+                tick,
+                players: Vec::new(),
+            });
+            tick += DEFAULT_TICK_STRIDE;
+        }
     }
 
     #[test]
