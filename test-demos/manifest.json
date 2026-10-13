@@ -53,6 +53,24 @@
       "size": 400043212,
       "sha256": "11596e71c48615b49248b9b3e915ca0b1beaaf29230af90ceb8cbde9267b4337",
       "release_tag": "assets-v1"
+    },
+    {
+      "name": "1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem",
+      "size": 474678693,
+      "sha256": "54904e39afcfa330e5d4e230b0e12213faa9bdf857dd86b653e1eb6c73f624ae",
+      "release_tag": "assets-v2"
+    },
+    {
+      "name": "bushido-wildcats-vs-illyrians-m1-anubis.dem",
+      "size": 401695537,
+      "sha256": "d19aa404f80c6777447c1fe4e6cf574da08715a3b16dac976de31bf1e63dd168",
+      "release_tag": "assets-v2"
+    },
+    {
+      "name": "fruju-vs-rooster-m1-inferno.dem",
+      "size": 298607639,
+      "sha256": "3b4149962b50e8a6b004bebba10cc051564e9a691be136825a86c3d727683b78",
+      "release_tag": "assets-v2"
     }
   ]
 }
