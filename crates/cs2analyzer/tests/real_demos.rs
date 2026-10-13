@@ -1,4 +1,4 @@
-//! Parse every downloaded assets-v1 demo once.
+//! Parse every downloaded release demo once.
 //!
 //! `cargo test` skips the demo walk. `cargo test -- --ignored` runs it after
 //! `./scripts/run.sh --fetch-demos`.
@@ -58,6 +58,7 @@ const CHECK_MOLOTOV: &str = "molotov-burn-window";
 const CHECK_SMOKE: &str = "smoke-end";
 const CHECK_DEMO_END: &str = "demo-end-smoke";
 const CHECK_HASHES: &str = "hashes";
+const CHECK_UTF8: &str = "lossy-utf8";
 const CHECK_PARSE_PASSES: &str = "parse-passes";
 const CHECK_PARSE: &str = "parse";
 const CHECK_READ: &str = "read";
@@ -72,6 +73,7 @@ const EXPECTED_DURATION_CAP: usize = 0;
 const CLEAR_REFS_RESET_PEAK: &str = "5";
 
 /// Round counts from #111 and the smoke census measured on assets-v1.
+/// Assets-v2 rows only fill the fields a reference exists for.
 struct DemoExpect {
     name: &'static str,
     /// Short label for the per-check log. The failure line still uses `name`.
@@ -79,6 +81,15 @@ struct DemoExpect {
     /// Played rounds, excluding `is_knife`.
     played: usize,
     knife: usize,
+    /// `None` is a static SKIP for `smoke-end` and `demo-end-smoke`.
+    smoke: Option<SmokeCensus>,
+    /// `None` is a static SKIP for `rss`, including on Linux.
+    rss_limit_kib: Option<u64>,
+    /// `None` is a static SKIP for `lossy-utf8`.
+    lossy_utf8: Option<&'static [LossyUtf8]>,
+}
+
+struct SmokeCensus {
     smokes: usize,
     with_expire: usize,
     /// No in-window `smokegrenade_expired`.
@@ -87,131 +98,182 @@ struct DemoExpect {
     ended_at_round_open: usize,
     /// Of `without_expire`, those that end on the last sampled tick.
     ended_at_demo_end: usize,
-    after_round_end: usize,
-    /// Ceiling for `VmHWM` after `clear_refs`, in KiB. Linux only.
-    rss_limit_kib: u64,
+    /// Set for assets-v1. Unset means this count is not part of the census.
+    after_round_end: Option<usize>,
+}
+
+/// One game-event string that was not valid UTF-8 and was decoded lossily.
+struct LossyUtf8 {
+    event: &'static str,
+    key: &'static str,
+    text: &'static str,
 }
 
 /// FACEIT keeps the knife round (`is_knife`, number 0). HLTV and Premier have none.
+const fn v1_smoke(
+    smokes: usize,
+    with_expire: usize,
+    without_expire: usize,
+    ended_at_round_open: usize,
+    ended_at_demo_end: usize,
+    after_round_end: usize,
+) -> SmokeCensus {
+    SmokeCensus {
+        smokes,
+        with_expire,
+        without_expire,
+        ended_at_round_open,
+        ended_at_demo_end,
+        after_round_end: Some(after_round_end),
+    }
+}
+
 const DEMO_EXPECTATIONS: &[DemoExpect] = &[
     DemoExpect {
         name: "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem",
         label: "0eb2df7f",
         played: 35,
         knife: 1,
-        smokes: 160,
-        with_expire: 146,
-        without_expire: 14,
-        ended_at_round_open: 13,
-        ended_at_demo_end: 1,
-        after_round_end: 25,
-        rss_limit_kib: 800_000,
+        smoke: Some(v1_smoke(160, 146, 14, 13, 1, 25)),
+        rss_limit_kib: Some(800_000),
+        lossy_utf8: None,
     },
     DemoExpect {
         name: "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem",
         label: "898c8041",
         played: 16,
         knife: 1,
-        smokes: 52,
-        with_expire: 44,
-        without_expire: 8,
-        ended_at_round_open: 8,
-        ended_at_demo_end: 0,
-        after_round_end: 10,
-        rss_limit_kib: 800_000,
+        smoke: Some(v1_smoke(52, 44, 8, 8, 0, 10)),
+        rss_limit_kib: Some(800_000),
+        lossy_utf8: None,
     },
     DemoExpect {
         name: "1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem",
         label: "b3ea81e1",
         played: 29,
         knife: 1,
-        smokes: 124,
-        with_expire: 116,
-        without_expire: 8,
-        ended_at_round_open: 8,
-        ended_at_demo_end: 0,
-        after_round_end: 20,
-        rss_limit_kib: 650_000,
+        smoke: Some(v1_smoke(124, 116, 8, 8, 0, 20)),
+        rss_limit_kib: Some(650_000),
+        lossy_utf8: None,
     },
     DemoExpect {
         name: "legacy-vs-spirit-m2-ancient.dem",
         label: "legacy-m2",
         played: 22,
         knife: 0,
-        smokes: 149,
-        with_expire: 145,
-        without_expire: 4,
-        ended_at_round_open: 4,
-        ended_at_demo_end: 0,
-        after_round_end: 8,
-        rss_limit_kib: 1_200_000,
+        smoke: Some(v1_smoke(149, 145, 4, 4, 0, 8)),
+        rss_limit_kib: Some(1_200_000),
+        lossy_utf8: None,
     },
     DemoExpect {
         name: "premier-d2.dem",
         label: "premier-d2",
         played: 15,
         knife: 0,
-        smokes: 45,
-        with_expire: 38,
-        without_expire: 7,
-        ended_at_round_open: 6,
-        ended_at_demo_end: 1,
-        after_round_end: 13,
-        rss_limit_kib: 850_000,
+        smoke: Some(v1_smoke(45, 38, 7, 6, 1, 13)),
+        rss_limit_kib: Some(850_000),
+        lossy_utf8: None,
     },
     DemoExpect {
         name: "spirit-vs-dendele-m1-ancient.dem",
         label: "dendele-m1",
         played: 21,
         knife: 0,
-        smokes: 139,
-        with_expire: 133,
-        without_expire: 6,
-        ended_at_round_open: 6,
-        ended_at_demo_end: 0,
-        after_round_end: 8,
-        rss_limit_kib: 700_000,
+        smoke: Some(v1_smoke(139, 133, 6, 6, 0, 8)),
+        rss_limit_kib: Some(700_000),
+        lossy_utf8: None,
     },
     DemoExpect {
         name: "spirit-vs-furia-m1-ancient.dem",
         label: "furia-m1",
         played: 23,
         knife: 0,
-        smokes: 160,
-        with_expire: 152,
-        without_expire: 8,
-        ended_at_round_open: 8,
-        ended_at_demo_end: 0,
-        after_round_end: 20,
-        rss_limit_kib: 700_000,
+        smoke: Some(v1_smoke(160, 152, 8, 8, 0, 20)),
+        rss_limit_kib: Some(700_000),
+        lossy_utf8: None,
     },
     DemoExpect {
         name: "spirit-vs-mouz-m3-ancient.dem",
         label: "mouz-m3",
         played: 22,
         knife: 0,
-        smokes: 149,
-        with_expire: 143,
-        without_expire: 6,
-        ended_at_round_open: 6,
-        ended_at_demo_end: 0,
-        after_round_end: 11,
-        rss_limit_kib: 700_000,
+        smoke: Some(v1_smoke(149, 143, 6, 6, 0, 11)),
+        rss_limit_kib: Some(700_000),
+        lossy_utf8: None,
     },
     DemoExpect {
         name: "spirit-vs-mouz-m4-nuke.dem",
         label: "mouz-m4",
         played: 23,
         knife: 0,
-        smokes: 176,
-        with_expire: 168,
-        without_expire: 8,
-        ended_at_round_open: 8,
-        ended_at_demo_end: 0,
-        after_round_end: 15,
-        rss_limit_kib: 1_250_000,
+        smoke: Some(v1_smoke(176, 168, 8, 8, 0, 15)),
+        rss_limit_kib: Some(1_250_000),
+        lossy_utf8: None,
+    },
+    // Mirage FACEIT (20–22, knife, OT). #118: non-UTF-8 game-event strings.
+    // Smoke census from demoinfocs-golang v5.2.0. The demo-end cloud detonates
+    // at 265459 and ends on this parse's last tick (reference 266675).
+    DemoExpect {
+        name: MIRAGE_LOSSY_UTF8_DEMO,
+        label: "b5045d4d",
+        played: 42,
+        knife: 1,
+        smoke: Some(SmokeCensus {
+            smokes: 160,
+            with_expire: 152,
+            without_expire: 8,
+            ended_at_round_open: 7,
+            ended_at_demo_end: 1,
+            after_round_end: None,
+        }),
+        rss_limit_kib: None,
+        lossy_utf8: Some(MIRAGE_LOSSY_UTF8),
+    },
+    DemoExpect {
+        name: "bushido-wildcats-vs-illyrians-m1-anubis.dem",
+        label: "bushido-m1",
+        played: 30,
+        knife: 0,
+        smoke: Some(SmokeCensus {
+            smokes: 175,
+            with_expire: 156,
+            without_expire: 19,
+            ended_at_round_open: 19,
+            ended_at_demo_end: 0,
+            after_round_end: None,
+        }),
+        rss_limit_kib: None,
+        lossy_utf8: None,
+    },
+    DemoExpect {
+        name: "fruju-vs-rooster-m1-inferno.dem",
+        label: "fruju-m1",
+        played: 16,
+        knife: 1,
+        smoke: Some(SmokeCensus {
+            smokes: 92,
+            with_expire: 82,
+            without_expire: 10,
+            ended_at_round_open: 9,
+            ended_at_demo_end: 1,
+            after_round_end: None,
+        }),
+        rss_limit_kib: None,
+        lossy_utf8: None,
     },
 ];
+
+const MIRAGE_LOSSY_UTF8_DEMO: &str = "1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem";
+
+/// `player_disconnect.networkid` on the Mirage FACEIT demo is not UTF-8.
+/// #118 / source2-demo 0.5.10 keeps the parse and decodes `val_string` with
+/// `String::from_utf8_lossy`: U+FFFD, then the bytes that were already valid
+/// (`5#!` and the two trailing control bytes).
+const MIRAGE_LOSSY_UTF8: &[LossyUtf8] = &[LossyUtf8 {
+    event: "player_disconnect",
+    key: "networkid",
+    text: "\u{FFFD}5#!\u{0004}\u{0002}",
+}];
 
 struct OpenFire {
     /// Manifest file name. A demo that never appears in the run fails this check.
@@ -268,32 +330,47 @@ struct DemoEndSmoke {
     /// Detonate tick of the missing-expire smoke.
     detonate: u32,
     /// Last sampled tick, where that smoke ends.
-    end: u32,
+    /// `None` means this parse's last sampled tick. Assets-v2 Inferno's
+    /// reference ends at 152468 and Mirage's at 266675; our sample is one
+    /// tick earlier in both cases.
+    end: Option<u32>,
 }
 
 /// 228691 and 81808 are the detonate ticks. Both clouds stop on the last
 /// sampled tick (a couple of ticks before playback_ticks), not on +22s.
+/// 151283 is the Inferno demo-end smoke and 265459 is the Mirage one; each
+/// ends on this parse's last sample.
 const DEMO_END_SMOKES: &[DemoEndSmoke] = &[
     DemoEndSmoke {
         demo: "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem",
         detonate: 228_691,
-        end: 230_008,
+        end: Some(230_008),
     },
     DemoEndSmoke {
         demo: "premier-d2.dem",
         detonate: 81_808,
-        end: 83_030,
+        end: Some(83_030),
+    },
+    DemoEndSmoke {
+        demo: "fruju-vs-rooster-m1-inferno.dem",
+        detonate: 151_283,
+        end: None,
+    },
+    DemoEndSmoke {
+        demo: MIRAGE_LOSSY_UTF8_DEMO,
+        detonate: 265_459,
+        end: None,
     },
 ];
 
-/// Applicable checks for one demo. `rss` is included only on Linux, from
-/// `target_os`, not from whether `/proc` could be read. Open fires come from
-/// [`OPEN_FIRES`] keyed by the manifest name.
+/// Applicable checks for one demo. `rss` is included only on Linux, and only
+/// when the static table has a limit. Open fires come from [`OPEN_FIRES`]
+/// keyed by the manifest name. A check with no row data is a static SKIP.
 fn expected_check_count(name: &str) -> usize {
-    let fires = OPEN_FIRES.iter().filter(|fire| fire.demo == name).count();
-    let rss = usize::from(cfg!(target_os = "linux"));
-    // round-counts, molotov-burn-window, smoke-end, demo-end-smoke, hashes
-    5 + fires + rss
+    demo_check_catalog()
+        .into_iter()
+        .filter(|check| check_applies(name, check))
+        .count()
 }
 
 fn open_fire_check_name(entity: i32) -> String {
@@ -312,13 +389,18 @@ fn demo_check_catalog() -> Vec<String> {
     names.push(CHECK_SMOKE.to_string());
     names.push(CHECK_DEMO_END.to_string());
     names.push(CHECK_HASHES.to_string());
+    names.push(CHECK_UTF8.to_string());
     names
 }
 
 /// Static row: which catalog checks apply to this manifest name.
+/// A missing census is a SKIP here, not something decided after the parse.
 fn check_applies(demo: &str, check: &str) -> bool {
+    let Some(row) = lookup_demo(demo) else {
+        return false;
+    };
     if check == CHECK_RSS {
-        return cfg!(target_os = "linux");
+        return cfg!(target_os = "linux") && row.rss_limit_kib.is_some();
     }
     if let Some(fire) = OPEN_FIRES
         .iter()
@@ -326,10 +408,31 @@ fn check_applies(demo: &str, check: &str) -> bool {
     {
         return fire.demo == demo;
     }
-    matches!(
-        check,
-        CHECK_ROUND_COUNTS | CHECK_MOLOTOV | CHECK_SMOKE | CHECK_DEMO_END | CHECK_HASHES
-    )
+    match check {
+        CHECK_ROUND_COUNTS | CHECK_MOLOTOV | CHECK_HASHES => true,
+        CHECK_SMOKE | CHECK_DEMO_END => row.smoke.is_some(),
+        CHECK_UTF8 => row.lossy_utf8.is_some(),
+        _ => false,
+    }
+}
+
+fn skip_reason(check: &str) -> &'static str {
+    if check == CHECK_RSS {
+        if !cfg!(target_os = "linux") {
+            return "target_os is not linux";
+        }
+        return "no rss limit in the static table";
+    }
+    if check == CHECK_HASHES {
+        return "not selected by HASH_DEMOS";
+    }
+    if check == CHECK_SMOKE || check == CHECK_DEMO_END {
+        return "no smoke census in the static table";
+    }
+    if check == CHECK_UTF8 {
+        return "no lossy-utf8 expectation in the static table";
+    }
+    "not this demo"
 }
 
 /// `HASH_DEMOS` may drop the hash check for a demo. Every other check stays.
@@ -420,7 +523,7 @@ impl AssertSink {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CheckStatus {
     Pass,
     Fail,
@@ -614,6 +717,8 @@ struct SmokeRollup {
     missing_expire: usize,
     ended_at_round_open: usize,
     ended_at_demo_end: Vec<(String, u32, u32)>,
+    /// Last sampled tick for demos whose smoke check ran.
+    last_tick: BTreeMap<String, u32>,
 }
 
 enum HashLoad {
@@ -813,15 +918,38 @@ fn run_demo_checks(
             check_open_fire(check, name, parsed, fire);
         });
     }
-    report.run(name, CHECK_SMOKE, |check| {
-        check_smoke_end(check, name, parsed, smoke, rollup);
-    });
-    report.run(name, CHECK_DEMO_END, |check| {
-        check_demo_end_smoke(check, name, rollup);
-    });
+    if check_applies(name, CHECK_SMOKE) {
+        report.run(name, CHECK_SMOKE, |check| {
+            check_smoke_end(check, name, parsed, smoke, rollup);
+        });
+        report.run(name, CHECK_DEMO_END, |check| {
+            check_demo_end_smoke(check, name, rollup);
+        });
+    } else {
+        let account = account_smokes(name, parsed, smoke);
+        report.skip(
+            name,
+            CHECK_SMOKE,
+            &format!(
+                "{}; measured smokes={} with_expire={} without_expire={} ended_at_round_open={} ended_at_demo_end={}",
+                skip_reason(CHECK_SMOKE),
+                account.smokes,
+                account.with_expire,
+                account.without_expire,
+                account.ended_at_round_open,
+                account.ended_at_demo_end
+            ),
+        );
+        report.skip(name, CHECK_DEMO_END, skip_reason(CHECK_DEMO_END));
+    }
     if hashes.selected {
         report.run(name, CHECK_HASHES, |check| {
             check_output_hash(check, name, parsed, hashes);
+        });
+    }
+    if check_applies(name, CHECK_UTF8) {
+        report.run(name, CHECK_UTF8, |check| {
+            check_lossy_utf8(check, name, parsed, smoke);
         });
     }
 }
@@ -1019,13 +1147,20 @@ fn check_open_fire(check: &mut AssertSink, name: &str, parsed: &Match, fire: &Op
     ));
 }
 
-fn check_smoke_end(
-    check: &mut AssertSink,
-    name: &str,
-    parsed: &Match,
-    events: &SmokeEvents,
-    rollup: &mut SmokeRollup,
-) {
+struct SmokeAccount {
+    smokes: usize,
+    with_expire: usize,
+    without_expire: usize,
+    after_round_end: usize,
+    ended_at_round_open: usize,
+    ended_at_demo_end: usize,
+    duration_cap_hits: usize,
+    last_tick: u32,
+    demo_end: Vec<(u32, u32)>,
+    errors: Vec<String>,
+}
+
+fn account_smokes(name: &str, parsed: &Match, events: &SmokeEvents) -> SmokeAccount {
     let detonates = &events.detonates;
     let expires = &events.expires;
     let round_opens = &events.round_opens;
@@ -1037,26 +1172,31 @@ fn check_smoke_end(
         .copied()
         .unwrap_or(parsed.header.playback_ticks);
     let mut used = vec![false; detonates.len()];
-    let mut smokes = 0usize;
-    let mut with_expire = 0usize;
-    let mut without_expire = 0usize;
-    let mut after_round_end = 0usize;
-    let mut ended_at_round_open = 0usize;
-    let mut ended_at_demo_end = 0usize;
-    let mut duration_cap_hits = 0usize;
+    let mut account = SmokeAccount {
+        smokes: 0,
+        with_expire: 0,
+        without_expire: 0,
+        after_round_end: 0,
+        ended_at_round_open: 0,
+        ended_at_demo_end: 0,
+        duration_cap_hits: 0,
+        last_tick,
+        demo_end: Vec::new(),
+        errors: Vec::new(),
+    };
     for grenade in parsed
         .grenades
         .iter()
         .filter(|grenade| grenade.kind == GrenadeKind::Smoke)
     {
-        smokes += 1;
+        account.smokes += 1;
         let Some(index) = claim_detonate(grenade, detonates, &mut used) else {
             let same_tick = detonates
                 .iter()
                 .filter(|detonate| detonate.tick == grenade.detonate_tick)
                 .count();
             let land = grenade.points.last();
-            check.fail(format!(
+            account.errors.push(format!(
                 "{name} smoke at {} did not match a smokegrenade_detonate (same_tick={same_tick}, points={}, land={land:?})",
                 grenade.detonate_tick,
                 grenade.points.len()
@@ -1067,7 +1207,7 @@ fn check_smoke_end(
         let entity = detonates[index].entity;
         let next = next_smoke_detonate(detonates, entity, grenade.detonate_tick);
         let Some(owner_index) = round_owning(&parsed.rounds, grenade.detonate_tick) else {
-            check.fail(format!(
+            account.errors.push(format!(
                 "{name} smoke at {} is before every round",
                 grenade.detonate_tick
             ));
@@ -1077,36 +1217,36 @@ fn check_smoke_end(
         let bound = next_round_start(&parsed.rounds, owner).unwrap_or(last_tick);
         let horizon = bound.min(last_tick);
         if !(grenade.detonate_tick <= grenade.end_tick && grenade.end_tick <= horizon) {
-            check.fail(format!(
+            account.errors.push(format!(
                 "{name} smoke entity {entity} {} -> {} outside detonate..={horizon} (round {} ends {})",
                 grenade.detonate_tick, grenade.end_tick, owner.number, owner.end_tick
             ));
         }
         if grenade.end_tick > owner.end_tick {
-            after_round_end += 1;
+            account.after_round_end += 1;
         }
         if let Some(expire) = expire_in_window(expires, entity, grenade.detonate_tick, next) {
             if grenade.end_tick != expire {
-                check.fail(format!(
+                account.errors.push(format!(
                     "{name} smoke entity {entity} at {} paired outside its window (expire {expire}, next {next:?})",
                     grenade.detonate_tick
                 ));
             }
-            with_expire += 1;
+            account.with_expire += 1;
         } else {
             let outside = expires
                 .iter()
                 .any(|event| event.entity == entity && event.tick == grenade.end_tick);
             if outside {
-                check.fail(format!(
+                account.errors.push(format!(
                     "{name} smoke entity {entity} at {} paired with an expire outside its window",
                     grenade.detonate_tick
                 ));
             }
             let duration_cap = grenade.detonate_tick.saturating_add(life);
             if grenade.end_tick >= duration_cap {
-                duration_cap_hits += 1;
-                check.fail(format!(
+                account.duration_cap_hits += 1;
+                account.errors.push(format!(
                     "{name} smoke entity {entity} {} -> {} landed on the {life}-tick cap {duration_cap}",
                     grenade.detonate_tick, grenade.end_tick
                 ));
@@ -1118,31 +1258,56 @@ fn check_smoke_end(
             let at_next_open = next_open.is_some_and(|open| grenade.end_tick == open);
             let at_demo_end = grenade.end_tick == last_tick;
             if !(at_next_open || at_demo_end) {
-                check.fail(format!(
+                account.errors.push(format!(
                     "{name} smoke entity {entity} {} -> {} is not the next m_nRoundStartCount edge ({next_open:?}) or the last sampled tick {last_tick} (22s cap {duration_cap})",
                     grenade.detonate_tick, grenade.end_tick
                 ));
             }
             if at_next_open && !at_demo_end {
-                ended_at_round_open += 1;
-                rollup.ended_at_round_open += 1;
+                account.ended_at_round_open += 1;
             }
             if at_demo_end && !at_next_open {
-                ended_at_demo_end += 1;
-                rollup.ended_at_demo_end.push((
-                    name.to_string(),
-                    grenade.detonate_tick,
-                    grenade.end_tick,
-                ));
+                account.ended_at_demo_end += 1;
+                account
+                    .demo_end
+                    .push((grenade.detonate_tick, grenade.end_tick));
             }
-            without_expire += 1;
-            rollup.missing_expire += 1;
+            account.without_expire += 1;
         }
     }
-    let Some(expected) = lookup_demo(name) else {
+    account
+}
+
+fn check_smoke_end(
+    check: &mut AssertSink,
+    name: &str,
+    parsed: &Match,
+    events: &SmokeEvents,
+    rollup: &mut SmokeRollup,
+) {
+    let account = account_smokes(name, parsed, events);
+    rollup.last_tick.insert(name.to_string(), account.last_tick);
+    rollup.missing_expire += account.without_expire;
+    rollup.ended_at_round_open += account.ended_at_round_open;
+    for (detonate, end) in &account.demo_end {
+        rollup
+            .ended_at_demo_end
+            .push((name.to_string(), *detonate, *end));
+    }
+    for message in account.errors {
+        check.fail(message);
+    }
+    let Some(expected) = lookup_demo(name).and_then(|row| row.smoke.as_ref()) else {
         check.fail(format!("no smoke census for {name}"));
         return;
     };
+    let smokes = account.smokes;
+    let with_expire = account.with_expire;
+    let without_expire = account.without_expire;
+    let after_round_end = account.after_round_end;
+    let ended_at_round_open = account.ended_at_round_open;
+    let ended_at_demo_end = account.ended_at_demo_end;
+    let duration_cap_hits = account.duration_cap_hits;
     if smokes != expected.smokes {
         check.fail(format!(
             "{name} smokes: got {smokes}, expected {}",
@@ -1161,11 +1326,12 @@ fn check_smoke_end(
             expected.without_expire
         ));
     }
-    if after_round_end != expected.after_round_end {
-        check.fail(format!(
-            "{name} ending after round end: got {after_round_end}, expected {}",
-            expected.after_round_end
-        ));
+    if let Some(expected_after) = expected.after_round_end {
+        if after_round_end != expected_after {
+            check.fail(format!(
+                "{name} ending after round end: got {after_round_end}, expected {expected_after}"
+            ));
+        }
     }
     if ended_at_round_open != expected.ended_at_round_open {
         check.fail(format!(
@@ -1189,15 +1355,81 @@ fn check_smoke_end(
             "{name} missing-expire split {ended_at_round_open}+{ended_at_demo_end} != without_expire {without_expire}"
         ));
     }
+    let after_label = expected
+        .after_round_end
+        .map(|count| count.to_string())
+        .unwrap_or_else(|| "unset".to_string());
     check.set_detail(format!(
-        "smokes={smokes} with_expire={with_expire} without_expire={without_expire} ended_at_round_open={ended_at_round_open} ended_at_demo_end={ended_at_demo_end} duration_cap={duration_cap_hits} (expected {}/{}/{}/{}/{}/{})",
+        "smokes={smokes} with_expire={with_expire} without_expire={without_expire} ended_at_round_open={ended_at_round_open} ended_at_demo_end={ended_at_demo_end} after_round_end={after_round_end} duration_cap={duration_cap_hits} (expected {}/{}/{}/{}/{}/{after_label}/{cap})",
         expected.smokes,
         expected.with_expire,
         expected.without_expire,
         expected.ended_at_round_open,
         expected.ended_at_demo_end,
-        EXPECTED_DURATION_CAP
+        cap = EXPECTED_DURATION_CAP
     ));
+}
+
+fn census_total(pick: fn(&SmokeCensus) -> usize) -> usize {
+    DEMO_EXPECTATIONS
+        .iter()
+        .filter_map(|row| row.smoke.as_ref())
+        .map(pick)
+        .sum()
+}
+
+fn expected_demo_end_rows(
+    last_tick: &BTreeMap<String, u32>,
+) -> Result<Vec<(String, u32, u32)>, String> {
+    let mut rows = Vec::new();
+    for row in DEMO_END_SMOKES {
+        let end = demo_end_tick(row, last_tick.get(row.demo).copied())?;
+        rows.push((row.demo.to_string(), row.detonate, end));
+    }
+    rows.sort_unstable();
+    Ok(rows)
+}
+
+fn check_lossy_utf8(check: &mut AssertSink, name: &str, parsed: &Match, events: &SmokeEvents) {
+    let Some(expected) = lookup_demo(name).and_then(|row| row.lossy_utf8) else {
+        check.fail(format!("no lossy-utf8 expectation for {name}"));
+        return;
+    };
+    if expected.is_empty() {
+        check.fail(format!("{name} lossy-utf8 table is empty"));
+    }
+    if name == MIRAGE_LOSSY_UTF8_DEMO && parsed.header.map_name != "de_mirage" {
+        check.fail(format!(
+            "{name} map: got {}, expected de_mirage",
+            parsed.header.map_name
+        ));
+    }
+    let got: Vec<String> = events
+        .lossy
+        .iter()
+        .map(|row| format!("{} {} {}", row.event, row.key, row.text))
+        .collect();
+    let want: Vec<String> = expected
+        .iter()
+        .map(|row| format!("{} {} {}", row.event, row.key, row.text))
+        .collect();
+    check.set_detail(format!(
+        "lossy={} map={}",
+        got.len(),
+        parsed.header.map_name
+    ));
+    if got != want {
+        check.fail(format!(
+            "{name} lossy strings: got {got:?}, expected {want:?}"
+        ));
+    }
+}
+
+fn demo_end_tick(row: &DemoEndSmoke, last_tick: Option<u32>) -> Result<u32, String> {
+    match row.end {
+        Some(tick) => Ok(tick),
+        None => last_tick.ok_or_else(|| format!("{} last sampled tick missing", row.demo)),
+    }
 }
 
 fn check_demo_end_smoke(check: &mut AssertSink, name: &str, rollup: &SmokeRollup) {
@@ -1207,11 +1439,14 @@ fn check_demo_end_smoke(check: &mut AssertSink, name: &str, rollup: &SmokeRollup
         .filter(|(demo, _, _)| demo == name)
         .map(|(_, detonate, end)| (*detonate, *end))
         .collect();
-    let expected: Vec<(u32, u32)> = DEMO_END_SMOKES
-        .iter()
-        .filter(|row| row.demo == name)
-        .map(|row| (row.detonate, row.end))
-        .collect();
+    let last_tick = rollup.last_tick.get(name).copied();
+    let mut expected = Vec::new();
+    for row in DEMO_END_SMOKES.iter().filter(|row| row.demo == name) {
+        match demo_end_tick(row, last_tick) {
+            Ok(tick) => expected.push((row.detonate, tick)),
+            Err(message) => check.fail(message),
+        }
+    }
     check.set_detail(format!("got {got:?} (expected {expected:?})"));
     if got != expected {
         check.fail(format!(
@@ -1246,44 +1481,46 @@ fn run_global_checks(
         }
     });
     report.run(ALL_DEMOS, "missing-expire-total", |check| {
+        let expected = census_total(|row| row.without_expire);
         check.set_detail(format!(
-            "without_expire={} (expected 69)",
+            "without_expire={} (expected {expected})",
             rollup.missing_expire
         ));
-        if rollup.missing_expire != 69 {
+        if rollup.missing_expire != expected {
             check.fail(format!(
-                "smokes with no in-window expire: got {}, expected 69",
+                "smokes with no in-window expire: got {}, expected {expected}",
                 rollup.missing_expire
             ));
         }
     });
     report.run(ALL_DEMOS, "missing-expire-round-open", |check| {
+        let expected = census_total(|row| row.ended_at_round_open);
         check.set_detail(format!(
-            "ended_at_round_open={} (expected 67)",
+            "ended_at_round_open={} (expected {expected})",
             rollup.ended_at_round_open
         ));
-        if rollup.ended_at_round_open != 67 {
+        if rollup.ended_at_round_open != expected {
             check.fail(format!(
-                "missing-expire smokes that stop on the next m_nRoundStartCount edge: got {}, expected 67",
+                "missing-expire smokes that stop on the next m_nRoundStartCount edge: got {}, expected {expected}",
                 rollup.ended_at_round_open
             ));
         }
     });
     report.run(ALL_DEMOS, "missing-expire-demo-end", |check| {
-        check.set_detail(format!(
-            "ended_at_demo_end={} (expected 2)",
-            rollup.ended_at_demo_end.len()
-        ));
         let mut ended = rollup.ended_at_demo_end.clone();
         ended.sort_unstable();
-        let expected = vec![
-            (
-                "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem".to_string(),
-                228_691,
-                230_008,
-            ),
-            ("premier-d2.dem".to_string(), 81_808, 83_030),
-        ];
+        let expected = match expected_demo_end_rows(&rollup.last_tick) {
+            Ok(rows) => rows,
+            Err(message) => {
+                check.fail(message);
+                return;
+            }
+        };
+        check.set_detail(format!(
+            "ended_at_demo_end={} (expected {})",
+            ended.len(),
+            expected.len()
+        ));
         if ended != expected {
             check.fail(format!(
                 "missing-expire smokes that stop on the last sampled tick: got {ended:?}, expected {expected:?}"
@@ -1356,6 +1593,13 @@ struct SmokeExpire {
     tick: u32,
 }
 
+#[derive(Clone)]
+struct LossyEventString {
+    event: String,
+    key: String,
+    text: String,
+}
+
 #[derive(Clone, Default)]
 struct SmokeEvents {
     detonates: Vec<SmokeDetonate>,
@@ -1364,6 +1608,8 @@ struct SmokeEvents {
     round_start_count: Option<i32>,
     /// Ticks where `m_nRoundStartCount` changed. The first sighting is not an edge.
     round_opens: Vec<u32>,
+    /// Game-event strings that contained invalid UTF-8 (`U+FFFD` after lossy decode).
+    lossy: Vec<LossyEventString>,
 }
 
 fn event_i32(ge: &GameEvent<'_>, key: &str) -> i32 {
@@ -1404,6 +1650,18 @@ impl SmokeEvents {
     fn on_game_event(&mut self, ctx: &Context, ge: &GameEvent) -> ObserverResult {
         // Same skip as the parser (`ParseOptions::skip_warmup`). Warmup ticks
         // are earlier than live play, but a flagged gap must not open a window.
+        for (key, value) in ge.iter() {
+            let Ok(text) = TryInto::<String>::try_into(value) else {
+                continue;
+            };
+            if text.contains('\u{FFFD}') {
+                self.lossy.push(LossyEventString {
+                    event: ge.name().to_string(),
+                    key: key.to_string(),
+                    text,
+                });
+            }
+        }
         if warmup_period(ctx) {
             return Ok(());
         }
@@ -1607,45 +1865,48 @@ fn missing_demo_fails_every_named_check() {
 #[test]
 fn each_demo_has_an_expected_check_count() {
     let cases = [
-        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 6),
-        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 6),
-        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 5),
-        ("legacy-vs-spirit-m2-ancient.dem", 5),
-        ("premier-d2.dem", 5),
-        ("spirit-vs-dendele-m1-ancient.dem", 5),
-        ("spirit-vs-furia-m1-ancient.dem", 7),
-        ("spirit-vs-mouz-m3-ancient.dem", 6),
-        ("spirit-vs-mouz-m4-nuke.dem", 6),
+        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 6, true),
+        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 6, true),
+        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 5, true),
+        ("legacy-vs-spirit-m2-ancient.dem", 5, true),
+        ("premier-d2.dem", 5, true),
+        ("spirit-vs-dendele-m1-ancient.dem", 5, true),
+        ("spirit-vs-furia-m1-ancient.dem", 7, true),
+        ("spirit-vs-mouz-m3-ancient.dem", 6, true),
+        ("spirit-vs-mouz-m4-nuke.dem", 6, true),
+        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 6, false),
+        ("bushido-wildcats-vs-illyrians-m1-anubis.dem", 5, false),
+        ("fruju-vs-rooster-m1-inferno.dem", 5, false),
     ];
     assert_eq!(cases.len(), DEMO_EXPECTATIONS.len());
     let rss = usize::from(cfg!(target_os = "linux"));
-    for (name, expected) in cases {
-        assert_eq!(expected_check_count(name), expected + rss, "{name}");
-        assert_eq!(demo_check_names(name).len(), expected + rss, "{name}");
+    for (name, expected, rss_applies) in cases {
+        let extra = if rss_applies { rss } else { 0 };
+        assert_eq!(expected_check_count(name), expected + extra, "{name}");
+        assert_eq!(demo_check_names(name).len(), expected + extra, "{name}");
         assert!(
             DEMO_EXPECTATIONS.iter().any(|row| row.name == name),
             "{name}"
         );
+        assert_eq!(
+            check_applies(name, CHECK_RSS),
+            rss_applies && cfg!(target_os = "linux"),
+            "{name} rss"
+        );
     }
     assert_eq!(OPEN_FIRES.len(), 6);
-    assert_eq!(DEMO_END_SMOKES.len(), 2);
+    assert_eq!(DEMO_END_SMOKES.len(), 4);
     assert_eq!(GLOBAL_CHECK_COUNT, 6);
-    let without_expire: usize = DEMO_EXPECTATIONS.iter().map(|row| row.without_expire).sum();
-    assert_eq!(without_expire, 69);
-    let round_open: usize = DEMO_EXPECTATIONS
-        .iter()
-        .map(|row| row.ended_at_round_open)
-        .sum();
-    let demo_end: usize = DEMO_EXPECTATIONS
-        .iter()
-        .map(|row| row.ended_at_demo_end)
-        .sum();
-    assert_eq!(round_open, 67);
-    assert_eq!(demo_end, 2);
+    assert_eq!(census_total(|row| row.without_expire), 106);
+    assert_eq!(census_total(|row| row.ended_at_round_open), 102);
+    assert_eq!(census_total(|row| row.ended_at_demo_end), 4);
     for row in DEMO_EXPECTATIONS {
+        let Some(smoke) = row.smoke.as_ref() else {
+            continue;
+        };
         assert_eq!(
-            row.ended_at_round_open + row.ended_at_demo_end,
-            row.without_expire,
+            smoke.ended_at_round_open + smoke.ended_at_demo_end,
+            smoke.without_expire,
             "{}",
             row.label
         );
@@ -1670,15 +1931,50 @@ fn each_demo_has_an_expected_check_count() {
         .iter()
         .find(|row| row.demo == "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem");
     let faceit = faceit.unwrap_or_else(|| panic!("0eb2df7f demo-end smoke missing from the table"));
-    assert_eq!(faceit.end, 230_008);
+    assert_eq!(faceit.end, Some(230_008));
     assert_eq!(faceit.detonate, 228_691);
     let premier = DEMO_END_SMOKES
         .iter()
         .find(|row| row.demo == "premier-d2.dem");
     let premier =
         premier.unwrap_or_else(|| panic!("premier-d2 demo-end smoke missing from the table"));
-    assert_eq!(premier.end, 83_030);
+    assert_eq!(premier.end, Some(83_030));
     assert_eq!(premier.detonate, 81_808);
+    let inferno = DEMO_END_SMOKES
+        .iter()
+        .find(|row| row.demo == "fruju-vs-rooster-m1-inferno.dem");
+    let inferno =
+        inferno.unwrap_or_else(|| panic!("fruju inferno demo-end smoke missing from the table"));
+    assert_eq!(inferno.detonate, 151_283);
+    assert_eq!(inferno.end, None);
+    let mirage = "1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem";
+    let mirage_end = DEMO_END_SMOKES.iter().find(|row| row.demo == mirage);
+    let mirage_end =
+        mirage_end.unwrap_or_else(|| panic!("mirage demo-end smoke missing from the table"));
+    assert_eq!(mirage_end.detonate, 265_459);
+    assert_eq!(mirage_end.end, None);
+    let mirage_smoke = lookup_demo(mirage).and_then(|row| row.smoke.as_ref());
+    let mirage_smoke = mirage_smoke.unwrap_or_else(|| panic!("mirage smoke census missing"));
+    assert_eq!(mirage_smoke.smokes, 160);
+    assert_eq!(mirage_smoke.with_expire, 152);
+    assert_eq!(mirage_smoke.without_expire, 8);
+    assert_eq!(mirage_smoke.ended_at_round_open, 7);
+    assert_eq!(mirage_smoke.ended_at_demo_end, 1);
+    assert!(check_applies(mirage, CHECK_SMOKE));
+    assert!(check_applies(mirage, CHECK_DEMO_END));
+    assert!(check_applies(mirage, CHECK_UTF8));
+    assert!(
+        !MIRAGE_LOSSY_UTF8.is_empty(),
+        "mirage lossy strings must be listed"
+    );
+    assert!(check_applies(
+        "bushido-wildcats-vs-illyrians-m1-anubis.dem",
+        CHECK_SMOKE
+    ));
+    assert!(check_applies(
+        "fruju-vs-rooster-m1-inferno.dem",
+        CHECK_SMOKE
+    ));
     for fire in OPEN_FIRES {
         assert!(
             lookup_demo(fire.demo).is_some(),
@@ -1686,6 +1982,84 @@ fn each_demo_has_an_expected_check_count() {
             fire.entity,
             fire.demo
         );
+    }
+}
+
+#[test]
+fn assets_v2_checks_without_data_are_static_skips() {
+    let mut report = FailureReport::default();
+    close_demo(&mut report, MIRAGE_LOSSY_UTF8_DEMO, None, None, true);
+    let smoke = report
+        .logs
+        .iter()
+        .find(|row| row.demo == MIRAGE_LOSSY_UTF8_DEMO && row.check == CHECK_SMOKE)
+        .unwrap_or_else(|| panic!("mirage smoke row missing"));
+    assert_eq!(smoke.status, CheckStatus::Fail);
+    assert_eq!(smoke.detail, "check did not run");
+    let demo_end = report
+        .logs
+        .iter()
+        .find(|row| row.demo == MIRAGE_LOSSY_UTF8_DEMO && row.check == CHECK_DEMO_END)
+        .unwrap_or_else(|| panic!("mirage demo-end row missing"));
+    assert_eq!(demo_end.status, CheckStatus::Fail);
+    assert_eq!(demo_end.detail, "check did not run");
+    if cfg!(target_os = "linux") {
+        let rss = report
+            .logs
+            .iter()
+            .find(|row| row.demo == MIRAGE_LOSSY_UTF8_DEMO && row.check == CHECK_RSS)
+            .unwrap_or_else(|| panic!("mirage rss row missing"));
+        assert_eq!(rss.status, CheckStatus::Skip);
+        assert_eq!(rss.detail, "no rss limit in the static table");
+    }
+    let mut bushido = FailureReport::default();
+    close_demo(
+        &mut bushido,
+        "bushido-wildcats-vs-illyrians-m1-anubis.dem",
+        None,
+        None,
+        true,
+    );
+    let smoke = bushido
+        .logs
+        .iter()
+        .find(|row| row.check == CHECK_SMOKE)
+        .unwrap_or_else(|| panic!("bushido smoke row missing"));
+    assert_eq!(smoke.status, CheckStatus::Fail);
+    assert_eq!(smoke.detail, "check did not run");
+}
+
+#[test]
+fn expectation_table_follows_manifest_order() {
+    let path = common::repo_root().join("test-demos/manifest.json");
+    let text = std::fs::read_to_string(&path)
+        .unwrap_or_else(|err| panic!("could not read {}: {err}", path.display()));
+    let manifest: serde_json::Value = serde_json::from_str(&text)
+        .unwrap_or_else(|err| panic!("could not parse {}: {err}", path.display()));
+    let files = manifest["files"]
+        .as_array()
+        .unwrap_or_else(|| panic!("manifest files is not a list"));
+    let names: Vec<&str> = files
+        .iter()
+        .map(|file| {
+            file["name"]
+                .as_str()
+                .unwrap_or_else(|| panic!("manifest name is not a string"))
+        })
+        .collect();
+    let table: Vec<&str> = DEMO_EXPECTATIONS.iter().map(|row| row.name).collect();
+    assert_eq!(names, table);
+    for file in files {
+        let tag = file["release_tag"].as_str().unwrap_or("");
+        let name = file["name"].as_str().unwrap_or("");
+        if name == MIRAGE_LOSSY_UTF8_DEMO
+            || name == "bushido-wildcats-vs-illyrians-m1-anubis.dem"
+            || name == "fruju-vs-rooster-m1-inferno.dem"
+        {
+            assert_eq!(tag, "assets-v2", "{name}");
+        } else {
+            assert_eq!(tag, "assets-v1", "{name}");
+        }
     }
 }
 
@@ -1735,7 +2109,9 @@ fn read_vm_hwm_kib() -> Result<u64, String> {
 }
 
 fn rss_limit_kib(name: &str) -> u64 {
-    lookup_demo(name).map(|row| row.rss_limit_kib).unwrap_or(0)
+    lookup_demo(name)
+        .and_then(|row| row.rss_limit_kib)
+        .unwrap_or(0)
 }
 
 fn check_rss(
@@ -1815,14 +2191,7 @@ fn close_demo(
                 duration_ms: None,
             });
         } else {
-            let reason = if check == CHECK_RSS {
-                "target_os is not linux"
-            } else if check == CHECK_HASHES {
-                "not selected by HASH_DEMOS"
-            } else {
-                "not this demo"
-            };
-            report.skip(demo, check, reason);
+            report.skip(demo, check, skip_reason(check));
         }
     }
     let tally = tally(report, demo);
@@ -2214,7 +2583,12 @@ fn skip_count_matches_the_static_table() {
         assert!(logs
             .iter()
             .any(|row| row.check == CHECK_RSS && row.status == CheckStatus::Fail));
-        assert_eq!(skip, OPEN_FIRES.len());
+        assert_eq!(skip, OPEN_FIRES.len() + 1, "open fires plus lossy-utf8");
+        assert!(logs.iter().any(|row| {
+            row.check == CHECK_UTF8
+                && row.status == CheckStatus::Skip
+                && row.detail == "no lossy-utf8 expectation in the static table"
+        }));
     } else {
         assert!(logs.iter().any(|row| {
             row.check == CHECK_RSS
