@@ -14,6 +14,7 @@ import {
   makeRound,
   makeTicks,
 } from "@/lib/testing/fixtures";
+import { playerMarkColors } from "@/lib/players/playerColors";
 import { Scoreboard } from "./Scoreboard";
 
 /** Two CTs and two Ts, all alive at freeze, with one CT frag on the board. */
@@ -75,6 +76,21 @@ describe("Scoreboard", () => {
 
     await userEvent.click(screen.getByText("Cara"));
     expect(onSelect).toHaveBeenCalledWith(2);
+  });
+
+  it("clears the selection when the same row is clicked again", async () => {
+    const onSelect = vi.fn();
+    render(<Scoreboard replay={replay()} tick={640} selected={2} onSelect={onSelect} />);
+    await userEvent.click(within(teamTable("Vitality")).getByText("Cara"));
+    expect(onSelect).toHaveBeenCalledWith(null);
+  });
+
+  it("paints the roster colour in front of each nick", () => {
+    const match = replay();
+    render(<Scoreboard replay={match} tick={640} selected={null} onSelect={() => {}} />);
+    const colors = playerMarkColors(match.players);
+    const dot = screen.getByText("Alice").parentElement?.querySelector(".sb-dot");
+    expect(dot).toHaveStyle({ background: colors[0] });
   });
 
   it("shows a $0 Operator bot on the live scoreboard", () => {

@@ -26,7 +26,7 @@ function parseOverallPct(progress: { current: number; total: number } | null): n
 }
 
 export function Viewer() {
-  const { session, playback, review, places, habits, appendFiles, status } = useApp();
+  const { session, playback, review, view, places, habits, appendFiles, status } = useApp();
   const replay = session.replay;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
   const bucketMode = replay != null && isBucketOverlayActive(session.series, habits);
@@ -117,7 +117,11 @@ export function Viewer() {
                     </button>
                   </div>
                 ) : null}
-                {showTimeline ? <StatsTimeline replay={replay} /> : <RadarStage />}
+                {showTimeline ? (
+                  <StatsTimeline replay={replay} selected={view.selected} onSelect={view.select} />
+                ) : (
+                  <RadarStage />
+                )}
                 {showTimeline ? null : !aggregated ? (
                   <RoundStrip
                     replay={replay}

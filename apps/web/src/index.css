@@ -3855,6 +3855,18 @@ button.link:hover:not(:disabled) {
 .sb-row {
   cursor: pointer;
 }
+.sb-player {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+}
+.sb-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
 .sb-row.ct td:first-child {
   color: #7eb7e6;
 }

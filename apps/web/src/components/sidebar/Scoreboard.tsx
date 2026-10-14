@@ -10,6 +10,7 @@ import {
   teamEntryShare,
 } from "@/lib/stats/stats";
 import { RatingValue } from "@/components/stats/RatingValue";
+import { playerMarkColors } from "@/lib/players/playerColors";
 import { playerLabel } from "@/lib/replay/playerLabel";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { PlayerStats, Replay } from "@/lib/replay/replayTypes";
@@ -18,7 +19,7 @@ interface Props {
   replay: Replay;
   tick: number;
   selected: number | null;
-  onSelect: (index: number) => void;
+  onSelect: (index: number | null) => void;
 }
 
 function rowClass(stats: PlayerStats, side: string, selected: number | null): string {
@@ -27,6 +28,7 @@ function rowClass(stats: PlayerStats, side: string, selected: number | null): st
 
 export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onSelect }: Props) {
   const stats = computeStats(replay, tick);
+  const colors = playerMarkColors(replay.players);
   const teams = liveTeams(replay, tick);
   const sampled = samplePlayers(replay, tick);
 
@@ -67,9 +69,14 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
             <tr
               key={s.player}
               className={rowClass(s, side, selected)}
-              onClick={() => onSelect(s.player)}
+              onClick={() => onSelect(selected === s.player ? null : s.player)}
             >
-              <td>{playerLabel(replay.players[s.player])}</td>
+              <td>
+                <span className="sb-player">
+                  <span className="sb-dot" style={{ background: colors[s.player] }} />
+                  {playerLabel(replay.players[s.player])}
+                </span>
+              </td>
               <td className="eco-money">${sampled[s.player]?.money ?? 0}</td>
               <td>{s.kills}</td>
               <td>{s.deaths}</td>

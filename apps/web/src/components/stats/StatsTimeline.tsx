@@ -15,13 +15,22 @@ import { StatsTimelineChart } from "./StatsTimelineChart";
 
 interface Props {
   replay: Replay;
+  /** Shared with the scoreboard. Omit both to keep the highlight local. */
+  selected?: number | null;
+  onSelect?: (player: number | null) => void;
 }
 
-export function StatsTimeline({ replay }: Props) {
+export function StatsTimeline({ replay, selected: selectedProp, onSelect }: Props) {
   const columns = useMemo(() => statsTimeline(replay), [replay]);
   const colors = useMemo(() => playerMarkColors(replay.players), [replay.players]);
   const [stat, setStat] = useState<TimelineStatId>("adr");
-  const [selected, setSelected] = useState<number | null>(null);
+  const [localSelected, setLocalSelected] = useState<number | null>(null);
+  const selected = onSelect ? (selectedProp ?? null) : localSelected;
+  const choose = (player: number) => {
+    const next = selected === player ? null : player;
+    if (onSelect) onSelect(next);
+    else setLocalSelected(next);
+  };
   const [hover, setHover] = useState<number | null>(null);
   const reference = selected ?? columns[0]?.rows[0]?.player ?? null;
   const column = hover != null ? columns[hover] : undefined;
@@ -73,7 +82,7 @@ export function StatsTimeline({ replay }: Props) {
             colors={colors}
             selected={selected}
             hover={hover}
-            onSelect={(player) => setSelected((current) => (current === player ? null : player))}
+            onSelect={choose}
             onHover={setHover}
           />
         </div>
