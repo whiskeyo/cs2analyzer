@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ECONOMY_BUY_LABEL } from "@/lib/match/economy";
+import { playerMarkColors } from "@/lib/players/playerColors";
 import type { Replay } from "@/lib/replay/replayTypes";
 import {
   TIMELINE_GROUPS,
@@ -9,7 +10,7 @@ import {
   type TimelineColumn,
   type TimelineStatId,
 } from "@/lib/stats/timeline";
-import { TIMELINE_LAYOUT, playerColor, plotRect, roundX } from "@/lib/stats/timelineChart";
+import { TIMELINE_LAYOUT, plotRect, roundX } from "@/lib/stats/timelineChart";
 import { StatsTimelineChart } from "./StatsTimelineChart";
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
 
 export function StatsTimeline({ replay }: Props) {
   const columns = useMemo(() => statsTimeline(replay), [replay]);
+  const colors = useMemo(() => playerMarkColors(replay.players), [replay.players]);
   const [stat, setStat] = useState<TimelineStatId>("adr");
   const [selected, setSelected] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -57,11 +59,18 @@ export function StatsTimeline({ replay }: Props) {
       ) : (
         <div className="stats-timeline-stage" onPointerLeave={() => setHover(null)}>
           {column && reference != null ? (
-            <HoverCard column={column} stat={stat} reference={reference} left={left} />
+            <HoverCard
+              column={column}
+              stat={stat}
+              colors={colors}
+              reference={reference}
+              left={left}
+            />
           ) : null}
           <StatsTimelineChart
             columns={columns}
             stat={stat}
+            colors={colors}
             selected={selected}
             hover={hover}
             onSelect={(player) => setSelected((current) => (current === player ? null : player))}
@@ -76,11 +85,13 @@ export function StatsTimeline({ replay }: Props) {
 function HoverCard({
   column,
   stat,
+  colors,
   reference,
   left,
 }: {
   column: TimelineColumn;
   stat: TimelineStatId;
+  colors: readonly string[];
   reference: number;
   left: number;
 }) {
@@ -111,7 +122,7 @@ function HoverCard({
       {rows.map((row) => {
         const value = row.values[stat];
         const width = maxRound > 0 ? (value.round / maxRound) * 100 : 0;
-        const color = playerColor(row.player);
+        const color = colors[row.player] ?? "#d0d6dc";
         return (
           <div key={row.player} className="stats-timeline-card-row">
             <span className="stats-timeline-dot" style={{ background: color }} />

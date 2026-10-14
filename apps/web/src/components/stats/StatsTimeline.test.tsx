@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { playerMarkColors } from "@/lib/players/playerColors";
 import { makeKill, makePlayer, makeReplay, makeRound, makeHurt } from "@/lib/testing/fixtures";
 import { StatsTimeline } from "./StatsTimeline";
 
@@ -61,8 +62,8 @@ describe("StatsTimeline", () => {
     expect(screen.getByRole("img", { name: /^Round 3$/ })).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /^Round 0$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /^Round 2$/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Alice" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Bob" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Alice" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Highlight Alice" })).toBeInTheDocument();
   });
 
   it("shows a round card above the chart and highlights the clicked player", async () => {
@@ -74,14 +75,15 @@ describe("StatsTimeline", () => {
     expect(screen.getByRole("status")).toHaveTextContent("80");
     expect(screen.getByRole("status")).toHaveTextContent("Alice");
 
-    await user.click(screen.getByRole("button", { name: "Alice" }));
-    expect(screen.getByRole("button", { name: "Alice" })).toHaveAttribute("aria-pressed", "true");
-    expect(document.querySelector(".stats-timeline-line.is-on")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Highlight Alice" }));
+    expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
+      "stroke",
+      playerMarkColors(chartReplay().players)[0],
+    );
     expect(document.querySelector(".stats-timeline-area")).toBeTruthy();
     expect(document.querySelectorAll(".stats-timeline-line.is-dim").length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "Highlight Alice" }));
-    expect(screen.getByRole("button", { name: "Alice" })).toHaveAttribute("aria-pressed", "false");
     expect(document.querySelector(".stats-timeline-area")).toBeNull();
   });
 

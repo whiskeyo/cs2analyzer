@@ -8,15 +8,12 @@ import {
   bandRect,
   nearestRoundIndex,
   percentAxis,
-  pillTextColor,
-  playerColor,
   plotRect,
   roundMarkerSize,
   roundX,
   showBandLabel,
   sideBands,
   smoothLinePath,
-  spreadLabels,
   valueToY,
   type TimelinePoint,
 } from "@/lib/stats/timelineChart";
@@ -24,10 +21,15 @@ import {
 interface Props {
   columns: TimelineColumn[];
   stat: TimelineStatId;
+  colors: readonly string[];
   selected: number | null;
   hover: number | null;
   onSelect: (player: number) => void;
   onHover: (index: number | null) => void;
+}
+
+function markColor(colors: readonly string[], player: number): string {
+  return colors[player] ?? "#d0d6dc";
 }
 
 interface LineSeries {
@@ -37,7 +39,15 @@ interface LineSeries {
   path: string;
 }
 
-export function StatsTimelineChart({ columns, stat, selected, hover, onSelect, onHover }: Props) {
+export function StatsTimelineChart({
+  columns,
+  stat,
+  colors,
+  selected,
+  hover,
+  onSelect,
+  onHover,
+}: Props) {
   const uid = useId().replace(/:/g, "");
   const layout = TIMELINE_LAYOUT;
   const plot = plotRect(layout);
@@ -68,11 +78,6 @@ export function StatsTimelineChart({ columns, stat, selected, hover, onSelect, o
     });
     return { player: row.player, name: row.name, points, path: smoothLinePath(points) };
   });
-  const labelY = spreadLabels(
-    lines.map((line) => line.points[line.points.length - 1]?.y ?? baseline),
-    plot.y + 10,
-    baseline - 10,
-  );
   const painted = [...lines].sort(
     (a, b) => Number(selected === a.player) - Number(selected === b.player),
   );
@@ -83,179 +88,172 @@ export function StatsTimelineChart({ columns, stat, selected, hover, onSelect, o
 
   return (
     <div className="stats-timeline-plot">
-      <div className="stats-timeline-canvas">
-        <svg
-          viewBox={`0 0 ${layout.width} ${layout.height}`}
-          role="group"
-          aria-label={`${timelineStat(stat).label} ${modeLabel}`}
-          onPointerMove={(event) => {
-            const bounds = event.currentTarget.getBoundingClientRect();
-            if (bounds.width <= 0) return;
-            const x = ((event.clientX - bounds.left) / bounds.width) * layout.width;
-            const index = nearestRoundIndex(x, columns.length, plot);
-            if (index >= 0) onHover(index);
-          }}
-        >
-          <ChartDefs uid={uid} selected={selected} />
-          {bands.map((band) => {
-            const rect = bandRect(band, columns.length, plot);
-            return (
-              <g key={`${band.side}-${band.start}`}>
-                <rect
-                  className={`stats-timeline-band ${band.side === "CT" ? "ct" : "t"}`}
-                  x={rect.x}
-                  y={plot.y}
-                  width={rect.width}
-                  height={plot.height}
-                />
-                {showBandLabel(rect.width) ? (
-                  <text className="stats-timeline-band-label" x={rect.x + 8} y={plot.y + 16}>
-                    {band.side} SIDE
-                  </text>
-                ) : null}
-              </g>
-            );
-          })}
-          {scale.ticks.map((tick) => {
-            const y = valueToY(tick, scale.max, plot);
-            return (
-              <g key={tick}>
-                <line
-                  className="stats-timeline-grid"
-                  x1={plot.x}
-                  y1={y}
-                  x2={plot.x + plot.width}
-                  y2={y}
-                />
-                <text
-                  className="stats-timeline-axis"
-                  x={plot.x - 8}
-                  y={y}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                >
-                  {formatTimelineValue(stat, tick)}
-                </text>
-              </g>
-            );
-          })}
-          {columns.map((_, index) => {
-            const x = roundX(index, columns.length, plot);
-            return (
-              <line
-                key={`grid-${index}`}
-                className="stats-timeline-grid"
-                x1={x}
-                y1={plot.y}
-                x2={x}
-                y2={baseline}
-              />
-            );
-          })}
-          {selectedFill ? (
-            <path className="stats-timeline-area" d={selectedFill} fill={`url(#${uid}-fill)`} />
-          ) : null}
-          {painted.map((line) => (
-            <LineShape key={line.player} line={line} selected={selected} />
-          ))}
-          {hover != null && columns[hover] ? (
-            <line
-              className="stats-timeline-hover"
-              x1={roundX(hover, columns.length, plot)}
-              y1={plot.y}
-              x2={roundX(hover, columns.length, plot)}
-              y2={baseline}
-            />
-          ) : null}
-          {columns.map((column, index) => {
-            const row = column.rows.find((candidate) => candidate.player === reference);
-            const x = roundX(index, columns.length, plot);
-            const y = baseline + 26;
-            const result = row?.won === true ? "win" : row?.won === false ? "loss" : "open";
-            return (
-              <g
-                key={`round-${index}`}
-                role="img"
-                aria-label={`Round ${column.number}`}
-                onPointerEnter={() => onHover(index)}
-              >
-                <circle
-                  className={`stats-timeline-round ${result}`}
-                  cx={x}
-                  cy={y}
-                  r={marker.radius}
-                />
-                <text
-                  className="stats-timeline-round-num"
-                  x={x}
-                  y={y}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize={marker.font}
-                >
-                  {column.number}
-                </text>
-              </g>
-            );
-          })}
-          {lines.map((line) => (
-            <path
-              key={`hit-${line.player}`}
-              className="stats-timeline-hit"
-              d={line.path}
-              role="button"
-              aria-label={`Highlight ${line.name}`}
-              onClick={() => onSelect(line.player)}
-            />
-          ))}
-        </svg>
-        {lines.map((line, index) => {
-          const point = line.points[line.points.length - 1];
-          if (!point) return null;
-          const on = selected === line.player;
-          const color = playerColor(line.player);
-          const labelX = plot.x + plot.width + 8;
+      <svg
+        viewBox={`0 0 ${layout.width} ${layout.height}`}
+        role="group"
+        aria-label={`${timelineStat(stat).label} ${modeLabel}`}
+        onPointerMove={(event) => {
+          const bounds = event.currentTarget.getBoundingClientRect();
+          if (bounds.width <= 0) return;
+          const x = ((event.clientX - bounds.left) / bounds.width) * layout.width;
+          const index = nearestRoundIndex(x, columns.length, plot);
+          if (index >= 0) onHover(index);
+        }}
+      >
+        <ChartDefs uid={uid} selected={selected} color={markColor(colors, selected ?? 0)} />
+        {bands.map((band) => {
+          const rect = bandRect(band, columns.length, plot);
           return (
-            <button
-              key={line.player}
-              type="button"
-              className={`stats-timeline-pill${on ? " is-on" : ""}${selected != null && !on ? " is-dim" : ""}`}
-              style={{
-                left: `${(labelX / layout.width) * 100}%`,
-                top: `${((labelY[index] ?? point.y) / layout.height) * 100}%`,
-                background: color,
-                color: pillTextColor(color),
-              }}
-              aria-pressed={on}
-              title={line.name}
-              onClick={() => onSelect(line.player)}
-            >
-              {line.name}
-            </button>
+            <g key={`${band.side}-${band.start}`}>
+              <rect
+                className={`stats-timeline-band ${band.side === "CT" ? "ct" : "t"}`}
+                x={rect.x}
+                y={plot.y}
+                width={rect.width}
+                height={plot.height}
+              />
+              {showBandLabel(rect.width) ? (
+                <text className="stats-timeline-band-label" x={rect.x + 8} y={plot.y + 16}>
+                  {band.side} SIDE
+                </text>
+              ) : null}
+            </g>
           );
         })}
-      </div>
+        {scale.ticks.map((tick) => {
+          const y = valueToY(tick, scale.max, plot);
+          return (
+            <g key={tick}>
+              <line
+                className="stats-timeline-grid"
+                x1={plot.x}
+                y1={y}
+                x2={plot.x + plot.width}
+                y2={y}
+              />
+              <text
+                className="stats-timeline-axis"
+                x={plot.x - 8}
+                y={y}
+                textAnchor="end"
+                dominantBaseline="middle"
+              >
+                {formatTimelineValue(stat, tick)}
+              </text>
+            </g>
+          );
+        })}
+        {columns.map((_, index) => {
+          const x = roundX(index, columns.length, plot);
+          return (
+            <line
+              key={`grid-${index}`}
+              className="stats-timeline-grid"
+              x1={x}
+              y1={plot.y}
+              x2={x}
+              y2={baseline}
+            />
+          );
+        })}
+        {selectedFill ? (
+          <path className="stats-timeline-area" d={selectedFill} fill={`url(#${uid}-fill)`} />
+        ) : null}
+        {painted.map((line) => (
+          <LineShape
+            key={line.player}
+            line={line}
+            selected={selected}
+            color={markColor(colors, line.player)}
+          />
+        ))}
+        {hover != null && columns[hover] ? (
+          <line
+            className="stats-timeline-hover"
+            x1={roundX(hover, columns.length, plot)}
+            y1={plot.y}
+            x2={roundX(hover, columns.length, plot)}
+            y2={baseline}
+          />
+        ) : null}
+        {columns.map((column, index) => {
+          const row = column.rows.find((candidate) => candidate.player === reference);
+          const x = roundX(index, columns.length, plot);
+          const y = baseline + 26;
+          const result = row?.won === true ? "win" : row?.won === false ? "loss" : "open";
+          return (
+            <g
+              key={`round-${index}`}
+              role="img"
+              aria-label={`Round ${column.number}`}
+              onPointerEnter={() => onHover(index)}
+            >
+              <circle
+                className={`stats-timeline-round ${result}`}
+                cx={x}
+                cy={y}
+                r={marker.radius}
+              />
+              <text
+                className="stats-timeline-round-num"
+                x={x}
+                y={y}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={marker.font}
+              >
+                {column.number}
+              </text>
+            </g>
+          );
+        })}
+        {lines.map((line) => (
+          <path
+            key={`hit-${line.player}`}
+            className="stats-timeline-hit"
+            d={line.path}
+            role="button"
+            aria-label={`Highlight ${line.name}`}
+            onClick={() => onSelect(line.player)}
+          />
+        ))}
+      </svg>
     </div>
   );
 }
 
-function ChartDefs({ uid, selected }: { uid: string; selected: number | null }) {
+function ChartDefs({
+  uid,
+  selected,
+  color,
+}: {
+  uid: string;
+  selected: number | null;
+  color: string;
+}) {
   return (
     <defs>
       {selected != null ? (
         <linearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={playerColor(selected)} stopOpacity="0.45" />
-          <stop offset="100%" stopColor={playerColor(selected)} stopOpacity="0" />
+          <stop offset="0%" stopColor={color} stopOpacity="0.45" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       ) : null}
     </defs>
   );
 }
 
-function LineShape({ line, selected }: { line: LineSeries; selected: number | null }) {
+function LineShape({
+  line,
+  selected,
+  color,
+}: {
+  line: LineSeries;
+  selected: number | null;
+  color: string;
+}) {
   const on = selected === line.player;
   const dim = selected != null && !on;
-  const color = playerColor(line.player);
   const point = line.points[0];
   if (line.points.length < 2 && point) {
     return (

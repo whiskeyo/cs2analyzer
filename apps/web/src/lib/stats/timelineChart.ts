@@ -1,4 +1,3 @@
-import { PLAYER_TINTS } from "@/lib/notes/palettes";
 import type { Side } from "@/lib/replay/replayTypes";
 
 /** A little air above the highest point so a line does not sit on the frame. */
@@ -7,14 +6,11 @@ const AXIS_HEADROOM = 1.08;
 /** HS% and KAST already live on a 0–100 scale. */
 const PERCENT_AXIS_CAP = 100;
 
-/** Minimum vertical gap between end-of-line name pills, in viewBox pixels. */
-export const TIMELINE_LABEL_GAP = 28;
-
 export const TIMELINE_LAYOUT = {
   width: 960,
   height: 440,
   padLeft: 46,
-  padRight: 124,
+  padRight: 28,
   padTop: 22,
   padBottom: 52,
 } as const;
@@ -60,20 +56,6 @@ export function plotRect(layout: TimelineLayout = TIMELINE_LAYOUT): PlotRect {
     width: layout.width - layout.padLeft - layout.padRight,
     height: layout.height - layout.padTop - layout.padBottom,
   };
-}
-
-export function playerColor(index: number): string {
-  return PLAYER_TINTS[index % PLAYER_TINTS.length] ?? PLAYER_TINTS[0] ?? "#d62728";
-}
-
-/** Dark text on yellow-class tints, white on the rest. */
-export function pillTextColor(hex: string): string {
-  const r = Number.parseInt(hex.slice(1, 3), 16);
-  const g = Number.parseInt(hex.slice(3, 5), 16);
-  const b = Number.parseInt(hex.slice(5, 7), 16);
-  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return "#fff";
-  const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return luma > 160 ? "#1a1206" : "#fff";
 }
 
 export function axisScale(peak: number): AxisScale {
@@ -143,52 +125,6 @@ export function roundMarkerSize(count: number): { radius: number; font: number }
   if (count > 30) return { radius: 8, font: 8 };
   if (count > 24) return { radius: 9, font: 9 };
   return { radius: 11, font: 10 };
-}
-
-/**
- * Push overlapping anchors apart, then pull the stack back into `[min, max]`.
- * A high outlier stays put while a crowded cluster slides up. The gap shrinks
- * when the whole stack cannot fit.
- */
-export function spreadLabels(
-  anchors: readonly number[],
-  min: number,
-  max: number,
-  gap = TIMELINE_LABEL_GAP,
-): number[] {
-  const count = anchors.length;
-  if (count === 0) return [];
-  const available = Math.max(0, max - min);
-  const step = count > 1 && gap * (count - 1) > available ? available / (count - 1) : gap;
-  const order = anchors
-    .map((y, index) => ({ y, index }))
-    .sort((a, b) => a.y - b.y || a.index - b.index);
-  const placed = order.map((item) => item.y);
-  separateDown(placed, step);
-  const last = placed[placed.length - 1] ?? max;
-  if (last > max) {
-    placed[placed.length - 1] = max;
-    for (let i = placed.length - 2; i >= 0; i--) {
-      const maxY = (placed[i + 1] ?? max) - step;
-      if ((placed[i] ?? max) > maxY) placed[i] = maxY;
-    }
-  }
-  if ((placed[0] ?? min) < min) {
-    placed[0] = min;
-    separateDown(placed, step);
-  }
-  const out = new Array<number>(count);
-  order.forEach((item, index) => {
-    out[item.index] = placed[index] ?? item.y;
-  });
-  return out;
-}
-
-function separateDown(placed: number[], step: number): void {
-  for (let i = 1; i < placed.length; i++) {
-    const minY = (placed[i - 1] ?? 0) + step;
-    if ((placed[i] ?? 0) < minY) placed[i] = minY;
-  }
 }
 
 /** Fritsch–Carlson monotone cubic. The curve stays between each segment's endpoints. */

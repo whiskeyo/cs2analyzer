@@ -4,8 +4,6 @@ import {
   bandRect,
   nearestRoundIndex,
   percentAxis,
-  pillTextColor,
-  playerColor,
   plotRect,
   roundMarkerSize,
   roundX,
@@ -13,20 +11,12 @@ import {
   sideBands,
   smoothLinePath,
   smoothLineSegments,
-  spreadLabels,
   TIMELINE_LAYOUT,
   valueToY,
 } from "./timelineChart";
 
 describe("timelineChart", () => {
   const plot = plotRect();
-
-  it("gives each of the first players a distinct tint", () => {
-    const colors = [0, 1, 2, 3, 4].map(playerColor);
-    expect(new Set(colors).size).toBe(5);
-    expect(pillTextColor("#ffe83a")).toBe("#1a1206");
-    expect(pillTextColor("#d62728")).toBe("#fff");
-  });
 
   it("rounds the axis up onto a readable grid", () => {
     const adr = axisScale(117);
@@ -64,24 +54,6 @@ describe("timelineChart", () => {
 
   it("shrinks round markers once the axis gets crowded", () => {
     expect(roundMarkerSize(24).radius).toBeGreaterThan(roundMarkerSize(36).radius);
-  });
-
-  it("separates overlapping name pills and keeps them inside the plot", () => {
-    const spread = spreadLabels([10, 12, 11], 0, 100, 18);
-    const ordered = [...spread].sort((a, b) => a - b);
-    expect(ordered[1]! - ordered[0]!).toBeGreaterThanOrEqual(18);
-    expect(ordered[2]! - ordered[1]!).toBeGreaterThanOrEqual(18);
-    const packed = spreadLabels([0, 0, 0, 0], 0, 30, 20);
-    expect(Math.min(...packed)).toBeGreaterThanOrEqual(0);
-    expect(Math.max(...packed)).toBeLessThanOrEqual(30);
-    const cluster = spreadLabels([40, 370, 368, 372, 369, 371, 370, 373, 367, 366], 32, 378, 28);
-    expect(Math.min(...cluster)).toBeGreaterThanOrEqual(32);
-    expect(Math.max(...cluster)).toBeLessThanOrEqual(378);
-    const clusterOrdered = [...cluster].sort((a, b) => a - b);
-    for (let i = 1; i < clusterOrdered.length; i++) {
-      expect(clusterOrdered[i]! - clusterOrdered[i - 1]!).toBeGreaterThanOrEqual(28);
-    }
-    expect(cluster[0]).toBeCloseTo(40);
   });
 
   it("draws a smooth line through the points without overshooting a peak", () => {

@@ -5102,11 +5102,7 @@ button.link:hover:not(:disabled) {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #10151b;
-  overflow: auto;
-}
-.stats-timeline-canvas {
-  position: relative;
-  min-width: 820px;
+  overflow: hidden;
 }
 .stats-timeline-plot svg {
   display: block;
@@ -5174,30 +5170,6 @@ button.link:hover:not(:disabled) {
   fill: #fff;
   font-weight: 650;
   pointer-events: none;
-}
-.stats-timeline-pill {
-  position: absolute;
-  transform: translateY(-50%);
-  max-width: 104px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border: 0;
-  border-radius: 999px;
-  padding: 0.12rem 0.5rem;
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 650;
-  line-height: 1.2;
-  cursor: pointer;
-}
-.stats-timeline-pill.is-on {
-  box-shadow:
-    0 0 0 1px #fff,
-    0 0 14px rgba(255, 255, 255, 0.35);
-}
-.stats-timeline-pill.is-dim {
-  opacity: 0.35;
 }
 .stats-timeline-card {
   position: absolute;
