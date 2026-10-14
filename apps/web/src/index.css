@@ -5063,9 +5063,15 @@ button.link:hover:not(:disabled) {
   }
 }
 
-/* Single-demo stage: map, or the stats timeline beside it. */
-.stage-view.filters {
-  margin: 0.35rem 0.5rem 0.15rem;
+/* Single-demo stats timeline, drawn over the radar column. */
+.stats-timeline-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow: auto;
 }
 .stats-timeline {
   flex: 1 1 auto;

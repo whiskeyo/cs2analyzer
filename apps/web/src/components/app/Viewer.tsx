@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controls } from "@/components/playback/Controls";
 import { StatsTimeline } from "@/components/stats/StatsTimeline";
 import { RoundStrip } from "@/components/playback/RoundStrip";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/tutorial/activeRound";
 import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
+import { useStatsTimelinePanel } from "./StatsTimelinePanel";
 
 function parseOverallPct(progress: { current: number; total: number } | null): number {
   if (!progress || progress.total <= 0) return 0;
@@ -31,9 +32,22 @@ export function Viewer() {
   const aggregated = replay != null && isAggregatedView(session.series, habits);
   const bucketMode = replay != null && isBucketOverlayActive(session.series, habits);
   const [dragOver, setDragOver] = useState(false);
-  const [stage, setStage] = useState<"map" | "stats">("map");
   const dragDepthRef = useRef(0);
-  const showTimeline = !aggregated && stage === "stats";
+  const timeline = useStatsTimelinePanel();
+  const showTimeline = !aggregated && timeline.open;
+
+  useEffect(() => {
+    if (aggregated && timeline.open) timeline.close();
+  }, [aggregated, timeline]);
+
+  useEffect(() => {
+    if (!showTimeline) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") timeline.close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showTimeline, timeline]);
 
   if (!replay) return null;
   const { tick } = playback;
@@ -95,34 +109,17 @@ export function Viewer() {
           <>
             <main className="stage">
               <div className="map-column">
-                {!aggregated ? (
-                  <div className="stage-view filters" role="tablist" aria-label="Match view">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={!showTimeline}
-                      className={`filter${!showTimeline ? " on" : ""}`}
-                      onClick={() => setStage("map")}
-                    >
-                      Map
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={showTimeline}
-                      className={`filter${showTimeline ? " on" : ""}`}
-                      onClick={() => setStage("stats")}
-                    >
-                      Stats timeline
-                    </button>
+                <RadarStage />
+                {showTimeline ? (
+                  <div className="stats-timeline-overlay">
+                    <StatsTimeline
+                      replay={replay}
+                      selected={view.selected}
+                      onSelect={view.select}
+                    />
                   </div>
                 ) : null}
-                {showTimeline ? (
-                  <StatsTimeline replay={replay} selected={view.selected} onSelect={view.select} />
-                ) : (
-                  <RadarStage />
-                )}
-                {showTimeline ? null : !aggregated ? (
+                {!aggregated ? (
                   <RoundStrip
                     replay={replay}
                     tick={tick}

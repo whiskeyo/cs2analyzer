@@ -5,6 +5,7 @@ import { useApp } from "@/lib/state/appState";
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { makeReplay } from "@/lib/testing/fixtures";
+import { StatsTimelinePanelProvider, useStatsTimelinePanel } from "./StatsTimelinePanel";
 import { Viewer } from "./Viewer";
 
 vi.mock("@/lib/state/appState", () => ({
@@ -40,6 +41,24 @@ vi.mock("@/components/playback/Controls", () => ({
     return <div data-testid="controls" />;
   },
 }));
+
+function TimelineToggle() {
+  const panel = useStatsTimelinePanel();
+  return (
+    <button type="button" aria-pressed={panel.open} onClick={panel.toggle}>
+      Stats timeline
+    </button>
+  );
+}
+
+function renderWithTimeline() {
+  return render(
+    <StatsTimelinePanelProvider>
+      <TimelineToggle />
+      <Viewer />
+    </StatsTimelinePanelProvider>,
+  );
+}
 
 function viewerState(replay = makeReplay()) {
   return {
@@ -110,24 +129,32 @@ describe("Viewer", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("opens the stats timeline beside the map for a single demo", async () => {
+  it("opens the stats timeline over the radar and closes it on Escape", async () => {
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
-    render(<Viewer />);
-    expect(screen.getByRole("tab", { name: "Map" })).toHaveAttribute("aria-selected", "true");
+    renderWithTimeline();
+    expect(screen.getByRole("button", { name: "Stats timeline" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Stats timeline" }));
-    expect(screen.getByRole("tab", { name: "Stats timeline" })).toHaveAttribute(
-      "aria-selected",
+    await userEvent.click(screen.getByRole("button", { name: "Stats timeline" }));
+    expect(screen.getByRole("button", { name: "Stats timeline" })).toHaveAttribute(
+      "aria-pressed",
       "true",
     );
     expect(screen.getByRole("heading", { name: "Stats timeline" })).toBeInTheDocument();
-    expect(screen.queryByTestId("radar-stage")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("round-strip")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Map" }));
+    expect(document.querySelector(".stats-timeline-overlay")).toBeTruthy();
     expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
+    expect(screen.getByTestId("sidebar")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("heading", { name: "Stats timeline" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stats timeline" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
-  it("hides the stats timeline while the series is aggregated", () => {
+  it("hides the stats timeline while the series is aggregated", async () => {
     const replay = makeReplay();
     const series = buildSeries("de_mirage", [
       loadedDemo(replay, "a.dem", new File([], "a.dem")),
@@ -139,8 +166,9 @@ describe("Viewer", () => {
       session: { ...base.session, series, demo: series.demos[0] },
       habits: { ...base.habits, aggregated: true },
     } as unknown as ReturnType<typeof useApp>);
-    render(<Viewer />);
-    expect(screen.queryByRole("tab", { name: "Stats timeline" })).not.toBeInTheDocument();
+    renderWithTimeline();
+    await userEvent.click(screen.getByRole("button", { name: "Stats timeline" }));
+    expect(screen.queryByRole("heading", { name: "Stats timeline" })).not.toBeInTheDocument();
     expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
   });
 
