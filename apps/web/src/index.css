@@ -5099,11 +5099,14 @@ button.link:hover:not(:disabled) {
   position: relative;
 }
 .stats-timeline-plot {
-  position: relative;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #10151b;
-  overflow: hidden;
+  overflow: auto;
+}
+.stats-timeline-canvas {
+  position: relative;
+  min-width: 820px;
 }
 .stats-timeline-plot svg {
   display: block;

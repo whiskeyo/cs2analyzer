@@ -8,7 +8,7 @@ const AXIS_HEADROOM = 1.08;
 const PERCENT_AXIS_CAP = 100;
 
 /** Minimum vertical gap between end-of-line name pills, in viewBox pixels. */
-export const TIMELINE_LABEL_GAP = 22;
+export const TIMELINE_LABEL_GAP = 28;
 
 export const TIMELINE_LAYOUT = {
   width: 960,
@@ -146,8 +146,9 @@ export function roundMarkerSize(count: number): { radius: number; font: number }
 }
 
 /**
- * Push overlapping anchors apart, then slide the stack back into `[min, max]`.
- * The gap shrinks when the stack cannot fit.
+ * Push overlapping anchors apart, then pull the stack back into `[min, max]`.
+ * A high outlier stays put while a crowded cluster slides up. The gap shrinks
+ * when the whole stack cannot fit.
  */
 export function spreadLabels(
   anchors: readonly number[],
@@ -163,23 +164,31 @@ export function spreadLabels(
     .map((y, index) => ({ y, index }))
     .sort((a, b) => a.y - b.y || a.index - b.index);
   const placed = order.map((item) => item.y);
-  for (let i = 1; i < placed.length; i++) {
-    const minY = (placed[i - 1] ?? min) + step;
-    if ((placed[i] ?? min) < minY) placed[i] = minY;
+  separateDown(placed, step);
+  const last = placed[placed.length - 1] ?? max;
+  if (last > max) {
+    placed[placed.length - 1] = max;
+    for (let i = placed.length - 2; i >= 0; i--) {
+      const maxY = (placed[i + 1] ?? max) - step;
+      if ((placed[i] ?? max) > maxY) placed[i] = maxY;
+    }
   }
-  const overflow = (placed[placed.length - 1] ?? max) - max;
-  if (overflow > 0) {
-    for (let i = 0; i < placed.length; i++) placed[i] = (placed[i] ?? 0) - overflow;
-  }
-  const underflow = min - (placed[0] ?? min);
-  if (underflow > 0) {
-    for (let i = 0; i < placed.length; i++) placed[i] = (placed[i] ?? 0) + underflow;
+  if ((placed[0] ?? min) < min) {
+    placed[0] = min;
+    separateDown(placed, step);
   }
   const out = new Array<number>(count);
   order.forEach((item, index) => {
     out[item.index] = placed[index] ?? item.y;
   });
   return out;
+}
+
+function separateDown(placed: number[], step: number): void {
+  for (let i = 1; i < placed.length; i++) {
+    const minY = (placed[i - 1] ?? 0) + step;
+    if ((placed[i] ?? 0) < minY) placed[i] = minY;
+  }
 }
 
 /** Fritsch–Carlson monotone cubic. The curve stays between each segment's endpoints. */

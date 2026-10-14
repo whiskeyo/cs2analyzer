@@ -74,6 +74,14 @@ describe("timelineChart", () => {
     const packed = spreadLabels([0, 0, 0, 0], 0, 30, 20);
     expect(Math.min(...packed)).toBeGreaterThanOrEqual(0);
     expect(Math.max(...packed)).toBeLessThanOrEqual(30);
+    const cluster = spreadLabels([40, 370, 368, 372, 369, 371, 370, 373, 367, 366], 32, 378, 28);
+    expect(Math.min(...cluster)).toBeGreaterThanOrEqual(32);
+    expect(Math.max(...cluster)).toBeLessThanOrEqual(378);
+    const clusterOrdered = [...cluster].sort((a, b) => a - b);
+    for (let i = 1; i < clusterOrdered.length; i++) {
+      expect(clusterOrdered[i]! - clusterOrdered[i - 1]!).toBeGreaterThanOrEqual(28);
+    }
+    expect(cluster[0]).toBeCloseTo(40);
   });
 
   it("draws a smooth line through the points without overshooting a peak", () => {
