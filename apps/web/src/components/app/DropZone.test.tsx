@@ -406,6 +406,38 @@ describe("DropZone", () => {
     expect(screen.getByText("unnamed.dem")).toBeInTheDocument();
   });
 
+  it("filters saved notes by tag", async () => {
+    const tagsByKey = new Map<string, readonly string[]>([
+      ["k-a", ["nuke", "comeback"]],
+      ["k-b", ["mirage"]],
+    ]);
+    render(
+      <DropZone
+        {...props({
+          saved: [
+            savedProject({ key: "k-a", fileName: "a.dem" }),
+            savedProject({ key: "k-b", fileName: "b.dem" }),
+          ],
+          tagsByKey,
+        })}
+      />,
+    );
+    expect(screen.getByText("#nuke")).toBeInTheDocument();
+    expect(screen.getByText("#comeback")).toBeInTheDocument();
+    expect(screen.getByText("b.dem")).toBeInTheDocument();
+
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "Filter saved notes by tag" }),
+      "come",
+    );
+    expect(screen.getByText("a.dem")).toBeInTheDocument();
+    expect(screen.queryByText("b.dem")).not.toBeInTheDocument();
+    expect(screen.queryByText("#mirage")).not.toBeInTheDocument();
+
+    await userEvent.clear(screen.getByRole("textbox", { name: "Filter saved notes by tag" }));
+    expect(screen.getByText("b.dem")).toBeInTheDocument();
+  });
+
   it("dismisses the restore modal when clicking the backdrop", async () => {
     render(<DropZone {...props({ saved: [savedProject()] })} />);
     await userEvent.click(screen.getByText("a.dem"));

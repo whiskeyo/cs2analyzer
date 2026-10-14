@@ -14,6 +14,7 @@ import {
   type StorageManagerLike,
 } from "./usage";
 import {
+  DEMO_TAG_STORE,
   HANDLE_STORE,
   PLAYBOOK_IMAGE_STORE,
   PLAYBOOK_STORE,
@@ -58,6 +59,7 @@ describe("category mapping", () => {
     expect(categoryForStore(PLAYBOOK_IMAGE_STORE)).toBe("photos");
     expect(categoryForStore(SETTINGS_STORE)).toBe("settings");
     expect(categoryForStore(HANDLE_STORE)).toBe("other");
+    expect(categoryForStore(DEMO_TAG_STORE)).toBe("notes");
     expect(categoryForStore("futureStore")).toBe("other");
     expect(emptyCs2DatabaseUsage().categories.map((row) => row.id)).toEqual([
       ...STORAGE_CATEGORY_IDS,

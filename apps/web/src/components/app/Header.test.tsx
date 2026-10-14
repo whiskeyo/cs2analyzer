@@ -2,7 +2,9 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import "fake-indexeddb/auto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { loadDemoTags } from "@/lib/demo/tagStore";
 import { useApp } from "@/lib/state/appState";
+import { matchKey } from "@/lib/notes/projectStore";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { makeKill, makeReplay } from "@/lib/testing/fixtures";
 import { createPlaybook, deleteAllPlaybooks } from "@/lib/playbook/playbookStore";
@@ -167,14 +169,19 @@ describe("Header", () => {
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderHeader("/analyzer");
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
+    expect(screen.queryByText("match.dem")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Add tag" })).not.toBeInTheDocument();
   });
 
-  it("shows map, file meta, and viewer actions with a loaded replay", async () => {
+  it("shows map, filename, and tags instead of kill and nade counts", async () => {
     const state = viewerState();
     vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
     renderHeader();
-    expect(screen.getByText(/Mirage · match\.dem · 1 kills/)).toBeInTheDocument();
+    expect(screen.getByText("Mirage")).toBeInTheDocument();
+    expect(screen.getByText("match.dem")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Add tag" })).toBeInTheDocument();
+    expect(screen.queryByText(/kills/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nades/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add demo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeInTheDocument();
@@ -200,6 +207,33 @@ describe("Header", () => {
     renderHeader();
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Export PDF" })).toBeDisabled();
+    expect(screen.getByText("match.dem")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Add tag" })).toBeInTheDocument();
+    expect(screen.queryByText(/kills/)).not.toBeInTheDocument();
+  });
+
+  it("saves demo tags in this browser and restores them", async () => {
+    const state = viewerState();
+    vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
+    const key = matchKey(state.session.demo.replay, state.session.demo.fileName);
+    const first = renderHeader();
+    const input = screen.getByRole("textbox", { name: "Add tag" });
+    await userEvent.type(input, "Come Back{enter}");
+    expect(screen.getByText("#come-back")).toBeInTheDocument();
+    await userEvent.type(screen.getByRole("textbox", { name: "Add tag" }), "#Nuke{enter}");
+    expect(screen.getByText("#nuke")).toBeInTheDocument();
+    await waitFor(async () => {
+      expect(await loadDemoTags(key)).toEqual(["come-back", "nuke"]);
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Remove tag come-back" }));
+    expect(screen.queryByText("#come-back")).not.toBeInTheDocument();
+    await waitFor(async () => {
+      expect(await loadDemoTags(key)).toEqual(["nuke"]);
+    });
+    first.unmount();
+    renderHeader();
+    expect(await screen.findByText("#nuke")).toBeInTheDocument();
+    expect(screen.queryByText("#come-back")).not.toBeInTheDocument();
   });
 
   it("downloads per-demo stats as CSV", async () => {
@@ -266,7 +300,8 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
+    expect(screen.queryByText("match.dem")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Add tag" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Playbook" })).toHaveAttribute("aria-current", "page");
   });
 
@@ -276,7 +311,8 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Add demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
+    expect(screen.queryByText("match.dem")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Add tag" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Rating" })).toHaveAttribute("aria-current", "page");
   });
 
@@ -287,7 +323,8 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
+    expect(screen.queryByText("match.dem")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Add tag" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "page");
   });
 
@@ -298,7 +335,8 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "New demo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Mirage · match\.dem/)).not.toBeInTheDocument();
+    expect(screen.queryByText("match.dem")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Add tag" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Contact" })).toHaveAttribute("aria-current", "page");
   });
 

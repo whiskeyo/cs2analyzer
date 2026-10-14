@@ -16,7 +16,9 @@ import {
   isRatingPath,
 } from "@/lib/app/routes";
 import { isAnalyzerSessionVisible, isTutorialPlaybookPath } from "@/lib/tutorial/query";
+import { useDemoTags } from "@/lib/demo/useDemoTags";
 import { AddDemoControl } from "./AddDemoControl";
+import { DemoTagEditor } from "./DemoTagEditor";
 import { SettingsMenu } from "./SettingsMenu";
 import { SiteNav } from "./SiteNav";
 
@@ -31,10 +33,11 @@ export function Header() {
   const { session, habits } = useApp();
   const matchPdf = useMatchPdfExport();
   const pathname = usePathname();
-  const replay =
-    session.replay != null && isAnalyzerSessionVisible(pathname, session.demo?.id)
-      ? session.replay
+  const sessionDemo =
+    session.demo != null && isAnalyzerSessionVisible(pathname, session.demo.id)
+      ? session.demo
       : null;
+  const replay = sessionDemo?.replay ?? null;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
 
   const navigate = useNavigate();
@@ -45,6 +48,7 @@ export function Header() {
   const onPlaybook = isPlaybookPath(pathname) || isTutorialPlaybookPath(pathname);
   const showMatchChrome =
     replay != null && !onFaq && !onRating && !onContact && !onLayouts && !onPlaybook;
+  const { tags, setTags } = useDemoTags(showMatchChrome ? sessionDemo : null);
 
   return (
     <header className="top">
@@ -85,10 +89,20 @@ export function Header() {
         {onLayouts ? (
           <span className="file-meta">Callout Layout Editor</span>
         ) : replay && showMatchChrome ? (
-          <span className="file-meta">
-            {prettyMap(replay.header.map_name)}
-            {session.fileName ? ` · ${session.fileName}` : ""} · {replay.kills.length} kills ·{" "}
-            {replay.grenades.length} nades
+          <span className="file-meta match-meta">
+            <span className="match-meta-name">{prettyMap(replay.header.map_name)}</span>
+            {session.fileName ? (
+              <>
+                <span className="match-meta-sep" aria-hidden="true">
+                  —
+                </span>
+                <span className="match-meta-file">{session.fileName}</span>
+              </>
+            ) : null}
+            <span className="match-meta-sep" aria-hidden="true">
+              —
+            </span>
+            <DemoTagEditor tags={tags} onChange={setTags} />
           </span>
         ) : null}
       </div>
