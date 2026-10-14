@@ -105,8 +105,8 @@ function HoverCard({
         <span />
         <span>Player</span>
         <span />
-        <span>Round</span>
-        <span>Total</span>
+        <span className="stats-timeline-card-num">Round</span>
+        <span className="stats-timeline-card-num">Total</span>
       </div>
       {rows.map((row) => {
         const value = row.values[stat];
@@ -119,8 +119,10 @@ function HoverCard({
             <span className="stats-timeline-bar" aria-hidden="true">
               <span style={{ width: `${width}%`, background: color }} />
             </span>
-            <span>{formatTimelineValue(stat, value.round)}</span>
-            <span className="stats-timeline-running">
+            <span className="stats-timeline-card-num">
+              {formatTimelineValue(stat, value.round)}
+            </span>
+            <span className="stats-timeline-card-num stats-timeline-running">
               {formatTimelineValue(stat, value.running)}
             </span>
           </div>
