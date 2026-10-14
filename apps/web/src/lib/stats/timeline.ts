@@ -9,15 +9,12 @@ import { computeStats } from "./computeStats";
 /** Scoreboard percents (HS%, KAST) share this 0–100 scale. */
 const PERCENT_SCALE = 100;
 
-export type TimelineStatId =
-  "kills" | "kd" | "hs" | "adr" | "opening" | "kast" | "util" | "flashed";
-
-export type TimelineMode = "cumulative" | "round";
+export type TimelineStatId = "kills" | "hs" | "adr" | "opening" | "kast" | "util" | "flashed";
 
 export interface TimelineStatDef {
   id: TimelineStatId;
   label: string;
-  /** Sums grow by addition. Rates are a running ratio (K/D, HS%, ADR, KAST). */
+  /** Sums are a running total. Rates are a running ratio (HS%, ADR, KAST). */
   kind: "sum" | "rate";
 }
 
@@ -26,7 +23,6 @@ export const TIMELINE_GROUPS: readonly { label: string; stats: readonly Timeline
     label: "Frags",
     stats: [
       { id: "kills", label: "Kills", kind: "sum" },
-      { id: "kd", label: "K/D", kind: "rate" },
       { id: "hs", label: "HS%", kind: "rate" },
     ],
   },
@@ -71,7 +67,6 @@ export interface TimelineColumn {
 
 interface RawRound {
   kills: number;
-  deaths: number;
   headshots: number;
   damage: number;
   utility: number;
@@ -87,7 +82,6 @@ interface TickRange {
 
 const ZERO_RAW: RawRound = {
   kills: 0,
-  deaths: 0,
   headshots: 0,
   damage: 0,
   utility: 0,
@@ -105,8 +99,9 @@ export function timelineStat(id: TimelineStatId): TimelineStatDef {
   return TIMELINE_GROUPS[0].stats[0];
 }
 
-export function plottedValue(value: TimelineStatValue, mode: TimelineMode): number {
-  return mode === "cumulative" ? value.running : value.round;
+/** The chart always plots the running total or running rate. */
+export function plottedValue(value: TimelineStatValue): number {
+  return value.running;
 }
 
 export function formatTimelineValue(id: TimelineStatId, value: number): string {
@@ -118,8 +113,6 @@ export function formatTimelineValue(id: TimelineStatId, value: number): string {
       return String(Math.round(value));
     case "adr":
       return compact(value, 1);
-    case "kd":
-      return value.toFixed(2);
     case "hs":
     case "kast":
       return `${Math.round(value)}%`;
@@ -195,7 +188,6 @@ function compact(value: number, digits: number): string {
 function rawFrom(stats: PlayerStats): RawRound {
   return {
     kills: stats.kills,
-    deaths: stats.deaths,
     headshots: stats.headshots,
     damage: stats.damage,
     utility: stats.utility_damage,
@@ -208,7 +200,6 @@ function rawFrom(stats: PlayerStats): RawRound {
 function diffRaw(next: RawRound, prev: RawRound): RawRound {
   return {
     kills: nonNegative(next.kills - prev.kills),
-    deaths: nonNegative(next.deaths - prev.deaths),
     headshots: nonNegative(next.headshots - prev.headshots),
     damage: nonNegative(next.damage - prev.damage),
     utility: nonNegative(next.utility - prev.utility),
@@ -226,12 +217,10 @@ function valuesFor(
   delta: RawRound,
   cumulative: PlayerStats,
 ): Record<TimelineStatId, TimelineStatValue> {
-  const roundKd = delta.deaths > 0 ? delta.kills / delta.deaths : delta.kills;
   const roundHs = delta.kills > 0 ? (PERCENT_SCALE * delta.headshots) / delta.kills : 0;
   const roundKast = delta.kastRounds > 0 ? PERCENT_SCALE : 0;
   return {
     kills: { round: delta.kills, running: cumulative.kills },
-    kd: { round: roundKd, running: cumulative.kd },
     hs: { round: roundHs, running: cumulative.headshot_percent },
     adr: { round: delta.damage, running: cumulative.adr },
     opening: { round: delta.opening, running: cumulative.first_kills },

@@ -54,7 +54,9 @@ describe("StatsTimeline", () => {
   it("charts counted rounds and leaves knife and restarts off the axis", () => {
     render(<StatsTimeline replay={chartReplay()} />);
     expect(screen.getByRole("heading", { name: "Stats timeline" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "ADR per round" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "ADR cumulative" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "K/D" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Per round" })).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Round 1$/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Round 3$/ })).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /^Round 0$/ })).not.toBeInTheDocument();
@@ -83,12 +85,10 @@ describe("StatsTimeline", () => {
     expect(document.querySelector(".stats-timeline-area")).toBeNull();
   });
 
-  it("switches the plotted stat and the cumulative scale", async () => {
+  it("switches the plotted stat on the cumulative chart", async () => {
     const user = userEvent.setup();
     render(<StatsTimeline replay={chartReplay()} />);
     await user.click(screen.getByRole("button", { name: "Kills" }));
-    expect(screen.getByRole("group", { name: "Kills per round" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Cumulative" }));
     expect(screen.getByRole("group", { name: "Kills cumulative" })).toBeInTheDocument();
   });
 

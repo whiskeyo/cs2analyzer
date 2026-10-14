@@ -28,7 +28,6 @@ describe("statsTimeline", () => {
     expect(TIMELINE_GROUPS.map((group) => group.label)).toEqual(["Frags", "Impact", "Utility"]);
     expect(TIMELINE_GROUPS.flatMap((group) => group.stats.map((stat) => stat.id))).toEqual([
       "kills",
-      "kd",
       "hs",
       "adr",
       "opening",
@@ -217,7 +216,6 @@ describe("statsTimeline", () => {
     for (const row of last?.rows ?? []) {
       const full = stats[row.player];
       expect(row.values.kills.running).toBe(full?.kills);
-      expect(row.values.kd.running).toBeCloseTo(full?.kd ?? 0);
       expect(row.values.hs.running).toBeCloseTo(full?.headshot_percent ?? 0);
       expect(row.values.adr.running).toBeCloseTo(full?.adr ?? 0);
       expect(row.values.opening.running).toBe(full?.first_kills);
@@ -231,8 +229,7 @@ describe("statsTimeline", () => {
     expect(columns[0]?.rows[2]?.values.util.round).toBe(40);
     expect(columns[0]?.rows[2]?.values.flashed.round).toBe(1);
     expect(columns[0]?.rows[0]?.values.flashed.round).toBe(0);
-    expect(plottedValue({ round: 1, running: 2 }, "cumulative")).toBe(2);
-    expect(plottedValue({ round: 1, running: 2 }, "round")).toBe(1);
+    expect(plottedValue({ round: 1, running: 2 })).toBe(2);
   });
 
   it("records buy type and which side the player's team was on", () => {
@@ -334,7 +331,6 @@ describe("statsTimeline", () => {
     expect(formatTimelineValue("kills", 3)).toBe("3");
     expect(formatTimelineValue("adr", 96)).toBe("96");
     expect(formatTimelineValue("adr", 96.25)).toBe("96.3");
-    expect(formatTimelineValue("kd", 1.5)).toBe("1.50");
     expect(formatTimelineValue("hs", 50)).toBe("50%");
     expect(formatTimelineValue("kast", 66.6)).toBe("67%");
   });

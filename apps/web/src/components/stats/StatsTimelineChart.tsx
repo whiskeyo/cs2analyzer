@@ -1,5 +1,5 @@
 import { useId, useMemo } from "react";
-import type { TimelineColumn, TimelineMode, TimelineStatId } from "@/lib/stats/timeline";
+import type { TimelineColumn, TimelineStatId } from "@/lib/stats/timeline";
 import { formatTimelineValue, plottedValue, timelineStat } from "@/lib/stats/timeline";
 import {
   TIMELINE_LAYOUT,
@@ -24,7 +24,6 @@ import {
 interface Props {
   columns: TimelineColumn[];
   stat: TimelineStatId;
-  mode: TimelineMode;
   selected: number | null;
   hover: number | null;
   onSelect: (player: number) => void;
@@ -38,15 +37,7 @@ interface LineSeries {
   path: string;
 }
 
-export function StatsTimelineChart({
-  columns,
-  stat,
-  mode,
-  selected,
-  hover,
-  onSelect,
-  onHover,
-}: Props) {
+export function StatsTimelineChart({ columns, stat, selected, hover, onSelect, onHover }: Props) {
   const uid = useId().replace(/:/g, "");
   const layout = TIMELINE_LAYOUT;
   const plot = plotRect(layout);
@@ -56,11 +47,11 @@ export function StatsTimelineChart({
     let peak = 0;
     for (const column of columns) {
       for (const row of column.rows) {
-        peak = Math.max(peak, plottedValue(row.values[stat], mode));
+        peak = Math.max(peak, plottedValue(row.values[stat]));
       }
     }
     return stat === "hs" || stat === "kast" ? percentAxis(peak) : axisScale(peak);
-  }, [columns, stat, mode]);
+  }, [columns, stat]);
   const baseline = plot.y + plot.height;
   const marker = roundMarkerSize(columns.length);
   const bands = sideBands(
@@ -69,7 +60,7 @@ export function StatsTimelineChart({
   const lines: LineSeries[] = rows.map((row) => {
     const points = columns.map((column, index) => {
       const sample = column.rows.find((candidate) => candidate.player === row.player);
-      const value = sample ? plottedValue(sample.values[stat], mode) : 0;
+      const value = sample ? plottedValue(sample.values[stat]) : 0;
       return {
         x: roundX(index, columns.length, plot),
         y: valueToY(value, scale.max, plot),
@@ -88,7 +79,7 @@ export function StatsTimelineChart({
   const selectedLine = lines.find((line) => line.player === selected);
   const selectedFill =
     selectedLine != null ? areaPath(selectedLine.path, selectedLine.points, baseline) : "";
-  const modeLabel = mode === "round" ? "per round" : "cumulative";
+  const modeLabel = "cumulative";
 
   return (
     <div className="stats-timeline-plot">

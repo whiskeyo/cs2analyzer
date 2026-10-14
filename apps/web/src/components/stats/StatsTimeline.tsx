@@ -6,9 +6,7 @@ import {
   formatTimelineValue,
   plottedValue,
   statsTimeline,
-  timelineStat,
   type TimelineColumn,
-  type TimelineMode,
   type TimelineStatId,
 } from "@/lib/stats/timeline";
 import { TIMELINE_LAYOUT, playerColor, plotRect, roundX } from "@/lib/stats/timelineChart";
@@ -21,7 +19,6 @@ interface Props {
 export function StatsTimeline({ replay }: Props) {
   const columns = useMemo(() => statsTimeline(replay), [replay]);
   const [stat, setStat] = useState<TimelineStatId>("adr");
-  const [mode, setMode] = useState<TimelineMode>("round");
   const [selected, setSelected] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const reference = selected ?? columns[0]?.rows[0]?.player ?? null;
@@ -54,36 +51,17 @@ export function StatsTimeline({ replay }: Props) {
             </div>
           ))}
         </div>
-        <div className="filters" role="group" aria-label="Timeline scale">
-          <button
-            type="button"
-            className={`filter${mode === "cumulative" ? " on" : ""}`}
-            aria-pressed={mode === "cumulative"}
-            onClick={() => setMode("cumulative")}
-          >
-            Cumulative
-          </button>
-          <button
-            type="button"
-            className={`filter${mode === "round" ? " on" : ""}`}
-            aria-pressed={mode === "round"}
-            onClick={() => setMode("round")}
-          >
-            Per round
-          </button>
-        </div>
       </div>
       {columns.length === 0 ? (
         <p className="muted tab-hint">No competitive rounds to chart.</p>
       ) : (
         <div className="stats-timeline-stage" onPointerLeave={() => setHover(null)}>
           {column && reference != null ? (
-            <HoverCard column={column} stat={stat} mode={mode} reference={reference} left={left} />
+            <HoverCard column={column} stat={stat} reference={reference} left={left} />
           ) : null}
           <StatsTimelineChart
             columns={columns}
             stat={stat}
-            mode={mode}
             selected={selected}
             hover={hover}
             onSelect={(player) => setSelected((current) => (current === player ? null : player))}
@@ -98,19 +76,16 @@ export function StatsTimeline({ replay }: Props) {
 function HoverCard({
   column,
   stat,
-  mode,
   reference,
   left,
 }: {
   column: TimelineColumn;
   stat: TimelineStatId;
-  mode: TimelineMode;
   reference: number;
   left: number;
 }) {
-  const meta = timelineStat(stat);
   const rows = [...column.rows].sort((a, b) => {
-    const delta = plottedValue(b.values[stat], mode) - plottedValue(a.values[stat], mode);
+    const delta = plottedValue(b.values[stat]) - plottedValue(a.values[stat]);
     return delta || a.name.localeCompare(b.name);
   });
   const maxRound = Math.max(0, ...rows.map((row) => row.values[stat].round));
@@ -131,7 +106,7 @@ function HoverCard({
         <span>Player</span>
         <span />
         <span>Round</span>
-        <span>{meta.kind === "sum" ? "Total" : "Avg"}</span>
+        <span>Total</span>
       </div>
       {rows.map((row) => {
         const value = row.values[stat];
