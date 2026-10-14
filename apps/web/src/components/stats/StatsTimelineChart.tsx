@@ -156,13 +156,7 @@ export function StatsTimelineChart({ columns, stat, selected, hover, onSelect, o
             <path className="stats-timeline-area" d={selectedFill} fill={`url(#${uid}-fill)`} />
           ) : null}
           {painted.map((line) => (
-            <LineShape
-              key={line.player}
-              line={line}
-              selected={selected}
-              glow={`url(#${uid}-glow)`}
-              soft={`url(#${uid}-soft)`}
-            />
+            <LineShape key={line.player} line={line} selected={selected} />
           ))}
           {hover != null && columns[hover] ? (
             <line
@@ -248,20 +242,6 @@ export function StatsTimelineChart({ columns, stat, selected, hover, onSelect, o
 function ChartDefs({ uid, selected }: { uid: string; selected: number | null }) {
   return (
     <defs>
-      <filter id={`${uid}-soft`} x="-40%" y="-40%" width="180%" height="180%">
-        <feGaussianBlur stdDeviation="1.6" result="blur" />
-        <feMerge>
-          <feMergeNode in="blur" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
-      </filter>
-      <filter id={`${uid}-glow`} x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="3.6" result="blur" />
-        <feMerge>
-          <feMergeNode in="blur" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
-      </filter>
       {selected != null ? (
         <linearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={playerColor(selected)} stopOpacity="0.45" />
@@ -272,17 +252,7 @@ function ChartDefs({ uid, selected }: { uid: string; selected: number | null }) 
   );
 }
 
-function LineShape({
-  line,
-  selected,
-  glow,
-  soft,
-}: {
-  line: LineSeries;
-  selected: number | null;
-  glow: string;
-  soft: string;
-}) {
+function LineShape({ line, selected }: { line: LineSeries; selected: number | null }) {
   const on = selected === line.player;
   const dim = selected != null && !on;
   const color = playerColor(line.player);
@@ -293,7 +263,7 @@ function LineShape({
         className={`stats-timeline-line${on ? " is-on" : ""}${dim ? " is-dim" : ""}`}
         cx={point.x}
         cy={point.y}
-        r={on ? 4.5 : 3.5}
+        r={3.2}
         fill={color}
       />
     );
@@ -303,8 +273,7 @@ function LineShape({
       className={`stats-timeline-line${on ? " is-on" : ""}${dim ? " is-dim" : ""}`}
       d={line.path}
       stroke={color}
-      strokeWidth={on ? 3.4 : 2.2}
-      filter={on ? glow : dim ? undefined : soft}
+      strokeWidth={2.2}
     />
   );
 }
