@@ -42,7 +42,7 @@ interface Props {
 
 /** Unresolved and drawn rounds stay neutral so a team hue always means a win. */
 const MUTED_ROUND = "#3a4553";
-const WIN_ICON = 12;
+const WIN_ICON = 16;
 
 function markColor(colors: readonly string[], player: number): string {
   return colors[player] ?? "#d0d6dc";
@@ -303,35 +303,34 @@ function WinIcon({ kind, x, y }: { kind: WinIconKind; x: number; y: number }) {
     <g className="stats-timeline-win-icon" transform={`translate(${x} ${y})`}>
       {kind === "bomb" ? (
         <>
-          <circle cx="5.2" cy="7.4" r="3" />
-          <path d="M7.2 5.2 L9.8 2.4" />
-          <circle className="stats-timeline-win-dot" cx="10.3" cy="1.9" r="0.85" />
+          <circle cx="7" cy="10" r="4.1" />
+          <path d="M9.6 7 L13.2 3" />
+          <circle className="stats-timeline-win-dot" cx="13.6" cy="2.5" r="1.15" />
         </>
       ) : null}
       {kind === "defuse" ? (
         <>
-          <rect x="2.2" y="3.6" width="7.6" height="5.6" rx="1" />
-          <path d="M4.2 3.6 V2 M7.8 3.6 V2 M3.6 6.4 H8.4" />
+          <rect x="2.4" y="5" width="11.2" height="8" rx="1.3" />
+          <path d="M5 5 V2.4 M11 5 V2.4 M4.4 9 H11.6" />
         </>
       ) : null}
       {kind === "elim" ? (
-        <>
-          <circle cx="6" cy="5" r="3.1" />
-          <path d="M3.7 8.1 Q6 10.4 8.3 8.1" />
-          <circle className="stats-timeline-win-dot" cx="4.8" cy="4.7" r="0.65" />
-          <circle className="stats-timeline-win-dot" cx="7.2" cy="4.7" r="0.65" />
-        </>
+        <g className="stats-timeline-win-fill">
+          <path d="M8 1.1a4.7 4.7 0 0 0-4.7 4.7c0 1.7.7 2.7 1.4 3.5V12h1.6V10.6h1.2V12h1v-1.4h1.2V12h1.6V9.3c.7-.8 1.4-1.8 1.4-3.5A4.7 4.7 0 0 0 8 1.1z" />
+          <circle cx="6.2" cy="6.1" r="1.15" fill="#0b0e12" />
+          <circle cx="9.8" cy="6.1" r="1.15" fill="#0b0e12" />
+        </g>
       ) : null}
       {kind === "time" ? (
         <>
-          <circle cx="6" cy="6" r="4" />
-          <path d="M6 6 V3.1 M6 6 L8.1 7.3" />
+          <circle cx="8" cy="8" r="5.4" />
+          <path d="M8 8 V4.2 M8 8 L10.8 9.7" />
         </>
       ) : null}
       {kind === "flag" ? (
         <>
-          <path d="M3.4 10.6 V1.6" />
-          <path d="M3.4 2 H8.8 L7.2 4 L8.8 6 H3.4" />
+          <path d="M4.2 14.4 V1.6" />
+          <path d="M4.2 2.2 H12.2 L9.8 5.1 L12.2 8 H4.2" />
         </>
       ) : null}
     </g>

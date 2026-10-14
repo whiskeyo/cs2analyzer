@@ -5190,10 +5190,14 @@ button.link:hover:not(:disabled) {
 .stats-timeline-win-icon {
   fill: none;
   stroke: #e8eef4;
-  stroke-width: 1.35;
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
   pointer-events: none;
+}
+.stats-timeline-win-fill {
+  fill: #e8eef4;
+  stroke: none;
 }
 .stats-timeline-win-dot {
   fill: #e8eef4;
