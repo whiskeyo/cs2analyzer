@@ -29,6 +29,7 @@ import {
   GEAR_C4,
   type Replay,
 } from "@/lib/replay/replayTypes";
+import { playerMarkColors } from "@/lib/players/playerColors";
 import { TRACER_SECONDS } from "./radarFx";
 import { buildRadarFrame, CT_COLOR, T_COLOR, type FrameInput } from "./radarFrame";
 
@@ -391,6 +392,8 @@ describe("buildRadarFrame view", () => {
     expect(alice?.name).toBe("Alice");
     expect(alice?.health).toBe(100);
     expect(alice?.color).toBe(CT_COLOR);
+    expect(alice?.playerColor).toBe(playerMarkColors(matchReplay().players)[0]);
+    expect(alice?.playerColor).not.toBe(alice?.color);
     expect(alice?.selected).toBe(false);
     expect(f.pawns.find((p) => p.index === 2)?.color).toBe(T_COLOR);
     expect(f.pawns.find((p) => p.index === 1)?.selected).toBe(true);
