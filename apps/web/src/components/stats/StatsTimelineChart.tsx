@@ -1,6 +1,18 @@
 import { useId, useMemo } from "react";
+import { teamMarkColor } from "@/lib/players/playerColors";
 import type { TimelineColumn, TimelineStatId } from "@/lib/stats/timeline";
 import { formatTimelineValue, plottedValue, timelineStat } from "@/lib/stats/timeline";
+import {
+  WIN_REASON_BOMB,
+  WIN_REASON_CT_ELIM,
+  WIN_REASON_CT_SURRENDER,
+  WIN_REASON_DEFUSE,
+  WIN_REASON_DRAW,
+  WIN_REASON_T_ELIM,
+  WIN_REASON_T_SURRENDER,
+  WIN_REASON_TIME,
+} from "@/lib/shared/constants";
+import { winReasonLabel } from "@/lib/weapons/weapons";
 import {
   TIMELINE_LAYOUT,
   areaPath,
@@ -28,8 +40,45 @@ interface Props {
   onHover: (index: number | null) => void;
 }
 
+/** Unresolved and drawn rounds stay neutral so a team hue always means a win. */
+const MUTED_ROUND = "#3a4553";
+const WIN_ICON = 12;
+
 function markColor(colors: readonly string[], player: number): string {
   return colors[player] ?? "#d0d6dc";
+}
+
+function roundFill(column: TimelineColumn): string {
+  if (column.winner == null || column.winReason === WIN_REASON_DRAW || column.winRoster == null) {
+    return MUTED_ROUND;
+  }
+  return teamMarkColor(column.winRoster);
+}
+
+function roundLabel(column: TimelineColumn): string {
+  if (column.winner == null) return `Round ${column.number}`;
+  return `Round ${column.number}, ${winReasonLabel(column.winReason)}`;
+}
+
+type WinIconKind = "bomb" | "defuse" | "elim" | "time" | "flag";
+
+function winIconKind(reason: number): WinIconKind | null {
+  switch (reason) {
+    case WIN_REASON_BOMB:
+      return "bomb";
+    case WIN_REASON_DEFUSE:
+      return "defuse";
+    case WIN_REASON_CT_ELIM:
+    case WIN_REASON_T_ELIM:
+      return "elim";
+    case WIN_REASON_TIME:
+      return "time";
+    case WIN_REASON_T_SURRENDER:
+    case WIN_REASON_CT_SURRENDER:
+      return "flag";
+    default:
+      return null;
+  }
 }
 
 interface LineSeries {
@@ -177,22 +226,28 @@ export function StatsTimelineChart({
           />
         ) : null}
         {columns.map((column, index) => {
-          const row = column.rows.find((candidate) => candidate.player === reference);
           const x = roundX(index, columns.length, plot);
           const y = baseline + 26;
-          const result = row?.won === true ? "win" : row?.won === false ? "loss" : "open";
+          const icon =
+            column.winner == null || column.winReason === WIN_REASON_DRAW
+              ? null
+              : winIconKind(column.winReason);
           return (
             <g
               key={`round-${index}`}
               role="img"
-              aria-label={`Round ${column.number}`}
+              aria-label={roundLabel(column)}
               onPointerEnter={() => onHover(index)}
             >
+              {icon ? (
+                <WinIcon kind={icon} x={x - WIN_ICON / 2} y={y - marker.radius - WIN_ICON - 2} />
+              ) : null}
               <circle
-                className={`stats-timeline-round ${result}`}
+                className="stats-timeline-round"
                 cx={x}
                 cy={y}
                 r={marker.radius}
+                fill={roundFill(column)}
               />
               <text
                 className="stats-timeline-round-num"
@@ -240,6 +295,46 @@ function ChartDefs({
         </linearGradient>
       ) : null}
     </defs>
+  );
+}
+
+function WinIcon({ kind, x, y }: { kind: WinIconKind; x: number; y: number }) {
+  return (
+    <g className="stats-timeline-win-icon" transform={`translate(${x} ${y})`}>
+      {kind === "bomb" ? (
+        <>
+          <circle cx="5.2" cy="7.4" r="3" />
+          <path d="M7.2 5.2 L9.8 2.4" />
+          <circle className="stats-timeline-win-dot" cx="10.3" cy="1.9" r="0.85" />
+        </>
+      ) : null}
+      {kind === "defuse" ? (
+        <>
+          <rect x="2.2" y="3.6" width="7.6" height="5.6" rx="1" />
+          <path d="M4.2 3.6 V2 M7.8 3.6 V2 M3.6 6.4 H8.4" />
+        </>
+      ) : null}
+      {kind === "elim" ? (
+        <>
+          <circle cx="6" cy="5" r="3.1" />
+          <path d="M3.7 8.1 Q6 10.4 8.3 8.1" />
+          <circle className="stats-timeline-win-dot" cx="4.8" cy="4.7" r="0.65" />
+          <circle className="stats-timeline-win-dot" cx="7.2" cy="4.7" r="0.65" />
+        </>
+      ) : null}
+      {kind === "time" ? (
+        <>
+          <circle cx="6" cy="6" r="4" />
+          <path d="M6 6 V3.1 M6 6 L8.1 7.3" />
+        </>
+      ) : null}
+      {kind === "flag" ? (
+        <>
+          <path d="M3.4 10.6 V1.6" />
+          <path d="M3.4 2 H8.8 L7.2 4 L8.8 6 H3.4" />
+        </>
+      ) : null}
+    </g>
   );
 }
 

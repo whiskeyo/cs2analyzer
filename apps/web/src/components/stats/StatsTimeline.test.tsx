@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { playerMarkColors } from "@/lib/players/playerColors";
+import { COOL_TEAM, playerMarkColors } from "@/lib/players/playerColors";
 import { makeKill, makePlayer, makeReplay, makeRound, makeHurt } from "@/lib/testing/fixtures";
 import { StatsTimeline } from "./StatsTimeline";
 
@@ -58,10 +58,12 @@ describe("StatsTimeline", () => {
     expect(screen.getByRole("group", { name: "ADR cumulative" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "K/D" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Per round" })).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /^Round 1$/ })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /^Round 3$/ })).toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: /^Round 0$/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: /^Round 2$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Round 1, CT elim" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^Round 3/ })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /^Round 0/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /^Round 2/ })).not.toBeInTheDocument();
+    expect(document.querySelector(".stats-timeline-round")).toHaveAttribute("fill", COOL_TEAM);
+    expect(document.querySelector(".stats-timeline-win-icon")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Alice" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Highlight Alice" })).toBeInTheDocument();
   });
@@ -69,7 +71,7 @@ describe("StatsTimeline", () => {
   it("shows a round card above the chart and highlights the clicked player", async () => {
     const user = userEvent.setup();
     render(<StatsTimeline replay={chartReplay()} />);
-    fireEvent.pointerEnter(screen.getByRole("img", { name: /^Round 1$/ }));
+    fireEvent.pointerEnter(screen.getByRole("img", { name: /^Round 1/ }));
     expect(screen.getByRole("status")).toHaveTextContent("Round 1");
     expect(screen.getByRole("status")).toHaveTextContent("Won");
     expect(screen.getByRole("status")).toHaveTextContent("80");

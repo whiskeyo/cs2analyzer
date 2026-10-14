@@ -63,6 +63,10 @@ export interface TimelinePlayerRow {
 export interface TimelineColumn {
   number: number;
   rows: TimelinePlayerRow[];
+  winner: Side | null;
+  winReason: number;
+  /** Starting side of the roster that won this round. */
+  winRoster: Side | null;
 }
 
 interface RawRound {
@@ -173,7 +177,13 @@ export function statsTimeline(replay: Replay): TimelineColumn[] {
         values: valuesFor(delta, row),
       };
     });
-    columns.push({ number: round.number, rows });
+    columns.push({
+      number: round.number,
+      rows,
+      winner: round.winner,
+      winReason: round.win_reason,
+      winRoster: winningRoster(replay, round),
+    });
   }
   return columns;
 }
@@ -228,6 +238,15 @@ function valuesFor(
     util: { round: delta.utility, running: cumulative.utility_damage },
     flashed: { round: delta.flashed, running: cumulative.enemies_flashed },
   };
+}
+
+function winningRoster(replay: Replay, round: Round): Side | null {
+  if (round.winner == null) return null;
+  for (const player of replay.players) {
+    if (sideAt(replay, player.index, round) === round.winner) return player.start_side;
+  }
+  if (!roundSidesSwapped(replay, round)) return round.winner;
+  return round.winner === "CT" ? "T" : "CT";
 }
 
 function sideAt(replay: Replay, player: number, round: Round): Side {

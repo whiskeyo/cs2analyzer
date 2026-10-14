@@ -256,6 +256,8 @@ describe("statsTimeline", () => {
     expect(row?.side).toBe("CT");
     expect(row?.buy).toBe("full");
     expect(row?.won).toBe(true);
+    expect(statsTimeline(replay)[0]?.winRoster).toBe("CT");
+    expect(statsTimeline(replay)[0]?.winReason).toBe(8);
     expect(statsTimeline(replay)[0]?.rows[1]?.won).toBe(false);
 
     const swapped = makeReplay({
@@ -284,6 +286,8 @@ describe("statsTimeline", () => {
     expect(half[0]?.rows[0]?.side).toBe("CT");
     expect(half[1]?.rows[0]?.side).toBe("T");
     expect(half[1]?.rows[0]?.won).toBe(true);
+    expect(half[1]?.winner).toBe("T");
+    expect(half[1]?.winRoster).toBe("CT");
   });
 
   it("uses the freeze sample when the side has actually swapped", () => {

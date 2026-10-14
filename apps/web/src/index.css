@@ -5111,10 +5111,9 @@ button.link:hover:not(:disabled) {
   position: relative;
 }
 .stats-timeline-plot {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #10151b;
-  overflow: hidden;
+  border: 0;
+  background: transparent;
+  overflow: visible;
 }
 .stats-timeline-plot svg {
   display: block;
@@ -5169,17 +5168,26 @@ button.link:hover:not(:disabled) {
   stroke-width: 14;
   cursor: pointer;
 }
-.stats-timeline-round.win {
-  fill: var(--rating-good);
+.stats-timeline-round {
+  pointer-events: none;
 }
-.stats-timeline-round.loss {
-  fill: var(--danger);
+.stats-timeline-win-icon {
+  fill: none;
+  stroke: #e8eef4;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
 }
-.stats-timeline-round.open {
-  fill: var(--border);
+.stats-timeline-win-dot {
+  fill: #e8eef4;
+  stroke: none;
 }
 .stats-timeline-round-num {
   fill: #fff;
+  stroke: #12161c;
+  stroke-width: 2px;
+  paint-order: stroke;
   font-weight: 650;
   pointer-events: none;
 }
