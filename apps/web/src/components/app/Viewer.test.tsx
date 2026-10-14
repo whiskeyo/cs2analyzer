@@ -110,6 +110,40 @@ describe("Viewer", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("opens the stats timeline beside the map for a single demo", async () => {
+    vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
+    render(<Viewer />);
+    expect(screen.getByRole("tab", { name: "Map" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Stats timeline" }));
+    expect(screen.getByRole("tab", { name: "Stats timeline" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("heading", { name: "Stats timeline" })).toBeInTheDocument();
+    expect(screen.queryByTestId("radar-stage")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("round-strip")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Map" }));
+    expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
+  });
+
+  it("hides the stats timeline while the series is aggregated", () => {
+    const replay = makeReplay();
+    const series = buildSeries("de_mirage", [
+      loadedDemo(replay, "a.dem", new File([], "a.dem")),
+      loadedDemo(replay, "b.dem", new File([], "b.dem")),
+    ]);
+    const base = viewerState(replay);
+    vi.mocked(useApp).mockReturnValue({
+      ...base,
+      session: { ...base.session, series, demo: series.demos[0] },
+      habits: { ...base.habits, aggregated: true },
+    } as unknown as ReturnType<typeof useApp>);
+    render(<Viewer />);
+    expect(screen.queryByRole("tab", { name: "Stats timeline" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
+  });
+
   it("renders the viewer shell when a replay is loaded", () => {
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
     render(<Viewer />);
