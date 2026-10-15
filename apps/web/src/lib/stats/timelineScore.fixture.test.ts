@@ -36,11 +36,9 @@ const MIRAGE = "1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem";
 const INFERNO = "fruju-vs-rooster-m1-inferno.dem";
 
 function locate(env: string | undefined, name: string): string | null {
-  const candidates = [
-    env,
-    join(REPO, "test-demos/files", name),
-    join(REPO, ".demos", name),
-  ].filter((path): path is string => !!path);
+  const candidates = [env, join(REPO, "test-demos/files", name), join(REPO, ".demos", name)].filter(
+    (path): path is string => !!path,
+  );
   return candidates.find((path) => existsSync(path)) ?? null;
 }
 
