@@ -8,7 +8,7 @@ const PERCENT_AXIS_CAP = 100;
 
 export const TIMELINE_LAYOUT = {
   width: 960,
-  height: 440,
+  height: 280,
   padLeft: 46,
   padRight: 28,
   padTop: 22,
