@@ -32,7 +32,7 @@ import { roundScrubRange } from "@/lib/playback/roundTimeline";
 import { computeStats } from "./computeStats";
 import { liveScore } from "./liveScore";
 import { scoreRoster } from "./scoreRoster";
-import { statsTimeline } from "./timeline";
+import { statsTimeline, timelineRounds } from "./timeline";
 
 const REPO = resolve(__dirname, "../../../../..");
 const MIRAGE = "1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem";
@@ -146,6 +146,55 @@ function expectScoreMatch(path: string, hud: { t: number; ct: number }): void {
     expect(row?.values.opening.running, `${player.name} opening`).toBe(stats?.first_kills);
     expect(row?.values.util.running, `${player.name} util`).toBe(stats?.utility_damage);
     expect(row?.values.flashed.running, `${player.name} flashed`).toBe(stats?.enemies_flashed);
+  }
+  expectMidMatchRates(replay, columns);
+}
+
+/** Round starts where the in-progress round must not move ADR or KAST. */
+function midMatchTicks(replay: Replay): { tick: number; label: string }[] {
+  const counted = timelineRounds(replay);
+  const wanted = new Set([8, 13, 16, 24, 31, 36]);
+  const out: { tick: number; label: string }[] = [];
+  for (const round of counted) {
+    if (!wanted.has(round.number)) continue;
+    const earlierEnded = counted.some(
+      (other) => other !== round && other.end_tick <= round.start_tick,
+    );
+    if (!earlierEnded) continue;
+    out.push({ tick: round.start_tick, label: `R${round.number} start` });
+    const landed = Math.max(round.freeze_end_tick, round.start_tick);
+    if (landed > round.start_tick && landed < round.end_tick) {
+      out.push({ tick: landed, label: `R${round.number} freeze end` });
+    }
+  }
+  return out;
+}
+
+function expectMidMatchRates(replay: Replay, columns: ReturnType<typeof statsTimeline>): void {
+  const counted = timelineRounds(replay);
+  const samples = midMatchTicks(replay);
+  const anchor = counted.some((round) => round.number === 31) ? "R31 start" : "R13 start";
+  expect(samples.length).toBeGreaterThanOrEqual(2);
+  expect(samples.some((sample) => sample.label === anchor)).toBe(true);
+  for (const sample of samples) {
+    let done = -1;
+    for (let i = 0; i < counted.length; i++) {
+      if (counted[i].end_tick <= sample.tick) done = i;
+    }
+    expect(done, sample.label).toBeGreaterThanOrEqual(0);
+    const column = columns[done];
+    const score = computeStats(replay, sample.tick);
+    for (const player of replay.players) {
+      if (player.is_bot) continue;
+      const row = column?.rows.find((candidate) => candidate.player === player.index);
+      const stats = score[player.index];
+      expect(row?.values.adr.running, `${player.name} adr at ${sample.label}`).toBeCloseTo(
+        stats?.adr ?? 0,
+      );
+      expect(row?.values.kast.running, `${player.name} kast at ${sample.label}`).toBeCloseTo(
+        stats?.kast ?? 0,
+      );
+    }
   }
 }
 
