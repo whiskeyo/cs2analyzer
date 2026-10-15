@@ -1,11 +1,11 @@
 //! Round-end scoreboard from `CCSPlayerController` action-tracking counters.
 //!
-//! The server keeps these totals on the controller (`m_matchStats`). A dead
-//! human who takes a bot still receives the kills and damage on the human
-//! controller, so the bot body is not a second row. A bot with no human
-//! controlling it is a real player and stays.
+//! The server keeps these totals on the controller (`m_matchStats`). A bot
+//! that is still on T or CT at round close keeps its own row and the counters
+//! on that controller. The row freezes only once that controller is gone or
+//! off T/CT.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::types::{Round, RoundScoreboardPlayer, Side};
 
@@ -73,44 +73,17 @@ fn is_broadcast_name(name: &str) -> bool {
         || name.ends_with(" tv")
 }
 
-/// Remember bot bodies a human is (or was, this round) controlling.
-pub fn remember_human_controlled_bots(
-    controllers: &[ScoreboardController],
-    slots: &mut BTreeSet<u32>,
-) {
-    for controller in controllers {
-        if let Some(slot) = human_controlled_bot_slot(controller) {
-            slots.insert(slot);
-        }
-    }
-}
-
-fn human_controlled_bot_slot(controller: &ScoreboardController) -> Option<u32> {
-    if controller.is_hltv || controller.is_bot || controller.steam_id == 0 {
-        return None;
-    }
-    if !controller.controlling_bot && !controller.has_controlled_bot_this_round {
-        return None;
-    }
-    controller.original_controller_slot
-}
-
 /// Rows for controllers on T or CT at this snapshot.
 ///
-/// Humans stay, including when they are controlling a bot (the counters
-/// already include that). A bot body is omitted when a human controls it.
-/// A bot nobody is controlling stays. Casters and spectators (any team other
-/// than T/CT) are omitted here; [`ScoreboardRoster`] carries a player who
-/// already played on a team.
-pub fn scoreboard_players(
-    controllers: &[ScoreboardController],
-    human_controlled_bots: &BTreeSet<u32>,
-) -> Vec<RoundScoreboardPlayer> {
-    let mut suppressed = human_controlled_bots.clone();
-    remember_human_controlled_bots(controllers, &mut suppressed);
+/// A bot body stays while it is on a team, including the rounds a human
+/// drives it. Hiding that body and carrying the previous counters freezes a
+/// bot that is still playing. Casters and spectators (any team other than
+/// T/CT) are omitted; [`ScoreboardRoster`] carries a player who already
+/// played on a team and is gone or off T/CT at this close.
+pub fn scoreboard_players(controllers: &[ScoreboardController]) -> Vec<RoundScoreboardPlayer> {
     let mut rows = Vec::new();
     for controller in controllers {
-        if !include_controller(controller, &suppressed) {
+        if !include_controller(controller) {
             continue;
         }
         rows.push(RoundScoreboardPlayer {
@@ -135,15 +108,13 @@ pub fn scoreboard_players(
     rows
 }
 
-fn include_controller(controller: &ScoreboardController, suppressed: &BTreeSet<u32>) -> bool {
+fn include_controller(controller: &ScoreboardController) -> bool {
     if controller.is_hltv || Side::from_team_num(controller.team_num).is_none() {
         return false;
     }
-    if controller.is_bot || controller.steam_id == 0 {
-        if !controller.is_bot || suppressed.contains(&controller.slot) {
-            return false;
-        }
-        return true;
+    // Steam 0 with no bot classification is an empty or broadcast slot.
+    if controller.steam_id == 0 && !controller.is_bot {
+        return false;
     }
     true
 }
@@ -292,36 +263,75 @@ mod tests {
     }
 
     #[test]
-    fn human_controlling_a_bot_keeps_the_human_row_only() {
+    fn bot_on_a_team_keeps_live_counters_while_a_human_controls_it() {
         let mut human = human(3, 76561198000000001, "alice");
         human.controlling_bot = true;
+        human.has_controlled_bot_this_round = true;
         human.original_controller_slot = Some(12);
         human.kills = 11;
-        let bot = bot(12, "BOT Bob");
-        let rows = scoreboard_players(&[human, bot], &BTreeSet::new());
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].steam_id, 76561198000000001);
-        assert_eq!(rows[0].slot, 3);
+        let mut operator = bot(12, "Operator");
+        operator.team_num = 3;
+        operator.kills = 6;
+        operator.deaths = 10;
+        operator.damage = 439;
+        operator.headshot_kills = 2;
+        let rows = scoreboard_players(&[human, operator]);
+        assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].name, "alice");
         assert_eq!(rows[0].kills, 11);
+        let bot_row = rows.iter().find(|row| row.name == "Operator").unwrap();
+        assert_eq!(bot_row.kills, 6);
+        assert_eq!(bot_row.deaths, 10);
+        assert_eq!(bot_row.damage, 439);
+        assert_eq!(bot_row.headshot_kills, 2);
     }
 
     #[test]
-    fn sticky_control_still_hides_the_bot_after_the_flag_clears() {
+    fn bot_row_freezes_only_after_it_leaves_the_team() {
         let human = human(3, 76561198000000001, "alice");
-        let bot = bot(12, "BOT Bob");
-        let mut sticky = BTreeSet::new();
-        sticky.insert(12);
-        let rows = scoreboard_players(&[human, bot], &sticky);
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].slot, 3);
+        let mut operator = bot(12, "Operator");
+        operator.team_num = 3;
+        operator.kills = 1;
+        operator.deaths = 3;
+        operator.damage = 165;
+        let mut roster = ScoreboardRoster::default();
+        let round15 = roster.observe(&scoreboard_players(&[human.clone(), operator.clone()]));
+        assert_eq!(
+            round15
+                .iter()
+                .find(|row| row.name == "Operator")
+                .unwrap()
+                .damage,
+            165
+        );
+
+        let mut driving = human.clone();
+        driving.controlling_bot = true;
+        driving.original_controller_slot = Some(12);
+        operator.kills = 6;
+        operator.deaths = 10;
+        operator.damage = 439;
+        operator.headshot_kills = 2;
+        let round24 = roster.observe(&scoreboard_players(&[driving, operator]));
+        let live = round24.iter().find(|row| row.name == "Operator").unwrap();
+        assert_eq!(live.kills, 6);
+        assert_eq!(live.deaths, 10);
+        assert_eq!(live.damage, 439);
+        assert_eq!(live.headshot_kills, 2);
+
+        let round25 = roster.observe(&scoreboard_players(&[human]));
+        let carried = round25.iter().find(|row| row.name == "Operator").unwrap();
+        assert_eq!(carried.kills, 6);
+        assert_eq!(carried.deaths, 10);
+        assert_eq!(carried.damage, 439);
+        assert_eq!(carried.headshot_kills, 2);
     }
 
     #[test]
     fn genuine_bot_with_no_human_is_its_own_row() {
         let human = human(3, 76561198000000001, "alice");
         let bot = bot(8, "BOT Hans");
-        let rows = scoreboard_players(&[bot, human], &BTreeSet::new());
+        let rows = scoreboard_players(&[bot, human]);
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].slot, 3);
         assert_eq!(rows[1].slot, 8);
@@ -350,7 +360,7 @@ mod tests {
         coach.headshot_kills = 0;
         coach.utility_damage = 0;
         coach.enemies_flashed = 0;
-        let rows = scoreboard_players(&[caster, coach, human(4, 99, "latto")], &BTreeSet::new());
+        let rows = scoreboard_players(&[caster, coach, human(4, 99, "latto")]);
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].name, "latto");
         assert_eq!(rows[0].steam_id, 99);
@@ -366,10 +376,7 @@ mod tests {
         bob.kills = 1;
         bob.damage = 20;
         let mut roster = ScoreboardRoster::default();
-        let round1 = roster.observe(&scoreboard_players(
-            &[alice.clone(), bob.clone()],
-            &BTreeSet::new(),
-        ));
+        let round1 = roster.observe(&scoreboard_players(&[alice.clone(), bob.clone()]));
         assert_eq!(round1.len(), 2);
 
         let mut alice_spec = alice.clone();
@@ -379,7 +386,7 @@ mod tests {
         alice_spec.damage = 0;
         bob.kills = 3;
         bob.damage = 40;
-        let round2 = roster.observe(&scoreboard_players(&[alice_spec, bob], &BTreeSet::new()));
+        let round2 = roster.observe(&scoreboard_players(&[alice_spec, bob]));
         assert_eq!(round2.len(), 2);
         let carried = round2.iter().find(|row| row.name == "alice").unwrap();
         assert_eq!(carried.kills, 4);
@@ -424,7 +431,7 @@ mod tests {
             utility_damage: 0,
             enemies_flashed: 0,
         };
-        let rows = scoreboard_players(&[hltv, empty, human(4, 99, "bob")], &BTreeSet::new());
+        let rows = scoreboard_players(&[hltv, empty, human(4, 99, "bob")]);
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].name, "bob");
     }

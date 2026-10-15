@@ -17,8 +17,8 @@ pub use constants::*;
 pub use error::ParseError;
 pub use radar::{calibration, MapCalibration, VerticalSection, MAPS};
 pub use scoreboard::{
-    controller_is_bot, controller_is_hltv, counted_scoreboard_round,
-    remember_human_controlled_bots, scoreboard_players, ScoreboardController,
+    controller_is_bot, controller_is_hltv, counted_scoreboard_round, scoreboard_players,
+    ScoreboardController,
 };
 pub use types::*;
 
@@ -102,8 +102,8 @@ pub fn reset_full_parse_passes() {
 
 /// Controllers at `ctx`, including action-tracking counters.
 ///
-/// Integration tests compare the last round's [`RoundScoreboard`] to this read
-/// at the final tick. Production capture uses the same function.
+/// Integration tests compare each round's [`RoundScoreboard`] to this read
+/// at that round's close. Production capture uses the same function.
 #[cfg(any(test, feature = "test-hooks"))]
 #[doc(hidden)]
 pub fn read_scoreboard_controllers(ctx: &Context) -> Vec<ScoreboardController> {
@@ -115,10 +115,9 @@ pub fn read_scoreboard_controllers(ctx: &Context) -> Vec<ScoreboardController> {
 #[doc(hidden)]
 pub fn note_scoreboard_presence(
     ctx: &Context,
-    controlled_bots: &mut std::collections::BTreeSet<u32>,
     bot_rows: &mut std::collections::BTreeSet<(u32, u64)>,
 ) {
-    observer::note_scoreboard_presence(ctx, controlled_bots, bot_rows);
+    observer::note_scoreboard_presence(ctx, bot_rows);
 }
 
 /// Parse a demo and return a read-only observer that ran after [`Collector`].

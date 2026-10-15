@@ -29,9 +29,9 @@ use std::time::Instant;
 
 use cs2analyzer::{
     counted_scoreboard_round, full_parse_passes, is_bot_steam_id, note_scoreboard_presence,
-    parse_demo_with_test_observer, read_scoreboard_controllers, remember_human_controlled_bots,
-    reset_full_parse_passes, scoreboard_players, BombKind, GrenadeKind, GrenadeThrow, Match,
-    ParseOptions, Round, RoundScoreboardPlayer, ScoreboardController, SMOKE_DURATION_SECONDS,
+    parse_demo_with_test_observer, read_scoreboard_controllers, reset_full_parse_passes,
+    scoreboard_players, BombKind, GrenadeKind, GrenadeThrow, Match, ParseOptions, Round,
+    RoundScoreboardPlayer, ScoreboardController, SMOKE_DURATION_SECONDS,
 };
 use source2_demo::prelude::*;
 
@@ -1047,7 +1047,6 @@ fn check_round_scoreboard(check: &mut AssertSink, name: &str, parsed: &Match, sm
         ));
     }
     let roster = parsed.players.len();
-    let live = scoreboard_players(&smoke.final_controllers, &smoke.controlled_bots);
     let mut seen: BTreeMap<(u64, u32), &RoundScoreboardPlayer> = BTreeMap::new();
     let mut row_counts = Vec::with_capacity(parsed.round_scoreboard.len());
     for round in &parsed.round_scoreboard {
@@ -1098,25 +1097,66 @@ fn check_round_scoreboard(check: &mut AssertSink, name: &str, parsed: &Match, sm
             ));
         }
     }
-    for player in &live {
-        let Some(row) = last
-            .players
+    let mut last_on_team: BTreeMap<(u64, u32), RoundScoreboardPlayer> = BTreeMap::new();
+    for round in &parsed.round_scoreboard {
+        let Some(index) = parsed
+            .rounds
             .iter()
-            .find(|row| scoreboard_row_key(row) == scoreboard_row_key(player))
+            .position(|candidate| candidate.number == round.round)
         else {
             check.fail(format!(
-                "{name} final tick on-team player {} steam={} missing from the last round",
-                player.name, player.steam_id
+                "{name} scoreboard round {} is not in rounds",
+                round.round
             ));
             continue;
         };
-        if scoreboard_counters_dropped(row, player) || scoreboard_counters_dropped(player, row) {
+        let parsed_round = &parsed.rounds[index];
+        let next_start = parsed
+            .rounds
+            .get(index + 1)
+            .map(|next| next.start_tick)
+            .unwrap_or(u32::MAX);
+        let Some(controllers) =
+            controllers_at_round_end(&smoke.scoreboard_closes, parsed_round, next_start)
+        else {
             check.fail(format!(
-                "{name} last round {} != final tick counters\n  snapshot: {}\n  final: {}",
-                player.name,
-                format_scoreboard_players(std::slice::from_ref(row)),
-                format_scoreboard_players(std::slice::from_ref(player))
+                "{name} round {} has no controller snapshot at close",
+                round.round
             ));
+            continue;
+        };
+        let live = scoreboard_players(controllers);
+        for player in &round.players {
+            let key = scoreboard_row_key(player);
+            if let Some(now) = live.iter().find(|row| scoreboard_row_key(row) == key) {
+                if !scoreboard_counters_match(player, now) {
+                    check.fail(format!(
+                        "{name} round {} {} is on T/CT but counters != controller\n  snapshot: {}\n  controller: {}",
+                        round.round,
+                        player.name,
+                        format_scoreboard_players(std::slice::from_ref(player)),
+                        format_scoreboard_players(std::slice::from_ref(now))
+                    ));
+                }
+            } else if let Some(previous) = last_on_team.get(&key) {
+                if !scoreboard_counters_match(player, previous) {
+                    check.fail(format!(
+                        "{name} round {} {} carried counters != last on-team close\n  snapshot: {}\n  last on team: {}",
+                        round.round,
+                        player.name,
+                        format_scoreboard_players(std::slice::from_ref(player)),
+                        format_scoreboard_players(std::slice::from_ref(previous))
+                    ));
+                }
+            } else {
+                check.fail(format!(
+                    "{name} round {} {} was never on T/CT at a round close",
+                    round.round, player.name
+                ));
+            }
+        }
+        for player in live {
+            last_on_team.insert(scoreboard_row_key(&player), player);
         }
     }
     let kills: i32 = last.players.iter().map(|player| player.kills).sum();
@@ -1169,6 +1209,35 @@ fn scoreboard_row_on_roster(parsed: &Match, player: &RoundScoreboardPlayer) -> b
         .players
         .iter()
         .any(|roster| !roster.is_bot && roster.steam_id == player.steam_id)
+}
+
+fn scoreboard_counters_match(left: &RoundScoreboardPlayer, right: &RoundScoreboardPlayer) -> bool {
+    left.kills == right.kills
+        && left.deaths == right.deaths
+        && left.assists == right.assists
+        && left.damage == right.damage
+        && left.headshot_kills == right.headshot_kills
+        && left.utility_damage == right.utility_damage
+        && left.enemies_flashed == right.enemies_flashed
+}
+
+fn controllers_at_round_end<'a>(
+    snaps: &'a [(u32, Vec<ScoreboardController>)],
+    round: &Round,
+    next_start: u32,
+) -> Option<&'a [ScoreboardController]> {
+    if let Some((_, rows)) = snaps
+        .iter()
+        .rev()
+        .find(|(tick, _)| *tick >= round.end_tick && *tick < next_start)
+    {
+        return Some(rows.as_slice());
+    }
+    snaps
+        .iter()
+        .rev()
+        .find(|(tick, _)| *tick >= round.start_tick && *tick <= round.end_tick)
+        .map(|(_, rows)| rows.as_slice())
 }
 
 fn scoreboard_counters_dropped(
@@ -1896,10 +1965,15 @@ struct SmokeEvents {
     lossy: Vec<LossyEventString>,
     /// `begin_new_match` ticks, including warmup. The last one matches the parser.
     begin_new_match: Vec<u32>,
-    /// Controllers on the final tick, action-tracking counters included.
-    final_controllers: Vec<ScoreboardController>,
-    /// Bot slots a human controlled at any tick.
-    controlled_bots: BTreeSet<u32>,
+    /// Controller reads at the ticks the parser closes a round, plus demo stop.
+    scoreboard_closes: Vec<(u32, Vec<ScoreboardController>)>,
+    /// Previous `m_iRoundWinStatus`, read on tick start like the parser.
+    prev_win_status: i32,
+    /// Tick of a `round_officially_ended` seen this parse. The close is read
+    /// on tick end so the entity state matches the parser.
+    official_end_tick: Option<u32>,
+    /// Tick whose win-status edge was seen on tick start. Closed on tick end.
+    synth_close_tick: Option<u32>,
     /// `(slot, steam id)` of controllers classified as bots at any tick.
     bot_rows: BTreeSet<(u32, u64)>,
 }
@@ -1922,6 +1996,19 @@ fn event_f32(ge: &GameEvent<'_>, key: &str) -> f32 {
         return number as f32;
     }
     0.0
+}
+
+fn gamerules_i32(ctx: &Context, name: &str) -> Option<i32> {
+    let proxy = ctx.entities().get_by_class_name("CCSGameRulesProxy").ok()?;
+    match proxy.get_property(name) {
+        Ok(FieldValue::Signed32(value)) => Some(*value),
+        Ok(FieldValue::Signed16(value)) => Some(i32::from(*value)),
+        Ok(FieldValue::Signed8(value)) => Some(i32::from(*value)),
+        Ok(FieldValue::Unsigned32(value)) => Some(*value as i32),
+        Ok(FieldValue::Unsigned16(value)) => Some(i32::from(*value)),
+        Ok(FieldValue::Unsigned8(value)) => Some(i32::from(*value)),
+        _ => None,
+    }
 }
 
 fn warmup_period(ctx: &Context) -> bool {
@@ -1963,6 +2050,9 @@ impl SmokeEvents {
         if warmup_period(ctx) {
             return Ok(());
         }
+        if ge.name() == "round_officially_ended" {
+            self.official_end_tick = Some(ctx.tick());
+        }
         match ge.name() {
             "smokegrenade_detonate" => self.detonates.push(SmokeDetonate {
                 entity: event_i32(ge, "entityid"),
@@ -1980,6 +2070,22 @@ impl SmokeEvents {
         Ok(())
     }
 
+    /// Same win-status edge as the parser: `on_tick_start` still sees the
+    /// previous tick's rules, and the scoreboard is read on tick end.
+    #[on_tick_start]
+    fn on_tick_start(&mut self, ctx: &Context) -> ObserverResult {
+        let tick = ctx.tick();
+        if tick == u32::MAX || warmup_period(ctx) {
+            return Ok(());
+        }
+        let win = gamerules_i32(ctx, "m_pGameRules.m_iRoundWinStatus").unwrap_or(0);
+        if win != 0 && self.prev_win_status == 0 {
+            self.synth_close_tick = Some(tick);
+        }
+        self.prev_win_status = win;
+        Ok(())
+    }
+
     /// Same edge as the parser: a change in `m_nRoundStartCount`, not the first
     /// time the prop is visible, and not a fired `round_start` (assets-v1 does
     /// not fire that event).
@@ -1989,7 +2095,12 @@ impl SmokeEvents {
         if tick == u32::MAX {
             return Ok(());
         }
-        note_scoreboard_presence(ctx, &mut self.controlled_bots, &mut self.bot_rows);
+        note_scoreboard_presence(ctx, &mut self.bot_rows);
+        if !warmup_period(ctx)
+            && (self.synth_close_tick == Some(tick) || self.official_end_tick == Some(tick))
+        {
+            self.push_scoreboard_close(ctx, tick);
+        }
         let Ok(proxy) = ctx.entities().get_by_class_name("CCSGameRulesProxy") else {
             return Ok(());
         };
@@ -2019,15 +2130,30 @@ impl SmokeEvents {
         if tick == u32::MAX {
             return Ok(());
         }
-        let controllers = read_scoreboard_controllers(ctx);
-        remember_human_controlled_bots(&controllers, &mut self.controlled_bots);
-        for controller in &controllers {
-            if controller.is_bot {
-                self.bot_rows.insert((controller.slot, controller.steam_id));
+        self.push_scoreboard_close(ctx, tick);
+        if let Some((_, controllers)) = self.scoreboard_closes.last() {
+            for controller in controllers {
+                if controller.is_bot {
+                    self.bot_rows.insert((controller.slot, controller.steam_id));
+                }
             }
         }
-        self.final_controllers = controllers;
         Ok(())
+    }
+
+    fn push_scoreboard_close(&mut self, ctx: &Context, tick: u32) {
+        if tick == u32::MAX {
+            return;
+        }
+        if self
+            .scoreboard_closes
+            .last()
+            .is_some_and(|(seen, _)| *seen == tick)
+        {
+            return;
+        }
+        self.scoreboard_closes
+            .push((tick, read_scoreboard_controllers(ctx)));
     }
 }
 

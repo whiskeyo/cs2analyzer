@@ -12,7 +12,7 @@ use crate::{
 };
 use source2_demo::prelude::*;
 use source2_demo::proto::CSvcMsgServerInfo;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 pub(crate) struct PlayerMeta {
     pub steam_id: u64,
@@ -133,8 +133,6 @@ pub(crate) struct Collector {
     pub begin_new_match_ticks: Vec<u32>,
     /// Action-tracking rows at round-end ticks (`synth` / official).
     pub scoreboard_snaps: Vec<(u32, Vec<crate::RoundScoreboardPlayer>)>,
-    /// Bot controller slots a human has controlled. Grows only.
-    human_controlled_bots: BTreeSet<u32>,
     pub last_cap: u32,
     pub total_ticks: u32,
     pub last_progress_tick: u32,
@@ -239,7 +237,6 @@ impl Collector {
             controller_freeze: Vec::new(),
             begin_new_match_ticks: Vec::new(),
             scoreboard_snaps: Vec::new(),
-            human_controlled_bots: BTreeSet::new(),
             last_cap: 0,
             total_ticks: 0,
             last_progress_tick: 0,
@@ -637,48 +634,20 @@ fn record_controllers(c: &mut Collector, ctx: &Context, tick: u32, at_freeze: bo
     }
 }
 
-/// Bot controller slot a human is driving, when the link is visible this tick.
+/// Steam-0 bodies on T/CT, without `m_matchStats`.
 ///
-/// `m_bIsHLTV` is not on the networked serializer. Looking it up walks every
-/// controller field and does not cache the miss, so this stays on the fields
-/// that exist (`m_steamID`, the bot-control flags, the pawn handle).
-#[cfg(feature = "test-hooks")]
-pub(crate) fn note_human_controlled_bot(ctx: &Context, ctrl: &Entity, slots: &mut BTreeSet<u32>) {
-    if prop_u64(ctrl, "m_steamID") == 0 {
-        return;
-    }
-    let controlling = prop_truthy(ctrl, "m_bControllingBot");
-    let controlled_this_round = prop_truthy(ctrl, "m_bHasControlledBotThisRound");
-    if !controlling && !controlled_this_round {
-        return;
-    }
-    let handle = prop_u32(ctrl, "m_hOriginalControllerOfCurrentPawn");
-    if !pawn_handle_live(handle) {
-        return;
-    }
-    let Ok(bot) = ctx.entities().get_by_handle(handle as usize) else {
-        return;
-    };
-    if bot.class().name() == "CCSPlayerController" {
-        slots.insert(bot.index());
-    }
-}
-
-/// Bot-control links and steam-0 bodies, without `m_matchStats`.
-///
-/// The real-demo observer calls this every tick. Action-tracking counters stay
-/// on [`read_scoreboard_controllers`], which runs at round close only.
+/// The real-demo observer calls this every tick to know which slots are bots.
+/// Action-tracking counters stay on [`read_scoreboard_controllers`], which
+/// runs at round close only.
 #[cfg(feature = "test-hooks")]
 pub(crate) fn note_scoreboard_presence(
     ctx: &Context,
-    controlled_bots: &mut BTreeSet<u32>,
-    bot_rows: &mut BTreeSet<(u32, u64)>,
+    bot_rows: &mut std::collections::BTreeSet<(u32, u64)>,
 ) {
     for ctrl in ctx.entities().iter() {
         if ctrl.class().name() != "CCSPlayerController" {
             continue;
         }
-        note_human_controlled_bot(ctx, ctrl, controlled_bots);
         let steam_id = prop_u64(ctrl, "m_steamID");
         if steam_id != 0 {
             continue;
@@ -786,8 +755,7 @@ fn capture_round_scoreboard(c: &mut Collector, ctx: &Context, tick: u32) {
         return;
     }
     let controllers = read_scoreboard_controllers(ctx);
-    crate::remember_human_controlled_bots(&controllers, &mut c.human_controlled_bots);
-    let players = crate::scoreboard_players(&controllers, &c.human_controlled_bots);
+    let players = crate::scoreboard_players(&controllers);
     c.scoreboard_snaps.push((tick, players));
 }
 
@@ -1159,9 +1127,6 @@ impl Collector {
         }
         if ge.name() == "begin_new_match" {
             self.begin_new_match_ticks.push(tick);
-            // A new match reuses controller slots. Bot links from the previous
-            // segment must not hide a later human.
-            self.human_controlled_bots.clear();
         }
         if self.opts.skip_warmup && in_warmup(ctx) {
             return Ok(());
