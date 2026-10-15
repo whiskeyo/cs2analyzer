@@ -5,7 +5,6 @@ import {
   nearestRoundIndex,
   percentAxis,
   plotRect,
-  roundMarkerSize,
   roundX,
   smoothLinePath,
   smoothLineSegments,
@@ -56,10 +55,6 @@ describe("timelineChart", () => {
     expect(economyBreakAfter(blocks(["T", 12], ["CT", 15], ["T", 6], ["CT", 6], ["T", 3]))).toEqual(
       [12, 24, 27, 30, 33, 36, 39],
     );
-  });
-
-  it("shrinks round markers once the axis gets crowded", () => {
-    expect(roundMarkerSize(24).radius).toBeGreaterThan(roundMarkerSize(36).radius);
   });
 
   it("draws a smooth line through the points without overshooting a peak", () => {

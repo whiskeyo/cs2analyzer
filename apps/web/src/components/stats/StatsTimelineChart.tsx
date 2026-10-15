@@ -1,18 +1,6 @@
 import { useId, useMemo } from "react";
-import { teamMarkColor } from "@/lib/players/playerColors";
 import type { TimelineColumn, TimelineStatId } from "@/lib/stats/timeline";
 import { formatTimelineValue, plottedValue, timelineStat } from "@/lib/stats/timeline";
-import {
-  WIN_REASON_BOMB,
-  WIN_REASON_CT_ELIM,
-  WIN_REASON_CT_SURRENDER,
-  WIN_REASON_DEFUSE,
-  WIN_REASON_DRAW,
-  WIN_REASON_T_ELIM,
-  WIN_REASON_T_SURRENDER,
-  WIN_REASON_TIME,
-} from "@/lib/shared/constants";
-import { winReasonLabel } from "@/lib/weapons/weapons";
 import {
   TIMELINE_LAYOUT,
   areaPath,
@@ -21,7 +9,6 @@ import {
   nearestRoundIndex,
   percentAxis,
   plotRect,
-  roundMarkerSize,
   roundX,
   smoothLinePath,
   valueToY,
@@ -38,45 +25,8 @@ interface Props {
   onHover: (index: number | null) => void;
 }
 
-/** Unresolved and drawn rounds stay neutral so a team hue always means a win. */
-const MUTED_ROUND = "#3a4553";
-const WIN_ICON = 16;
-
 function markColor(colors: readonly string[], player: number): string {
   return colors[player] ?? "#d0d6dc";
-}
-
-function roundFill(column: TimelineColumn): string {
-  if (column.winner == null || column.winReason === WIN_REASON_DRAW || column.winRoster == null) {
-    return MUTED_ROUND;
-  }
-  return teamMarkColor(column.winRoster);
-}
-
-function roundLabel(column: TimelineColumn): string {
-  if (column.winner == null) return `Round ${column.number}`;
-  return `Round ${column.number}, ${winReasonLabel(column.winReason)}`;
-}
-
-type WinIconKind = "bomb" | "defuse" | "elim" | "time" | "flag";
-
-function winIconKind(reason: number): WinIconKind | null {
-  switch (reason) {
-    case WIN_REASON_BOMB:
-      return "bomb";
-    case WIN_REASON_DEFUSE:
-      return "defuse";
-    case WIN_REASON_CT_ELIM:
-    case WIN_REASON_T_ELIM:
-      return "elim";
-    case WIN_REASON_TIME:
-      return "time";
-    case WIN_REASON_T_SURRENDER:
-    case WIN_REASON_CT_SURRENDER:
-      return "flag";
-    default:
-      return null;
-  }
 }
 
 interface LineSeries {
@@ -110,7 +60,6 @@ export function StatsTimelineChart({
     return stat === "hs" || stat === "kast" ? percentAxis(peak) : axisScale(peak);
   }, [columns, stat]);
   const baseline = plot.y + plot.height;
-  const marker = roundMarkerSize(columns.length);
   const breakAfter = new Set(
     economyBreakAfter(
       columns.map((column) => ({
@@ -220,39 +169,20 @@ export function StatsTimelineChart({
         ) : null}
         {columns.map((column, index) => {
           const x = roundX(index, columns.length, plot);
-          const y = baseline + 26;
-          const icon =
-            column.winner == null || column.winReason === WIN_REASON_DRAW
-              ? null
-              : winIconKind(column.winReason);
           return (
-            <g
+            <text
               key={`round-${index}`}
+              className="stats-timeline-round-label"
               role="img"
-              aria-label={roundLabel(column)}
+              aria-label={`Round ${column.number}`}
+              x={x}
+              y={baseline + 16}
+              textAnchor="middle"
+              fontSize={10}
               onPointerEnter={() => onHover(index)}
             >
-              {icon ? (
-                <WinIcon kind={icon} x={x - WIN_ICON / 2} y={y - marker.radius - WIN_ICON - 2} />
-              ) : null}
-              <circle
-                className="stats-timeline-round"
-                cx={x}
-                cy={y}
-                r={marker.radius}
-                fill={roundFill(column)}
-              />
-              <text
-                className="stats-timeline-round-num"
-                x={x}
-                y={y}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize={marker.font}
-              >
-                {column.number}
-              </text>
-            </g>
+              R{column.number}
+            </text>
           );
         })}
         {lines.map((line) => (
@@ -288,45 +218,6 @@ function ChartDefs({
         </linearGradient>
       ) : null}
     </defs>
-  );
-}
-
-function WinIcon({ kind, x, y }: { kind: WinIconKind; x: number; y: number }) {
-  return (
-    <g className="stats-timeline-win-icon" transform={`translate(${x} ${y})`}>
-      {kind === "bomb" ? (
-        <>
-          <circle cx="7" cy="10" r="4.1" />
-          <path d="M9.6 7 L13.2 3" />
-          <circle className="stats-timeline-win-dot" cx="13.6" cy="2.5" r="1.15" />
-        </>
-      ) : null}
-      {kind === "defuse" ? (
-        <>
-          <rect x="2.4" y="5" width="11.2" height="8" rx="1.3" />
-          <path d="M5 5 V2.4 M11 5 V2.4 M4.4 9 H11.6" />
-        </>
-      ) : null}
-      {kind === "elim" ? (
-        <g className="stats-timeline-win-fill">
-          <path d="M8 1.1a4.7 4.7 0 0 0-4.7 4.7c0 1.7.7 2.7 1.4 3.5V12h1.6V10.6h1.2V12h1v-1.4h1.2V12h1.6V9.3c.7-.8 1.4-1.8 1.4-3.5A4.7 4.7 0 0 0 8 1.1z" />
-          <circle cx="6.2" cy="6.1" r="1.15" fill="#0b0e12" />
-          <circle cx="9.8" cy="6.1" r="1.15" fill="#0b0e12" />
-        </g>
-      ) : null}
-      {kind === "time" ? (
-        <>
-          <circle cx="8" cy="8" r="5.4" />
-          <path d="M8 8 V4.2 M8 8 L10.8 9.7" />
-        </>
-      ) : null}
-      {kind === "flag" ? (
-        <>
-          <path d="M4.2 14.4 V1.6" />
-          <path d="M4.2 2.2 H12.2 L9.8 5.1 L12.2 8 H4.2" />
-        </>
-      ) : null}
-    </g>
   );
 }
 

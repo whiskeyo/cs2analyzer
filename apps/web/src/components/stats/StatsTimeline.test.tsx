@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { COOL_TEAM, playerMarkColors } from "@/lib/players/playerColors";
+import { playerMarkColors } from "@/lib/players/playerColors";
 import { makeKill, makePlayer, makeReplay, makeRound, makeHurt } from "@/lib/testing/fixtures";
 import { StatsTimeline } from "./StatsTimeline";
 
@@ -58,12 +58,12 @@ describe("StatsTimeline", () => {
     expect(screen.getByRole("group", { name: "ADR cumulative" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "K/D" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Per round" })).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Round 1, CT elim" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /^Round 3/ })).toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: /^Round 0/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: /^Round 2/ })).not.toBeInTheDocument();
-    expect(document.querySelector(".stats-timeline-round")).toHaveAttribute("fill", COOL_TEAM);
-    expect(document.querySelector(".stats-timeline-win-icon")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Round 1" })).toHaveTextContent("R1");
+    expect(screen.getByRole("img", { name: "Round 3" })).toHaveTextContent("R3");
+    expect(screen.queryByRole("img", { name: "Round 0" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "Round 2" })).not.toBeInTheDocument();
+    expect(document.querySelector(".stats-timeline-round")).toBeNull();
+    expect(document.querySelector(".stats-timeline-win-icon")).toBeNull();
     expect(screen.queryByRole("button", { name: "Alice" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Highlight Alice" })).toBeInTheDocument();
   });

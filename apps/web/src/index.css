@@ -5137,7 +5137,7 @@ button.link:hover:not(:disabled) {
   height: auto;
 }
 .stats-timeline-axis,
-.stats-timeline-round-num {
+.stats-timeline-round-label {
   font-family: inherit;
 }
 .stats-timeline-grid {
@@ -5177,32 +5177,10 @@ button.link:hover:not(:disabled) {
   stroke-width: 14;
   cursor: pointer;
 }
-.stats-timeline-round {
-  pointer-events: none;
-}
-.stats-timeline-win-icon {
-  fill: none;
-  stroke: #e8eef4;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  pointer-events: none;
-}
-.stats-timeline-win-fill {
-  fill: #e8eef4;
-  stroke: none;
-}
-.stats-timeline-win-dot {
-  fill: #e8eef4;
-  stroke: none;
-}
-.stats-timeline-round-num {
-  fill: #fff;
-  stroke: #12161c;
-  stroke-width: 2px;
-  paint-order: stroke;
-  font-weight: 650;
-  pointer-events: none;
+.stats-timeline-round-label {
+  fill: var(--text-muted);
+  font-size: 10px;
+  pointer-events: auto;
 }
 .stats-timeline-card {
   position: absolute;

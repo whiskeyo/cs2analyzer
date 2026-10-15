@@ -12,7 +12,7 @@ export const TIMELINE_LAYOUT = {
   padLeft: 46,
   padRight: 28,
   padTop: 22,
-  padBottom: 52,
+  padBottom: 28,
 } as const;
 
 export type TimelineLayout = typeof TIMELINE_LAYOUT;
@@ -136,12 +136,6 @@ export function economyBreakAfter(rounds: readonly TimelineRoundSide[]): number[
     }
   }
   return lines;
-}
-
-export function roundMarkerSize(count: number): { radius: number; font: number } {
-  if (count > 30) return { radius: 8, font: 8 };
-  if (count > 24) return { radius: 9, font: 9 };
-  return { radius: 11, font: 10 };
 }
 
 /** Fritsch–Carlson monotone cubic. The curve stays between each segment's endpoints. */
