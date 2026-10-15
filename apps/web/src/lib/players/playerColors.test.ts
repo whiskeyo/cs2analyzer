@@ -22,6 +22,23 @@ function hue(hex: string): number {
   return (turn * 60 + 360) % 360;
 }
 
+/** Page background. Marks have to stay readable on it. */
+const PAGE_BACKGROUND = "#0b0e12";
+
+function luminance(hex: string): number {
+  const linear = channels(hex).map((channel) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
+}
+
+function contrast(hex: string): number {
+  const mark = luminance(hex);
+  const background = luminance(PAGE_BACKGROUND);
+  return (Math.max(mark, background) + 0.05) / (Math.min(mark, background) + 0.05);
+}
+
 function distance(a: string, b: string): number {
   const [ar, ag, ab] = channels(a);
   const [br, bg, bb] = channels(b);
@@ -61,6 +78,13 @@ describe("playerMarkColors", () => {
       expect(tHue < 70 || tHue > 320).toBe(true);
       expect(ctHue).toBeGreaterThan(150);
       expect(ctHue).toBeLessThan(280);
+    }
+  });
+
+  it("stays bright enough to read on the page background", () => {
+    const colors = playerMarkColors(roster(8));
+    for (const color of colors) {
+      expect(contrast(color), color).toBeGreaterThan(4);
     }
   });
 

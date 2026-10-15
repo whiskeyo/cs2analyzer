@@ -7,23 +7,23 @@ import type { Side } from "@/lib/replay/replayTypes";
 const WARM_MARKS = [
   "#e23d32",
   "#ff9a00",
-  "#7a5a00",
+  "#f8a058",
   "#ff4f9a",
   "#c6e000",
   "#fff1a8",
-  "#5c1010",
-  "#9a2458",
+  "#f8f848",
+  "#ff9ed0",
 ] as const;
 
 const COOL_MARKS = [
-  "#1450d4",
+  "#58b0f8",
   "#14b4c4",
   "#6d5cff",
   "#d6f4ff",
-  "#0e3a66",
+  "#00f8f8",
   "#b388ff",
   "#0a8f6a",
-  "#5a2d82",
+  "#48f8c8",
 ] as const;
 
 /** One hue for the whole starting side, used for round-win marks. */
