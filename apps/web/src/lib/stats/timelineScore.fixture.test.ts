@@ -1,5 +1,5 @@
 /**
- * Last-round timeline totals against the Score panel on the two QA demos.
+ * Timeline totals against Score and the HUD at the max seekable tick.
  * Opt-in: the files are hundreds of megabytes and are not in git.
  *
  *     CS2_MIRAGE_DEMO=/path/mirage.dem CS2_INFERNO_DEMO=/path/inferno.dem \
@@ -27,8 +27,10 @@ import type {
   Round,
   Shot,
 } from "@/lib/replay/replayTypes";
+import { roundPlaybackFallback } from "@/lib/playback/roundAutoplay";
+import { roundScrubRange } from "@/lib/playback/roundTimeline";
 import { computeStats } from "./computeStats";
-import { matchEndTick } from "./scorecard";
+import { liveScore } from "./liveScore";
 import { statsTimeline } from "./timeline";
 
 const REPO = resolve(__dirname, "../../../../..");
@@ -98,11 +100,30 @@ function loadReplay(path: string): Replay {
   return replay;
 }
 
-function expectScoreMatch(path: string): void {
+/** Furthest tick the round slider can seek to on the last round. */
+function maxSeekTick(replay: Replay): number {
+  const last = replay.rounds.reduce((best, round) =>
+    round.start_tick >= best.start_tick ? round : best,
+  );
+  return roundScrubRange(last, replay.rounds, roundPlaybackFallback(replay)).max;
+}
+
+function expectScoreMatch(path: string, hud: { t: number; ct: number }): void {
   const replay = loadReplay(path);
   const columns = statsTimeline(replay);
   const last = columns[columns.length - 1];
-  const score = computeStats(replay, matchEndTick(replay));
+  const lastRound = replay.rounds.reduce((best, round) =>
+    round.start_tick >= best.start_tick ? round : best,
+  );
+  const seek = maxSeekTick(replay);
+  expect(seek).toBeGreaterThan(lastRound.start_tick);
+  expect(seek).toBeGreaterThanOrEqual(lastRound.end_tick);
+  const atStart = liveScore(replay, lastRound.start_tick);
+  const atSeek = liveScore(replay, seek);
+  expect(atStart).not.toEqual(atSeek);
+  expect(atSeek).toEqual({ ct: hud.ct, t: hud.t });
+  expect(`${atSeek.t}-${atSeek.ct}`).toBe(`${hud.t}-${hud.ct}`);
+  const score = computeStats(replay, seek);
   expect(last).toBeDefined();
   const names = last?.rows.map((row) => row.name) ?? [];
   expect(names.some((name) => name.includes("(BOT)"))).toBe(false);
@@ -122,11 +143,11 @@ function expectScoreMatch(path: string): void {
 }
 
 describe.skipIf(!mirage || !inferno)("timeline matches Score on the QA demos", () => {
-  it("matches every Mirage player at the last round", () => {
-    expectScoreMatch(mirage!);
+  it("matches every Mirage player at the max seek tick", () => {
+    expectScoreMatch(mirage!, { t: 22, ct: 20 });
   }, 180000);
 
-  it("matches every Inferno player at the last round", () => {
-    expectScoreMatch(inferno!);
+  it("matches every Inferno player at the max seek tick", () => {
+    expectScoreMatch(inferno!, { t: 13, ct: 3 });
   }, 180000);
 });
