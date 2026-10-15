@@ -24,6 +24,7 @@ export const parsedmatch_playerCount: (a: number) => number;
 export const parsedmatch_playersJson: (a: number, b: number) => void;
 export const parsedmatch_primary: (a: number) => number;
 export const parsedmatch_reserve: (a: number) => number;
+export const parsedmatch_roundScoreboardJson: (a: number, b: number) => void;
 export const parsedmatch_roundsJson: (a: number, b: number) => void;
 export const parsedmatch_secondary: (a: number) => number;
 export const parsedmatch_shotsJson: (a: number, b: number) => void;

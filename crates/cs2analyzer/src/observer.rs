@@ -12,7 +12,7 @@ use crate::{
 };
 use source2_demo::prelude::*;
 use source2_demo::proto::CSvcMsgServerInfo;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 pub(crate) struct PlayerMeta {
     pub steam_id: u64,
@@ -129,6 +129,12 @@ pub(crate) struct Collector {
     pub controller_last: HashMap<u32, crate::ControllerDump>,
     /// Freeze-end fill candidates. One walk per `round_freeze_end`, not per tick.
     pub controller_freeze: Vec<crate::ControllerDump>,
+    /// Every `begin_new_match` tick. The last one starts counted scoreboard rounds.
+    pub begin_new_match_ticks: Vec<u32>,
+    /// Action-tracking rows at round-end ticks (`synth` / official).
+    pub scoreboard_snaps: Vec<(u32, Vec<crate::RoundScoreboardPlayer>)>,
+    /// Bot controller slots a human has controlled. Grows only.
+    human_controlled_bots: BTreeSet<u32>,
     pub last_cap: u32,
     pub total_ticks: u32,
     pub last_progress_tick: u32,
@@ -231,6 +237,9 @@ impl Collector {
             pawn_to_steam: HashMap::new(),
             controller_last: HashMap::new(),
             controller_freeze: Vec::new(),
+            begin_new_match_ticks: Vec::new(),
+            scoreboard_snaps: Vec::new(),
+            human_controlled_bots: BTreeSet::new(),
             last_cap: 0,
             total_ticks: 0,
             last_progress_tick: 0,
@@ -628,6 +637,92 @@ fn record_controllers(c: &mut Collector, ctx: &Context, tick: u32, at_freeze: bo
     }
 }
 
+/// Bot controller slot a human is driving, when the link is visible this tick.
+pub(crate) fn note_human_controlled_bot(ctx: &Context, ctrl: &Entity, slots: &mut BTreeSet<u32>) {
+    if prop_u64(ctrl, "m_steamID") == 0 || prop_truthy(ctrl, "m_bIsHLTV") {
+        return;
+    }
+    let controlling = prop_truthy(ctrl, "m_bControllingBot");
+    let controlled_this_round = prop_truthy(ctrl, "m_bHasControlledBotThisRound");
+    if !controlling && !controlled_this_round {
+        return;
+    }
+    let handle = prop_u32(ctrl, "m_hOriginalControllerOfCurrentPawn");
+    if !pawn_handle_live(handle) {
+        return;
+    }
+    let Ok(bot) = ctx.entities().get_by_handle(handle as usize) else {
+        return;
+    };
+    if bot.class().name() == "CCSPlayerController" {
+        slots.insert(bot.index());
+    }
+}
+
+/// Every player controller, with cumulative match stats.
+///
+/// Not used on the per-tick sample path. Round end and the final-tick test
+/// each call it once per snapshot.
+pub(crate) fn read_scoreboard_controllers(ctx: &Context) -> Vec<crate::ScoreboardController> {
+    let mut controllers = Vec::new();
+    for ctrl in ctx.entities().iter() {
+        if ctrl.class().name() != "CCSPlayerController" {
+            continue;
+        }
+        let steam_id = prop_u64(ctrl, "m_steamID");
+        let name = controller_name(ctrl);
+        let team_num = prop_i32(ctrl, "m_iTeamNum");
+        let bot_flag = prop_truthy(ctrl, "m_bIsBot");
+        let is_bot = crate::controller_is_bot(steam_id, bot_flag, team_num, &name);
+        let is_hltv = crate::controller_is_hltv(prop_truthy(ctrl, "m_bIsHLTV"), &name);
+        let handle = prop_u32(ctrl, "m_hOriginalControllerOfCurrentPawn");
+        let original_controller_slot = if pawn_handle_live(handle) {
+            ctx.entities()
+                .get_by_handle(handle as usize)
+                .ok()
+                .filter(|bot| bot.class().name() == "CCSPlayerController")
+                .map(|bot| bot.index())
+        } else {
+            None
+        };
+        controllers.push(crate::ScoreboardController {
+            slot: ctrl.index(),
+            steam_id,
+            name,
+            is_bot,
+            is_hltv,
+            team_num,
+            controlling_bot: prop_truthy(ctrl, "m_bControllingBot"),
+            has_controlled_bot_this_round: prop_truthy(ctrl, "m_bHasControlledBotThisRound"),
+            original_controller_slot,
+            kills: prop_i32(ctrl, crate::scoreboard::MATCH_KILLS),
+            deaths: prop_i32(ctrl, crate::scoreboard::MATCH_DEATHS),
+            assists: prop_i32(ctrl, crate::scoreboard::MATCH_ASSISTS),
+            damage: prop_i32(ctrl, crate::scoreboard::MATCH_DAMAGE),
+            headshot_kills: prop_i32(ctrl, crate::scoreboard::MATCH_HEADSHOT_KILLS),
+            utility_damage: prop_i32(ctrl, crate::scoreboard::MATCH_UTILITY_DAMAGE),
+            enemies_flashed: prop_i32(ctrl, crate::scoreboard::MATCH_ENEMIES_FLASHED),
+        });
+    }
+    controllers
+}
+
+fn capture_round_scoreboard(c: &mut Collector, ctx: &Context, tick: u32) {
+    if tick == u32::MAX {
+        return;
+    }
+    if c.scoreboard_snaps
+        .last()
+        .is_some_and(|(seen, _)| *seen == tick)
+    {
+        return;
+    }
+    let controllers = read_scoreboard_controllers(ctx);
+    crate::remember_human_controlled_bots(&controllers, &mut c.human_controlled_bots);
+    let players = crate::scoreboard_players(&controllers, &c.human_controlled_bots);
+    c.scoreboard_snaps.push((tick, players));
+}
+
 /// Playable identity for a controller that is still in the match this tick.
 ///
 /// Leftover CCSPlayerController entities keep `m_steamID` after a leave, so
@@ -804,6 +899,7 @@ impl Collector {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
             }
+            note_human_controlled_bot(ctx, ctrl, &mut self.human_controlled_bots);
             let Some(steam) = bind_controller_userid(self, ctx, ctrl) else {
                 continue;
             };
@@ -961,6 +1057,30 @@ impl Collector {
         if let Some(count) = round_start_count(ctx) {
             self.note_round_start_count(ctx.tick(), count);
         }
+        let tick = ctx.tick();
+        let round_ended = self
+            .synth_ends
+            .last()
+            .is_some_and(|(ended, _, _)| *ended == tick)
+            || self
+                .official_ends
+                .last()
+                .is_some_and(|(ended, _, _)| *ended == tick);
+        if round_ended {
+            capture_round_scoreboard(self, ctx, tick);
+        }
+        Ok(())
+    }
+
+    /// Last entity state in the file. Post-round frags still move match stats
+    /// after `m_iRoundWinStatus`, so the last counted round is closed here.
+    #[on_stop]
+    fn on_stop(&mut self, ctx: &Context) -> ObserverResult {
+        let tick = ctx.tick();
+        if tick == u32::MAX {
+            return Ok(());
+        }
+        capture_round_scoreboard(self, ctx, tick);
         Ok(())
     }
 
@@ -969,6 +1089,9 @@ impl Collector {
         let tick = ctx.tick();
         if ge.name() == "round_start" {
             self.push_round_open(tick);
+        }
+        if ge.name() == "begin_new_match" {
+            self.begin_new_match_ticks.push(tick);
         }
         if self.opts.skip_warmup && in_warmup(ctx) {
             return Ok(());

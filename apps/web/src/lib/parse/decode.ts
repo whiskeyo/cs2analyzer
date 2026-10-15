@@ -160,6 +160,24 @@ const CONTROLLER_DUMP: Shape = {
   at_freeze: flag,
 };
 
+const ROUND_SCOREBOARD: Shape = {
+  round: number,
+  players: list,
+};
+
+const ROUND_SCOREBOARD_PLAYER: Shape = {
+  steam_id: number,
+  slot: number,
+  name: text,
+  kills: number,
+  deaths: number,
+  assists: number,
+  damage: number,
+  headshot_kills: number,
+  utility_damage: number,
+  enemies_flashed: number,
+};
+
 export const PAYLOAD_SHAPES = {
   header: HEADER,
   players: PLAYER,
@@ -172,6 +190,7 @@ export const PAYLOAD_SHAPES = {
   bombEvents: BOMB_EVENT,
   buyEvents: BUY_EVENT,
   controllerDump: CONTROLLER_DUMP,
+  roundScoreboard: ROUND_SCOREBOARD,
 } as const;
 
 export type PayloadName = keyof typeof PAYLOAD_SHAPES;
@@ -196,6 +215,21 @@ function checkShape(where: string, value: unknown, shape: Shape): void {
           `expected ${check.expected}. The Rust field was probably renamed.`,
       );
     }
+  }
+}
+
+function checkRoundScoreboard(value: unknown, index: number): void {
+  checkShape(`roundScoreboard[${index}]`, value, ROUND_SCOREBOARD);
+  const players = (value as { players?: unknown }).players;
+  if (!Array.isArray(players)) {
+    return;
+  }
+  for (let playerIndex = 0; playerIndex < players.length; playerIndex += 1) {
+    checkShape(
+      `roundScoreboard[${index}].players[${playerIndex}]`,
+      players[playerIndex],
+      ROUND_SCOREBOARD_PLAYER,
+    );
   }
 }
 
@@ -241,6 +275,12 @@ export function decodeList<T>(name: PayloadName, json: string): T[] {
     for (const item of value) {
       fillMissingRoundTime(item);
     }
+  }
+  if (name === "roundScoreboard") {
+    for (let index = 0; index < value.length; index += 1) {
+      checkRoundScoreboard(value[index], index);
+    }
+    return value as T[];
   }
   const shape = PAYLOAD_SHAPES[name];
   for (const index of listSampleIndexes(value.length)) {

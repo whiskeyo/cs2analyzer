@@ -147,6 +147,7 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     let mut controller_dump: Vec<ControllerDump> = c.controller_last.values().cloned().collect();
     controller_dump.sort_by_key(|row| row.slot);
     controller_dump.extend(c.controller_freeze.iter().cloned());
+    let round_scoreboard = build_round_scoreboard(c, &rounds);
     let mut m = Match {
         header,
         players,
@@ -161,6 +162,7 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         buy_events,
         stats: Vec::new(),
         controller_dump,
+        round_scoreboard,
     };
     #[cfg(feature = "match-stats")]
     {
@@ -264,6 +266,30 @@ fn apply_match_start_sides(players: &mut [Player], ticks: &TickBuffer, rounds: &
             }
         }
     }
+}
+
+fn build_round_scoreboard(c: &Collector, rounds: &[Round]) -> Vec<RoundScoreboard> {
+    let begin = c.begin_new_match_ticks.last().copied();
+    let mut scoreboard = Vec::new();
+    for (index, round) in rounds.iter().enumerate() {
+        if !crate::counted_scoreboard_round(round, begin) {
+            continue;
+        }
+        let next_start = rounds
+            .get(index + 1)
+            .map(|next| next.start_tick)
+            .unwrap_or(u32::MAX);
+        scoreboard.push(RoundScoreboard {
+            round: round.number,
+            players: crate::scoreboard::players_at_round_end(
+                &c.scoreboard_snaps,
+                round,
+                next_start,
+            )
+            .to_vec(),
+        });
+    }
+    scoreboard
 }
 
 fn build_rounds(c: &Collector) -> Vec<Round> {
@@ -2463,6 +2489,18 @@ mod tests {
             false,
             bot_steam_id(7)
         )));
+    }
+
+    #[test]
+    fn round_scoreboard_field_is_optional_in_json() {
+        let mut collector = Collector::new(ParseOptions::default());
+        let parsed = assemble(&mut collector, 64, 1.0);
+        let mut value = serde_json::to_value(&parsed).expect("match json");
+        let object = value.as_object_mut().expect("object");
+        assert!(object.contains_key("round_scoreboard"));
+        object.remove("round_scoreboard");
+        let loaded: crate::Match = serde_json::from_value(value).expect("old json");
+        assert!(loaded.round_scoreboard.is_empty());
     }
 
     #[test]

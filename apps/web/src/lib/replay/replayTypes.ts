@@ -42,6 +42,29 @@ export interface Player {
   is_bot: boolean;
 }
 
+/**
+ * Cumulative `m_pActionTrackingServices.m_matchStats` for one controller at round end.
+ * `steam_id` is raw `m_steamID` (0 for a genuine bot). `slot` is the controller index.
+ */
+export interface RoundScoreboardPlayer {
+  steam_id: number;
+  slot: number;
+  name: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  damage: number;
+  headshot_kills: number;
+  utility_damage: number;
+  enemies_flashed: number;
+}
+
+/** One counted round. `round` matches `Round.number`. Knife rounds are omitted. */
+export interface RoundScoreboard {
+  round: number;
+  players: RoundScoreboardPlayer[];
+}
+
 /** Per-controller parse diagnostic from WASM. Not used by radar/stats. */
 export interface ControllerDump {
   tick: number;
@@ -296,6 +319,11 @@ export interface Replay {
   ticks: TickBuffers;
   /** Last controller slot + freeze-end fill candidates. */
   controllerDump?: ControllerDump[];
+  /**
+   * Round-end action-tracking scoreboard. Optional so a replay cached before
+   * this field existed still loads.
+   */
+  roundScoreboard?: RoundScoreboard[];
 }
 
 export interface FloorSection {

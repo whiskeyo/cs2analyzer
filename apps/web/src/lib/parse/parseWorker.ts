@@ -15,6 +15,7 @@ import type {
   Player,
   Replay,
   Round,
+  RoundScoreboard,
   Shot,
   WorkerOut,
 } from "@/lib/replay/replayTypes";
@@ -93,6 +94,10 @@ self.onmessage = async (ev: MessageEvent<ParseWorkerIn>) => {
       "controllerDump",
       parsed.controllerDumpJson(),
     );
+    const roundScoreboard = decodeList<RoundScoreboard>(
+      "roundScoreboard",
+      parsed.roundScoreboardJson(),
+    );
     const jsonMs = performance.now() - tJson;
 
     const tBuffers = performance.now();
@@ -108,6 +113,7 @@ self.onmessage = async (ev: MessageEvent<ParseWorkerIn>) => {
       bombEvents,
       buyEvents,
       controllerDump,
+      roundScoreboard,
       ticks: {
         frameCount: parsed.frameCount(),
         playerCount: parsed.playerCount(),

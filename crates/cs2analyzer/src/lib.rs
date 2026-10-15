@@ -8,6 +8,7 @@ mod inventory;
 mod observer;
 mod props;
 mod radar;
+mod scoreboard;
 mod types;
 
 #[cfg(feature = "match-stats")]
@@ -15,6 +16,10 @@ pub use analysis::{compute_stats, compute_stats_until};
 pub use constants::*;
 pub use error::ParseError;
 pub use radar::{calibration, MapCalibration, VerticalSection, MAPS};
+pub use scoreboard::{
+    controller_is_bot, controller_is_hltv, counted_scoreboard_round,
+    remember_human_controlled_bots, scoreboard_players, ScoreboardController,
+};
 pub use types::*;
 
 use observer::Collector;
@@ -93,6 +98,16 @@ pub fn full_parse_passes() -> u64 {
 #[doc(hidden)]
 pub fn reset_full_parse_passes() {
     FULL_PARSE_PASSES.store(0, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Controllers at `ctx`, including action-tracking counters.
+///
+/// Integration tests compare the last round's [`RoundScoreboard`] to this read
+/// at the final tick. Production capture uses the same function.
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn read_scoreboard_controllers(ctx: &Context) -> Vec<ScoreboardController> {
+    observer::read_scoreboard_controllers(ctx)
 }
 
 /// Parse a demo and return a read-only observer that ran after [`Collector`].
