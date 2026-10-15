@@ -84,6 +84,7 @@ describe("StatsTimeline", () => {
       "stroke",
       playerMarkColors(chartReplay().players)[0],
     );
+    expect(document.querySelector(".stats-timeline-line")).toHaveAttribute("stroke-width", "1.1");
     expect(document.querySelector(".stats-timeline-area")).toBeNull();
     expect(document.querySelector(".stats-timeline-plot rect")).toBeNull();
     expect(document.querySelectorAll(".stats-timeline-line.is-dim").length).toBeGreaterThan(0);

@@ -209,7 +209,7 @@ function LineShape({
         className={`stats-timeline-line${on ? " is-on" : ""}${dim ? " is-dim" : ""}`}
         cx={point.x}
         cy={point.y}
-        r={3.2}
+        r={1.6}
         fill={color}
       />
     );
@@ -219,7 +219,7 @@ function LineShape({
       className={`stats-timeline-line${on ? " is-on" : ""}${dim ? " is-dim" : ""}`}
       d={line.path}
       stroke={color}
-      strokeWidth={2.2}
+      strokeWidth={1.1}
     />
   );
 }
