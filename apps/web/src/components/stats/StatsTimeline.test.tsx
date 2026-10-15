@@ -84,7 +84,26 @@ describe("StatsTimeline", () => {
       "stroke",
       playerMarkColors(chartReplay().players)[0],
     );
-    expect(document.querySelector(".stats-timeline-line")).toHaveAttribute("stroke-width", "1.1");
+    expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
+      "stroke-width",
+      "1",
+    );
+    expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
+      "vector-effect",
+      "non-scaling-stroke",
+    );
+    expect(document.querySelector(".stats-timeline-line.is-dim")).toHaveAttribute(
+      "stroke-width",
+      "0.6",
+    );
+    expect(
+      [...document.querySelectorAll("feGaussianBlur")].map((blur) =>
+        blur.getAttribute("stdDeviation"),
+      ),
+    ).toEqual(["0.4", "1"]);
+    expect(
+      [...document.querySelectorAll("feFuncA")].map((channel) => channel.getAttribute("slope")),
+    ).toEqual(["0.35", "0.45"]);
     expect(document.querySelector(".stats-timeline-area")).toBeNull();
     expect(document.querySelector(".stats-timeline-plot rect")).toBeNull();
     expect(document.querySelectorAll(".stats-timeline-line.is-dim").length).toBeGreaterThan(0);
