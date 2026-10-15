@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { ECONOMY_BUY_LABEL } from "@/lib/match/economy";
 import { playerMarkColors } from "@/lib/players/playerColors";
 import type { Replay } from "@/lib/replay/replayTypes";
 import {
@@ -32,7 +31,6 @@ export function StatsTimeline({ replay, selected: selectedProp, onSelect }: Prop
     else setLocalSelected(next);
   };
   const [hover, setHover] = useState<number | null>(null);
-  const reference = selected ?? columns[0]?.rows[0]?.player ?? null;
   const column = hover != null ? columns[hover] : undefined;
   const anchor =
     column != null && hover != null
@@ -67,15 +65,7 @@ export function StatsTimeline({ replay, selected: selectedProp, onSelect }: Prop
         <p className="muted tab-hint">No competitive rounds to chart.</p>
       ) : (
         <div className="stats-timeline-stage" onPointerLeave={() => setHover(null)}>
-          {column && reference != null ? (
-            <HoverCard
-              column={column}
-              stat={stat}
-              colors={colors}
-              reference={reference}
-              left={left}
-            />
-          ) : null}
+          {column ? <HoverCard column={column} stat={stat} colors={colors} left={left} /> : null}
           <StatsTimelineChart
             columns={columns}
             stat={stat}
@@ -95,13 +85,11 @@ function HoverCard({
   column,
   stat,
   colors,
-  reference,
   left,
 }: {
   column: TimelineColumn;
   stat: TimelineStatId;
   colors: readonly string[];
-  reference: number;
   left: number;
 }) {
   const rows = [...column.rows].sort((a, b) => {
@@ -109,17 +97,10 @@ function HoverCard({
     return delta || a.name.localeCompare(b.name);
   });
   const maxRound = Math.max(0, ...rows.map((row) => row.values[stat].round));
-  const focus = column.rows.find((row) => row.player === reference);
   return (
     <div className="stats-timeline-card" style={{ left: `${left}%` }} role="status">
       <div className="stats-timeline-card-head">
         <strong>Round {column.number}</strong>
-        {focus ? (
-          <span className={`pill ${focus.side === "CT" ? "ct" : "t"}`}>{focus.side}</span>
-        ) : null}
-        {focus?.buy ? <span className="pill">{ECONOMY_BUY_LABEL[focus.buy]}</span> : null}
-        {focus?.won === true ? <span className="stats-timeline-result win">Won</span> : null}
-        {focus?.won === false ? <span className="stats-timeline-result loss">Lost</span> : null}
       </div>
       <div className="stats-timeline-card-cols" aria-hidden="true">
         <span />

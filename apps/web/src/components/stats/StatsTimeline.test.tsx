@@ -73,7 +73,9 @@ describe("StatsTimeline", () => {
     render(<StatsTimeline replay={chartReplay()} />);
     fireEvent.pointerEnter(screen.getByRole("img", { name: /^Round 1/ }));
     expect(screen.getByRole("status")).toHaveTextContent("Round 1");
-    expect(screen.getByRole("status")).toHaveTextContent("Won");
+    expect(screen.getByRole("status")).not.toHaveTextContent("Won");
+    expect(screen.getByRole("status")).not.toHaveTextContent("Lost");
+    expect(screen.queryByText("CT")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("80");
     expect(screen.getByRole("status")).toHaveTextContent("Alice");
 

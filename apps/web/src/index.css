@@ -5236,29 +5236,6 @@ button.link:hover:not(:disabled) {
   font-size: 0.95rem;
   line-height: 1.35rem;
 }
-.stats-timeline-card-head .pill,
-.stats-timeline-result {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  height: 1.35rem;
-  min-width: 2.4rem;
-  margin: 0;
-  padding: 0 0.4rem;
-  border-radius: 4px;
-  font-size: 0.68rem;
-  font-weight: 650;
-  line-height: 1;
-}
-.stats-timeline-result.win {
-  background: rgba(90, 170, 106, 0.22);
-  color: var(--rating-good);
-}
-.stats-timeline-result.loss {
-  background: rgba(224, 75, 75, 0.22);
-  color: #f0a0a0;
-}
 .stats-timeline-card-row,
 .stats-timeline-card-cols {
   display: grid;
