@@ -79,11 +79,6 @@ interface RawRound {
   flashed: number;
 }
 
-interface TickRange {
-  start: number;
-  end: number;
-}
-
 const ZERO_RAW: RawRound = {
   kills: 0,
   headshots: 0,
@@ -151,32 +146,35 @@ export function timelineRounds(replay: Replay): Round[] {
 }
 
 /**
- * One column per counted round. Totals follow `computeStats` once knife rounds
- * and restarts are left out, so the chart matches the scoreboard on a normal demo.
+ * One column per counted round. Running totals are `computeStats` on the same
+ * replay the Score panel uses, through that round's end tick. Knife frags stay
+ * out because `computeStats` already skips them. Restart rounds stay off the
+ * axis, but their events stay in the total so the last column matches Score.
  */
 export function statsTimeline(replay: Replay): TimelineColumn[] {
   const counted = timelineRounds(replay);
   if (counted.length === 0) return [];
-  const source = replayWithoutRestarts(replay, counted);
   const previous = replay.players.map(() => ZERO_RAW);
   const columns: TimelineColumn[] = [];
   for (const round of counted) {
-    const stats = computeStats(source, round.end_tick);
+    const stats = computeStats(replay, round.end_tick);
     const buys = roundSideBuys(replay, round);
-    const rows: TimelinePlayerRow[] = stats.map((row) => {
-      const next = rawFrom(row);
-      const delta = diffRaw(next, previous[row.player] ?? ZERO_RAW);
-      previous[row.player] = next;
-      const side = sideAt(replay, row.player, round);
-      return {
-        player: row.player,
-        name: playerLabel(replay.players[row.player]),
-        side,
-        won: round.winner == null ? null : round.winner === side,
-        buy: side === "CT" ? buys.ct : buys.t,
-        values: valuesFor(delta, row),
-      };
-    });
+    const rows: TimelinePlayerRow[] = stats
+      .filter((row) => !replay.players[row.player]?.is_bot)
+      .map((row) => {
+        const next = rawFrom(row);
+        const delta = diffRaw(next, previous[row.player] ?? ZERO_RAW);
+        previous[row.player] = next;
+        const side = sideAt(replay, row.player, round);
+        return {
+          player: row.player,
+          name: playerLabel(replay.players[row.player]),
+          side,
+          won: round.winner == null ? null : round.winner === side,
+          buy: side === "CT" ? buys.ct : buys.t,
+          values: valuesFor(delta, row),
+        };
+      });
     columns.push({
       number: round.number,
       rows,
@@ -258,26 +256,3 @@ function sideAt(replay: Replay, player: number, round: Round): Side {
   return start === "CT" ? "T" : "CT";
 }
 
-function replayWithoutRestarts(replay: Replay, counted: readonly Round[]): Replay {
-  const countedSet = new Set(counted);
-  const voids = replay.rounds.filter((round) => !round.is_knife && !countedSet.has(round));
-  if (voids.length === 0) return replay;
-  const ranges = voidRanges(replay.rounds, voids);
-  const keep = (tick: number) => !ranges.some((range) => tick >= range.start && tick < range.end);
-  return {
-    ...replay,
-    rounds: replay.rounds.filter((round) => !voids.includes(round)),
-    kills: replay.kills.filter((event) => keep(event.tick)),
-    hurts: replay.hurts.filter((event) => keep(event.tick)),
-    blinds: replay.blinds.filter((event) => keep(event.tick)),
-  };
-}
-
-function voidRanges(rounds: readonly Round[], voids: readonly Round[]): TickRange[] {
-  return voids.map((round) => {
-    const index = rounds.indexOf(round);
-    const next = rounds.slice(index + 1).find((candidate) => !candidate.is_knife);
-    const end = next ? next.start_tick : round.end_tick + 1;
-    return { start: round.start_tick, end: Math.max(end, round.start_tick) };
-  });
-}

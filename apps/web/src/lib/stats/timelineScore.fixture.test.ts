@@ -1,0 +1,134 @@
+/**
+ * Last-round timeline totals against the Score panel on the two QA demos.
+ * Opt-in: the files are hundreds of megabytes and are not in git.
+ *
+ *     CS2_MIRAGE_DEMO=/path/mirage.dem CS2_INFERNO_DEMO=/path/inferno.dem \
+ *       npx vitest run src/lib/stats/timelineScore.fixture.test.ts
+ *
+ * Also picks the files up from test-demos/files or .demos when those names exist.
+ */
+
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import { initSync, parseDemo } from "@/parser/cs2analyzer_wasm.js";
+import { decodeList, decodeObject } from "@/lib/parse/decode";
+import { playerLabel } from "@/lib/replay/playerLabel";
+import type {
+  Blind,
+  BombEvent,
+  BuyEvent,
+  GrenadeThrow,
+  Hurt,
+  Kill,
+  MatchHeader,
+  Player,
+  Replay,
+  Round,
+  Shot,
+} from "@/lib/replay/replayTypes";
+import { computeStats } from "./computeStats";
+import { matchEndTick } from "./scorecard";
+import { statsTimeline } from "./timeline";
+
+const REPO = resolve(__dirname, "../../../../..");
+const MIRAGE = "1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem";
+const INFERNO = "fruju-vs-rooster-m1-inferno.dem";
+
+function locate(env: string | undefined, name: string): string | null {
+  const candidates = [
+    env,
+    join(REPO, "test-demos/files", name),
+    join(REPO, ".demos", name),
+  ].filter((path): path is string => !!path);
+  return candidates.find((path) => existsSync(path)) ?? null;
+}
+
+const mirage = locate(process.env.CS2_MIRAGE_DEMO, MIRAGE);
+const inferno = locate(process.env.CS2_INFERNO_DEMO, INFERNO);
+
+function copyU32(view: Uint32Array): Uint32Array {
+  return view.slice();
+}
+function copyF32(view: Float32Array): Float32Array {
+  return view.slice();
+}
+function copyU8(view: Uint8Array): Uint8Array {
+  return view.slice();
+}
+function copyU16(view: Uint16Array): Uint16Array {
+  return view.slice();
+}
+
+function loadReplay(path: string): Replay {
+  const wasm = readFileSync(new URL("../../parser/cs2analyzer_wasm_bg.wasm", import.meta.url));
+  initSync({ module: wasm });
+  const parsed = parseDemo(new Uint8Array(readFileSync(path)), 4, true);
+  const replay: Replay = {
+    header: decodeObject<MatchHeader>("header", parsed.headerJson()),
+    players: decodeList<Player>("players", parsed.playersJson()),
+    rounds: decodeList<Round>("rounds", parsed.roundsJson()),
+    grenades: decodeList<GrenadeThrow>("grenades", parsed.grenadesJson()),
+    shots: decodeList<Shot>("shots", parsed.shotsJson()),
+    kills: decodeList<Kill>("kills", parsed.killsJson()),
+    hurts: decodeList<Hurt>("hurts", parsed.hurtsJson()),
+    blinds: decodeList<Blind>("blinds", parsed.blindsJson()),
+    bombEvents: decodeList<BombEvent>("bombEvents", parsed.bombEventsJson()),
+    buyEvents: decodeList<BuyEvent>("buyEvents", parsed.buyEventsJson()),
+    ticks: {
+      frameCount: parsed.frameCount(),
+      playerCount: parsed.playerCount(),
+      ticks: copyU32(parsed.ticks()),
+      x: copyF32(parsed.x()),
+      y: copyF32(parsed.y()),
+      z: copyF32(parsed.z()),
+      yaw: copyF32(parsed.yaw()),
+      health: copyU8(parsed.health()),
+      armor: copyU8(parsed.armor()),
+      flags: copyU8(parsed.flags()),
+      money: copyU16(parsed.money()),
+      equip: copyU16(parsed.equip()),
+      gear: copyU16(parsed.gear()),
+      primary: copyU8(parsed.primary()),
+      secondary: copyU8(parsed.secondary()),
+      active: copyU8(parsed.active()),
+      clip: copyU8(parsed.clip()),
+      reserve: copyU16(parsed.reserve()),
+    },
+  };
+  parsed.free();
+  return replay;
+}
+
+function expectScoreMatch(path: string): void {
+  const replay = loadReplay(path);
+  const columns = statsTimeline(replay);
+  const last = columns[columns.length - 1];
+  const score = computeStats(replay, matchEndTick(replay));
+  expect(last).toBeDefined();
+  const names = last?.rows.map((row) => row.name) ?? [];
+  expect(names.some((name) => name.includes("(BOT)"))).toBe(false);
+  for (const player of replay.players) {
+    if (player.is_bot) continue;
+    const row = last?.rows.find((candidate) => candidate.player === player.index);
+    const stats = score[player.index];
+    expect(row, playerLabel(player)).toBeDefined();
+    expect(row?.values.kills.running, `${player.name} kills`).toBe(stats?.kills);
+    expect(row?.values.adr.running, `${player.name} adr`).toBeCloseTo(stats?.adr ?? 0);
+    expect(row?.values.kast.running, `${player.name} kast`).toBeCloseTo(stats?.kast ?? 0);
+    expect(row?.values.hs.running, `${player.name} hs`).toBeCloseTo(stats?.headshot_percent ?? 0);
+    expect(row?.values.opening.running, `${player.name} opening`).toBe(stats?.first_kills);
+    expect(row?.values.util.running, `${player.name} util`).toBe(stats?.utility_damage);
+    expect(row?.values.flashed.running, `${player.name} flashed`).toBe(stats?.enemies_flashed);
+  }
+}
+
+describe.skipIf(!mirage || !inferno)("timeline matches Score on the QA demos", () => {
+  it("matches every Mirage player at the last round", () => {
+    expectScoreMatch(mirage!);
+  }, 180000);
+
+  it("matches every Inferno player at the last round", () => {
+    expectScoreMatch(inferno!);
+  }, 180000);
+});

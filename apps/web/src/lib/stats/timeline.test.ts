@@ -109,12 +109,11 @@ describe("statsTimeline", () => {
     const columns = statsTimeline(replay);
     expect(columns.map((column) => column.number)).toEqual([1, 3]);
     const last = columns[1];
-    expect(last?.rows[0]?.values.kills.running).toBe(2);
-    expect(last?.rows[1]?.values.kills).toEqual({ round: 0, running: 0 });
-    expect(last?.rows[1]?.values.adr.running).toBe(0);
-    expect(last?.rows[1]?.values.flashed.running).toBe(0);
     const full = computeStats(replay, matchEndTick(replay));
-    expect(full[1]?.kills).toBe(1);
+    expect(last?.rows[0]?.values.kills.running).toBe(full[0]?.kills);
+    expect(last?.rows[1]?.values.kills.running).toBe(full[1]?.kills);
+    expect(last?.rows[1]?.values.adr.running).toBeCloseTo(full[1]?.adr ?? 0);
+    expect(last?.rows[1]?.values.flashed.running).toBe(full[1]?.enemies_flashed);
   });
 
   it("drops an aborted round that never received a winner", () => {
@@ -140,7 +139,9 @@ describe("statsTimeline", () => {
       kills: [makeKill(100, 0, 1), makeKill(500, 0, 1)],
     });
     expect(timelineRounds(replay).map((round) => round.start_tick)).toEqual([400]);
-    expect(statsTimeline(replay)[0]?.rows[0]?.values.kills.running).toBe(1);
+    const column = statsTimeline(replay)[0];
+    const full = computeStats(replay, matchEndTick(replay));
+    expect(column?.rows[0]?.values.kills.running).toBe(full[0]?.kills);
   });
 
   it("keeps a draw and the last unfinished round", () => {
@@ -316,6 +317,27 @@ describe("statsTimeline", () => {
     });
     expect(statsTimeline(replay)[0]?.rows[0]?.side).toBe("T");
     expect(statsTimeline(replay)[0]?.rows[1]?.side).toBe("CT");
+  });
+
+  it("leaves bots off the chart and keeps human totals on the Score tally", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "Rock", 2, true)],
+      rounds: [
+        makeRound({
+          number: 1,
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 400,
+          winner: "CT",
+        }),
+      ],
+      kills: [makeKill(200, 0, 1), makeKill(300, 1, 0)],
+    });
+    const rows = statsTimeline(replay)[0]?.rows ?? [];
+    expect(rows.map((row) => row.name)).toEqual(["A"]);
+    const full = computeStats(replay, matchEndTick(replay));
+    expect(rows[0]?.values.kills.running).toBe(full[0]?.kills);
+    expect(full[1]?.kills).toBe(1);
   });
 
   it("keeps the single-demo tutorial rounds and matches the scoreboard", () => {
