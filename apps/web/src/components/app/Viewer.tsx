@@ -35,6 +35,12 @@ export function Viewer() {
   const dragDepthRef = useRef(0);
   const timeline = useStatsTimelinePanel();
   const showTimeline = !aggregated && timeline.open;
+  const timelineWasOpen = useRef(false);
+
+  useEffect(() => {
+    if (showTimeline && !timelineWasOpen.current) playback.setPlaying(false);
+    timelineWasOpen.current = showTimeline;
+  }, [showTimeline, playback]);
 
   useEffect(() => {
     if (aggregated && timeline.open) timeline.close();

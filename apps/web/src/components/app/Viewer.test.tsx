@@ -160,6 +160,19 @@ describe("Viewer", () => {
     );
   });
 
+  it("pauses playback when the stats timeline opens and leaves it paused on close", async () => {
+    const state = viewerState();
+    state.playback.playing = true;
+    vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
+    renderWithTimeline();
+    await userEvent.click(screen.getByRole("button", { name: "Stats timeline" }));
+    expect(state.playback.setPlaying).toHaveBeenCalledWith(false);
+    state.playback.setPlaying.mockClear();
+    await userEvent.keyboard("{Escape}");
+    expect(state.playback.setPlaying).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Stats timeline" })).not.toBeInTheDocument();
+  });
+
   it("hides the stats timeline while the series is aggregated", async () => {
     const replay = makeReplay();
     const series = buildSeries("de_mirage", [
