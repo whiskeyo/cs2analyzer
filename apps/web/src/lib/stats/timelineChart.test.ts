@@ -10,7 +10,7 @@ import {
   smoothLineSegments,
   TIMELINE_LAYOUT,
   valueToY,
-  type TimelineRoundSide,
+  type TimelineRoundRoster,
 } from "./timelineChart";
 import type { Side } from "@/lib/replay/replayTypes";
 
@@ -57,6 +57,27 @@ describe("timelineChart", () => {
     );
   });
 
+  it("does not treat a missing player as T or a late join as a side swap", () => {
+    expect(
+      economyBreakAfter([
+        { number: 1, players: [{ player: 1, side: "CT" }] },
+        { number: 2, players: [{ player: 2, side: "T" }] },
+      ]),
+    ).toEqual([]);
+    expect(
+      economyBreakAfter([
+        { number: 1, players: [] },
+        { number: 2, players: [{ player: 1, side: "T" }] },
+      ]),
+    ).toEqual([]);
+    expect(
+      economyBreakAfter([
+        { number: 1, players: [{ player: 1, side: "CT" }] },
+        { number: 2, players: [{ player: 1, side: "T" }] },
+      ]),
+    ).toEqual([1]);
+  });
+
   it("draws a smooth line through the points without overshooting a peak", () => {
     const points = [
       { x: 0, y: 0 },
@@ -78,12 +99,12 @@ describe("timelineChart", () => {
   });
 });
 
-function blocks(...parts: readonly (readonly [Side, number])[]): TimelineRoundSide[] {
-  const rounds: TimelineRoundSide[] = [];
+function blocks(...parts: readonly (readonly [Side, number])[]): TimelineRoundRoster[] {
+  const rounds: TimelineRoundRoster[] = [];
   let number = 1;
   for (const [side, count] of parts) {
     for (let i = 0; i < count; i++) {
-      rounds.push({ number, side });
+      rounds.push({ number, players: [{ player: 0, side }] });
       number += 1;
     }
   }

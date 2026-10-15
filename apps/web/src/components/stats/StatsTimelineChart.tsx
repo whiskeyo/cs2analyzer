@@ -47,7 +47,6 @@ export function StatsTimelineChart({
   const layout = TIMELINE_LAYOUT;
   const plot = plotRect(layout);
   const rows = columns[0]?.rows ?? [];
-  const reference = selected ?? rows[0]?.player ?? 0;
   const scale = useMemo(() => {
     let peak = 0;
     for (const column of columns) {
@@ -62,7 +61,9 @@ export function StatsTimelineChart({
     economyBreakAfter(
       columns.map((column) => ({
         number: column.number,
-        side: column.rows.find((row) => row.player === reference)?.side ?? "T",
+        players: column.rows
+          .filter((row) => row.present)
+          .map((row) => ({ player: row.player, side: row.side })),
       })),
     ),
   );

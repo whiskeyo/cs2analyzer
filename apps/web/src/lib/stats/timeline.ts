@@ -54,6 +54,8 @@ export interface TimelinePlayerRow {
   player: number;
   name: string;
   side: Side;
+  /** False when the freeze sample exists and this pawn was not in the round. */
+  present: boolean;
   /** Null when the round has no winner yet. */
   won: boolean | null;
   buy: EconomyBuy | null;
@@ -165,13 +167,14 @@ export function statsTimeline(replay: Replay): TimelineColumn[] {
         const next = rawFrom(row);
         const delta = diffRaw(next, previous[row.player] ?? ZERO_RAW);
         previous[row.player] = next;
-        const side = sideAt(replay, row.player, round);
+        const sampled = sideSample(replay, row.player, round);
         return {
           player: row.player,
           name: playerLabel(replay.players[row.player]),
-          side,
-          won: round.winner == null ? null : round.winner === side,
-          buy: side === "CT" ? buys.ct : buys.t,
+          side: sampled.side,
+          present: sampled.present,
+          won: round.winner == null ? null : round.winner === sampled.side,
+          buy: sampled.side === "CT" ? buys.ct : buys.t,
           values: valuesFor(delta, row),
         };
       });
@@ -248,11 +251,26 @@ function winningRoster(replay: Replay, round: Round): Side | null {
 }
 
 function sideAt(replay: Replay, player: number, round: Round): Side {
+  return sideSample(replay, player, round).side;
+}
+
+/**
+ * A missing tick stream keeps the start-side fallback so a side still exists.
+ * A sample that is not present stays out of side-swap detection.
+ */
+function sideSample(
+  replay: Replay,
+  player: number,
+  round: Round,
+): { side: Side; present: boolean } {
   const freeze = round.freeze_end_tick || round.start_tick;
   const snap = samplePlayer(replay, player, freeze);
-  if (snap?.present) return snap.ct ? "CT" : "T";
+  if (snap?.present) return { side: snap.ct ? "CT" : "T", present: true };
+  return { side: sideFromStart(replay, player, round), present: snap == null };
+}
+
+function sideFromStart(replay: Replay, player: number, round: Round): Side {
   const start = replay.players[player]?.start_side ?? "T";
   if (!roundSidesSwapped(replay, round)) return start;
   return start === "CT" ? "T" : "CT";
 }
-

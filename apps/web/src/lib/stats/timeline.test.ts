@@ -317,6 +317,27 @@ describe("statsTimeline", () => {
     });
     expect(statsTimeline(replay)[0]?.rows[0]?.side).toBe("T");
     expect(statsTimeline(replay)[0]?.rows[1]?.side).toBe("CT");
+    expect(statsTimeline(replay)[0]?.rows[0]?.present).toBe(true);
+  });
+
+  it("does not count a pawn who was absent at freeze as present", () => {
+    const ticks = makeFreezeTicks(2, 1, 64);
+    ticks.flags[1] = 0;
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      ticks,
+      rounds: [
+        makeRound({
+          number: 1,
+          freeze_end_tick: 64,
+          end_tick: 400,
+          winner: "CT",
+        }),
+      ],
+    });
+    const rows = statsTimeline(replay)[0]?.rows ?? [];
+    expect(rows.find((row) => row.player === 0)?.present).toBe(true);
+    expect(rows.find((row) => row.player === 1)?.present).toBe(false);
   });
 
   it("leaves bots off the chart and keeps human totals on the Score tally", () => {

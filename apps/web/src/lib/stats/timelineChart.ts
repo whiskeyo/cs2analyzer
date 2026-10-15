@@ -86,25 +86,32 @@ export function nearestRoundIndex(x: number, count: number, plot: PlotRect): num
   return best;
 }
 
-export interface TimelineRoundSide {
-  number: number;
+export interface TimelineRoundPlayer {
+  player: number;
   side: Side;
+}
+
+/** One plotted round, with only the players who were actually in it. */
+export interface TimelineRoundRoster {
+  number: number;
+  players: readonly TimelineRoundPlayer[];
 }
 
 /**
  * Round numbers after which an economy block ends.
- * Every side swap is a break. Overtime also resets at the start of each period:
- * regulation is twice the first swap, and the next swap is only the middle of
- * that overtime, so a full overtime is twice the gap. Nothing is drawn after
- * the last plotted round.
+ * A swap counts only when the same player is present in both rounds and changed
+ * side. Someone who was absent, including a late join, does not invent a side.
+ * Overtime also resets at the start of each period: regulation is twice the
+ * first swap, and the next swap is only the middle of that overtime, so a full
+ * overtime is twice the gap. Nothing is drawn after the last plotted round.
  */
-export function economyBreakAfter(rounds: readonly TimelineRoundSide[]): number[] {
+export function economyBreakAfter(rounds: readonly TimelineRoundRoster[]): number[] {
   if (rounds.length < 2) return [];
   const swaps: number[] = [];
   for (let i = 1; i < rounds.length; i++) {
     const previous = rounds[i - 1];
     const current = rounds[i];
-    if (!previous || !current || current.side === previous.side) continue;
+    if (!previous || !current || !rosterSwapped(previous.players, current.players)) continue;
     swaps.push(previous.number);
   }
   const marks = new Set(swaps);
@@ -136,6 +143,18 @@ export function economyBreakAfter(rounds: readonly TimelineRoundSide[]): number[
     }
   }
   return lines;
+}
+
+function rosterSwapped(
+  previous: readonly TimelineRoundPlayer[],
+  current: readonly TimelineRoundPlayer[],
+): boolean {
+  const before = new Map(previous.map((row) => [row.player, row.side]));
+  for (const row of current) {
+    const side = before.get(row.player);
+    if (side != null && side !== row.side) return true;
+  }
+  return false;
 }
 
 /** Fritsch–Carlson monotone cubic. The curve stays between each segment's endpoints. */
