@@ -5136,25 +5136,18 @@ button.link:hover:not(:disabled) {
   width: 100%;
   height: auto;
 }
-.stats-timeline-band.t {
-  fill: rgba(224, 193, 90, 0.09);
-}
-.stats-timeline-band.ct {
-  fill: rgba(106, 164, 216, 0.1);
-}
-.stats-timeline-band-label,
 .stats-timeline-axis,
 .stats-timeline-round-num {
   font-family: inherit;
 }
-.stats-timeline-band-label {
-  fill: var(--text-muted);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-}
 .stats-timeline-grid {
   stroke: rgba(232, 238, 244, 0.08);
   stroke-width: 1;
+  pointer-events: none;
+}
+.stats-timeline-break {
+  stroke: rgba(232, 238, 244, 0.72);
+  stroke-width: 3;
   pointer-events: none;
 }
 .stats-timeline-hover {

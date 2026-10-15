@@ -36,14 +36,6 @@ export interface CurveSegment {
   to: TimelinePoint;
 }
 
-export interface SideBand {
-  side: Side;
-  /** Inclusive column index. */
-  start: number;
-  /** Exclusive column index. */
-  end: number;
-}
-
 export interface AxisScale {
   max: number;
   ticks: number[];
@@ -94,31 +86,56 @@ export function nearestRoundIndex(x: number, count: number, plot: PlotRect): num
   return best;
 }
 
-export function sideBands(sides: readonly Side[]): SideBand[] {
-  if (sides.length === 0) return [];
-  const bands: SideBand[] = [];
-  let start = 0;
-  for (let i = 1; i <= sides.length; i++) {
-    if (i === sides.length || sides[i] !== sides[start]) {
-      const side = sides[start];
-      if (side) bands.push({ side, start, end: i });
-      start = i;
+export interface TimelineRoundSide {
+  number: number;
+  side: Side;
+}
+
+/**
+ * Round numbers after which an economy block ends.
+ * Every side swap is a break. Overtime also resets at the start of each period:
+ * regulation is twice the first swap, and the next swap is only the middle of
+ * that overtime, so a full overtime is twice the gap. Nothing is drawn after
+ * the last plotted round.
+ */
+export function economyBreakAfter(rounds: readonly TimelineRoundSide[]): number[] {
+  if (rounds.length < 2) return [];
+  const swaps: number[] = [];
+  for (let i = 1; i < rounds.length; i++) {
+    const previous = rounds[i - 1];
+    const current = rounds[i];
+    if (!previous || !current || current.side === previous.side) continue;
+    swaps.push(previous.number);
+  }
+  const marks = new Set(swaps);
+  const first = swaps[0];
+  const last = rounds[rounds.length - 1]?.number;
+  if (first != null && last != null) {
+    const regulation = first * 2;
+    const middle = swaps.find((round) => round > regulation);
+    if (middle != null) {
+      const overtimeHalf = middle - regulation;
+      if (overtimeHalf > 0) {
+        const overtimeLength = overtimeHalf * 2;
+        for (let boundary = regulation; boundary < last; boundary += overtimeLength) {
+          marks.add(boundary);
+        }
+      }
     }
   }
-  return bands;
-}
-
-export function bandRect(
-  band: SideBand,
-  count: number,
-  plot: PlotRect,
-): { x: number; width: number } {
-  const column = count <= 1 ? plot.width : plot.width / count;
-  return { x: plot.x + band.start * column, width: (band.end - band.start) * column };
-}
-
-export function showBandLabel(width: number): boolean {
-  return width >= 56;
+  const lines: number[] = [];
+  for (let i = 0; i < rounds.length - 1; i++) {
+    const left = rounds[i];
+    const right = rounds[i + 1];
+    if (!left || !right) continue;
+    for (const boundary of marks) {
+      if (boundary >= left.number && boundary < right.number) {
+        lines.push(left.number);
+        break;
+      }
+    }
+  }
+  return lines;
 }
 
 export function roundMarkerSize(count: number): { radius: number; font: number } {

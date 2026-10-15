@@ -17,14 +17,12 @@ import {
   TIMELINE_LAYOUT,
   areaPath,
   axisScale,
-  bandRect,
+  economyBreakAfter,
   nearestRoundIndex,
   percentAxis,
   plotRect,
   roundMarkerSize,
   roundX,
-  showBandLabel,
-  sideBands,
   smoothLinePath,
   valueToY,
   type TimelinePoint,
@@ -113,8 +111,13 @@ export function StatsTimelineChart({
   }, [columns, stat]);
   const baseline = plot.y + plot.height;
   const marker = roundMarkerSize(columns.length);
-  const bands = sideBands(
-    columns.map((column) => column.rows.find((row) => row.player === reference)?.side ?? "T"),
+  const breakAfter = new Set(
+    economyBreakAfter(
+      columns.map((column) => ({
+        number: column.number,
+        side: column.rows.find((row) => row.player === reference)?.side ?? "T",
+      })),
+    ),
   );
   const lines: LineSeries[] = rows.map((row) => {
     const points = columns.map((column, index) => {
@@ -150,25 +153,6 @@ export function StatsTimelineChart({
         }}
       >
         <ChartDefs uid={uid} selected={selected} color={markColor(colors, selected ?? 0)} />
-        {bands.map((band) => {
-          const rect = bandRect(band, columns.length, plot);
-          return (
-            <g key={`${band.side}-${band.start}`}>
-              <rect
-                className={`stats-timeline-band ${band.side === "CT" ? "ct" : "t"}`}
-                x={rect.x}
-                y={plot.y}
-                width={rect.width}
-                height={plot.height}
-              />
-              {showBandLabel(rect.width) ? (
-                <text className="stats-timeline-band-label" x={rect.x + 8} y={plot.y + 16}>
-                  {band.side} SIDE
-                </text>
-              ) : null}
-            </g>
-          );
-        })}
         {scale.ticks.map((tick) => {
           const y = valueToY(tick, scale.max, plot);
           return (
@@ -192,17 +176,26 @@ export function StatsTimelineChart({
             </g>
           );
         })}
-        {columns.map((_, index) => {
+        {columns.map((column, index) => {
           const x = roundX(index, columns.length, plot);
+          const next = columns[index + 1];
+          const split =
+            next && breakAfter.has(column.number)
+              ? (x + roundX(index + 1, columns.length, plot)) / 2
+              : null;
           return (
-            <line
-              key={`grid-${index}`}
-              className="stats-timeline-grid"
-              x1={x}
-              y1={plot.y}
-              x2={x}
-              y2={baseline}
-            />
+            <g key={`grid-${index}`}>
+              <line className="stats-timeline-grid" x1={x} y1={plot.y} x2={x} y2={baseline} />
+              {split != null ? (
+                <line
+                  className="stats-timeline-break"
+                  x1={split}
+                  y1={plot.y}
+                  x2={split}
+                  y2={baseline}
+                />
+              ) : null}
+            </g>
           );
         })}
         {selectedFill ? (

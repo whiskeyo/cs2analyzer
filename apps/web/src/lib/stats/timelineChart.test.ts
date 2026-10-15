@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   axisScale,
-  bandRect,
+  economyBreakAfter,
   nearestRoundIndex,
   percentAxis,
   plotRect,
   roundMarkerSize,
   roundX,
-  showBandLabel,
-  sideBands,
   smoothLinePath,
   smoothLineSegments,
   TIMELINE_LAYOUT,
   valueToY,
+  type TimelineRoundSide,
 } from "./timelineChart";
+import type { Side } from "@/lib/replay/replayTypes";
 
 describe("timelineChart", () => {
   const plot = plotRect();
@@ -37,19 +37,25 @@ describe("timelineChart", () => {
     expect(nearestRoundIndex(roundX(1, 4, plot), 4, plot)).toBe(1);
   });
 
-  it("splits side bands only when the selected team switches", () => {
-    const bands = sideBands(["T", "T", "T", "CT", "CT"]);
-    expect(bands).toEqual([
-      { side: "T", start: 0, end: 3 },
-      { side: "CT", start: 3, end: 5 },
+  it("breaks a regulation match only at the side swap", () => {
+    expect(economyBreakAfter(blocks(["T", 12], ["CT", 12]))).toEqual([12]);
+  });
+
+  it("breaks MR12 and two overtimes at each side swap and overtime start", () => {
+    expect(economyBreakAfter(blocks(["T", 12], ["CT", 15], ["T", 6], ["CT", 3]))).toEqual([
+      12, 24, 27, 30, 33,
     ]);
-    const first = bandRect(bands[0]!, 5, plot);
-    const second = bandRect(bands[1]!, 5, plot);
-    expect(first.x).toBeCloseTo(plot.x);
-    expect(first.x + first.width).toBeCloseTo(second.x);
-    expect(second.x + second.width).toBeCloseTo(plot.x + plot.width);
-    expect(showBandLabel(first.width)).toBe(true);
-    expect(showBandLabel(20)).toBe(false);
+  });
+
+  it("infers a non-standard MR15 regulation and overtime from the swaps", () => {
+    expect(economyBreakAfter(blocks(["CT", 15], ["T", 15]))).toEqual([15]);
+    expect(economyBreakAfter(blocks(["CT", 15], ["T", 18], ["CT", 3]))).toEqual([15, 30, 33]);
+  });
+
+  it("marks the Mirage 22-20 overtime breaks and no others", () => {
+    expect(economyBreakAfter(blocks(["T", 12], ["CT", 15], ["T", 6], ["CT", 6], ["T", 3]))).toEqual(
+      [12, 24, 27, 30, 33, 36, 39],
+    );
   });
 
   it("shrinks round markers once the axis gets crowded", () => {
@@ -76,3 +82,15 @@ describe("timelineChart", () => {
     expect(TIMELINE_LAYOUT.width).toBeGreaterThan(plot.width);
   });
 });
+
+function blocks(...parts: readonly (readonly [Side, number])[]): TimelineRoundSide[] {
+  const rounds: TimelineRoundSide[] = [];
+  let number = 1;
+  for (const [side, count] of parts) {
+    for (let i = 0; i < count; i++) {
+      rounds.push({ number, side });
+      number += 1;
+    }
+  }
+  return rounds;
+}
