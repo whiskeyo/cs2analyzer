@@ -5091,6 +5091,7 @@ button.link:hover:not(:disabled) {
   flex-direction: column;
   gap: 0.55rem;
   padding: 0.2rem 0.7rem 0.85rem;
+  background: transparent;
 }
 .stats-timeline-title {
   margin: 0;
@@ -5125,6 +5126,7 @@ button.link:hover:not(:disabled) {
 }
 .stats-timeline-stage {
   position: relative;
+  background: transparent;
 }
 .stats-timeline-plot {
   border: 0;
@@ -5158,7 +5160,7 @@ button.link:hover:not(:disabled) {
 }
 .stats-timeline-axis {
   fill: var(--text-muted);
-  font-size: 12px;
+  font-size: 10px;
 }
 .stats-timeline-line {
   fill: none;
@@ -5167,9 +5169,6 @@ button.link:hover:not(:disabled) {
 }
 .stats-timeline-line.is-dim {
   opacity: 0.28;
-}
-.stats-timeline-area {
-  pointer-events: none;
 }
 .stats-timeline-hit {
   fill: none;

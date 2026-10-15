@@ -203,13 +203,6 @@ export function smoothLinePath(points: readonly TimelinePoint[]): string {
   return path;
 }
 
-export function areaPath(line: string, points: readonly TimelinePoint[], baseline: number): string {
-  const first = points[0];
-  const last = points[points.length - 1];
-  if (!line || !first || !last || points.length < 2) return "";
-  return `${line} L ${fmt(last.x)} ${fmt(baseline)} L ${fmt(first.x)} ${fmt(baseline)} Z`;
-}
-
 function scaleTo(target: number): AxisScale {
   const rough = target / 4;
   const exponent = Math.floor(Math.log10(Math.max(rough, 1e-6)));

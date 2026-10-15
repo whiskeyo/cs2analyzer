@@ -84,11 +84,12 @@ describe("StatsTimeline", () => {
       "stroke",
       playerMarkColors(chartReplay().players)[0],
     );
-    expect(document.querySelector(".stats-timeline-area")).toBeTruthy();
+    expect(document.querySelector(".stats-timeline-area")).toBeNull();
+    expect(document.querySelector(".stats-timeline-plot rect")).toBeNull();
     expect(document.querySelectorAll(".stats-timeline-line.is-dim").length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "Highlight Alice" }));
-    expect(document.querySelector(".stats-timeline-area")).toBeNull();
+    expect(document.querySelectorAll(".stats-timeline-line.is-dim")).toHaveLength(0);
   });
 
   it("switches the plotted stat on the cumulative chart", async () => {

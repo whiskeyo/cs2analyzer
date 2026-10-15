@@ -1,9 +1,8 @@
-import { useId, useMemo } from "react";
+import { useMemo } from "react";
 import type { TimelineColumn, TimelineStatId } from "@/lib/stats/timeline";
 import { formatTimelineValue, plottedValue, timelineStat } from "@/lib/stats/timeline";
 import {
   TIMELINE_LAYOUT,
-  areaPath,
   axisScale,
   economyBreakAfter,
   nearestRoundIndex,
@@ -45,7 +44,6 @@ export function StatsTimelineChart({
   onSelect,
   onHover,
 }: Props) {
-  const uid = useId().replace(/:/g, "");
   const layout = TIMELINE_LAYOUT;
   const plot = plotRect(layout);
   const rows = columns[0]?.rows ?? [];
@@ -82,9 +80,6 @@ export function StatsTimelineChart({
   const painted = [...lines].sort(
     (a, b) => Number(selected === a.player) - Number(selected === b.player),
   );
-  const selectedLine = lines.find((line) => line.player === selected);
-  const selectedFill =
-    selectedLine != null ? areaPath(selectedLine.path, selectedLine.points, baseline) : "";
   const modeLabel = "cumulative";
 
   return (
@@ -101,7 +96,6 @@ export function StatsTimelineChart({
           if (index >= 0) onHover(index);
         }}
       >
-        <ChartDefs uid={uid} selected={selected} color={markColor(colors, selected ?? 0)} />
         {scale.ticks.map((tick) => {
           const y = valueToY(tick, scale.max, plot);
           return (
@@ -147,9 +141,6 @@ export function StatsTimelineChart({
             </g>
           );
         })}
-        {selectedFill ? (
-          <path className="stats-timeline-area" d={selectedFill} fill={`url(#${uid}-fill)`} />
-        ) : null}
         {painted.map((line) => (
           <LineShape
             key={line.player}
@@ -197,27 +188,6 @@ export function StatsTimelineChart({
         ))}
       </svg>
     </div>
-  );
-}
-
-function ChartDefs({
-  uid,
-  selected,
-  color,
-}: {
-  uid: string;
-  selected: number | null;
-  color: string;
-}) {
-  return (
-    <defs>
-      {selected != null ? (
-        <linearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.45" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      ) : null}
-    </defs>
   );
 }
 
