@@ -1069,6 +1069,8 @@ impl Collector {
 
         match ge.name() {
             "round_start" => {
+                // None of the 12 release demos fire this. Smoke and molotov caps
+                // use `m_nRoundStartCount` edges. `Round.start_tick` stays the freeze.
                 if !in_warmup(ctx) {
                     self.round_starts.push(tick);
                 }
@@ -1085,6 +1087,8 @@ impl Collector {
                 }
             }
             "round_officially_ended" => {
+                // Tournament GOTV and the FACEIT Inferno demo omit this event.
+                // `round_conclusion` prefers `m_iRoundWinStatus` either way.
                 if in_warmup(ctx) {
                     return Ok(());
                 }
@@ -1178,6 +1182,9 @@ impl Collector {
             }
             name @ ("bomb_planted" | "bomb_defused" | "bomb_exploded" | "bomb_begindefuse"
             | "bomb_abortdefuse" | "bomb_pickup" | "bomb_dropped" | "bomb_beginplant") => {
+                // `bomb_beginplant` / `bomb_begindefuse` are missing on tournament
+                // GOTV and the FACEIT Inferno demo. The HUD starts the timer from
+                // `FLAG_PLANTING` / `FLAG_DEFUSING` when the event never arrives.
                 let kind = match name {
                     "bomb_planted" => BombKind::Planted,
                     "bomb_defused" => BombKind::Defused,
@@ -1213,7 +1220,7 @@ impl Collector {
                     .push((tick, kind, player, x, y, z, ev_haskit(ge), site));
             }
             "inferno_startburn" => {
-                // Premier demos have no `molotov_detonate`. `entityid` is the
+                // None of the 12 release demos emit `molotov_detonate`. `entityid` is the
                 // inferno. This build's event descriptor is entityid/x/y/z with
                 // no `userid`; `note_inferno_thrower` copies `m_hOwnerEntity`
                 // when the inferno entity appears. Pair `inferno_expire` by entity id.
@@ -1289,9 +1296,8 @@ impl Collector {
                 }
             }
             "bullet_impact" => {
-                // Optional: some GOTV demos include impact points. We keep weapon_fire
-                // tracers as the primary shot viz; impacts are not stored separately
-                // in the MVP snapshot.
+                // None of the 12 release demos emit impact points. `weapon_fire`
+                // tracers stay the shot viz; impacts are not stored.
             }
             "player_disconnect" => {
                 if let Some(uid) = ev_i32(ge, "userid") {
@@ -1311,6 +1317,8 @@ impl Collector {
                 }
             }
             "player_blind" => {
+                // Tournament GOTV and the FACEIT Inferno demo omit this event.
+                // `sample_flash_blinds` still records pawn `m_flFlashDuration`.
                 let dur = ev_f32(ge, "blind_duration");
                 if let Some(victim) =
                     steam_from_event_player(self, ctx, ge, "userid_pawn", "userid")
