@@ -1,18 +1,16 @@
 import { memo } from "react";
 import {
   computeStats,
-  currentSide,
   formatAdr,
   formatKast,
   formatRating,
-  liveScoreboardPlayers,
   liveTeams,
+  scoreRoster,
   teamEntryShare,
 } from "@/lib/stats/stats";
 import { RatingValue } from "@/components/stats/RatingValue";
 import { playerMarkColors } from "@/lib/players/playerColors";
 import { playerLabel } from "@/lib/replay/playerLabel";
-import { samplePlayers } from "@/lib/replay/sample";
 import type { PlayerStats, Replay } from "@/lib/replay/replayTypes";
 
 interface Props {
@@ -30,14 +28,14 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
   const stats = computeStats(replay, tick);
   const colors = playerMarkColors(replay.players);
   const teams = liveTeams(replay, tick);
-  const sampled = samplePlayers(replay, tick);
+  const roster = new Map(scoreRoster(replay, tick).map((slot) => [slot.player, slot]));
 
-  const live = new Set(liveScoreboardPlayers(replay, tick));
   const withSide = stats
-    .filter((s) => live.has(s.player))
+    .filter((s) => roster.has(s.player))
     .map((s) => ({
       s,
-      side: currentSide(replay, s.player, tick),
+      side: roster.get(s.player)?.side ?? "T",
+      money: roster.get(s.player)?.money ?? 0,
     }));
   const ct = withSide.filter((x) => x.side === "CT").sort((a, b) => b.s.rating - a.s.rating);
   const t = withSide.filter((x) => x.side === "T").sort((a, b) => b.s.rating - a.s.rating);
@@ -65,7 +63,7 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ s, side }) => (
+          {rows.map(({ s, side, money }) => (
             <tr
               key={s.player}
               className={rowClass(s, side, selected)}
@@ -77,7 +75,7 @@ export const Scoreboard = memo(function Scoreboard({ replay, tick, selected, onS
                   {playerLabel(replay.players[s.player])}
                 </span>
               </td>
-              <td className="eco-money">${sampled[s.player]?.money ?? 0}</td>
+              <td className="eco-money">${money}</td>
               <td>{s.kills}</td>
               <td>{s.deaths}</td>
               <td>{s.assists}</td>

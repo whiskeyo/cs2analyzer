@@ -29,6 +29,7 @@ export {
   onLiveScoreboard,
   type LiveTeams,
 } from "./liveScore";
+export { scoreRoster, type ScoreRosterSlot } from "./scoreRoster";
 export {
   formatScorecard,
   matchEndTick,

@@ -93,7 +93,7 @@ describe("Scoreboard", () => {
     expect(dot).toHaveStyle({ background: colors[0] });
   });
 
-  it("shows a $0 Operator bot on the live scoreboard", () => {
+  it("leaves a connected bot off the match roster", () => {
     const ticks = makeTicks(1, 1);
     ticks.ticks[0] = 64;
     ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE;
@@ -105,10 +105,10 @@ describe("Scoreboard", () => {
       ticks,
     });
     render(<Scoreboard replay={m} tick={64} selected={null} onSelect={() => {}} />);
-    expect(within(teamTable("Bricaa")).getByText("Operator (BOT)")).toBeInTheDocument();
+    expect(screen.queryByText("Operator (BOT)")).not.toBeInTheDocument();
   });
 
-  it("labels a live bot and does not keep the disconnected human", () => {
+  it("does not keep a human who never stood on a side, or the bot who replaced them", () => {
     const ticks = makeTicks(2, 1);
     ticks.ticks[0] = 640;
     ticks.flags[0] = 0;
@@ -125,10 +125,34 @@ describe("Scoreboard", () => {
       ticks,
     });
     render(<Scoreboard replay={m} tick={640} selected={1} onSelect={() => {}} />);
-    expect(within(teamTable("AdaskoBlyat")).getByText("KatolikCOO (BOT)")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "KatolikCOO (BOT)" })).toBeInTheDocument();
-    expect(screen.getByText("Bot")).toBeInTheDocument();
+    expect(
+      within(teamTable("AdaskoBlyat")).queryByText("KatolikCOO (BOT)"),
+    ).not.toBeInTheDocument();
     expect(within(teamTable("AdaskoBlyat")).queryByText(/^KatolikCOO$/)).not.toBeInTheDocument();
+  });
+
+  it("keeps a leaver's last money after they disconnect", () => {
+    const ticks = makeTicks(2, 2);
+    ticks.ticks.set([64, 4000]);
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.flags[2] = 0;
+    ticks.flags[3] = FLAG_PRESENT | FLAG_ALIVE;
+    ticks.health.fill(FULL_HEALTH);
+    ticks.money[0] = 4500;
+    ticks.money[1] = 800;
+    ticks.money[3] = 200;
+    const m = makeReplay({
+      header: { team_ct: "d0brafaza", team_t: "HarborSide" },
+      players: [makePlayer(0, "CT", "Harbor"), makePlayer(1, "T", "Bob")],
+      rounds: [makeRound({ number: 16, winner: "T", start_tick: 0, end_tick: 640 })],
+      ticks,
+    });
+    render(<Scoreboard replay={m} tick={4000} selected={null} onSelect={() => {}} />);
+    const ct = teamTable("d0brafaza");
+    expect(within(ct).getByText("Harbor")).toBeInTheDocument();
+    expect(within(ct).getByText("$4500")).toBeInTheDocument();
+    expect(within(teamTable("HarborSide")).getByText("Bob")).toBeInTheDocument();
   });
 
   it("hides a disconnected player so a leave does not add a ghost row after swap", () => {

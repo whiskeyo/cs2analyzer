@@ -31,6 +31,7 @@ import { roundPlaybackFallback } from "@/lib/playback/roundAutoplay";
 import { roundScrubRange } from "@/lib/playback/roundTimeline";
 import { computeStats } from "./computeStats";
 import { liveScore } from "./liveScore";
+import { scoreRoster } from "./scoreRoster";
 import { statsTimeline } from "./timeline";
 
 const REPO = resolve(__dirname, "../../../../..");
@@ -127,6 +128,12 @@ function expectScoreMatch(path: string, hud: { t: number; ct: number }): void {
   expect(last).toBeDefined();
   const names = last?.rows.map((row) => row.name) ?? [];
   expect(names.some((name) => name.includes("(BOT)"))).toBe(false);
+  const roster = scoreRoster(replay, seek);
+  expect(roster, "score roster at the max seek tick").toHaveLength(10);
+  expect(last?.rows, "timeline last column").toHaveLength(10);
+  expect(roster.map((slot) => slot.player).sort((a, b) => a - b)).toEqual(
+    (last?.rows ?? []).map((row) => row.player).sort((a, b) => a - b),
+  );
   for (const player of replay.players) {
     if (player.is_bot) continue;
     const row = last?.rows.find((candidate) => candidate.player === player.index);
