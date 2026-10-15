@@ -43,8 +43,79 @@ pub const REGULATION_ROUNDS: u32 = 24;
 /// First 1-based round number of overtime.
 pub const FIRST_OVERTIME_ROUND: u32 = 25;
 
-/// CS2 OT freeze money per player (no pistol round in OT).
-pub const OVERTIME_START_MONEY: i32 = 10000;
+/// CS2 OT freeze money per player when `mp_overtime_startmoney` is absent.
+/// Engine and Premier/Valve default. Tournament demos usually send 12500 too.
+/// Keep aligned with `apps/web/src/lib/shared/constants.ts`.
+pub const OVERTIME_START_MONEY: i32 = 12500;
+
+/// Competitive `mp_maxrounds` when the demo never sends it (MR12).
+pub const DEFAULT_MP_MAXROUNDS: i32 = REGULATION_ROUNDS as i32;
+
+/// Engine `mp_overtime_maxrounds` when the demo never sends it (MR3).
+pub const DEFAULT_MP_OVERTIME_MAXROUNDS: i32 = 6;
+
+/// Pistol-round money when `mp_startmoney` is absent.
+pub const DEFAULT_MP_STARTMONEY: i32 = 800;
+
+/// Engine and `gamemode_competitive.cfg` values used when a demo omits a convar.
+///
+/// Bools and ints are the cfg text (`0` / `1` / `24`). Overtime max rounds and
+/// start money are not in that cfg; they are the CS2 engine defaults (6 and 12500).
+/// Names are sorted. A demo that sends the name uses that string instead.
+pub const CONVAR_DEFAULTS: &[(&str, &str)] = &[
+    ("ammo_grenade_limit_flashbang", "2"),
+    ("ammo_grenade_limit_total", "4"),
+    ("cash_player_bomb_defused", "300"),
+    ("cash_player_bomb_planted", "300"),
+    ("cash_player_killed_enemy_default", "300"),
+    ("cash_player_killed_enemy_factor", "1"),
+    ("cash_team_bonus_shorthanded", "1000"),
+    ("cash_team_elimination_bomb_map", "3250"),
+    ("cash_team_loser_bonus", "1400"),
+    ("cash_team_loser_bonus_consecutive_rounds", "500"),
+    ("cash_team_planted_bomb_but_defused", "600"),
+    ("cash_team_terrorist_win_bomb", "3500"),
+    ("cash_team_win_by_defusing_bomb", "3500"),
+    ("cash_team_win_by_time_running_out_bomb", "3250"),
+    ("ff_damage_reduction_bullets", "0.33"),
+    ("ff_damage_reduction_grenade", "0.85"),
+    ("ff_damage_reduction_grenade_self", "1"),
+    ("ff_damage_reduction_other", "0.4"),
+    ("mp_afterroundmoney", "0"),
+    ("mp_buy_anywhere", "0"),
+    ("mp_buytime", "20"),
+    ("mp_ct_default_primary", ""),
+    ("mp_ct_default_secondary", "weapon_hkp2000"),
+    ("mp_death_drop_defuser", "1"),
+    ("mp_death_drop_grenade", "3"),
+    ("mp_death_drop_gun", "1"),
+    ("mp_freezetime", "15"),
+    ("mp_friendlyfire", "1"),
+    ("mp_halftime", "1"),
+    ("mp_match_can_clinch", "1"),
+    ("mp_maxmoney", "16000"),
+    ("mp_maxrounds", "24"),
+    ("mp_overtime_enable", "0"),
+    ("mp_overtime_limit", "0"),
+    ("mp_overtime_maxrounds", "6"),
+    ("mp_overtime_startmoney", "12500"),
+    ("mp_playercashawards", "1"),
+    ("mp_roundtime", "1.92"),
+    ("mp_roundtime_defuse", "1.92"),
+    ("mp_roundtime_hostage", "1.92"),
+    ("mp_starting_losses", "1"),
+    ("mp_startmoney", "800"),
+    ("mp_t_default_primary", ""),
+    ("mp_t_default_secondary", "weapon_glock"),
+    ("mp_teamcashawards", "1"),
+    ("mp_technical_timeout_duration_s", "120"),
+    ("mp_technical_timeout_per_team", "1"),
+    ("mp_timelimit", "0"),
+    ("mp_warmuptime", "120"),
+    ("mp_warmuptime_all_players_connected", "15"),
+    ("mp_weapons_allow_zeus", "5"),
+    ("mp_win_panel_display_time", "3"),
+];
 
 /// Overtime side-swap block length.
 pub const OVERTIME_BLOCK_ROUNDS: u32 = 3;

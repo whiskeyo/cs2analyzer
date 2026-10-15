@@ -4,15 +4,16 @@ use crate::inventory::{
     armor_gear, c4_arming_steams, collect_loadouts, controller_money, hold_ammo,
     pawn_active_ammo_raw, pawn_active_weapon, pawn_equip_value, refine_hurt_weapon,
 };
+use crate::match_info::note_convar;
 use crate::props::*;
-use crate::types::{BombKind, GrenadeKind, Side};
+use crate::types::{BombKind, ConvarUpdate, GameRulesSnapshot, GrenadeKind, Side, TeamHalves};
 use crate::{
     ParseOptions, FLAG_ALIVE, FLAG_CT, FLAG_DEFUSING, FLAG_DUCKED, FLAG_PLANTING, FLAG_PRESENT,
     FLAG_SCOPED, MAX_PLAYERS,
 };
 use source2_demo::prelude::*;
-use source2_demo::proto::CSvcMsgServerInfo;
-use std::collections::{HashMap, HashSet};
+use source2_demo::proto::{CDemoFileHeader, CNetMsgSetConVar, CSvcMsgServerInfo};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub(crate) struct PlayerMeta {
     pub steam_id: u64,
@@ -130,6 +131,16 @@ pub(crate) struct Collector {
     /// Freeze-end fill candidates. One walk per `round_freeze_end`, not per tick.
     pub controller_freeze: Vec<crate::ControllerDump>,
     pub last_cap: u32,
+    /// Last value of each convar sent by `CNETMsg_SetConVar`.
+    pub convar_latest: BTreeMap<String, String>,
+    /// Changes in arrival order. A repeated value is not stored again.
+    pub convar_updates: Vec<ConvarUpdate>,
+    pub server_name: String,
+    pub build_num: i32,
+    pub patch_version: i32,
+    /// Last gamerules sample (freeze end, match panel, or demo stop).
+    pub rules: GameRulesSnapshot,
+    pub teams: TeamHalves,
     pub total_ticks: u32,
     pub last_progress_tick: u32,
     pub progress: Option<Box<dyn FnMut(u32, u32)>>,
@@ -232,6 +243,13 @@ impl Collector {
             controller_last: HashMap::new(),
             controller_freeze: Vec::new(),
             last_cap: 0,
+            convar_latest: BTreeMap::new(),
+            convar_updates: Vec::new(),
+            server_name: String::new(),
+            build_num: 0,
+            patch_version: 0,
+            rules: GameRulesSnapshot::default(),
+            teams: TeamHalves::default(),
             total_ticks: 0,
             last_progress_tick: 0,
             progress: None,
@@ -255,6 +273,16 @@ impl Collector {
     /// A change in `m_nRoundStartCount` is a round open. The first time the prop
     /// is visible is not a change. An off-round `player_spawn` wave does not
     /// come through here.
+    fn refresh_match_state(&mut self, ctx: &Context) {
+        if let Some(rules) = read_game_rules(ctx) {
+            self.rules = rules;
+        }
+        let teams = read_team_halves(ctx);
+        if team_halves_present(&teams) {
+            self.teams = teams;
+        }
+    }
+
     pub(crate) fn note_round_start_count(&mut self, tick: u32, count: i32) {
         if tick == u32::MAX {
             return;
@@ -758,6 +786,17 @@ pub(crate) fn new_flash_duration(prev: f32, next: f32) -> Option<f32> {
     }
 }
 
+fn team_halves_present(teams: &TeamHalves) -> bool {
+    let side_present = |side: &crate::TeamHalfScores| {
+        side.score != 0
+            || side.score_first_half != 0
+            || side.score_second_half != 0
+            || side.score_overtime != 0
+            || !side.name.is_empty()
+    };
+    side_present(&teams.ct) || side_present(&teams.t)
+}
+
 fn ev_haskit(ge: &GameEvent<'_>) -> bool {
     ev_bool(ge, "haskit") || ev_i32(ge, "haskit").unwrap_or(0) != 0
 }
@@ -767,6 +806,44 @@ const PROGRESS_TICK_INTERVAL: u32 = 512;
 #[observer]
 #[uses_all]
 impl Collector {
+    #[on_message]
+    fn on_file_header(&mut self, _ctx: &Context, msg: CDemoFileHeader) -> ObserverResult {
+        if let Some(name) = msg.server_name {
+            if !name.is_empty() {
+                self.server_name = name;
+            }
+        }
+        if let Some(build) = msg.build_num {
+            self.build_num = build;
+        }
+        if let Some(patch) = msg.patch_version {
+            self.patch_version = patch;
+        }
+        Ok(())
+    }
+
+    #[on_message]
+    fn on_set_convar(&mut self, ctx: &Context, msg: CNetMsgSetConVar) -> ObserverResult {
+        let Some(convars) = msg.convars else {
+            return Ok(());
+        };
+        let tick = ctx.tick();
+        for cvar in convars.cvars {
+            let Some(name) = cvar.name else {
+                continue;
+            };
+            let value = cvar.value.unwrap_or_default();
+            note_convar(
+                &mut self.convar_latest,
+                &mut self.convar_updates,
+                tick,
+                &name,
+                &value,
+            );
+        }
+        Ok(())
+    }
+
     #[on_message]
     fn on_server_info(&mut self, _ctx: &Context, msg: CSvcMsgServerInfo) -> ObserverResult {
         if let Some(m) = msg.map_name {
@@ -964,6 +1041,14 @@ impl Collector {
         Ok(())
     }
 
+    /// Final gamerules and half scores. Freeze-end samples can sit before the
+    /// last overtime index update.
+    #[on_stop]
+    fn on_stop(&mut self, ctx: &Context) -> ObserverResult {
+        self.refresh_match_state(ctx);
+        Ok(())
+    }
+
     #[on_game_event]
     fn on_game_event(&mut self, ctx: &Context, ge: &GameEvent) -> ObserverResult {
         let tick = ctx.tick();
@@ -995,6 +1080,7 @@ impl Collector {
                     self.round_times.insert(tick, round_time_seconds(ctx));
                     self.round_names.insert(tick, team_names(ctx));
                     self.round_equip.insert(tick, max_equipment(ctx));
+                    self.refresh_match_state(ctx);
                     record_controllers(self, ctx, tick, true);
                 }
             }
@@ -1018,6 +1104,7 @@ impl Collector {
                     gamerules_i32(ctx, "m_pGameRules.m_eRoundWinReason").unwrap_or(0);
                 self.final_score = Some(team_scores(ctx));
                 self.final_names = Some(team_names(ctx));
+                self.refresh_match_state(ctx);
             }
             "player_hurt" => {
                 let dmg = ev_i32(ge, "dmg_health").unwrap_or(0);

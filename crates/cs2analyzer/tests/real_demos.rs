@@ -2473,7 +2473,7 @@ fn per_demo_hash_file_round_trip_errors_do_not_panic() {
         r#"{
             "header":"h","players":"p","rounds":"r","grenades":"g",
             "shots":"s","kills":"k","hurts":"hu","blinds":"b","bomb_events":"be",
-            "buy_events":"bu","controller_dump":"c","player_count":"pc","frame_count":"f",
+            "buy_events":"bu","controller_dump":"c","match_info":"mi","player_count":"pc","frame_count":"f",
             "ticks":"t","x":"x","y":"y","z":"z","yaw":"ya","health":"he","armor":"a",
             "flags":"fl","money":"m","equip":"eq","gear":"ge","primary":"pr",
             "secondary":"se","active":"ac","clip":"cl","reserve":"re"

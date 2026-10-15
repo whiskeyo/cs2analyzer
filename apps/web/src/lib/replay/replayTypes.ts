@@ -282,6 +282,101 @@ export interface TickBuffers {
   reserve: Uint16Array;
 }
 
+export type ConvarSource = "demo" | "default";
+
+/** One resolved convar. `value` is the raw demo string or the defaults table. */
+export interface ConvarEntry {
+  value: string;
+  source: ConvarSource;
+}
+
+/** A `CNETMsg_SetConVar` change. Repeats of the same value are omitted. */
+export interface ConvarUpdate {
+  tick: number;
+  name: string;
+  value: string;
+}
+
+/** `CCSTeam` half split. Score fields use the networked prop names. */
+export interface TeamHalfScores {
+  name: string;
+  m_iScore: number;
+  m_scoreFirstHalf: number;
+  m_scoreSecondHalf: number;
+  m_scoreOvertime: number;
+}
+
+/**
+ * `CCSGameRules` at the end of the demo.
+ * `m_nOvertimePlaying` is 0 in regulation and the OT period index after that.
+ */
+export interface GameRulesSnapshot {
+  m_nOvertimePlaying: number;
+  m_totalRoundsPlayed: number;
+  m_iRoundStartRoundNumber: number;
+  m_nRoundsPlayedThisPhase: number;
+  m_gamePhase: number;
+  m_iFreezeTime: number;
+  m_iRoundTime: number;
+  m_bFreezePeriod: boolean;
+  m_bHasMatchStarted: boolean;
+  m_bGamePaused: boolean;
+  m_bMatchWaitingForResume: boolean;
+  m_bTechnicalTimeOut: boolean;
+  m_bCTTimeOutActive: boolean;
+  m_bTerroristTimeOutActive: boolean;
+  m_flCTTimeOutRemaining: number;
+  m_flTerroristTimeOutRemaining: number;
+  m_nCTTimeOuts: number;
+  m_nTerroristTimeOuts: number;
+  m_nPauseStartTick: number;
+  m_nTotalPausedTicks: number;
+  m_iNumConsecutiveCTLoses: number;
+  m_iNumConsecutiveTerroristLoses: number;
+  m_bBombPlanted: boolean;
+  m_bBombDropped: boolean;
+  m_eRoundEndReason: number;
+  m_iRoundEndWinnerTeam: number;
+  m_sRoundEndMessage: string;
+  m_sRoundEndFunFactToken: string;
+  m_iRoundEndFunFactPlayerSlot: number;
+  m_iRoundEndFunFactData1: number;
+  m_iRoundEndFunFactData2: number;
+  m_iRoundEndFunFactData3: number;
+  m_iRoundEndPlayerCount: number;
+  m_fMatchStartTime: number;
+  m_fRoundStartTime: number;
+  m_flGameStartTime: number;
+  m_bIsValveDS: boolean;
+  m_bIsQueuedMatchmaking: boolean;
+  m_nQueuedMatchmakingMode: number;
+  m_numBestOfMaps: number;
+  m_szMatchStatTxt: string;
+  m_szTournamentEventName: string;
+  m_szTournamentEventStage: string;
+  m_vMinimapMins: [number, number, number];
+  m_vMinimapMaxs: [number, number, number];
+  m_bMapHasBombTarget: boolean;
+  m_bMapHasBuyZone: boolean;
+}
+
+/**
+ * Extra demo data. Omitted on replays parsed before this field existed.
+ * `mp_maxrounds` and `mp_overtime_maxrounds` are the resolved integers.
+ */
+export interface MatchInfo {
+  convars: Record<string, ConvarEntry>;
+  convar_updates: ConvarUpdate[];
+  mp_maxrounds: number;
+  mp_overtime_maxrounds: number;
+  mp_overtime_startmoney: number;
+  rules: GameRulesSnapshot;
+  teams: { ct: TeamHalfScores; t: TeamHalfScores };
+  server_name: string;
+  build_num: number;
+  patch_version: number;
+}
+
 export interface Replay {
   header: MatchHeader;
   players: Player[];
@@ -296,6 +391,8 @@ export interface Replay {
   ticks: TickBuffers;
   /** Last controller slot + freeze-end fill candidates. */
   controllerDump?: ControllerDump[];
+  /** Convars, gamerules, half scores, and the demo file header. */
+  match_info?: MatchInfo;
 }
 
 export interface FloorSection {

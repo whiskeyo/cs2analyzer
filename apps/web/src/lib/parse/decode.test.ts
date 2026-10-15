@@ -9,7 +9,8 @@ import type {
   Player,
   Round,
 } from "@/lib/replay/replayTypes";
-import { makeHurt, makePlayer } from "@/lib/testing/fixtures";
+import { makeHurt, makePlayer, sampleMatchInfo } from "@/lib/testing/fixtures";
+import type { MatchInfo } from "@/lib/replay/replayTypes";
 
 const header: MatchHeader = {
   map_name: "de_anubis",
@@ -73,6 +74,32 @@ describe("decodeObject", () => {
   it("rejects invalid JSON and a non-object payload", () => {
     expect(() => decodeObject("header", "{oops")).toThrow(PayloadError);
     expect(() => decodeObject("header", "42")).toThrow(/expected an object/);
+  });
+});
+
+describe("decodeObject matchInfo", () => {
+  const info: MatchInfo = sampleMatchInfo();
+
+  it("keeps convar source flags and the overtime numbers", () => {
+    const decoded = decodeObject<MatchInfo>("matchInfo", JSON.stringify(info));
+    expect(decoded.mp_maxrounds).toBe(24);
+    expect(decoded.mp_overtime_maxrounds).toBe(6);
+    expect(decoded.rules.m_nOvertimePlaying).toBe(3);
+    expect(decoded.convars.mp_overtime_maxrounds).toEqual({ value: "6", source: "default" });
+    expect(decoded.teams.ct.m_iScore).toBe(20);
+    expect(
+      decoded.teams.ct.m_scoreFirstHalf +
+        decoded.teams.ct.m_scoreSecondHalf +
+        decoded.teams.ct.m_scoreOvertime,
+    ).toBe(decoded.teams.ct.m_iScore);
+  });
+
+  it("names a convar whose source is not demo or default", () => {
+    const broken = structuredClone(info);
+    broken.convars.mp_maxrounds = { value: "24", source: "guess" as "demo" };
+    expect(() => decodeObject("matchInfo", JSON.stringify(broken))).toThrow(
+      /mp_maxrounds.*demo.*default/s,
+    );
   });
 });
 

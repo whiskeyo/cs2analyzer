@@ -17,9 +17,9 @@
 //! the stored sections, so the files omit `events` and `sha256`. A grenade
 //! change then touches only the `grenades` line.
 //!
-//! None of those JSON types contain a map. Object keys are struct fields in
-//! declaration order, so they do not follow `HashMap` iteration. `serde_json`
-//! prints each `f32` with the same text for the same bits.
+//! `match_info.convars` is a `BTreeMap`, so those keys are sorted. Every other
+//! JSON object is struct fields in declaration order, not `HashMap` iteration.
+//! `serde_json` prints each `f32` with the same text for the same bits.
 //!
 //! One pretty-printed file per manifest demo:
 //! `test-demos/output-hashes/<demo name>.json`.
@@ -287,6 +287,7 @@ fn demo_hash(name: &str, grenades: &str, x: &str) -> DemoHash {
             bomb_events: "bomb_events".to_string(),
             buy_events: "buy_events".to_string(),
             controller_dump: "controller_dump".to_string(),
+            match_info: "match_info".to_string(),
             player_count: "player_count".to_string(),
             frame_count: "frame_count".to_string(),
             ticks: "ticks".to_string(),
@@ -353,5 +354,6 @@ fn sample_match() -> Match {
         buy_events: Vec::new(),
         stats: vec![cs2analyzer::PlayerStats::empty(0)],
         controller_dump: Vec::new(),
+        match_info: cs2analyzer::MatchInfo::default(),
     }
 }

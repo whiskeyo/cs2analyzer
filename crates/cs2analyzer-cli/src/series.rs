@@ -387,6 +387,7 @@ pub fn slice_series_match(
             buy_events: Vec::new(),
             stats: Vec::new(),
             controller_dump: Vec::new(),
+            match_info: m.match_info.clone(),
         },
         origin_tick: origin,
     })
@@ -766,6 +767,7 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         }
     }
 
@@ -838,6 +840,7 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         }
     }
 
@@ -1084,6 +1087,7 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         };
         let mut series_match = single_match.clone();
         series_match.ticks = series_ticks;
