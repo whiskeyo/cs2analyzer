@@ -28,10 +28,10 @@ use std::path::Path;
 use std::time::Instant;
 
 use cs2analyzer::{
-    counted_scoreboard_round, full_parse_passes, is_bot_steam_id, parse_demo_with_test_observer,
-    read_scoreboard_controllers, remember_human_controlled_bots, reset_full_parse_passes,
-    scoreboard_players, BombKind, GrenadeKind, GrenadeThrow, Match, ParseOptions, Round,
-    RoundScoreboardPlayer, ScoreboardController, SMOKE_DURATION_SECONDS,
+    counted_scoreboard_round, full_parse_passes, is_bot_steam_id, note_scoreboard_presence,
+    parse_demo_with_test_observer, read_scoreboard_controllers, remember_human_controlled_bots,
+    reset_full_parse_passes, scoreboard_players, BombKind, GrenadeKind, GrenadeThrow, Match,
+    ParseOptions, Round, RoundScoreboardPlayer, ScoreboardController, SMOKE_DURATION_SECONDS,
 };
 use source2_demo::prelude::*;
 
@@ -1046,13 +1046,78 @@ fn check_round_scoreboard(check: &mut AssertSink, name: &str, parsed: &Match, sm
             counted.last()
         ));
     }
+    let roster = parsed.players.len();
     let live = scoreboard_players(&smoke.final_controllers, &smoke.controlled_bots);
-    if last.players != live {
-        check.fail(format!(
-            "{name} last round scoreboard != controllers at the final tick\n  snapshot: {}\n  final: {}",
-            format_scoreboard_players(&last.players),
-            format_scoreboard_players(&live)
-        ));
+    let mut seen: BTreeMap<(u64, u32), &RoundScoreboardPlayer> = BTreeMap::new();
+    let mut row_counts = Vec::with_capacity(parsed.round_scoreboard.len());
+    for round in &parsed.round_scoreboard {
+        row_counts.push(round.players.len());
+        if round.players.len() > roster {
+            check.fail(format!(
+                "{name} round {} has {} scoreboard rows, roster has {roster} players on teams",
+                round.round,
+                round.players.len()
+            ));
+        }
+        let mut keys = BTreeSet::new();
+        for player in &round.players {
+            if !scoreboard_row_on_roster(parsed, player) {
+                check.fail(format!(
+                    "{name} round {} row {} slot={} steam={} was never on T/CT",
+                    round.round, player.name, player.slot, player.steam_id
+                ));
+            }
+            let key = scoreboard_row_key(player);
+            keys.insert(key);
+            if let Some(previous) = seen.get(&key) {
+                if scoreboard_counters_dropped(previous, player) {
+                    check.fail(format!(
+                        "{name} round {} {} counters dropped (was k={} d={} a={} dmg={}, now k={} d={} a={} dmg={})",
+                        round.round,
+                        player.name,
+                        previous.kills,
+                        previous.deaths,
+                        previous.assists,
+                        previous.damage,
+                        player.kills,
+                        player.deaths,
+                        player.assists,
+                        player.damage
+                    ));
+                }
+            }
+            seen.insert(key, player);
+        }
+        for (key, previous) in &seen {
+            if keys.contains(key) {
+                continue;
+            }
+            check.fail(format!(
+                "{name} round {} dropped {} after they had a scoreboard row",
+                round.round, previous.name
+            ));
+        }
+    }
+    for player in &live {
+        let Some(row) = last
+            .players
+            .iter()
+            .find(|row| scoreboard_row_key(row) == scoreboard_row_key(player))
+        else {
+            check.fail(format!(
+                "{name} final tick on-team player {} steam={} missing from the last round",
+                player.name, player.steam_id
+            ));
+            continue;
+        };
+        if scoreboard_counters_dropped(row, player) || scoreboard_counters_dropped(player, row) {
+            check.fail(format!(
+                "{name} last round {} != final tick counters\n  snapshot: {}\n  final: {}",
+                player.name,
+                format_scoreboard_players(std::slice::from_ref(row)),
+                format_scoreboard_players(std::slice::from_ref(player))
+            ));
+        }
     }
     let kills: i32 = last.players.iter().map(|player| player.kills).sum();
     let damage: i32 = last.players.iter().map(|player| player.damage).sum();
@@ -1081,11 +1146,42 @@ fn check_round_scoreboard(check: &mut AssertSink, name: &str, parsed: &Match, sm
         }
     }
     check.set_detail(format!(
-        "rounds={} last_players={} kills={kills} damage={damage} bots_hidden={}",
+        "rounds={} rows={row_counts:?} roster={roster} last_players={} kills={kills} damage={damage} bots_hidden={}",
         got.len(),
         last.players.len(),
         expected.no_bot_rows
     ));
+}
+
+fn scoreboard_row_key(player: &RoundScoreboardPlayer) -> (u64, u32) {
+    if player.steam_id == 0 {
+        (0, player.slot)
+    } else {
+        (player.steam_id, 0)
+    }
+}
+
+fn scoreboard_row_on_roster(parsed: &Match, player: &RoundScoreboardPlayer) -> bool {
+    if player.steam_id == 0 {
+        return parsed.players.iter().any(|roster| roster.is_bot);
+    }
+    parsed
+        .players
+        .iter()
+        .any(|roster| !roster.is_bot && roster.steam_id == player.steam_id)
+}
+
+fn scoreboard_counters_dropped(
+    previous: &RoundScoreboardPlayer,
+    current: &RoundScoreboardPlayer,
+) -> bool {
+    current.kills < previous.kills
+        || current.deaths < previous.deaths
+        || current.assists < previous.assists
+        || current.damage < previous.damage
+        || current.headshot_kills < previous.headshot_kills
+        || current.utility_damage < previous.utility_damage
+        || current.enemies_flashed < previous.enemies_flashed
 }
 
 fn format_scoreboard_players(players: &[RoundScoreboardPlayer]) -> String {
@@ -1893,14 +1989,7 @@ impl SmokeEvents {
         if tick == u32::MAX {
             return Ok(());
         }
-        let controllers = read_scoreboard_controllers(ctx);
-        remember_human_controlled_bots(&controllers, &mut self.controlled_bots);
-        for controller in &controllers {
-            if controller.is_bot {
-                self.bot_rows.insert((controller.slot, controller.steam_id));
-            }
-        }
-        self.final_controllers = controllers;
+        note_scoreboard_presence(ctx, &mut self.controlled_bots, &mut self.bot_rows);
         let Ok(proxy) = ctx.entities().get_by_class_name("CCSGameRulesProxy") else {
             return Ok(());
         };

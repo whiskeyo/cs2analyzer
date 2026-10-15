@@ -270,6 +270,7 @@ fn apply_match_start_sides(players: &mut [Player], ticks: &TickBuffer, rounds: &
 
 fn build_round_scoreboard(c: &Collector, rounds: &[Round]) -> Vec<RoundScoreboard> {
     let begin = c.begin_new_match_ticks.last().copied();
+    let mut roster = crate::scoreboard::ScoreboardRoster::default();
     let mut scoreboard = Vec::new();
     for (index, round) in rounds.iter().enumerate() {
         if !crate::counted_scoreboard_round(round, begin) {
@@ -279,14 +280,11 @@ fn build_round_scoreboard(c: &Collector, rounds: &[Round]) -> Vec<RoundScoreboar
             .get(index + 1)
             .map(|next| next.start_tick)
             .unwrap_or(u32::MAX);
+        let on_team =
+            crate::scoreboard::players_at_round_end(&c.scoreboard_snaps, round, next_start);
         scoreboard.push(RoundScoreboard {
             round: round.number,
-            players: crate::scoreboard::players_at_round_end(
-                &c.scoreboard_snaps,
-                round,
-                next_start,
-            )
-            .to_vec(),
+            players: roster.observe(on_team),
         });
     }
     scoreboard

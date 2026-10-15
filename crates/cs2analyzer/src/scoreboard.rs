@@ -5,7 +5,7 @@
 //! controller, so the bot body is not a second row. A bot with no human
 //! controlling it is a real player and stays.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::types::{Round, RoundScoreboardPlayer, Side};
 
@@ -95,11 +95,13 @@ fn human_controlled_bot_slot(controller: &ScoreboardController) -> Option<u32> {
     controller.original_controller_slot
 }
 
-/// Rows for one round-end snapshot.
+/// Rows for controllers on T or CT at this snapshot.
 ///
 /// Humans stay, including when they are controlling a bot (the counters
 /// already include that). A bot body is omitted when a human controls it.
-/// A bot nobody is controlling stays.
+/// A bot nobody is controlling stays. Casters and spectators (any team other
+/// than T/CT) are omitted here; [`ScoreboardRoster`] carries a player who
+/// already played on a team.
 pub fn scoreboard_players(
     controllers: &[ScoreboardController],
     human_controlled_bots: &BTreeSet<u32>,
@@ -134,7 +136,7 @@ pub fn scoreboard_players(
 }
 
 fn include_controller(controller: &ScoreboardController, suppressed: &BTreeSet<u32>) -> bool {
-    if controller.is_hltv {
+    if controller.is_hltv || Side::from_team_num(controller.team_num).is_none() {
         return false;
     }
     if controller.is_bot || controller.steam_id == 0 {
@@ -144,6 +146,43 @@ fn include_controller(controller: &ScoreboardController, suppressed: &BTreeSet<u
         return true;
     }
     true
+}
+
+fn roster_key(row: &RoundScoreboardPlayer) -> (u64, u32) {
+    if row.steam_id == 0 {
+        (0, row.slot)
+    } else {
+        (row.steam_id, 0)
+    }
+}
+
+/// Players who have been on T/CT in a counted round so far.
+///
+/// A later round that no longer has them (disconnect, spectator) keeps the
+/// last counters. Someone who was never on T/CT is never inserted. A player
+/// who is on a team again replaces the row with that snapshot.
+#[derive(Debug, Default)]
+pub(crate) struct ScoreboardRoster {
+    rows: BTreeMap<(u64, u32), RoundScoreboardPlayer>,
+}
+
+impl ScoreboardRoster {
+    pub(crate) fn observe(
+        &mut self,
+        on_team: &[RoundScoreboardPlayer],
+    ) -> Vec<RoundScoreboardPlayer> {
+        for row in on_team {
+            self.rows.insert(roster_key(row), row.clone());
+        }
+        let mut rows: Vec<_> = self.rows.values().cloned().collect();
+        rows.sort_by(|left, right| {
+            left.slot
+                .cmp(&right.slot)
+                .then(left.steam_id.cmp(&right.steam_id))
+                .then(left.name.cmp(&right.name))
+        });
+        rows
+    }
 }
 
 /// Counted rounds match `Match.rounds` after the last `begin_new_match`.
@@ -289,6 +328,78 @@ mod tests {
         assert_eq!(rows[1].steam_id, 0);
         assert_eq!(rows[1].name, "BOT Hans");
         assert_eq!(rows[1].damage, 200);
+    }
+
+    #[test]
+    fn caster_or_spectator_with_a_steam_id_is_not_a_row() {
+        let mut caster = human(1, 76561197982907430, "@reLazffs");
+        caster.team_num = 1;
+        caster.kills = 0;
+        caster.deaths = 0;
+        caster.assists = 0;
+        caster.damage = 0;
+        caster.headshot_kills = 0;
+        caster.utility_damage = 0;
+        caster.enemies_flashed = 0;
+        let mut coach = human(14, 76561198928771780, "MC");
+        coach.team_num = 1;
+        coach.kills = 0;
+        coach.deaths = 0;
+        coach.assists = 0;
+        coach.damage = 0;
+        coach.headshot_kills = 0;
+        coach.utility_damage = 0;
+        coach.enemies_flashed = 0;
+        let rows = scoreboard_players(&[caster, coach, human(4, 99, "latto")], &BTreeSet::new());
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].name, "latto");
+        assert_eq!(rows[0].steam_id, 99);
+    }
+
+    #[test]
+    fn disconnected_player_keeps_last_counters_in_later_rounds() {
+        let mut alice = human(3, 76561198000000001, "alice");
+        alice.kills = 4;
+        alice.deaths = 2;
+        alice.damage = 80;
+        let mut bob = human(5, 76561198000000002, "bob");
+        bob.kills = 1;
+        bob.damage = 20;
+        let mut roster = ScoreboardRoster::default();
+        let round1 = roster.observe(&scoreboard_players(
+            &[alice.clone(), bob.clone()],
+            &BTreeSet::new(),
+        ));
+        assert_eq!(round1.len(), 2);
+
+        let mut alice_spec = alice.clone();
+        alice_spec.team_num = 1;
+        alice_spec.kills = 0;
+        alice_spec.deaths = 0;
+        alice_spec.damage = 0;
+        bob.kills = 3;
+        bob.damage = 40;
+        let round2 = roster.observe(&scoreboard_players(&[alice_spec, bob], &BTreeSet::new()));
+        assert_eq!(round2.len(), 2);
+        let carried = round2.iter().find(|row| row.name == "alice").unwrap();
+        assert_eq!(carried.kills, 4);
+        assert_eq!(carried.deaths, 2);
+        assert_eq!(carried.damage, 80);
+        assert_eq!(carried.steam_id, 76561198000000001);
+        let bob = round2.iter().find(|row| row.name == "bob").unwrap();
+        assert_eq!(bob.kills, 3);
+        assert_eq!(bob.damage, 40);
+
+        let round3 = roster.observe(&[]);
+        assert_eq!(round3.len(), 2);
+        assert_eq!(
+            round3.iter().find(|row| row.name == "alice").unwrap().kills,
+            4
+        );
+        assert_eq!(
+            round3.iter().find(|row| row.name == "bob").unwrap().kills,
+            3
+        );
     }
 
     #[test]

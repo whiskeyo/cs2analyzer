@@ -110,6 +110,17 @@ pub fn read_scoreboard_controllers(ctx: &Context) -> Vec<ScoreboardController> {
     observer::read_scoreboard_controllers(ctx)
 }
 
+/// Per-tick bot links for the real-demo observer. Does not read match stats.
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn note_scoreboard_presence(
+    ctx: &Context,
+    controlled_bots: &mut std::collections::BTreeSet<u32>,
+    bot_rows: &mut std::collections::BTreeSet<(u32, u64)>,
+) {
+    observer::note_scoreboard_presence(ctx, controlled_bots, bot_rows);
+}
+
 /// Parse a demo and return a read-only observer that ran after [`Collector`].
 ///
 /// Integration tests are not `cfg(test)` for this crate, so the hook is also
