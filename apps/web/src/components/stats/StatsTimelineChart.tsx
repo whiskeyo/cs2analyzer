@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useMemo } from "react";
 import type { TimelineColumn, TimelineStatId } from "@/lib/stats/timeline";
 import { formatTimelineValue, plottedValue, timelineStat } from "@/lib/stats/timeline";
 import {
@@ -81,7 +81,6 @@ export function StatsTimelineChart({
     (a, b) => Number(selected === a.player) - Number(selected === b.player),
   );
   const modeLabel = "cumulative";
-  const glowId = useId().replace(/:/g, "");
 
   return (
     <div className="stats-timeline-plot">
@@ -97,7 +96,6 @@ export function StatsTimelineChart({
           if (index >= 0) onHover(index);
         }}
       >
-        <LineGlow id={glowId} />
         {scale.ticks.map((tick) => {
           const y = valueToY(tick, scale.max, plot);
           return (
@@ -149,8 +147,6 @@ export function StatsTimelineChart({
             line={line}
             selected={selected}
             color={markColor(colors, line.player)}
-            soft={`url(#${glowId}-soft)`}
-            glow={`url(#${glowId}-glow)`}
           />
         ))}
         {hover != null && columns[hover] ? (
@@ -199,45 +195,14 @@ export function StatsTimelineChart({
 const LINE_STROKE = 0.6;
 const HIGHLIGHT_STROKE = 1;
 
-function LineGlow({ id }: { id: string }) {
-  return (
-    <defs>
-      <filter id={`${id}-soft`} x="-30%" y="-30%" width="160%" height="160%">
-        <feGaussianBlur stdDeviation="0.4" result="blur" />
-        <feComponentTransfer in="blur" result="halo">
-          <feFuncA type="linear" slope="0.35" />
-        </feComponentTransfer>
-        <feMerge>
-          <feMergeNode in="halo" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
-      </filter>
-      <filter id={`${id}-glow`} x="-40%" y="-40%" width="180%" height="180%">
-        <feGaussianBlur stdDeviation="1" result="blur" />
-        <feComponentTransfer in="blur" result="halo">
-          <feFuncA type="linear" slope="0.45" />
-        </feComponentTransfer>
-        <feMerge>
-          <feMergeNode in="halo" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
-      </filter>
-    </defs>
-  );
-}
-
 function LineShape({
   line,
   selected,
   color,
-  soft,
-  glow,
 }: {
   line: LineSeries;
   selected: number | null;
   color: string;
-  soft: string;
-  glow: string;
 }) {
   const on = selected === line.player;
   const dim = selected != null && !on;
@@ -261,7 +226,6 @@ function LineShape({
       stroke={color}
       strokeWidth={strokeWidth}
       vectorEffect="non-scaling-stroke"
-      filter={on ? glow : dim ? undefined : soft}
     />
   );
 }

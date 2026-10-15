@@ -96,14 +96,8 @@ describe("StatsTimeline", () => {
       "stroke-width",
       "0.6",
     );
-    expect(
-      [...document.querySelectorAll("feGaussianBlur")].map((blur) =>
-        blur.getAttribute("stdDeviation"),
-      ),
-    ).toEqual(["0.4", "1"]);
-    expect(
-      [...document.querySelectorAll("feFuncA")].map((channel) => channel.getAttribute("slope")),
-    ).toEqual(["0.35", "0.45"]);
+    expect(document.querySelector("feGaussianBlur")).toBeNull();
+    expect(document.querySelector(".stats-timeline-line")).not.toHaveAttribute("filter");
     expect(document.querySelector(".stats-timeline-area")).toBeNull();
     expect(document.querySelector(".stats-timeline-plot rect")).toBeNull();
     expect(document.querySelectorAll(".stats-timeline-line.is-dim").length).toBeGreaterThan(0);
