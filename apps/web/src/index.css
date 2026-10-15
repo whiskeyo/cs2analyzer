@@ -5073,14 +5073,14 @@ button.link:hover:not(:disabled) {
   }
 }
 
-/* Single-demo stats timeline, drawn over the radar column. */
-.stats-timeline-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
+/* Single-demo stats timeline, stacked above the radar so the replay stays visible. */
+.stats-timeline-panel {
+  flex: 0 1 auto;
+  max-height: 46%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: transparent;
   overflow: auto;
 }
 .stats-timeline {

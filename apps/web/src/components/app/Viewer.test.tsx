@@ -143,8 +143,14 @@ describe("Viewer", () => {
       "true",
     );
     expect(screen.getByRole("heading", { name: "Stats timeline" })).toBeInTheDocument();
-    expect(document.querySelector(".stats-timeline-overlay")).toBeTruthy();
-    expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
+    const panel = document.querySelector(".stats-timeline-panel");
+    const radar = screen.getByTestId("radar-stage");
+    const column = document.querySelector(".map-column");
+    expect(panel).toBeTruthy();
+    expect(column).toContainElement(panel);
+    expect(column).toContainElement(radar);
+    expect(panel!.compareDocumentPosition(radar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.querySelector(".stats-timeline-overlay")).toBeNull();
     expect(screen.getByTestId("sidebar")).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("heading", { name: "Stats timeline" })).not.toBeInTheDocument();

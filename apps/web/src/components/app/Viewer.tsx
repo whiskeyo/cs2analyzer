@@ -109,9 +109,8 @@ export function Viewer() {
           <>
             <main className="stage">
               <div className="map-column">
-                <RadarStage />
                 {showTimeline ? (
-                  <div className="stats-timeline-overlay">
+                  <div className="stats-timeline-panel">
                     <StatsTimeline
                       replay={replay}
                       selected={view.selected}
@@ -119,6 +118,7 @@ export function Viewer() {
                     />
                   </div>
                 ) : null}
+                <RadarStage />
                 {!aggregated ? (
                   <RoundStrip
                     replay={replay}
