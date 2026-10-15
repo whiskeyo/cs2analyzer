@@ -183,6 +183,10 @@ describe("Header", () => {
       "aria-pressed",
       "false",
     );
+    const actions = [...document.querySelectorAll(".top-actions button")].map((button) =>
+      button.textContent?.trim(),
+    );
+    expect(actions.indexOf("Stats timeline")).toBe(actions.indexOf("Add demo") + 1);
     await openSettings();
     expect(screen.getByRole("button", { name: "Export notes" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Import notes" })).toBeInTheDocument();

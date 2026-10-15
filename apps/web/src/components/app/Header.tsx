@@ -96,6 +96,16 @@ export function Header() {
       </div>
       <div className="top-actions">
         {replay && showMatchChrome ? <AddDemoControl /> : null}
+        {replay && showMatchChrome && !aggregated ? (
+          <button
+            type="button"
+            className="ghost"
+            aria-pressed={timeline.open}
+            onClick={timeline.toggle}
+          >
+            Stats timeline
+          </button>
+        ) : null}
         {replay && showMatchChrome ? (
           <button type="button" className="ghost" onClick={session.close}>
             New demo
@@ -126,16 +136,6 @@ export function Header() {
             onClick={() => void matchPdf.exportPdf()}
           >
             {matchPdf.busy ? "Exporting…" : "Export PDF"}
-          </button>
-        ) : null}
-        {replay && showMatchChrome && !aggregated ? (
-          <button
-            type="button"
-            className="ghost"
-            aria-pressed={timeline.open}
-            onClick={timeline.toggle}
-          >
-            Stats timeline
           </button>
         ) : null}
         <SettingsMenu />
