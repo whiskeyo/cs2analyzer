@@ -61,6 +61,11 @@ export function keyToPlaybackCommand(
     return { type: "jump-home" };
   }
 
+  if (e.key === "End") {
+    if (isRepeat) return null;
+    return { type: "jump-end" };
+  }
+
   if (e.key === "f" || e.key === "F") {
     if (!ctx.hasSelection) return null;
     return { type: "toggle-follow" };

@@ -36,6 +36,24 @@ describe("keyToPlaybackCommand", () => {
     ).toEqual({ type: "toggle-play" });
   });
 
+  it("maps End to the round scrub end", () => {
+    expect(
+      keyToPlaybackCommand({ key: "End" } as KeyboardEvent, {
+        hasReplay: true,
+        hasSelection: false,
+      }),
+    ).toEqual({ type: "jump-end" });
+  });
+
+  it("ignores a repeated End", () => {
+    expect(
+      keyToPlaybackCommand({ key: "End", repeat: true } as KeyboardEvent, {
+        hasReplay: true,
+        hasSelection: false,
+      }),
+    ).toBeNull();
+  });
+
   it("maps brackets to round jumps", () => {
     expect(
       keyToPlaybackCommand({ code: "BracketLeft", key: "[" } as KeyboardEvent, {
