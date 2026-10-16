@@ -36,6 +36,25 @@ describe("keyToPlaybackCommand", () => {
     ).toEqual({ type: "toggle-play" });
   });
 
+  it("leaves Escape to an open dialog", () => {
+    const modal = document.createElement("div");
+    modal.className = "home-modal";
+    document.body.appendChild(modal);
+    expect(
+      keyToPlaybackCommand({ key: "Escape" } as KeyboardEvent, {
+        hasReplay: true,
+        hasSelection: true,
+      }),
+    ).toBeNull();
+    modal.remove();
+    expect(
+      keyToPlaybackCommand({ key: "Escape" } as KeyboardEvent, {
+        hasReplay: true,
+        hasSelection: true,
+      }),
+    ).toEqual({ type: "deselect" });
+  });
+
   it("maps End to the round scrub end", () => {
     expect(
       keyToPlaybackCommand({ key: "End" } as KeyboardEvent, {

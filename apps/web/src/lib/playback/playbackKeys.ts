@@ -73,7 +73,11 @@ export function keyToPlaybackCommand(
 
   if (e.key === "t" || e.key === "T") return { type: "toggle-trails" };
 
-  if (e.key === "Escape") return { type: "deselect" };
+  if (e.key === "Escape") {
+    // An open dialog owns Escape (close). Playback must not swallow it.
+    if (typeof document !== "undefined" && document.querySelector(".home-modal")) return null;
+    return { type: "deselect" };
+  }
 
   if (e.key === "ArrowLeft") return { type: "step-scrub", dir: -1, large: e.shiftKey };
   if (e.key === "ArrowRight") return { type: "step-scrub", dir: 1, large: e.shiftKey };

@@ -5073,12 +5073,12 @@ button.link:hover:not(:disabled) {
   }
 }
 
-/* Single-demo stats timeline, stacked above the radar so the replay stays visible. */
-.stats-timeline-panel {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  background: transparent;
+/* Single-demo stats timeline, opened in the settings dialog over the replay. */
+.stats-timeline-modal-card {
+  width: min(90vw, 76rem);
+}
+.stats-timeline-modal .stats-timeline {
+  padding: 0;
 }
 .stats-timeline {
   flex: 0 0 auto;

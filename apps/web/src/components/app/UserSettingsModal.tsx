@@ -1,5 +1,4 @@
-import { useEffect, useId, useState } from "react";
-import { createPortal } from "react-dom";
+import { useId, useState } from "react";
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { NadeLegend } from "@/components/radar/NadeLegend";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
@@ -10,6 +9,7 @@ import {
   type DefaultSidebarTab,
 } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
+import { HomeModal } from "./HomeModal";
 import { UserSettingsPlayback } from "./UserSettingsPlayback";
 import { UserSettingsPdfSection, UserSettingsResetDialog } from "./userSettingsPanels";
 import { UserSettingsStorageSection } from "./StorageUsageSection";
@@ -40,278 +40,261 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
   const confirmTitleId = useId();
   const poolMax = parsePoolHardwareCap();
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") {
-        return;
-      }
-      if (confirmReset) {
-        setConfirmReset(false);
-        return;
-      }
-      onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [confirmReset, onClose]);
-
-  return createPortal(
-    <div
-      className="home-modal settings-modal"
-      onPointerDown={(e) => {
-        // Leftover `click` from unmounting the gear menu must not dismiss.
-        if (e.target === e.currentTarget) onClose();
+  return (
+    <HomeModal
+      titleId={titleId}
+      onClose={onClose}
+      onEscape={() => {
+        if (confirmReset) {
+          setConfirmReset(false);
+          return;
+        }
+        onClose();
       }}
+      backdropClassName="settings-modal"
+      cardClassName="settings-modal-card"
+      after={
+        confirmReset ? (
+          <UserSettingsResetDialog
+            titleId={confirmTitleId}
+            onCancel={() => setConfirmReset(false)}
+            onConfirm={() => {
+              void reset().then(() => setConfirmReset(false));
+            }}
+          />
+        ) : null
+      }
     >
-      <div
-        className="home-modal-card settings-modal-card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 id={titleId}>Preferences</h2>
-        <p className="settings-modal-lead">
-          Stored in this browser. Reset restores shipped defaults and does not delete notes or
-          playbooks.
+      <h2 id={titleId}>Preferences</h2>
+      <p className="settings-modal-lead">
+        Stored in this browser. Reset restores shipped defaults and does not delete notes or
+        playbooks.
+      </p>
+      {saveError ? (
+        <p className="error" role="alert">
+          {saveError}
         </p>
-        {saveError ? (
-          <p className="error" role="alert">
-            {saveError}
+      ) : null}
+
+      <section className="settings-section">
+        <h3>Performance</h3>
+        <label className="settings-field">
+          <span>Parse workers</span>
+          <input
+            type="range"
+            min={PARSE_POOL_MIN}
+            max={poolMax}
+            step={1}
+            value={Math.min(settings.parsePoolMax, poolMax)}
+            aria-label="Parse workers"
+            aria-valuetext={`${Math.min(settings.parsePoolMax, poolMax)}`}
+            onChange={(e) => void update({ parsePoolMax: Number(e.target.value) })}
+          />
+          <output>{Math.min(settings.parsePoolMax, poolMax)}</output>
+        </label>
+        <p className="settings-hint">
+          Each worker loads a full demo parser in memory. Higher = faster multi-drop, lower = safer
+          on laptops. Applies on the next multi-file drop.
+        </p>
+        {settings.parsePoolMax > PARSE_POOL_SOFT_WARN ? (
+          <p className="settings-warn">
+            More than {PARSE_POOL_SOFT_WARN} workers can use a lot of RAM on laptops.
           </p>
         ) : null}
+        <label className="settings-field">
+          <span>Max demos per drop</span>
+          <input
+            type="range"
+            min={SERIES_MIN_FILES}
+            max={SERIES_MAX_FILES_HARD}
+            step={1}
+            aria-label="Max demos per drop"
+            aria-valuetext={`${settings.seriesMaxFiles}`}
+            value={settings.seriesMaxFiles}
+            onChange={(e) => void update({ seriesMaxFiles: Number(e.target.value) })}
+          />
+          <output>{settings.seriesMaxFiles}</output>
+        </label>
+        <p className="settings-hint">Applies on the next multi-file drop.</p>
+        {settings.seriesMaxFiles > SERIES_MAX_FILES_SOFT_WARN ? (
+          <p className="settings-warn">{seriesRamWarning()}</p>
+        ) : null}
+      </section>
 
-        <section className="settings-section">
-          <h3>Performance</h3>
-          <label className="settings-field">
-            <span>Parse workers</span>
-            <input
-              type="range"
-              min={PARSE_POOL_MIN}
-              max={poolMax}
-              step={1}
-              value={Math.min(settings.parsePoolMax, poolMax)}
-              aria-label="Parse workers"
-              aria-valuetext={`${Math.min(settings.parsePoolMax, poolMax)}`}
-              onChange={(e) => void update({ parsePoolMax: Number(e.target.value) })}
-            />
-            <output>{Math.min(settings.parsePoolMax, poolMax)}</output>
-          </label>
-          <p className="settings-hint">
-            Each worker loads a full demo parser in memory. Higher = faster multi-drop, lower =
-            safer on laptops. Applies on the next multi-file drop.
-          </p>
-          {settings.parsePoolMax > PARSE_POOL_SOFT_WARN ? (
-            <p className="settings-warn">
-              More than {PARSE_POOL_SOFT_WARN} workers can use a lot of RAM on laptops.
-            </p>
-          ) : null}
-          <label className="settings-field">
-            <span>Max demos per drop</span>
-            <input
-              type="range"
-              min={SERIES_MIN_FILES}
-              max={SERIES_MAX_FILES_HARD}
-              step={1}
-              aria-label="Max demos per drop"
-              aria-valuetext={`${settings.seriesMaxFiles}`}
-              value={settings.seriesMaxFiles}
-              onChange={(e) => void update({ seriesMaxFiles: Number(e.target.value) })}
-            />
-            <output>{settings.seriesMaxFiles}</output>
-          </label>
-          <p className="settings-hint">Applies on the next multi-file drop.</p>
-          {settings.seriesMaxFiles > SERIES_MAX_FILES_SOFT_WARN ? (
-            <p className="settings-warn">{seriesRamWarning()}</p>
-          ) : null}
-        </section>
-
-        <section className="settings-section">
-          <h3>Layout</h3>
-          <label className="settings-field">
-            <span>Sidebar width</span>
-            <input
-              type="range"
-              min={SIDEBAR_MIN_WIDTH}
-              max={SIDEBAR_MAX_WIDTH}
-              step={8}
-              aria-label="Sidebar width"
-              value={settings.sidebarWidth}
-              onChange={(e) => void update({ sidebarWidth: Number(e.target.value) })}
-            />
-            <output>{settings.sidebarWidth}px</output>
-          </label>
-          <label className="settings-field">
-            <span>Default sidebar tab</span>
-            <select
-              aria-label="Default sidebar tab"
-              value={settings.defaultSidebarTab}
-              onChange={(e) =>
-                void update({
-                  defaultSidebarTab: e.target.value as DefaultSidebarTab,
-                })
-              }
-            >
-              {DEFAULT_SIDEBAR_TABS.map((id) => (
-                <option key={id} value={id}>
-                  {SIDEBAR_TAB_LABELS[id]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="settings-hint">Opens this tab when a demo loads.</p>
-          <label className="settings-field">
-            <span>Saved notes page size</span>
-            <input
-              type="number"
-              min={SAVED_NOTES_PAGE_SIZE_MIN}
-              max={SAVED_NOTES_PAGE_SIZE_MAX}
-              aria-label="Saved notes page size"
-              value={settings.savedNotesPageSize}
-              onChange={(e) => void update({ savedNotesPageSize: Number(e.target.value) })}
-            />
-          </label>
-        </section>
-
-        <section className="settings-section">
-          <h3>Drawing</h3>
-          <p className="settings-hint">
-            Defaults for new demos and new playbooks. Open notes keep their own palette and tool.
-          </p>
-          <div className="settings-field">
-            <span>Default tool</span>
-            <span className="floor-picks">
-              {DEFAULT_DRAW_TOOLS.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={settings.defaultDrawTool === id ? "on" : ""}
-                  onClick={() => void update({ defaultDrawTool: id })}
-                >
-                  {DRAW_TOOL_LABELS[id]}
-                </button>
-              ))}
-            </span>
-          </div>
-          <div className="settings-drawing">
-            <ColorPalette
-              paletteId={settings.defaultPaletteId}
-              color={settings.defaultColor}
-              onPalette={(id) => {
-                const preset = COLOR_PRESETS.find((row) => row.id === id);
-                const nextColor =
-                  preset && !(preset.colors as readonly string[]).includes(settings.defaultColor)
-                    ? preset.colors[0]
-                    : settings.defaultColor;
-                void update({ defaultPaletteId: id, defaultColor: nextColor });
-              }}
-              onColor={(color) => void update({ defaultColor: color })}
-            />
-          </div>
-        </section>
-
-        <section className="settings-section">
-          <h3>Radar</h3>
-          <label className="settings-field">
-            <span>Map</span>
-            <span className="settings-range-end">Color</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={Math.round(settings.radarGray * 100)}
-              aria-label="Radar map color"
-              aria-valuetext={radarGrayValueText(settings.radarGray)}
-              onChange={(e) => void update({ radarGray: Number(e.target.value) / 100 })}
-            />
-            <span className="settings-range-end">Gray</span>
-          </label>
-          <p className="settings-hint">
-            Desaturates the map PNG only. Tokens, nades, and ink stay in color. Analyzer, Playbook,
-            and PDF stills share this amount.
-          </p>
-          <p className="settings-hint">Applied when a demo loads. Toolbar toggles stay per-demo.</p>
-          <div className="settings-field">
-            <span>Default floor</span>
-            <span className="floor-picks">
-              {FLOOR_MODES.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  className={settings.defaultFloorMode === mode.id ? "on" : ""}
-                  onClick={() => void update({ defaultFloorMode: mode.id })}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </span>
-          </div>
-          <fieldset className="settings-layers">
-            <legend>Default layers</legend>
-            {LAYER_LABELS.map((row) => (
-              <label key={row.key}>
-                <input
-                  type="checkbox"
-                  checked={settings.defaultLayers[row.key]}
-                  onChange={() =>
-                    void update({
-                      defaultLayers: {
-                        ...settings.defaultLayers,
-                        [row.key]: !settings.defaultLayers[row.key],
-                      },
-                    })
-                  }
-                />
-                {row.label}
-              </label>
+      <section className="settings-section">
+        <h3>Layout</h3>
+        <label className="settings-field">
+          <span>Sidebar width</span>
+          <input
+            type="range"
+            min={SIDEBAR_MIN_WIDTH}
+            max={SIDEBAR_MAX_WIDTH}
+            step={8}
+            aria-label="Sidebar width"
+            value={settings.sidebarWidth}
+            onChange={(e) => void update({ sidebarWidth: Number(e.target.value) })}
+          />
+          <output>{settings.sidebarWidth}px</output>
+        </label>
+        <label className="settings-field">
+          <span>Default sidebar tab</span>
+          <select
+            aria-label="Default sidebar tab"
+            value={settings.defaultSidebarTab}
+            onChange={(e) =>
+              void update({
+                defaultSidebarTab: e.target.value as DefaultSidebarTab,
+              })
+            }
+          >
+            {DEFAULT_SIDEBAR_TABS.map((id) => (
+              <option key={id} value={id}>
+                {SIDEBAR_TAB_LABELS[id]}
+              </option>
             ))}
-          </fieldset>
-          <div className="settings-summary">
-            <p className="settings-field-label">Default nade summary</p>
-            <NadeLegend
-              embedded
-              filter={settings.defaultSummaryFilter}
-              onFilter={(next) => {
-                void update((current) => ({
-                  defaultSummaryFilter:
-                    typeof next === "function" ? next(current.defaultSummaryFilter) : next,
-                }));
-              }}
-            />
-          </div>
-        </section>
+          </select>
+        </label>
+        <p className="settings-hint">Opens this tab when a demo loads.</p>
+        <label className="settings-field">
+          <span>Saved notes page size</span>
+          <input
+            type="number"
+            min={SAVED_NOTES_PAGE_SIZE_MIN}
+            max={SAVED_NOTES_PAGE_SIZE_MAX}
+            aria-label="Saved notes page size"
+            value={settings.savedNotesPageSize}
+            onChange={(e) => void update({ savedNotesPageSize: Number(e.target.value) })}
+          />
+        </label>
+      </section>
 
-        <UserSettingsPlayback settings={settings} update={update} />
-        <UserSettingsPdfSection
-          pdfTheme={settings.pdfTheme}
-          pdfPhotos={settings.pdfPhotos}
-          onTheme={(pdfTheme) => void update({ pdfTheme })}
-          onPhotos={(pdfPhotos) => void update({ pdfPhotos })}
-        />
-
-        <UserSettingsStorageSection />
-
-        <div className="home-modal-actions">
-          <button type="button" className="ghost" onClick={onClose}>
-            Close
-          </button>
-          <button type="button" className="danger" onClick={() => setConfirmReset(true)}>
-            Reset all settings
-          </button>
+      <section className="settings-section">
+        <h3>Drawing</h3>
+        <p className="settings-hint">
+          Defaults for new demos and new playbooks. Open notes keep their own palette and tool.
+        </p>
+        <div className="settings-field">
+          <span>Default tool</span>
+          <span className="floor-picks">
+            {DEFAULT_DRAW_TOOLS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                className={settings.defaultDrawTool === id ? "on" : ""}
+                onClick={() => void update({ defaultDrawTool: id })}
+              >
+                {DRAW_TOOL_LABELS[id]}
+              </button>
+            ))}
+          </span>
         </div>
-      </div>
+        <div className="settings-drawing">
+          <ColorPalette
+            paletteId={settings.defaultPaletteId}
+            color={settings.defaultColor}
+            onPalette={(id) => {
+              const preset = COLOR_PRESETS.find((row) => row.id === id);
+              const nextColor =
+                preset && !(preset.colors as readonly string[]).includes(settings.defaultColor)
+                  ? preset.colors[0]
+                  : settings.defaultColor;
+              void update({ defaultPaletteId: id, defaultColor: nextColor });
+            }}
+            onColor={(color) => void update({ defaultColor: color })}
+          />
+        </div>
+      </section>
 
-      {confirmReset ? (
-        <UserSettingsResetDialog
-          titleId={confirmTitleId}
-          onCancel={() => setConfirmReset(false)}
-          onConfirm={() => {
-            void reset().then(() => setConfirmReset(false));
-          }}
-        />
-      ) : null}
-    </div>,
-    document.body,
+      <section className="settings-section">
+        <h3>Radar</h3>
+        <label className="settings-field">
+          <span>Map</span>
+          <span className="settings-range-end">Color</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={Math.round(settings.radarGray * 100)}
+            aria-label="Radar map color"
+            aria-valuetext={radarGrayValueText(settings.radarGray)}
+            onChange={(e) => void update({ radarGray: Number(e.target.value) / 100 })}
+          />
+          <span className="settings-range-end">Gray</span>
+        </label>
+        <p className="settings-hint">
+          Desaturates the map PNG only. Tokens, nades, and ink stay in color. Analyzer, Playbook,
+          and PDF stills share this amount.
+        </p>
+        <p className="settings-hint">Applied when a demo loads. Toolbar toggles stay per-demo.</p>
+        <div className="settings-field">
+          <span>Default floor</span>
+          <span className="floor-picks">
+            {FLOOR_MODES.map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                className={settings.defaultFloorMode === mode.id ? "on" : ""}
+                onClick={() => void update({ defaultFloorMode: mode.id })}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </span>
+        </div>
+        <fieldset className="settings-layers">
+          <legend>Default layers</legend>
+          {LAYER_LABELS.map((row) => (
+            <label key={row.key}>
+              <input
+                type="checkbox"
+                checked={settings.defaultLayers[row.key]}
+                onChange={() =>
+                  void update({
+                    defaultLayers: {
+                      ...settings.defaultLayers,
+                      [row.key]: !settings.defaultLayers[row.key],
+                    },
+                  })
+                }
+              />
+              {row.label}
+            </label>
+          ))}
+        </fieldset>
+        <div className="settings-summary">
+          <p className="settings-field-label">Default nade summary</p>
+          <NadeLegend
+            embedded
+            filter={settings.defaultSummaryFilter}
+            onFilter={(next) => {
+              void update((current) => ({
+                defaultSummaryFilter:
+                  typeof next === "function" ? next(current.defaultSummaryFilter) : next,
+              }));
+            }}
+          />
+        </div>
+      </section>
+
+      <UserSettingsPlayback settings={settings} update={update} />
+      <UserSettingsPdfSection
+        pdfTheme={settings.pdfTheme}
+        pdfPhotos={settings.pdfPhotos}
+        onTheme={(pdfTheme) => void update({ pdfTheme })}
+        onPhotos={(pdfPhotos) => void update({ pdfPhotos })}
+      />
+
+      <UserSettingsStorageSection />
+
+      <div className="home-modal-actions">
+        <button type="button" className="ghost" onClick={onClose}>
+          Close
+        </button>
+        <button type="button" className="danger" onClick={() => setConfirmReset(true)}>
+          Reset all settings
+        </button>
+      </div>
+    </HomeModal>
   );
 }

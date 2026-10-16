@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
@@ -129,7 +129,8 @@ describe("Viewer", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("opens the stats timeline over the radar and closes it on Escape", async () => {
+  it("opens the stats timeline in the settings dialog and closes it on Escape", async () => {
+    const user = userEvent.setup();
     vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
     renderWithTimeline();
     expect(screen.getByRole("button", { name: "Stats timeline" })).toHaveAttribute(
@@ -137,25 +138,31 @@ describe("Viewer", () => {
       "false",
     );
     expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Stats timeline" }));
+    await user.click(screen.getByRole("button", { name: "Stats timeline" }));
     expect(screen.getByRole("button", { name: "Stats timeline" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    expect(screen.getByRole("heading", { name: "Stats timeline" })).toBeInTheDocument();
-    const panel = document.querySelector(".stats-timeline-panel");
-    const radar = screen.getByTestId("radar-stage");
+    const dialog = screen.getByRole("dialog", { name: "Stats timeline" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog.closest(".settings-modal")?.parentElement).toBe(document.body);
     const column = document.querySelector(".map-column");
-    expect(panel).toBeInstanceOf(HTMLElement);
     expect(column).toBeInstanceOf(HTMLElement);
-    if (!(panel instanceof HTMLElement) || !(column instanceof HTMLElement)) return;
-    expect(column).toContainElement(panel);
-    expect(column).toContainElement(radar);
-    expect(panel.compareDocumentPosition(radar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    if (!(column instanceof HTMLElement)) return;
+    expect(column).not.toContainElement(dialog);
+    expect(column).toContainElement(screen.getByTestId("radar-stage"));
+    expect(document.querySelector(".stats-timeline-panel")).toBeNull();
     expect(document.querySelector(".stats-timeline-overlay")).toBeNull();
     expect(screen.getByTestId("sidebar")).toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
-    expect(screen.queryByRole("heading", { name: "Stats timeline" })).not.toBeInTheDocument();
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    const close = within(dialog).getByRole("button", { name: "Close" });
+    close.focus();
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(close);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Stats timeline" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stats timeline" })).toHaveAttribute(
       "aria-pressed",
       "false",

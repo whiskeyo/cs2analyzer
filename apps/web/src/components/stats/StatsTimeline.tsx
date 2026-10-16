@@ -17,9 +17,11 @@ interface Props {
   /** Shared with the scoreboard. Omit both to keep the highlight local. */
   selected?: number | null;
   onSelect?: (player: number | null) => void;
+  /** Dialog label target when the chart is shown in HomeModal. */
+  headingId?: string;
 }
 
-export function StatsTimeline({ replay, selected: selectedProp, onSelect }: Props) {
+export function StatsTimeline({ replay, selected: selectedProp, onSelect, headingId }: Props) {
   const columns = useMemo(() => statsTimeline(replay), [replay]);
   const colors = useMemo(() => playerMarkColors(replay.players), [replay.players]);
   const [stat, setStat] = useState<TimelineStatId>("adr");
@@ -40,7 +42,9 @@ export function StatsTimeline({ replay, selected: selectedProp, onSelect }: Prop
 
   return (
     <section className="stats-timeline" aria-label="Stats timeline">
-      <h2 className="stats-timeline-title">Stats timeline</h2>
+      <h2 id={headingId} className="stats-timeline-title">
+        Stats timeline
+      </h2>
       <div className="stats-timeline-toolbar">
         <div className="stats-timeline-groups">
           {TIMELINE_GROUPS.map((group) => (
