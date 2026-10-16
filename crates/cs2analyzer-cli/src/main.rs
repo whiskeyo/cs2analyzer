@@ -52,10 +52,10 @@ SECTIONS:
     summary  Map, teams, score, and how much of everything was found
     replay   Everything in one object, for fixtures and cross-checks
     header, players, rounds, grenades, shots, kills, hurts, blinds,
-    bomb-events, buy-events, stats, ticks
+    bomb-events, buy-events, match-info, stats, ticks
 ";
 
-const SECTIONS: [&str; 14] = [
+const SECTIONS: [&str; 15] = [
     "summary",
     "replay",
     "header",
@@ -68,6 +68,7 @@ const SECTIONS: [&str; 14] = [
     "blinds",
     "bomb-events",
     "buy-events",
+    "match-info",
     "stats",
     "ticks",
 ];
@@ -423,6 +424,7 @@ fn section_json(m: &Match, args: &Args) -> Result<String, String> {
         "blinds" => to_value(&m.blinds)?,
         "bomb-events" => to_value(&m.bomb_events)?,
         "buy-events" => to_value(&m.buy_events)?,
+        "match-info" => to_value(&m.match_info)?,
         "stats" => to_value(&compute_stats_until(m, args.tick))?,
         "ticks" => to_value(&m.ticks)?,
         other => return Err(format!("unknown section {other}")),

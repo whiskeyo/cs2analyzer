@@ -27,6 +27,7 @@ pub(crate) fn prop_bool(e: &Entity, name: &str) -> bool {
 pub(crate) fn prop_vec3(e: &Entity, name: &str) -> Option<(f32, f32, f32)> {
     match e.get_property(name) {
         Ok(FieldValue::Vector3D(v)) => Some((v[0], v[1], v[2])),
+        Ok(FieldValue::Vector4D(v)) => Some((v[0], v[1], v[2])),
         Ok(FieldValue::Vector2D(v)) => Some((v[0], v[1], 0.0)),
         _ => None,
     }
@@ -186,6 +187,105 @@ pub(crate) fn max_equipment(ctx: &Context) -> i32 {
         }
     }
     max_ev
+}
+
+pub(crate) fn prop_string(e: &Entity, name: &str) -> String {
+    match e.get_property(name) {
+        Ok(FieldValue::String(value)) => value.clone(),
+        _ => String::new(),
+    }
+}
+
+fn rules_field(field: &str) -> String {
+    format!("m_pGameRules.{field}")
+}
+
+/// End-of-match `CCSGameRules` snapshot. `None` when the proxy is missing.
+pub(crate) fn read_game_rules(ctx: &Context) -> Option<crate::GameRulesSnapshot> {
+    let proxy = ctx.entities().get_by_class_name("CCSGameRulesProxy").ok()?;
+    let i32_of = |field: &str| prop_i32(proxy, &rules_field(field));
+    let bool_of = |field: &str| prop_bool(proxy, &rules_field(field));
+    let f32_of = |field: &str| prop_f32(proxy, &rules_field(field));
+    let str_of = |field: &str| prop_string(proxy, &rules_field(field));
+    let vec_of = |field: &str| {
+        prop_vec3(proxy, &rules_field(field))
+            .map(|(x, y, z)| [x, y, z])
+            .unwrap_or([0.0, 0.0, 0.0])
+    };
+    Some(crate::GameRulesSnapshot {
+        overtime_playing: i32_of("m_nOvertimePlaying"),
+        total_rounds_played: i32_of("m_totalRoundsPlayed"),
+        round_start_round_number: i32_of("m_iRoundStartRoundNumber"),
+        rounds_played_this_phase: i32_of("m_nRoundsPlayedThisPhase"),
+        game_phase: i32_of("m_gamePhase"),
+        freeze_time: i32_of("m_iFreezeTime"),
+        round_time: i32_of("m_iRoundTime"),
+        freeze_period: bool_of("m_bFreezePeriod"),
+        has_match_started: bool_of("m_bHasMatchStarted"),
+        game_paused: bool_of("m_bGamePaused"),
+        match_waiting_for_resume: bool_of("m_bMatchWaitingForResume"),
+        technical_timeout: bool_of("m_bTechnicalTimeOut"),
+        ct_timeout_active: bool_of("m_bCTTimeOutActive"),
+        terrorist_timeout_active: bool_of("m_bTerroristTimeOutActive"),
+        ct_timeout_remaining: f32_of("m_flCTTimeOutRemaining"),
+        terrorist_timeout_remaining: f32_of("m_flTerroristTimeOutRemaining"),
+        ct_timeouts: i32_of("m_nCTTimeOuts"),
+        terrorist_timeouts: i32_of("m_nTerroristTimeOuts"),
+        pause_start_tick: i32_of("m_nPauseStartTick"),
+        total_paused_ticks: i32_of("m_nTotalPausedTicks"),
+        consecutive_ct_losses: i32_of("m_iNumConsecutiveCTLoses"),
+        consecutive_terrorist_losses: i32_of("m_iNumConsecutiveTerroristLoses"),
+        bomb_planted: bool_of("m_bBombPlanted"),
+        bomb_dropped: bool_of("m_bBombDropped"),
+        round_end_reason: i32_of("m_eRoundEndReason"),
+        round_end_winner_team: i32_of("m_iRoundEndWinnerTeam"),
+        round_end_message: str_of("m_sRoundEndMessage"),
+        round_end_fun_fact_token: str_of("m_sRoundEndFunFactToken"),
+        round_end_fun_fact_player_slot: i32_of("m_iRoundEndFunFactPlayerSlot"),
+        round_end_fun_fact_data1: i32_of("m_iRoundEndFunFactData1"),
+        round_end_fun_fact_data2: i32_of("m_iRoundEndFunFactData2"),
+        round_end_fun_fact_data3: i32_of("m_iRoundEndFunFactData3"),
+        round_end_player_count: i32_of("m_iRoundEndPlayerCount"),
+        match_start_time: f32_of("m_fMatchStartTime"),
+        round_start_time: f32_of("m_fRoundStartTime"),
+        game_start_time: f32_of("m_flGameStartTime"),
+        is_valve_ds: bool_of("m_bIsValveDS"),
+        is_queued_matchmaking: bool_of("m_bIsQueuedMatchmaking"),
+        queued_matchmaking_mode: i32_of("m_nQueuedMatchmakingMode"),
+        best_of_maps: i32_of("m_numBestOfMaps"),
+        match_stat_text: str_of("m_szMatchStatTxt"),
+        tournament_event_name: str_of("m_szTournamentEventName"),
+        tournament_event_stage: str_of("m_szTournamentEventStage"),
+        minimap_mins: vec_of("m_vMinimapMins"),
+        minimap_maxs: vec_of("m_vMinimapMaxs"),
+        map_has_bomb_target: bool_of("m_bMapHasBombTarget"),
+        map_has_buy_zone: bool_of("m_bMapHasBuyZone"),
+    })
+}
+
+pub(crate) fn read_team_halves(ctx: &Context) -> crate::TeamHalves {
+    let mut teams = crate::TeamHalves::default();
+    for entity in ctx.entities().iter() {
+        if entity.class().name() != "CCSTeam" {
+            continue;
+        }
+        let row = crate::TeamHalfScores {
+            name: match entity.get_property("m_szClanTeamname") {
+                Ok(FieldValue::String(value)) => value.trim_start_matches("team_").to_string(),
+                _ => String::new(),
+            },
+            score: prop_i32(entity, "m_iScore"),
+            score_first_half: prop_i32(entity, "m_scoreFirstHalf"),
+            score_second_half: prop_i32(entity, "m_scoreSecondHalf"),
+            score_overtime: prop_i32(entity, "m_scoreOvertime"),
+        };
+        match prop_i32(entity, "m_iTeamNum") {
+            3 => teams.ct = row,
+            2 => teams.t = row,
+            _ => {}
+        }
+    }
+    teams
 }
 
 pub(crate) fn team_names(ctx: &Context) -> (String, String) {

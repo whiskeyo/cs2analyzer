@@ -18,7 +18,9 @@ import {
   type Hurt,
   type Kill,
   type MapCalibration,
+  type GameRulesSnapshot,
   type MatchHeader,
+  type MatchInfo,
   type Player,
   type Replay,
   type Round,
@@ -234,6 +236,102 @@ export const UNIT_CALIBRATION: MapCalibration = {
   scale: 1,
   radar: "test.png",
 };
+
+const ZERO_RULES: GameRulesSnapshot = {
+  m_nOvertimePlaying: 0,
+  m_totalRoundsPlayed: 0,
+  m_iRoundStartRoundNumber: 0,
+  m_nRoundsPlayedThisPhase: 0,
+  m_gamePhase: 0,
+  m_iFreezeTime: 0,
+  m_iRoundTime: 0,
+  m_bFreezePeriod: false,
+  m_bHasMatchStarted: false,
+  m_bGamePaused: false,
+  m_bMatchWaitingForResume: false,
+  m_bTechnicalTimeOut: false,
+  m_bCTTimeOutActive: false,
+  m_bTerroristTimeOutActive: false,
+  m_flCTTimeOutRemaining: 0,
+  m_flTerroristTimeOutRemaining: 0,
+  m_nCTTimeOuts: 0,
+  m_nTerroristTimeOuts: 0,
+  m_nPauseStartTick: 0,
+  m_nTotalPausedTicks: 0,
+  m_iNumConsecutiveCTLoses: 0,
+  m_iNumConsecutiveTerroristLoses: 0,
+  m_bBombPlanted: false,
+  m_bBombDropped: false,
+  m_eRoundEndReason: 0,
+  m_iRoundEndWinnerTeam: 0,
+  m_sRoundEndMessage: "",
+  m_sRoundEndFunFactToken: "",
+  m_iRoundEndFunFactPlayerSlot: 0,
+  m_iRoundEndFunFactData1: 0,
+  m_iRoundEndFunFactData2: 0,
+  m_iRoundEndFunFactData3: 0,
+  m_iRoundEndPlayerCount: 0,
+  m_fMatchStartTime: 0,
+  m_fRoundStartTime: 0,
+  m_flGameStartTime: 0,
+  m_bIsValveDS: false,
+  m_bIsQueuedMatchmaking: false,
+  m_nQueuedMatchmakingMode: 0,
+  m_numBestOfMaps: 0,
+  m_szMatchStatTxt: "",
+  m_szTournamentEventName: "",
+  m_szTournamentEventStage: "",
+  m_vMinimapMins: [0, 0, 0],
+  m_vMinimapMaxs: [0, 0, 0],
+  m_bMapHasBombTarget: false,
+  m_bMapHasBuyZone: false,
+};
+
+/** Parser `match_info` with the tournament defaults a drop must be able to read. */
+export function sampleMatchInfo(patch: Partial<MatchInfo> = {}): MatchInfo {
+  return {
+    convars: {
+      defaults: {
+        mp_buytime: "20",
+        mp_c4timer: "40",
+        mp_maxmoney: "16000",
+        mp_maxrounds: "24",
+        mp_overtime_maxrounds: "6",
+        mp_overtime_startmoney: "12500",
+        mp_roundtime: "1.92",
+        mp_roundtime_defuse: "1.92",
+        mp_startmoney: "800",
+      },
+      // `mp_maxrounds` equals the default and is still present.
+      demo: {
+        mp_maxrounds: "24",
+        mp_overtime_enable: "true",
+      },
+    },
+    convar_updates: [{ tick: 0, name: "mp_maxrounds", value: "24" }],
+    rules: { ...ZERO_RULES, m_nOvertimePlaying: 3 },
+    teams: {
+      ct: {
+        name: "CT",
+        m_iScore: 20,
+        m_scoreFirstHalf: 7,
+        m_scoreSecondHalf: 5,
+        m_scoreOvertime: 8,
+      },
+      t: {
+        name: "T",
+        m_iScore: 22,
+        m_scoreFirstHalf: 5,
+        m_scoreSecondHalf: 7,
+        m_scoreOvertime: 10,
+      },
+    },
+    server_name: "FACEIT",
+    build_num: 10924,
+    patch_version: 14189,
+    ...patch,
+  };
+}
 
 export function makePlaces(callouts: LayoutCallout[], map = "de_test"): MapPlaces {
   const layout: MapLayout = { schema: LAYOUT_SCHEMA, map, callouts };

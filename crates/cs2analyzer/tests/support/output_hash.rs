@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 pub const HASHES_DIR: &str = "test-demos/output-hashes";
 
 #[allow(dead_code)]
-pub const SECTION_ORDER: [&str; 29] = [
+pub const SECTION_ORDER: [&str; 30] = [
     "header",
     "players",
     "rounds",
@@ -28,6 +28,7 @@ pub const SECTION_ORDER: [&str; 29] = [
     "bomb_events",
     "buy_events",
     "controller_dump",
+    "match_info",
     "player_count",
     "frame_count",
     "ticks",
@@ -73,6 +74,7 @@ pub struct SectionHashes {
     pub bomb_events: String,
     pub buy_events: String,
     pub controller_dump: String,
+    pub match_info: String,
     pub player_count: String,
     pub frame_count: String,
     pub ticks: String,
@@ -103,7 +105,7 @@ pub struct ComputedOutput {
 }
 
 impl SectionHashes {
-    pub fn values(&self) -> [(&str, &str); 29] {
+    pub fn values(&self) -> [(&str, &str); 30] {
         [
             ("header", self.header.as_str()),
             ("players", self.players.as_str()),
@@ -116,6 +118,7 @@ impl SectionHashes {
             ("bomb_events", self.bomb_events.as_str()),
             ("buy_events", self.buy_events.as_str()),
             ("controller_dump", self.controller_dump.as_str()),
+            ("match_info", self.match_info.as_str()),
             ("player_count", self.player_count.as_str()),
             ("frame_count", self.frame_count.as_str()),
             ("ticks", self.ticks.as_str()),
@@ -262,6 +265,7 @@ struct EventPieces {
     bomb_events: String,
     buy_events: String,
     controller_dump: String,
+    match_info: String,
     player_count: String,
     frame_count: String,
 }
@@ -279,6 +283,7 @@ fn event_pieces(parsed: &Match) -> EventPieces {
     let bomb_events = push_json(&mut buf, "bombEventsJson", &parsed.bomb_events);
     let buy_events = push_json(&mut buf, "buyEventsJson", &parsed.buy_events);
     let controller_dump = push_json(&mut buf, "controllerDumpJson", &parsed.controller_dump);
+    let match_info = push_json(&mut buf, "matchInfoJson", &parsed.match_info);
     let player_count = push_text(
         &mut buf,
         "playerCount",
@@ -302,6 +307,7 @@ fn event_pieces(parsed: &Match) -> EventPieces {
         bomb_events,
         buy_events,
         controller_dump,
+        match_info,
         player_count,
         frame_count,
     }
@@ -366,6 +372,7 @@ pub fn hash_match(parsed: &Match) -> ComputedOutput {
         bomb_events: pieces.bomb_events,
         buy_events: pieces.buy_events,
         controller_dump: pieces.controller_dump,
+        match_info: pieces.match_info,
         player_count: pieces.player_count,
         frame_count: pieces.frame_count,
         ticks: push_encoded(&mut overall, "ticks", &ticks.ticks, |value| {

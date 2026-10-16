@@ -106,6 +106,7 @@ pub fn slice_tutorial_match(m: &Match, live_rounds: u32) -> Result<TutorialSlice
                 &[(start_tick, end_tick)],
                 origin,
             ),
+            match_info: m.match_info.clone(),
         },
         origin_tick: origin,
     })
@@ -874,6 +875,7 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         }
     }
 

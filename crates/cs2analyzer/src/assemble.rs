@@ -13,6 +13,7 @@ use crate::inventory::{
     GEAR_INC, GEAR_KEVLAR, GEAR_MOLLY, GEAR_SMOKE, GEAR_ZEUS, WID_DECOY, WID_DEFUSER, WID_FLASH,
     WID_HE, WID_HELMET, WID_INC, WID_KEVLAR, WID_MOLLY, WID_SMOKE, WID_TASER,
 };
+use crate::match_info::{build_match_info, MatchInfoParts};
 use crate::observer::{Collector, GrenadeDet, GrenadeDetSource};
 use crate::types::*;
 use crate::{FLAG_PRESENT, MAX_PLAYERS};
@@ -161,6 +162,15 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         buy_events,
         stats: Vec::new(),
         controller_dump,
+        match_info: build_match_info(MatchInfoParts {
+            convar_latest: &c.convar_latest,
+            convar_updates: &c.convar_updates,
+            rules: &c.rules,
+            teams: &c.teams,
+            server_name: &c.server_name,
+            build_num: c.build_num,
+            patch_version: c.patch_version,
+        }),
     };
     #[cfg(feature = "match-stats")]
     {

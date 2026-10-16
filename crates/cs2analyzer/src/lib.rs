@@ -5,6 +5,7 @@ mod assemble;
 mod constants;
 mod error;
 mod inventory;
+mod match_info;
 mod observer;
 mod props;
 mod radar;

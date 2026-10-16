@@ -19,6 +19,7 @@ export const parsedmatch_headerJson: (a: number, b: number) => void;
 export const parsedmatch_health: (a: number) => number;
 export const parsedmatch_hurtsJson: (a: number, b: number) => void;
 export const parsedmatch_killsJson: (a: number, b: number) => void;
+export const parsedmatch_matchInfoJson: (a: number, b: number) => void;
 export const parsedmatch_money: (a: number) => number;
 export const parsedmatch_playerCount: (a: number) => number;
 export const parsedmatch_playersJson: (a: number, b: number) => void;

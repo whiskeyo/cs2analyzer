@@ -11,6 +11,7 @@ import type {
   Hurt,
   Kill,
   MatchHeader,
+  MatchInfo,
   ParseTimings,
   Player,
   Replay,
@@ -93,6 +94,7 @@ self.onmessage = async (ev: MessageEvent<ParseWorkerIn>) => {
       "controllerDump",
       parsed.controllerDumpJson(),
     );
+    const matchInfo = decodeObject<MatchInfo>("matchInfo", parsed.matchInfoJson());
     const jsonMs = performance.now() - tJson;
 
     const tBuffers = performance.now();
@@ -108,6 +110,7 @@ self.onmessage = async (ev: MessageEvent<ParseWorkerIn>) => {
       bombEvents,
       buyEvents,
       controllerDump,
+      match_info: matchInfo,
       ticks: {
         frameCount: parsed.frameCount(),
         playerCount: parsed.playerCount(),
