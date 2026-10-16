@@ -6,6 +6,7 @@ import {
   percentAxis,
   plotRect,
   roundX,
+  snapAxisCoordinate,
   smoothLinePath,
   smoothLineSegments,
   ROUND_LABEL_SLOT_PX,
@@ -18,6 +19,14 @@ import type { Side } from "@/lib/replay/replayTypes";
 
 describe("timelineChart", () => {
   const plot = plotRect();
+
+  it("snaps an axis rule onto the center of a CSS pixel", () => {
+    expect(snapAxisCoordinate(22, 280, 173.125, 0)).toBe(22);
+    const snapped = snapAxisCoordinate(22, 280, 173.125, 938);
+    const screen = 173.125 + (snapped / 280) * 938;
+    expect(screen).toBeCloseTo(Math.floor(screen) + 0.5, 6);
+    expect(Math.abs(snapped - 22)).toBeLessThan(280 / 938);
+  });
 
   it("rounds the axis up onto a readable grid", () => {
     const adr = axisScale(117);

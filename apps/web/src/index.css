@@ -5229,18 +5229,9 @@ button.link:hover:not(:disabled) {
   color: var(--text-muted);
   white-space: nowrap;
 }
-.stats-timeline-grid {
-  stroke: rgba(232, 238, 244, 0.08);
-  stroke-width: 1;
-  pointer-events: none;
-}
-.stats-timeline-break {
-  pointer-events: none;
-}
+.stats-timeline-grid,
+.stats-timeline-break,
 .stats-timeline-hover {
-  stroke: rgba(232, 238, 244, 0.5);
-  stroke-width: 1;
-  stroke-dasharray: 3 4;
   pointer-events: none;
 }
 .stats-timeline-axis {

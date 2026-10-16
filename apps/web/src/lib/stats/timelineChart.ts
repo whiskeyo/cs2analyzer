@@ -72,6 +72,23 @@ export function valueToY(value: number, max: number, plot: PlotRect): number {
   return plot.y + plot.height * (1 - t);
 }
 
+/**
+ * Put an axis coordinate on the center of a CSS pixel in the viewport.
+ * A 1px stroke is centered on the path. On a pixel boundary, `crispEdges`
+ * drops both halves, so a stretched viewBox would hide the rule at 1x.
+ */
+export function snapAxisCoordinate(
+  user: number,
+  viewSpan: number,
+  originPx: number,
+  cssSpan: number,
+): number {
+  if (!(cssSpan > 0) || !(viewSpan > 0) || !Number.isFinite(originPx)) return user;
+  const screen = originPx + (user / viewSpan) * cssSpan;
+  const center = Math.round(screen - 0.5) + 0.5;
+  return ((center - originPx) / cssSpan) * viewSpan;
+}
+
 /** CSS pixels. Labels sit outside the stretched viewBox, so this size does not follow the chart width. */
 export const AXIS_LABEL_PX = 10;
 

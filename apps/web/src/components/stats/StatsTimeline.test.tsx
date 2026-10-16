@@ -1,6 +1,9 @@
 /**
  * @vitest-environment jsdom
  */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -157,12 +160,78 @@ describe("StatsTimeline", () => {
     );
     const line = document.querySelector(".stats-timeline-break");
     expect(line).toHaveAttribute("stroke-width", "1");
-    expect(line).toHaveAttribute("stroke-opacity", "0.5");
+    expect(line).toHaveAttribute("stroke", "#7d8389");
+    expect(line).not.toHaveAttribute("stroke-opacity");
     expect(line).toHaveAttribute("vector-effect", "non-scaling-stroke");
+    expect(line).toHaveAttribute("shape-rendering", "crispEdges");
     const plot = plotRect();
     const mid = (roundX(0, columns.length, plot) + roundX(1, columns.length, plot)) / 2;
     expect(line).toHaveAttribute("x1", String(mid));
     expect(line).toHaveAttribute("x2", String(mid));
+  });
+
+  it("draws round rules at one pixel with an opaque color and a lighter seam", () => {
+    const columns = [swappedColumn(12, "CT"), swappedColumn(13, "T"), swappedColumn(14, "T")];
+    render(
+      <StatsTimelineChart
+        columns={columns}
+        stat="kills"
+        colors={["#ffffff", "#000000"]}
+        selected={0}
+        hover={0}
+        onSelect={() => undefined}
+        onHover={() => undefined}
+      />,
+    );
+    const grids = [...document.querySelectorAll(".stats-timeline-grid")];
+    expect(grids.length).toBeGreaterThan(0);
+    const gridStrokes = new Set<string>();
+    for (const line of grids) {
+      expect(line).toHaveAttribute("vector-effect", "non-scaling-stroke");
+      expect(line).toHaveAttribute("shape-rendering", "crispEdges");
+      expect(line).toHaveAttribute("stroke-width", "1");
+      expect(line).not.toHaveAttribute("stroke-opacity");
+      const stroke = line.getAttribute("stroke") ?? "";
+      expect(stroke).toMatch(/^#[0-9a-f]{6}$/);
+      gridStrokes.add(stroke);
+    }
+    expect(gridStrokes).toEqual(new Set(["#23282e"]));
+
+    const seam = document.querySelector(".stats-timeline-break");
+    expect(seam).toHaveAttribute("vector-effect", "non-scaling-stroke");
+    expect(seam).toHaveAttribute("shape-rendering", "crispEdges");
+    expect(seam).toHaveAttribute("stroke-width", "1");
+    expect(seam).not.toHaveAttribute("stroke-opacity");
+    expect(seam?.getAttribute("stroke")).toMatch(/^#[0-9a-f]{6}$/);
+    expect(seam?.getAttribute("stroke")).not.toBe(grids[0]?.getAttribute("stroke"));
+
+    const hover = document.querySelector(".stats-timeline-hover");
+    expect(hover).toHaveAttribute("vector-effect", "non-scaling-stroke");
+    expect(hover).toHaveAttribute("stroke-dasharray", "3 4");
+    expect(hover).not.toHaveAttribute("stroke-opacity");
+
+    expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
+      "stroke-width",
+      "1.6",
+    );
+    expect(document.querySelector(".stats-timeline-line.is-dim")).toHaveAttribute(
+      "stroke-width",
+      "0.9",
+    );
+    expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
+      "vector-effect",
+      "non-scaling-stroke",
+    );
+
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../index.css"),
+      "utf8",
+    );
+    const paint = css.slice(
+      css.indexOf(".stats-timeline-grid"),
+      css.indexOf(".stats-timeline-axis {"),
+    );
+    expect(paint).not.toMatch(/rgba|hsla|stroke-opacity|stroke:/);
   });
 
   it("keeps every round label at a fixed size, upright only when horizontal type would overlap", () => {
