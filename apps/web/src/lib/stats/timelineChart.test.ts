@@ -10,8 +10,7 @@ import {
   smoothLineSegments,
   ROUND_LABEL_SLOT_PX,
   TIMELINE_LAYOUT,
-  roundLabelIndexes,
-  roundLabelStep,
+  roundLabelOrientation,
   valueToY,
   type TimelineRoundRoster,
 } from "./timelineChart";
@@ -32,19 +31,17 @@ describe("timelineChart", () => {
     expect(percentAxis(140).max).toBeGreaterThanOrEqual(140);
   });
 
-  it("keeps round labels at full size by skipping some when the plot is narrow", () => {
-    expect(roundLabelStep(42, 42 * 40, ROUND_LABEL_SLOT_PX)).toBe(1);
-    expect(roundLabelIndexes(42, 1)).toHaveLength(42);
-    expect(roundLabelStep(42, 0, ROUND_LABEL_SLOT_PX)).toBe(1);
-
-    const step = roundLabelStep(42, 42 * 10, ROUND_LABEL_SLOT_PX);
-    expect(step).toBeGreaterThan(1);
-    const indexes = roundLabelIndexes(42, step);
-    expect(indexes[0]).toBe(0);
-    expect(indexes[indexes.length - 1]).toBe(41);
-    for (let i = 1; i < indexes.length; i++) {
-      expect((indexes[i] ?? 0) - (indexes[i - 1] ?? 0)).toBeGreaterThanOrEqual(step);
-    }
+  it("keeps every round label and turns the row upright when horizontal type would overlap", () => {
+    expect(roundLabelOrientation(42, 42 * 40, ROUND_LABEL_SLOT_PX)).toBe("horizontal");
+    expect(roundLabelOrientation(42, 42 * ROUND_LABEL_SLOT_PX, ROUND_LABEL_SLOT_PX)).toBe(
+      "horizontal",
+    );
+    expect(roundLabelOrientation(42, 0, ROUND_LABEL_SLOT_PX)).toBe("horizontal");
+    expect(roundLabelOrientation(1, 10, ROUND_LABEL_SLOT_PX)).toBe("horizontal");
+    expect(roundLabelOrientation(42, 42 * 10, ROUND_LABEL_SLOT_PX)).toBe("vertical");
+    expect(roundLabelOrientation(42, 42 * ROUND_LABEL_SLOT_PX - 1, ROUND_LABEL_SLOT_PX)).toBe(
+      "vertical",
+    );
   });
 
   it("maps values with zero on the baseline and the max on the top", () => {

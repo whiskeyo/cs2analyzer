@@ -75,33 +75,23 @@ export function valueToY(value: number, max: number, plot: PlotRect): number {
 /** CSS pixels. Labels sit outside the stretched viewBox, so this size does not follow the chart width. */
 export const AXIS_LABEL_PX = 10;
 
-/** Room a round label needs ("R42") before the next one is drawn. */
+/** Room a horizontal "R42" needs. A tighter column turns the label upright instead of shrinking it. */
 export const ROUND_LABEL_SLOT_PX = 28;
 
-/**
- * How many rounds to skip so each label keeps `slotPx` of the plot.
- * A wide plot returns 1. A tight plot returns a larger step instead of a smaller font.
- */
-export function roundLabelStep(count: number, plotWidthPx: number, slotPx: number): number {
-  if (count <= 1 || plotWidthPx <= 0 || slotPx <= 0) return 1;
-  const column = plotWidthPx / count;
-  if (column >= slotPx) return 1;
-  return Math.ceil(slotPx / column);
-}
+export type RoundLabelOrientation = "horizontal" | "vertical";
 
-/** Indexes to draw, spaced by `step`, always including the last round when it fits the same gap. */
-export function roundLabelIndexes(count: number, step: number): number[] {
-  if (count <= 0) return [];
-  const safeStep = Math.max(1, Math.floor(step));
-  const indexes: number[] = [];
-  for (let i = 0; i < count; i += safeStep) indexes.push(i);
-  const last = count - 1;
-  const previous = indexes[indexes.length - 1];
-  if (previous !== last) {
-    if (previous != null && last - previous < safeStep) indexes.pop();
-    indexes.push(last);
-  }
-  return indexes;
+/**
+ * Horizontal while each round has `slotPx` of the plot. Otherwise the label
+ * rotates, still at the same font size, and every round stays on the axis.
+ */
+export function roundLabelOrientation(
+  count: number,
+  plotWidthPx: number,
+  slotPx: number,
+): RoundLabelOrientation {
+  if (count <= 1 || plotWidthPx <= 0 || slotPx <= 0) return "horizontal";
+  const column = plotWidthPx / count;
+  return column >= slotPx ? "horizontal" : "vertical";
 }
 
 export function nearestRoundIndex(x: number, count: number, plot: PlotRect): number {

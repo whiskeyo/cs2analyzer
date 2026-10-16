@@ -10,8 +10,7 @@ import {
   nearestRoundIndex,
   percentAxis,
   plotRect,
-  roundLabelIndexes,
-  roundLabelStep,
+  roundLabelOrientation,
   roundX,
   smoothLinePath,
   valueToY,
@@ -109,10 +108,7 @@ export function StatsTimelineChart({
     (a, b) => Number(selected === a.player) - Number(selected === b.player),
   );
   const modeLabel = "cumulative";
-  const labelIndexes = roundLabelIndexes(
-    columns.length,
-    roundLabelStep(columns.length, plotWidthPx, ROUND_LABEL_SLOT_PX),
-  );
+  const labelOrientation = roundLabelOrientation(columns.length, plotWidthPx, ROUND_LABEL_SLOT_PX);
 
   return (
     <div className="stats-timeline-plot" ref={hostRef}>
@@ -214,14 +210,14 @@ export function StatsTimelineChart({
             </span>
           );
         })}
-        {labelIndexes.map((index) => {
-          const column = columns[index];
-          if (!column) return null;
+        {columns.map((column, index) => {
           const x = roundX(index, columns.length, plot);
           return (
             <span
               key={`round-${index}`}
-              className="stats-timeline-round-label"
+              className={`stats-timeline-round-label${
+                labelOrientation === "vertical" ? " is-vertical" : ""
+              }`}
               role="img"
               aria-label={`Round ${column.number}`}
               style={{

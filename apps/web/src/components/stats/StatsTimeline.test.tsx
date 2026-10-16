@@ -165,12 +165,10 @@ describe("StatsTimeline", () => {
     expect(line).toHaveAttribute("x2", String(mid));
   });
 
-  it("keeps axis labels at a fixed size and drops rounds that would not fit", () => {
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
-      new DOMRect(0, 0, 160, 220),
-    );
+  it("keeps every round label at a fixed size, upright only when horizontal type would overlap", () => {
     const columns = Array.from({ length: 40 }, (_, index) => swappedColumn(index + 1, "CT"));
-    render(
+    const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect");
+    const chart = (
       <StatsTimelineChart
         columns={columns}
         stat="adr"
@@ -179,12 +177,30 @@ describe("StatsTimeline", () => {
         hover={null}
         onSelect={() => undefined}
         onHover={() => undefined}
-      />,
+      />
     );
-    const labels = screen.getAllByRole("img", { name: /^Round / });
-    expect(labels.length).toBeLessThan(columns.length);
-    expect(labels[0]).toHaveStyle({ fontSize: `${AXIS_LABEL_PX}px` });
-    expect(labels[0]?.closest("svg")).toBeNull();
+
+    spy.mockReturnValue(new DOMRect(0, 0, 1400, 220));
+    const wide = render(chart);
+    const wideLabels = screen.getAllByRole("img", { name: /^Round / });
+    expect(wideLabels).toHaveLength(columns.length);
+    expect(wideLabels.map((label) => label.textContent)).toEqual(
+      columns.map((column) => `R${column.number}`),
+    );
+    expect(wideLabels[0]).toHaveStyle({ fontSize: `${AXIS_LABEL_PX}px` });
+    expect(wideLabels[0]).not.toHaveClass("is-vertical");
+    expect(wideLabels[0]?.closest("svg")).toBeNull();
+    wide.unmount();
+
+    spy.mockReturnValue(new DOMRect(0, 0, 160, 220));
+    render(chart);
+    const narrowLabels = screen.getAllByRole("img", { name: /^Round / });
+    expect(narrowLabels).toHaveLength(columns.length);
+    expect(narrowLabels.map((label) => label.textContent)).toEqual(
+      columns.map((column) => `R${column.number}`),
+    );
+    expect(narrowLabels[0]).toHaveClass("is-vertical");
+    expect(narrowLabels[0]).toHaveStyle({ fontSize: `${AXIS_LABEL_PX}px` });
     const axis = document.querySelector(".stats-timeline-axis");
     expect(axis).toHaveStyle({ fontSize: `${AXIS_LABEL_PX}px` });
     expect(axis?.closest("svg")).toBeNull();
