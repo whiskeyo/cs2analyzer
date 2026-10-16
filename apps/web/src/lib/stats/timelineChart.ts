@@ -73,20 +73,22 @@ export function valueToY(value: number, max: number, plot: PlotRect): number {
 }
 
 /**
- * Put an axis coordinate on the center of a CSS pixel in the viewport.
- * A 1px stroke is centered on the path. On a pixel boundary, `crispEdges`
- * drops both halves, so a stretched viewBox would hide the rule at 1x.
+ * Map a viewBox coordinate into an overlay whose viewBox is the element's CSS
+ * pixel size (one user unit = one CSS pixel, no stretch). A 1px stroke is
+ * centered on the path, so the rule sits on a pixel center.
  */
-export function snapAxisCoordinate(
-  user: number,
-  viewSpan: number,
-  originPx: number,
-  cssSpan: number,
-): number {
-  if (!(cssSpan > 0) || !(viewSpan > 0) || !Number.isFinite(originPx)) return user;
-  const screen = originPx + (user / viewSpan) * cssSpan;
-  const center = Math.round(screen - 0.5) + 0.5;
-  return ((center - originPx) / cssSpan) * viewSpan;
+export function axisPixel(user: number, viewSpan: number, cssSpan: number): number {
+  if (!(cssSpan > 0) || !(viewSpan > 0)) return user;
+  return Math.round((user / viewSpan) * cssSpan) + 0.5;
+}
+
+/**
+ * CSS pixels to move an overlay so its origin sits on a pixel boundary while
+ * staying inside its parent. A `.5` line is then the center of a device pixel.
+ */
+export function pixelOriginShift(originPx: number): number {
+  if (!Number.isFinite(originPx)) return 0;
+  return Math.ceil(originPx) - originPx;
 }
 
 /** CSS pixels. Labels sit outside the stretched viewBox, so this size does not follow the chart width. */

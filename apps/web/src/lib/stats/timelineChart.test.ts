@@ -6,7 +6,8 @@ import {
   percentAxis,
   plotRect,
   roundX,
-  snapAxisCoordinate,
+  axisPixel,
+  pixelOriginShift,
   smoothLinePath,
   smoothLineSegments,
   ROUND_LABEL_SLOT_PX,
@@ -21,11 +22,16 @@ describe("timelineChart", () => {
   const plot = plotRect();
 
   it("snaps an axis rule onto the center of a CSS pixel", () => {
-    expect(snapAxisCoordinate(22, 280, 173.125, 0)).toBe(22);
-    const snapped = snapAxisCoordinate(22, 280, 173.125, 938);
-    const screen = 173.125 + (snapped / 280) * 938;
-    expect(screen).toBeCloseTo(Math.floor(screen) + 0.5, 6);
-    expect(Math.abs(snapped - 22)).toBeLessThan(280 / 938);
+    expect(axisPixel(22, 280, 0)).toBe(22);
+    expect(axisPixel(22, 280, 938)).toBe(Math.round((22 / 280) * 938) + 0.5);
+    const narrow = axisPixel(100, 960, 1252.8);
+    const wide = axisPixel(100, 960, 2052.8);
+    expect(narrow % 1).toBeCloseTo(0.5);
+    expect(wide % 1).toBeCloseTo(0.5);
+    expect(narrow).not.toBe(wide);
+    expect(pixelOriginShift(0)).toBe(0);
+    expect(14.59375 + pixelOriginShift(14.59375)).toBe(15);
+    expect(56.359375 + pixelOriginShift(56.359375)).toBe(57);
   });
 
   it("rounds the axis up onto a readable grid", () => {
