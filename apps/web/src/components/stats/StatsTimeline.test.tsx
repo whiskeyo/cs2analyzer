@@ -152,8 +152,8 @@ describe("StatsTimeline", () => {
       />,
     );
     const line = document.querySelector(".stats-timeline-break");
-    expect(line).toHaveAttribute("stroke-width", "0.5");
-    expect(line).toHaveAttribute("stroke-opacity", "0.42");
+    expect(line).toHaveAttribute("stroke-width", "1");
+    expect(line).toHaveAttribute("stroke-opacity", "0.5");
     expect(line).toHaveAttribute("vector-effect", "non-scaling-stroke");
     const plot = plotRect();
     const mid = (roundX(0, columns.length, plot) + roundX(1, columns.length, plot)) / 2;

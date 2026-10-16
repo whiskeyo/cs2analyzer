@@ -35,10 +35,13 @@ interface LineSeries {
   path: string;
 }
 
-/** Half and overtime marks. Thinner and fainter than a player line, still a visible seam. */
+/**
+ * Half and overtime marks, in CSS pixels. Thinner and fainter than the old 3px
+ * band, and stronger than the round grid so the seam stays visible.
+ */
 const BREAK_STROKE = "#e8eef4";
-const BREAK_STROKE_WIDTH = 0.5;
-const BREAK_STROKE_OPACITY = 0.42;
+const BREAK_STROKE_WIDTH = 1;
+const BREAK_STROKE_OPACITY = 0.5;
 
 export function StatsTimelineChart({
   columns,
