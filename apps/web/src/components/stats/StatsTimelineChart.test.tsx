@@ -10,10 +10,10 @@ import {
 } from "@/lib/shared/constants";
 import type { TimelineColumn, TimelinePlayerRow, TimelineStatId } from "@/lib/stats/timeline";
 import {
-  ROUND_LABEL_GAP_PX,
   axisStrokeWidth,
   devicePixelStroke,
-  pixelOriginShift,
+  roundLabelGapPx,
+  strokeDeviceColumn,
 } from "@/lib/stats/timelineChart";
 import { StatsTimelineChart } from "./StatsTimelineChart";
 
@@ -158,7 +158,7 @@ describe("StatsTimelineChart pixel grid", () => {
         plotResize.resize({ width, height });
         const overlay = document.querySelector(".stats-timeline-axis-svg");
         expect(overlay).toHaveAttribute("viewBox", `0 0 ${width} ${height}`);
-        expect(overlay).not.toHaveAttribute("preserveAspectRatio");
+        expect(overlay).toHaveAttribute("preserveAspectRatio", "none");
         const grids = [...document.querySelectorAll(".stats-timeline-grid")];
         const vertical = grids.filter(
           (line) => line.getAttribute("x1") === line.getAttribute("x2"),
@@ -179,17 +179,23 @@ describe("StatsTimelineChart pixel grid", () => {
       }
       expect(new Set(verticalXs).size).toBe(widths.length);
       expect(new Set(labelTops).size).toBe(1);
-      expect(labelTops[0]).toContain(`+ ${ROUND_LABEL_GAP_PX}px`);
+      const top = Number.parseFloat(labelTops[0] ?? "");
+      expect(top - Math.floor(top)).not.toBeNaN();
+      expect(roundLabelGapPx(1)).toBe(5);
     } finally {
       plotResize.restore();
     }
   });
 
-  it("shifts a fractional plot origin onto a pixel boundary without moving rules off .5", () => {
-    const width = chartCssWidth(1920, SIDEBAR_MIN_WIDTH);
+  it("snaps rules to screen device pixels when the overlay origin is fractional", () => {
+    const width = chartCssWidth(2560, SIDEBAR_MAX_WIDTH);
     const height = 812.5;
-    const originLeft = 14.59375;
-    const originTop = 56.359375;
+    const originLeft = 14.260416984558105;
+    const originTop = 55.71875;
+    const dpr = 1.5;
+    const previous = Object.getOwnPropertyDescriptor(window, "devicePixelRatio");
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: dpr });
+    const rounds = Array.from({ length: 42 }, (_, index) => column(index + 1, "CT"));
     const plotResize = installPlotResize({ width, height });
     const spy = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
@@ -197,31 +203,46 @@ describe("StatsTimelineChart pixel grid", () => {
     try {
       render(
         <StatsTimelineChart
-          columns={[column(12, "CT"), column(13, "T")]}
+          columns={rounds}
           stat="adr"
           colors={["#ffffff", "#000000"]}
           selected={null}
-          hover={0}
+          hover={null}
           onSelect={() => undefined}
           onHover={() => undefined}
         />,
       );
       plotResize.resize({ width, height });
       const overlay = document.querySelector(".stats-timeline-axis-svg");
-      const shiftX = pixelOriginShift(originLeft);
-      const shiftY = pixelOriginShift(originTop);
-      expect(originLeft + shiftX).toBe(Math.ceil(originLeft));
-      expect(originTop + shiftY).toBe(Math.ceil(originTop));
-      expect(overlay).toHaveStyle({ left: `${shiftX}px`, top: `${shiftY}px` });
-      expect(overlay).toHaveAttribute("viewBox", `0 0 ${width - shiftX} ${height - shiftY}`);
-      for (const line of document.querySelectorAll(
-        ".stats-timeline-grid, .stats-timeline-break, .stats-timeline-hover",
-      )) {
-        expectPixelCenter(line);
+      expect(overlay).toHaveAttribute("viewBox", `0 0 ${width} ${height}`);
+      expect(overlay).not.toHaveAttribute("style");
+      const vertical = [...document.querySelectorAll(".stats-timeline-grid")].filter(
+        (line) => line.getAttribute("x1") === line.getAttribute("x2"),
+      );
+      const columns = vertical.map((line) => {
+        const local = Number(line.getAttribute("x1"));
+        const screen = originLeft + local;
+        const device = screen * dpr;
+        expect(device - Math.floor(device)).toBeCloseTo(0.5, 6);
+        return strokeDeviceColumn(screen, dpr);
+      });
+      expect(columns).toHaveLength(42);
+      expect(new Set(columns).size).toBe(42);
+      const label = document.querySelector(".stats-timeline-round-label");
+      const baselineY = Math.max(
+        ...[...document.querySelectorAll(".stats-timeline-grid")]
+          .filter((line) => line.getAttribute("y1") === line.getAttribute("y2"))
+          .map((line) => Number(line.getAttribute("y1"))),
+      );
+      if (label instanceof HTMLElement && Number.isFinite(baselineY)) {
+        const gap = Number.parseFloat(label.style.top) - baselineY;
+        expect(gap).toBeCloseTo(roundLabelGapPx(dpr), 6);
+        expect(gap * dpr).toBeCloseTo(Math.round(gap * dpr), 6);
       }
     } finally {
       spy.mockRestore();
       plotResize.restore();
+      if (previous) Object.defineProperty(window, "devicePixelRatio", previous);
     }
   });
 
@@ -263,8 +284,15 @@ describe("StatsTimelineChart pixel grid", () => {
           onHover={() => undefined}
         />,
       );
-      const labelTop = () => roundLabelTopStyle();
-      const topAt1 = labelTop();
+      const labelGap = () => {
+        const label = document.querySelector(".stats-timeline-round-label");
+        const baselineY = Math.max(
+          ...[...document.querySelectorAll(".stats-timeline-grid")]
+            .filter((line) => line.getAttribute("y1") === line.getAttribute("y2"))
+            .map((line) => Number(line.getAttribute("y1"))),
+        );
+        return label instanceof HTMLElement ? Number.parseFloat(label.style.top) - baselineY : NaN;
+      };
       const before = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
       expect(before).toMatch(/\.5$/);
       expectSharedDeviceStroke(1);
@@ -283,7 +311,7 @@ describe("StatsTimelineChart pixel grid", () => {
         expect(x).not.toBe(previousX);
         expect(devicePixelStroke(next)).toBe(devicePixels[next]);
         expectSharedDeviceStroke(next);
-        expect(labelTop()).toBe(topAt1);
+        expect(labelGap()).toBeCloseTo(roundLabelGapPx(next), 6);
         expect(queries.at(-1)).toBe(`(resolution: ${next}dppx)`);
       }
     } finally {

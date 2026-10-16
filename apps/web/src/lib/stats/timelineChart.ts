@@ -103,42 +103,51 @@ export function axisStrokeWidth(dpr: number): number {
 }
 
 /**
- * Snap a CSS-pixel position so an `axisStrokeWidth` stroke covers whole device
- * pixels. An odd width is centered on a device pixel; an even width sits on a
- * device-pixel boundary.
+ * Local CSS position so `overlayOriginCss + local` is a device-pixel center
+ * (odd stroke) or a device-pixel boundary (even stroke).
+ *
+ * The overlay's `getBoundingClientRect()` origin is what the rasterizer adds.
+ * Snapping in local SVG units and then shifting the element does not: the used
+ * CSS `left` is not that device-pixel boundary, and one rule falls on a pixel
+ * edge where `crispEdges` draws nothing.
  */
-export function snapDevicePixel(px: number, dpr: number): number {
+export function snapOverlayAxis(localCss: number, overlayOriginCss: number, dpr: number): number {
   const ratio = finiteDevicePixelRatio(dpr);
-  const device = px * ratio;
+  if (!Number.isFinite(localCss)) return 0;
+  const origin = Number.isFinite(overlayOriginCss) ? overlayOriginCss : 0;
+  const screenDevice = (origin + localCss) * ratio;
   const centered = devicePixelStroke(ratio) % 2 === 1;
-  return (centered ? Math.round(device) + 0.5 : Math.round(device)) / ratio;
+  const snapped = centered ? Math.round(screenDevice - 0.5) + 0.5 : Math.round(screenDevice);
+  return snapped / ratio - origin;
+}
+
+/** Snap a CSS position when the overlay origin is already on a device pixel. */
+export function snapDevicePixel(px: number, dpr: number): number {
+  return snapOverlayAxis(px, 0, dpr);
 }
 
 /**
  * Map a viewBox coordinate into an overlay whose viewBox is the element's CSS
- * pixel size (one user unit = one CSS pixel, no stretch), then snap it in
- * device pixels.
+ * pixel size (one user unit = one CSS pixel, no stretch), then snap it so the
+ * stroke lands on whole device pixels of the screen. `originCss` is the
+ * overlay edge (`getBoundingClientRect().left` or `.top`).
  */
 export function axisPixel(
   user: number,
   viewSpan: number,
   cssSpan: number,
   dpr: number = 1,
+  originCss: number = 0,
 ): number {
   if (!(cssSpan > 0) || !(viewSpan > 0)) return user;
-  return snapDevicePixel((user / viewSpan) * cssSpan, dpr);
+  return snapOverlayAxis((user / viewSpan) * cssSpan, originCss, dpr);
 }
 
-/**
- * CSS pixels to move an overlay so its origin sits on a device-pixel boundary
- * while staying inside its parent. A device-pixel snap is then a device-pixel
- * center on screen.
- */
-export function pixelOriginShift(originPx: number, dpr: number = 1): number {
-  if (!Number.isFinite(originPx)) return 0;
+/** First device pixel covered by a stroke centered at `screenCss`. */
+export function strokeDeviceColumn(screenCss: number, dpr: number): number {
   const ratio = finiteDevicePixelRatio(dpr);
-  const device = originPx * ratio;
-  return (Math.ceil(device) - device) / ratio;
+  const start = screenCss * ratio - devicePixelStroke(ratio) / 2;
+  return Math.floor(start + 1e-9);
 }
 
 /**
@@ -170,11 +179,20 @@ export function watchDevicePixelRatio(onChange: () => void): () => void {
 /** CSS pixels. Labels sit outside the stretched viewBox, so this size does not follow the chart width. */
 export const AXIS_LABEL_PX = 10;
 
-/** CSS pixels between the 0 baseline and the top of a round label. */
+/** CSS pixels between the 0 baseline and the top of a round label, before device alignment. */
 export const ROUND_LABEL_GAP_PX = 5;
 
-/** CSS pixels kept under the baseline: the gap plus one line of round labels. */
+/** CSS pixels kept under the baseline at DPR 1: the gap plus one line of round labels. */
 export const ROUND_LABEL_BAND_PX = ROUND_LABEL_GAP_PX + AXIS_LABEL_PX;
+
+/**
+ * Gap under the baseline in CSS px, rounded to a whole device pixel.
+ * The same DPR always yields the same gap; width and sidebar do not enter.
+ */
+export function roundLabelGapPx(dpr: number = 1): number {
+  const ratio = finiteDevicePixelRatio(dpr);
+  return Math.round(ROUND_LABEL_GAP_PX * ratio) / ratio;
+}
 
 /**
  * Inline size of a turned round label at `AXIS_LABEL_PX` ("R42" in the UI font).
@@ -183,9 +201,15 @@ export const ROUND_LABEL_BAND_PX = ROUND_LABEL_GAP_PX + AXIS_LABEL_PX;
 export const ROUND_LABEL_TURNED_PX = 18;
 
 /** CSS pixels reserved under the baseline for the current label orientation. */
-export function roundLabelBand(orientation: RoundLabelOrientation): number {
-  if (orientation === "vertical") return ROUND_LABEL_GAP_PX + ROUND_LABEL_TURNED_PX;
-  return ROUND_LABEL_BAND_PX;
+export function roundLabelBand(orientation: RoundLabelOrientation, dpr: number = 1): number {
+  const gap = roundLabelGapPx(dpr);
+  if (orientation === "vertical") return gap + ROUND_LABEL_TURNED_PX;
+  return gap + AXIS_LABEL_PX;
+}
+
+/** `top` in CSS px: the snapped baseline, then `roundLabelGapPx` device-aligned pixels. */
+export function roundLabelTopPx(baselineCss: number, dpr: number = 1): number {
+  return baselineCss + roundLabelGapPx(dpr);
 }
 
 /**
@@ -201,12 +225,6 @@ export function timelineLayoutForHeight(
   const band = Math.min(Math.max(bandPx, 0), cssHeight);
   const padBottom = Math.min(layout.height - layout.padTop - 1, (band / cssHeight) * layout.height);
   return { ...layout, padBottom };
-}
-
-/** `top` for a round label: the baseline, then a fixed CSS gap that stretch cannot grow. */
-export function roundLabelTop(baseline: number, layoutHeight: number): string {
-  const percent = (baseline / layoutHeight) * 100;
-  return `calc(${percent}% + ${ROUND_LABEL_GAP_PX}px)`;
 }
 
 /** Room a horizontal "R42" needs. A tighter column turns the label upright instead of shrinking it. */

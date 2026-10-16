@@ -9,8 +9,11 @@ import {
   axisPixel,
   axisStrokeWidth,
   devicePixelStroke,
-  pixelOriginShift,
+  roundLabelGapPx,
+  roundLabelTopPx,
   snapDevicePixel,
+  snapOverlayAxis,
+  strokeDeviceColumn,
   smoothLinePath,
   smoothLineSegments,
   ROUND_LABEL_BAND_PX,
@@ -19,7 +22,6 @@ import {
   ROUND_LABEL_SLOT_PX,
   TIMELINE_LAYOUT,
   roundLabelBand,
-  roundLabelTop,
   timelineLayoutForHeight,
   roundLabelOrientation,
   valueToY,
@@ -54,20 +56,41 @@ describe("timelineChart", () => {
       }
     }
     expect(snapDevicePixel(10.2, 1)).toBe(10.5);
-    expect(snapDevicePixel(10.2, 1.25)).toBe((Math.round(10.2 * 1.25) + 0.5) / 1.25);
-    expect(snapDevicePixel(10.2, 1.5)).toBe((Math.round(10.2 * 1.5) + 0.5) / 1.5);
+    expect(snapDevicePixel(10.2, 1.25)).toBe(snapOverlayAxis(10.2, 0, 1.25));
+    expect(snapDevicePixel(10.2, 1.5)).toBe(snapOverlayAxis(10.2, 0, 1.5));
     expect(snapDevicePixel(10.2, 2)).toBe(Math.round(10.2 * 2) / 2);
     expect(snapDevicePixel(10.2, 1)).not.toBe(snapDevicePixel(10.2, 1.25));
     expect(snapDevicePixel(10.2, 0)).toBe(snapDevicePixel(10.2, 1));
     expect(axisStrokeWidth(0)).toBe(axisStrokeWidth(1));
     expect(axisPixel(22, 280, 0, 2)).toBe(22);
     expect(axisPixel(22, 280, 938, 2)).toBe(snapDevicePixel((22 / 280) * 938, 2));
-    expect(pixelOriginShift(0, 1)).toBe(0);
-    expect(14.59375 + pixelOriginShift(14.59375, 1)).toBe(15);
-    expect((14.59375 + pixelOriginShift(14.59375, 1.25)) * 1.25).toBeCloseTo(
-      Math.ceil(14.59375 * 1.25),
-      6,
-    );
+  });
+
+  it("gives every round its own device column when the overlay origin is fractional", () => {
+    const dpr = 1.5;
+    const rounds = 42;
+    const cases = [
+      { origin: 14.260416984558105, cssWidth: 1891.479248046875 },
+      { origin: 0.4, cssWidth: 1700.3 },
+      { origin: 10.3, cssWidth: 2051.48 },
+      { origin: 99.9, cssWidth: 1600.1 },
+    ];
+    for (const { origin, cssWidth } of cases) {
+      const columns = Array.from({ length: rounds }, (_, index) => {
+        const user = roundX(index, rounds, plot);
+        const localCss = (user / TIMELINE_LAYOUT.width) * cssWidth;
+        const naive = (origin + snapDevicePixel(localCss, dpr)) * dpr;
+        expect(naive - Math.floor(naive)).not.toBeCloseTo(0.5, 2);
+        const local = snapOverlayAxis(localCss, origin, dpr);
+        const screen = origin + local;
+        const device = screen * dpr;
+        expect(device - Math.floor(device)).toBeCloseTo(0.5, 8);
+        expect(axisPixel(user, TIMELINE_LAYOUT.width, cssWidth, dpr, origin)).toBe(local);
+        return strokeDeviceColumn(screen, dpr);
+      });
+      expect(columns).toHaveLength(rounds);
+      expect(new Set(columns).size).toBe(rounds);
+    }
   });
 
   it("rounds the axis up onto a readable grid", () => {
@@ -82,22 +105,26 @@ describe("timelineChart", () => {
     expect(percentAxis(140).max).toBeGreaterThanOrEqual(140);
   });
 
-  it("keeps a fixed CSS gap under the baseline at every chart height", () => {
+  it("keeps a device-aligned gap under the baseline at every chart height", () => {
     const heights = [220, 480, 812.5, 1400];
-    const tops = heights.map((cssHeight) => {
+    for (const cssHeight of heights) {
       const layout = timelineLayoutForHeight(cssHeight);
       const band = (layout.padBottom / layout.height) * cssHeight;
       expect(band).toBeCloseTo(ROUND_LABEL_BAND_PX, 6);
       expect(layout.padBottom).toBeLessThan(TIMELINE_LAYOUT.padBottom);
       const baseline = layout.height - layout.padBottom;
-      return roundLabelTop(baseline, layout.height);
-    });
-    for (const top of tops) {
-      expect(top.endsWith(`+ ${ROUND_LABEL_GAP_PX}px)`)).toBe(true);
+      const baselineCss = snapOverlayAxis((baseline / layout.height) * cssHeight, 0, 1);
+      expect(roundLabelTopPx(baselineCss, 1) - baselineCss).toBe(ROUND_LABEL_GAP_PX);
     }
-    expect(new Set(tops).size).toBe(heights.length);
     expect(timelineLayoutForHeight(0)).toBe(TIMELINE_LAYOUT);
     expect(timelineLayoutForHeight(-1).padBottom).toBe(TIMELINE_LAYOUT.padBottom);
+    for (const dpr of [1, 1.25, 1.5, 2]) {
+      const gap = roundLabelGapPx(dpr);
+      expect(gap * dpr).toBeCloseTo(Math.round(gap * dpr), 8);
+      expect(gap).toBeGreaterThan(4);
+      expect(gap).toBeLessThan(6);
+    }
+    expect(roundLabelGapPx(1.5)).not.toBe(roundLabelGapPx(1));
   });
 
   it("reserves a taller band for turned labels and keeps the same gap", () => {
@@ -120,8 +147,10 @@ describe("timelineChart", () => {
     expect(vertical.padBottom).toBeLessThan(TIMELINE_LAYOUT.padBottom);
     for (const layout of [horizontal, vertical]) {
       const baseline = layout.height - layout.padBottom;
-      expect(roundLabelTop(baseline, layout.height)).toContain(`+ ${ROUND_LABEL_GAP_PX}px`);
+      const baselineCss = snapOverlayAxis((baseline / layout.height) * cssHeight, 0, 1);
+      expect(roundLabelTopPx(baselineCss, 1) - baselineCss).toBe(ROUND_LABEL_GAP_PX);
     }
+    expect(roundLabelBand("horizontal", 1.5)).toBeCloseTo(roundLabelGapPx(1.5) + 10, 8);
   });
 
   it("keeps every round label and turns the row upright when horizontal type would overlap", () => {

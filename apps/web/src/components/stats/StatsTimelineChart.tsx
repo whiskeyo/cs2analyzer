@@ -12,7 +12,7 @@ import {
   plotRect,
   roundLabelBand,
   roundLabelOrientation,
-  roundLabelTop,
+  roundLabelTopPx,
   roundX,
   smoothLinePath,
   axisPixel,
@@ -32,10 +32,6 @@ interface Props {
   hover: number | null;
   onSelect: (player: number) => void;
   onHover: (index: number | null) => void;
-}
-
-function markColor(colors: readonly string[], player: number): string {
-  return colors[player] ?? "#d0d6dc";
 }
 
 interface LineSeries {
@@ -64,11 +60,11 @@ function inkChannel(hex: string, index: number): number {
  * The fraction matches the old alpha, blended on the modal card.
  */
 function blendOnSurface(amount: number): string {
-  const part = (index: number) =>
+  const channel = (index: number) =>
     Math.round(
       inkChannel(TEXT_INK, index) * amount + inkChannel(CHART_SURFACE, index) * (1 - amount),
     );
-  return `#${[0, 1, 2].map((index) => part(index).toString(16).padStart(2, "0")).join("")}`;
+  return `#${[0, 1, 2].map((index) => channel(index).toString(16).padStart(2, "0")).join("")}`;
 }
 
 const GRID_STROKE = blendOnSurface(GRID_INK);
@@ -84,16 +80,18 @@ export function StatsTimelineChart({
   onHover,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<SVGSVGElement>(null);
   const basePlot = plotRect();
   const { plotWidthPx, box: pixelSize } = useTimelinePlotBox(
     hostRef,
+    overlayRef,
     basePlot.width / TIMELINE_LAYOUT.width,
   );
   const labelOrientation = roundLabelOrientation(columns.length, plotWidthPx, ROUND_LABEL_SLOT_PX);
   const layout = timelineLayoutForHeight(
-    pixelSize.height + pixelSize.shiftY,
+    pixelSize.height,
     TIMELINE_LAYOUT,
-    roundLabelBand(labelOrientation),
+    roundLabelBand(labelOrientation, pixelSize.dpr),
   );
   const plot = plotRect(layout);
   const rows = columns[0]?.rows ?? [];
@@ -107,6 +105,14 @@ export function StatsTimelineChart({
     return stat === "hs" || stat === "kast" ? percentAxis(peak) : axisScale(peak);
   }, [columns, stat]);
   const baseline = plot.y + plot.height;
+  const baselineCss = axisPixel(
+    baseline,
+    layout.height,
+    pixelSize.height,
+    pixelSize.dpr,
+    pixelSize.top,
+  );
+  const labelTop = `${roundLabelTopPx(baselineCss, pixelSize.dpr)}px`;
   const breakAfter = new Set(
     economyBreakAfter(
       columns.map((column) => ({
@@ -136,11 +142,11 @@ export function StatsTimelineChart({
   const painted = [...lines].sort(
     (a, b) => Number(selected === a.player) - Number(selected === b.player),
   );
-  const modeLabel = "cumulative";
 
   return (
     <div className="stats-timeline-plot" ref={hostRef}>
       <AxisOverlay
+        overlayRef={overlayRef}
         box={pixelSize}
         layout={layout}
         plot={plot}
@@ -156,7 +162,7 @@ export function StatsTimelineChart({
         viewBox={`0 0 ${layout.width} ${layout.height}`}
         preserveAspectRatio="none"
         role="group"
-        aria-label={`${timelineStat(stat).label} ${modeLabel}`}
+        aria-label={`${timelineStat(stat).label} cumulative`}
         onPointerMove={(event) => {
           const bounds = event.currentTarget.getBoundingClientRect();
           if (bounds.width <= 0) return;
@@ -170,7 +176,7 @@ export function StatsTimelineChart({
             key={line.player}
             line={line}
             selected={selected}
-            color={markColor(colors, line.player)}
+            color={colors[line.player] ?? "#d0d6dc"}
           />
         ))}
         {lines.map((line) => (
@@ -213,7 +219,7 @@ export function StatsTimelineChart({
               aria-label={`Round ${column.number}`}
               style={{
                 left: `${(x / layout.width) * 100}%`,
-                top: roundLabelTop(baseline, layout.height),
+                top: labelTop,
                 fontSize: AXIS_LABEL_PX,
               }}
               onPointerEnter={() => onHover(index)}
@@ -232,14 +238,13 @@ const LINE_STROKE = 0.9;
 const HIGHLIGHT_STROKE = 1.6;
 
 /**
- * Grid and half/OT seams. The viewBox matches this SVG's CSS pixel size.
- * Stroke width is a whole number of device pixels, and each rule is snapped so
- * that stroke covers whole device pixels at the current `devicePixelRatio`.
- * Round rules are keyed by round index. The hover guide is a second SVG so it
- * cannot reuse a round rule. The element origin sits on a device-pixel boundary.
- * Player lines stay in the stretched series SVG.
+ * Grid, seams, and the hover guide. The viewBox is this SVG's CSS pixel size
+ * (`preserveAspectRatio="none"`, so a fractional box cannot letterbox). Rules
+ * snap against the overlay's screen origin. Round rules are keyed by index.
+ * The hover guide is its own SVG. Player lines stay in the stretched series SVG.
  */
 function AxisOverlay({
+  overlayRef,
   box,
   layout,
   plot,
@@ -250,7 +255,8 @@ function AxisOverlay({
   breakAfter,
   hover,
 }: {
-  box: { width: number; height: number; shiftX: number; shiftY: number; dpr: number };
+  overlayRef: { current: SVGSVGElement | null };
+  box: { width: number; height: number; left: number; top: number; dpr: number };
   layout: { width: number; height: number };
   plot: PlotRect;
   baseline: number;
@@ -260,25 +266,25 @@ function AxisOverlay({
   breakAfter: ReadonlySet<number>;
   hover: number | null;
 }) {
-  const { width, height, shiftX, shiftY, dpr } = box;
+  const { width, height, left: originX, top: originY, dpr } = box;
   if (!(width > 0) || !(height > 0)) return null;
   const strokeWidth = axisStrokeWidth(dpr);
-  const x = (user: number) => axisPixel(user, layout.width, width, dpr);
-  const y = (user: number) => axisPixel(user, layout.height, height, dpr);
+  const x = (user: number) => axisPixel(user, layout.width, width, dpr, originX);
+  const y = (user: number) => axisPixel(user, layout.height, height, dpr, originY);
   const top = y(plot.y);
   const bottom = y(baseline);
   const left = x(plot.x);
   const right = x(plot.x + plot.width);
   const frame = {
     viewBox: `0 0 ${width} ${height}`,
-    style: { left: shiftX, top: shiftY, width, height },
+    preserveAspectRatio: "none" as const,
     "aria-hidden": true as const,
   };
   const hoverIndex = hover != null && columns[hover] ? hover : null;
   const hoverX = hoverIndex != null ? x(roundX(hoverIndex, columns.length, plot)) : null;
   return (
     <>
-      <svg className="stats-timeline-axis-svg" {...frame}>
+      <svg ref={overlayRef} className="stats-timeline-axis-svg" {...frame}>
         {ticks.map((tick) => {
           const lineY = y(tickY(tick));
           return (
@@ -307,7 +313,6 @@ function AxisOverlay({
           return (
             <g key={`round-${index}`}>
               <AxisLine
-                key={`round-${index}`}
                 className="stats-timeline-grid"
                 stroke={GRID_STROKE}
                 strokeWidth={strokeWidth}

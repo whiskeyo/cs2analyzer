@@ -221,8 +221,9 @@ describe("StatsTimeline", () => {
         "preserveAspectRatio",
         "none",
       );
-      expect(document.querySelector(".stats-timeline-axis-svg")).not.toHaveAttribute(
+      expect(document.querySelector(".stats-timeline-axis-svg")).toHaveAttribute(
         "preserveAspectRatio",
+        "none",
       );
       const line = document.querySelector(".stats-timeline-break");
       expect(line).toHaveAttribute("stroke-width", "1");
