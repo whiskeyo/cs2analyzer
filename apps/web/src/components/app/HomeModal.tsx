@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useMessages } from "@/lib/i18n/messages";
 
@@ -20,6 +20,7 @@ export function HomeModal({
   onClose,
   onEscape,
   backdropClassName,
+  backdropStyle,
   cardClassName,
   children,
   after,
@@ -29,6 +30,7 @@ export function HomeModal({
   /** Defaults to `onClose`. Settings uses this to dismiss a confirm first. */
   onEscape?: () => void;
   backdropClassName?: string;
+  backdropStyle?: CSSProperties;
   cardClassName?: string;
   children: ReactNode;
   after?: ReactNode;
@@ -87,6 +89,7 @@ export function HomeModal({
     <div
       ref={rootRef}
       className={["home-modal", backdropClassName].filter(Boolean).join(" ")}
+      style={backdropStyle}
       onPointerDown={(event) => {
         // Leftover `click` from unmounting the gear menu must not dismiss.
         if (event.target === event.currentTarget) onCloseRef.current();

@@ -154,6 +154,9 @@ describe("Viewer", () => {
     expect(document.querySelector(".stats-timeline-panel")).toBeNull();
     expect(document.querySelector(".stats-timeline-overlay")).toBeNull();
     expect(screen.getByTestId("sidebar")).toBeInTheDocument();
+    expect(document.querySelector(".stats-timeline-modal")).not.toHaveClass(
+      "stats-timeline-modal-framed",
+    );
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
     const close = within(dialog).getByRole("button", { name: "Close" });
     close.focus();
@@ -167,6 +170,30 @@ describe("Viewer", () => {
       "aria-pressed",
       "false",
     );
+  });
+
+  it("covers the map column and leaves the sidebar outside the dialog", async () => {
+    vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
+    renderWithTimeline();
+    const column = document.querySelector(".map-column");
+    expect(column).toBeInstanceOf(HTMLElement);
+    if (!(column instanceof HTMLElement)) return;
+    vi.spyOn(column, "getBoundingClientRect").mockReturnValue(new DOMRect(12, 48, 880, 640));
+    await userEvent.click(screen.getByRole("button", { name: "Stats timeline" }));
+    const backdrop = document.querySelector(".stats-timeline-modal");
+    expect(backdrop).toHaveClass("stats-timeline-modal-framed");
+    expect(backdrop).toHaveStyle({
+      top: "48px",
+      left: "12px",
+      width: "880px",
+      height: "640px",
+      right: "auto",
+      bottom: "auto",
+    });
+    const dialog = screen.getByRole("dialog", { name: "Stats timeline" });
+    expect(column).not.toContainElement(dialog);
+    expect(screen.getByTestId("sidebar")).toBeInTheDocument();
+    expect(backdrop).not.toContainElement(screen.getByTestId("sidebar"));
   });
 
   it("pauses playback when the stats timeline opens and leaves it paused on close", async () => {
