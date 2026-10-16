@@ -1,4 +1,8 @@
-import type { Side } from "@/lib/replay/replayTypes";
+import { getConvar } from "@/lib/match/convars";
+import type { MatchInfo, Side } from "@/lib/replay/replayTypes";
+
+/** Regulation and an overtime period are two side blocks (MR12 is 12+12, MR3 OT is 3+3). */
+const SIDE_BLOCKS_PER_PERIOD = 2;
 
 /** A little air above the highest point so a line does not sit on the frame. */
 const AXIS_HEADROOM = 1.08;
@@ -120,15 +124,39 @@ export interface TimelineRoundRoster {
 }
 
 /**
- * Round numbers after which an economy block ends.
+ * Round numbers after which a half or overtime block ends.
  * A swap counts only when the same player is present in both rounds and changed
  * side. Someone who was absent, including a late join, does not invent a side.
- * Overtime also resets at the start of each period: regulation is twice the
- * first swap, and the next swap is only the middle of that overtime, so a full
- * overtime is twice the gap. Nothing is drawn after the last plotted round.
+ * Regulation length is `mp_maxrounds` (`getConvar`). The half line is the
+ * middle of that. Overtime period length is the gap from regulation to the
+ * next side swap, doubled, because that swap is only the middle of the period.
+ * When no overtime swap is in the rounds, the period is `mp_overtime_maxrounds`.
+ * Nothing is drawn after the last plotted round.
  */
-export function economyBreakAfter(rounds: readonly TimelineRoundRoster[]): number[] {
+export function economyBreakAfter(
+  rounds: readonly TimelineRoundRoster[],
+  matchInfo?: MatchInfo,
+): number[] {
   if (rounds.length < 2) return [];
+  const swaps = sideSwaps(rounds);
+  const marks = new Set(swaps);
+  const last = rounds[rounds.length - 1]?.number;
+  const regulation = positiveInt(getConvar(matchInfo, "mp_maxrounds"));
+  if (regulation != null && last != null) {
+    if (regulation % SIDE_BLOCKS_PER_PERIOD === 0) {
+      marks.add(regulation / SIDE_BLOCKS_PER_PERIOD);
+    }
+    const overtimeLength = overtimePeriodLength(swaps, regulation, matchInfo);
+    if (overtimeLength != null) {
+      for (let boundary = regulation; boundary < last; boundary += overtimeLength) {
+        marks.add(boundary);
+      }
+    }
+  }
+  return breakLines(rounds, marks);
+}
+
+function sideSwaps(rounds: readonly TimelineRoundRoster[]): number[] {
   const swaps: number[] = [];
   for (let i = 1; i < rounds.length; i++) {
     const previous = rounds[i - 1];
@@ -136,22 +164,35 @@ export function economyBreakAfter(rounds: readonly TimelineRoundRoster[]): numbe
     if (!previous || !current || !rosterSwapped(previous.players, current.players)) continue;
     swaps.push(previous.number);
   }
-  const marks = new Set(swaps);
-  const first = swaps[0];
-  const last = rounds[rounds.length - 1]?.number;
-  if (first != null && last != null) {
-    const regulation = first * 2;
-    const middle = swaps.find((round) => round > regulation);
-    if (middle != null) {
-      const overtimeHalf = middle - regulation;
-      if (overtimeHalf > 0) {
-        const overtimeLength = overtimeHalf * 2;
-        for (let boundary = regulation; boundary < last; boundary += overtimeLength) {
-          marks.add(boundary);
-        }
-      }
-    }
+  return swaps;
+}
+
+/**
+ * Full overtime length. The first side swap after regulation is the middle of
+ * that period, so the period is twice the gap. Otherwise the server's
+ * `mp_overtime_maxrounds`.
+ */
+function overtimePeriodLength(
+  swaps: readonly number[],
+  regulation: number,
+  matchInfo: MatchInfo | undefined,
+): number | undefined {
+  const middle = swaps.find((round) => round > regulation);
+  if (middle != null) {
+    const overtimeHalf = middle - regulation;
+    if (overtimeHalf > 0) return overtimeHalf * SIDE_BLOCKS_PER_PERIOD;
   }
+  return positiveInt(getConvar(matchInfo, "mp_overtime_maxrounds"));
+}
+
+function positiveInt(raw: string | undefined): number | undefined {
+  if (raw == null || !/^\d+$/.test(raw)) return undefined;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value <= 0) return undefined;
+  return value;
+}
+
+function breakLines(rounds: readonly TimelineRoundRoster[], marks: ReadonlySet<number>): number[] {
   const lines: number[] = [];
   for (let i = 0; i < rounds.length - 1; i++) {
     const left = rounds[i];

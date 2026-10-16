@@ -5,7 +5,17 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { playerMarkColors } from "@/lib/players/playerColors";
-import { makeKill, makePlayer, makeReplay, makeRound, makeHurt } from "@/lib/testing/fixtures";
+import { FLAG_ALIVE, FLAG_CT, FLAG_PRESENT } from "@/lib/replay/replayTypes";
+import { FULL_HEALTH } from "@/lib/shared/constants";
+import {
+  makeHurt,
+  makeKill,
+  makePlayer,
+  makeReplay,
+  makeRound,
+  makeTicks,
+  sampleMatchInfo,
+} from "@/lib/testing/fixtures";
 import { AXIS_LABEL_PX, plotRect, roundX } from "@/lib/stats/timelineChart";
 import type { TimelineColumn, TimelinePlayerRow, TimelineStatId } from "@/lib/stats/timeline";
 import { StatsTimeline } from "./StatsTimeline";
@@ -163,6 +173,75 @@ describe("StatsTimeline", () => {
     const mid = (roundX(0, columns.length, plot) + roundX(1, columns.length, plot)) / 2;
     expect(line).toHaveAttribute("x1", String(mid));
     expect(line).toHaveAttribute("x2", String(mid));
+  });
+
+  it("draws the regulation line from mp_maxrounds when the side does not swap", () => {
+    const columns = [swappedColumn(24, "CT"), swappedColumn(25, "CT")];
+    const { unmount } = render(
+      <StatsTimelineChart
+        columns={columns}
+        stat="adr"
+        colors={["#ffffff", "#000000"]}
+        selected={null}
+        hover={null}
+        onSelect={() => undefined}
+        onHover={() => undefined}
+        matchInfo={sampleMatchInfo()}
+      />,
+    );
+    expect(document.querySelector(".stats-timeline-break")).not.toBeNull();
+    unmount();
+    render(
+      <StatsTimelineChart
+        columns={columns}
+        stat="adr"
+        colors={["#ffffff", "#000000"]}
+        selected={null}
+        hover={null}
+        onSelect={() => undefined}
+        onHover={() => undefined}
+      />,
+    );
+    expect(document.querySelector(".stats-timeline-break")).toBeNull();
+  });
+
+  it("draws the overtime start from the replay convar when the side does not swap", () => {
+    const ticks = makeTicks(1, 2);
+    ticks.ticks.set([64, 200]);
+    ticks.flags[0] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.flags[1] = FLAG_PRESENT | FLAG_ALIVE | FLAG_CT;
+    ticks.health[0] = FULL_HEALTH;
+    ticks.health[1] = FULL_HEALTH;
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "Alice")],
+      ticks,
+      match_info: sampleMatchInfo(),
+      rounds: [
+        makeRound({
+          number: 24,
+          start_tick: 0,
+          freeze_end_tick: 64,
+          end_tick: 100,
+          winner: "CT",
+          score_ct: 12,
+          score_t: 11,
+        }),
+        makeRound({
+          number: 25,
+          start_tick: 150,
+          freeze_end_tick: 200,
+          end_tick: 400,
+          winner: "T",
+          score_ct: 12,
+          score_t: 12,
+        }),
+      ],
+    });
+    const { unmount } = render(<StatsTimeline replay={replay} />);
+    expect(document.querySelector(".stats-timeline-break")).not.toBeNull();
+    unmount();
+    render(<StatsTimeline replay={{ ...replay, match_info: undefined }} />);
+    expect(document.querySelector(".stats-timeline-break")).toBeNull();
   });
 
   it("keeps every round label at a fixed size, upright only when horizontal type would overlap", () => {

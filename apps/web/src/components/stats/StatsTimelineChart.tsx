@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { MatchInfo } from "@/lib/replay/replayTypes";
 import type { TimelineColumn, TimelineStatId } from "@/lib/stats/timeline";
 import { formatTimelineValue, plottedValue, timelineStat } from "@/lib/stats/timeline";
 import {
@@ -25,6 +26,8 @@ interface Props {
   hover: number | null;
   onSelect: (player: number) => void;
   onHover: (index: number | null) => void;
+  /** Parsed convars. Half and overtime lines use `mp_maxrounds` from here. */
+  matchInfo?: MatchInfo;
 }
 
 function markColor(colors: readonly string[], player: number): string {
@@ -54,6 +57,7 @@ export function StatsTimelineChart({
   hover,
   onSelect,
   onHover,
+  matchInfo,
 }: Props) {
   const layout = TIMELINE_LAYOUT;
   const plot = plotRect(layout);
@@ -91,6 +95,7 @@ export function StatsTimelineChart({
           .filter((row) => row.present)
           .map((row) => ({ player: row.player, side: row.side })),
       })),
+      matchInfo,
     ),
   );
   const lines: LineSeries[] = rows.map((row) => {
