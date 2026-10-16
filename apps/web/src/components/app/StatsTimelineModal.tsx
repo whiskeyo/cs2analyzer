@@ -24,11 +24,6 @@ export function StatsTimelineModal({
       cardClassName="settings-modal-card stats-timeline-modal-card"
     >
       <StatsTimeline replay={replay} selected={selected} onSelect={onSelect} headingId={titleId} />
-      <div className="home-modal-actions">
-        <button type="button" className="ghost" onClick={onClose}>
-          Close
-        </button>
-      </div>
     </HomeModal>
   );
 }

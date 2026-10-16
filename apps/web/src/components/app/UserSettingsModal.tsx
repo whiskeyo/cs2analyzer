@@ -288,9 +288,6 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
       <UserSettingsStorageSection />
 
       <div className="home-modal-actions">
-        <button type="button" className="ghost" onClick={onClose}>
-          Close
-        </button>
         <button type="button" className="danger" onClick={() => setConfirmReset(true)}>
           Reset all settings
         </button>

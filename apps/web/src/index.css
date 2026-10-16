@@ -621,6 +621,7 @@ button.home-card {
   background: rgba(0, 0, 0, 0.55);
 }
 .home-modal-card {
+  position: relative;
   width: min(560px, 100%);
   padding: 1.25rem 1.35rem 1.1rem;
   border: 1px solid var(--border);
@@ -630,8 +631,28 @@ button.home-card {
 }
 .home-modal-card h2 {
   margin: 0 0 0.55rem;
+  padding-right: 2rem;
   font-size: var(--page-section-size);
   font-weight: 650;
+}
+.home-modal-close {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #1c242e;
+  color: var(--text);
+  cursor: pointer;
+}
+.home-modal-close:hover {
+  border-color: #6aa4d8;
 }
 .home-modal-card p {
   margin: 0 0 1rem;

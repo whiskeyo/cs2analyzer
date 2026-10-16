@@ -38,10 +38,16 @@ describe("HomeModal", () => {
     expect(dialog.closest(".settings-modal")?.parentElement).toBe(document.body);
     await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
 
+    const close = screen.getByRole("button", { name: "Close" });
+    expect(close).toHaveClass("home-modal-close");
+    await user.click(close);
+    expect(onClose).toHaveBeenCalledOnce();
+    onClose.mockClear();
+
     const last = screen.getByRole("button", { name: "Last" });
     last.focus();
     await user.tab();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "First" }));
+    expect(document.activeElement).toBe(close);
     await user.tab({ shift: true });
     expect(document.activeElement).toBe(last);
 

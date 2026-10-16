@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useMessages } from "@/lib/i18n/messages";
 
 const TABBABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -32,6 +33,7 @@ export function HomeModal({
   children: ReactNode;
   after?: ReactNode;
 }) {
+  const messages = useMessages();
   const rootRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -99,6 +101,22 @@ export function HomeModal({
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
+        <button
+          type="button"
+          className="home-modal-close"
+          aria-label={messages.dialog.close}
+          onClick={() => onCloseRef.current()}
+        >
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+            <path
+              d="M4 4 L12 12 M12 4 L4 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
         {children}
       </div>
       {after}
