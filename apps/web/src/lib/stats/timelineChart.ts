@@ -72,23 +72,73 @@ export function valueToY(value: number, max: number, plot: PlotRect): number {
   return plot.y + plot.height * (1 - t);
 }
 
-/**
- * Map a viewBox coordinate into an overlay whose viewBox is the element's CSS
- * pixel size (one user unit = one CSS pixel, no stretch). A 1px stroke is
- * centered on the path, so the rule sits on a pixel center.
- */
-export function axisPixel(user: number, viewSpan: number, cssSpan: number): number {
-  if (!(cssSpan > 0) || !(viewSpan > 0)) return user;
-  return Math.round((user / viewSpan) * cssSpan) + 0.5;
+/** `window.devicePixelRatio`, or 1 when the browser has not reported one. */
+export function readDevicePixelRatio(): number {
+  if (typeof window === "undefined") return 1;
+  const ratio = window.devicePixelRatio;
+  return ratio > 0 && Number.isFinite(ratio) ? ratio : 1;
 }
 
 /**
- * CSS pixels to move an overlay so its origin sits on a pixel boundary while
- * staying inside its parent. A `.5` line is then the center of a device pixel.
+ * Snap a CSS-pixel position onto the center of a device pixel.
+ * `snapped * dpr` ends in `.5`.
  */
-export function pixelOriginShift(originPx: number): number {
+export function snapDevicePixel(px: number, dpr: number): number {
+  const ratio = dpr > 0 && Number.isFinite(dpr) ? dpr : 1;
+  return (Math.round(px * ratio) + 0.5) / ratio;
+}
+
+/**
+ * Map a viewBox coordinate into an overlay whose viewBox is the element's CSS
+ * pixel size (one user unit = one CSS pixel, no stretch), then snap it in
+ * device pixels.
+ */
+export function axisPixel(
+  user: number,
+  viewSpan: number,
+  cssSpan: number,
+  dpr: number = 1,
+): number {
+  if (!(cssSpan > 0) || !(viewSpan > 0)) return user;
+  return snapDevicePixel((user / viewSpan) * cssSpan, dpr);
+}
+
+/**
+ * CSS pixels to move an overlay so its origin sits on a device-pixel boundary
+ * while staying inside its parent. A device-pixel snap is then a device-pixel
+ * center on screen.
+ */
+export function pixelOriginShift(originPx: number, dpr: number = 1): number {
   if (!Number.isFinite(originPx)) return 0;
-  return Math.ceil(originPx) - originPx;
+  const ratio = dpr > 0 && Number.isFinite(dpr) ? dpr : 1;
+  const device = originPx * ratio;
+  return (Math.ceil(device) - device) / ratio;
+}
+
+/**
+ * Call `onChange` when zoom or a monitor change moves `devicePixelRatio`.
+ * The media query only matches the current ratio, so each change re-registers.
+ */
+export function watchDevicePixelRatio(onChange: () => void): () => void {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return () => undefined;
+  }
+  let query: MediaQueryList | undefined;
+  let listener: (() => void) | undefined;
+  const listen = () => {
+    if (query && listener) query.removeEventListener("change", listener);
+    query = window.matchMedia(`(resolution: ${readDevicePixelRatio()}dppx)`);
+    listener = () => {
+      if (query && listener) query.removeEventListener("change", listener);
+      onChange();
+      listen();
+    };
+    query.addEventListener("change", listener);
+  };
+  listen();
+  return () => {
+    if (query && listener) query.removeEventListener("change", listener);
+  };
 }
 
 /** CSS pixels. Labels sit outside the stretched viewBox, so this size does not follow the chart width. */

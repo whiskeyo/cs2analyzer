@@ -8,6 +8,7 @@ import {
   roundX,
   axisPixel,
   pixelOriginShift,
+  snapDevicePixel,
   smoothLinePath,
   smoothLineSegments,
   ROUND_LABEL_SLOT_PX,
@@ -21,17 +22,25 @@ import type { Side } from "@/lib/replay/replayTypes";
 describe("timelineChart", () => {
   const plot = plotRect();
 
-  it("snaps an axis rule onto the center of a CSS pixel", () => {
-    expect(axisPixel(22, 280, 0)).toBe(22);
-    expect(axisPixel(22, 280, 938)).toBe(Math.round((22 / 280) * 938) + 0.5);
-    const narrow = axisPixel(100, 960, 1252.8);
-    const wide = axisPixel(100, 960, 2052.8);
-    expect(narrow % 1).toBeCloseTo(0.5);
-    expect(wide % 1).toBeCloseTo(0.5);
-    expect(narrow).not.toBe(wide);
-    expect(pixelOriginShift(0)).toBe(0);
-    expect(14.59375 + pixelOriginShift(14.59375)).toBe(15);
-    expect(56.359375 + pixelOriginShift(56.359375)).toBe(57);
+  it("snaps a CSS pixel onto the center of a device pixel", () => {
+    for (const dpr of [1, 1.25, 1.5, 2]) {
+      for (const px of [0, 0.4, 10.2, 22, 94.37]) {
+        const device = snapDevicePixel(px, dpr) * dpr;
+        expect(device - Math.floor(device)).toBeCloseTo(0.5, 6);
+      }
+    }
+    expect(snapDevicePixel(10.2, 1)).toBe(10.5);
+    expect(snapDevicePixel(10.2, 2)).toBe(10.25);
+    expect(snapDevicePixel(10.2, 1)).not.toBe(snapDevicePixel(10.2, 1.25));
+    expect(snapDevicePixel(10.2, 0)).toBe(snapDevicePixel(10.2, 1));
+    expect(axisPixel(22, 280, 0, 2)).toBe(22);
+    expect(axisPixel(22, 280, 938, 2)).toBe(snapDevicePixel((22 / 280) * 938, 2));
+    expect(pixelOriginShift(0, 1)).toBe(0);
+    expect(14.59375 + pixelOriginShift(14.59375, 1)).toBe(15);
+    expect((14.59375 + pixelOriginShift(14.59375, 1.25)) * 1.25).toBeCloseTo(
+      Math.ceil(14.59375 * 1.25),
+      6,
+    );
   });
 
   it("rounds the axis up onto a readable grid", () => {

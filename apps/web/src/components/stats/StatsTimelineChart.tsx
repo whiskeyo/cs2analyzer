@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import type { TimelineColumn, TimelineStatId } from "@/lib/stats/timeline";
 import { formatTimelineValue, plottedValue, timelineStat } from "@/lib/stats/timeline";
 import {
@@ -14,11 +14,11 @@ import {
   roundX,
   smoothLinePath,
   axisPixel,
-  pixelOriginShift,
   valueToY,
   type PlotRect,
   type TimelinePoint,
 } from "@/lib/stats/timelineChart";
+import { useTimelinePlotBox } from "./useTimelinePlotBox";
 
 interface Props {
   columns: TimelineColumn[];
@@ -84,39 +84,7 @@ export function StatsTimelineChart({
   const layout = TIMELINE_LAYOUT;
   const plot = plotRect(layout);
   const hostRef = useRef<HTMLDivElement>(null);
-  const [plotWidthPx, setPlotWidthPx] = useState(0);
-  const [pixelSize, setPixelSize] = useState({ width: 0, height: 0, shiftX: 0, shiftY: 0 });
-  useLayoutEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    const fraction = plot.width / layout.width;
-    const apply = (width: number, height: number, left: number, top: number) => {
-      const shiftX = pixelOriginShift(left);
-      const shiftY = pixelOriginShift(top);
-      const nextWidth = width > shiftX ? width - shiftX : 0;
-      const nextHeight = height > shiftY ? height - shiftY : 0;
-      setPlotWidthPx(width > 0 ? width * fraction : 0);
-      setPixelSize((prev) =>
-        prev.width === nextWidth &&
-        prev.height === nextHeight &&
-        prev.shiftX === shiftX &&
-        prev.shiftY === shiftY
-          ? prev
-          : { width: nextWidth, height: nextHeight, shiftX, shiftY },
-      );
-    };
-    const box = host.getBoundingClientRect();
-    apply(box.width, box.height, box.left, box.top);
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      const rect = entries[0]?.contentRect;
-      if (!rect) return;
-      const next = host.getBoundingClientRect();
-      apply(rect.width, rect.height, next.left, next.top);
-    });
-    observer.observe(host);
-    return () => observer.disconnect();
-  }, [layout.width, plot.width]);
+  const { plotWidthPx, box: pixelSize } = useTimelinePlotBox(hostRef, plot.width / layout.width);
   const rows = columns[0]?.rows ?? [];
   const scale = useMemo(() => {
     let peak = 0;
@@ -255,9 +223,9 @@ const HIGHLIGHT_STROKE = 1.6;
 
 /**
  * Grid, half/OT seams, and the hover guide. The viewBox matches this SVG's CSS
- * pixel size, and the element is shifted onto a pixel boundary, so a `.5`
- * coordinate stays on a pixel center after a resize. Player lines stay in the
- * stretched series SVG.
+ * pixel size. Rules are snapped to device-pixel centers for the current
+ * `devicePixelRatio`, and the element origin sits on a device-pixel boundary.
+ * Player lines stay in the stretched series SVG.
  */
 function AxisOverlay({
   box,
@@ -270,7 +238,7 @@ function AxisOverlay({
   breakAfter,
   hover,
 }: {
-  box: { width: number; height: number; shiftX: number; shiftY: number };
+  box: { width: number; height: number; shiftX: number; shiftY: number; dpr: number };
   layout: { width: number; height: number };
   plot: PlotRect;
   baseline: number;
@@ -280,10 +248,10 @@ function AxisOverlay({
   breakAfter: ReadonlySet<number>;
   hover: number | null;
 }) {
-  const { width, height, shiftX, shiftY } = box;
+  const { width, height, shiftX, shiftY, dpr } = box;
   if (!(width > 0) || !(height > 0)) return null;
-  const x = (user: number) => axisPixel(user, layout.width, width);
-  const y = (user: number) => axisPixel(user, layout.height, height);
+  const x = (user: number) => axisPixel(user, layout.width, width, dpr);
+  const y = (user: number) => axisPixel(user, layout.height, height, dpr);
   const top = y(plot.y);
   const bottom = y(baseline);
   const left = x(plot.x);

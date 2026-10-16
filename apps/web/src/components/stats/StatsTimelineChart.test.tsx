@@ -182,4 +182,64 @@ describe("StatsTimelineChart pixel grid", () => {
       plotResize.restore();
     }
   });
+
+  it("recomputes grid rules when the device pixel ratio changes", () => {
+    const width = chartCssWidth(1920, SIDEBAR_DEFAULT_WIDTH);
+    const height = 812.5;
+    let ratio = 1;
+    const queries: string[] = [];
+    let listener: (() => void) | undefined;
+    const previous = Object.getOwnPropertyDescriptor(window, "devicePixelRatio");
+    Object.defineProperty(window, "devicePixelRatio", {
+      configurable: true,
+      get: () => ratio,
+    });
+    vi.stubGlobal("matchMedia", (query: string) => {
+      queries.push(query);
+      return {
+        matches: true,
+        media: query,
+        addEventListener: (_type: string, cb: () => void) => {
+          listener = cb;
+        },
+        removeEventListener: () => undefined,
+      };
+    });
+    const plotResize = installPlotResize({ width, height });
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue(new DOMRect(0, 0, width, height));
+    try {
+      render(
+        <StatsTimelineChart
+          columns={[column(12, "CT"), column(13, "T"), column(14, "T")]}
+          stat="hs"
+          colors={["#ffffff", "#000000"]}
+          selected={null}
+          hover={0}
+          onSelect={() => undefined}
+          onHover={() => undefined}
+        />,
+      );
+      const before = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
+      expect(before).toMatch(/\.5$/);
+      expect(queries.at(-1)).toBe("(resolution: 1dppx)");
+      ratio = 1.25;
+      act(() => listener?.());
+      const quarter = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
+      expect(quarter).not.toBe(before);
+      expect(Number(quarter) * 1.25 - Math.floor(Number(quarter) * 1.25)).toBeCloseTo(0.5, 5);
+      expect(queries.at(-1)).toBe("(resolution: 1.25dppx)");
+      ratio = 2;
+      act(() => listener?.());
+      const after = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
+      expect(after).not.toBe(quarter);
+      expect(Number(after) * 2 - Math.floor(Number(after) * 2)).toBeCloseTo(0.5, 5);
+      expect(queries.at(-1)).toBe("(resolution: 2dppx)");
+    } finally {
+      rectSpy.mockRestore();
+      plotResize.restore();
+      if (previous) Object.defineProperty(window, "devicePixelRatio", previous);
+    }
+  });
 });
