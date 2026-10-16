@@ -5175,9 +5175,15 @@ button.link:hover:not(:disabled) {
   background: transparent;
 }
 .stats-timeline-plot {
+  position: relative;
   border: 0;
   background: transparent;
   overflow: visible;
+}
+.stats-timeline-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 .stats-timeline-plot svg {
   display: block;
@@ -5192,7 +5198,11 @@ button.link:hover:not(:disabled) {
 }
 .stats-timeline-axis,
 .stats-timeline-round-label {
+  position: absolute;
   font-family: inherit;
+  line-height: 1;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 .stats-timeline-grid {
   stroke: rgba(232, 238, 244, 0.08);
@@ -5209,8 +5219,7 @@ button.link:hover:not(:disabled) {
   pointer-events: none;
 }
 .stats-timeline-axis {
-  fill: var(--text-muted);
-  font-size: 10px;
+  transform: translate(-100%, -50%);
 }
 .stats-timeline-line {
   fill: none;
@@ -5227,8 +5236,7 @@ button.link:hover:not(:disabled) {
   cursor: pointer;
 }
 .stats-timeline-round-label {
-  fill: var(--text-muted);
-  font-size: 10px;
+  transform: translate(-50%, 0);
   pointer-events: auto;
 }
 .stats-timeline-card {

@@ -1,13 +1,17 @@
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { TimelineColumn, TimelineStatId } from "@/lib/stats/timeline";
 import { formatTimelineValue, plottedValue, timelineStat } from "@/lib/stats/timeline";
 import {
+  AXIS_LABEL_PX,
+  ROUND_LABEL_SLOT_PX,
   TIMELINE_LAYOUT,
   axisScale,
   economyBreakAfter,
   nearestRoundIndex,
   percentAxis,
   plotRect,
+  roundLabelIndexes,
+  roundLabelStep,
   roundX,
   smoothLinePath,
   valueToY,
@@ -54,6 +58,21 @@ export function StatsTimelineChart({
 }: Props) {
   const layout = TIMELINE_LAYOUT;
   const plot = plotRect(layout);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [plotWidthPx, setPlotWidthPx] = useState(0);
+  useLayoutEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const fraction = plot.width / layout.width;
+    const measure = () => {
+      setPlotWidthPx(host.getBoundingClientRect().width * fraction);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [layout.width, plot.width]);
   const rows = columns[0]?.rows ?? [];
   const scale = useMemo(() => {
     let peak = 0;
@@ -90,9 +109,13 @@ export function StatsTimelineChart({
     (a, b) => Number(selected === a.player) - Number(selected === b.player),
   );
   const modeLabel = "cumulative";
+  const labelIndexes = roundLabelIndexes(
+    columns.length,
+    roundLabelStep(columns.length, plotWidthPx, ROUND_LABEL_SLOT_PX),
+  );
 
   return (
-    <div className="stats-timeline-plot">
+    <div className="stats-timeline-plot" ref={hostRef}>
       <svg
         viewBox={`0 0 ${layout.width} ${layout.height}`}
         preserveAspectRatio="none"
@@ -117,15 +140,6 @@ export function StatsTimelineChart({
                 x2={plot.x + plot.width}
                 y2={y}
               />
-              <text
-                className="stats-timeline-axis"
-                x={plot.x - 8}
-                y={y}
-                textAnchor="end"
-                dominantBaseline="middle"
-              >
-                {formatTimelineValue(stat, tick)}
-              </text>
             </g>
           );
         })}
@@ -172,24 +186,6 @@ export function StatsTimelineChart({
             y2={baseline}
           />
         ) : null}
-        {columns.map((column, index) => {
-          const x = roundX(index, columns.length, plot);
-          return (
-            <text
-              key={`round-${index}`}
-              className="stats-timeline-round-label"
-              role="img"
-              aria-label={`Round ${column.number}`}
-              x={x}
-              y={baseline + 16}
-              textAnchor="middle"
-              fontSize={10}
-              onPointerEnter={() => onHover(index)}
-            >
-              R{column.number}
-            </text>
-          );
-        })}
         {lines.map((line) => (
           <path
             key={`hit-${line.player}`}
@@ -201,6 +197,45 @@ export function StatsTimelineChart({
           />
         ))}
       </svg>
+      <div className="stats-timeline-labels">
+        {scale.ticks.map((tick) => {
+          const y = valueToY(tick, scale.max, plot);
+          return (
+            <span
+              key={tick}
+              className="stats-timeline-axis"
+              style={{
+                left: `${((plot.x - 8) / layout.width) * 100}%`,
+                top: `${(y / layout.height) * 100}%`,
+                fontSize: AXIS_LABEL_PX,
+              }}
+            >
+              {formatTimelineValue(stat, tick)}
+            </span>
+          );
+        })}
+        {labelIndexes.map((index) => {
+          const column = columns[index];
+          if (!column) return null;
+          const x = roundX(index, columns.length, plot);
+          return (
+            <span
+              key={`round-${index}`}
+              className="stats-timeline-round-label"
+              role="img"
+              aria-label={`Round ${column.number}`}
+              style={{
+                left: `${(x / layout.width) * 100}%`,
+                top: `${((baseline + 16) / layout.height) * 100}%`,
+                fontSize: AXIS_LABEL_PX,
+              }}
+              onPointerEnter={() => onHover(index)}
+            >
+              R{column.number}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

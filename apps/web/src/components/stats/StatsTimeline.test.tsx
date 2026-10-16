@@ -1,12 +1,12 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { playerMarkColors } from "@/lib/players/playerColors";
 import { makeKill, makePlayer, makeReplay, makeRound, makeHurt } from "@/lib/testing/fixtures";
-import { plotRect, roundX } from "@/lib/stats/timelineChart";
+import { AXIS_LABEL_PX, plotRect, roundX } from "@/lib/stats/timelineChart";
 import type { TimelineColumn, TimelinePlayerRow, TimelineStatId } from "@/lib/stats/timeline";
 import { StatsTimeline } from "./StatsTimeline";
 import { StatsTimelineChart } from "./StatsTimelineChart";
@@ -163,6 +163,32 @@ describe("StatsTimeline", () => {
     const mid = (roundX(0, columns.length, plot) + roundX(1, columns.length, plot)) / 2;
     expect(line).toHaveAttribute("x1", String(mid));
     expect(line).toHaveAttribute("x2", String(mid));
+  });
+
+  it("keeps axis labels at a fixed size and drops rounds that would not fit", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 160, 220),
+    );
+    const columns = Array.from({ length: 40 }, (_, index) => swappedColumn(index + 1, "CT"));
+    render(
+      <StatsTimelineChart
+        columns={columns}
+        stat="adr"
+        colors={["#ffffff"]}
+        selected={null}
+        hover={null}
+        onSelect={() => undefined}
+        onHover={() => undefined}
+      />,
+    );
+    const labels = screen.getAllByRole("img", { name: /^Round / });
+    expect(labels.length).toBeLessThan(columns.length);
+    expect(labels[0]).toHaveStyle({ fontSize: `${AXIS_LABEL_PX}px` });
+    expect(labels[0]?.closest("svg")).toBeNull();
+    const axis = document.querySelector(".stats-timeline-axis");
+    expect(axis).toHaveStyle({ fontSize: `${AXIS_LABEL_PX}px` });
+    expect(axis?.closest("svg")).toBeNull();
+    vi.restoreAllMocks();
   });
 
   it("says when every round was a knife round", () => {

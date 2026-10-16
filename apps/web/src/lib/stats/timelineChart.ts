@@ -72,6 +72,38 @@ export function valueToY(value: number, max: number, plot: PlotRect): number {
   return plot.y + plot.height * (1 - t);
 }
 
+/** CSS pixels. Labels sit outside the stretched viewBox, so this size does not follow the chart width. */
+export const AXIS_LABEL_PX = 10;
+
+/** Room a round label needs ("R42") before the next one is drawn. */
+export const ROUND_LABEL_SLOT_PX = 28;
+
+/**
+ * How many rounds to skip so each label keeps `slotPx` of the plot.
+ * A wide plot returns 1. A tight plot returns a larger step instead of a smaller font.
+ */
+export function roundLabelStep(count: number, plotWidthPx: number, slotPx: number): number {
+  if (count <= 1 || plotWidthPx <= 0 || slotPx <= 0) return 1;
+  const column = plotWidthPx / count;
+  if (column >= slotPx) return 1;
+  return Math.ceil(slotPx / column);
+}
+
+/** Indexes to draw, spaced by `step`, always including the last round when it fits the same gap. */
+export function roundLabelIndexes(count: number, step: number): number[] {
+  if (count <= 0) return [];
+  const safeStep = Math.max(1, Math.floor(step));
+  const indexes: number[] = [];
+  for (let i = 0; i < count; i += safeStep) indexes.push(i);
+  const last = count - 1;
+  const previous = indexes[indexes.length - 1];
+  if (previous !== last) {
+    if (previous != null && last - previous < safeStep) indexes.pop();
+    indexes.push(last);
+  }
+  return indexes;
+}
+
 export function nearestRoundIndex(x: number, count: number, plot: PlotRect): number {
   if (count <= 0) return -1;
   let best = 0;
