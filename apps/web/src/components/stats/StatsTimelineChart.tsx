@@ -35,6 +35,11 @@ interface LineSeries {
   path: string;
 }
 
+/** Half and overtime marks. Thinner and fainter than a player line, still a visible seam. */
+const BREAK_STROKE = "#e8eef4";
+const BREAK_STROKE_WIDTH = 0.5;
+const BREAK_STROKE_OPACITY = 0.42;
+
 export function StatsTimelineChart({
   columns,
   stat,
@@ -137,6 +142,10 @@ export function StatsTimelineChart({
                   y1={plot.y}
                   x2={split}
                   y2={baseline}
+                  stroke={BREAK_STROKE}
+                  strokeWidth={BREAK_STROKE_WIDTH}
+                  strokeOpacity={BREAK_STROKE_OPACITY}
+                  vectorEffect="non-scaling-stroke"
                 />
               ) : null}
             </g>

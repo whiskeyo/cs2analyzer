@@ -6,7 +6,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { playerMarkColors } from "@/lib/players/playerColors";
 import { makeKill, makePlayer, makeReplay, makeRound, makeHurt } from "@/lib/testing/fixtures";
+import { plotRect, roundX } from "@/lib/stats/timelineChart";
+import type { TimelineColumn, TimelinePlayerRow, TimelineStatId } from "@/lib/stats/timeline";
 import { StatsTimeline } from "./StatsTimeline";
+import { StatsTimelineChart } from "./StatsTimelineChart";
 
 function chartReplay() {
   return makeReplay({
@@ -49,6 +52,28 @@ function chartReplay() {
     kills: [makeKill(40, 1, 0), makeKill(200, 0, 1), makeKill(600, 1, 0), makeKill(900, 0, 1)],
     hurts: [makeHurt(190, 0, 1, 80)],
   });
+}
+
+function swappedColumn(number: number, side: "CT" | "T"): TimelineColumn {
+  const value = { round: 1, running: 1 };
+  const ids: TimelineStatId[] = ["kills", "hs", "adr", "opening", "kast", "util", "flashed"];
+  const values = Object.fromEntries(ids.map((id) => [id, value])) as TimelinePlayerRow["values"];
+  const row = (player: number, name: string, rowSide: "CT" | "T"): TimelinePlayerRow => ({
+    player,
+    name,
+    side: rowSide,
+    present: true,
+    won: null,
+    buy: null,
+    values,
+  });
+  return {
+    number,
+    rows: [row(0, "Alice", side), row(1, "Bob", side === "CT" ? "T" : "CT")],
+    winner: null,
+    winReason: 0,
+    winRoster: null,
+  };
 }
 
 describe("StatsTimeline", () => {
@@ -111,6 +136,29 @@ describe("StatsTimeline", () => {
     render(<StatsTimeline replay={chartReplay()} />);
     await user.click(screen.getByRole("button", { name: "Kills" }));
     expect(screen.getByRole("group", { name: "Kills cumulative" })).toBeInTheDocument();
+  });
+
+  it("draws a thin separator on a side swap without moving it", () => {
+    const columns = [swappedColumn(12, "CT"), swappedColumn(13, "T")];
+    render(
+      <StatsTimelineChart
+        columns={columns}
+        stat="adr"
+        colors={["#ffffff", "#000000"]}
+        selected={null}
+        hover={null}
+        onSelect={() => undefined}
+        onHover={() => undefined}
+      />,
+    );
+    const line = document.querySelector(".stats-timeline-break");
+    expect(line).toHaveAttribute("stroke-width", "0.5");
+    expect(line).toHaveAttribute("stroke-opacity", "0.42");
+    expect(line).toHaveAttribute("vector-effect", "non-scaling-stroke");
+    const plot = plotRect();
+    const mid = (roundX(0, columns.length, plot) + roundX(1, columns.length, plot)) / 2;
+    expect(line).toHaveAttribute("x1", String(mid));
+    expect(line).toHaveAttribute("x2", String(mid));
   });
 
   it("says when every round was a knife round", () => {

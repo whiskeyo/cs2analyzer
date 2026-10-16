@@ -5143,8 +5143,6 @@ button.link:hover:not(:disabled) {
   pointer-events: none;
 }
 .stats-timeline-break {
-  stroke: rgba(232, 238, 244, 0.72);
-  stroke-width: 3;
   pointer-events: none;
 }
 .stats-timeline-hover {
