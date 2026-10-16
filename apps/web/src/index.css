@@ -5270,7 +5270,10 @@ button.link:hover:not(:disabled) {
   pointer-events: auto;
 }
 .stats-timeline-round-label.is-vertical {
-  transform: translate(-50%, 0) rotate(-90deg);
+  /* Keep the turned label's top on the same edge as a horizontal one.
+     A center rotation lifts a longer label into the plot. */
+  transform-origin: right center;
+  transform: translate(-100%, -50%) rotate(-90deg);
 }
 .stats-timeline-card {
   position: absolute;

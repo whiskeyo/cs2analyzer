@@ -9,7 +9,12 @@ import {
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
 import type { TimelineColumn, TimelinePlayerRow, TimelineStatId } from "@/lib/stats/timeline";
-import { axisStrokeWidth, devicePixelStroke, pixelOriginShift } from "@/lib/stats/timelineChart";
+import {
+  ROUND_LABEL_GAP_PX,
+  axisStrokeWidth,
+  devicePixelStroke,
+  pixelOriginShift,
+} from "@/lib/stats/timelineChart";
 import { StatsTimelineChart } from "./StatsTimelineChart";
 
 const MODAL_BODY_PAD_X = 0.85 * 16 * 2;
@@ -86,6 +91,11 @@ function installPlotResize(initial: { width: number; height: number }) {
   };
 }
 
+function roundLabelTopStyle(): string {
+  const label = document.querySelector(".stats-timeline-round-label");
+  return label instanceof HTMLElement ? label.style.top : "";
+}
+
 function expectPixelCenter(line: Element) {
   for (const name of ["x1", "y1", "x2", "y2"]) {
     expect(line.getAttribute(name)).toMatch(/\.5$/);
@@ -143,6 +153,7 @@ describe("StatsTimelineChart pixel grid", () => {
         />,
       );
       const verticalXs: string[] = [];
+      const labelTops: string[] = [];
       for (const width of widths) {
         plotResize.resize({ width, height });
         const overlay = document.querySelector(".stats-timeline-axis-svg");
@@ -164,8 +175,11 @@ describe("StatsTimelineChart pixel grid", () => {
           expectPixelCenter(line);
         }
         verticalXs.push(vertical[0]?.getAttribute("x1") ?? "");
+        labelTops.push(roundLabelTopStyle());
       }
       expect(new Set(verticalXs).size).toBe(widths.length);
+      expect(new Set(labelTops).size).toBe(1);
+      expect(labelTops[0]).toContain(`+ ${ROUND_LABEL_GAP_PX}px`);
     } finally {
       plotResize.restore();
     }
@@ -249,6 +263,8 @@ describe("StatsTimelineChart pixel grid", () => {
           onHover={() => undefined}
         />,
       );
+      const labelTop = () => roundLabelTopStyle();
+      const topAt1 = labelTop();
       const before = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
       expect(before).toMatch(/\.5$/);
       expectSharedDeviceStroke(1);
@@ -267,6 +283,7 @@ describe("StatsTimelineChart pixel grid", () => {
         expect(x).not.toBe(previousX);
         expect(devicePixelStroke(next)).toBe(devicePixels[next]);
         expectSharedDeviceStroke(next);
+        expect(labelTop()).toBe(topAt1);
         expect(queries.at(-1)).toBe(`(resolution: ${next}dppx)`);
       }
     } finally {

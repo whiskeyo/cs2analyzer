@@ -15,7 +15,9 @@ export const TIMELINE_LAYOUT = {
   padBottom: 28,
 } as const;
 
-export type TimelineLayout = typeof TIMELINE_LAYOUT;
+export type TimelineLayout = {
+  [Key in keyof typeof TIMELINE_LAYOUT]: number;
+};
 
 export interface PlotRect {
   x: number;
@@ -167,6 +169,45 @@ export function watchDevicePixelRatio(onChange: () => void): () => void {
 
 /** CSS pixels. Labels sit outside the stretched viewBox, so this size does not follow the chart width. */
 export const AXIS_LABEL_PX = 10;
+
+/** CSS pixels between the 0 baseline and the top of a round label. */
+export const ROUND_LABEL_GAP_PX = 5;
+
+/** CSS pixels kept under the baseline: the gap plus one line of round labels. */
+export const ROUND_LABEL_BAND_PX = ROUND_LABEL_GAP_PX + AXIS_LABEL_PX;
+
+/**
+ * Inline size of a turned round label at `AXIS_LABEL_PX` ("R42" in the UI font).
+ * The bottom band uses this so the turned row still clears the plot.
+ */
+export const ROUND_LABEL_TURNED_PX = 18;
+
+/** CSS pixels reserved under the baseline for the current label orientation. */
+export function roundLabelBand(orientation: RoundLabelOrientation): number {
+  if (orientation === "vertical") return ROUND_LABEL_GAP_PX + ROUND_LABEL_TURNED_PX;
+  return ROUND_LABEL_BAND_PX;
+}
+
+/**
+ * Shrink the viewBox padding under the baseline so the band stays `bandPx`
+ * CSS pixels at any chart height. Width and device pixel ratio do not enter.
+ */
+export function timelineLayoutForHeight(
+  cssHeight: number,
+  layout: TimelineLayout = TIMELINE_LAYOUT,
+  bandPx: number = ROUND_LABEL_BAND_PX,
+): TimelineLayout {
+  if (!(cssHeight > 0)) return layout;
+  const band = Math.min(Math.max(bandPx, 0), cssHeight);
+  const padBottom = Math.min(layout.height - layout.padTop - 1, (band / cssHeight) * layout.height);
+  return { ...layout, padBottom };
+}
+
+/** `top` for a round label: the baseline, then a fixed CSS gap that stretch cannot grow. */
+export function roundLabelTop(baseline: number, layoutHeight: number): string {
+  const percent = (baseline / layoutHeight) * 100;
+  return `calc(${percent}% + ${ROUND_LABEL_GAP_PX}px)`;
+}
 
 /** Room a horizontal "R42" needs. A tighter column turns the label upright instead of shrinking it. */
 export const ROUND_LABEL_SLOT_PX = 28;

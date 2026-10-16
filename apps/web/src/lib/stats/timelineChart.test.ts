@@ -13,8 +13,14 @@ import {
   snapDevicePixel,
   smoothLinePath,
   smoothLineSegments,
+  ROUND_LABEL_BAND_PX,
+  ROUND_LABEL_GAP_PX,
+  ROUND_LABEL_TURNED_PX,
   ROUND_LABEL_SLOT_PX,
   TIMELINE_LAYOUT,
+  roundLabelBand,
+  roundLabelTop,
+  timelineLayoutForHeight,
   roundLabelOrientation,
   valueToY,
   type TimelineRoundRoster,
@@ -74,6 +80,48 @@ describe("timelineChart", () => {
     expect(percent.max).toBe(100);
     expect(percent.ticks).toContain(100);
     expect(percentAxis(140).max).toBeGreaterThanOrEqual(140);
+  });
+
+  it("keeps a fixed CSS gap under the baseline at every chart height", () => {
+    const heights = [220, 480, 812.5, 1400];
+    const tops = heights.map((cssHeight) => {
+      const layout = timelineLayoutForHeight(cssHeight);
+      const band = (layout.padBottom / layout.height) * cssHeight;
+      expect(band).toBeCloseTo(ROUND_LABEL_BAND_PX, 6);
+      expect(layout.padBottom).toBeLessThan(TIMELINE_LAYOUT.padBottom);
+      const baseline = layout.height - layout.padBottom;
+      return roundLabelTop(baseline, layout.height);
+    });
+    for (const top of tops) {
+      expect(top.endsWith(`+ ${ROUND_LABEL_GAP_PX}px)`)).toBe(true);
+    }
+    expect(new Set(tops).size).toBe(heights.length);
+    expect(timelineLayoutForHeight(0)).toBe(TIMELINE_LAYOUT);
+    expect(timelineLayoutForHeight(-1).padBottom).toBe(TIMELINE_LAYOUT.padBottom);
+  });
+
+  it("reserves a taller band for turned labels and keeps the same gap", () => {
+    const cssHeight = 480;
+    const horizontal = timelineLayoutForHeight(
+      cssHeight,
+      TIMELINE_LAYOUT,
+      roundLabelBand("horizontal"),
+    );
+    const vertical = timelineLayoutForHeight(
+      cssHeight,
+      TIMELINE_LAYOUT,
+      roundLabelBand("vertical"),
+    );
+    const bandPx = (layout: { padBottom: number; height: number }) =>
+      (layout.padBottom / layout.height) * cssHeight;
+    expect(bandPx(horizontal)).toBeCloseTo(ROUND_LABEL_BAND_PX, 6);
+    expect(bandPx(vertical)).toBeCloseTo(ROUND_LABEL_GAP_PX + ROUND_LABEL_TURNED_PX, 6);
+    expect(vertical.padBottom).toBeGreaterThan(horizontal.padBottom);
+    expect(vertical.padBottom).toBeLessThan(TIMELINE_LAYOUT.padBottom);
+    for (const layout of [horizontal, vertical]) {
+      const baseline = layout.height - layout.padBottom;
+      expect(roundLabelTop(baseline, layout.height)).toContain(`+ ${ROUND_LABEL_GAP_PX}px`);
+    }
   });
 
   it("keeps every round label and turns the row upright when horizontal type would overlap", () => {

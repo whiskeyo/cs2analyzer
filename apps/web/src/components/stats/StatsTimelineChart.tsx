@@ -10,11 +10,14 @@ import {
   nearestRoundIndex,
   percentAxis,
   plotRect,
+  roundLabelBand,
   roundLabelOrientation,
+  roundLabelTop,
   roundX,
   smoothLinePath,
   axisPixel,
   axisStrokeWidth,
+  timelineLayoutForHeight,
   valueToY,
   type PlotRect,
   type TimelinePoint,
@@ -80,10 +83,19 @@ export function StatsTimelineChart({
   onSelect,
   onHover,
 }: Props) {
-  const layout = TIMELINE_LAYOUT;
-  const plot = plotRect(layout);
   const hostRef = useRef<HTMLDivElement>(null);
-  const { plotWidthPx, box: pixelSize } = useTimelinePlotBox(hostRef, plot.width / layout.width);
+  const basePlot = plotRect();
+  const { plotWidthPx, box: pixelSize } = useTimelinePlotBox(
+    hostRef,
+    basePlot.width / TIMELINE_LAYOUT.width,
+  );
+  const labelOrientation = roundLabelOrientation(columns.length, plotWidthPx, ROUND_LABEL_SLOT_PX);
+  const layout = timelineLayoutForHeight(
+    pixelSize.height + pixelSize.shiftY,
+    TIMELINE_LAYOUT,
+    roundLabelBand(labelOrientation),
+  );
+  const plot = plotRect(layout);
   const rows = columns[0]?.rows ?? [];
   const scale = useMemo(() => {
     let peak = 0;
@@ -125,7 +137,6 @@ export function StatsTimelineChart({
     (a, b) => Number(selected === a.player) - Number(selected === b.player),
   );
   const modeLabel = "cumulative";
-  const labelOrientation = roundLabelOrientation(columns.length, plotWidthPx, ROUND_LABEL_SLOT_PX);
 
   return (
     <div className="stats-timeline-plot" ref={hostRef}>
@@ -202,7 +213,7 @@ export function StatsTimelineChart({
               aria-label={`Round ${column.number}`}
               style={{
                 left: `${(x / layout.width) * 100}%`,
-                top: `${((baseline + 16) / layout.height) * 100}%`,
+                top: roundLabelTop(baseline, layout.height),
                 fontSize: AXIS_LABEL_PX,
               }}
               onPointerEnter={() => onHover(index)}
