@@ -292,4 +292,74 @@ describe("StatsTimelineChart pixel grid", () => {
       if (previous) Object.defineProperty(window, "devicePixelRatio", previous);
     }
   });
+
+  it("keeps 42 distinct round lines at 2560 and DPR 1.5 through a hover", () => {
+    const height = 812.5;
+    const previous = Object.getOwnPropertyDescriptor(window, "devicePixelRatio");
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 1.5 });
+    const rounds = Array.from({ length: 42 }, (_, index) => column(index + 1, "CT"));
+    const verticalXs = () =>
+      [...document.querySelectorAll(".stats-timeline-grid")]
+        .filter((line) => line.getAttribute("x1") === line.getAttribute("x2"))
+        .map((line) => line.getAttribute("x1") ?? "");
+    const expectRounds = () => {
+      const xs = verticalXs();
+      expect(xs).toHaveLength(42);
+      expect(new Set(xs).size).toBe(42);
+    };
+    const plotResize = installPlotResize({
+      width: chartCssWidth(2560, SIDEBAR_DEFAULT_WIDTH),
+      height,
+    });
+    try {
+      const { rerender } = render(
+        <StatsTimelineChart
+          columns={rounds}
+          stat="adr"
+          colors={["#ffffff", "#000000"]}
+          selected={null}
+          hover={null}
+          onSelect={() => undefined}
+          onHover={() => undefined}
+        />,
+      );
+      for (const sidebar of [SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH]) {
+        plotResize.resize({ width: chartCssWidth(2560, sidebar), height });
+        expectRounds();
+        rerender(
+          <StatsTimelineChart
+            columns={rounds}
+            stat="adr"
+            colors={["#ffffff", "#000000"]}
+            selected={null}
+            hover={6}
+            onSelect={() => undefined}
+            onHover={() => undefined}
+          />,
+        );
+        expectRounds();
+        const gridSvg = document.querySelector(".stats-timeline-grid")?.closest("svg");
+        const hoverSvg = document.querySelector(".stats-timeline-hover")?.closest("svg");
+        expect(hoverSvg).not.toBeNull();
+        expect(hoverSvg).not.toBe(gridSvg);
+        expect(hoverSvg).toHaveClass("stats-timeline-hover-svg");
+        rerender(
+          <StatsTimelineChart
+            columns={rounds}
+            stat="adr"
+            colors={["#ffffff", "#000000"]}
+            selected={null}
+            hover={null}
+            onSelect={() => undefined}
+            onHover={() => undefined}
+          />,
+        );
+        expectRounds();
+        expect(document.querySelector(".stats-timeline-hover")).toBeNull();
+      }
+    } finally {
+      plotResize.restore();
+      if (previous) Object.defineProperty(window, "devicePixelRatio", previous);
+    }
+  });
 });

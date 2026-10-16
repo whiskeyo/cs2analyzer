@@ -232,10 +232,11 @@ const LINE_STROKE = 0.9;
 const HIGHLIGHT_STROKE = 1.6;
 
 /**
- * Grid, half/OT seams, and the hover guide. The viewBox matches this SVG's CSS
- * pixel size. Stroke width is a whole number of device pixels, and each rule
- * is snapped so that stroke covers whole device pixels at the current
- * `devicePixelRatio`. The element origin sits on a device-pixel boundary.
+ * Grid and half/OT seams. The viewBox matches this SVG's CSS pixel size.
+ * Stroke width is a whole number of device pixels, and each rule is snapped so
+ * that stroke covers whole device pixels at the current `devicePixelRatio`.
+ * Round rules are keyed by round index. The hover guide is a second SVG so it
+ * cannot reuse a round rule. The element origin sits on a device-pixel boundary.
  * Player lines stay in the stretched series SVG.
  */
 function AxisOverlay({
@@ -268,73 +269,85 @@ function AxisOverlay({
   const bottom = y(baseline);
   const left = x(plot.x);
   const right = x(plot.x + plot.width);
+  const frame = {
+    viewBox: `0 0 ${width} ${height}`,
+    style: { left: shiftX, top: shiftY, width, height },
+    "aria-hidden": true as const,
+  };
+  const hoverIndex = hover != null && columns[hover] ? hover : null;
+  const hoverX = hoverIndex != null ? x(roundX(hoverIndex, columns.length, plot)) : null;
   return (
-    <svg
-      className="stats-timeline-axis-svg"
-      viewBox={`0 0 ${width} ${height}`}
-      style={{ left: shiftX, top: shiftY, width, height }}
-      aria-hidden="true"
-    >
-      {ticks.map((tick) => {
-        const lineY = y(tickY(tick));
-        return (
-          <AxisLine
-            key={tick}
-            className="stats-timeline-grid"
-            stroke={GRID_STROKE}
-            strokeWidth={strokeWidth}
-            x1={left}
-            y1={lineY}
-            x2={right}
-            y2={lineY}
-          />
-        );
-      })}
-      {columns.map((column, index) => {
-        const lineX = x(roundX(index, columns.length, plot));
-        const next = columns[index + 1];
-        const split =
-          next && breakAfter.has(column.number)
-            ? x((roundX(index, columns.length, plot) + roundX(index + 1, columns.length, plot)) / 2)
-            : null;
-        return (
-          <g key={`grid-${index}`}>
+    <>
+      <svg className="stats-timeline-axis-svg" {...frame}>
+        {ticks.map((tick) => {
+          const lineY = y(tickY(tick));
+          return (
             <AxisLine
+              key={tick}
               className="stats-timeline-grid"
               stroke={GRID_STROKE}
               strokeWidth={strokeWidth}
-              x1={lineX}
-              y1={top}
-              x2={lineX}
-              y2={bottom}
+              x1={left}
+              y1={lineY}
+              x2={right}
+              y2={lineY}
             />
-            {split != null ? (
+          );
+        })}
+        {columns.map((column, index) => {
+          const lineX = x(roundX(index, columns.length, plot));
+          const next = columns[index + 1];
+          const split =
+            next && breakAfter.has(column.number)
+              ? x(
+                  (roundX(index, columns.length, plot) + roundX(index + 1, columns.length, plot)) /
+                    2,
+                )
+              : null;
+          return (
+            <g key={`round-${index}`}>
               <AxisLine
-                className="stats-timeline-break"
-                stroke={BREAK_STROKE}
+                key={`round-${index}`}
+                className="stats-timeline-grid"
+                stroke={GRID_STROKE}
                 strokeWidth={strokeWidth}
-                x1={split}
+                x1={lineX}
                 y1={top}
-                x2={split}
+                x2={lineX}
                 y2={bottom}
               />
-            ) : null}
-          </g>
-        );
-      })}
-      {hover != null && columns[hover] ? (
-        <AxisLine
-          className="stats-timeline-hover"
-          stroke={BREAK_STROKE}
-          strokeWidth={strokeWidth}
-          dash={HOVER_DASH}
-          x1={x(roundX(hover, columns.length, plot))}
-          y1={top}
-          x2={x(roundX(hover, columns.length, plot))}
-          y2={bottom}
-        />
+              {split != null ? (
+                <AxisLine
+                  key={`break-${index}`}
+                  className="stats-timeline-break"
+                  stroke={BREAK_STROKE}
+                  strokeWidth={strokeWidth}
+                  x1={split}
+                  y1={top}
+                  x2={split}
+                  y2={bottom}
+                />
+              ) : null}
+            </g>
+          );
+        })}
+      </svg>
+      {hoverX != null ? (
+        <svg className="stats-timeline-axis-svg stats-timeline-hover-svg" {...frame}>
+          <AxisLine
+            key="hover"
+            className="stats-timeline-hover"
+            stroke={BREAK_STROKE}
+            strokeWidth={strokeWidth}
+            dash={HOVER_DASH}
+            x1={hoverX}
+            y1={top}
+            x2={hoverX}
+            y2={bottom}
+          />
+        </svg>
       ) : null}
-    </svg>
+    </>
   );
 }
 
