@@ -367,7 +367,7 @@ export interface GameRulesSnapshot {
 /**
  * Extra demo data. Omitted on replays parsed before this field existed.
  *
- * Look up a convar with `convars.demo[name] ?? convars.defaults[name]`.
+ * Look up a convar with `getConvar` (`demo[name] ?? defaults[name]`).
  * Rust does not infer overtime or round-limit numbers; the viewer computes
  * those from rounds when it needs them.
  */
