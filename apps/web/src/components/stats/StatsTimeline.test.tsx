@@ -151,6 +151,10 @@ describe("StatsTimeline", () => {
         onHover={() => undefined}
       />,
     );
+    expect(document.querySelector(".stats-timeline-plot svg")).toHaveAttribute(
+      "preserveAspectRatio",
+      "none",
+    );
     const line = document.querySelector(".stats-timeline-break");
     expect(line).toHaveAttribute("stroke-width", "1");
     expect(line).toHaveAttribute("stroke-opacity", "0.5");

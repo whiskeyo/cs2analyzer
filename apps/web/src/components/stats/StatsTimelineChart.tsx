@@ -95,6 +95,7 @@ export function StatsTimelineChart({
     <div className="stats-timeline-plot">
       <svg
         viewBox={`0 0 ${layout.width} ${layout.height}`}
+        preserveAspectRatio="none"
         role="group"
         aria-label={`${timelineStat(stat).label} ${modeLabel}`}
         onPointerMove={(event) => {

@@ -5095,11 +5095,31 @@ button.link:hover:not(:disabled) {
 }
 
 /* Single-demo stats timeline, opened in the settings dialog over the replay. */
+.stats-timeline-modal {
+  align-items: stretch;
+  justify-content: center;
+  padding: 5vh 1.5rem;
+  overflow: hidden;
+}
 .stats-timeline-modal-card {
   width: min(90vw, 76rem);
+  max-height: none;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .stats-timeline-modal .stats-timeline {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 0;
+}
+.stats-timeline-modal .stats-timeline-stage,
+.stats-timeline-modal .stats-timeline-plot {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .stats-timeline {
   flex: 0 0 auto;
@@ -5153,6 +5173,12 @@ button.link:hover:not(:disabled) {
   display: block;
   width: 100%;
   height: auto;
+}
+.stats-timeline-modal .stats-timeline-plot svg {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 .stats-timeline-axis,
 .stats-timeline-round-label {
