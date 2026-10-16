@@ -18,6 +18,7 @@ export function ToolbarIcon({ d }: { d: string }) {
 export function ToolbarIconBtn({
   title,
   on,
+  pressed,
   disabled,
   onClick,
   d,
@@ -25,6 +26,8 @@ export function ToolbarIconBtn({
 }: {
   title: string;
   on?: boolean;
+  /** Sets `aria-pressed` when the control is a toggle. */
+  pressed?: boolean;
   disabled?: boolean;
   onClick: () => void;
   d?: string;
@@ -34,9 +37,10 @@ export function ToolbarIconBtn({
   return (
     <button
       type="button"
-      className={`icon-btn${on ? " on" : ""}`}
+      className={`icon-btn${on || pressed ? " on" : ""}`}
       title={title}
       aria-label={title}
+      aria-pressed={pressed}
       disabled={disabled}
       onClick={onClick}
     >

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 /// High-level match snapshot produced by [`crate::parse_demo`].
@@ -24,6 +26,10 @@ pub struct Match {
     /// include it (possibly empty).
     #[serde(default)]
     pub round_scoreboard: Vec<RoundScoreboard>,
+    /// Convars, end-of-match gamerules, half scores, and demo-file header.
+    /// Missing on a match saved before this field existed.
+    #[serde(default)]
+    pub match_info: MatchInfo,
 }
 
 /// One counted round's controller scoreboard (`Match.rounds` numbering).
@@ -476,4 +482,160 @@ impl PlayerStats {
             adr_t: 0.0,
         }
     }
+}
+
+/// One `CNETMsg_SetConVar` change. Repeats of the same value are not stored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConvarUpdate {
+    pub tick: u32,
+    pub name: String,
+    pub value: String,
+}
+
+/// `CCSTeam` half split at the end of the demo.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TeamHalfScores {
+    /// `m_szClanTeamname` with a leading `team_` stripped, same as round names.
+    pub name: String,
+    #[serde(rename = "m_iScore")]
+    pub score: i32,
+    #[serde(rename = "m_scoreFirstHalf")]
+    pub score_first_half: i32,
+    #[serde(rename = "m_scoreSecondHalf")]
+    pub score_second_half: i32,
+    #[serde(rename = "m_scoreOvertime")]
+    pub score_overtime: i32,
+}
+
+/// CT is team number 3, T is team number 2, at the sample tick.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TeamHalves {
+    pub ct: TeamHalfScores,
+    pub t: TeamHalfScores,
+}
+
+/// `CCSGameRulesProxy.m_pGameRules` at the end of the demo.
+///
+/// Integer and bool props that the demo never networks stay `0` / `false`.
+/// `m_nOvertimePlaying` is the overtime period index (0 in regulation, 3 means the third OT).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct GameRulesSnapshot {
+    #[serde(rename = "m_nOvertimePlaying")]
+    pub overtime_playing: i32,
+    #[serde(rename = "m_totalRoundsPlayed")]
+    pub total_rounds_played: i32,
+    #[serde(rename = "m_iRoundStartRoundNumber")]
+    pub round_start_round_number: i32,
+    #[serde(rename = "m_nRoundsPlayedThisPhase")]
+    pub rounds_played_this_phase: i32,
+    #[serde(rename = "m_gamePhase")]
+    pub game_phase: i32,
+    #[serde(rename = "m_iFreezeTime")]
+    pub freeze_time: i32,
+    #[serde(rename = "m_iRoundTime")]
+    pub round_time: i32,
+    #[serde(rename = "m_bFreezePeriod")]
+    pub freeze_period: bool,
+    #[serde(rename = "m_bHasMatchStarted")]
+    pub has_match_started: bool,
+    #[serde(rename = "m_bGamePaused")]
+    pub game_paused: bool,
+    #[serde(rename = "m_bMatchWaitingForResume")]
+    pub match_waiting_for_resume: bool,
+    #[serde(rename = "m_bTechnicalTimeOut")]
+    pub technical_timeout: bool,
+    #[serde(rename = "m_bCTTimeOutActive")]
+    pub ct_timeout_active: bool,
+    #[serde(rename = "m_bTerroristTimeOutActive")]
+    pub terrorist_timeout_active: bool,
+    #[serde(rename = "m_flCTTimeOutRemaining")]
+    pub ct_timeout_remaining: f32,
+    #[serde(rename = "m_flTerroristTimeOutRemaining")]
+    pub terrorist_timeout_remaining: f32,
+    #[serde(rename = "m_nCTTimeOuts")]
+    pub ct_timeouts: i32,
+    #[serde(rename = "m_nTerroristTimeOuts")]
+    pub terrorist_timeouts: i32,
+    #[serde(rename = "m_nPauseStartTick")]
+    pub pause_start_tick: i32,
+    #[serde(rename = "m_nTotalPausedTicks")]
+    pub total_paused_ticks: i32,
+    #[serde(rename = "m_iNumConsecutiveCTLoses")]
+    pub consecutive_ct_losses: i32,
+    #[serde(rename = "m_iNumConsecutiveTerroristLoses")]
+    pub consecutive_terrorist_losses: i32,
+    #[serde(rename = "m_bBombPlanted")]
+    pub bomb_planted: bool,
+    #[serde(rename = "m_bBombDropped")]
+    pub bomb_dropped: bool,
+    #[serde(rename = "m_eRoundEndReason")]
+    pub round_end_reason: i32,
+    #[serde(rename = "m_iRoundEndWinnerTeam")]
+    pub round_end_winner_team: i32,
+    #[serde(rename = "m_sRoundEndMessage")]
+    pub round_end_message: String,
+    #[serde(rename = "m_sRoundEndFunFactToken")]
+    pub round_end_fun_fact_token: String,
+    #[serde(rename = "m_iRoundEndFunFactPlayerSlot")]
+    pub round_end_fun_fact_player_slot: i32,
+    #[serde(rename = "m_iRoundEndFunFactData1")]
+    pub round_end_fun_fact_data1: i32,
+    #[serde(rename = "m_iRoundEndFunFactData2")]
+    pub round_end_fun_fact_data2: i32,
+    #[serde(rename = "m_iRoundEndFunFactData3")]
+    pub round_end_fun_fact_data3: i32,
+    #[serde(rename = "m_iRoundEndPlayerCount")]
+    pub round_end_player_count: i32,
+    #[serde(rename = "m_fMatchStartTime")]
+    pub match_start_time: f32,
+    #[serde(rename = "m_fRoundStartTime")]
+    pub round_start_time: f32,
+    #[serde(rename = "m_flGameStartTime")]
+    pub game_start_time: f32,
+    #[serde(rename = "m_bIsValveDS")]
+    pub is_valve_ds: bool,
+    #[serde(rename = "m_bIsQueuedMatchmaking")]
+    pub is_queued_matchmaking: bool,
+    #[serde(rename = "m_nQueuedMatchmakingMode")]
+    pub queued_matchmaking_mode: i32,
+    #[serde(rename = "m_numBestOfMaps")]
+    pub best_of_maps: i32,
+    #[serde(rename = "m_szMatchStatTxt")]
+    pub match_stat_text: String,
+    #[serde(rename = "m_szTournamentEventName")]
+    pub tournament_event_name: String,
+    #[serde(rename = "m_szTournamentEventStage")]
+    pub tournament_event_stage: String,
+    #[serde(rename = "m_vMinimapMins")]
+    pub minimap_mins: [f32; 3],
+    #[serde(rename = "m_vMinimapMaxs")]
+    pub minimap_maxs: [f32; 3],
+    #[serde(rename = "m_bMapHasBombTarget")]
+    pub map_has_bomb_target: bool,
+    #[serde(rename = "m_bMapHasBuyZone")]
+    pub map_has_buy_zone: bool,
+}
+
+/// Tournament defaults plus every convar the server sent.
+///
+/// `defaults` is always the tournament-config table. `demo` is the last value
+/// of every name the server sent, including values that equal the default.
+/// The frontend resolves `demo[name] ?? defaults[name]`. Rust does not infer
+/// a number when the demo omitted the name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConvarTables {
+    pub defaults: BTreeMap<String, String>,
+    pub demo: BTreeMap<String, String>,
+}
+
+/// Extra demo data that does not change header, rounds, or player JSON.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MatchInfo {
+    pub convars: ConvarTables,
+    pub convar_updates: Vec<ConvarUpdate>,
+    pub rules: GameRulesSnapshot,
+    pub teams: TeamHalves,
+    pub server_name: String,
+    pub build_num: i32,
+    pub patch_version: i32,
 }

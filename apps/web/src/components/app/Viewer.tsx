@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controls } from "@/components/playback/Controls";
 import { RoundStrip } from "@/components/playback/RoundStrip";
 import { SeriesAggregatedRoundStrip } from "@/components/playback/SeriesAggregatedRoundStrip";
@@ -18,6 +18,8 @@ import {
 } from "@/lib/tutorial/activeRound";
 import { SeriesBar } from "./SeriesBar";
 import { SeriesFilters } from "./SeriesFilters";
+import { StatsTimelineModal } from "./StatsTimelineModal";
+import { useStatsTimelinePanel } from "./StatsTimelinePanel";
 
 function parseOverallPct(progress: { current: number; total: number } | null): number {
   if (!progress || progress.total <= 0) return 0;
@@ -25,12 +27,24 @@ function parseOverallPct(progress: { current: number; total: number } | null): n
 }
 
 export function Viewer() {
-  const { session, playback, review, places, habits, appendFiles, status } = useApp();
+  const { session, playback, review, view, places, habits, appendFiles, status } = useApp();
   const replay = session.replay;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
   const bucketMode = replay != null && isBucketOverlayActive(session.series, habits);
   const [dragOver, setDragOver] = useState(false);
   const dragDepthRef = useRef(0);
+  const timeline = useStatsTimelinePanel();
+  const showTimeline = !aggregated && timeline.open;
+  const timelineWasOpen = useRef(false);
+
+  useEffect(() => {
+    if (showTimeline && !timelineWasOpen.current) playback.setPlaying(false);
+    timelineWasOpen.current = showTimeline;
+  }, [showTimeline, playback]);
+
+  useEffect(() => {
+    if (aggregated && timeline.open) timeline.close();
+  }, [aggregated, timeline]);
 
   if (!replay) return null;
   const { tick } = playback;
@@ -150,6 +164,14 @@ export function Viewer() {
           </>
         )}
       </div>
+      {showTimeline ? (
+        <StatsTimelineModal
+          replay={replay}
+          selected={view.selected}
+          onSelect={view.select}
+          onClose={timeline.close}
+        />
+      ) : null}
       <p className="keys">
         Space play · ←/→ scrub · [ ] rounds · e E executes · , . kills · F track · T trail · Ctrl+Z
         undo · Esc deselect

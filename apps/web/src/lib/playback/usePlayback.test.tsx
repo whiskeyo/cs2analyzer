@@ -454,6 +454,131 @@ describe("usePlayback", () => {
     });
   });
 
+  describe("last round with no post-round restart", () => {
+    const cases = [
+      {
+        label: "mirage",
+        prevStart: 258050,
+        prevEnd: 262471,
+        prevPlaybackEnd: 262899,
+        start: 264198,
+        end: 266234,
+        lastFrame: 266674,
+        playbackTicks: 266675,
+        number: 42,
+      },
+      {
+        label: "inferno",
+        prevStart: 136001,
+        prevEnd: 144903,
+        prevPlaybackEnd: 145331,
+        start: 146630,
+        end: 152061,
+        lastFrame: 152467,
+        playbackTicks: 152468,
+        number: 16,
+      },
+    ];
+
+    function lastRoundReplay(sample: (typeof cases)[number]) {
+      const ticks = makeTicks(2, 2);
+      ticks.ticks[0] = 1;
+      ticks.ticks[1] = sample.lastFrame;
+      return makeReplay({
+        header: { playback_ticks: sample.playbackTicks },
+        rounds: [
+          makeRound({
+            number: sample.number - 1,
+            start_tick: sample.prevStart,
+            freeze_end_tick: sample.prevStart,
+            end_tick: sample.prevEnd,
+            playback_end_tick: sample.prevPlaybackEnd,
+          }),
+          makeRound({
+            number: sample.number,
+            start_tick: sample.start,
+            freeze_end_tick: sample.start,
+            end_tick: sample.end,
+            playback_end_tick: 0,
+            winner: "T",
+          }),
+        ],
+        ticks,
+      });
+    }
+
+    function stepFrame(frames: FrameRequestCallback[], clock: { now: number }): boolean {
+      const cb = frames.shift();
+      if (!cb) return false;
+      clock.now += 50;
+      act(() => cb(clock.now));
+      return true;
+    }
+
+    it.each(cases)(
+      "plays $label from the freeze through the round win and seeks to the demo end",
+      (sample) => {
+        const replay = lastRoundReplay(sample);
+        const frames: FrameRequestCallback[] = [];
+        const clock = { now: 0 };
+        vi.stubGlobal("performance", { now: () => clock.now });
+        vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+          frames.push(cb);
+          return frames.length;
+        });
+        vi.stubGlobal("cancelAnimationFrame", vi.fn());
+        const { result } = renderHook(() => usePlayback(replay, `de_${sample.label}|last.dem`));
+        const last = replay.rounds[1];
+        act(() => result.current.jump(0, true, last));
+        expect(result.current.tick).toBe(sample.start);
+
+        act(() => result.current.scrub(sample.playbackTicks));
+        expect(result.current.tick).toBe(sample.playbackTicks);
+
+        act(() => result.current.jump(0, true, last));
+        expect(result.current.tick).toBe(sample.start);
+        act(() => result.current.setPlaying(true));
+        let guard = 0;
+        let crossed = false;
+        while (result.current.playing && guard < 2000) {
+          if (!stepFrame(frames, clock)) break;
+          const tick = result.current.tickRef.current;
+          if (tick > sample.start && tick < sample.end) crossed = true;
+          guard += 1;
+        }
+        expect(crossed).toBe(true);
+        expect(result.current.tick).toBeGreaterThanOrEqual(sample.end);
+        expect(result.current.playing).toBe(false);
+      },
+    );
+
+    it("keeps playing after autoplay lands on the last round", () => {
+      const sample = cases[0];
+      const replay = lastRoundReplay(sample);
+      const frames: FrameRequestCallback[] = [];
+      const clock = { now: 0 };
+      vi.stubGlobal("performance", { now: () => clock.now });
+      vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+        frames.push(cb);
+        return frames.length;
+      });
+      vi.stubGlobal("cancelAnimationFrame", vi.fn());
+      const { result } = renderHook(() => usePlayback(replay, "de_mirage|auto.dem"));
+      act(() => {
+        result.current.setRoundAutoplay(true);
+        result.current.jump(sample.prevPlaybackEnd - 9);
+        result.current.setPlaying(true);
+      });
+      let guard = 0;
+      while (result.current.playing && guard < 2000) {
+        if (!stepFrame(frames, clock)) break;
+        guard += 1;
+      }
+      expect(result.current.tick).toBeGreaterThanOrEqual(sample.end);
+      expect(result.current.tick).toBeGreaterThan(sample.start);
+    });
+  });
+
   describe("HUD tick publish rate", () => {
     let now = 0;
     let frames: FrameRequestCallback[];

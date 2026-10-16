@@ -31,6 +31,7 @@ import {
   TRACER_SECONDS,
 } from "@/lib/radar/radarFx";
 import { inTickWindow, upToTick } from "@/lib/replay/eventIndex";
+import { playerMarkColors } from "@/lib/players/playerColors";
 import { playerLabel } from "@/lib/replay/playerLabel";
 import {
   currentRound,
@@ -153,7 +154,10 @@ export interface FlashPulse extends Point {
 export interface Pawn extends Point {
   index: number;
   yaw: number;
+  /** Team fill. */
   color: string;
+  /** Roster outline. */
+  playerColor: string;
   alive: boolean;
   selected: boolean;
   /** Seconds of flash left, 0 when unblinded. */
@@ -561,6 +565,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
   const hitPulses: HitPulse[] = [];
   const flashPulses: FlashPulse[] = [];
   const pawns: Pawn[] = [];
+  const rosterColor = playerMarkColors(replay.players);
   for (const p of players) {
     if (!p.present) continue;
     if (!worldOnRadar(cal, p.x, p.y)) continue;
@@ -593,6 +598,7 @@ export function buildRadarFrame(input: FrameInput): RadarFrame {
       y: p.y,
       yaw: p.yaw,
       color: sideColor(p.ct),
+      playerColor: rosterColor[p.index] ?? sideColor(p.ct),
       alive: p.alive,
       selected: selected === p.index,
       flash,

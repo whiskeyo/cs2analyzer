@@ -550,7 +550,7 @@ export function paintPawns(
     );
     overlayChevronPath(ctx, size);
     // Stroke behind the pawn arrow to improve readability.
-    ctx.strokeStyle = darkenHexColor(pawn.color, 0.7);
+    ctx.strokeStyle = pawn.playerColor;
     applyOverlayStrokeStyle(ctx, overlayStrokeWidth(OVERLAY_CHEVRON_OUTLINE, zoom));
     ctx.stroke();
     ctx.fillStyle = pawn.color;

@@ -113,6 +113,7 @@ pub fn slice_tutorial_match(m: &Match, live_rounds: u32) -> Result<TutorialSlice
                 .filter(|row| round_numbers.contains(&row.round))
                 .cloned()
                 .collect(),
+            match_info: m.match_info.clone(),
         },
         origin_tick: origin,
     })
@@ -882,6 +883,7 @@ mod tests {
             stats: vec![],
             controller_dump: vec![],
             round_scoreboard: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         }
     }
 

@@ -394,6 +394,7 @@ pub fn slice_series_match(
                 .filter(|row| round_numbers.contains(&row.round))
                 .cloned()
                 .collect(),
+            match_info: m.match_info.clone(),
         },
         origin_tick: origin,
     })
@@ -774,6 +775,7 @@ mod tests {
             stats: vec![],
             controller_dump: vec![],
             round_scoreboard: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         }
     }
 
@@ -847,6 +849,7 @@ mod tests {
             stats: vec![],
             controller_dump: vec![],
             round_scoreboard: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         }
     }
 
@@ -1094,6 +1097,7 @@ mod tests {
             stats: vec![],
             controller_dump: vec![],
             round_scoreboard: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         };
         let mut series_match = single_match.clone();
         series_match.ticks = series_ticks;

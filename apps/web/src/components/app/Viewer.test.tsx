@@ -1,10 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useApp } from "@/lib/state/appState";
 import type { ParseFileProgress } from "@/lib/parse/parsePool";
 import { buildSeries, loadedDemo } from "@/lib/parse/session";
 import { makeReplay } from "@/lib/testing/fixtures";
+import { StatsTimelinePanelProvider, useStatsTimelinePanel } from "./StatsTimelinePanel";
 import { Viewer } from "./Viewer";
 
 vi.mock("@/lib/state/appState", () => ({
@@ -40,6 +41,24 @@ vi.mock("@/components/playback/Controls", () => ({
     return <div data-testid="controls" />;
   },
 }));
+
+function TimelineToggle() {
+  const panel = useStatsTimelinePanel();
+  return (
+    <button type="button" aria-pressed={panel.open} onClick={panel.toggle}>
+      Stats timeline
+    </button>
+  );
+}
+
+function renderWithTimeline() {
+  return render(
+    <StatsTimelinePanelProvider>
+      <TimelineToggle />
+      <Viewer />
+    </StatsTimelinePanelProvider>,
+  );
+}
 
 function viewerState(replay = makeReplay()) {
   return {
@@ -108,6 +127,104 @@ describe("Viewer", () => {
     } as unknown as ReturnType<typeof useApp>);
     const { container } = render(<Viewer />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("opens the stats timeline in the settings dialog and closes it on Escape", async () => {
+    const user = userEvent.setup();
+    vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
+    renderWithTimeline();
+    expect(screen.getByRole("button", { name: "Stats timeline" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Stats timeline" }));
+    expect(screen.getByRole("button", { name: "Stats timeline" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const dialog = screen.getByRole("dialog", { name: "Stats timeline" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog.closest(".settings-modal")?.parentElement).toBe(document.body);
+    const column = document.querySelector(".map-column");
+    expect(column).toBeInstanceOf(HTMLElement);
+    if (!(column instanceof HTMLElement)) return;
+    expect(column).not.toContainElement(dialog);
+    expect(column).toContainElement(screen.getByTestId("radar-stage"));
+    expect(document.querySelector(".stats-timeline-panel")).toBeNull();
+    expect(document.querySelector(".stats-timeline-overlay")).toBeNull();
+    expect(screen.getByTestId("sidebar")).toBeInTheDocument();
+    expect(document.querySelector(".stats-timeline-modal")).not.toHaveClass(
+      "stats-timeline-modal-framed",
+    );
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    const close = within(dialog).getByRole("button", { name: "Close" });
+    close.focus();
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(close);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Stats timeline" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stats timeline" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("covers the map column and leaves the sidebar outside the dialog", async () => {
+    vi.mocked(useApp).mockReturnValue(viewerState() as unknown as ReturnType<typeof useApp>);
+    renderWithTimeline();
+    const column = document.querySelector(".map-column");
+    expect(column).toBeInstanceOf(HTMLElement);
+    if (!(column instanceof HTMLElement)) return;
+    vi.spyOn(column, "getBoundingClientRect").mockReturnValue(new DOMRect(12, 48, 880, 640));
+    await userEvent.click(screen.getByRole("button", { name: "Stats timeline" }));
+    const backdrop = document.querySelector(".stats-timeline-modal");
+    expect(backdrop).toHaveClass("stats-timeline-modal-framed");
+    expect(backdrop).toHaveStyle({
+      top: "48px",
+      left: "12px",
+      width: "880px",
+      height: "640px",
+      right: "auto",
+      bottom: "auto",
+    });
+    const dialog = screen.getByRole("dialog", { name: "Stats timeline" });
+    expect(column).not.toContainElement(dialog);
+    expect(screen.getByTestId("sidebar")).toBeInTheDocument();
+    expect(backdrop).not.toContainElement(screen.getByTestId("sidebar"));
+  });
+
+  it("pauses playback when the stats timeline opens and leaves it paused on close", async () => {
+    const state = viewerState();
+    state.playback.playing = true;
+    vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
+    renderWithTimeline();
+    await userEvent.click(screen.getByRole("button", { name: "Stats timeline" }));
+    expect(state.playback.setPlaying).toHaveBeenCalledWith(false);
+    state.playback.setPlaying.mockClear();
+    await userEvent.keyboard("{Escape}");
+    expect(state.playback.setPlaying).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Stats timeline" })).not.toBeInTheDocument();
+  });
+
+  it("hides the stats timeline while the series is aggregated", async () => {
+    const replay = makeReplay();
+    const series = buildSeries("de_mirage", [
+      loadedDemo(replay, "a.dem", new File([], "a.dem")),
+      loadedDemo(replay, "b.dem", new File([], "b.dem")),
+    ]);
+    const base = viewerState(replay);
+    vi.mocked(useApp).mockReturnValue({
+      ...base,
+      session: { ...base.session, series, demo: series.demos[0] },
+      habits: { ...base.habits, aggregated: true },
+    } as unknown as ReturnType<typeof useApp>);
+    renderWithTimeline();
+    await userEvent.click(screen.getByRole("button", { name: "Stats timeline" }));
+    expect(screen.queryByRole("heading", { name: "Stats timeline" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("radar-stage")).toBeInTheDocument();
   });
 
   it("renders the viewer shell when a replay is loaded", () => {

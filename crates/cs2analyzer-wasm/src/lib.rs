@@ -81,6 +81,11 @@ impl ParsedMatch {
         serde_json::to_string(&self.inner.round_scoreboard).map_err(js_err)
     }
 
+    #[wasm_bindgen(js_name = matchInfoJson)]
+    pub fn match_info_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self.inner.match_info).map_err(js_err)
+    }
+
     #[wasm_bindgen(js_name = playerCount)]
     pub fn player_count(&self) -> u32 {
         self.inner.ticks.player_count

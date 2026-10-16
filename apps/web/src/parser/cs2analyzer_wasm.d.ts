@@ -29,6 +29,7 @@ export class ParsedMatch {
     health(): Uint8Array;
     hurtsJson(): string;
     killsJson(): string;
+    matchInfoJson(): string;
     money(): Uint16Array;
     playerCount(): number;
     playersJson(): string;
@@ -74,6 +75,7 @@ export interface InitOutput {
     readonly parsedmatch_health: (a: number) => number;
     readonly parsedmatch_hurtsJson: (a: number, b: number) => void;
     readonly parsedmatch_killsJson: (a: number, b: number) => void;
+    readonly parsedmatch_matchInfoJson: (a: number, b: number) => void;
     readonly parsedmatch_money: (a: number) => number;
     readonly parsedmatch_playerCount: (a: number) => number;
     readonly parsedmatch_playersJson: (a: number, b: number) => void;

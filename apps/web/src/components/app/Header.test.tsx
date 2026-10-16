@@ -179,6 +179,7 @@ describe("Header", () => {
     expect(screen.getByRole("button", { name: "New demo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export PDF" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stats timeline" })).not.toBeInTheDocument();
     await openSettings();
     expect(screen.getByRole("button", { name: "Export notes" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Import notes" })).toBeInTheDocument();
@@ -200,6 +201,7 @@ describe("Header", () => {
     renderHeader();
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Export PDF" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Stats timeline" })).not.toBeInTheDocument();
   });
 
   it("downloads per-demo stats as CSV", async () => {
