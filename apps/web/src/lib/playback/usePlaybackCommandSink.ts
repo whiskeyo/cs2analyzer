@@ -86,6 +86,9 @@ export function usePlaybackCommandSink(opts: {
             case "jump-home":
               o.jump(0, true, round ?? undefined);
               return;
+            case "jump-end":
+              o.jump(max);
+              return;
             case "step-scrub": {
               const step = cmd.large ? 64 : 16;
               o.jump(

@@ -206,19 +206,6 @@ describe("RadarStage", () => {
     expect(state._actions.setColor).toHaveBeenCalledWith("#b04cff");
   });
 
-  it("pauses playback when summary is enabled", async () => {
-    const state = radarState();
-    vi.mocked(useApp).mockReturnValue(state as unknown as ReturnType<typeof useApp>);
-    renderStage();
-
-    await userEvent.click(screen.getByRole("button", { name: "Summary" }));
-    expect(state._actions.setPlaying).toHaveBeenCalledWith(false);
-    expect(state._actions.setLayers).toHaveBeenCalledWith({
-      ...DEFAULT_LAYERS,
-      summary: true,
-    });
-  });
-
   it("hides match HUD overlays when habits overlay is active", () => {
     const state = radarState();
     state.habits.overlay = {

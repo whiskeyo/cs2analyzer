@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, renderHook } from "@testing-library/react";
 import { roundScrubRange } from "./roundTimeline";
 import { useHotkeys } from "./useHotkeys";
-import { makeKill, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
+import { makeKill, makePlayer, makeReplay, makeRound, makeTicks } from "@/lib/testing/fixtures";
+import type { Replay } from "@/lib/replay/replayTypes";
 
 function makeHotkeyReplay() {
   const rounds = [
@@ -20,8 +21,11 @@ function makeHotkeyReplay() {
   });
 }
 
-function renderHotkeys(tick = 500, selected: number | null = null) {
-  const replay = makeHotkeyReplay();
+function renderHotkeys(
+  tick = 500,
+  selected: number | null = null,
+  replay: Replay = makeHotkeyReplay(),
+) {
   const replayRef: { current: typeof replay | null } = { current: replay };
   const tickRef = { current: tick };
   const playingRef = { current: false };
@@ -43,7 +47,7 @@ function renderHotkeys(tick = 500, selected: number | null = null) {
     selectedRef.current = i;
   });
 
-  renderHook(() =>
+  const view = renderHook(() =>
     useHotkeys({
       replayRef,
       tickRef,
@@ -91,7 +95,29 @@ function renderHotkeys(tick = 500, selected: number | null = null) {
     round,
     min,
     max,
+    unmount: view.unmount,
   };
+}
+
+/** Last round with no post-round restart: scrub max is the demo end, not freeze. */
+function lastRoundReplay(start: number, end: number, playbackTicks: number): Replay {
+  const ticks = makeTicks(1, 2);
+  ticks.ticks[0] = start;
+  ticks.ticks[1] = playbackTicks - 1;
+  return makeReplay({
+    header: { playback_ticks: playbackTicks },
+    players: [makePlayer(0, "CT", "A")],
+    rounds: [
+      makeRound({
+        number: 1,
+        start_tick: start,
+        freeze_end_tick: start,
+        end_tick: end,
+        playback_end_tick: 0,
+      }),
+    ],
+    ticks,
+  });
 }
 
 describe("useHotkeys", () => {
@@ -221,6 +247,30 @@ describe("useHotkeys", () => {
     const h = renderHotkeys(500);
     h.keyDown({ key: "Home" });
     expect(h.jump).toHaveBeenCalledWith(0, true, h.round);
+  });
+
+  it("jumps to the round scrub max on End", () => {
+    const h = renderHotkeys(500);
+    h.keyDown({ key: "End" });
+    expect(h.jump).toHaveBeenCalledWith(h.max);
+  });
+
+  it("jumps to the demo end when End is pressed in the last round", () => {
+    const samples = [
+      { start: 264198, end: 266234, playback: 266675 },
+      { start: 146630, end: 152061, playback: 152468 },
+    ];
+    for (const sample of samples) {
+      const h = renderHotkeys(
+        sample.start,
+        null,
+        lastRoundReplay(sample.start, sample.end, sample.playback),
+      );
+      h.keyDown({ key: "End" });
+      expect(h.jump).toHaveBeenCalledWith(sample.playback);
+      expect(h.jump).not.toHaveBeenCalledWith(sample.start);
+      h.unmount();
+    }
   });
 
   it("toggles follow when a player is selected on F", () => {

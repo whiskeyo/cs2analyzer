@@ -14,6 +14,46 @@ import {
 } from "@/lib/testing/fixtures";
 
 describe("computeStats", () => {
+  it("divides ADR and KAST by rounds that have ended, not rounds that have started", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [
+        makeRound({ number: 30, start_tick: 0, freeze_end_tick: 64, end_tick: 400, winner: "CT" }),
+        makeRound({
+          number: 31,
+          start_tick: 500,
+          freeze_end_tick: 564,
+          end_tick: 900,
+          winner: "T",
+        }),
+      ],
+      kills: [makeKill(100, 0, 1), makeKill(700, 1, 0)],
+      hurts: [makeHurt(90, 0, 1, 100), makeHurt(680, 1, 0, 40)],
+    });
+    const closed = computeStats(m, 400);
+    const atStart = computeStats(m, 500);
+    expect(atStart[0].kills).toBe(closed[0].kills);
+    expect(atStart[0].deaths).toBe(closed[0].deaths);
+    expect(atStart[1].kills).toBe(closed[1].kills);
+    expect(atStart[1].deaths).toBe(closed[1].deaths);
+    expect(atStart[0].adr).toBeCloseTo(closed[0].adr);
+    expect(atStart[0].kast).toBeCloseTo(closed[0].kast);
+    expect(atStart[1].adr).toBeCloseTo(closed[1].adr);
+    expect(atStart[1].kast).toBeCloseTo(closed[1].kast);
+    expect(atStart[0].rounds).toBe(2);
+
+    const mid = computeStats(m, 700);
+    expect(mid[1].kills).toBe(1);
+    expect(mid[0].deaths).toBe(1);
+    expect(mid[0].kast).toBeCloseTo(closed[0].kast);
+    expect(mid[1].kast).toBeCloseTo(closed[1].kast);
+
+    const finished = computeStats(m, 900);
+    expect(finished[0].kills).toBe(mid[0].kills);
+    expect(finished[1].kills).toBe(mid[1].kills);
+    expect(finished[1].kast).not.toBeCloseTo(closed[1].kast);
+  });
+
   it("caps ADR at remaining HP and ignores overkill", () => {
     const m = makeReplay({
       players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],

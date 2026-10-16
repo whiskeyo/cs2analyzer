@@ -8,6 +8,7 @@ export type PlaybackCommand =
   | { type: "jump-kill"; dir: -1 | 1 }
   | { type: "jump-execute"; dir: -1 | 1 }
   | { type: "jump-home" }
+  | { type: "jump-end" }
   | { type: "step-scrub"; dir: -1 | 1; large?: boolean }
   | { type: "toggle-follow" }
   | { type: "toggle-trails" }

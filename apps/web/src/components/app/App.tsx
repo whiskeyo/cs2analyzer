@@ -7,6 +7,7 @@ import { isAnalyzerPath, isLayoutsPath, isPlaybookPath, ROUTES } from "@/lib/app
 import { isAnalyzerSessionVisible, parseTutorialPath } from "@/lib/tutorial/query";
 import { AppBackdrop } from "@/components/app/AppBackdrop";
 import { Header } from "@/components/app/Header";
+import { StatsTimelinePanelProvider } from "@/components/app/StatsTimelinePanel";
 import { TutorialController } from "@/components/tutorial/TutorialController";
 import { Analyzer } from "@/pages/Analyzer";
 import { Contact } from "@/pages/Contact";
@@ -47,17 +48,19 @@ function AppLayout() {
   const shellClass = showLayouts ? "app layouts-app" : fillBoard ? "app board" : "app splash";
 
   return (
-    <div className={shellClass}>
-      <AppBackdrop />
-      <Header />
-      <TutorialController />
-      {showStorageError ? (
-        <p className="error status-banner" role="alert">
-          {status.error}
-        </p>
-      ) : null}
-      <Outlet />
-    </div>
+    <StatsTimelinePanelProvider>
+      <div className={shellClass}>
+        <AppBackdrop />
+        <Header />
+        <TutorialController />
+        {showStorageError ? (
+          <p className="error status-banner" role="alert">
+            {status.error}
+          </p>
+        ) : null}
+        <Outlet />
+      </div>
+    </StatsTimelinePanelProvider>
   );
 }
 
