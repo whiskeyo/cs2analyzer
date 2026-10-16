@@ -25,10 +25,14 @@ describe("timelineChart", () => {
   const plot = plotRect();
 
   it("covers a whole number of device pixels, the same width on both axes", () => {
-    for (const dpr of [1, 1.25, 1.5, 2]) {
-      const devicePx = devicePixelStroke(dpr);
-      expect(Number.isInteger(devicePx)).toBe(true);
-      expect(devicePx).toBe(Math.max(1, Math.round(dpr)));
+    const devicePixels = [
+      { dpr: 1, devicePx: 1 },
+      { dpr: 1.25, devicePx: 1 },
+      { dpr: 1.5, devicePx: 1 },
+      { dpr: 2, devicePx: 2 },
+    ];
+    for (const { dpr, devicePx } of devicePixels) {
+      expect(devicePixelStroke(dpr)).toBe(devicePx);
       const horizontal = axisStrokeWidth(dpr);
       const vertical = axisStrokeWidth(dpr);
       expect(horizontal).toBe(vertical);
@@ -45,7 +49,7 @@ describe("timelineChart", () => {
     }
     expect(snapDevicePixel(10.2, 1)).toBe(10.5);
     expect(snapDevicePixel(10.2, 1.25)).toBe((Math.round(10.2 * 1.25) + 0.5) / 1.25);
-    expect(snapDevicePixel(10.2, 1.5)).toBe(Math.round(10.2 * 1.5) / 1.5);
+    expect(snapDevicePixel(10.2, 1.5)).toBe((Math.round(10.2 * 1.5) + 0.5) / 1.5);
     expect(snapDevicePixel(10.2, 2)).toBe(Math.round(10.2 * 2) / 2);
     expect(snapDevicePixel(10.2, 1)).not.toBe(snapDevicePixel(10.2, 1.25));
     expect(snapDevicePixel(10.2, 0)).toBe(snapDevicePixel(10.2, 1));

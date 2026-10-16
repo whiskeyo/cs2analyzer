@@ -252,17 +252,20 @@ describe("StatsTimelineChart pixel grid", () => {
       const before = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
       expect(before).toMatch(/\.5$/);
       expectSharedDeviceStroke(1);
+      expect(devicePixelStroke(1)).toBe(1);
       expect(document.querySelector(".stats-timeline-grid")).toHaveAttribute(
         "stroke-width",
         String(axisStrokeWidth(1)),
       );
       expect(queries.at(-1)).toBe("(resolution: 1dppx)");
+      const devicePixels: Record<number, number> = { 1.25: 1, 1.5: 1, 2: 2 };
       for (const next of [1.25, 1.5, 2]) {
         const previousX = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
         ratio = next;
         act(() => listener?.());
         const x = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
         expect(x).not.toBe(previousX);
+        expect(devicePixelStroke(next)).toBe(devicePixels[next]);
         expectSharedDeviceStroke(next);
         expect(queries.at(-1)).toBe(`(resolution: ${next}dppx)`);
       }

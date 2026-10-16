@@ -86,12 +86,13 @@ export function readDevicePixelRatio(): number {
 }
 
 /**
- * Device pixels a grid, seam, or hover stroke covers. The same width on both
- * axes: `crispEdges` otherwise rounds a fractional device-pixel stroke
- * differently for horizontal and vertical rules.
+ * Device pixels a grid, seam, or hover stroke covers. Floor keeps 1.25 and 1.5
+ * at one device pixel and 2 at two. The same width on both axes: `crispEdges`
+ * otherwise rounds a fractional device-pixel stroke differently for horizontal
+ * and vertical rules.
  */
 export function devicePixelStroke(dpr: number): number {
-  return Math.max(MIN_DEVICE_PIXEL_STROKE, Math.round(finiteDevicePixelRatio(dpr)));
+  return Math.max(MIN_DEVICE_PIXEL_STROKE, Math.floor(finiteDevicePixelRatio(dpr)));
 }
 
 /** CSS `stroke-width` that covers exactly `devicePixelStroke(dpr)` device pixels. */
