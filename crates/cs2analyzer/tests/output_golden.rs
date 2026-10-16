@@ -64,6 +64,10 @@ fn wasm_boundary_hashes_json_and_little_endian_columns() {
         "playerCount is a WASM getter, not a tick column"
     );
     assert!(
+        events.contains("matchInfoJson\n"),
+        "match info is a WASM JSON getter"
+    );
+    assert!(
         !events.contains("\"adr\""),
         "Match::stats is not on the WASM boundary"
     );
@@ -287,6 +291,7 @@ fn demo_hash(name: &str, grenades: &str, x: &str) -> DemoHash {
             bomb_events: "bomb_events".to_string(),
             buy_events: "buy_events".to_string(),
             controller_dump: "controller_dump".to_string(),
+            match_info: "match_info".to_string(),
             player_count: "player_count".to_string(),
             frame_count: "frame_count".to_string(),
             ticks: "ticks".to_string(),
@@ -353,5 +358,6 @@ fn sample_match() -> Match {
         buy_events: Vec::new(),
         stats: vec![cs2analyzer::PlayerStats::empty(0)],
         controller_dump: Vec::new(),
+        match_info: cs2analyzer::MatchInfo::default(),
     }
 }

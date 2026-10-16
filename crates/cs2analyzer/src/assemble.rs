@@ -14,6 +14,7 @@ use crate::inventory::{
     WID_HE, WID_HELMET, WID_INC, WID_KEVLAR, WID_MOLLY, WID_SMOKE, WID_TASER,
 };
 use crate::observer::{Collector, GrenadeDet, GrenadeDetSource};
+use crate::overtime::build_match_info;
 use crate::types::*;
 use crate::{FLAG_PRESENT, MAX_PLAYERS};
 use std::collections::{BTreeMap, HashMap};
@@ -147,6 +148,12 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     let mut controller_dump: Vec<ControllerDump> = c.controller_last.values().cloned().collect();
     controller_dump.sort_by_key(|row| row.slot);
     controller_dump.extend(c.controller_freeze.iter().cloned());
+    let match_info = build_match_info(
+        &rounds,
+        &c.buytime_cash,
+        c.begin_new_match_ticks.last().copied(),
+        c.demo_overtime_startmoney,
+    );
     let mut m = Match {
         header,
         players,
@@ -161,6 +168,7 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         buy_events,
         stats: Vec::new(),
         controller_dump,
+        match_info,
     };
     #[cfg(feature = "match-stats")]
     {

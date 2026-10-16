@@ -59,6 +59,10 @@ const CHECK_MOLOTOV: &str = "molotov-burn-window";
 const CHECK_SMOKE: &str = "smoke-end";
 const CHECK_DEMO_END: &str = "demo-end-smoke";
 const CHECK_HASHES: &str = "hashes";
+const CHECK_OT_MONEY: &str = "overtime-start-money";
+/// `fruju-vs-rooster` records this convar and never plays overtime.
+const FRUJU_DEMO: &str = "fruju-vs-rooster-m1-inferno.dem";
+const FRUJU_OT_STARTMONEY: i32 = 12_500;
 const CHECK_UTF8: &str = "lossy-utf8";
 const CHECK_PARSE_PASSES: &str = "parse-passes";
 const CHECK_PARSE: &str = "parse";
@@ -88,6 +92,9 @@ struct DemoExpect {
     rss_limit_kib: Option<u64>,
     /// `None` is a static SKIP for `lossy-utf8`.
     lossy_utf8: Option<&'static [LossyUtf8]>,
+    /// `observed.overtime_start_money`. `None` is null (no overtime, or the
+    /// buy-time balances disagree).
+    overtime_start_money: Option<i32>,
 }
 
 struct SmokeCensus {
@@ -138,6 +145,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(160, 146, 14, 13, 1, 25)),
         rss_limit_kib: Some(800_000),
         lossy_utf8: None,
+        overtime_start_money: Some(10_000),
     },
     DemoExpect {
         name: "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem",
@@ -147,6 +155,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(52, 44, 8, 8, 0, 10)),
         rss_limit_kib: Some(800_000),
         lossy_utf8: None,
+        overtime_start_money: None,
     },
     DemoExpect {
         name: "1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem",
@@ -156,6 +165,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(124, 116, 8, 8, 0, 20)),
         rss_limit_kib: Some(650_000),
         lossy_utf8: None,
+        overtime_start_money: Some(10_000),
     },
     DemoExpect {
         name: "legacy-vs-spirit-m2-ancient.dem",
@@ -165,6 +175,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(149, 145, 4, 4, 0, 8)),
         rss_limit_kib: Some(1_200_000),
         lossy_utf8: None,
+        overtime_start_money: None,
     },
     DemoExpect {
         name: "premier-d2.dem",
@@ -174,6 +185,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(45, 38, 7, 6, 1, 13)),
         rss_limit_kib: Some(850_000),
         lossy_utf8: None,
+        overtime_start_money: None,
     },
     DemoExpect {
         name: "spirit-vs-dendele-m1-ancient.dem",
@@ -183,6 +195,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(139, 133, 6, 6, 0, 8)),
         rss_limit_kib: Some(700_000),
         lossy_utf8: None,
+        overtime_start_money: None,
     },
     DemoExpect {
         name: "spirit-vs-furia-m1-ancient.dem",
@@ -192,6 +205,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(160, 152, 8, 8, 0, 20)),
         rss_limit_kib: Some(700_000),
         lossy_utf8: None,
+        overtime_start_money: None,
     },
     DemoExpect {
         name: "spirit-vs-mouz-m3-ancient.dem",
@@ -201,6 +215,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(149, 143, 6, 6, 0, 11)),
         rss_limit_kib: Some(700_000),
         lossy_utf8: None,
+        overtime_start_money: None,
     },
     DemoExpect {
         name: "spirit-vs-mouz-m4-nuke.dem",
@@ -210,6 +225,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(176, 168, 8, 8, 0, 15)),
         rss_limit_kib: Some(1_250_000),
         lossy_utf8: None,
+        overtime_start_money: None,
     },
     // Mirage FACEIT (20–22, knife, OT). #118: non-UTF-8 game-event strings.
     // Smoke census from demoinfocs-golang v5.2.0. The demo-end cloud detonates
@@ -229,7 +245,9 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         }),
         rss_limit_kib: None,
         lossy_utf8: Some(MIRAGE_LOSSY_UTF8),
+        overtime_start_money: Some(10_000),
     },
+    // One overtime. Freeze-end cash matches the server cvar (12500).
     DemoExpect {
         name: "bushido-wildcats-vs-illyrians-m1-anubis.dem",
         label: "bushido-m1",
@@ -245,6 +263,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         }),
         rss_limit_kib: None,
         lossy_utf8: None,
+        overtime_start_money: Some(12_500),
     },
     DemoExpect {
         name: "fruju-vs-rooster-m1-inferno.dem",
@@ -261,6 +280,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         }),
         rss_limit_kib: None,
         lossy_utf8: None,
+        overtime_start_money: None,
     },
 ];
 
@@ -384,6 +404,7 @@ fn demo_check_catalog() -> Vec<String> {
         CHECK_ROUND_COUNTS.to_string(),
         CHECK_PLAYBACK_GAP.to_string(),
         CHECK_MOLOTOV.to_string(),
+        CHECK_OT_MONEY.to_string(),
     ];
     for fire in OPEN_FIRES {
         names.push(open_fire_check_name(fire.entity));
@@ -411,7 +432,9 @@ fn check_applies(demo: &str, check: &str) -> bool {
         return fire.demo == demo;
     }
     match check {
-        CHECK_ROUND_COUNTS | CHECK_PLAYBACK_GAP | CHECK_MOLOTOV | CHECK_HASHES => true,
+        CHECK_ROUND_COUNTS | CHECK_PLAYBACK_GAP | CHECK_MOLOTOV | CHECK_HASHES | CHECK_OT_MONEY => {
+            true
+        }
         CHECK_SMOKE | CHECK_DEMO_END => row.smoke.is_some(),
         CHECK_UTF8 => row.lossy_utf8.is_some(),
         _ => false,
@@ -911,6 +934,9 @@ fn run_demo_checks(
     report.run(name, CHECK_ROUND_COUNTS, |check| {
         check_round_counts(check, name, parsed, parse_ms);
     });
+    report.run(name, CHECK_OT_MONEY, |check| {
+        check_overtime_start_money(check, name, parsed);
+    });
     report.run(name, CHECK_PLAYBACK_GAP, |check| {
         check_playback_no_gap(check, name, parsed);
     });
@@ -1026,6 +1052,30 @@ fn check_round_counts(check: &mut AssertSink, name: &str, parsed: &Match, parse_
         .any(|round| round.number != 0)
     {
         check.fail(format!("{name} knife round should be number 0"));
+    }
+}
+
+fn check_overtime_start_money(check: &mut AssertSink, name: &str, parsed: &Match) {
+    let got = parsed.match_info.observed.overtime_start_money;
+    let demo_cvar = parsed.match_info.convars.demo.mp_overtime_startmoney;
+    let Some(expected) = lookup_demo(name) else {
+        check.fail(format!("no overtime money expectation for {name}"));
+        return;
+    };
+    check.set_detail(format!(
+        "observed={got:?} demo_mp_overtime_startmoney={demo_cvar:?} (expected observed {:?})",
+        expected.overtime_start_money
+    ));
+    if got != expected.overtime_start_money {
+        check.fail(format!(
+            "{name} overtime_start_money: got {got:?}, expected {:?}",
+            expected.overtime_start_money
+        ));
+    }
+    if name == FRUJU_DEMO && demo_cvar != Some(FRUJU_OT_STARTMONEY) {
+        check.fail(format!(
+            "{name} mp_overtime_startmoney: got {demo_cvar:?}, expected Some({FRUJU_OT_STARTMONEY})"
+        ));
     }
 }
 
@@ -1921,18 +1971,18 @@ fn missing_demo_fails_every_named_check() {
 #[test]
 fn each_demo_has_an_expected_check_count() {
     let cases = [
-        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 7, true),
-        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 7, true),
-        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 6, true),
-        ("legacy-vs-spirit-m2-ancient.dem", 6, true),
-        ("premier-d2.dem", 6, true),
-        ("spirit-vs-dendele-m1-ancient.dem", 6, true),
-        ("spirit-vs-furia-m1-ancient.dem", 8, true),
-        ("spirit-vs-mouz-m3-ancient.dem", 7, true),
-        ("spirit-vs-mouz-m4-nuke.dem", 7, true),
-        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 7, false),
-        ("bushido-wildcats-vs-illyrians-m1-anubis.dem", 6, false),
-        ("fruju-vs-rooster-m1-inferno.dem", 6, false),
+        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 8, true),
+        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 8, true),
+        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 7, true),
+        ("legacy-vs-spirit-m2-ancient.dem", 7, true),
+        ("premier-d2.dem", 7, true),
+        ("spirit-vs-dendele-m1-ancient.dem", 7, true),
+        ("spirit-vs-furia-m1-ancient.dem", 9, true),
+        ("spirit-vs-mouz-m3-ancient.dem", 8, true),
+        ("spirit-vs-mouz-m4-nuke.dem", 8, true),
+        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 8, false),
+        ("bushido-wildcats-vs-illyrians-m1-anubis.dem", 7, false),
+        ("fruju-vs-rooster-m1-inferno.dem", 7, false),
     ];
     assert_eq!(cases.len(), DEMO_EXPECTATIONS.len());
     let rss = usize::from(cfg!(target_os = "linux"));
@@ -1970,17 +2020,17 @@ fn each_demo_has_an_expected_check_count() {
     if cfg!(target_os = "linux") {
         assert_eq!(
             expected_check_count("premier-d2.dem"),
-            7,
+            8,
             "premier-d2 has no open fire; rss applies on linux"
         );
         assert_eq!(
             expected_check_count("spirit-vs-furia-m1-ancient.dem"),
-            9,
+            10,
             "furia has two open fires"
         );
         assert_eq!(
             expected_check_count("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem"),
-            8
+            9
         );
     }
     let faceit = DEMO_END_SMOKES
@@ -2473,7 +2523,7 @@ fn per_demo_hash_file_round_trip_errors_do_not_panic() {
         r#"{
             "header":"h","players":"p","rounds":"r","grenades":"g",
             "shots":"s","kills":"k","hurts":"hu","blinds":"b","bomb_events":"be",
-            "buy_events":"bu","controller_dump":"c","player_count":"pc","frame_count":"f",
+            "buy_events":"bu","controller_dump":"c","match_info":"mi","player_count":"pc","frame_count":"f",
             "ticks":"t","x":"x","y":"y","z":"z","yaw":"ya","health":"he","armor":"a",
             "flags":"fl","money":"m","equip":"eq","gear":"ge","primary":"pr",
             "secondary":"se","active":"ac","clip":"cl","reserve":"re"

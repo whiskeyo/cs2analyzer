@@ -1,9 +1,10 @@
 //! Streaming observer: walks the demo tick by tick and accumulates samples.
 
 use crate::inventory::{
-    armor_gear, c4_arming_steams, collect_loadouts, controller_money, hold_ammo,
-    pawn_active_ammo_raw, pawn_active_weapon, pawn_equip_value, refine_hurt_weapon,
+    armor_gear, c4_arming_steams, collect_loadouts, controller_buytime_cash, controller_money,
+    hold_ammo, pawn_active_ammo_raw, pawn_active_weapon, pawn_equip_value, refine_hurt_weapon,
 };
+use crate::overtime::{BuytimeCashSample, BuytimePlayerCash};
 use crate::props::*;
 use crate::types::{BombKind, GrenadeKind, Side};
 use crate::{
@@ -11,7 +12,7 @@ use crate::{
     FLAG_SCOPED, MAX_PLAYERS,
 };
 use source2_demo::prelude::*;
-use source2_demo::proto::CSvcMsgServerInfo;
+use source2_demo::proto::{CNetMsgSetConVar, CSvcMsgServerInfo};
 use std::collections::{HashMap, HashSet};
 
 pub(crate) struct PlayerMeta {
@@ -137,6 +138,16 @@ pub(crate) struct Collector {
     inferno_live: HashMap<u32, [Option<LiveFlame>; 64]>,
     /// Last non-negative clip/reserve per steam and active WID.
     last_ammo: HashMap<(u64, u8), (u8, u16)>,
+    /// `begin_new_match` ticks, in the order they fired. The last one starts
+    /// the match whose overtime money counts.
+    pub begin_new_match_ticks: Vec<u32>,
+    /// `round_freeze_end` cash samples. Filled on tick end so account props
+    /// for that tick are already applied. `buytime_ended` is later: kill
+    /// rewards in the leftover buy window change `m_iAccount`.
+    pub buytime_cash: Vec<BuytimeCashSample>,
+    pending_buytime_tick: Option<u32>,
+    /// Last `mp_overtime_startmoney` from `CNetMsgSetConVar`, if the demo sent it.
+    pub demo_overtime_startmoney: Option<i32>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -238,6 +249,32 @@ impl Collector {
             fire_spans: Vec::new(),
             inferno_live: HashMap::new(),
             last_ammo: HashMap::new(),
+            begin_new_match_ticks: Vec::new(),
+            buytime_cash: Vec::new(),
+            pending_buytime_tick: None,
+            demo_overtime_startmoney: None,
+        }
+    }
+
+    fn note_begin_new_match(&mut self, tick: u32) {
+        if self.begin_new_match_ticks.last() == Some(&tick) {
+            return;
+        }
+        self.begin_new_match_ticks.push(tick);
+    }
+
+    fn note_overtime_startmoney(&mut self, msg: &CNetMsgSetConVar) {
+        let Some(block) = &msg.convars else {
+            return;
+        };
+        for cvar in &block.cvars {
+            if cvar.name.as_deref() != Some(crate::CVAR_MP_OVERTIME_STARTMONEY) {
+                continue;
+            }
+            let Some(value) = cvar.value.as_deref().and_then(parse_cvar_int) else {
+                continue;
+            };
+            self.demo_overtime_startmoney = Some(value);
         }
     }
 
@@ -758,6 +795,44 @@ pub(crate) fn new_flash_duration(prev: f32, next: f32) -> Option<f32> {
     }
 }
 
+/// Integer convar text, including a whole-number float such as `12500.0`.
+fn parse_cvar_int(value: &str) -> Option<i32> {
+    let value = value.trim();
+    if let Ok(parsed) = value.parse::<i32>() {
+        return Some(parsed);
+    }
+    let (whole, frac) = value.split_once('.')?;
+    if frac.is_empty() || !frac.chars().all(|ch| ch == '0') {
+        return None;
+    }
+    whole.parse().ok()
+}
+
+fn sample_buytime_players(c: &Collector, ctx: &Context) -> Vec<BuytimePlayerCash> {
+    let mut players = Vec::new();
+    for ctrl in ctx.entities().iter() {
+        if ctrl.class().name() != "CCSPlayerController" {
+            continue;
+        }
+        let Some(steam) = controller_playable_id(c, ctx, ctrl) else {
+            continue;
+        };
+        let on_team =
+            side_of(prop_i32(ctrl, "m_iTeamNum")).is_some() || controller_has_team_pawn(ctx, ctrl);
+        if !on_team {
+            continue;
+        }
+        let Some(amount) = controller_buytime_cash(ctrl) else {
+            continue;
+        };
+        players.push(BuytimePlayerCash {
+            is_bot: crate::is_bot_steam_id(steam),
+            amount,
+        });
+    }
+    players
+}
+
 fn ev_haskit(ge: &GameEvent<'_>) -> bool {
     ev_bool(ge, "haskit") || ev_i32(ge, "haskit").unwrap_or(0) != 0
 }
@@ -767,6 +842,12 @@ const PROGRESS_TICK_INTERVAL: u32 = 512;
 #[observer]
 #[uses_all]
 impl Collector {
+    #[on_message]
+    fn on_set_convar(&mut self, _ctx: &Context, msg: CNetMsgSetConVar) -> ObserverResult {
+        self.note_overtime_startmoney(&msg);
+        Ok(())
+    }
+
     #[on_message]
     fn on_server_info(&mut self, _ctx: &Context, msg: CSvcMsgServerInfo) -> ObserverResult {
         if let Some(m) = msg.map_name {
@@ -961,12 +1042,22 @@ impl Collector {
         if let Some(count) = round_start_count(ctx) {
             self.note_round_start_count(ctx.tick(), count);
         }
+        if self.pending_buytime_tick == Some(ctx.tick()) {
+            self.buytime_cash.push(BuytimeCashSample {
+                tick: ctx.tick(),
+                players: sample_buytime_players(self, ctx),
+            });
+        }
+        self.pending_buytime_tick = None;
         Ok(())
     }
 
     #[on_game_event]
     fn on_game_event(&mut self, ctx: &Context, ge: &GameEvent) -> ObserverResult {
         let tick = ctx.tick();
+        if ge.name() == "begin_new_match" {
+            self.note_begin_new_match(tick);
+        }
         if ge.name() == "round_start" {
             self.push_round_open(tick);
         }
@@ -990,6 +1081,7 @@ impl Collector {
             }
             "round_freeze_end" => {
                 if !in_warmup(ctx) {
+                    self.pending_buytime_tick = Some(tick);
                     self.freeze_ends.push(tick);
                     self.round_scores.insert(tick, team_scores(ctx));
                     self.round_times.insert(tick, round_time_seconds(ctx));

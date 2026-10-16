@@ -101,6 +101,7 @@ pub fn slice_tutorial_match(m: &Match, live_rounds: u32) -> Result<TutorialSlice
             bomb_events: slice_bomb_events(&m.bomb_events, &[(start_tick, end_tick)], origin),
             buy_events: slice_buy_events(&m.buy_events, &[(start_tick, end_tick)], origin),
             stats: Vec::new(),
+            match_info: m.match_info.clone(),
             controller_dump: slice_controller_dump(
                 &m.controller_dump,
                 &[(start_tick, end_tick)],
@@ -716,7 +717,7 @@ pub fn measure_emitted_bytes(files: &[GeneratedFile]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cs2analyzer::{FireCell, GrenadeKind, GrenadePoint, Player};
+    use cs2analyzer::{FireCell, GrenadeKind, GrenadePoint, MatchInfo, Player};
 
     fn empty_header() -> MatchHeader {
         MatchHeader {
@@ -874,6 +875,7 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
+            match_info: MatchInfo::default(),
         }
     }
 

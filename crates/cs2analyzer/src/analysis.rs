@@ -523,6 +523,7 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
+            match_info: MatchInfo::default(),
         }
     }
 

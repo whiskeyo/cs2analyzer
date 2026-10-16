@@ -1,3 +1,4 @@
+use crate::OVERTIME_START_MONEY;
 use serde::{Deserialize, Serialize};
 
 /// High-level match snapshot produced by [`crate::parse_demo`].
@@ -18,6 +19,8 @@ pub struct Match {
     /// Last controller slot + freeze-end fill candidates (`steam == 0` / bot).
     /// Sampled at `round_freeze_end` only — never on the tick hot path.
     pub controller_dump: Vec<ControllerDump>,
+    /// Demo convars and values reconstructed from the broadcast.
+    pub match_info: MatchInfo,
 }
 
 /// Per-controller parse diagnostic. Not used by radar/stats.
@@ -49,6 +52,66 @@ pub struct MatchHeader {
     pub team_t: String,
     pub score_ct: i32,
     pub score_t: i32,
+}
+
+/// Convars from the demo plus the built-in fallbacks, and observed economy.
+///
+/// Resolve overtime start money as `convars.demo.mp_overtime_startmoney`,
+/// then `observed.overtime_start_money`, then `convars.defaults`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MatchInfo {
+    pub convars: MatchConvars,
+    pub observed: ObservedMatch,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MatchConvars {
+    pub demo: DemoConvars,
+    pub defaults: DefaultConvars,
+}
+
+/// Keys the demo's `CNetMsgSetConVar` actually set. Missing means the server
+/// never sent that convar.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct DemoConvars {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mp_overtime_startmoney: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DefaultConvars {
+    pub mp_overtime_startmoney: i32,
+}
+
+/// Values read off players. `overtime_start_money` is null when the match
+/// has no overtime or the balances disagree. No platform field.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ObservedMatch {
+    pub overtime_start_money: Option<i32>,
+}
+
+impl MatchInfo {
+    pub fn new(demo_overtime_startmoney: Option<i32>, overtime_start_money: Option<i32>) -> Self {
+        Self {
+            convars: MatchConvars {
+                demo: DemoConvars {
+                    mp_overtime_startmoney: demo_overtime_startmoney,
+                },
+                defaults: DefaultConvars {
+                    mp_overtime_startmoney: OVERTIME_START_MONEY,
+                },
+            },
+            observed: ObservedMatch {
+                overtime_start_money,
+            },
+        }
+    }
+}
+
+impl Default for MatchInfo {
+    fn default() -> Self {
+        Self::new(None, None)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -6,6 +6,7 @@ import type {
   Hurt,
   Kill,
   MatchHeader,
+  MatchInfo,
   Player,
   Round,
 } from "@/lib/replay/replayTypes";
@@ -73,6 +74,39 @@ describe("decodeObject", () => {
   it("rejects invalid JSON and a non-object payload", () => {
     expect(() => decodeObject("header", "{oops")).toThrow(PayloadError);
     expect(() => decodeObject("header", "42")).toThrow(/expected an object/);
+  });
+});
+
+const matchInfo: MatchInfo = {
+  convars: {
+    demo: { mp_overtime_startmoney: 12500 },
+    defaults: { mp_overtime_startmoney: 10000 },
+  },
+  observed: { overtime_start_money: null },
+};
+
+describe("decodeObject matchInfo", () => {
+  it("passes match info the parser really sends", () => {
+    expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(matchInfo))).toEqual(matchInfo);
+  });
+
+  it("allows a missing observed object and a missing demo convar", () => {
+    const older = {
+      convars: { demo: {}, defaults: { mp_overtime_startmoney: 10000 } },
+    };
+    expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(older))).toEqual(older);
+  });
+
+  it("names overtime_start_money when the observed field is the wrong type", () => {
+    expect(() =>
+      decodeObject(
+        "matchInfo",
+        JSON.stringify({
+          ...matchInfo,
+          observed: { overtime_start_money: "10000" },
+        }),
+      ),
+    ).toThrow(/overtime_start_money/);
   });
 });
 

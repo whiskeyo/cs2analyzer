@@ -387,6 +387,7 @@ pub fn slice_series_match(
             buy_events: Vec::new(),
             stats: Vec::new(),
             controller_dump: Vec::new(),
+            match_info: m.match_info.clone(),
         },
         origin_tick: origin,
     })
@@ -624,8 +625,8 @@ mod tests {
         ESTIMATE_FULL_ROUND_SECONDS, ESTIMATE_PLAYER_COUNT, TUTORIAL_TICK_STRIDE,
     };
     use cs2analyzer::{
-        GrenadeKind, GrenadePoint, GrenadeThrow, Kill, Player, Round, Side, TickBuffer, FLAG_CT,
-        FLAG_PRESENT,
+        GrenadeKind, GrenadePoint, GrenadeThrow, Kill, MatchInfo, Player, Round, Side, TickBuffer,
+        FLAG_CT, FLAG_PRESENT,
     };
 
     fn empty_header(map: &str) -> MatchHeader {
@@ -766,6 +767,7 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
+            match_info: MatchInfo::default(),
         }
     }
 
@@ -838,6 +840,7 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
+            match_info: MatchInfo::default(),
         }
     }
 
@@ -1084,6 +1087,7 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
+            match_info: MatchInfo::default(),
         };
         let mut series_match = single_match.clone();
         series_match.ticks = series_ticks;

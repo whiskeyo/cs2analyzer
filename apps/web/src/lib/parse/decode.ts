@@ -160,6 +160,13 @@ const CONTROLLER_DUMP: Shape = {
   at_freeze: flag,
 };
 
+/**
+ * Nested `matchInfo` is not a flat row. `observed` is optional.
+ * When it is present, `overtime_start_money` is a number or null.
+ * `convars.demo.mp_overtime_startmoney` is optional.
+ */
+const MATCH_INFO_MARKER: Shape = {};
+
 export const PAYLOAD_SHAPES = {
   header: HEADER,
   players: PLAYER,
@@ -172,6 +179,7 @@ export const PAYLOAD_SHAPES = {
   bombEvents: BOMB_EVENT,
   buyEvents: BUY_EVENT,
   controllerDump: CONTROLLER_DUMP,
+  matchInfo: MATCH_INFO_MARKER,
 } as const;
 
 export type PayloadName = keyof typeof PAYLOAD_SHAPES;
@@ -206,8 +214,47 @@ function describe(value: unknown): string {
   return `a ${typeof value}`;
 }
 
+function checkObject(where: string, value: unknown): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new PayloadError(`Parser sent ${describe(value)} for "${where}", expected an object.`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function checkMatchInfo(value: unknown): void {
+  const record = checkObject("matchInfo", value);
+  const convars = checkObject("matchInfo.convars", record.convars);
+  const demo = checkObject("matchInfo.convars.demo", convars.demo);
+  const defaults = checkObject("matchInfo.convars.defaults", convars.defaults);
+  const demoMoney = demo.mp_overtime_startmoney;
+  if (demoMoney !== undefined && !number.ok(demoMoney)) {
+    throw new PayloadError(
+      `Parser payload "matchInfo.convars.demo" has ${describe(demoMoney)} for "mp_overtime_startmoney", ` +
+        `expected ${number.expected}. The Rust field was probably renamed.`,
+    );
+  }
+  if (!number.ok(defaults.mp_overtime_startmoney)) {
+    throw new PayloadError(
+      `Parser payload "matchInfo.convars.defaults" has ${describe(defaults.mp_overtime_startmoney)} for "mp_overtime_startmoney", ` +
+        `expected ${number.expected}. The Rust field was probably renamed.`,
+    );
+  }
+  if (record.observed === undefined) return;
+  const observed = checkObject("matchInfo.observed", record.observed);
+  if (!orNull(number).ok(observed.overtime_start_money)) {
+    throw new PayloadError(
+      `Parser payload "matchInfo.observed" has ${describe(observed.overtime_start_money)} for "overtime_start_money", ` +
+        `expected ${orNull(number).expected}. The Rust field was probably renamed.`,
+    );
+  }
+}
+
 export function decodeObject<T>(name: PayloadName, json: string): T {
   const value = parseJson(name, json);
+  if (name === "matchInfo") {
+    checkMatchInfo(value);
+    return value as T;
+  }
   checkShape(name, value, PAYLOAD_SHAPES[name]);
   return value as T;
 }

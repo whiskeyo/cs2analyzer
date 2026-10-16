@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MatchHeader } from "@/lib/replay/replayTypes";
 
+const matchInfo = {
+  convars: {
+    demo: {},
+    defaults: { mp_overtime_startmoney: 10000 },
+  },
+  observed: { overtime_start_money: null as number | null },
+};
+
 const header: MatchHeader = {
   map_name: "de_mirage",
   tick_rate: 64,
@@ -37,6 +45,7 @@ const wasmMocks = vi.hoisted(() => {
         bombEventsJson: () => "[]",
         buyEventsJson: () => "[]",
         controllerDumpJson: () => "[]",
+        matchInfoJson: () => JSON.stringify(matchInfo),
         frameCount: () => 0,
         playerCount: () => 0,
         ticks: () => new Uint32Array(0),
@@ -122,6 +131,8 @@ describe("parseWorker", () => {
     expect(messages.some((m) => m.type === "progress")).toBe(true);
     const done = messages.find((m) => m.type === "done");
     expect(done?.replay.header.map_name).toBe("de_mirage");
+    expect(done?.replay.matchInfo?.observed?.overtime_start_money).toBeNull();
+    expect(done?.replay.matchInfo?.convars.defaults.mp_overtime_startmoney).toBe(10000);
     expect(done?.timings.totalMs).toBeGreaterThanOrEqual(0);
   });
 
@@ -226,6 +237,7 @@ describe("parseWorker", () => {
           bombEventsJson: () => "[]",
           buyEventsJson: () => "[]",
           controllerDumpJson: () => "[]",
+          matchInfoJson: () => JSON.stringify(matchInfo),
           frameCount: () => 1,
           playerCount: () => 2,
           ticks: () => new Uint32Array([64]),

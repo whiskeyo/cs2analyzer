@@ -33,6 +33,46 @@ export interface MatchHeader {
   score_t: number;
 }
 
+/** Convars `CNetMsgSetConVar` actually carried. Absent keys were not in the demo. */
+export interface DemoConvars {
+  /** `mp_overtime_startmoney` when the server sent it. */
+  mp_overtime_startmoney?: number;
+}
+
+/** Built-in convar fallbacks. Not read from the demo. */
+export interface DefaultConvars {
+  /** CS2 `mp_overtime_startmoney` when the demo and the observation are silent. */
+  mp_overtime_startmoney: number;
+}
+
+export interface MatchConvars {
+  demo: DemoConvars;
+  defaults: DefaultConvars;
+}
+
+/**
+ * Cash reconstructed at the end of buy time.
+ * `overtime_start_money` is null when the match has no overtime or the
+ * real players did not all hold the same amount. There is no `platform` field.
+ */
+export interface ObservedMatch {
+  overtime_start_money: number | null;
+}
+
+/**
+ * WASM `matchInfoJson`.
+ *
+ * Resolve overtime start money in this order:
+ * `convars.demo.mp_overtime_startmoney`, then `observed.overtime_start_money`,
+ * then `convars.defaults.mp_overtime_startmoney`.
+ * `observed` is optional so a payload from before this object still typechecks.
+ * A fresh parse always sends it.
+ */
+export interface MatchInfo {
+  convars: MatchConvars;
+  observed?: ObservedMatch;
+}
+
 export interface Player {
   index: number;
   steam_id: number;
@@ -296,6 +336,8 @@ export interface Replay {
   ticks: TickBuffers;
   /** Last controller slot + freeze-end fill candidates. */
   controllerDump?: ControllerDump[];
+  /** Demo convars and observed overtime money. Fresh parses always set this. */
+  matchInfo?: MatchInfo;
 }
 
 export interface FloorSection {
