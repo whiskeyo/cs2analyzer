@@ -111,7 +111,7 @@ describe("StatsTimeline", () => {
     );
     expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
       "stroke-width",
-      "1",
+      "1.6",
     );
     expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
       "vector-effect",
