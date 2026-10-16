@@ -28,8 +28,11 @@ use std::path::Path;
 use std::time::Instant;
 
 use cs2analyzer::{
-    full_parse_passes, parse_demo_with_test_observer, reset_full_parse_passes, BombKind,
-    GrenadeKind, GrenadeThrow, Match, ParseOptions, Round, SMOKE_DURATION_SECONDS,
+    counted_scoreboard_round, full_parse_passes, is_bot_steam_id, note_scoreboard_presence,
+    parse_demo_with_test_observer, read_scoreboard_controllers, reset_full_parse_passes,
+    scoreboard_players, BombKind, GrenadeKind, GrenadeThrow, Match, ParseOptions, Round,
+    RoundScoreboardPlayer, ScoreboardController, CONVAR_DEFAULTS, OVERTIME_START_MONEY,
+    SMOKE_DURATION_SECONDS,
 };
 use source2_demo::prelude::*;
 
@@ -60,6 +63,9 @@ const CHECK_SMOKE: &str = "smoke-end";
 const CHECK_DEMO_END: &str = "demo-end-smoke";
 const CHECK_HASHES: &str = "hashes";
 const CHECK_UTF8: &str = "lossy-utf8";
+const CHECK_ROUND_SCOREBOARD: &str = "round-scoreboard";
+const CHECK_MATCH_INFO: &str = "match-info";
+const CHECK_EVENT_FALLBACKS: &str = "event-fallbacks";
 const CHECK_PARSE_PASSES: &str = "parse-passes";
 const CHECK_PARSE: &str = "parse";
 const CHECK_READ: &str = "read";
@@ -88,6 +94,9 @@ struct DemoExpect {
     rss_limit_kib: Option<u64>,
     /// `None` is a static SKIP for `lossy-utf8`.
     lossy_utf8: Option<&'static [LossyUtf8]>,
+    /// Bot controller entities must not be scoreboard rows.
+    /// Mirage 22–20 (assets-v2) and Inferno FACEIT fruju-vs-rooster.
+    no_bot_rows: bool,
 }
 
 struct SmokeCensus {
@@ -138,6 +147,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(160, 146, 14, 13, 1, 25)),
         rss_limit_kib: Some(800_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem",
@@ -147,6 +157,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(52, 44, 8, 8, 0, 10)),
         rss_limit_kib: Some(800_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem",
@@ -156,6 +167,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(124, 116, 8, 8, 0, 20)),
         rss_limit_kib: Some(650_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "legacy-vs-spirit-m2-ancient.dem",
@@ -165,6 +177,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(149, 145, 4, 4, 0, 8)),
         rss_limit_kib: Some(1_200_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "premier-d2.dem",
@@ -174,6 +187,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(45, 38, 7, 6, 1, 13)),
         rss_limit_kib: Some(850_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "spirit-vs-dendele-m1-ancient.dem",
@@ -183,6 +197,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(139, 133, 6, 6, 0, 8)),
         rss_limit_kib: Some(700_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "spirit-vs-furia-m1-ancient.dem",
@@ -192,6 +207,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(160, 152, 8, 8, 0, 20)),
         rss_limit_kib: Some(700_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "spirit-vs-mouz-m3-ancient.dem",
@@ -201,6 +217,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(149, 143, 6, 6, 0, 11)),
         rss_limit_kib: Some(700_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "spirit-vs-mouz-m4-nuke.dem",
@@ -210,6 +227,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(176, 168, 8, 8, 0, 15)),
         rss_limit_kib: Some(1_250_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     // Mirage FACEIT (20–22, knife, OT). #118: non-UTF-8 game-event strings.
     // Smoke census from demoinfocs-golang v5.2.0. The demo-end cloud detonates
@@ -229,6 +247,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         }),
         rss_limit_kib: None,
         lossy_utf8: Some(MIRAGE_LOSSY_UTF8),
+        no_bot_rows: true,
     },
     DemoExpect {
         name: "bushido-wildcats-vs-illyrians-m1-anubis.dem",
@@ -245,6 +264,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         }),
         rss_limit_kib: None,
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "fruju-vs-rooster-m1-inferno.dem",
@@ -261,6 +281,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         }),
         rss_limit_kib: None,
         lossy_utf8: None,
+        no_bot_rows: true,
     },
 ];
 
@@ -364,6 +385,285 @@ const DEMO_END_SMOKES: &[DemoEndSmoke] = &[
     },
 ];
 
+struct HalfScores {
+    name: &'static str,
+    score: i32,
+    first: i32,
+    second: i32,
+    overtime: i32,
+}
+
+const fn halves(
+    name: &'static str,
+    score: i32,
+    first: i32,
+    second: i32,
+    overtime: i32,
+) -> HalfScores {
+    HalfScores {
+        name,
+        score,
+        first,
+        second,
+        overtime,
+    }
+}
+
+/// End-of-demo `match_info` plus the game events the fallbacks stand in for.
+/// One row per file in `test-demos/manifest.json`.
+struct DemoMatchInfo {
+    name: &'static str,
+    server_name: &'static str,
+    build_num: i32,
+    patch_version: i32,
+    overtime_playing: i32,
+    total_rounds_played: i32,
+    /// The server sent `mp_overtime_startmoney` (tournament GOTV, and the FACEIT
+    /// Inferno demo). Otherwise the name is absent from `convars.demo`.
+    overtime_money_from_demo: bool,
+    valve_ds: bool,
+    queued: bool,
+    ct: HalfScores,
+    t: HalfScores,
+    officially_ended: u32,
+    begin_plant: u32,
+    begin_defuse: u32,
+    player_blind: u32,
+    inferno_startburn: u32,
+    inferno_expire: u32,
+}
+
+const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
+    DemoMatchInfo {
+        name: "1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem",
+        server_name: "FACEIT.com register to play here",
+        build_num: 10924,
+        patch_version: 14188,
+        overtime_playing: 2,
+        total_rounds_played: 35,
+        overtime_money_from_demo: false,
+        valve_ds: false,
+        queued: false,
+        ct: halves("yantaro", 19, 6, 6, 7),
+        t: halves("whiskeyo", 16, 6, 6, 4),
+        officially_ended: 34,
+        begin_plant: 24,
+        begin_defuse: 6,
+        player_blind: 292,
+        inferno_startburn: 165,
+        inferno_expire: 164,
+    },
+    DemoMatchInfo {
+        name: "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem",
+        server_name: "FACEIT.com register to play here",
+        build_num: 10896,
+        patch_version: 14181,
+        overtime_playing: 0,
+        total_rounds_played: 16,
+        overtime_money_from_demo: false,
+        valve_ds: false,
+        queued: false,
+        ct: halves("whiskeyo", 13, 9, 4, 0),
+        t: halves("krueltyy", 3, 3, 0, 0),
+        officially_ended: 15,
+        begin_plant: 9,
+        begin_defuse: 1,
+        player_blind: 168,
+        inferno_startburn: 44,
+        inferno_expire: 43,
+    },
+    DemoMatchInfo {
+        name: "1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem",
+        server_name: "FACEIT.com register to play here",
+        build_num: 10896,
+        patch_version: 14180,
+        overtime_playing: 1,
+        total_rounds_played: 29,
+        overtime_money_from_demo: false,
+        valve_ds: false,
+        queued: false,
+        ct: halves("AdaskoBlyat", 16, 5, 7, 4),
+        t: halves("Bricaa", 13, 7, 5, 1),
+        officially_ended: 28,
+        begin_plant: 16,
+        begin_defuse: 3,
+        player_blind: 172,
+        inferno_startburn: 79,
+        inferno_expire: 79,
+    },
+    DemoMatchInfo {
+        name: "legacy-vs-spirit-m2-ancient.dem",
+        server_name: "ESL Match Server #1",
+        build_num: 10847,
+        patch_version: 14174,
+        overtime_playing: 0,
+        total_rounds_played: 22,
+        overtime_money_from_demo: true,
+        valve_ds: false,
+        queued: false,
+        ct: halves("Legacy", 9, 6, 3, 0),
+        t: halves("Team Spirit", 13, 6, 7, 0),
+        officially_ended: 0,
+        begin_plant: 0,
+        begin_defuse: 0,
+        player_blind: 0,
+        inferno_startburn: 130,
+        inferno_expire: 130,
+    },
+    DemoMatchInfo {
+        name: "premier-d2.dem",
+        server_name: "Valve Counter-Strike 2 eu_west Server (srcds211-fra2.272.182)",
+        build_num: 10924,
+        patch_version: 14188,
+        overtime_playing: 0,
+        total_rounds_played: 15,
+        overtime_money_from_demo: false,
+        valve_ds: true,
+        queued: true,
+        ct: halves("", 13, 10, 3, 0),
+        t: halves("", 2, 2, 0, 0),
+        officially_ended: 14,
+        begin_plant: 9,
+        begin_defuse: 6,
+        player_blind: 147,
+        inferno_startburn: 28,
+        inferno_expire: 28,
+    },
+    DemoMatchInfo {
+        name: "spirit-vs-dendele-m1-ancient.dem",
+        server_name: "BLAST.tv Premier CS2 Server",
+        build_num: 10847,
+        patch_version: 14174,
+        overtime_playing: 0,
+        total_rounds_played: 21,
+        overtime_money_from_demo: true,
+        valve_ds: false,
+        queued: false,
+        ct: halves("Spirit", 13, 7, 6, 0),
+        t: halves("DENDELE", 8, 5, 3, 0),
+        officially_ended: 0,
+        begin_plant: 0,
+        begin_defuse: 0,
+        player_blind: 0,
+        inferno_startburn: 109,
+        inferno_expire: 109,
+    },
+    DemoMatchInfo {
+        name: "spirit-vs-furia-m1-ancient.dem",
+        server_name: "BLAST.tv Premier CS2 Server",
+        build_num: 10847,
+        patch_version: 14174,
+        overtime_playing: 0,
+        total_rounds_played: 23,
+        overtime_money_from_demo: true,
+        valve_ds: false,
+        queued: false,
+        ct: halves("Spirit", 13, 7, 6, 0),
+        t: halves("FURIA", 10, 5, 5, 0),
+        officially_ended: 0,
+        begin_plant: 0,
+        begin_defuse: 0,
+        player_blind: 0,
+        inferno_startburn: 130,
+        inferno_expire: 128,
+    },
+    DemoMatchInfo {
+        name: "spirit-vs-mouz-m3-ancient.dem",
+        server_name: "BLAST.tv Premier CS2 Server",
+        build_num: 10847,
+        patch_version: 14172,
+        overtime_playing: 0,
+        total_rounds_played: 22,
+        overtime_money_from_demo: true,
+        valve_ds: false,
+        queued: false,
+        ct: halves("Spirit", 13, 6, 7, 0),
+        t: halves("MOUZ", 9, 6, 3, 0),
+        officially_ended: 0,
+        begin_plant: 0,
+        begin_defuse: 0,
+        player_blind: 0,
+        inferno_startburn: 122,
+        inferno_expire: 121,
+    },
+    DemoMatchInfo {
+        name: "spirit-vs-mouz-m4-nuke.dem",
+        server_name: "BLAST.tv Premier CS2 Server",
+        build_num: 10847,
+        patch_version: 14172,
+        overtime_playing: 0,
+        total_rounds_played: 23,
+        overtime_money_from_demo: true,
+        valve_ds: false,
+        queued: false,
+        ct: halves("MOUZ", 13, 7, 6, 0),
+        t: halves("Spirit", 10, 5, 5, 0),
+        officially_ended: 0,
+        begin_plant: 0,
+        begin_defuse: 0,
+        player_blind: 0,
+        inferno_startburn: 114,
+        inferno_expire: 113,
+    },
+    DemoMatchInfo {
+        name: MIRAGE_LOSSY_UTF8_DEMO,
+        server_name: "FACEIT.com register to play here",
+        build_num: 10924,
+        patch_version: 14189,
+        overtime_playing: 3,
+        total_rounds_played: 42,
+        overtime_money_from_demo: false,
+        valve_ds: false,
+        queued: false,
+        ct: halves("d0brafaza", 20, 7, 5, 8),
+        t: halves("arko221", 22, 5, 7, 10),
+        officially_ended: 41,
+        begin_plant: 25,
+        begin_defuse: 10,
+        player_blind: 302,
+        inferno_startburn: 172,
+        inferno_expire: 172,
+    },
+    DemoMatchInfo {
+        name: "bushido-wildcats-vs-illyrians-m1-anubis.dem",
+        server_name: "FantasyExpo",
+        build_num: 10924,
+        patch_version: 14190,
+        overtime_playing: 1,
+        total_rounds_played: 30,
+        overtime_money_from_demo: true,
+        valve_ds: false,
+        queued: false,
+        ct: halves("Illyrians", 16, 5, 7, 4),
+        t: halves("Bushido Wildcats", 14, 7, 5, 2),
+        officially_ended: 0,
+        begin_plant: 0,
+        begin_defuse: 0,
+        player_blind: 0,
+        inferno_startburn: 165,
+        inferno_expire: 163,
+    },
+    DemoMatchInfo {
+        name: "fruju-vs-rooster-m1-inferno.dem",
+        server_name: "FACEIT.com register to play here",
+        build_num: 10924,
+        patch_version: 14190,
+        overtime_playing: 0,
+        total_rounds_played: 16,
+        overtime_money_from_demo: true,
+        valve_ds: false,
+        queued: false,
+        ct: halves("MARTYRDOM", 3, 2, 1, 0),
+        t: halves("Rooster", 13, 10, 3, 0),
+        officially_ended: 0,
+        begin_plant: 0,
+        begin_defuse: 0,
+        player_blind: 0,
+        inferno_startburn: 77,
+        inferno_expire: 77,
+    },
+];
+
 /// Applicable checks for one demo. `rss` is included only on Linux, and only
 /// when the static table has a limit. Open fires come from [`OPEN_FIRES`]
 /// keyed by the manifest name. A check with no row data is a static SKIP.
@@ -392,6 +692,9 @@ fn demo_check_catalog() -> Vec<String> {
     names.push(CHECK_DEMO_END.to_string());
     names.push(CHECK_HASHES.to_string());
     names.push(CHECK_UTF8.to_string());
+    names.push(CHECK_ROUND_SCOREBOARD.to_string());
+    names.push(CHECK_MATCH_INFO.to_string());
+    names.push(CHECK_EVENT_FALLBACKS.to_string());
     names
 }
 
@@ -411,7 +714,13 @@ fn check_applies(demo: &str, check: &str) -> bool {
         return fire.demo == demo;
     }
     match check {
-        CHECK_ROUND_COUNTS | CHECK_PLAYBACK_GAP | CHECK_MOLOTOV | CHECK_HASHES => true,
+        CHECK_ROUND_COUNTS
+        | CHECK_PLAYBACK_GAP
+        | CHECK_MOLOTOV
+        | CHECK_HASHES
+        | CHECK_ROUND_SCOREBOARD
+        | CHECK_MATCH_INFO
+        | CHECK_EVENT_FALLBACKS => true,
         CHECK_SMOKE | CHECK_DEMO_END => row.smoke.is_some(),
         CHECK_UTF8 => row.lossy_utf8.is_some(),
         _ => false,
@@ -957,6 +1266,15 @@ fn run_demo_checks(
             check_lossy_utf8(check, name, parsed, smoke);
         });
     }
+    report.run(name, CHECK_ROUND_SCOREBOARD, |check| {
+        check_round_scoreboard(check, name, parsed, smoke);
+    });
+    report.run(name, CHECK_MATCH_INFO, |check| {
+        check_match_info(check, name, parsed);
+    });
+    report.run(name, CHECK_EVENT_FALLBACKS, |check| {
+        check_event_fallbacks(check, name, parsed, smoke);
+    });
 }
 
 fn check_output_hash(
@@ -985,6 +1303,277 @@ fn check_output_hash(
         name: name.to_string(),
         sections: computed.sections,
     });
+}
+
+fn check_round_scoreboard(check: &mut AssertSink, name: &str, parsed: &Match, smoke: &SmokeEvents) {
+    let Some(expected) = lookup_demo(name) else {
+        check.fail(format!("no scoreboard expectation for {name}"));
+        return;
+    };
+    let begin = smoke.begin_new_match.last().copied();
+    let counted: Vec<u32> = parsed
+        .rounds
+        .iter()
+        .filter(|round| counted_scoreboard_round(round, begin))
+        .map(|round| round.number)
+        .collect();
+    let got: Vec<u32> = parsed
+        .round_scoreboard
+        .iter()
+        .map(|round| round.round)
+        .collect();
+    if got != counted {
+        check.fail(format!(
+            "{name} scoreboard rounds {got:?}, counted rounds {counted:?} (begin_new_match={begin:?})"
+        ));
+    }
+    let Some(last) = parsed.round_scoreboard.last() else {
+        check.fail(format!("{name} scoreboard is empty"));
+        return;
+    };
+    if last.round != *counted.last().unwrap_or(&0) {
+        check.fail(format!(
+            "{name} last scoreboard round is {}, counted last is {:?}",
+            last.round,
+            counted.last()
+        ));
+    }
+    let roster = parsed.players.len();
+    let mut seen: BTreeMap<(u64, u32), &RoundScoreboardPlayer> = BTreeMap::new();
+    let mut row_counts = Vec::with_capacity(parsed.round_scoreboard.len());
+    for round in &parsed.round_scoreboard {
+        row_counts.push(round.players.len());
+        if round.players.len() > roster {
+            check.fail(format!(
+                "{name} round {} has {} scoreboard rows, roster has {roster} players on teams",
+                round.round,
+                round.players.len()
+            ));
+        }
+        let mut keys = BTreeSet::new();
+        for player in &round.players {
+            if !scoreboard_row_on_roster(parsed, player) {
+                check.fail(format!(
+                    "{name} round {} row {} slot={} steam={} was never on T/CT",
+                    round.round, player.name, player.slot, player.steam_id
+                ));
+            }
+            let key = scoreboard_row_key(player);
+            keys.insert(key);
+            if let Some(previous) = seen.get(&key) {
+                if scoreboard_counters_dropped(previous, player) {
+                    check.fail(format!(
+                        "{name} round {} {} counters dropped (was k={} d={} a={} dmg={}, now k={} d={} a={} dmg={})",
+                        round.round,
+                        player.name,
+                        previous.kills,
+                        previous.deaths,
+                        previous.assists,
+                        previous.damage,
+                        player.kills,
+                        player.deaths,
+                        player.assists,
+                        player.damage
+                    ));
+                }
+            }
+            seen.insert(key, player);
+        }
+        for (key, previous) in &seen {
+            if keys.contains(key) {
+                continue;
+            }
+            check.fail(format!(
+                "{name} round {} dropped {} after they had a scoreboard row",
+                round.round, previous.name
+            ));
+        }
+    }
+    let mut last_on_team: BTreeMap<(u64, u32), RoundScoreboardPlayer> = BTreeMap::new();
+    for round in &parsed.round_scoreboard {
+        let Some(index) = parsed
+            .rounds
+            .iter()
+            .position(|candidate| candidate.number == round.round)
+        else {
+            check.fail(format!(
+                "{name} scoreboard round {} is not in rounds",
+                round.round
+            ));
+            continue;
+        };
+        let parsed_round = &parsed.rounds[index];
+        let next_start = parsed
+            .rounds
+            .get(index + 1)
+            .map(|next| next.start_tick)
+            .unwrap_or(u32::MAX);
+        let Some(controllers) =
+            controllers_at_round_end(&smoke.scoreboard_closes, parsed_round, next_start)
+        else {
+            check.fail(format!(
+                "{name} round {} has no controller snapshot at close",
+                round.round
+            ));
+            continue;
+        };
+        let live = scoreboard_players(controllers);
+        for player in &round.players {
+            let key = scoreboard_row_key(player);
+            if let Some(now) = live.iter().find(|row| scoreboard_row_key(row) == key) {
+                if !scoreboard_counters_match(player, now) {
+                    check.fail(format!(
+                        "{name} round {} {} is on T/CT but counters != controller\n  snapshot: {}\n  controller: {}",
+                        round.round,
+                        player.name,
+                        format_scoreboard_players(std::slice::from_ref(player)),
+                        format_scoreboard_players(std::slice::from_ref(now))
+                    ));
+                }
+            } else if let Some(previous) = last_on_team.get(&key) {
+                if !scoreboard_counters_match(player, previous) {
+                    check.fail(format!(
+                        "{name} round {} {} carried counters != last on-team close\n  snapshot: {}\n  last on team: {}",
+                        round.round,
+                        player.name,
+                        format_scoreboard_players(std::slice::from_ref(player)),
+                        format_scoreboard_players(std::slice::from_ref(previous))
+                    ));
+                }
+            } else {
+                check.fail(format!(
+                    "{name} round {} {} was never on T/CT at a round close",
+                    round.round, player.name
+                ));
+            }
+        }
+        for player in live {
+            last_on_team.insert(scoreboard_row_key(&player), player);
+        }
+    }
+    let kills: i32 = last.players.iter().map(|player| player.kills).sum();
+    let damage: i32 = last.players.iter().map(|player| player.damage).sum();
+    if kills <= 0 || damage <= 0 {
+        check.fail(format!(
+            "{name} last round action-tracking totals are kills={kills} damage={damage} (property path missed)"
+        ));
+    }
+    if expected.no_bot_rows {
+        let mut bots = Vec::new();
+        for round in &parsed.round_scoreboard {
+            for player in &round.players {
+                if scoreboard_row_is_bot(player, &smoke.bot_rows) {
+                    bots.push(format!(
+                        "R{} slot={} steam={} name={}",
+                        round.round, player.slot, player.steam_id, player.name
+                    ));
+                }
+            }
+        }
+        if !bots.is_empty() {
+            check.fail(format!(
+                "{name} bot controllers are separate scoreboard rows: {}",
+                bots.join("; ")
+            ));
+        }
+    }
+    check.set_detail(format!(
+        "rounds={} rows={row_counts:?} roster={roster} last_players={} kills={kills} damage={damage} bots_hidden={}",
+        got.len(),
+        last.players.len(),
+        expected.no_bot_rows
+    ));
+}
+
+fn scoreboard_row_key(player: &RoundScoreboardPlayer) -> (u64, u32) {
+    if player.steam_id == 0 {
+        (0, player.slot)
+    } else {
+        (player.steam_id, 0)
+    }
+}
+
+fn scoreboard_row_on_roster(parsed: &Match, player: &RoundScoreboardPlayer) -> bool {
+    if player.steam_id == 0 {
+        return parsed.players.iter().any(|roster| roster.is_bot);
+    }
+    parsed
+        .players
+        .iter()
+        .any(|roster| !roster.is_bot && roster.steam_id == player.steam_id)
+}
+
+fn scoreboard_counters_match(left: &RoundScoreboardPlayer, right: &RoundScoreboardPlayer) -> bool {
+    left.kills == right.kills
+        && left.deaths == right.deaths
+        && left.assists == right.assists
+        && left.damage == right.damage
+        && left.headshot_kills == right.headshot_kills
+        && left.utility_damage == right.utility_damage
+        && left.enemies_flashed == right.enemies_flashed
+}
+
+fn controllers_at_round_end<'a>(
+    snaps: &'a [(u32, Vec<ScoreboardController>)],
+    round: &Round,
+    next_start: u32,
+) -> Option<&'a [ScoreboardController]> {
+    if let Some((_, rows)) = snaps
+        .iter()
+        .rev()
+        .find(|(tick, _)| *tick >= round.end_tick && *tick < next_start)
+    {
+        return Some(rows.as_slice());
+    }
+    snaps
+        .iter()
+        .rev()
+        .find(|(tick, _)| *tick >= round.start_tick && *tick <= round.end_tick)
+        .map(|(_, rows)| rows.as_slice())
+}
+
+fn scoreboard_counters_dropped(
+    previous: &RoundScoreboardPlayer,
+    current: &RoundScoreboardPlayer,
+) -> bool {
+    current.kills < previous.kills
+        || current.deaths < previous.deaths
+        || current.assists < previous.assists
+        || current.damage < previous.damage
+        || current.headshot_kills < previous.headshot_kills
+        || current.utility_damage < previous.utility_damage
+        || current.enemies_flashed < previous.enemies_flashed
+}
+
+fn format_scoreboard_players(players: &[RoundScoreboardPlayer]) -> String {
+    if players.is_empty() {
+        return "(none)".to_string();
+    }
+    players
+        .iter()
+        .map(|player| {
+            format!(
+                "{} slot={} steam={} k={} d={} a={} dmg={} hs={} util={} flash={}",
+                player.name,
+                player.slot,
+                player.steam_id,
+                player.kills,
+                player.deaths,
+                player.assists,
+                player.damage,
+                player.headshot_kills,
+                player.utility_damage,
+                player.enemies_flashed
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+fn scoreboard_row_is_bot(player: &RoundScoreboardPlayer, bot_rows: &BTreeSet<(u32, u64)>) -> bool {
+    player.steam_id == 0
+        || is_bot_steam_id(player.steam_id)
+        || bot_rows.contains(&(player.slot, player.steam_id))
 }
 
 fn check_round_counts(check: &mut AssertSink, name: &str, parsed: &Match, parse_ms: u128) {
@@ -1031,6 +1620,229 @@ fn check_round_counts(check: &mut AssertSink, name: &str, parsed: &Match, parse_
 
 /// No round's playback window may contain two samples more than `tick_stride`
 /// apart. That hole is a skipped warmup: the viewer blends across it.
+fn lookup_match_info(name: &str) -> Option<&'static DemoMatchInfo> {
+    DEMO_MATCH_INFO.iter().find(|row| row.name == name)
+}
+
+fn expect_demo_value(check: &mut AssertSink, demo: &str, parsed: &Match, name: &str, value: &str) {
+    match parsed.match_info.convars.demo.get(name).map(String::as_str) {
+        Some(got) if got == value => {}
+        Some(got) => check.fail(format!(
+            "{demo} {name}: got {got:?} in convars.demo, expected {value:?}"
+        )),
+        None => check.fail(format!("{demo} {name}: missing from convars.demo")),
+    }
+}
+
+fn expect_demo_absent(check: &mut AssertSink, demo: &str, parsed: &Match, name: &str) {
+    if let Some(got) = parsed.match_info.convars.demo.get(name) {
+        check.fail(format!(
+            "{demo} {name}: got {got:?} in convars.demo, expected the name to be absent"
+        ));
+    }
+}
+
+fn expect_defaults(check: &mut AssertSink, demo: &str, parsed: &Match) {
+    let got: Vec<(&str, &str)> = parsed
+        .match_info
+        .convars
+        .defaults
+        .iter()
+        .map(|(name, value)| (name.as_str(), value.as_str()))
+        .collect();
+    let expected: Vec<(&str, &str)> = CONVAR_DEFAULTS.to_vec();
+    if got != expected {
+        check.fail(format!(
+            "{demo} convars.defaults: got {got:?}, expected {expected:?}"
+        ));
+    }
+}
+
+fn expect_half(
+    check: &mut AssertSink,
+    demo: &str,
+    side: &str,
+    got: &cs2analyzer::TeamHalfScores,
+    expected: &HalfScores,
+) {
+    if got.name != expected.name
+        || got.score != expected.score
+        || got.score_first_half != expected.first
+        || got.score_second_half != expected.second
+        || got.score_overtime != expected.overtime
+    {
+        check.fail(format!(
+            "{demo} {side}: got {} {}={}+{}+{}, expected {} {}={}+{}+{}",
+            got.name,
+            got.score,
+            got.score_first_half,
+            got.score_second_half,
+            got.score_overtime,
+            expected.name,
+            expected.score,
+            expected.first,
+            expected.second,
+            expected.overtime
+        ));
+    }
+}
+
+fn check_match_info(check: &mut AssertSink, name: &str, parsed: &Match) {
+    let Some(expected) = lookup_match_info(name) else {
+        check.fail(format!("no match_info expectation for {name}"));
+        return;
+    };
+    let info = &parsed.match_info;
+    let overtime_money = info
+        .convars
+        .demo
+        .get("mp_overtime_startmoney")
+        .map(String::as_str)
+        .unwrap_or("absent");
+    check.set_detail(format!(
+        "server={} build={} patch={} ot={} ct={} t={} overtime_money={}",
+        info.server_name,
+        info.build_num,
+        info.patch_version,
+        info.rules.overtime_playing,
+        info.teams.ct.score,
+        info.teams.t.score,
+        overtime_money
+    ));
+    if info.server_name != expected.server_name {
+        check.fail(format!(
+            "{name} server_name: got {:?}, expected {:?}",
+            info.server_name, expected.server_name
+        ));
+    }
+    if info.build_num != expected.build_num || info.patch_version != expected.patch_version {
+        check.fail(format!(
+            "{name} build/patch: got {}/{}, expected {}/{}",
+            info.build_num, info.patch_version, expected.build_num, expected.patch_version
+        ));
+    }
+    expect_defaults(check, name, parsed);
+    if info
+        .convars
+        .defaults
+        .get("mp_overtime_maxrounds")
+        .map(String::as_str)
+        != Some("6")
+    {
+        check.fail(format!(
+            "{name} convars.defaults mp_overtime_maxrounds: got {:?}, expected \"6\"",
+            info.convars.defaults.get("mp_overtime_maxrounds")
+        ));
+    }
+    expect_demo_absent(check, name, parsed, "mp_overtime_maxrounds");
+    // Every release demo sends 24, which is also the tournament default.
+    expect_demo_value(check, name, parsed, "mp_maxrounds", "24");
+    if expected.overtime_money_from_demo {
+        expect_demo_value(check, name, parsed, "mp_overtime_startmoney", "12500");
+    } else {
+        expect_demo_absent(check, name, parsed, "mp_overtime_startmoney");
+    }
+    expect_demo_value(check, name, parsed, "mp_overtime_enable", "true");
+    let rules = &info.rules;
+    if rules.overtime_playing != expected.overtime_playing {
+        check.fail(format!(
+            "{name} m_nOvertimePlaying: got {}, expected {}",
+            rules.overtime_playing, expected.overtime_playing
+        ));
+    }
+    if rules.total_rounds_played != expected.total_rounds_played {
+        check.fail(format!(
+            "{name} m_totalRoundsPlayed: got {}, expected {}",
+            rules.total_rounds_played, expected.total_rounds_played
+        ));
+    }
+    if rules.is_valve_ds != expected.valve_ds || rules.is_queued_matchmaking != expected.queued {
+        check.fail(format!(
+            "{name} valve/queued: got {}/{}, expected {}/{}",
+            rules.is_valve_ds, rules.is_queued_matchmaking, expected.valve_ds, expected.queued
+        ));
+    }
+    if !rules.map_has_bomb_target || !rules.map_has_buy_zone {
+        check.fail(format!("{name} map is missing bomb target or buy zone"));
+    }
+    if rules.minimap_mins == [0.0, 0.0, 0.0] || rules.minimap_maxs == [0.0, 0.0, 0.0] {
+        check.fail(format!("{name} minimap bounds were not read"));
+    }
+    expect_half(check, name, "ct", &info.teams.ct, &expected.ct);
+    expect_half(check, name, "t", &info.teams.t, &expected.t);
+}
+
+fn check_event_fallbacks(check: &mut AssertSink, name: &str, parsed: &Match, smoke: &SmokeEvents) {
+    let Some(expected) = lookup_match_info(name) else {
+        check.fail(format!("no event-fallback expectation for {name}"));
+        return;
+    };
+    check.set_detail(format!(
+        "round_start={} bullet_impact={} molotov_detonate={} inferno_extinguish={} officially_ended={} beginplant={} begindefuse={} player_blind={} startburn={} expire={} blinds={} fires={}",
+        smoke.round_start,
+        smoke.bullet_impact,
+        smoke.molotov_detonate,
+        smoke.inferno_extinguish,
+        smoke.officially_ended,
+        smoke.begin_plant,
+        smoke.begin_defuse,
+        smoke.player_blind,
+        smoke.inferno_startburn,
+        smoke.inferno_expire,
+        parsed.blinds.len(),
+        parsed.grenades.iter().filter(|grenade| grenade.kind.is_fire()).count()
+    ));
+    let dead = [
+        ("round_start", smoke.round_start),
+        ("bullet_impact", smoke.bullet_impact),
+        ("molotov_detonate", smoke.molotov_detonate),
+        ("inferno_extinguish", smoke.inferno_extinguish),
+    ];
+    for (event, count) in dead {
+        if count != 0 {
+            check.fail(format!("{name} {event} fired {count} times"));
+        }
+    }
+    let measured = [
+        (
+            "round_officially_ended",
+            smoke.officially_ended,
+            expected.officially_ended,
+        ),
+        ("bomb_beginplant", smoke.begin_plant, expected.begin_plant),
+        (
+            "bomb_begindefuse",
+            smoke.begin_defuse,
+            expected.begin_defuse,
+        ),
+        ("player_blind", smoke.player_blind, expected.player_blind),
+        (
+            "inferno_startburn",
+            smoke.inferno_startburn,
+            expected.inferno_startburn,
+        ),
+        (
+            "inferno_expire",
+            smoke.inferno_expire,
+            expected.inferno_expire,
+        ),
+    ];
+    for (event, got, want) in measured {
+        if got != want {
+            check.fail(format!("{name} {event}: got {got}, expected {want}"));
+        }
+    }
+    if parsed.blinds.is_empty() {
+        check.fail(format!("{name} recorded no blinds"));
+    }
+    if !parsed.grenades.iter().any(|grenade| grenade.kind.is_fire()) {
+        check.fail(format!("{name} recorded no molotov or incendiary"));
+    }
+    if parsed.rounds.iter().any(|round| round.winner.is_none()) {
+        check.fail(format!("{name} has a round with no winner"));
+    }
+}
+
 fn check_playback_no_gap(check: &mut AssertSink, name: &str, parsed: &Match) {
     let stride = parsed.header.tick_stride.max(1);
     let ticks = &parsed.ticks.ticks;
@@ -1666,6 +2478,30 @@ struct SmokeEvents {
     round_opens: Vec<u32>,
     /// Game-event strings that contained invalid UTF-8 (`U+FFFD` after lossy decode).
     lossy: Vec<LossyEventString>,
+    /// `begin_new_match` ticks, including warmup. The last one matches the parser.
+    begin_new_match: Vec<u32>,
+    /// Controller reads at the ticks the parser closes a round, plus demo stop.
+    scoreboard_closes: Vec<(u32, Vec<ScoreboardController>)>,
+    /// Previous `m_iRoundWinStatus`, read on tick start like the parser.
+    prev_win_status: i32,
+    /// Tick of a `round_officially_ended` seen this parse. The close is read
+    /// on tick end so the entity state matches the parser.
+    official_end_tick: Option<u32>,
+    /// Tick whose win-status edge was seen on tick start. Closed on tick end.
+    synth_close_tick: Option<u32>,
+    /// `(slot, steam id)` of controllers classified as bots at any tick.
+    bot_rows: BTreeSet<(u32, u64)>,
+    /// Whole-file counts, including warmup. The parser still skips warmup events.
+    round_start: u32,
+    bullet_impact: u32,
+    molotov_detonate: u32,
+    inferno_extinguish: u32,
+    officially_ended: u32,
+    begin_plant: u32,
+    begin_defuse: u32,
+    player_blind: u32,
+    inferno_startburn: u32,
+    inferno_expire: u32,
 }
 
 fn event_i32(ge: &GameEvent<'_>, key: &str) -> i32 {
@@ -1688,6 +2524,19 @@ fn event_f32(ge: &GameEvent<'_>, key: &str) -> f32 {
     0.0
 }
 
+fn gamerules_i32(ctx: &Context, name: &str) -> Option<i32> {
+    let proxy = ctx.entities().get_by_class_name("CCSGameRulesProxy").ok()?;
+    match proxy.get_property(name) {
+        Ok(FieldValue::Signed32(value)) => Some(*value),
+        Ok(FieldValue::Signed16(value)) => Some(i32::from(*value)),
+        Ok(FieldValue::Signed8(value)) => Some(i32::from(*value)),
+        Ok(FieldValue::Unsigned32(value)) => Some(*value as i32),
+        Ok(FieldValue::Unsigned16(value)) => Some(i32::from(*value)),
+        Ok(FieldValue::Unsigned8(value)) => Some(i32::from(*value)),
+        _ => None,
+    }
+}
+
 fn warmup_period(ctx: &Context) -> bool {
     let Ok(proxy) = ctx.entities().get_by_class_name("CCSGameRulesProxy") else {
         return false;
@@ -1706,6 +2555,25 @@ impl SmokeEvents {
     fn on_game_event(&mut self, ctx: &Context, ge: &GameEvent) -> ObserverResult {
         // Same skip as the parser (`ParseOptions::skip_warmup`). Warmup ticks
         // are earlier than live play, but a flagged gap must not open a window.
+        if ge.name() == "begin_new_match" {
+            let tick = ctx.tick();
+            if self.begin_new_match.last().is_none_or(|seen| *seen != tick) {
+                self.begin_new_match.push(tick);
+            }
+        }
+        match ge.name() {
+            "round_start" => self.round_start += 1,
+            "bullet_impact" => self.bullet_impact += 1,
+            "molotov_detonate" => self.molotov_detonate += 1,
+            "inferno_extinguish" => self.inferno_extinguish += 1,
+            "round_officially_ended" => self.officially_ended += 1,
+            "bomb_beginplant" => self.begin_plant += 1,
+            "bomb_begindefuse" => self.begin_defuse += 1,
+            "player_blind" => self.player_blind += 1,
+            "inferno_startburn" => self.inferno_startburn += 1,
+            "inferno_expire" => self.inferno_expire += 1,
+            _ => {}
+        }
         for (key, value) in ge.iter() {
             let Ok(text) = TryInto::<String>::try_into(value) else {
                 continue;
@@ -1720,6 +2588,9 @@ impl SmokeEvents {
         }
         if warmup_period(ctx) {
             return Ok(());
+        }
+        if ge.name() == "round_officially_ended" {
+            self.official_end_tick = Some(ctx.tick());
         }
         match ge.name() {
             "smokegrenade_detonate" => self.detonates.push(SmokeDetonate {
@@ -1738,6 +2609,22 @@ impl SmokeEvents {
         Ok(())
     }
 
+    /// Same win-status edge as the parser: `on_tick_start` still sees the
+    /// previous tick's rules, and the scoreboard is read on tick end.
+    #[on_tick_start]
+    fn on_tick_start(&mut self, ctx: &Context) -> ObserverResult {
+        let tick = ctx.tick();
+        if tick == u32::MAX || warmup_period(ctx) {
+            return Ok(());
+        }
+        let win = gamerules_i32(ctx, "m_pGameRules.m_iRoundWinStatus").unwrap_or(0);
+        if win != 0 && self.prev_win_status == 0 {
+            self.synth_close_tick = Some(tick);
+        }
+        self.prev_win_status = win;
+        Ok(())
+    }
+
     /// Same edge as the parser: a change in `m_nRoundStartCount`, not the first
     /// time the prop is visible, and not a fired `round_start` (assets-v1 does
     /// not fire that event).
@@ -1746,6 +2633,12 @@ impl SmokeEvents {
         let tick = ctx.tick();
         if tick == u32::MAX {
             return Ok(());
+        }
+        note_scoreboard_presence(ctx, &mut self.bot_rows);
+        if !warmup_period(ctx)
+            && (self.synth_close_tick == Some(tick) || self.official_end_tick == Some(tick))
+        {
+            self.push_scoreboard_close(ctx, tick);
         }
         let Ok(proxy) = ctx.entities().get_by_class_name("CCSGameRulesProxy") else {
             return Ok(());
@@ -1767,6 +2660,39 @@ impl SmokeEvents {
             self.round_opens.push(tick);
         }
         Ok(())
+    }
+
+    /// Same entity state the parser reads in `Collector::on_stop`.
+    #[on_stop]
+    fn on_stop(&mut self, ctx: &Context) -> ObserverResult {
+        let tick = ctx.tick();
+        if tick == u32::MAX {
+            return Ok(());
+        }
+        self.push_scoreboard_close(ctx, tick);
+        if let Some((_, controllers)) = self.scoreboard_closes.last() {
+            for controller in controllers {
+                if controller.is_bot {
+                    self.bot_rows.insert((controller.slot, controller.steam_id));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn push_scoreboard_close(&mut self, ctx: &Context, tick: u32) {
+        if tick == u32::MAX {
+            return;
+        }
+        if self
+            .scoreboard_closes
+            .last()
+            .is_some_and(|(seen, _)| *seen == tick)
+        {
+            return;
+        }
+        self.scoreboard_closes
+            .push((tick, read_scoreboard_controllers(ctx)));
     }
 }
 
@@ -1921,18 +2847,18 @@ fn missing_demo_fails_every_named_check() {
 #[test]
 fn each_demo_has_an_expected_check_count() {
     let cases = [
-        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 7, true),
-        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 7, true),
-        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 6, true),
-        ("legacy-vs-spirit-m2-ancient.dem", 6, true),
-        ("premier-d2.dem", 6, true),
-        ("spirit-vs-dendele-m1-ancient.dem", 6, true),
-        ("spirit-vs-furia-m1-ancient.dem", 8, true),
-        ("spirit-vs-mouz-m3-ancient.dem", 7, true),
-        ("spirit-vs-mouz-m4-nuke.dem", 7, true),
-        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 7, false),
-        ("bushido-wildcats-vs-illyrians-m1-anubis.dem", 6, false),
-        ("fruju-vs-rooster-m1-inferno.dem", 6, false),
+        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 10, true),
+        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 10, true),
+        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 9, true),
+        ("legacy-vs-spirit-m2-ancient.dem", 9, true),
+        ("premier-d2.dem", 9, true),
+        ("spirit-vs-dendele-m1-ancient.dem", 9, true),
+        ("spirit-vs-furia-m1-ancient.dem", 11, true),
+        ("spirit-vs-mouz-m3-ancient.dem", 10, true),
+        ("spirit-vs-mouz-m4-nuke.dem", 10, true),
+        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 10, false),
+        ("bushido-wildcats-vs-illyrians-m1-anubis.dem", 9, false),
+        ("fruju-vs-rooster-m1-inferno.dem", 9, false),
     ];
     assert_eq!(cases.len(), DEMO_EXPECTATIONS.len());
     let rss = usize::from(cfg!(target_os = "linux"));
@@ -1970,17 +2896,17 @@ fn each_demo_has_an_expected_check_count() {
     if cfg!(target_os = "linux") {
         assert_eq!(
             expected_check_count("premier-d2.dem"),
-            7,
+            10,
             "premier-d2 has no open fire; rss applies on linux"
         );
         assert_eq!(
             expected_check_count("spirit-vs-furia-m1-ancient.dem"),
-            9,
+            12,
             "furia has two open fires"
         );
         assert_eq!(
             expected_check_count("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem"),
-            8
+            11
         );
     }
     let faceit = DEMO_END_SMOKES
@@ -2019,6 +2945,22 @@ fn each_demo_has_an_expected_check_count() {
     assert!(check_applies(mirage, CHECK_SMOKE));
     assert!(check_applies(mirage, CHECK_DEMO_END));
     assert!(check_applies(mirage, CHECK_UTF8));
+    assert!(check_applies(mirage, CHECK_ROUND_SCOREBOARD));
+    assert!(
+        lookup_demo(mirage).is_some_and(|row| row.no_bot_rows),
+        "mirage 22-20 must reject separate bot scoreboard rows"
+    );
+    assert!(
+        lookup_demo("fruju-vs-rooster-m1-inferno.dem").is_some_and(|row| row.no_bot_rows),
+        "inferno FACEIT fruju-vs-rooster must reject separate bot scoreboard rows"
+    );
+    assert_eq!(
+        DEMO_EXPECTATIONS
+            .iter()
+            .filter(|row| row.no_bot_rows)
+            .count(),
+        2
+    );
     assert!(
         !MIRAGE_LOSSY_UTF8.is_empty(),
         "mirage lossy strings must be listed"
@@ -2105,6 +3047,52 @@ fn expectation_table_follows_manifest_order() {
         .collect();
     let table: Vec<&str> = DEMO_EXPECTATIONS.iter().map(|row| row.name).collect();
     assert_eq!(names, table);
+    let info_names: Vec<&str> = DEMO_MATCH_INFO.iter().map(|row| row.name).collect();
+    assert_eq!(
+        info_names, table,
+        "match_info rows must cover every manifest demo"
+    );
+    assert!(
+        DEMO_MATCH_INFO
+            .iter()
+            .any(|row| row.overtime_money_from_demo),
+        "at least one demo must send mp_overtime_startmoney"
+    );
+    assert!(
+        DEMO_MATCH_INFO
+            .iter()
+            .any(|row| !row.overtime_money_from_demo),
+        "at least one demo must omit mp_overtime_startmoney"
+    );
+    assert_eq!(OVERTIME_START_MONEY, 12500);
+    assert_eq!(
+        CONVAR_DEFAULTS
+            .iter()
+            .find(|(name, _)| *name == "mp_overtime_maxrounds")
+            .map(|(_, value)| *value),
+        Some("6")
+    );
+    assert_eq!(
+        CONVAR_DEFAULTS
+            .iter()
+            .find(|(name, _)| *name == "mp_overtime_startmoney")
+            .map(|(_, value)| *value),
+        Some("12500")
+    );
+    for row in DEMO_MATCH_INFO {
+        assert_eq!(
+            row.ct.first + row.ct.second + row.ct.overtime,
+            row.ct.score,
+            "{} ct halves",
+            row.name
+        );
+        assert_eq!(
+            row.t.first + row.t.second + row.t.overtime,
+            row.t.score,
+            "{} t halves",
+            row.name
+        );
+    }
     for file in files {
         let tag = file["release_tag"].as_str().unwrap_or("");
         let name = file["name"].as_str().unwrap_or("");
@@ -2473,7 +3461,7 @@ fn per_demo_hash_file_round_trip_errors_do_not_panic() {
         r#"{
             "header":"h","players":"p","rounds":"r","grenades":"g",
             "shots":"s","kills":"k","hurts":"hu","blinds":"b","bomb_events":"be",
-            "buy_events":"bu","controller_dump":"c","player_count":"pc","frame_count":"f",
+            "buy_events":"bu","controller_dump":"c","round_scoreboard":"rs","match_info":"mi","player_count":"pc","frame_count":"f",
             "ticks":"t","x":"x","y":"y","z":"z","yaw":"ya","health":"he","armor":"a",
             "flags":"fl","money":"m","equip":"eq","gear":"ge","primary":"pr",
             "secondary":"se","active":"ac","clip":"cl","reserve":"re"

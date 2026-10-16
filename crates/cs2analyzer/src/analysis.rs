@@ -523,6 +523,8 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
+            round_scoreboard: vec![],
+            match_info: crate::MatchInfo::default(),
         }
     }
 
