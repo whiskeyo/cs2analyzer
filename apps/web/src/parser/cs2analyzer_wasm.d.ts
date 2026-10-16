@@ -29,11 +29,13 @@ export class ParsedMatch {
     health(): Uint8Array;
     hurtsJson(): string;
     killsJson(): string;
+    matchInfoJson(): string;
     money(): Uint16Array;
     playerCount(): number;
     playersJson(): string;
     primary(): Uint8Array;
     reserve(): Uint16Array;
+    roundScoreboardJson(): string;
     roundsJson(): string;
     secondary(): Uint8Array;
     shotsJson(): string;
@@ -73,11 +75,13 @@ export interface InitOutput {
     readonly parsedmatch_health: (a: number) => number;
     readonly parsedmatch_hurtsJson: (a: number, b: number) => void;
     readonly parsedmatch_killsJson: (a: number, b: number) => void;
+    readonly parsedmatch_matchInfoJson: (a: number, b: number) => void;
     readonly parsedmatch_money: (a: number) => number;
     readonly parsedmatch_playerCount: (a: number) => number;
     readonly parsedmatch_playersJson: (a: number, b: number) => void;
     readonly parsedmatch_primary: (a: number) => number;
     readonly parsedmatch_reserve: (a: number) => number;
+    readonly parsedmatch_roundScoreboardJson: (a: number, b: number) => void;
     readonly parsedmatch_roundsJson: (a: number, b: number) => void;
     readonly parsedmatch_secondary: (a: number) => number;
     readonly parsedmatch_shotsJson: (a: number, b: number) => void;

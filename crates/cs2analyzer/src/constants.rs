@@ -43,8 +43,86 @@ pub const REGULATION_ROUNDS: u32 = 24;
 /// First 1-based round number of overtime.
 pub const FIRST_OVERTIME_ROUND: u32 = 25;
 
-/// CS2 OT freeze money per player (no pistol round in OT).
-pub const OVERTIME_START_MONEY: i32 = 10000;
+/// Tournament-config convar defaults. Always sent as `MatchInfo.convars.defaults`.
+///
+/// Strings are what a tournament server sends. Sources:
+///
+/// - Swiss LAN CS2 ruleset, Match Settings
+///   (<https://rules.switzerlan.ch/rules/cs2/>): `mp_maxrounds` 24,
+///   `mp_roundtime` 1.92, `mp_startmoney` 800, `mp_buytime` 20, `mp_c4timer` 40,
+///   `mp_overtime_maxrounds` 6, `mp_overtime_startmoney` 12500.
+/// - Tournament GOTV in `test-demos/`: the BLAST Nuke demo sends
+///   `mp_roundtime_defuse` `"1.92"` (bomb-map round length, same as
+///   `mp_roundtime`) and `mp_overtime_startmoney` `"12500"`. It omits
+///   `mp_maxmoney`, so the table still carries the competitive cap `"16000"`.
+///
+/// `mp_freezetime` is not in this table. Organizers set 15 or 20, so only the
+/// demo value is kept. Names are sorted. This list is the only copy of these
+/// strings. [`OVERTIME_START_MONEY`] is parsed from `mp_overtime_startmoney`
+/// here, so there is no second literal (the old hardcoded 10000 is not used).
+pub const CONVAR_DEFAULTS: &[(&str, &str)] = &[
+    ("mp_buytime", "20"),
+    ("mp_c4timer", "40"),
+    ("mp_maxmoney", "16000"),
+    ("mp_maxrounds", "24"),
+    ("mp_overtime_maxrounds", "6"),
+    ("mp_overtime_startmoney", "12500"),
+    ("mp_roundtime", "1.92"),
+    ("mp_roundtime_defuse", "1.92"),
+    ("mp_startmoney", "800"),
+];
+
+/// OT freeze money per player, parsed from [`CONVAR_DEFAULTS`]
+/// `mp_overtime_startmoney` (12500). Keep aligned with
+/// `apps/web/src/lib/shared/constants.ts`.
+pub const OVERTIME_START_MONEY: i32 = convar_default_i32("mp_overtime_startmoney");
+
+const fn convar_default_i32(name: &str) -> i32 {
+    parse_decimal_i32(convar_default_str(name))
+}
+
+const fn convar_default_str(name: &str) -> &'static str {
+    let mut index = 0;
+    while index < CONVAR_DEFAULTS.len() {
+        if bytes_eq(CONVAR_DEFAULTS[index].0.as_bytes(), name.as_bytes()) {
+            return CONVAR_DEFAULTS[index].1;
+        }
+        index += 1;
+    }
+    panic!("CONVAR_DEFAULTS is missing the named convar");
+}
+
+const fn bytes_eq(left: &[u8], right: &[u8]) -> bool {
+    if left.len() != right.len() {
+        return false;
+    }
+    let mut index = 0;
+    while index < left.len() {
+        if left[index] != right[index] {
+            return false;
+        }
+        index += 1;
+    }
+    true
+}
+
+const fn parse_decimal_i32(raw: &str) -> i32 {
+    let bytes = raw.as_bytes();
+    let mut index = 0;
+    let mut value: i32 = 0;
+    if bytes.is_empty() {
+        panic!("convar default is empty");
+    }
+    while index < bytes.len() {
+        let digit = bytes[index];
+        if !digit.is_ascii_digit() {
+            panic!("convar default is not a whole number");
+        }
+        value = value * 10 + (digit - b'0') as i32;
+        index += 1;
+    }
+    value
+}
 
 /// Overtime side-swap block length.
 pub const OVERTIME_BLOCK_ROUNDS: u32 = 3;
@@ -52,9 +130,6 @@ pub const OVERTIME_BLOCK_ROUNDS: u32 = 3;
 /// One overtime is two MR3 blocks (CT and T).
 /// Keep aligned with `apps/web/src/lib/shared/constants.ts`.
 pub const OVERTIME_PERIOD_ROUNDS: u32 = OVERTIME_BLOCK_ROUNDS * 2;
-
-/// Demo convar name. The value is an integer string on `CNetMsgSetConVar`.
-pub const CVAR_MP_OVERTIME_STARTMONEY: &str = "mp_overtime_startmoney";
 
 /// KAST / trade window: teammate kills the attacker.
 pub const TRADE_SECONDS: f32 = 5.0;

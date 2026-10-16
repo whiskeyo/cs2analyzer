@@ -160,12 +160,118 @@ const CONTROLLER_DUMP: Shape = {
   at_freeze: flag,
 };
 
-/**
- * Nested `matchInfo` is not a flat row. `observed` is optional.
- * When it is present, `overtime_start_money` is a number or null.
- * `convars.demo.mp_overtime_startmoney` is optional.
- */
-const MATCH_INFO_MARKER: Shape = {};
+const ROUND_SCOREBOARD: Shape = {
+  round: number,
+  players: list,
+};
+
+const ROUND_SCOREBOARD_PLAYER: Shape = {
+  steam_id: number,
+  slot: number,
+  name: text,
+  kills: number,
+  deaths: number,
+  assists: number,
+  damage: number,
+  headshot_kills: number,
+  utility_damage: number,
+  enemies_flashed: number,
+};
+
+const object: Check = {
+  expected: "object",
+  ok: (v) => typeof v === "object" && v !== null && !Array.isArray(v),
+};
+
+const vec3: Check = {
+  expected: "array of 3 numbers",
+  ok: (v) =>
+    Array.isArray(v) &&
+    v.length === 3 &&
+    v.every((item) => typeof item === "number" && Number.isFinite(item)),
+};
+
+const CONVAR_UPDATE: Shape = { tick: number, name: text, value: text };
+
+const TEAM_HALF: Shape = {
+  name: text,
+  m_iScore: number,
+  m_scoreFirstHalf: number,
+  m_scoreSecondHalf: number,
+  m_scoreOvertime: number,
+};
+
+const RULES_NUMBERS = [
+  "m_nOvertimePlaying",
+  "m_totalRoundsPlayed",
+  "m_iRoundStartRoundNumber",
+  "m_nRoundsPlayedThisPhase",
+  "m_gamePhase",
+  "m_iFreezeTime",
+  "m_iRoundTime",
+  "m_flCTTimeOutRemaining",
+  "m_flTerroristTimeOutRemaining",
+  "m_nCTTimeOuts",
+  "m_nTerroristTimeOuts",
+  "m_nPauseStartTick",
+  "m_nTotalPausedTicks",
+  "m_iNumConsecutiveCTLoses",
+  "m_iNumConsecutiveTerroristLoses",
+  "m_eRoundEndReason",
+  "m_iRoundEndWinnerTeam",
+  "m_iRoundEndFunFactPlayerSlot",
+  "m_iRoundEndFunFactData1",
+  "m_iRoundEndFunFactData2",
+  "m_iRoundEndFunFactData3",
+  "m_iRoundEndPlayerCount",
+  "m_fMatchStartTime",
+  "m_fRoundStartTime",
+  "m_flGameStartTime",
+  "m_nQueuedMatchmakingMode",
+  "m_numBestOfMaps",
+] as const;
+
+const RULES_FLAGS = [
+  "m_bFreezePeriod",
+  "m_bHasMatchStarted",
+  "m_bGamePaused",
+  "m_bMatchWaitingForResume",
+  "m_bTechnicalTimeOut",
+  "m_bCTTimeOutActive",
+  "m_bTerroristTimeOutActive",
+  "m_bBombPlanted",
+  "m_bBombDropped",
+  "m_bIsValveDS",
+  "m_bIsQueuedMatchmaking",
+  "m_bMapHasBombTarget",
+  "m_bMapHasBuyZone",
+] as const;
+
+const RULES_TEXT = [
+  "m_sRoundEndMessage",
+  "m_sRoundEndFunFactToken",
+  "m_szMatchStatTxt",
+  "m_szTournamentEventName",
+  "m_szTournamentEventStage",
+] as const;
+
+const RULES: Shape = {
+  ...Object.fromEntries(RULES_NUMBERS.map((field) => [field, number])),
+  ...Object.fromEntries(RULES_FLAGS.map((field) => [field, flag])),
+  ...Object.fromEntries(RULES_TEXT.map((field) => [field, text])),
+  m_vMinimapMins: vec3,
+  m_vMinimapMaxs: vec3,
+};
+
+const MATCH_INFO: Shape = {
+  convars: object,
+  convar_updates: list,
+  rules: object,
+  teams: object,
+  server_name: text,
+  build_num: number,
+  patch_version: number,
+};
 
 export const PAYLOAD_SHAPES = {
   header: HEADER,
@@ -179,7 +285,8 @@ export const PAYLOAD_SHAPES = {
   bombEvents: BOMB_EVENT,
   buyEvents: BUY_EVENT,
   controllerDump: CONTROLLER_DUMP,
-  matchInfo: MATCH_INFO_MARKER,
+  roundScoreboard: ROUND_SCOREBOARD,
+  matchInfo: MATCH_INFO,
 } as const;
 
 export type PayloadName = keyof typeof PAYLOAD_SHAPES;
@@ -207,6 +314,21 @@ function checkShape(where: string, value: unknown, shape: Shape): void {
   }
 }
 
+function checkRoundScoreboard(value: unknown, index: number): void {
+  checkShape(`roundScoreboard[${index}]`, value, ROUND_SCOREBOARD);
+  const players = (value as { players?: unknown }).players;
+  if (!Array.isArray(players)) {
+    return;
+  }
+  for (let playerIndex = 0; playerIndex < players.length; playerIndex += 1) {
+    checkShape(
+      `roundScoreboard[${index}].players[${playerIndex}]`,
+      players[playerIndex],
+      ROUND_SCOREBOARD_PLAYER,
+    );
+  }
+}
+
 function describe(value: unknown): string {
   if (value === undefined) return "no value";
   if (value === null) return "null";
@@ -214,36 +336,61 @@ function describe(value: unknown): string {
   return `a ${typeof value}`;
 }
 
-function checkObject(where: string, value: unknown): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+function checkStringRecord(where: string, value: unknown): void {
+  if (!object.ok(value)) {
     throw new PayloadError(`Parser sent ${describe(value)} for "${where}", expected an object.`);
   }
-  return value as Record<string, unknown>;
+  const record = value as Record<string, unknown>;
+  for (const [name, entry] of Object.entries(record)) {
+    if (typeof entry !== "string") {
+      throw new PayloadError(
+        `Parser payload "${where}.${name}" has ${describe(entry)}, expected string.`,
+      );
+    }
+  }
+}
+
+function checkConvars(where: string, value: unknown): void {
+  if (!object.ok(value)) {
+    throw new PayloadError(`Parser sent ${describe(value)} for "${where}", expected an object.`);
+  }
+  const record = value as Record<string, unknown>;
+  checkStringRecord(`${where}.defaults`, record.defaults);
+  checkStringRecord(`${where}.demo`, record.demo);
 }
 
 function checkMatchInfo(value: unknown): void {
-  const record = checkObject("matchInfo", value);
-  const convars = checkObject("matchInfo.convars", record.convars);
-  const demo = checkObject("matchInfo.convars.demo", convars.demo);
-  const defaults = checkObject("matchInfo.convars.defaults", convars.defaults);
-  const demoMoney = demo.mp_overtime_startmoney;
-  if (demoMoney !== undefined && !number.ok(demoMoney)) {
+  checkShape("matchInfo", value, MATCH_INFO);
+  const record = value as Record<string, unknown>;
+  checkConvars("matchInfo.convars", record.convars);
+  if (!Array.isArray(record.convar_updates)) {
     throw new PayloadError(
-      `Parser payload "matchInfo.convars.demo" has ${describe(demoMoney)} for "mp_overtime_startmoney", ` +
-        `expected ${number.expected}. The Rust field was probably renamed.`,
+      `Parser sent ${describe(record.convar_updates)} for "matchInfo.convar_updates", expected an array.`,
     );
   }
-  if (!number.ok(defaults.mp_overtime_startmoney)) {
+  for (const [index, update] of record.convar_updates.entries()) {
+    checkShape(`matchInfo.convar_updates[${index}]`, update, CONVAR_UPDATE);
+  }
+  checkShape("matchInfo.rules", record.rules, RULES);
+  if (!object.ok(record.teams)) {
     throw new PayloadError(
-      `Parser payload "matchInfo.convars.defaults" has ${describe(defaults.mp_overtime_startmoney)} for "mp_overtime_startmoney", ` +
-        `expected ${number.expected}. The Rust field was probably renamed.`,
+      `Parser sent ${describe(record.teams)} for "matchInfo.teams", expected an object.`,
     );
   }
+  const teams = record.teams as Record<string, unknown>;
+  checkShape("matchInfo.teams.ct", teams.ct, TEAM_HALF);
+  checkShape("matchInfo.teams.t", teams.t, TEAM_HALF);
   if (record.observed === undefined) return;
-  const observed = checkObject("matchInfo.observed", record.observed);
-  if (!orNull(number).ok(observed.overtime_start_money)) {
+  const observed = record.observed;
+  if (typeof observed !== "object" || observed === null || Array.isArray(observed)) {
     throw new PayloadError(
-      `Parser payload "matchInfo.observed" has ${describe(observed.overtime_start_money)} for "overtime_start_money", ` +
+      `Parser sent ${describe(observed)} for "matchInfo.observed", expected an object.`,
+    );
+  }
+  const money = (observed as Record<string, unknown>).overtime_start_money;
+  if (!orNull(number).ok(money)) {
+    throw new PayloadError(
+      `Parser payload "matchInfo.observed" has ${describe(money)} for "overtime_start_money", ` +
         `expected ${orNull(number).expected}. The Rust field was probably renamed.`,
     );
   }
@@ -288,6 +435,12 @@ export function decodeList<T>(name: PayloadName, json: string): T[] {
     for (const item of value) {
       fillMissingRoundTime(item);
     }
+  }
+  if (name === "roundScoreboard") {
+    for (let index = 0; index < value.length; index += 1) {
+      checkRoundScoreboard(value[index], index);
+    }
+    return value as T[];
   }
   const shape = PAYLOAD_SHAPES[name];
   for (const index of listSampleIndexes(value.length)) {

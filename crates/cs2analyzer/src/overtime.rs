@@ -7,7 +7,6 @@
 //! that never reaches overtime.
 
 use crate::constants::{FIRST_OVERTIME_ROUND, OVERTIME_PERIOD_ROUNDS};
-use crate::types::MatchInfo;
 
 /// One round in playback order. Competitive numbers are assigned after the
 /// last `begin_new_match`, so a restarted demo does not keep the previous
@@ -89,12 +88,11 @@ pub(crate) fn observed_overtime_start_money(
     }
 }
 
-pub(crate) fn build_match_info(
+pub(crate) fn observed_from_rounds(
     rounds: &[crate::Round],
     samples: &[BuytimeCashSample],
     last_begin_new_match: Option<u32>,
-    demo_overtime_startmoney: Option<i32>,
-) -> MatchInfo {
+) -> Option<i32> {
     let cash_rounds: Vec<CashRound> = rounds
         .iter()
         .map(|round| CashRound {
@@ -102,10 +100,7 @@ pub(crate) fn build_match_info(
             is_knife: round.is_knife,
         })
         .collect();
-    MatchInfo::new(
-        demo_overtime_startmoney,
-        observed_overtime_start_money(&cash_rounds, samples, last_begin_new_match),
-    )
+    observed_overtime_start_money(&cash_rounds, samples, last_begin_new_match)
 }
 
 fn last_sample_in_window(
@@ -215,27 +210,17 @@ mod tests {
     }
 
     #[test]
-    fn match_info_json_omits_a_missing_convar_and_has_no_platform() {
-        let info = MatchInfo::new(None, None);
-        let json = serde_json::to_value(&info)
-            .unwrap_or_else(|err| panic!("could not serialize match info: {err}"));
-        assert!(json["observed"].get("platform").is_none());
-        assert!(json["observed"]["overtime_start_money"].is_null());
-        assert!(json["convars"]["demo"]
-            .get("mp_overtime_startmoney")
-            .is_none());
-        assert_eq!(
-            json["convars"]["defaults"]["mp_overtime_startmoney"],
-            10_000
-        );
-
-        let set = MatchInfo::new(Some(12_500), Some(10_000));
+    fn observed_json_has_null_money_and_no_platform() {
+        let observed = crate::ObservedMatch::default();
+        let json = serde_json::to_value(&observed)
+            .unwrap_or_else(|err| panic!("could not serialize observed: {err}"));
+        assert!(json.get("platform").is_none());
+        assert!(json["overtime_start_money"].is_null());
+        let set = crate::ObservedMatch {
+            overtime_start_money: Some(10_000),
+        };
         let set_json = serde_json::to_value(&set)
-            .unwrap_or_else(|err| panic!("could not serialize match info: {err}"));
-        assert_eq!(
-            set_json["convars"]["demo"]["mp_overtime_startmoney"],
-            12_500
-        );
-        assert_eq!(set_json["observed"]["overtime_start_money"], 10_000);
+            .unwrap_or_else(|err| panic!("could not serialize observed: {err}"));
+        assert_eq!(set_json["overtime_start_money"], 10_000);
     }
 }

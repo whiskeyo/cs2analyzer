@@ -13,8 +13,9 @@ use crate::inventory::{
     GEAR_INC, GEAR_KEVLAR, GEAR_MOLLY, GEAR_SMOKE, GEAR_ZEUS, WID_DECOY, WID_DEFUSER, WID_FLASH,
     WID_HE, WID_HELMET, WID_INC, WID_KEVLAR, WID_MOLLY, WID_SMOKE, WID_TASER,
 };
+use crate::match_info::{build_match_info, MatchInfoParts};
 use crate::observer::{Collector, GrenadeDet, GrenadeDetSource};
-use crate::overtime::build_match_info;
+use crate::overtime::observed_from_rounds;
 use crate::types::*;
 use crate::{FLAG_PRESENT, MAX_PLAYERS};
 use std::collections::{BTreeMap, HashMap};
@@ -148,11 +149,11 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     let mut controller_dump: Vec<ControllerDump> = c.controller_last.values().cloned().collect();
     controller_dump.sort_by_key(|row| row.slot);
     controller_dump.extend(c.controller_freeze.iter().cloned());
-    let match_info = build_match_info(
+    let round_scoreboard = build_round_scoreboard(c, &rounds);
+    let overtime_start_money = observed_from_rounds(
         &rounds,
         &c.buytime_cash,
         c.begin_new_match_ticks.last().copied(),
-        c.demo_overtime_startmoney,
     );
     let mut m = Match {
         header,
@@ -168,7 +169,20 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         buy_events,
         stats: Vec::new(),
         controller_dump,
-        match_info,
+        round_scoreboard,
+        match_info: {
+            let mut info = build_match_info(MatchInfoParts {
+                convar_latest: &c.convar_latest,
+                convar_updates: &c.convar_updates,
+                rules: &c.rules,
+                teams: &c.teams,
+                server_name: &c.server_name,
+                build_num: c.build_num,
+                patch_version: c.patch_version,
+            });
+            info.observed.overtime_start_money = overtime_start_money;
+            info
+        },
     };
     #[cfg(feature = "match-stats")]
     {
@@ -272,6 +286,28 @@ fn apply_match_start_sides(players: &mut [Player], ticks: &TickBuffer, rounds: &
             }
         }
     }
+}
+
+fn build_round_scoreboard(c: &Collector, rounds: &[Round]) -> Vec<RoundScoreboard> {
+    let begin = c.begin_new_match_ticks.last().copied();
+    let mut roster = crate::scoreboard::ScoreboardRoster::default();
+    let mut scoreboard = Vec::new();
+    for (index, round) in rounds.iter().enumerate() {
+        if !crate::counted_scoreboard_round(round, begin) {
+            continue;
+        }
+        let next_start = rounds
+            .get(index + 1)
+            .map(|next| next.start_tick)
+            .unwrap_or(u32::MAX);
+        let on_team =
+            crate::scoreboard::players_at_round_end(&c.scoreboard_snaps, round, next_start);
+        scoreboard.push(RoundScoreboard {
+            round: round.number,
+            players: roster.observe(on_team),
+        });
+    }
+    scoreboard
 }
 
 fn build_rounds(c: &Collector) -> Vec<Round> {
@@ -2471,6 +2507,18 @@ mod tests {
             false,
             bot_steam_id(7)
         )));
+    }
+
+    #[test]
+    fn round_scoreboard_field_is_optional_in_json() {
+        let mut collector = Collector::new(ParseOptions::default());
+        let parsed = assemble(&mut collector, 64, 1.0);
+        let mut value = serde_json::to_value(&parsed).expect("match json");
+        let object = value.as_object_mut().expect("object");
+        assert!(object.contains_key("round_scoreboard"));
+        object.remove("round_scoreboard");
+        let loaded: crate::Match = serde_json::from_value(value).expect("old json");
+        assert!(loaded.round_scoreboard.is_empty());
     }
 
     #[test]

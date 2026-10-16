@@ -33,46 +33,6 @@ export interface MatchHeader {
   score_t: number;
 }
 
-/** Convars `CNetMsgSetConVar` actually carried. Absent keys were not in the demo. */
-export interface DemoConvars {
-  /** `mp_overtime_startmoney` when the server sent it. */
-  mp_overtime_startmoney?: number;
-}
-
-/** Built-in convar fallbacks. Not read from the demo. */
-export interface DefaultConvars {
-  /** CS2 `mp_overtime_startmoney` when the demo and the observation are silent. */
-  mp_overtime_startmoney: number;
-}
-
-export interface MatchConvars {
-  demo: DemoConvars;
-  defaults: DefaultConvars;
-}
-
-/**
- * Cash reconstructed at the end of buy time.
- * `overtime_start_money` is null when the match has no overtime or the
- * real players did not all hold the same amount. There is no `platform` field.
- */
-export interface ObservedMatch {
-  overtime_start_money: number | null;
-}
-
-/**
- * WASM `matchInfoJson`.
- *
- * Resolve overtime start money in this order:
- * `convars.demo.mp_overtime_startmoney`, then `observed.overtime_start_money`,
- * then `convars.defaults.mp_overtime_startmoney`.
- * `observed` is optional so a payload from before this object still typechecks.
- * A fresh parse always sends it.
- */
-export interface MatchInfo {
-  convars: MatchConvars;
-  observed?: ObservedMatch;
-}
-
 export interface Player {
   index: number;
   steam_id: number;
@@ -80,6 +40,29 @@ export interface Player {
   start_side: Side;
   /** GOTV / offline bot (`m_bIsBot`, synthetic steam id). */
   is_bot: boolean;
+}
+
+/**
+ * Cumulative `m_pActionTrackingServices.m_matchStats` for one controller at round end.
+ * `steam_id` is raw `m_steamID` (0 for a genuine bot). `slot` is the controller index.
+ */
+export interface RoundScoreboardPlayer {
+  steam_id: number;
+  slot: number;
+  name: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  damage: number;
+  headshot_kills: number;
+  utility_damage: number;
+  enemies_flashed: number;
+}
+
+/** One counted round. `round` matches `Round.number`. Knife rounds are omitted. */
+export interface RoundScoreboard {
+  round: number;
+  players: RoundScoreboardPlayer[];
 }
 
 /** Per-controller parse diagnostic from WASM. Not used by radar/stats. */
@@ -322,6 +305,116 @@ export interface TickBuffers {
   reserve: Uint16Array;
 }
 
+/**
+ * Tournament defaults plus every convar the server sent.
+ *
+ * Resolve a name with `demo[name] ?? defaults[name]`. `defaults` is always
+ * present. `demo` keeps the server's last value even when it equals the default.
+ * A name the demo never sent is absent from `demo`.
+ */
+export interface ConvarTables {
+  defaults: Record<string, string>;
+  demo: Record<string, string>;
+}
+
+/** A `CNETMsg_SetConVar` change. Repeats of the same value are omitted. */
+export interface ConvarUpdate {
+  tick: number;
+  name: string;
+  value: string;
+}
+
+/** `CCSTeam` half split. Score fields use the networked prop names. */
+export interface TeamHalfScores {
+  name: string;
+  m_iScore: number;
+  m_scoreFirstHalf: number;
+  m_scoreSecondHalf: number;
+  m_scoreOvertime: number;
+}
+
+/**
+ * `CCSGameRules` at the end of the demo.
+ * `m_nOvertimePlaying` is 0 in regulation and the OT period index after that.
+ */
+export interface GameRulesSnapshot {
+  m_nOvertimePlaying: number;
+  m_totalRoundsPlayed: number;
+  m_iRoundStartRoundNumber: number;
+  m_nRoundsPlayedThisPhase: number;
+  m_gamePhase: number;
+  m_iFreezeTime: number;
+  m_iRoundTime: number;
+  m_bFreezePeriod: boolean;
+  m_bHasMatchStarted: boolean;
+  m_bGamePaused: boolean;
+  m_bMatchWaitingForResume: boolean;
+  m_bTechnicalTimeOut: boolean;
+  m_bCTTimeOutActive: boolean;
+  m_bTerroristTimeOutActive: boolean;
+  m_flCTTimeOutRemaining: number;
+  m_flTerroristTimeOutRemaining: number;
+  m_nCTTimeOuts: number;
+  m_nTerroristTimeOuts: number;
+  m_nPauseStartTick: number;
+  m_nTotalPausedTicks: number;
+  m_iNumConsecutiveCTLoses: number;
+  m_iNumConsecutiveTerroristLoses: number;
+  m_bBombPlanted: boolean;
+  m_bBombDropped: boolean;
+  m_eRoundEndReason: number;
+  m_iRoundEndWinnerTeam: number;
+  m_sRoundEndMessage: string;
+  m_sRoundEndFunFactToken: string;
+  m_iRoundEndFunFactPlayerSlot: number;
+  m_iRoundEndFunFactData1: number;
+  m_iRoundEndFunFactData2: number;
+  m_iRoundEndFunFactData3: number;
+  m_iRoundEndPlayerCount: number;
+  m_fMatchStartTime: number;
+  m_fRoundStartTime: number;
+  m_flGameStartTime: number;
+  m_bIsValveDS: boolean;
+  m_bIsQueuedMatchmaking: boolean;
+  m_nQueuedMatchmakingMode: number;
+  m_numBestOfMaps: number;
+  m_szMatchStatTxt: string;
+  m_szTournamentEventName: string;
+  m_szTournamentEventStage: string;
+  m_vMinimapMins: [number, number, number];
+  m_vMinimapMaxs: [number, number, number];
+  m_bMapHasBombTarget: boolean;
+  m_bMapHasBuyZone: boolean;
+}
+
+/**
+ * Cash read off players. `overtime_start_money` is null when the match has no
+ * overtime or the balances disagree. There is no platform field.
+ */
+export interface ObservedMatch {
+  overtime_start_money: number | null;
+}
+
+/**
+ * Extra demo data. Omitted on replays parsed before this field existed.
+ *
+ * Resolve overtime start money as `convars.demo.mp_overtime_startmoney`, then
+ * `observed.overtime_start_money`, then `convars.defaults.mp_overtime_startmoney`.
+ * Other convars are still `convars.demo[name] ?? convars.defaults[name]`.
+ * `observed` is optional so a payload from before this object still loads.
+ * A fresh parse always sends it.
+ */
+export interface MatchInfo {
+  convars: ConvarTables;
+  convar_updates: ConvarUpdate[];
+  rules: GameRulesSnapshot;
+  teams: { ct: TeamHalfScores; t: TeamHalfScores };
+  server_name: string;
+  build_num: number;
+  patch_version: number;
+  observed?: ObservedMatch;
+}
+
 export interface Replay {
   header: MatchHeader;
   players: Player[];
@@ -336,8 +429,13 @@ export interface Replay {
   ticks: TickBuffers;
   /** Last controller slot + freeze-end fill candidates. */
   controllerDump?: ControllerDump[];
-  /** Demo convars and observed overtime money. Fresh parses always set this. */
-  matchInfo?: MatchInfo;
+  /**
+   * Round-end action-tracking scoreboard. Optional so a replay cached before
+   * this field existed still loads.
+   */
+  roundScoreboard?: RoundScoreboard[];
+  /** Convars, gamerules, half scores, and the demo file header. */
+  match_info?: MatchInfo;
 }
 
 export interface FloorSection {

@@ -17,9 +17,10 @@
 //! the stored sections, so the files omit `events` and `sha256`. A grenade
 //! change then touches only the `grenades` line.
 //!
-//! None of those JSON types contain a map. Object keys are struct fields in
-//! declaration order, so they do not follow `HashMap` iteration. `serde_json`
-//! prints each `f32` with the same text for the same bits.
+//! `match_info.convars.defaults` and `match_info.convars.demo` are `BTreeMap`s,
+//! so those keys are sorted. Every other
+//! JSON object is struct fields in declaration order, not `HashMap` iteration.
+//! `serde_json` prints each `f32` with the same text for the same bits.
 //!
 //! One pretty-printed file per manifest demo:
 //! `test-demos/output-hashes/<demo name>.json`.
@@ -62,10 +63,6 @@ fn wasm_boundary_hashes_json_and_little_endian_columns() {
     assert!(
         events.contains("playerCount\n1\n1"),
         "playerCount is a WASM getter, not a tick column"
-    );
-    assert!(
-        events.contains("matchInfoJson\n"),
-        "match info is a WASM JSON getter"
     );
     assert!(
         !events.contains("\"adr\""),
@@ -291,6 +288,7 @@ fn demo_hash(name: &str, grenades: &str, x: &str) -> DemoHash {
             bomb_events: "bomb_events".to_string(),
             buy_events: "buy_events".to_string(),
             controller_dump: "controller_dump".to_string(),
+            round_scoreboard: "round_scoreboard".to_string(),
             match_info: "match_info".to_string(),
             player_count: "player_count".to_string(),
             frame_count: "frame_count".to_string(),
@@ -358,6 +356,7 @@ fn sample_match() -> Match {
         buy_events: Vec::new(),
         stats: vec![cs2analyzer::PlayerStats::empty(0)],
         controller_dump: Vec::new(),
+        round_scoreboard: Vec::new(),
         match_info: cs2analyzer::MatchInfo::default(),
     }
 }

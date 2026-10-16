@@ -359,6 +359,7 @@ pub fn slice_series_match(
     for round in &mut rounds {
         remap_round(round, origin);
     }
+    let round_numbers: Vec<u32> = rounds.iter().map(|round| round.number).collect();
     let (score_ct, score_t) = header_scores(&rounds);
     let playback_ticks = rounds.iter().map(round_window_end).max().unwrap_or(0);
     let header = MatchHeader {
@@ -387,6 +388,12 @@ pub fn slice_series_match(
             buy_events: Vec::new(),
             stats: Vec::new(),
             controller_dump: Vec::new(),
+            round_scoreboard: m
+                .round_scoreboard
+                .iter()
+                .filter(|row| round_numbers.contains(&row.round))
+                .cloned()
+                .collect(),
             match_info: m.match_info.clone(),
         },
         origin_tick: origin,
@@ -625,8 +632,8 @@ mod tests {
         ESTIMATE_FULL_ROUND_SECONDS, ESTIMATE_PLAYER_COUNT, TUTORIAL_TICK_STRIDE,
     };
     use cs2analyzer::{
-        GrenadeKind, GrenadePoint, GrenadeThrow, Kill, MatchInfo, Player, Round, Side, TickBuffer,
-        FLAG_CT, FLAG_PRESENT,
+        GrenadeKind, GrenadePoint, GrenadeThrow, Kill, Player, Round, Side, TickBuffer, FLAG_CT,
+        FLAG_PRESENT,
     };
 
     fn empty_header(map: &str) -> MatchHeader {
@@ -767,7 +774,8 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
-            match_info: MatchInfo::default(),
+            round_scoreboard: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         }
     }
 
@@ -840,7 +848,8 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
-            match_info: MatchInfo::default(),
+            round_scoreboard: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         }
     }
 
@@ -1087,7 +1096,8 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
-            match_info: MatchInfo::default(),
+            round_scoreboard: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         };
         let mut series_match = single_match.clone();
         series_match.ticks = series_ticks;

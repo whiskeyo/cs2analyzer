@@ -70,8 +70,11 @@ export const COMPETITIVE_PLAYERS_PER_SIDE = 5;
 /** First 1-based round number of overtime. */
 export const FIRST_OVERTIME_ROUND = 25;
 
-/** CS2 OT freeze money per player (no pistol round in OT). */
-export const OVERTIME_START_MONEY = 10000;
+/**
+ * Tournament `mp_overtime_startmoney` (12500). Same string as Rust
+ * `CONVAR_DEFAULTS`. The economy view uses this for an overtime round.
+ */
+export const OVERTIME_START_MONEY = 12500;
 
 /** Radar map PNG desaturate: 0 = original color, 1 = full gray. */
 export const RADAR_GRAY_MIN = 0;

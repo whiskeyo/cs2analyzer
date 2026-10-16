@@ -6,11 +6,12 @@ import type {
   Hurt,
   Kill,
   MatchHeader,
-  MatchInfo,
   Player,
   Round,
+  RoundScoreboard,
 } from "@/lib/replay/replayTypes";
-import { makeHurt, makePlayer } from "@/lib/testing/fixtures";
+import { makeHurt, makePlayer, sampleMatchInfo } from "@/lib/testing/fixtures";
+import type { MatchInfo } from "@/lib/replay/replayTypes";
 
 const header: MatchHeader = {
   map_name: "de_anubis",
@@ -77,36 +78,55 @@ describe("decodeObject", () => {
   });
 });
 
-const matchInfo: MatchInfo = {
-  convars: {
-    demo: { mp_overtime_startmoney: 12500 },
-    defaults: { mp_overtime_startmoney: 10000 },
-  },
-  observed: { overtime_start_money: null },
-};
-
 describe("decodeObject matchInfo", () => {
-  it("passes match info the parser really sends", () => {
-    expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(matchInfo))).toEqual(matchInfo);
+  const info: MatchInfo = sampleMatchInfo();
+
+  it("keeps demo strings that equal a default and the tournament table", () => {
+    const decoded = decodeObject<MatchInfo>("matchInfo", JSON.stringify(info));
+    expect(decoded.convars.defaults.mp_overtime_maxrounds).toBe("6");
+    expect(decoded.convars.demo.mp_overtime_maxrounds).toBeUndefined();
+    expect(decoded.convars.demo.mp_maxrounds).toBe("24");
+    expect(decoded.convars.defaults.mp_maxrounds).toBe("24");
+    expect(decoded.convars.demo.mp_maxrounds ?? decoded.convars.defaults.mp_maxrounds).toBe("24");
+    expect(decoded.convars.defaults).toEqual({
+      mp_buytime: "20",
+      mp_c4timer: "40",
+      mp_maxmoney: "16000",
+      mp_maxrounds: "24",
+      mp_overtime_maxrounds: "6",
+      mp_overtime_startmoney: "12500",
+      mp_roundtime: "1.92",
+      mp_roundtime_defuse: "1.92",
+      mp_startmoney: "800",
+    });
+    expect(decoded.rules.m_nOvertimePlaying).toBe(3);
+    expect(decoded.teams.ct.m_iScore).toBe(20);
+    expect(
+      decoded.teams.ct.m_scoreFirstHalf +
+        decoded.teams.ct.m_scoreSecondHalf +
+        decoded.teams.ct.m_scoreOvertime,
+    ).toBe(decoded.teams.ct.m_iScore);
   });
 
-  it("allows a missing observed object and a missing demo convar", () => {
-    const older = {
-      convars: { demo: {}, defaults: { mp_overtime_startmoney: 10000 } },
-    };
-    expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(older))).toEqual(older);
+  it("accepts observed overtime money and rejects a string", () => {
+    const withMoney = structuredClone(info);
+    withMoney.observed = { overtime_start_money: 10000 };
+    expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(withMoney)).observed).toEqual({
+      overtime_start_money: 10000,
+    });
+    const broken = structuredClone(withMoney);
+    broken.observed = { overtime_start_money: "10000" as unknown as number };
+    expect(() => decodeObject("matchInfo", JSON.stringify(broken))).toThrow(
+      /overtime_start_money.*number or null/,
+    );
   });
 
-  it("names overtime_start_money when the observed field is the wrong type", () => {
-    expect(() =>
-      decodeObject(
-        "matchInfo",
-        JSON.stringify({
-          ...matchInfo,
-          observed: { overtime_start_money: "10000" },
-        }),
-      ),
-    ).toThrow(/overtime_start_money/);
+  it("names a convar value that is not a string", () => {
+    const broken = structuredClone(info);
+    (broken.convars.demo as { mp_maxrounds: unknown }).mp_maxrounds = 24;
+    expect(() => decodeObject("matchInfo", JSON.stringify(broken))).toThrow(
+      /convars\.demo\.mp_maxrounds.*string/s,
+    );
   });
 });
 
@@ -241,6 +261,35 @@ describe("decodeList", () => {
     );
     expect(() => decodeList<BombEvent>("bombEvents", `[${without(planted, "haskit")}]`)).toThrow(
       /"bombEvents\[0\]".*"haskit".*expected boolean/s,
+    );
+  });
+
+  it("requires round scoreboard counters so a Rust rename fails on drop", () => {
+    const row: RoundScoreboard = {
+      round: 12,
+      players: [
+        {
+          steam_id: 765611980000001,
+          slot: 4,
+          name: "alice",
+          kills: 18,
+          deaths: 14,
+          assists: 5,
+          damage: 2100,
+          headshot_kills: 9,
+          utility_damage: 80,
+          enemies_flashed: 11,
+        },
+      ],
+    };
+    expect(decodeList<RoundScoreboard>("roundScoreboard", JSON.stringify([row]))).toEqual([row]);
+    const missing = {
+      round: 12,
+      players: [{ ...row.players[0] }],
+    };
+    delete (missing.players[0] as { damage?: number }).damage;
+    expect(() => decodeList<RoundScoreboard>("roundScoreboard", JSON.stringify([missing]))).toThrow(
+      /"roundScoreboard\[0\].players\[0\]".*"damage".*expected number/s,
     );
   });
 

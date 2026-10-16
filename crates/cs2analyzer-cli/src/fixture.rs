@@ -73,6 +73,7 @@ pub fn slice_tutorial_match(m: &Match, live_rounds: u32) -> Result<TutorialSlice
     for round in &mut rounds {
         remap_round(round, origin);
     }
+    let round_numbers: Vec<u32> = rounds.iter().map(|round| round.number).collect();
     let (score_ct, score_t) = header_scores(&rounds);
     let playback_ticks = end_tick.saturating_sub(origin);
     let tick_rate = m.header.tick_rate.max(1.0);
@@ -101,12 +102,18 @@ pub fn slice_tutorial_match(m: &Match, live_rounds: u32) -> Result<TutorialSlice
             bomb_events: slice_bomb_events(&m.bomb_events, &[(start_tick, end_tick)], origin),
             buy_events: slice_buy_events(&m.buy_events, &[(start_tick, end_tick)], origin),
             stats: Vec::new(),
-            match_info: m.match_info.clone(),
             controller_dump: slice_controller_dump(
                 &m.controller_dump,
                 &[(start_tick, end_tick)],
                 origin,
             ),
+            round_scoreboard: m
+                .round_scoreboard
+                .iter()
+                .filter(|row| round_numbers.contains(&row.round))
+                .cloned()
+                .collect(),
+            match_info: m.match_info.clone(),
         },
         origin_tick: origin,
     })
@@ -717,7 +724,7 @@ pub fn measure_emitted_bytes(files: &[GeneratedFile]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cs2analyzer::{FireCell, GrenadeKind, GrenadePoint, MatchInfo, Player};
+    use cs2analyzer::{FireCell, GrenadeKind, GrenadePoint, Player};
 
     fn empty_header() -> MatchHeader {
         MatchHeader {
@@ -875,7 +882,8 @@ mod tests {
             buy_events: vec![],
             stats: vec![],
             controller_dump: vec![],
-            match_info: MatchInfo::default(),
+            round_scoreboard: vec![],
+            match_info: cs2analyzer::MatchInfo::default(),
         }
     }
 

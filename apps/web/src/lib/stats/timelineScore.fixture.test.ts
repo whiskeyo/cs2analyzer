@@ -22,7 +22,6 @@ import type {
   Hurt,
   Kill,
   MatchHeader,
-  MatchInfo,
   Player,
   Replay,
   Round,
@@ -77,7 +76,6 @@ function loadReplay(path: string): Replay {
     blinds: decodeList<Blind>("blinds", parsed.blindsJson()),
     bombEvents: decodeList<BombEvent>("bombEvents", parsed.bombEventsJson()),
     buyEvents: decodeList<BuyEvent>("buyEvents", parsed.buyEventsJson()),
-    matchInfo: decodeObject<MatchInfo>("matchInfo", parsed.matchInfoJson()),
     ticks: {
       frameCount: parsed.frameCount(),
       playerCount: parsed.playerCount(),
