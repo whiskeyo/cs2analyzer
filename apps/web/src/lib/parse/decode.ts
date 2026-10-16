@@ -173,11 +173,6 @@ const vec3: Check = {
     v.every((item) => typeof item === "number" && Number.isFinite(item)),
 };
 
-const CONVAR_ENTRY: Shape = {
-  value: text,
-  source: { expected: '"demo" or "default"', ok: (v) => v === "demo" || v === "default" },
-};
-
 const CONVAR_UPDATE: Shape = { tick: number, name: text, value: text };
 
 const TEAM_HALF: Shape = {
@@ -253,9 +248,6 @@ const RULES: Shape = {
 const MATCH_INFO: Shape = {
   convars: object,
   convar_updates: list,
-  mp_maxrounds: number,
-  mp_overtime_maxrounds: number,
-  mp_overtime_startmoney: number,
   rules: object,
   teams: object,
   server_name: text,
@@ -310,14 +302,27 @@ function describe(value: unknown): string {
   return `a ${typeof value}`;
 }
 
-function checkConvars(where: string, value: unknown): void {
+function checkStringRecord(where: string, value: unknown): void {
   if (!object.ok(value)) {
     throw new PayloadError(`Parser sent ${describe(value)} for "${where}", expected an object.`);
   }
   const record = value as Record<string, unknown>;
   for (const [name, entry] of Object.entries(record)) {
-    checkShape(`${where}.${name}`, entry, CONVAR_ENTRY);
+    if (typeof entry !== "string") {
+      throw new PayloadError(
+        `Parser payload "${where}.${name}" has ${describe(entry)}, expected string.`,
+      );
+    }
   }
+}
+
+function checkConvars(where: string, value: unknown): void {
+  if (!object.ok(value)) {
+    throw new PayloadError(`Parser sent ${describe(value)} for "${where}", expected an object.`);
+  }
+  const record = value as Record<string, unknown>;
+  checkStringRecord(`${where}.defaults`, record.defaults);
+  checkStringRecord(`${where}.demo`, record.demo);
 }
 
 function checkMatchInfo(value: unknown): void {

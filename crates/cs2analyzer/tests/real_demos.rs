@@ -29,8 +29,8 @@ use std::time::Instant;
 
 use cs2analyzer::{
     full_parse_passes, parse_demo_with_test_observer, reset_full_parse_passes, BombKind,
-    ConvarSource, GrenadeKind, GrenadeThrow, Match, ParseOptions, Round, DEFAULT_MP_MAXROUNDS,
-    DEFAULT_MP_OVERTIME_MAXROUNDS, OVERTIME_START_MONEY, SMOKE_DURATION_SECONDS,
+    GrenadeKind, GrenadeThrow, Match, ParseOptions, Round, CONVAR_DEFAULTS, OVERTIME_START_MONEY,
+    SMOKE_DURATION_SECONDS,
 };
 use source2_demo::prelude::*;
 
@@ -400,7 +400,8 @@ struct DemoMatchInfo {
     patch_version: i32,
     overtime_playing: i32,
     total_rounds_played: i32,
-    /// `mp_overtime_startmoney` was in the demo. Otherwise the 12500 default.
+    /// The server sent `mp_overtime_startmoney` (tournament GOTV, and the FACEIT
+    /// Inferno demo). Otherwise the name is absent from `convars.demo`.
     overtime_money_from_demo: bool,
     valve_ds: bool,
     queued: bool,
@@ -1329,28 +1330,37 @@ fn lookup_match_info(name: &str) -> Option<&'static DemoMatchInfo> {
     DEMO_MATCH_INFO.iter().find(|row| row.name == name)
 }
 
-fn convar_source(parsed: &Match, name: &str) -> Option<(String, ConvarSource)> {
-    parsed
-        .match_info
-        .convars
-        .get(name)
-        .map(|entry| (entry.value.clone(), entry.source))
+fn expect_demo_value(check: &mut AssertSink, demo: &str, parsed: &Match, name: &str, value: &str) {
+    match parsed.match_info.convars.demo.get(name).map(String::as_str) {
+        Some(got) if got == value => {}
+        Some(got) => check.fail(format!(
+            "{demo} {name}: got {got:?} in convars.demo, expected {value:?}"
+        )),
+        None => check.fail(format!("{demo} {name}: missing from convars.demo")),
+    }
 }
 
-fn expect_convar(
-    check: &mut AssertSink,
-    demo: &str,
-    parsed: &Match,
-    name: &str,
-    value: &str,
-    source: ConvarSource,
-) {
-    match convar_source(parsed, name) {
-        Some((got_value, got_source)) if got_value == value && got_source == source => {}
-        Some((got_value, got_source)) => check.fail(format!(
-            "{demo} {name}: got {got_value:?} source {got_source:?}, expected {value:?} source {source:?}"
-        )),
-        None => check.fail(format!("{demo} {name}: missing from convars")),
+fn expect_demo_absent(check: &mut AssertSink, demo: &str, parsed: &Match, name: &str) {
+    if let Some(got) = parsed.match_info.convars.demo.get(name) {
+        check.fail(format!(
+            "{demo} {name}: got {got:?} in convars.demo, expected the name to be absent"
+        ));
+    }
+}
+
+fn expect_defaults(check: &mut AssertSink, demo: &str, parsed: &Match) {
+    let got: Vec<(&str, &str)> = parsed
+        .match_info
+        .convars
+        .defaults
+        .iter()
+        .map(|(name, value)| (name.as_str(), value.as_str()))
+        .collect();
+    let expected: Vec<(&str, &str)> = CONVAR_DEFAULTS.to_vec();
+    if got != expected {
+        check.fail(format!(
+            "{demo} convars.defaults: got {got:?}, expected {expected:?}"
+        ));
     }
 }
 
@@ -1389,15 +1399,21 @@ fn check_match_info(check: &mut AssertSink, name: &str, parsed: &Match) {
         return;
     };
     let info = &parsed.match_info;
+    let overtime_money = info
+        .convars
+        .demo
+        .get("mp_overtime_startmoney")
+        .map(String::as_str)
+        .unwrap_or("absent");
     check.set_detail(format!(
-        "server={} build={} patch={} ot={} ct={} t={} money={}",
+        "server={} build={} patch={} ot={} ct={} t={} overtime_money={}",
         info.server_name,
         info.build_num,
         info.patch_version,
         info.rules.overtime_playing,
         info.teams.ct.score,
         info.teams.t.score,
-        info.mp_overtime_startmoney
+        overtime_money
     ));
     if info.server_name != expected.server_name {
         check.fail(format!(
@@ -1411,61 +1427,28 @@ fn check_match_info(check: &mut AssertSink, name: &str, parsed: &Match) {
             info.build_num, info.patch_version, expected.build_num, expected.patch_version
         ));
     }
-    if info.mp_maxrounds != DEFAULT_MP_MAXROUNDS {
+    expect_defaults(check, name, parsed);
+    if info
+        .convars
+        .defaults
+        .get("mp_overtime_maxrounds")
+        .map(String::as_str)
+        != Some("6")
+    {
         check.fail(format!(
-            "{name} mp_maxrounds number: got {}, expected {DEFAULT_MP_MAXROUNDS}",
-            info.mp_maxrounds
+            "{name} convars.defaults mp_overtime_maxrounds: got {:?}, expected \"6\"",
+            info.convars.defaults.get("mp_overtime_maxrounds")
         ));
     }
-    if info.mp_overtime_maxrounds != DEFAULT_MP_OVERTIME_MAXROUNDS {
-        check.fail(format!(
-            "{name} mp_overtime_maxrounds number: got {}, expected {DEFAULT_MP_OVERTIME_MAXROUNDS}",
-            info.mp_overtime_maxrounds
-        ));
-    }
-    if info.mp_overtime_startmoney != OVERTIME_START_MONEY {
-        check.fail(format!(
-            "{name} mp_overtime_startmoney number: got {}, expected {OVERTIME_START_MONEY}",
-            info.mp_overtime_startmoney
-        ));
-    }
-    expect_convar(
-        check,
-        name,
-        parsed,
-        "mp_maxrounds",
-        "24",
-        ConvarSource::Demo,
-    );
-    expect_convar(
-        check,
-        name,
-        parsed,
-        "mp_overtime_maxrounds",
-        "6",
-        ConvarSource::Default,
-    );
-    let money_source = if expected.overtime_money_from_demo {
-        ConvarSource::Demo
+    expect_demo_absent(check, name, parsed, "mp_overtime_maxrounds");
+    // Every release demo sends 24, which is also the tournament default.
+    expect_demo_value(check, name, parsed, "mp_maxrounds", "24");
+    if expected.overtime_money_from_demo {
+        expect_demo_value(check, name, parsed, "mp_overtime_startmoney", "12500");
     } else {
-        ConvarSource::Default
-    };
-    expect_convar(
-        check,
-        name,
-        parsed,
-        "mp_overtime_startmoney",
-        "12500",
-        money_source,
-    );
-    expect_convar(
-        check,
-        name,
-        parsed,
-        "mp_overtime_enable",
-        "true",
-        ConvarSource::Demo,
-    );
+        expect_demo_absent(check, name, parsed, "mp_overtime_startmoney");
+    }
+    expect_demo_value(check, name, parsed, "mp_overtime_enable", "true");
     let rules = &info.rules;
     if rules.overtime_playing != expected.overtime_playing {
         check.fail(format!(
@@ -2679,11 +2662,23 @@ fn expectation_table_follows_manifest_order() {
         DEMO_MATCH_INFO
             .iter()
             .any(|row| !row.overtime_money_from_demo),
-        "at least one demo must use the 12500 default"
+        "at least one demo must omit mp_overtime_startmoney"
     );
     assert_eq!(OVERTIME_START_MONEY, 12500);
-    assert_eq!(DEFAULT_MP_OVERTIME_MAXROUNDS, 6);
-    assert_eq!(DEFAULT_MP_MAXROUNDS, 24);
+    assert_eq!(
+        CONVAR_DEFAULTS
+            .iter()
+            .find(|(name, _)| *name == "mp_overtime_maxrounds")
+            .map(|(_, value)| *value),
+        Some("6")
+    );
+    assert_eq!(
+        CONVAR_DEFAULTS
+            .iter()
+            .find(|(name, _)| *name == "mp_overtime_startmoney")
+            .map(|(_, value)| *value),
+        Some("12500")
+    );
     for row in DEMO_MATCH_INFO {
         assert_eq!(
             row.ct.first + row.ct.second + row.ct.overtime,

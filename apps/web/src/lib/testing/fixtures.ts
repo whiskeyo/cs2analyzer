@@ -287,18 +287,28 @@ const ZERO_RULES: GameRulesSnapshot = {
   m_bMapHasBuyZone: false,
 };
 
-/** Parser `match_info` with the numbers a drop must be able to read. */
+/** Parser `match_info` with the tournament defaults a drop must be able to read. */
 export function sampleMatchInfo(patch: Partial<MatchInfo> = {}): MatchInfo {
   return {
     convars: {
-      mp_maxrounds: { value: "24", source: "demo" },
-      mp_overtime_maxrounds: { value: "6", source: "default" },
-      mp_overtime_startmoney: { value: "12500", source: "default" },
+      defaults: {
+        mp_buytime: "20",
+        mp_c4timer: "40",
+        mp_maxmoney: "16000",
+        mp_maxrounds: "24",
+        mp_overtime_maxrounds: "6",
+        mp_overtime_startmoney: "12500",
+        mp_roundtime: "1.92",
+        mp_roundtime_defuse: "1.92",
+        mp_startmoney: "800",
+      },
+      // `mp_maxrounds` equals the default and is still present.
+      demo: {
+        mp_maxrounds: "24",
+        mp_overtime_enable: "true",
+      },
     },
     convar_updates: [{ tick: 0, name: "mp_maxrounds", value: "24" }],
-    mp_maxrounds: 24,
-    mp_overtime_maxrounds: 6,
-    mp_overtime_startmoney: 12500,
     rules: { ...ZERO_RULES, m_nOvertimePlaying: 3 },
     teams: {
       ct: {

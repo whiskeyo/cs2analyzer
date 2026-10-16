@@ -2,7 +2,7 @@
 
 source2-demo 0.5.10 decodes the demo. The names below are the protobuf / networked field names. The Rust column is where that value lands. `MatchInfo` is a new optional object. Header, player, round, and event JSON are unchanged.
 
-WASM exposes it as `matchInfoJson()`. The viewer stores it on `Replay.match_info`, which is optional so a cached replay from before this field still loads. A fresh parse always fills it. `MatchInfo::default` (and `#[serde(default)]` on `Match`) is the full defaults table with empty rules, empty teams, and zero build numbers — not a zeroed convar map.
+WASM exposes it as `matchInfoJson()`. The viewer stores it on `Replay.match_info`, which is optional so a cached replay from before this field still loads. A fresh parse always fills it. `MatchInfo::default` (and `#[serde(default)]` on `Match`) is the tournament defaults table, an empty `convars.demo` map, empty rules, empty teams, and zero build numbers.
 
 ## Demo file header — `CDemoFileHeader`
 
@@ -22,24 +22,28 @@ Prost type: `CNetMsgSetConVar`, interest `NetMessages::NetSetConVar`. Handler: `
 
 Each update is `msg.convars.cvars[]` with string `name` and string `value`. A repeat of the same value is dropped. Signon tick `u32::MAX` is stored as tick 0. The timeline is `MatchInfo.convar_updates` (`tick`, `name`, `value`), in arrival order.
 
-`MatchInfo.convars` is a `BTreeMap` (stable JSON) of `{ "value": string, "source": "demo" | "default" }`:
+`MatchInfo.convars` has two string maps (`BTreeMap`, so the JSON keys are sorted):
 
-- `demo` — this demo sent the name. The raw spelling is kept (`"24"`, `"true"`, `"12500"`), even when it equals the default number.
-- `default` — the name never appeared. The value is the string in `CONVAR_DEFAULTS` (`crates/cs2analyzer/src/constants.rs`).
+- `defaults` — always the tournament-config table in `CONVAR_DEFAULTS` (`crates/cs2analyzer/src/constants.rs`). It does not depend on the demo and it does not change with game mode.
+- `demo` — every convar the server sent, last value, including a value that equals the default. Names the demo never sent are absent. Rust does not fill them in.
 
-Names the demo sends that are not in the table are kept with source `demo`. Names in the table that the demo omits are filled from the table.
+The frontend resolves `convars.demo[name] ?? convars.defaults[name]`. There is no `{value, source}` object and no top-level `mp_maxrounds` / `mp_overtime_maxrounds` / `mp_overtime_startmoney` integer.
 
-Three integers are also top-level fields, parsed from the resolved string (a whole-number float is accepted). If the string does not parse, the named constant is used:
+`defaults` is exactly these strings:
 
-| Field | Constant when absent or unparsable | Notes |
+| Name | Value | Source |
 | --- | --- | --- |
-| `mp_maxrounds` | `DEFAULT_MP_MAXROUNDS` (24) | Every release demo sends `"24"` / source `demo`. |
-| `mp_overtime_maxrounds` | `DEFAULT_MP_OVERTIME_MAXROUNDS` (6) | Absent in every release demo, so source `default` and value `"6"`. |
-| `mp_overtime_startmoney` | `OVERTIME_START_MONEY` (12500) | CS2 engine default, also Premier / Valve MM. Tournament demos usually send `12500` (source `demo`). FACEIT and Premier in this set omit it (source `default`), except the FACEIT Inferno demo, which sends `12500`. |
+| `mp_buytime` | `"20"` | Swiss LAN CS2 ruleset, Match Settings (https://rules.switzerlan.ch/rules/cs2/). |
+| `mp_c4timer` | `"40"` | Same ruleset. |
+| `mp_maxmoney` | `"16000"` | Competitive money cap next to the ruleset's $800 start money. The BLAST Nuke demo omits the convar, so the frontend uses this default. |
+| `mp_maxrounds` | `"24"` | Same ruleset. Every release demo also sends `"24"` in `convars.demo`. |
+| `mp_overtime_maxrounds` | `"6"` | Same ruleset. Absent from `convars.demo` on every release demo. |
+| `mp_overtime_startmoney` | `"12500"` | Same ruleset. `OVERTIME_START_MONEY` in `constants.rs` is parsed from this string, so the old hardcoded `10000` is not a second copy. Tournament demos (BLAST, ESL, FantasyExpo) send `"12500"` in `convars.demo`. FACEIT and Premier in this set omit it, except the FACEIT Inferno demo, which sends `"12500"`. |
+| `mp_roundtime` | `"1.92"` | Same ruleset (1 minute 55 seconds). |
+| `mp_roundtime_defuse` | `"1.92"` | Bomb-map round length, matching `mp_roundtime`. The BLAST Nuke demo sends this string in `convars.demo`. |
+| `mp_startmoney` | `"800"` | Same ruleset. |
 
-`mp_overtime_enable` defaults to `"0"`. Every release demo sends `"true"` (source `demo`), which wins over that default. Bools in the table are cfg text `"0"` / `"1"`, not `"true"`.
-
-The table is `gamemode_competitive.cfg` economy, friendly-fire, ammo, and warmup values, plus the engine overtime defaults above. `mp_overtime_startmoney` is not in that cfg. `mp_freezetime` in the cfg is `"15"`; demos send `20` and the gamerules prop `m_iFreezeTime` is 20.
+`mp_freezetime` is not in `defaults`. Organizers set 15 or 20, so only a demo value is kept. `mp_overtime_enable` is not in `defaults` either. Every release demo sends `"true"` in `convars.demo`.
 
 ## Gamerules — `CCSGameRulesProxy.m_pGameRules`
 
@@ -139,13 +143,22 @@ The branches stay. None of the 12 release demos need a behavior change.
 ```json
 {
   "convars": {
-    "mp_maxrounds": { "value": "24", "source": "demo" },
-    "mp_overtime_maxrounds": { "value": "6", "source": "default" }
+    "defaults": {
+      "mp_buytime": "20",
+      "mp_c4timer": "40",
+      "mp_maxmoney": "16000",
+      "mp_maxrounds": "24",
+      "mp_overtime_maxrounds": "6",
+      "mp_overtime_startmoney": "12500",
+      "mp_roundtime": "1.92",
+      "mp_roundtime_defuse": "1.92",
+      "mp_startmoney": "800"
+    },
+    "demo": {
+      "mp_maxrounds": "24"
+    }
   },
   "convar_updates": [{ "tick": 0, "name": "mp_maxrounds", "value": "24" }],
-  "mp_maxrounds": 24,
-  "mp_overtime_maxrounds": 6,
-  "mp_overtime_startmoney": 12500,
   "rules": { "m_nOvertimePlaying": 0 },
   "teams": {
     "ct": {

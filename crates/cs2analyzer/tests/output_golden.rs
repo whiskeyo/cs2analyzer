@@ -17,7 +17,8 @@
 //! the stored sections, so the files omit `events` and `sha256`. A grenade
 //! change then touches only the `grenades` line.
 //!
-//! `match_info.convars` is a `BTreeMap`, so those keys are sorted. Every other
+//! `match_info.convars.defaults` and `match_info.convars.demo` are `BTreeMap`s,
+//! so those keys are sorted. Every other
 //! JSON object is struct fields in declaration order, not `HashMap` iteration.
 //! `serde_json` prints each `f32` with the same text for the same bits.
 //!

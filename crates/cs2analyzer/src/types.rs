@@ -448,21 +448,6 @@ impl PlayerStats {
     }
 }
 
-/// Where a convar value came from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ConvarSource {
-    Demo,
-    Default,
-}
-
-/// One resolved convar. `value` is the raw string from the demo or the defaults table.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConvarEntry {
-    pub value: String,
-    pub source: ConvarSource,
-}
-
 /// One `CNETMsg_SetConVar` change. Repeats of the same value are not stored.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConvarUpdate {
@@ -595,18 +580,23 @@ pub struct GameRulesSnapshot {
     pub map_has_buy_zone: bool,
 }
 
-/// Extra demo data that does not change header, rounds, or player JSON.
+/// Tournament defaults plus every convar the server sent.
 ///
-/// `mp_maxrounds`, `mp_overtime_maxrounds`, and `mp_overtime_startmoney` are the
-/// resolved integers (demo value, otherwise the defaults table). The same
-/// convars also appear in `convars` as `{value, source}`.
+/// `defaults` is always the tournament-config table. `demo` is the last value
+/// of every name the server sent, including values that equal the default.
+/// The frontend resolves `demo[name] ?? defaults[name]`. Rust does not infer
+/// a number when the demo omitted the name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConvarTables {
+    pub defaults: BTreeMap<String, String>,
+    pub demo: BTreeMap<String, String>,
+}
+
+/// Extra demo data that does not change header, rounds, or player JSON.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchInfo {
-    pub convars: BTreeMap<String, ConvarEntry>,
+    pub convars: ConvarTables,
     pub convar_updates: Vec<ConvarUpdate>,
-    pub mp_maxrounds: i32,
-    pub mp_overtime_maxrounds: i32,
-    pub mp_overtime_startmoney: i32,
     pub rules: GameRulesSnapshot,
     pub teams: TeamHalves,
     pub server_name: String,

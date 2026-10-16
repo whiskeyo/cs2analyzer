@@ -282,12 +282,16 @@ export interface TickBuffers {
   reserve: Uint16Array;
 }
 
-export type ConvarSource = "demo" | "default";
-
-/** One resolved convar. `value` is the raw demo string or the defaults table. */
-export interface ConvarEntry {
-  value: string;
-  source: ConvarSource;
+/**
+ * Tournament defaults plus every convar the server sent.
+ *
+ * Resolve a name with `demo[name] ?? defaults[name]`. `defaults` is always
+ * present. `demo` keeps the server's last value even when it equals the default.
+ * A name the demo never sent is absent from `demo`.
+ */
+export interface ConvarTables {
+  defaults: Record<string, string>;
+  demo: Record<string, string>;
 }
 
 /** A `CNETMsg_SetConVar` change. Repeats of the same value are omitted. */
@@ -362,14 +366,14 @@ export interface GameRulesSnapshot {
 
 /**
  * Extra demo data. Omitted on replays parsed before this field existed.
- * `mp_maxrounds` and `mp_overtime_maxrounds` are the resolved integers.
+ *
+ * Look up a convar with `convars.demo[name] ?? convars.defaults[name]`.
+ * Rust does not infer overtime or round-limit numbers; the viewer computes
+ * those from rounds when it needs them.
  */
 export interface MatchInfo {
-  convars: Record<string, ConvarEntry>;
+  convars: ConvarTables;
   convar_updates: ConvarUpdate[];
-  mp_maxrounds: number;
-  mp_overtime_maxrounds: number;
-  mp_overtime_startmoney: number;
   rules: GameRulesSnapshot;
   teams: { ct: TeamHalfScores; t: TeamHalfScores };
   server_name: string;

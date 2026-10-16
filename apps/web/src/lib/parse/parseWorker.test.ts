@@ -126,7 +126,8 @@ describe("parseWorker", () => {
     expect(messages.some((m) => m.type === "progress")).toBe(true);
     const done = messages.find((m) => m.type === "done");
     expect(done?.replay.header.map_name).toBe("de_mirage");
-    expect(done?.replay.match_info?.mp_maxrounds).toBe(24);
+    expect(done?.replay.match_info?.convars.demo.mp_maxrounds).toBe("24");
+    expect(done?.replay.match_info?.convars.defaults.mp_overtime_maxrounds).toBe("6");
     expect(done?.replay.match_info?.rules.m_nOvertimePlaying).toBe(3);
     expect(done?.timings.totalMs).toBeGreaterThanOrEqual(0);
   });
