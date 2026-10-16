@@ -378,7 +378,8 @@ export interface ObservedMatchInfo {
  *
  * Look up a convar with `getConvar` (`demo[name] ?? defaults[name]`).
  * Rust does not infer overtime or round-limit numbers. The timeline reads
- * `mp_maxrounds` for regulation and infers overtime boundaries from side swaps.
+ * `mp_maxrounds` and `mp_overtime_maxrounds` for period boundaries, and uses
+ * side swaps for the half line inside each period.
  */
 export interface MatchInfo {
   convars: ConvarTables;

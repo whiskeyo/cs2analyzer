@@ -69,20 +69,27 @@ describe("timelineChart", () => {
     ]);
   });
 
-  it("marks the Mirage 22-20 overtime breaks and no others", () => {
-    expect(
-      economyBreakAfter(blocks(["T", 12], ["CT", 15], ["T", 6], ["CT", 6], ["T", 3]), mr(24)),
-    ).toEqual([12, 24, 27, 30, 33, 36, 39]);
+  it("marks Mirage 22-20 (42 rounds, MR12, overtime of 6) at period boundaries and half swaps", () => {
+    const rounds = blocks(["T", 12], ["CT", 15], ["T", 6], ["CT", 6], ["T", 3]);
+    expect(rounds).toHaveLength(42);
+    // Boundaries after 24, 30, 36. Halves after 12, 27, 33, 39.
+    expect(economyBreakAfter(rounds, mr(24, "6"))).toEqual([12, 24, 27, 30, 33, 36, 39]);
   });
 
-  it("places overtime periods from mp_overtime_maxrounds when the side never swaps again", () => {
-    expect(economyBreakAfter(blocks(["CT", 32]), mr(24, "4"))).toEqual([12, 24, 28]);
+  it("places overtime periods from mp_overtime_maxrounds and halves at the midpoint when the side never swaps", () => {
+    expect(economyBreakAfter(blocks(["CT", 32]), mr(24, "4"))).toEqual([12, 24, 26, 28, 30]);
   });
 
-  it("lets a side swap set the overtime length ahead of mp_overtime_maxrounds", () => {
+  it("keeps overtime boundaries on mp_overtime_maxrounds when the first post-regulation swap is a later half", () => {
+    const rounds = blocks(["T", 12], ["CT", 21], ["T", 9]);
+    expect(rounds).toHaveLength(42);
+    expect(economyBreakAfter(rounds, mr(24, "6"))).toEqual([12, 24, 27, 30, 33, 36, 39]);
+  });
+
+  it("draws a side swap inside an overtime period as the half, on the convar boundaries", () => {
     expect(
       economyBreakAfter(blocks(["T", 12], ["CT", 15], ["T", 6], ["CT", 3]), mr(24, "10")),
-    ).toEqual([12, 24, 27, 30, 33]);
+    ).toEqual([12, 24, 27, 33, 34]);
   });
 
   it("keeps the regulation line when the demo starts after halftime", () => {

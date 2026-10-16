@@ -127,11 +127,11 @@ export interface TimelineRoundRoster {
  * Round numbers after which a half or overtime block ends.
  * A swap counts only when the same player is present in both rounds and changed
  * side. Someone who was absent, including a late join, does not invent a side.
- * Regulation length is `mp_maxrounds` (`getConvar`). The half line is the
- * middle of that. Overtime period length is the gap from regulation to the
- * next side swap, doubled, because that swap is only the middle of the period.
- * When no overtime swap is in the rounds, the period is `mp_overtime_maxrounds`.
- * Nothing is drawn after the last plotted round.
+ * Regulation half is `mp_maxrounds / 2`, plus an actual side swap during
+ * regulation. Overtime keeps the previous side until that period's halfway
+ * swap, so period boundaries are `mp_maxrounds + k * mp_overtime_maxrounds`.
+ * The half line in a period is the side swap inside it, or the midpoint when
+ * the rounds show no swap. Nothing is drawn after the last plotted round.
  */
 export function economyBreakAfter(
   rounds: readonly TimelineRoundRoster[],
@@ -139,18 +139,23 @@ export function economyBreakAfter(
 ): number[] {
   if (rounds.length < 2) return [];
   const swaps = sideSwaps(rounds);
-  const marks = new Set(swaps);
   const last = rounds[rounds.length - 1]?.number;
   const regulation = positiveInt(getConvar(matchInfo, "mp_maxrounds"));
-  if (regulation != null && last != null) {
-    if (regulation % SIDE_BLOCKS_PER_PERIOD === 0) {
-      marks.add(regulation / SIDE_BLOCKS_PER_PERIOD);
-    }
-    const overtimeLength = overtimePeriodLength(swaps, regulation, matchInfo);
-    if (overtimeLength != null) {
-      for (let boundary = regulation; boundary < last; boundary += overtimeLength) {
-        marks.add(boundary);
-      }
+  if (regulation == null || last == null) return breakLines(rounds, new Set(swaps));
+  const marks = new Set<number>();
+  if (regulation % SIDE_BLOCKS_PER_PERIOD === 0) {
+    marks.add(regulation / SIDE_BLOCKS_PER_PERIOD);
+  }
+  for (const swap of swaps) {
+    if (swap < regulation) marks.add(swap);
+  }
+  const overtime = positiveInt(getConvar(matchInfo, "mp_overtime_maxrounds"));
+  if (overtime != null) {
+    addOvertimeMarks(marks, swaps, regulation, overtime, last);
+  } else if (regulation < last) {
+    marks.add(regulation);
+    for (const swap of swaps) {
+      if (swap > regulation) marks.add(swap);
     }
   }
   return breakLines(rounds, marks);
@@ -168,21 +173,28 @@ function sideSwaps(rounds: readonly TimelineRoundRoster[]): number[] {
 }
 
 /**
- * Full overtime length. The first side swap after regulation is the middle of
- * that period, so the period is twice the gap. Otherwise the server's
- * `mp_overtime_maxrounds`.
+ * Overtime starts on the same side as the end of regulation. Boundaries step
+ * by `mp_overtime_maxrounds`. The halfway swap inside a period is the half
+ * line; a period with no swap uses the midpoint.
  */
-function overtimePeriodLength(
+function addOvertimeMarks(
+  marks: Set<number>,
   swaps: readonly number[],
   regulation: number,
-  matchInfo: MatchInfo | undefined,
-): number | undefined {
-  const middle = swaps.find((round) => round > regulation);
-  if (middle != null) {
-    const overtimeHalf = middle - regulation;
-    if (overtimeHalf > 0) return overtimeHalf * SIDE_BLOCKS_PER_PERIOD;
+  overtime: number,
+  last: number,
+): void {
+  for (let boundary = regulation; boundary < last; boundary += overtime) {
+    marks.add(boundary);
+    const periodEnd = boundary + overtime;
+    const halves = swaps.filter((swap) => swap > boundary && swap < periodEnd);
+    if (halves.length > 0) {
+      for (const half of halves) marks.add(half);
+      continue;
+    }
+    if (overtime % SIDE_BLOCKS_PER_PERIOD !== 0) continue;
+    marks.add(boundary + overtime / SIDE_BLOCKS_PER_PERIOD);
   }
-  return positiveInt(getConvar(matchInfo, "mp_overtime_maxrounds"));
 }
 
 function positiveInt(raw: string | undefined): number | undefined {
