@@ -76,6 +76,11 @@ impl ParsedMatch {
         serde_json::to_string(&self.inner.controller_dump).map_err(js_err)
     }
 
+    #[wasm_bindgen(js_name = roundScoreboardJson)]
+    pub fn round_scoreboard_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self.inner.round_scoreboard).map_err(js_err)
+    }
+
     #[wasm_bindgen(js_name = matchInfoJson)]
     pub fn match_info_json(&self) -> Result<String, JsValue> {
         serde_json::to_string(&self.inner.match_info).map_err(js_err)
