@@ -93,6 +93,13 @@ describe("MapToolbar", () => {
     expect(button).toHaveAttribute("aria-pressed", "false");
     expect(button).toHaveAttribute("title", "Stats timeline");
     expect(button.previousElementSibling).toHaveClass("toolbar-sep");
+    const glyph = button.querySelector("path");
+    expect(glyph).toHaveAttribute("stroke", "currentColor");
+    expect(glyph).toHaveAttribute("stroke-linecap", "round");
+    expect(glyph).toHaveAttribute(
+      "d",
+      "M3 2.5v11h11M4.5 10.75 7 6.75 8.75 8.5 12.5 3.75M10 3.75h2.5v2.5",
+    );
     await userEvent.click(button);
     expect(onToggle).toHaveBeenCalledOnce();
   });

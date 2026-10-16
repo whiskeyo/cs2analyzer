@@ -14,7 +14,7 @@ export const TOOLBAR_PATHS = {
   trail: "M3 12c2-1 3-4 5-4s3 3 5 2",
   moment: "M8 3.5A4.5 4.5 0 1 1 3.5 8M8 5.5V8l1.8 1.2",
   bookmark: "M4.5 2h7v12l-3.5-2.2L4.5 14Z",
-  chart: "M3 13V8M7 13V5M11 13V3M3 13h10",
+  chart: "M3 2.5v11h11M4.5 10.75 7 6.75 8.75 8.5 12.5 3.75M10 3.75h2.5v2.5",
   polygon: "M2.5 11 5 3.5h6.5L14 9.5 8.5 14Z",
   rect: "M3.5 3.5h9v9h-9Z",
   circle: "M13 8A5 5 0 1 1 3 8a5 5 0 0 1 10 0Z",
