@@ -9,7 +9,7 @@ import {
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
 import type { TimelineColumn, TimelinePlayerRow, TimelineStatId } from "@/lib/stats/timeline";
-import { pixelOriginShift } from "@/lib/stats/timelineChart";
+import { axisStrokeWidth, devicePixelStroke, pixelOriginShift } from "@/lib/stats/timelineChart";
 import { StatsTimelineChart } from "./StatsTimelineChart";
 
 const MODAL_BODY_PAD_X = 0.85 * 16 * 2;
@@ -89,6 +89,34 @@ function installPlotResize(initial: { width: number; height: number }) {
 function expectPixelCenter(line: Element) {
   for (const name of ["x1", "y1", "x2", "y2"]) {
     expect(line.getAttribute(name)).toMatch(/\.5$/);
+  }
+}
+
+/** Horizontal and vertical rules share one integer device-pixel stroke. */
+function expectSharedDeviceStroke(dpr: number) {
+  const lines = [
+    ...document.querySelectorAll(
+      ".stats-timeline-grid, .stats-timeline-break, .stats-timeline-hover",
+    ),
+  ];
+  const vertical = lines.filter((line) => line.getAttribute("x1") === line.getAttribute("x2"));
+  const horizontal = lines.filter((line) => line.getAttribute("y1") === line.getAttribute("y2"));
+  expect(vertical.length).toBeGreaterThan(0);
+  expect(horizontal.length).toBeGreaterThan(0);
+  const width = vertical[0]?.getAttribute("stroke-width");
+  expect(width).toBeTruthy();
+  for (const line of [...vertical, ...horizontal]) {
+    expect(line).toHaveAttribute("stroke-width", width ?? "");
+  }
+  const device = Number(width) * dpr;
+  expect(device).toBeCloseTo(devicePixelStroke(dpr), 6);
+  expect(device).toBeCloseTo(Math.round(device), 6);
+  const odd = devicePixelStroke(dpr) % 2 === 1;
+  for (const line of [...vertical, ...horizontal]) {
+    for (const name of ["x1", "y1", "x2", "y2"]) {
+      const center = Number(line.getAttribute(name)) * dpr;
+      expect(center - Math.floor(center)).toBeCloseTo(odd ? 0.5 : 0, 5);
+    }
   }
 }
 
@@ -223,19 +251,21 @@ describe("StatsTimelineChart pixel grid", () => {
       );
       const before = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
       expect(before).toMatch(/\.5$/);
+      expectSharedDeviceStroke(1);
+      expect(document.querySelector(".stats-timeline-grid")).toHaveAttribute(
+        "stroke-width",
+        String(axisStrokeWidth(1)),
+      );
       expect(queries.at(-1)).toBe("(resolution: 1dppx)");
-      ratio = 1.25;
-      act(() => listener?.());
-      const quarter = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
-      expect(quarter).not.toBe(before);
-      expect(Number(quarter) * 1.25 - Math.floor(Number(quarter) * 1.25)).toBeCloseTo(0.5, 5);
-      expect(queries.at(-1)).toBe("(resolution: 1.25dppx)");
-      ratio = 2;
-      act(() => listener?.());
-      const after = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
-      expect(after).not.toBe(quarter);
-      expect(Number(after) * 2 - Math.floor(Number(after) * 2)).toBeCloseTo(0.5, 5);
-      expect(queries.at(-1)).toBe("(resolution: 2dppx)");
+      for (const next of [1.25, 1.5, 2]) {
+        const previousX = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
+        ratio = next;
+        act(() => listener?.());
+        const x = document.querySelector(".stats-timeline-grid")?.getAttribute("x1");
+        expect(x).not.toBe(previousX);
+        expectSharedDeviceStroke(next);
+        expect(queries.at(-1)).toBe(`(resolution: ${next}dppx)`);
+      }
     } finally {
       rectSpy.mockRestore();
       plotResize.restore();

@@ -72,20 +72,43 @@ export function valueToY(value: number, max: number, plot: PlotRect): number {
   return plot.y + plot.height * (1 - t);
 }
 
+/** A hairline is never thinner than one device pixel. */
+const MIN_DEVICE_PIXEL_STROKE = 1;
+
+function finiteDevicePixelRatio(dpr: number): number {
+  return dpr > 0 && Number.isFinite(dpr) ? dpr : 1;
+}
+
 /** `window.devicePixelRatio`, or 1 when the browser has not reported one. */
 export function readDevicePixelRatio(): number {
   if (typeof window === "undefined") return 1;
-  const ratio = window.devicePixelRatio;
-  return ratio > 0 && Number.isFinite(ratio) ? ratio : 1;
+  return finiteDevicePixelRatio(window.devicePixelRatio);
 }
 
 /**
- * Snap a CSS-pixel position onto the center of a device pixel.
- * `snapped * dpr` ends in `.5`.
+ * Device pixels a grid, seam, or hover stroke covers. The same width on both
+ * axes: `crispEdges` otherwise rounds a fractional device-pixel stroke
+ * differently for horizontal and vertical rules.
+ */
+export function devicePixelStroke(dpr: number): number {
+  return Math.max(MIN_DEVICE_PIXEL_STROKE, Math.round(finiteDevicePixelRatio(dpr)));
+}
+
+/** CSS `stroke-width` that covers exactly `devicePixelStroke(dpr)` device pixels. */
+export function axisStrokeWidth(dpr: number): number {
+  return devicePixelStroke(dpr) / finiteDevicePixelRatio(dpr);
+}
+
+/**
+ * Snap a CSS-pixel position so an `axisStrokeWidth` stroke covers whole device
+ * pixels. An odd width is centered on a device pixel; an even width sits on a
+ * device-pixel boundary.
  */
 export function snapDevicePixel(px: number, dpr: number): number {
-  const ratio = dpr > 0 && Number.isFinite(dpr) ? dpr : 1;
-  return (Math.round(px * ratio) + 0.5) / ratio;
+  const ratio = finiteDevicePixelRatio(dpr);
+  const device = px * ratio;
+  const centered = devicePixelStroke(ratio) % 2 === 1;
+  return (centered ? Math.round(device) + 0.5 : Math.round(device)) / ratio;
 }
 
 /**
@@ -110,7 +133,7 @@ export function axisPixel(
  */
 export function pixelOriginShift(originPx: number, dpr: number = 1): number {
   if (!Number.isFinite(originPx)) return 0;
-  const ratio = dpr > 0 && Number.isFinite(dpr) ? dpr : 1;
+  const ratio = finiteDevicePixelRatio(dpr);
   const device = originPx * ratio;
   return (Math.ceil(device) - device) / ratio;
 }

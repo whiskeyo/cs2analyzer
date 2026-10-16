@@ -7,6 +7,8 @@ import {
   plotRect,
   roundX,
   axisPixel,
+  axisStrokeWidth,
+  devicePixelStroke,
   pixelOriginShift,
   snapDevicePixel,
   smoothLinePath,
@@ -22,17 +24,32 @@ import type { Side } from "@/lib/replay/replayTypes";
 describe("timelineChart", () => {
   const plot = plotRect();
 
-  it("snaps a CSS pixel onto the center of a device pixel", () => {
+  it("covers a whole number of device pixels, the same width on both axes", () => {
     for (const dpr of [1, 1.25, 1.5, 2]) {
+      const devicePx = devicePixelStroke(dpr);
+      expect(Number.isInteger(devicePx)).toBe(true);
+      expect(devicePx).toBe(Math.max(1, Math.round(dpr)));
+      const horizontal = axisStrokeWidth(dpr);
+      const vertical = axisStrokeWidth(dpr);
+      expect(horizontal).toBe(vertical);
+      expect(horizontal * dpr).toBeCloseTo(devicePx, 8);
+      const odd = devicePx % 2 === 1;
       for (const px of [0, 0.4, 10.2, 22, 94.37]) {
-        const device = snapDevicePixel(px, dpr) * dpr;
-        expect(device - Math.floor(device)).toBeCloseTo(0.5, 6);
+        const center = snapDevicePixel(px, dpr) * dpr;
+        const fraction = center - Math.floor(center);
+        expect(fraction).toBeCloseTo(odd ? 0.5 : 0, 6);
+        const half = devicePx / 2;
+        expect(center - half).toBeCloseTo(Math.round(center - half), 6);
+        expect(center + half).toBeCloseTo(Math.round(center + half), 6);
       }
     }
     expect(snapDevicePixel(10.2, 1)).toBe(10.5);
-    expect(snapDevicePixel(10.2, 2)).toBe(10.25);
+    expect(snapDevicePixel(10.2, 1.25)).toBe((Math.round(10.2 * 1.25) + 0.5) / 1.25);
+    expect(snapDevicePixel(10.2, 1.5)).toBe(Math.round(10.2 * 1.5) / 1.5);
+    expect(snapDevicePixel(10.2, 2)).toBe(Math.round(10.2 * 2) / 2);
     expect(snapDevicePixel(10.2, 1)).not.toBe(snapDevicePixel(10.2, 1.25));
     expect(snapDevicePixel(10.2, 0)).toBe(snapDevicePixel(10.2, 1));
+    expect(axisStrokeWidth(0)).toBe(axisStrokeWidth(1));
     expect(axisPixel(22, 280, 0, 2)).toBe(22);
     expect(axisPixel(22, 280, 938, 2)).toBe(snapDevicePixel((22 / 280) * 938, 2));
     expect(pixelOriginShift(0, 1)).toBe(0);

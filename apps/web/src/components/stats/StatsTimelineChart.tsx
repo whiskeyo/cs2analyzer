@@ -14,6 +14,7 @@ import {
   roundX,
   smoothLinePath,
   axisPixel,
+  axisStrokeWidth,
   valueToY,
   type PlotRect,
   type TimelinePoint,
@@ -49,8 +50,6 @@ const CHART_SURFACE = "#12171d";
 const GRID_INK = 0.08;
 /** Half and overtime seams. Lighter than the round grid, still a hairline. */
 const BREAK_INK = 0.5;
-/** CSS pixels. `non-scaling-stroke` keeps this width when the viewBox is stretched. */
-const AXIS_STROKE = 1;
 const HOVER_DASH = "3 4";
 
 function inkChannel(hex: string, index: number): number {
@@ -223,8 +222,9 @@ const HIGHLIGHT_STROKE = 1.6;
 
 /**
  * Grid, half/OT seams, and the hover guide. The viewBox matches this SVG's CSS
- * pixel size. Rules are snapped to device-pixel centers for the current
- * `devicePixelRatio`, and the element origin sits on a device-pixel boundary.
+ * pixel size. Stroke width is a whole number of device pixels, and each rule
+ * is snapped so that stroke covers whole device pixels at the current
+ * `devicePixelRatio`. The element origin sits on a device-pixel boundary.
  * Player lines stay in the stretched series SVG.
  */
 function AxisOverlay({
@@ -250,6 +250,7 @@ function AxisOverlay({
 }) {
   const { width, height, shiftX, shiftY, dpr } = box;
   if (!(width > 0) || !(height > 0)) return null;
+  const strokeWidth = axisStrokeWidth(dpr);
   const x = (user: number) => axisPixel(user, layout.width, width, dpr);
   const y = (user: number) => axisPixel(user, layout.height, height, dpr);
   const top = y(plot.y);
@@ -270,6 +271,7 @@ function AxisOverlay({
             key={tick}
             className="stats-timeline-grid"
             stroke={GRID_STROKE}
+            strokeWidth={strokeWidth}
             x1={left}
             y1={lineY}
             x2={right}
@@ -289,6 +291,7 @@ function AxisOverlay({
             <AxisLine
               className="stats-timeline-grid"
               stroke={GRID_STROKE}
+              strokeWidth={strokeWidth}
               x1={lineX}
               y1={top}
               x2={lineX}
@@ -298,6 +301,7 @@ function AxisOverlay({
               <AxisLine
                 className="stats-timeline-break"
                 stroke={BREAK_STROKE}
+                strokeWidth={strokeWidth}
                 x1={split}
                 y1={top}
                 x2={split}
@@ -311,6 +315,7 @@ function AxisOverlay({
         <AxisLine
           className="stats-timeline-hover"
           stroke={BREAK_STROKE}
+          strokeWidth={strokeWidth}
           dash={HOVER_DASH}
           x1={x(roundX(hover, columns.length, plot))}
           y1={top}
@@ -322,10 +327,11 @@ function AxisOverlay({
   );
 }
 
-/** Axis-aligned rule in the pixel overlay. One CSS pixel, no stacked alpha. */
+/** Axis-aligned rule in the pixel overlay. Opaque, and a whole number of device pixels. */
 function AxisLine({
   className,
   stroke,
+  strokeWidth,
   dash,
   x1,
   y1,
@@ -334,6 +340,7 @@ function AxisLine({
 }: {
   className: string;
   stroke: string;
+  strokeWidth: number;
   dash?: string;
   x1: number;
   y1: number;
@@ -348,7 +355,7 @@ function AxisLine({
       x2={x2}
       y2={y2}
       stroke={stroke}
-      strokeWidth={AXIS_STROKE}
+      strokeWidth={strokeWidth}
       strokeDasharray={dash}
       vectorEffect="non-scaling-stroke"
       shapeRendering="crispEdges"
