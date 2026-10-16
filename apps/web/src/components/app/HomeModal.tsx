@@ -17,6 +17,7 @@ function tabbables(root: ParentNode): HTMLElement[] {
  */
 export function HomeModal({
   titleId,
+  title,
   onClose,
   onEscape,
   backdropClassName,
@@ -26,6 +27,7 @@ export function HomeModal({
   after,
 }: {
   titleId: string;
+  title: string;
   onClose: () => void;
   /** Defaults to `onClose`. Settings uses this to dismiss a confirm first. */
   onEscape?: () => void;
@@ -104,23 +106,26 @@ export function HomeModal({
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
-        <button
-          type="button"
-          className="home-modal-close"
-          aria-label={messages.dialog.close}
-          onClick={() => onCloseRef.current()}
-        >
-          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-            <path
-              d="M4 4 L12 12 M12 4 L4 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-        {children}
+        <div className="home-modal-head">
+          <h2 id={titleId}>{title}</h2>
+          <button
+            type="button"
+            className="home-modal-close"
+            aria-label={messages.dialog.close}
+            onClick={() => onCloseRef.current()}
+          >
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path
+                d="M4 4 L12 12 M12 4 L4 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div className="home-modal-body">{children}</div>
       </div>
       {after}
     </div>,

@@ -12,11 +12,11 @@ function Dialog({ onClose, onEscape }: { onClose: () => void; onEscape?: () => v
   return (
     <HomeModal
       titleId={titleId}
+      title="Preferences"
       onClose={onClose}
       onEscape={onEscape}
       backdropClassName="settings-modal"
     >
-      <h2 id={titleId}>Preferences</h2>
       <button type="button">First</button>
       <button type="button">Last</button>
     </HomeModal>
@@ -35,6 +35,12 @@ describe("HomeModal", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Preferences" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
+    const head = dialog.querySelector(".home-modal-head");
+    const body = dialog.querySelector(".home-modal-body");
+    expect(head).toContainElement(screen.getByRole("heading", { name: "Preferences" }));
+    expect(head).toContainElement(screen.getByRole("button", { name: "Close" }));
+    expect(body).toContainElement(screen.getByRole("button", { name: "First" }));
+    expect(body).not.toContainElement(screen.getByRole("heading", { name: "Preferences" }));
     expect(dialog.closest(".settings-modal")?.parentElement).toBe(document.body);
     await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
 

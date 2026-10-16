@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useState, type CSSProperties } from "react";
 import type { Replay } from "@/lib/replay/replayTypes";
 import { StatsTimeline } from "@/components/stats/StatsTimeline";
+import { useMessages } from "@/lib/i18n/messages";
 import { HomeModal } from "./HomeModal";
 
 /** Viewport box of the radar column, so the dialog covers the map and not the sidebar. */
@@ -54,9 +55,11 @@ export function StatsTimelineModal({
 }) {
   const titleId = useId();
   const frame = useMapColumnFrame();
+  const messages = useMessages();
   return (
     <HomeModal
       titleId={titleId}
+      title={messages.timeline.open}
       onClose={onClose}
       backdropClassName={[
         "settings-modal",
@@ -68,7 +71,7 @@ export function StatsTimelineModal({
       backdropStyle={frame}
       cardClassName="settings-modal-card stats-timeline-modal-card"
     >
-      <StatsTimeline replay={replay} selected={selected} onSelect={onSelect} headingId={titleId} />
+      <StatsTimeline replay={replay} selected={selected} onSelect={onSelect} hideTitle />
     </HomeModal>
   );
 }

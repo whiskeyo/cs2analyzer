@@ -82,6 +82,7 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         }
         onClose();
       }}
+      title="Preferences"
       backdropClassName="settings-modal"
       cardClassName="settings-modal-card"
       after={
@@ -96,7 +97,6 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
         ) : null
       }
     >
-      <h2 id={titleId}>Preferences</h2>
       <p className="settings-modal-lead">
         Stored in this browser. Reset restores shipped defaults and does not delete notes or
         playbooks.

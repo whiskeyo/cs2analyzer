@@ -19,9 +19,17 @@ interface Props {
   onSelect?: (player: number | null) => void;
   /** Dialog label target when the chart is shown in HomeModal. */
   headingId?: string;
+  /** The dialog header already shows the title. */
+  hideTitle?: boolean;
 }
 
-export function StatsTimeline({ replay, selected: selectedProp, onSelect, headingId }: Props) {
+export function StatsTimeline({
+  replay,
+  selected: selectedProp,
+  onSelect,
+  headingId,
+  hideTitle = false,
+}: Props) {
   const columns = useMemo(() => statsTimeline(replay), [replay]);
   const colors = useMemo(() => playerMarkColors(replay.players), [replay.players]);
   const [stat, setStat] = useState<TimelineStatId>("adr");
@@ -42,9 +50,11 @@ export function StatsTimeline({ replay, selected: selectedProp, onSelect, headin
 
   return (
     <section className="stats-timeline" aria-label="Stats timeline">
-      <h2 id={headingId} className="stats-timeline-title">
-        Stats timeline
-      </h2>
+      {hideTitle ? null : (
+        <h2 id={headingId} className="stats-timeline-title">
+          Stats timeline
+        </h2>
+      )}
       <div className="stats-timeline-toolbar">
         <div className="stats-timeline-groups">
           {TIMELINE_GROUPS.map((group) => (
