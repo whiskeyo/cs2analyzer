@@ -94,7 +94,7 @@ describe("StatsTimeline", () => {
     );
     expect(document.querySelector(".stats-timeline-line.is-dim")).toHaveAttribute(
       "stroke-width",
-      "0.6",
+      "0.9",
     );
     expect(document.querySelector("feGaussianBlur")).toBeNull();
     expect(document.querySelector(".stats-timeline-line")).not.toHaveAttribute("filter");

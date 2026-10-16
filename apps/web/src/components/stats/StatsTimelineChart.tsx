@@ -193,7 +193,7 @@ export function StatsTimelineChart({
 }
 
 /** Crisp stroke in CSS pixels. A viewBox stroke scales up and merges a long match. */
-const LINE_STROKE = 0.6;
+const LINE_STROKE = 0.9;
 const HIGHLIGHT_STROKE = 1;
 
 function LineShape({
