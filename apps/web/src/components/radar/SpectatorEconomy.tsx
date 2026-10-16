@@ -1,4 +1,5 @@
-import { memo } from "react";
+import { memo, useMemo, type CSSProperties } from "react";
+import { playerMarkColors } from "@/lib/players/playerColors";
 import {
   formatMoney,
   gearIconHeldClass,
@@ -30,6 +31,7 @@ interface Props {
 function PlayerCard({
   p,
   name,
+  color,
   kd,
   frags,
   lastHit,
@@ -39,6 +41,7 @@ function PlayerCard({
 }: {
   p: SampledPlayer;
   name: string;
+  color: string;
   kd: string;
   frags: RoundFrags | null;
   lastHit: string | null;
@@ -62,6 +65,7 @@ function PlayerCard({
     <button
       type="button"
       className={`spec-card${selected ? " on" : ""}${p.alive ? "" : " dead"}`}
+      style={{ "--player-mark": color } as CSSProperties}
       onClick={onSelect}
     >
       <div className="spec-hp" aria-hidden>
@@ -73,6 +77,7 @@ function PlayerCard({
       <div className="spec-body">
         <div className="spec-top">
           <span className="spec-name-row">
+            <span className="spec-mark" style={{ background: color }} aria-hidden />
             <span className="spec-name">{name}</span>
             {frags && (
               <span className="spec-frags">
@@ -134,6 +139,7 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
   selected,
   onSelect,
 }: Props) {
+  const colors = useMemo(() => playerMarkColors(replay.players), [replay.players]);
   const samples = samplePlayers(replay, tick);
   const stats = computeStats(replay, tick);
   const teams = liveTeams(replay, tick);
@@ -172,6 +178,7 @@ export const SpectatorEconomy = memo(function SpectatorEconomy({
             key={p.index}
             p={p}
             name={name}
+            color={colors[p.index] ?? colors[0] ?? "#d0d6dc"}
             kd={kd}
             frags={frags}
             lastHit={

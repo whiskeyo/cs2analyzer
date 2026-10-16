@@ -31,6 +31,9 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
         .filter(|r| r.freeze_end_tick.min(r.start_tick) <= until_tick)
         .collect();
     let rounds_n = started.len() as u32;
+    // ADR and KAST use finished rounds only. `rounds` stays the started count
+    // so per-round rating still moves when the next freeze begins.
+    let completed_rounds = started.iter().filter(|r| r.end_tick <= until_tick).count() as u32;
     for s in &mut stats {
         s.rounds = rounds_n;
     }
@@ -138,8 +141,9 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
         let mut kast = vec![false; n];
         let mut died_at = vec![None; n];
         let freeze = round.freeze_end_tick.max(round.start_tick);
+        let round_over = round.end_tick <= until_tick;
         for (i, s) in stats.iter_mut().enumerate() {
-            if !present_at(m, i, freeze) {
+            if !round_over || !present_at(m, i, freeze) {
                 continue;
             }
             match side_at(m, i, freeze) {
@@ -171,7 +175,6 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
             }
         }
 
-        let round_over = round.end_tick <= until_tick;
         for (i, death) in died_at.iter().enumerate() {
             if death.is_none() && round_over && present_at(m, i, freeze) {
                 kast[i] = true;
@@ -187,7 +190,7 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
         );
 
         for (i, ok) in kast.iter().enumerate() {
-            if *ok {
+            if round_over && *ok {
                 stats[i].kast_rounds += 1;
             }
         }
@@ -203,8 +206,8 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
     }
 
     for s in &mut stats {
-        s.adr = if s.rounds > 0 {
-            s.damage as f32 / s.rounds as f32
+        s.adr = if completed_rounds > 0 {
+            s.damage as f32 / completed_rounds as f32
         } else {
             0.0
         };
@@ -213,8 +216,8 @@ pub fn compute_stats_until(m: &Match, until_tick: u32) -> Vec<PlayerStats> {
         } else {
             0.0
         };
-        s.kast = if s.rounds > 0 {
-            100.0 * s.kast_rounds as f32 / s.rounds as f32
+        s.kast = if completed_rounds > 0 {
+            100.0 * s.kast_rounds as f32 / completed_rounds as f32
         } else {
             0.0
         };
@@ -559,6 +562,45 @@ mod tests {
             armor: 0,
             weapon: "ak47".into(),
         }
+    }
+
+    #[test]
+    fn adr_and_kast_wait_for_round_end() {
+        let mut m = empty_match();
+        m.rounds.push(Round {
+            number: 31,
+            start_tick: 700,
+            freeze_end_tick: 764,
+            end_tick: 1200,
+            playback_end_tick: 0,
+            winner: Some(Side::T),
+            win_reason: 8,
+            score_ct: 1,
+            score_t: 1,
+            round_time_s: 0,
+            is_knife: false,
+            team_ct: String::new(),
+            team_t: String::new(),
+        });
+        m.kills.push(kill(100, 0, 1));
+        m.kills.push(kill(800, 1, 0));
+        m.hurts.push(hurt(90, 0, 1, 100));
+        m.hurts.push(hurt(790, 1, 0, 40));
+        let closed = compute_stats_until(&m, 640);
+        let at_start = compute_stats_until(&m, 700);
+        assert_eq!(at_start[0].kills, closed[0].kills);
+        assert_eq!(at_start[0].deaths, closed[0].deaths);
+        assert_eq!(at_start[1].kills, closed[1].kills);
+        assert_eq!(at_start[1].deaths, closed[1].deaths);
+        assert!((at_start[0].adr - closed[0].adr).abs() < f32::EPSILON);
+        assert!((at_start[0].kast - closed[0].kast).abs() < f32::EPSILON);
+        assert!((at_start[1].adr - closed[1].adr).abs() < f32::EPSILON);
+        assert!((at_start[1].kast - closed[1].kast).abs() < f32::EPSILON);
+        let mid = compute_stats_until(&m, 800);
+        assert_eq!(mid[1].kills, closed[1].kills + 1);
+        assert_eq!(mid[0].deaths, closed[0].deaths + 1);
+        assert!((mid[0].kast - closed[0].kast).abs() < f32::EPSILON);
+        assert!((mid[1].kast - closed[1].kast).abs() < f32::EPSILON);
     }
 
     #[test]

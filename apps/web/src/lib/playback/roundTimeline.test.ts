@@ -31,6 +31,39 @@ describe("roundScrubRange", () => {
     });
   });
 
+  it("does not end the last round at its start when playback_end_tick is 0", () => {
+    const cases = [
+      {
+        number: 42,
+        start_tick: 264198,
+        end_tick: 266234,
+        demoEnd: 266675,
+      },
+      {
+        number: 16,
+        start_tick: 146630,
+        end_tick: 152061,
+        demoEnd: 152468,
+      },
+    ];
+    for (const sample of cases) {
+      const last = round({
+        number: sample.number,
+        start_tick: sample.start_tick,
+        freeze_end_tick: sample.start_tick,
+        end_tick: sample.end_tick,
+        playback_end_tick: 0,
+      });
+      const range = roundScrubRange(last, [last], {
+        min: 0,
+        max: sample.demoEnd,
+      });
+      expect(range.min).toBe(sample.start_tick);
+      expect(range.max).toBe(sample.demoEnd);
+      expect(range.max).toBeGreaterThanOrEqual(sample.end_tick);
+    }
+  });
+
   it("includes post-round through playback_end_tick when present", () => {
     const a = round({
       start_tick: 0,

@@ -10,6 +10,7 @@ import {
   makeReplay,
   makeRound,
 } from "@/lib/testing/fixtures";
+import { playerMarkColors } from "@/lib/players/playerColors";
 import { SpectatorEconomy } from "./SpectatorEconomy";
 
 function replay() {
@@ -53,6 +54,19 @@ describe("SpectatorEconomy", () => {
     rerender(<SpectatorEconomy replay={replay()} tick={64} selected={0} onSelect={onSelect} />);
     await userEvent.click(screen.getByText("Alice").closest("button") as HTMLButtonElement);
     expect(onSelect).toHaveBeenLastCalledWith(null);
+  });
+
+  it("marks each card with that player's palette colour", () => {
+    const m = replay();
+    const colors = playerMarkColors(m.players);
+    render(<SpectatorEconomy replay={m} tick={64} selected={null} onSelect={() => {}} />);
+    const alice = screen.getByText("Alice").closest(".spec-card");
+    const cara = screen.getByText("Cara").closest(".spec-card");
+    expect(alice).toHaveStyle({ "--player-mark": colors[0] });
+    expect(alice?.querySelector(".spec-mark")).toHaveStyle({ background: colors[0] });
+    expect(cara).toHaveStyle({ "--player-mark": colors[2] });
+    expect(cara?.querySelector(".spec-mark")).toHaveStyle({ background: colors[2] });
+    expect(colors[0]).not.toBe(colors[2]);
   });
 
   it("marks the selected card", () => {

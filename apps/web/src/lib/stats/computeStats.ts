@@ -112,6 +112,10 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
   const started = replay.rounds.filter(
     (r) => !r.is_knife && Math.min(r.freeze_end_tick, r.start_tick) <= untilTick,
   );
+  // Rating still sees a round once it has started. ADR and KAST wait until
+  // round_end, matching HLTV and Leetify, so the in-progress round does not
+  // dilute the rate while its kills and deaths are already on the board.
+  const completedRounds = started.filter((r) => r.end_tick <= untilTick).length;
   for (const s of stats) {
     s.rounds = started.length;
   }
@@ -215,8 +219,9 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
     const kast = new Array(n).fill(false);
     const diedAt: (number | null)[] = new Array(n).fill(null);
     const freeze = round.freeze_end_tick || round.start_tick;
+    const roundOver = round.end_tick <= untilTick;
     for (let i = 0; i < n; i++) {
-      if (!presentAt(replay, i, freeze)) {
+      if (!roundOver || !presentAt(replay, i, freeze)) {
         continue;
       }
       if (currentSide(replay, i, freeze) === "CT") {
@@ -245,7 +250,6 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
       }
     }
 
-    const roundOver = round.end_tick <= untilTick;
     for (let i = 0; i < n; i++) {
       if (diedAt[i] == null && roundOver && presentAt(replay, i, freeze)) {
         kast[i] = true;
@@ -256,7 +260,7 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
     applyTrades(replay, roundKills, tradeTicks, kast, stats);
 
     for (let i = 0; i < n; i++) {
-      if (kast[i]) {
+      if (roundOver && kast[i]) {
         stats[i].kast_rounds += 1;
       }
       if (killsInRound[i] === 2) {
@@ -276,9 +280,9 @@ export function computeStats(replay: Replay, untilTick: number): PlayerStats[] {
   }
 
   for (const s of stats) {
-    s.adr = s.rounds > 0 ? s.damage / s.rounds : 0;
+    s.adr = completedRounds > 0 ? s.damage / completedRounds : 0;
     s.headshot_percent = s.kills > 0 ? (100 * s.headshots) / s.kills : 0;
-    s.kast = s.rounds > 0 ? (100 * s.kast_rounds) / s.rounds : 0;
+    s.kast = completedRounds > 0 ? (100 * s.kast_rounds) / completedRounds : 0;
     s.kd = s.deaths > 0 ? s.kills / s.deaths : s.kills;
     s.entry_attempts = s.first_kills + s.first_deaths;
     s.entry_success = s.entry_attempts > 0 ? (100 * s.first_kills) / s.entry_attempts : 0;

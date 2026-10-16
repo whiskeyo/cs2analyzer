@@ -1,4 +1,4 @@
-import type { DrawTool, FloorMode, MapLayers } from "@/lib/notes/types";
+import type { DrawTool, FloorMode } from "@/lib/notes/types";
 
 export interface MapToolbarReviewState {
   tool: DrawTool;
@@ -15,7 +15,6 @@ export interface MapToolbarViewState {
   trails: boolean;
   moment: boolean;
   canFollow: boolean;
-  layers: MapLayers;
 }
 
 export interface MapToolbarReviewActions {
@@ -33,7 +32,6 @@ export interface MapToolbarViewActions {
   onFollow: (follow: boolean) => void;
   onTrails: (trails: boolean) => void;
   onMoment: (moment: boolean) => void;
-  onLayers: (layers: MapLayers) => void;
   onResetView: () => void;
 }
 
@@ -45,4 +43,6 @@ export interface MapToolbarProps {
   onSnapshot?: () => void;
   /** False on Aggregated — same `analyzerNotesLive` / `isAggregatedView` gate. */
   drawingsEnabled?: boolean;
+  /** Single-demo chart. Omitted while the series is aggregated. */
+  statsTimeline?: { open: boolean; onToggle: () => void };
 }
