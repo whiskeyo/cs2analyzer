@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sampleMatchInfo } from "@/lib/testing/fixtures";
-import { getConvar } from "./convars";
+import { getConvar, getConvarAt } from "./convars";
 
 describe("getConvar", () => {
   it("returns the demo value when the server sent the name", () => {
@@ -16,5 +16,35 @@ describe("getConvar", () => {
   it("returns undefined when the name is missing from both tables", () => {
     expect(getConvar(sampleMatchInfo(), "mp_freezetime")).toBeUndefined();
     expect(getConvar(undefined, "mp_maxrounds")).toBeUndefined();
+  });
+});
+
+describe("getConvarAt", () => {
+  const info = sampleMatchInfo({
+    convar_updates: [
+      { tick: 0, name: "mp_maxrounds", value: "24" },
+      { tick: 100, name: "mp_buytime", value: "15" },
+      { tick: 200, name: "mp_maxrounds", value: "30" },
+      { tick: 200, name: "mp_maxrounds", value: "16" },
+      { tick: 50, name: "mp_roundtime", value: "1.92" },
+      { tick: 10, name: "mp_roundtime", value: "1.50" },
+    ],
+  });
+
+  it("uses the last update at or before the tick", () => {
+    expect(getConvarAt(info, "mp_maxrounds", 100)).toBe("24");
+    expect(getConvarAt(info, "mp_maxrounds", 200)).toBe("16");
+    expect(getConvarAt(info, "mp_buytime", 100)).toBe("15");
+  });
+
+  it("ignores updates that have not happened yet and falls back to getConvar", () => {
+    expect(getConvarAt(info, "mp_buytime", 99)).toBe("20");
+    expect(getConvarAt(info, "mp_overtime_maxrounds", 500)).toBe("6");
+    expect(getConvarAt(info, "mp_freezetime", 10)).toBeUndefined();
+    expect(getConvarAt(undefined, "mp_maxrounds", 0)).toBeUndefined();
+  });
+
+  it("keeps the later row when an earlier tick is appended after", () => {
+    expect(getConvarAt(info, "mp_roundtime", 50)).toBe("1.50");
   });
 });
