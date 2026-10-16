@@ -1,7 +1,9 @@
 import { useId, useState } from "react";
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { NadeLegend } from "@/components/radar/NadeLegend";
+import { useMessages } from "@/lib/i18n/messages";
 import { COLOR_PRESETS } from "@/lib/notes/palettes";
+import type { MapLayers } from "@/lib/notes/types";
 import { parsePoolHardwareCap } from "@/lib/parse/parsePool";
 import {
   DEFAULT_DRAW_TOOLS,
@@ -9,6 +11,7 @@ import {
   type DefaultSidebarTab,
 } from "@/lib/settings/userSettings";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
+import { useOptionalAnalyzer } from "@/lib/state/analyzerState";
 import { HomeModal } from "./HomeModal";
 import { UserSettingsPlayback } from "./UserSettingsPlayback";
 import { UserSettingsPdfSection, UserSettingsResetDialog } from "./userSettingsPanels";
@@ -32,6 +35,34 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/shared/constants";
+
+/** Overlay toggles for the open demo. Same session layers the toolbar used to flip. */
+function LiveRadarOverlays() {
+  const analyzer = useOptionalAnalyzer();
+  const messages = useMessages();
+  if (!analyzer) return null;
+  const { layers, setLayers } = analyzer.view;
+  const { setPlaying } = analyzer.playback;
+  const toggle = (key: keyof MapLayers) => {
+    const next = { ...layers, [key]: !layers[key] };
+    if (key === "summary" && next.summary) setPlaying(false);
+    setLayers(next);
+  };
+  return (
+    <>
+      <fieldset className="settings-layers">
+        <legend>{messages.layers.heading}</legend>
+        {LAYER_LABELS.map((row) => (
+          <label key={row.key}>
+            <input type="checkbox" checked={layers[row.key]} onChange={() => toggle(row.key)} />
+            {messages.layers[row.key]}
+          </label>
+        ))}
+      </fieldset>
+      <p className="settings-hint">{messages.layers.hint}</p>
+    </>
+  );
+}
 
 export function UserSettingsModal({ onClose }: { onClose: () => void }) {
   const { settings, update, reset, saveError } = useUserSettings();
@@ -207,6 +238,7 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
 
       <section className="settings-section">
         <h3>Radar</h3>
+        <LiveRadarOverlays />
         <label className="settings-field">
           <span>Map</span>
           <span className="settings-range-end">Color</span>
@@ -226,7 +258,7 @@ export function UserSettingsModal({ onClose }: { onClose: () => void }) {
           Desaturates the map PNG only. Tokens, nades, and ink stay in color. Analyzer, Playbook,
           and PDF stills share this amount.
         </p>
-        <p className="settings-hint">Applied when a demo loads. Toolbar toggles stay per-demo.</p>
+        <p className="settings-hint">Applied when a demo loads.</p>
         <div className="settings-field">
           <span>Default floor</span>
           <span className="floor-picks">

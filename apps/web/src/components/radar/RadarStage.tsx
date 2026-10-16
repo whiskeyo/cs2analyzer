@@ -20,6 +20,7 @@ import { useApp } from "@/lib/state/appState";
 import { useUserSettings } from "@/lib/settings/useUserSettings";
 import { emitTutorialCoachAction } from "@/lib/tutorial/coachAction";
 import { isTutorialAnalyzerPath } from "@/lib/tutorial/query";
+import { useStatsTimelinePanel } from "@/components/app/StatsTimelinePanel";
 import { Hud } from "./Hud";
 import { KillFeed } from "./KillFeed";
 import { MapToolbar } from "./MapToolbar";
@@ -36,6 +37,7 @@ export function RadarStage() {
   const { session, playback, review, view, cal, habits } = useApp();
   const { settings } = useUserSettings();
   const { pathname } = useLocation();
+  const timeline = useStatsTimelinePanel();
   const tutorialSnapshot = isTutorialAnalyzerPath(pathname);
   const [snapshot, setSnapshot] = useState<ReturnType<typeof snapshotFromAnalyzer> | null>(null);
   const [toast, setToast] = useState<SnapshotToastInfo | null>(null);
@@ -71,7 +73,6 @@ export function RadarStage() {
           trails: view.trails,
           moment: view.moment,
           canFollow: view.selected != null,
-          layers: view.layers,
         }}
         drawingsEnabled={notesLive}
         reviewActions={{
@@ -130,14 +131,9 @@ export function RadarStage() {
           onFollow: view.setFollow,
           onTrails: view.setTrails,
           onMoment: view.setMoment,
-          onLayers: (next) => {
-            if (next.summary && !view.layers.summary) {
-              playback.setPlaying(false);
-            }
-            view.setLayers(next);
-          },
           onResetView: view.resetView,
         }}
+        statsTimeline={aggregated ? undefined : { open: timeline.open, onToggle: timeline.toggle }}
         onSnapshot={() =>
           setSnapshot(
             snapshotFromAnalyzer({

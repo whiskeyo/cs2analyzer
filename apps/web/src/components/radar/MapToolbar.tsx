@@ -1,6 +1,7 @@
 import { ColorPalette } from "@/components/notes/ColorPalette";
 import { ToolbarIconBtn } from "@/components/map/ToolbarIcon";
 import { MATCH_PDF_BOOKMARK_TOOLTIP } from "@/lib/export/constants";
+import { useMessages } from "@/lib/i18n/messages";
 import type { MapToolbarProps } from "./mapToolbarTypes";
 
 export function MapToolbar({
@@ -10,15 +11,16 @@ export function MapToolbar({
   viewActions,
   onSnapshot,
   drawingsEnabled = true,
+  statsTimeline,
 }: MapToolbarProps) {
+  const messages = useMessages();
   const { tool, color, paletteId, floorMode, hasFloors, canUndo, canRedo } = review;
-  const { follow, trails, moment, canFollow, layers } = view;
+  const { follow, trails, moment, canFollow } = view;
   const { onTool, onColor, onPalette, onFloorMode, onUndo, onRedo, onClear, onStampBookmark } =
     reviewActions;
-  const { onFollow, onTrails, onMoment, onLayers, onResetView } = viewActions;
+  const { onFollow, onTrails, onMoment, onResetView } = viewActions;
   const draw = drawingsEnabled;
 
-  const toggle = (key: keyof typeof layers) => onLayers({ ...layers, [key]: !layers[key] });
   return (
     <div className="map-toolbar">
       <ToolbarIconBtn title="Pan" on={tool === "pan"} onClick={() => onTool("pan")} path="pan" />
@@ -136,46 +138,14 @@ export function MapToolbar({
         </span>
       )}
       <span className="toolbar-sep" />
-      <button
-        type="button"
-        className={layers.grenades ? "on" : ""}
-        onClick={() => toggle("grenades")}
-      >
-        Nades
-      </button>
-      <button type="button" className={layers.shots ? "on" : ""} onClick={() => toggle("shots")}>
-        Shots
-      </button>
-      <button type="button" className={layers.deaths ? "on" : ""} onClick={() => toggle("deaths")}>
-        Deaths
-      </button>
-      <button
-        type="button"
-        className={layers.openings ? "on" : ""}
-        onClick={() => toggle("openings")}
-      >
-        FK
-      </button>
-      <button type="button" className={layers.names ? "on" : ""} onClick={() => toggle("names")}>
-        Names
-      </button>
-      <button type="button" className={layers.cone ? "on" : ""} onClick={() => toggle("cone")}>
-        Cone
-      </button>
-      <button
-        type="button"
-        className={layers.heatmap ? "on" : ""}
-        onClick={() => toggle("heatmap")}
-      >
-        Heat
-      </button>
-      <button
-        type="button"
-        className={layers.summary ? "on" : ""}
-        onClick={() => toggle("summary")}
-      >
-        Summary
-      </button>
+      {statsTimeline ? (
+        <ToolbarIconBtn
+          title={messages.timeline.open}
+          path="chart"
+          pressed={statsTimeline.open}
+          onClick={statsTimeline.onToggle}
+        />
+      ) : null}
     </div>
   );
 }

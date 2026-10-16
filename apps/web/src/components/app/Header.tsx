@@ -19,7 +19,6 @@ import { isAnalyzerSessionVisible, isTutorialPlaybookPath } from "@/lib/tutorial
 import { AddDemoControl } from "./AddDemoControl";
 import { SettingsMenu } from "./SettingsMenu";
 import { SiteNav } from "./SiteNav";
-import { useStatsTimelinePanel } from "./StatsTimelinePanel";
 
 function downloadCsv(replay: Replay, fileName: string) {
   const csv = exportStatsCsv(replay, computeStats(replay, matchEndTick(replay)));
@@ -37,7 +36,6 @@ export function Header() {
       ? session.replay
       : null;
   const aggregated = replay != null && isAggregatedView(session.series, habits);
-  const timeline = useStatsTimelinePanel();
 
   const navigate = useNavigate();
   const onLayouts = import.meta.env.DEV && isLayoutsPath(pathname);
@@ -96,16 +94,6 @@ export function Header() {
       </div>
       <div className="top-actions">
         {replay && showMatchChrome ? <AddDemoControl /> : null}
-        {replay && showMatchChrome && !aggregated ? (
-          <button
-            type="button"
-            className="ghost"
-            aria-pressed={timeline.open}
-            onClick={timeline.toggle}
-          >
-            Stats timeline
-          </button>
-        ) : null}
         {replay && showMatchChrome ? (
           <button type="button" className="ghost" onClick={session.close}>
             New demo

@@ -14,7 +14,7 @@ const CLOSED: StatsTimelinePanel = {
 
 const StatsTimelinePanelContext = createContext<StatsTimelinePanel>(CLOSED);
 
-/** Shares the stats-timeline dialog between the top bar and the viewer. */
+/** Shares the stats-timeline dialog between the map toolbar and the viewer. */
 export function StatsTimelinePanelProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen((value) => !value), []);
