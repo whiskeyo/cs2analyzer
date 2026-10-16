@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { OVERTIME_START_MONEY } from "@/lib/shared/constants";
 import { sampleMatchInfo } from "@/lib/testing/fixtures";
-import { getConvar, getConvarAt } from "./convars";
+import { getConvar, getConvarAt, overtimeStartMoney } from "./convars";
 
 describe("getConvar", () => {
   it("returns the demo value when the server sent the name", () => {
@@ -46,5 +47,35 @@ describe("getConvarAt", () => {
 
   it("keeps the later row when an earlier tick is appended after", () => {
     expect(getConvarAt(info, "mp_roundtime", 50)).toBe("1.50");
+  });
+});
+
+describe("overtimeStartMoney", () => {
+  it("uses the demo convar ahead of observed and the default", () => {
+    const info = sampleMatchInfo({
+      observed: { overtime_start_money: 16000 },
+    });
+    info.convars.demo.mp_overtime_startmoney = "10000";
+    expect(overtimeStartMoney(info)).toBe(10000);
+  });
+
+  it("uses observed money when the demo omitted the convar", () => {
+    const info = sampleMatchInfo({ observed: { overtime_start_money: 10000 } });
+    expect(info.convars.demo.mp_overtime_startmoney).toBeUndefined();
+    expect(info.convars.defaults.mp_overtime_startmoney).toBe("12500");
+    expect(overtimeStartMoney(info)).toBe(10000);
+  });
+
+  it("uses the tournament default when neither source is present", () => {
+    expect(overtimeStartMoney(sampleMatchInfo())).toBe(OVERTIME_START_MONEY);
+    expect(overtimeStartMoney(undefined)).toBe(OVERTIME_START_MONEY);
+  });
+
+  it("skips a non-numeric demo value and a non-integer observed value", () => {
+    const info = sampleMatchInfo({ observed: { overtime_start_money: 10000.5 } });
+    info.convars.demo.mp_overtime_startmoney = "nope";
+    expect(overtimeStartMoney(info)).toBe(OVERTIME_START_MONEY);
+    info.observed = { overtime_start_money: 9000 };
+    expect(overtimeStartMoney(info)).toBe(9000);
   });
 });

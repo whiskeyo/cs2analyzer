@@ -107,6 +107,15 @@ describe("decodeObject matchInfo", () => {
     ).toBe(decoded.teams.ct.m_iScore);
   });
 
+  it("keeps optional observed overtime money and accepts a payload without it", () => {
+    const decoded = decodeObject<MatchInfo>("matchInfo", JSON.stringify(info));
+    expect(decoded.observed).toBeUndefined();
+    const withObserved = { ...info, observed: { overtime_start_money: 10000 } };
+    expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(withObserved)).observed).toEqual({
+      overtime_start_money: 10000,
+    });
+  });
+
   it("names a convar value that is not a string", () => {
     const broken = structuredClone(info);
     (broken.convars.demo as { mp_maxrounds: unknown }).mp_maxrounds = 24;

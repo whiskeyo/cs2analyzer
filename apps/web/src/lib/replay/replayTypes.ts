@@ -365,6 +365,15 @@ export interface GameRulesSnapshot {
 }
 
 /**
+ * Values read off the server when the convar table did not carry them.
+ * Rust adds `overtime_start_money` in a later parser change. Current demos
+ * omit `observed`.
+ */
+export interface ObservedMatchInfo {
+  overtime_start_money?: number;
+}
+
+/**
  * Extra demo data. Omitted on replays parsed before this field existed.
  *
  * Look up a convar with `getConvar` (`demo[name] ?? defaults[name]`).
@@ -379,6 +388,8 @@ export interface MatchInfo {
   server_name: string;
   build_num: number;
   patch_version: number;
+  /** Absent until the parser records gamerules money the convar table missed. */
+  observed?: ObservedMatchInfo;
 }
 
 export interface Replay {
