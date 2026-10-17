@@ -618,19 +618,18 @@ fn sample_buytime_players(c: &Collector, ctx: &Context) -> Vec<BuytimePlayerCash
         if ctrl.class().name() != "CCSPlayerController" {
             continue;
         }
-        let Some(steam) = controller_playable_id(c, ctx, ctrl) else {
-            continue;
-        };
-        let on_team =
-            side_of(prop_i32(ctrl, "m_iTeamNum")).is_some() || controller_has_team_pawn(ctx, ctrl);
-        if !on_team {
-            continue;
-        }
         let Some(amount) = controller_buytime_cash(ctrl) else {
             continue;
         };
+        // The derivation drops bots, spectators, and disconnected controllers.
+        // They stay on the sample so a leftover cash value cannot change the total.
+        let steam = controller_playable_id(c, ctx, ctrl);
+        let on_team =
+            side_of(prop_i32(ctrl, "m_iTeamNum")).is_some() || controller_has_team_pawn(ctx, ctrl);
         players.push(BuytimePlayerCash {
-            is_bot: crate::is_bot_steam_id(steam),
+            is_bot: steam.is_some_and(crate::is_bot_steam_id),
+            connected: steam.is_some(),
+            on_team,
             amount,
         });
     }

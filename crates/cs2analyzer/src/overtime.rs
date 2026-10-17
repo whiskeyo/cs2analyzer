@@ -24,15 +24,21 @@ pub(crate) struct CashRound {
     pub is_knife: bool,
 }
 
-/// One player at `round_freeze_end`. Bots stay in the sample so the derivation
-/// can drop them the same way the roster does (`is_bot_steam_id`).
+/// One controller that had a cash reading at `round_freeze_end`.
+///
+/// Bots, spectators, and disconnected controllers stay in the sample so the
+/// derivation can ignore them. `is_bot` is `is_bot_steam_id`, the same
+/// identity the roster uses. `connected` is a playable in-server identity.
+/// `on_team` is CT or T on the controller, or a live team pawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BuytimePlayerCash {
     pub is_bot: bool,
+    pub connected: bool,
+    pub on_team: bool,
     pub amount: i32,
 }
 
-/// Every playable controller at one `round_freeze_end` tick.
+/// Cash readings at one `round_freeze_end` tick.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BuytimeCashSample {
     pub tick: u32,
@@ -108,7 +114,8 @@ pub(crate) fn is_overtime_opening_round(number: u32, rules: OvertimeRules) -> bo
 }
 
 /// `None` is JSON null: no overtime, a missing buy-time sample, or amounts
-/// that are not all equal. Bots are ignored.
+/// that are not all equal. Bots, spectators, and disconnected controllers
+/// are ignored.
 pub(crate) fn observed_overtime_start_money(
     rounds: &[CashRound],
     samples: &[BuytimeCashSample],
@@ -137,7 +144,7 @@ pub(crate) fn observed_overtime_start_money(
         let sample = last_sample_in_window(samples, round.start_tick, window_end)?;
         let mut humans = 0u32;
         for player in &sample.players {
-            if player.is_bot {
+            if !player_counts(player) {
                 continue;
             }
             humans += 1;
@@ -180,6 +187,11 @@ pub(crate) fn observed_from_rounds(
     )
 }
 
+/// Real players on CT or T. Bots use the roster's `is_bot_steam_id` flag.
+fn player_counts(player: &BuytimePlayerCash) -> bool {
+    player.connected && player.on_team && !player.is_bot
+}
+
 fn last_sample_in_window(
     samples: &[BuytimeCashSample],
     start: u32,
@@ -207,22 +219,31 @@ mod tests {
         (1..=count).map(live).collect()
     }
 
+    fn counted(amount: i32) -> BuytimePlayerCash {
+        BuytimePlayerCash {
+            is_bot: false,
+            connected: true,
+            on_team: true,
+            amount,
+        }
+    }
+
+    fn ignored(is_bot: bool, connected: bool, on_team: bool, amount: i32) -> BuytimePlayerCash {
+        BuytimePlayerCash {
+            is_bot,
+            connected,
+            on_team,
+            amount,
+        }
+    }
+
     fn humans(amount: i32) -> BuytimeCashSample {
         BuytimeCashSample {
             tick: 0,
             players: vec![
-                BuytimePlayerCash {
-                    is_bot: false,
-                    amount,
-                },
-                BuytimePlayerCash {
-                    is_bot: true,
-                    amount: 0,
-                },
-                BuytimePlayerCash {
-                    is_bot: false,
-                    amount,
-                },
+                counted(amount),
+                ignored(true, true, true, 0),
+                counted(amount),
             ],
         }
     }
@@ -240,6 +261,67 @@ mod tests {
         assert_eq!(
             observed_overtime_start_money(&rounds, &samples, None, mr12()),
             Some(10_000)
+        );
+    }
+
+    #[test]
+    fn differing_amounts_within_one_overtime_start_are_null() {
+        let rounds = competitive(30);
+        let sample = BuytimeCashSample {
+            tick: 25 * 1000 + 200,
+            players: vec![counted(10_000), counted(12_500)],
+        };
+        assert_eq!(
+            observed_overtime_start_money(&rounds, &[sample], None, mr12()),
+            None
+        );
+    }
+
+    #[test]
+    fn disconnected_players_and_spectators_do_not_count() {
+        let rounds = competitive(30);
+        let sample = BuytimeCashSample {
+            tick: 25 * 1000 + 200,
+            players: vec![
+                counted(10_000),
+                counted(10_000),
+                ignored(false, false, true, 800),
+                ignored(false, true, false, 0),
+                ignored(false, false, false, 16_000),
+            ],
+        };
+        assert_eq!(
+            observed_overtime_start_money(&rounds, &[sample], None, mr12()),
+            Some(10_000)
+        );
+    }
+
+    #[test]
+    fn bots_are_excluded_like_the_roster_and_bots_only_is_null() {
+        let rounds = competitive(30);
+        let with_bots = BuytimeCashSample {
+            tick: 25 * 1000 + 200,
+            players: vec![
+                counted(10_000),
+                ignored(true, true, true, 800),
+                ignored(true, true, true, 16_000),
+                counted(10_000),
+            ],
+        };
+        assert_eq!(
+            observed_overtime_start_money(&rounds, &[with_bots], None, mr12()),
+            Some(10_000)
+        );
+        let bots_only = BuytimeCashSample {
+            tick: 25 * 1000 + 200,
+            players: vec![
+                ignored(true, true, true, 10_000),
+                ignored(true, true, true, 10_000),
+            ],
+        };
+        assert_eq!(
+            observed_overtime_start_money(&rounds, &[bots_only], None, mr12()),
+            None
         );
     }
 
