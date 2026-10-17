@@ -388,12 +388,11 @@ export interface GameRulesSnapshot {
 }
 
 /**
- * Values read off the server when the convar table did not carry them.
- * Rust adds `overtime_start_money` in a later parser change. Current demos
- * omit `observed`.
+ * Cash read off players. `overtime_start_money` is null when the match has no
+ * overtime or the balances disagree. There is no platform field.
  */
-export interface ObservedMatchInfo {
-  overtime_start_money?: number | null;
+export interface ObservedMatch {
+  overtime_start_money: number | null;
 }
 
 /**
@@ -414,8 +413,7 @@ export interface MatchInfo {
   server_name: string;
   build_num: number;
   patch_version: number;
-  /** Absent until the parser records gamerules money the convar table missed. */
-  observed?: ObservedMatchInfo;
+  observed?: ObservedMatch;
 }
 
 export interface Replay {

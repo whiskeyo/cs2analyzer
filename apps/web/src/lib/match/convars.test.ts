@@ -69,6 +69,8 @@ describe("overtimeStartMoney", () => {
   it("uses the tournament default when neither source is present", () => {
     expect(overtimeStartMoney(sampleMatchInfo())).toBe(OVERTIME_START_MONEY);
     expect(overtimeStartMoney(undefined)).toBe(OVERTIME_START_MONEY);
+    const cleared = sampleMatchInfo({ observed: { overtime_start_money: null } });
+    expect(overtimeStartMoney(cleared)).toBe(OVERTIME_START_MONEY);
   });
 
   it("skips a non-numeric demo value and a non-integer observed value", () => {

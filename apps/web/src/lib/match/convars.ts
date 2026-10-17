@@ -35,10 +35,11 @@ export function getConvarAt(
 
 /**
  * Freeze money at the start of an overtime period.
- * The demo's `mp_overtime_startmoney` wins, then `observed.overtime_start_money`
- * when a later parser build recorded it, then the tournament default.
- * `observed` sits ahead of that default so a gamerules reading is kept when
- * the server never sent the convar.
+ * The demo's `mp_overtime_startmoney` wins, then a whole-number
+ * `observed.overtime_start_money`, then the tournament default.
+ * Null and a missing `observed` both fall through. The defaults table is
+ * not consulted, so a recorded balance is kept when the server never sent
+ * the convar.
  */
 export function overtimeStartMoney(matchInfo: MatchInfo | undefined): number {
   const demo = wholeNumber(matchInfo?.convars.demo[OVERTIME_START_MONEY_CONVAR]);

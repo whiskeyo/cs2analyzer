@@ -115,6 +115,10 @@ describe("decodeObject matchInfo", () => {
     expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(withObserved)).observed).toEqual({
       overtime_start_money: 10000,
     });
+    const withNull = { ...info, observed: { overtime_start_money: null } };
+    expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(withNull)).observed).toEqual({
+      overtime_start_money: null,
+    });
   });
 
   it("accepts observed overtime money and rejects a string", () => {
