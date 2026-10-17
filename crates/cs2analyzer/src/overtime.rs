@@ -5,8 +5,15 @@
 //! `round_freeze_end` must be the same number. That number is
 //! `observed.overtime_start_money`. Anything else is null, including a match
 //! that never reaches overtime.
+//!
+//! Overtime `k` (0-based) opens on competitive round
+//! `mp_maxrounds + k * mp_overtime_maxrounds + 1`. The demo string is used
+//! when the server sent that convar; otherwise the value comes from
+//! [`crate::constants::CONVAR_DEFAULTS`] (`mp_maxrounds` 24, `mp_overtime_maxrounds` 6).
 
-use crate::constants::{FIRST_OVERTIME_ROUND, OVERTIME_PERIOD_ROUNDS};
+use std::collections::BTreeMap;
+
+use crate::constants::convar_default_u32;
 
 /// One round in playback order. Competitive numbers are assigned after the
 /// last `begin_new_match`, so a restarted demo does not keep the previous
@@ -32,9 +39,72 @@ pub(crate) struct BuytimeCashSample {
     pub players: Vec<BuytimePlayerCash>,
 }
 
-pub(crate) fn is_overtime_opening_round(number: u32) -> bool {
-    number >= FIRST_OVERTIME_ROUND
-        && (number - FIRST_OVERTIME_ROUND).is_multiple_of(OVERTIME_PERIOD_ROUNDS)
+/// Regulation length and one overtime's length, in rounds.
+///
+/// Resolved as `convars.demo[name]`, then the same defaults table as
+/// `match_info.convars.defaults`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OvertimeRules {
+    pub max_rounds: u32,
+    pub overtime_max_rounds: u32,
+}
+
+impl OvertimeRules {
+    /// Tournament defaults. Used when the demo omits the convar.
+    pub(crate) fn defaults() -> Self {
+        Self {
+            max_rounds: convar_default_u32("mp_maxrounds"),
+            overtime_max_rounds: convar_default_u32("mp_overtime_maxrounds"),
+        }
+    }
+
+    /// Demo value when that name was sent and is a whole number; otherwise
+    /// the defaults table. An unreadable string is treated as absent.
+    pub(crate) fn from_demo(demo: &BTreeMap<String, String>) -> Self {
+        let defaults = Self::defaults();
+        Self {
+            max_rounds: demo_or_default(demo, "mp_maxrounds", defaults.max_rounds),
+            overtime_max_rounds: demo_or_default(
+                demo,
+                "mp_overtime_maxrounds",
+                defaults.overtime_max_rounds,
+            ),
+        }
+    }
+}
+
+fn demo_or_default(demo: &BTreeMap<String, String>, name: &str, fallback: u32) -> u32 {
+    demo.get(name)
+        .and_then(|value| parse_u32_digits(value))
+        .unwrap_or(fallback)
+}
+
+fn parse_u32_digits(raw: &str) -> Option<u32> {
+    if raw.is_empty() {
+        return None;
+    }
+    let mut value: u32 = 0;
+    for byte in raw.bytes() {
+        if !byte.is_ascii_digit() {
+            return None;
+        }
+        value = value.checked_mul(10)?.checked_add(u32::from(byte - b'0'))?;
+    }
+    Some(value)
+}
+
+/// Overtime `k` opens at `max_rounds + k * overtime_max_rounds + 1` (1-based).
+///
+/// `is_multiple_of(0)` is false for a positive distance, so a period of 0
+/// marks only the first overtime round.
+pub(crate) fn is_overtime_opening_round(number: u32, rules: OvertimeRules) -> bool {
+    let Some(first) = rules.max_rounds.checked_add(1) else {
+        return false;
+    };
+    if number < first {
+        return false;
+    }
+    (number - first).is_multiple_of(rules.overtime_max_rounds)
 }
 
 /// `None` is JSON null: no overtime, a missing buy-time sample, or amounts
@@ -43,6 +113,7 @@ pub(crate) fn observed_overtime_start_money(
     rounds: &[CashRound],
     samples: &[BuytimeCashSample],
     last_begin_new_match: Option<u32>,
+    rules: OvertimeRules,
 ) -> Option<i32> {
     let mut competitive = 0u32;
     let mut seen: Option<i32> = None;
@@ -55,7 +126,7 @@ pub(crate) fn observed_overtime_start_money(
             continue;
         }
         competitive += 1;
-        if !is_overtime_opening_round(competitive) {
+        if !is_overtime_opening_round(competitive, rules) {
             continue;
         }
         let window_end = rounds
@@ -92,6 +163,7 @@ pub(crate) fn observed_from_rounds(
     rounds: &[crate::Round],
     samples: &[BuytimeCashSample],
     last_begin_new_match: Option<u32>,
+    demo_convars: &BTreeMap<String, String>,
 ) -> Option<i32> {
     let cash_rounds: Vec<CashRound> = rounds
         .iter()
@@ -100,7 +172,12 @@ pub(crate) fn observed_from_rounds(
             is_knife: round.is_knife,
         })
         .collect();
-    observed_overtime_start_money(&cash_rounds, samples, last_begin_new_match)
+    observed_overtime_start_money(
+        &cash_rounds,
+        samples,
+        last_begin_new_match,
+        OvertimeRules::from_demo(demo_convars),
+    )
 }
 
 fn last_sample_in_window(
@@ -117,6 +194,7 @@ fn last_sample_in_window(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::convar_default_u32;
 
     fn live(index: u32) -> CashRound {
         CashRound {
@@ -160,7 +238,7 @@ mod tests {
         let rounds = competitive(36);
         let samples = vec![at(25, 10_000), at(31, 10_000), at(1, 800)];
         assert_eq!(
-            observed_overtime_start_money(&rounds, &samples, None),
+            observed_overtime_start_money(&rounds, &samples, None, mr12()),
             Some(10_000)
         );
     }
@@ -169,15 +247,38 @@ mod tests {
     fn mismatched_balances_are_null() {
         let rounds = competitive(36);
         let samples = vec![at(25, 10_000), at(31, 12_500)];
-        assert_eq!(observed_overtime_start_money(&rounds, &samples, None), None);
+        assert_eq!(
+            observed_overtime_start_money(&rounds, &samples, None, mr12()),
+            None
+        );
     }
 
     #[test]
     fn no_overtime_is_null() {
         let rounds = competitive(16);
         let samples = vec![at(1, 800), at(16, 5000)];
-        assert_eq!(observed_overtime_start_money(&rounds, &samples, None), None);
-        assert_eq!(observed_overtime_start_money(&rounds, &[], None), None);
+        assert_eq!(
+            observed_overtime_start_money(&rounds, &samples, None, mr12()),
+            None
+        );
+        assert_eq!(
+            observed_overtime_start_money(&rounds, &[], None, mr12()),
+            None
+        );
+        // Regulation is 30 rounds, so round 25 is not an overtime opener.
+        let long = OvertimeRules {
+            max_rounds: 30,
+            overtime_max_rounds: 6,
+        };
+        assert_eq!(
+            observed_overtime_start_money(
+                &competitive(30),
+                &[at(25, 10_000), at(30, 10_000)],
+                None,
+                long
+            ),
+            None
+        );
     }
 
     #[test]
@@ -186,11 +287,16 @@ mod tests {
         let cutoff = 30 * 1000 + 500;
         let samples = vec![at(25, 16_000), at(55, 10_000)];
         assert_eq!(
-            observed_overtime_start_money(&rounds, &samples, Some(cutoff)),
+            observed_overtime_start_money(&rounds, &samples, Some(cutoff), mr12()),
             Some(10_000)
         );
         assert_eq!(
-            observed_overtime_start_money(&competitive(30), &[at(25, 10_000)], Some(u32::MAX)),
+            observed_overtime_start_money(
+                &competitive(30),
+                &[at(25, 10_000)],
+                Some(u32::MAX),
+                mr12()
+            ),
             None
         );
     }
@@ -204,8 +310,101 @@ mod tests {
         rounds.extend(competitive(25));
         let samples = vec![at(25, 10_000)];
         assert_eq!(
-            observed_overtime_start_money(&rounds, &samples, None),
+            observed_overtime_start_money(&rounds, &samples, None, mr12()),
             Some(10_000)
+        );
+    }
+
+    fn mr12() -> OvertimeRules {
+        OvertimeRules::defaults()
+    }
+
+    #[test]
+    fn absent_convars_use_the_defaults_table() {
+        let rules = OvertimeRules::from_demo(&BTreeMap::new());
+        assert_eq!(rules.max_rounds, convar_default_u32("mp_maxrounds"));
+        assert_eq!(
+            rules.overtime_max_rounds,
+            convar_default_u32("mp_overtime_maxrounds")
+        );
+        assert!(is_overtime_opening_round(rules.max_rounds + 1, rules));
+        assert!(is_overtime_opening_round(
+            rules.max_rounds + 1 + rules.overtime_max_rounds,
+            rules
+        ));
+        assert!(!is_overtime_opening_round(rules.max_rounds, rules));
+        let unreadable = BTreeMap::from([("mp_maxrounds".to_string(), "24.0".to_string())]);
+        assert_eq!(
+            OvertimeRules::from_demo(&unreadable).max_rounds,
+            convar_default_u32("mp_maxrounds")
+        );
+    }
+
+    #[test]
+    fn demo_convars_pick_the_overtime_opening_rounds() {
+        let thirty_by_six = OvertimeRules::from_demo(&BTreeMap::from([
+            ("mp_maxrounds".to_string(), "30".to_string()),
+            ("mp_overtime_maxrounds".to_string(), "6".to_string()),
+        ]));
+        // 36 competitive rounds: the only opener is 31 (37 has not been played).
+        let first_only = competitive(36);
+        assert_eq!(
+            observed_overtime_start_money(&first_only, &[at(31, 10_000)], None, thirty_by_six),
+            Some(10_000)
+        );
+        assert_eq!(
+            observed_overtime_start_money(&first_only, &[at(25, 10_000)], None, thirty_by_six),
+            None
+        );
+        let two_periods = competitive(42);
+        assert_eq!(
+            observed_overtime_start_money(
+                &two_periods,
+                &[at(31, 10_000), at(37, 10_000)],
+                None,
+                thirty_by_six
+            ),
+            Some(10_000)
+        );
+
+        // Only the period is in the demo; regulation length stays the default.
+        let period_ten = OvertimeRules::from_demo(&BTreeMap::from([(
+            "mp_overtime_maxrounds".to_string(),
+            "10".to_string(),
+        )]));
+        assert_eq!(period_ten.max_rounds, convar_default_u32("mp_maxrounds"));
+        assert_eq!(period_ten.overtime_max_rounds, 10);
+        assert_eq!(
+            observed_overtime_start_money(
+                &two_periods,
+                &[at(25, 8_000), at(35, 8_000)],
+                None,
+                period_ten
+            ),
+            Some(8_000)
+        );
+        assert_eq!(
+            observed_overtime_start_money(&two_periods, &[at(31, 8_000)], None, period_ten),
+            None
+        );
+
+        let thirty_by_ten = OvertimeRules::from_demo(&BTreeMap::from([
+            ("mp_maxrounds".to_string(), "30".to_string()),
+            ("mp_overtime_maxrounds".to_string(), "10".to_string()),
+        ]));
+        let through_second = competitive(48);
+        assert_eq!(
+            observed_overtime_start_money(
+                &through_second,
+                &[at(31, 9_000), at(41, 9_000)],
+                None,
+                thirty_by_ten
+            ),
+            Some(9_000)
+        );
+        assert_eq!(
+            observed_overtime_start_money(&through_second, &[at(35, 9_000)], None, thirty_by_ten),
+            None
         );
     }
 

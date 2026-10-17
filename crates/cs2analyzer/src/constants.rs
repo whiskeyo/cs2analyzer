@@ -77,6 +77,15 @@ pub const CONVAR_DEFAULTS: &[(&str, &str)] = &[
 /// `apps/web/src/lib/shared/constants.ts`.
 pub const OVERTIME_START_MONEY: i32 = convar_default_i32("mp_overtime_startmoney");
 
+/// Round count from [`CONVAR_DEFAULTS`] (`mp_maxrounds`, `mp_overtime_maxrounds`).
+pub(crate) const fn convar_default_u32(name: &str) -> u32 {
+    let value = convar_default_i32(name);
+    if value < 0 {
+        panic!("convar default is negative");
+    }
+    value as u32
+}
+
 const fn convar_default_i32(name: &str) -> i32 {
     parse_decimal_i32(convar_default_str(name))
 }

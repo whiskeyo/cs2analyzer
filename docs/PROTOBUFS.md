@@ -193,6 +193,6 @@ On the first round of each overtime after the last `begin_new_match`, at `round_
 
 Do not read `m_iStartAccount`. It does not reset when overtime begins.
 
-Bots are dropped with the same identity rules as the roster. Rounds at or before the last `begin_new_match` are ignored. Competitive numbers are then counted again from 1, and overtime openers are rounds 25, 31, 37, … (MR12, then every 6 rounds).
+Bots are dropped with the same identity rules as the roster. Rounds at or before the last `begin_new_match` are ignored. Competitive numbers are then counted again from 1. Overtime `k` (0-based) opens on round `mp_maxrounds + k * mp_overtime_maxrounds + 1`. The demo string is used when the server sent that convar; otherwise the value is the `convars.defaults` entry (`mp_maxrounds` 24, `mp_overtime_maxrounds` 6). With those defaults the openers are rounds 25, 31, 37, ….
 
 The viewer resolves overtime start money as `convars.demo.mp_overtime_startmoney`, then `observed.overtime_start_money`, then `convars.defaults.mp_overtime_startmoney`.

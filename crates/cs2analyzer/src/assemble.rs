@@ -154,6 +154,7 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         &rounds,
         &c.buytime_cash,
         c.begin_new_match_ticks.last().copied(),
+        &c.convar_latest,
     );
     let mut m = Match {
         header,
