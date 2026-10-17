@@ -421,6 +421,9 @@ struct DemoMatchInfo {
     /// The server sent `mp_overtime_startmoney` (tournament GOTV, and the FACEIT
     /// Inferno demo). Otherwise the name is absent from `convars.demo`.
     overtime_money_from_demo: bool,
+    /// `observed.overtime_start_money`. `None` is null (no overtime, or the
+    /// freeze-end balances disagree).
+    observed_overtime_start_money: Option<i32>,
     valve_ds: bool,
     queued: bool,
     ct: HalfScores,
@@ -442,6 +445,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 2,
         total_rounds_played: 35,
         overtime_money_from_demo: false,
+        observed_overtime_start_money: Some(10_000),
         valve_ds: false,
         queued: false,
         ct: halves("yantaro", 19, 6, 6, 7),
@@ -461,6 +465,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 0,
         total_rounds_played: 16,
         overtime_money_from_demo: false,
+        observed_overtime_start_money: None,
         valve_ds: false,
         queued: false,
         ct: halves("whiskeyo", 13, 9, 4, 0),
@@ -480,6 +485,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 1,
         total_rounds_played: 29,
         overtime_money_from_demo: false,
+        observed_overtime_start_money: Some(10_000),
         valve_ds: false,
         queued: false,
         ct: halves("AdaskoBlyat", 16, 5, 7, 4),
@@ -499,6 +505,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 0,
         total_rounds_played: 22,
         overtime_money_from_demo: true,
+        observed_overtime_start_money: None,
         valve_ds: false,
         queued: false,
         ct: halves("Legacy", 9, 6, 3, 0),
@@ -518,6 +525,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 0,
         total_rounds_played: 15,
         overtime_money_from_demo: false,
+        observed_overtime_start_money: None,
         valve_ds: true,
         queued: true,
         ct: halves("", 13, 10, 3, 0),
@@ -537,6 +545,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 0,
         total_rounds_played: 21,
         overtime_money_from_demo: true,
+        observed_overtime_start_money: None,
         valve_ds: false,
         queued: false,
         ct: halves("Spirit", 13, 7, 6, 0),
@@ -556,6 +565,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 0,
         total_rounds_played: 23,
         overtime_money_from_demo: true,
+        observed_overtime_start_money: None,
         valve_ds: false,
         queued: false,
         ct: halves("Spirit", 13, 7, 6, 0),
@@ -575,6 +585,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 0,
         total_rounds_played: 22,
         overtime_money_from_demo: true,
+        observed_overtime_start_money: None,
         valve_ds: false,
         queued: false,
         ct: halves("Spirit", 13, 6, 7, 0),
@@ -594,6 +605,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 0,
         total_rounds_played: 23,
         overtime_money_from_demo: true,
+        observed_overtime_start_money: None,
         valve_ds: false,
         queued: false,
         ct: halves("MOUZ", 13, 7, 6, 0),
@@ -613,6 +625,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 3,
         total_rounds_played: 42,
         overtime_money_from_demo: false,
+        observed_overtime_start_money: Some(10_000),
         valve_ds: false,
         queued: false,
         ct: halves("d0brafaza", 20, 7, 5, 8),
@@ -632,6 +645,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 1,
         total_rounds_played: 30,
         overtime_money_from_demo: true,
+        observed_overtime_start_money: Some(12_500),
         valve_ds: false,
         queued: false,
         ct: halves("Illyrians", 16, 5, 7, 4),
@@ -651,6 +665,7 @@ const DEMO_MATCH_INFO: &[DemoMatchInfo] = &[
         overtime_playing: 0,
         total_rounds_played: 16,
         overtime_money_from_demo: true,
+        observed_overtime_start_money: None,
         valve_ds: false,
         queued: false,
         ct: halves("MARTYRDOM", 3, 2, 1, 0),
@@ -1699,16 +1714,22 @@ fn check_match_info(check: &mut AssertSink, name: &str, parsed: &Match) {
         .get("mp_overtime_startmoney")
         .map(String::as_str)
         .unwrap_or("absent");
+    let observed = info.observed.overtime_start_money;
     check.set_detail(format!(
-        "server={} build={} patch={} ot={} ct={} t={} overtime_money={}",
+        "server={} build={} patch={} ot={} ct={} t={} overtime_money={overtime_money} observed={observed:?}",
         info.server_name,
         info.build_num,
         info.patch_version,
         info.rules.overtime_playing,
         info.teams.ct.score,
         info.teams.t.score,
-        overtime_money
     ));
+    if observed != expected.observed_overtime_start_money {
+        check.fail(format!(
+            "{name} observed.overtime_start_money: got {observed:?}, expected {:?}",
+            expected.observed_overtime_start_money
+        ));
+    }
     if info.server_name != expected.server_name {
         check.fail(format!(
             "{name} server_name: got {:?}, expected {:?}",

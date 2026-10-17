@@ -117,6 +117,19 @@ describe("decodeObject matchInfo", () => {
     });
   });
 
+  it("accepts observed overtime money and rejects a string", () => {
+    const withMoney = structuredClone(info);
+    withMoney.observed = { overtime_start_money: 10000 };
+    expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(withMoney)).observed).toEqual({
+      overtime_start_money: 10000,
+    });
+    const broken = structuredClone(withMoney);
+    broken.observed = { overtime_start_money: "10000" as unknown as number };
+    expect(() => decodeObject("matchInfo", JSON.stringify(broken))).toThrow(
+      /overtime_start_money.*number or null/,
+    );
+  });
+
   it("names a convar value that is not a string", () => {
     const broken = structuredClone(info);
     (broken.convars.demo as { mp_maxrounds: unknown }).mp_maxrounds = 24;

@@ -28,6 +28,7 @@ pub(crate) fn build_match_info(parts: MatchInfoParts<'_>) -> MatchInfo {
         server_name: parts.server_name.to_string(),
         build_num: parts.build_num,
         patch_version: parts.patch_version,
+        observed: crate::ObservedMatch::default(),
     }
 }
 
@@ -133,6 +134,10 @@ mod tests {
                 .map(String::as_str),
             Some(overtime_money.as_str())
         );
+        let json = serde_json::to_value(&info)
+            .unwrap_or_else(|err| panic!("could not serialize match info: {err}"));
+        assert!(json["observed"].get("platform").is_none());
+        assert!(json["observed"]["overtime_start_money"].is_null());
     }
 
     #[test]

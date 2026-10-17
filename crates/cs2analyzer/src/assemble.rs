@@ -15,6 +15,7 @@ use crate::inventory::{
 };
 use crate::match_info::{build_match_info, MatchInfoParts};
 use crate::observer::{Collector, GrenadeDet, GrenadeDetSource};
+use crate::overtime::observed_from_rounds;
 use crate::types::*;
 use crate::{FLAG_PRESENT, MAX_PLAYERS};
 use std::collections::{BTreeMap, HashMap};
@@ -149,6 +150,11 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
     controller_dump.sort_by_key(|row| row.slot);
     controller_dump.extend(c.controller_freeze.iter().cloned());
     let round_scoreboard = build_round_scoreboard(c, &rounds);
+    let overtime_start_money = observed_from_rounds(
+        &rounds,
+        &c.buytime_cash,
+        c.begin_new_match_ticks.last().copied(),
+    );
     let mut m = Match {
         header,
         players,
@@ -164,15 +170,19 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         stats: Vec::new(),
         controller_dump,
         round_scoreboard,
-        match_info: build_match_info(MatchInfoParts {
-            convar_latest: &c.convar_latest,
-            convar_updates: &c.convar_updates,
-            rules: &c.rules,
-            teams: &c.teams,
-            server_name: &c.server_name,
-            build_num: c.build_num,
-            patch_version: c.patch_version,
-        }),
+        match_info: {
+            let mut info = build_match_info(MatchInfoParts {
+                convar_latest: &c.convar_latest,
+                convar_updates: &c.convar_updates,
+                rules: &c.rules,
+                teams: &c.teams,
+                server_name: &c.server_name,
+                build_num: c.build_num,
+                patch_version: c.patch_version,
+            });
+            info.observed.overtime_start_money = overtime_start_money;
+            info
+        },
     };
     #[cfg(feature = "match-stats")]
     {

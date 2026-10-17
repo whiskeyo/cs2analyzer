@@ -628,6 +628,16 @@ pub struct ConvarTables {
     pub demo: BTreeMap<String, String>,
 }
 
+/// Cash read off players. `overtime_start_money` is null when the match has
+/// no overtime or the real players do not share one amount. No platform field.
+///
+/// Resolve overtime start money as `convars.demo.mp_overtime_startmoney`, then
+/// this value, then `convars.defaults.mp_overtime_startmoney`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ObservedMatch {
+    pub overtime_start_money: Option<i32>,
+}
+
 /// Extra demo data that does not change header, rounds, or player JSON.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchInfo {
@@ -638,4 +648,7 @@ pub struct MatchInfo {
     pub server_name: String,
     pub build_num: i32,
     pub patch_version: i32,
+    /// Always present on a fresh parse. Older payloads may omit it.
+    #[serde(default)]
+    pub observed: ObservedMatch,
 }

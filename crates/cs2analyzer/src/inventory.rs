@@ -92,6 +92,20 @@ pub fn controller_money(ctrl: &Entity) -> u16 {
     0
 }
 
+/// `m_iAccount + m_iCashSpentThisRound` at one tick.
+///
+/// That sum is the cash the player started the round with, after the buy.
+/// `m_iStartAccount` is not read: it stays on the regulation pistol balance
+/// when overtime begins.
+pub fn controller_buytime_cash(ctrl: &Entity) -> Option<i32> {
+    let account = prop_i32_opt(ctrl, "m_pInGameMoneyServices.m_iAccount")
+        .or_else(|| prop_i32_opt(ctrl, "m_iAccount"))?;
+    let spent = prop_i32_opt(ctrl, "m_pInGameMoneyServices.m_iCashSpentThisRound")
+        .or_else(|| prop_i32_opt(ctrl, "m_iCashSpentThisRound"))
+        .unwrap_or(0);
+    Some(account.saturating_add(spent))
+}
+
 pub fn pawn_equip_value(pawn: &Entity) -> u16 {
     let v = prop_i32(pawn, "m_unCurrentEquipmentValue")
         .max(prop_i32(pawn, "m_unRoundStartEquipmentValue"));

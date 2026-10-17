@@ -1,10 +1,11 @@
 //! Streaming observer: walks the demo tick by tick and accumulates samples.
 
 use crate::inventory::{
-    armor_gear, c4_arming_steams, collect_loadouts, controller_money, hold_ammo,
-    pawn_active_ammo_raw, pawn_active_weapon, pawn_equip_value, refine_hurt_weapon,
+    armor_gear, c4_arming_steams, collect_loadouts, controller_buytime_cash, controller_money,
+    hold_ammo, pawn_active_ammo_raw, pawn_active_weapon, pawn_equip_value, refine_hurt_weapon,
 };
 use crate::match_info::note_convar;
+use crate::overtime::{BuytimeCashSample, BuytimePlayerCash};
 use crate::props::*;
 use crate::types::{BombKind, ConvarUpdate, GameRulesSnapshot, GrenadeKind, Side, TeamHalves};
 use crate::{
@@ -132,6 +133,11 @@ pub(crate) struct Collector {
     pub controller_freeze: Vec<crate::ControllerDump>,
     /// Every `begin_new_match` tick. The last one starts counted scoreboard rounds.
     pub begin_new_match_ticks: Vec<u32>,
+    /// `round_freeze_end` cash. Filled on tick end so account props for that
+    /// tick are already applied. `buytime_ended` is later: a kill in the
+    /// leftover buy window changes `m_iAccount` without a matching spend.
+    pub buytime_cash: Vec<BuytimeCashSample>,
+    pending_buytime_tick: Option<u32>,
     /// Action-tracking rows at round-end ticks (`synth` / official).
     pub scoreboard_snaps: Vec<(u32, Vec<crate::RoundScoreboardPlayer>)>,
     pub last_cap: u32,
@@ -247,6 +253,8 @@ impl Collector {
             controller_last: HashMap::new(),
             controller_freeze: Vec::new(),
             begin_new_match_ticks: Vec::new(),
+            buytime_cash: Vec::new(),
+            pending_buytime_tick: None,
             scoreboard_snaps: Vec::new(),
             last_cap: 0,
             convar_latest: BTreeMap::new(),
@@ -602,6 +610,31 @@ fn controller_has_team_pawn(ctx: &Context, ctrl: &Entity) -> bool {
     };
     side_of(prop_i32(pawn, "m_iTeamNum")).is_some()
         || side_of(prop_i32(ctrl, "m_iTeamNum")).is_some()
+}
+
+fn sample_buytime_players(c: &Collector, ctx: &Context) -> Vec<BuytimePlayerCash> {
+    let mut players = Vec::new();
+    for ctrl in ctx.entities().iter() {
+        if ctrl.class().name() != "CCSPlayerController" {
+            continue;
+        }
+        let Some(steam) = controller_playable_id(c, ctx, ctrl) else {
+            continue;
+        };
+        let on_team =
+            side_of(prop_i32(ctrl, "m_iTeamNum")).is_some() || controller_has_team_pawn(ctx, ctrl);
+        if !on_team {
+            continue;
+        }
+        let Some(amount) = controller_buytime_cash(ctrl) else {
+            continue;
+        };
+        players.push(BuytimePlayerCash {
+            is_bot: crate::is_bot_steam_id(steam),
+            amount,
+        });
+    }
+    players
 }
 
 /// True when a dump row can prove a bot / Faceit fill (not a leftover human).
@@ -1181,6 +1214,13 @@ impl Collector {
         if round_ended {
             capture_round_scoreboard(self, ctx, tick);
         }
+        if self.pending_buytime_tick == Some(tick) {
+            self.buytime_cash.push(BuytimeCashSample {
+                tick,
+                players: sample_buytime_players(self, ctx),
+            });
+        }
+        self.pending_buytime_tick = None;
         Ok(())
     }
 
@@ -1230,6 +1270,7 @@ impl Collector {
             }
             "round_freeze_end" => {
                 if !in_warmup(ctx) {
+                    self.pending_buytime_tick = Some(tick);
                     self.freeze_ends.push(tick);
                     self.round_scores.insert(tick, team_scores(ctx));
                     self.round_times.insert(tick, round_time_seconds(ctx));

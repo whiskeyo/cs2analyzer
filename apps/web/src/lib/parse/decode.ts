@@ -380,6 +380,20 @@ function checkMatchInfo(value: unknown): void {
   const teams = record.teams as Record<string, unknown>;
   checkShape("matchInfo.teams.ct", teams.ct, TEAM_HALF);
   checkShape("matchInfo.teams.t", teams.t, TEAM_HALF);
+  if (record.observed === undefined) return;
+  const observed = record.observed;
+  if (typeof observed !== "object" || observed === null || Array.isArray(observed)) {
+    throw new PayloadError(
+      `Parser sent ${describe(observed)} for "matchInfo.observed", expected an object.`,
+    );
+  }
+  const money = (observed as Record<string, unknown>).overtime_start_money;
+  if (!orNull(number).ok(money)) {
+    throw new PayloadError(
+      `Parser payload "matchInfo.observed" has ${describe(money)} for "overtime_start_money", ` +
+        `expected ${orNull(number).expected}. The Rust field was probably renamed.`,
+    );
+  }
 }
 
 export function decodeObject<T>(name: PayloadName, json: string): T {
