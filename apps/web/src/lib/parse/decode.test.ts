@@ -8,6 +8,7 @@ import type {
   MatchHeader,
   Player,
   Round,
+  RoundScoreboard,
 } from "@/lib/replay/replayTypes";
 import { makeHurt, makePlayer, sampleMatchInfo } from "@/lib/testing/fixtures";
 import type { MatchInfo } from "@/lib/replay/replayTypes";
@@ -256,6 +257,35 @@ describe("decodeList", () => {
     );
     expect(() => decodeList<BombEvent>("bombEvents", `[${without(planted, "haskit")}]`)).toThrow(
       /"bombEvents\[0\]".*"haskit".*expected boolean/s,
+    );
+  });
+
+  it("requires round scoreboard counters so a Rust rename fails on drop", () => {
+    const row: RoundScoreboard = {
+      round: 12,
+      players: [
+        {
+          steam_id: 765611980000001,
+          slot: 4,
+          name: "alice",
+          kills: 18,
+          deaths: 14,
+          assists: 5,
+          damage: 2100,
+          headshot_kills: 9,
+          utility_damage: 80,
+          enemies_flashed: 11,
+        },
+      ],
+    };
+    expect(decodeList<RoundScoreboard>("roundScoreboard", JSON.stringify([row]))).toEqual([row]);
+    const missing = {
+      round: 12,
+      players: [{ ...row.players[0] }],
+    };
+    delete (missing.players[0] as { damage?: number }).damage;
+    expect(() => decodeList<RoundScoreboard>("roundScoreboard", JSON.stringify([missing]))).toThrow(
+      /"roundScoreboard\[0\].players\[0\]".*"damage".*expected number/s,
     );
   });
 

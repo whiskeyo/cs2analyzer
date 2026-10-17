@@ -288,6 +288,7 @@ fn demo_hash(name: &str, grenades: &str, x: &str) -> DemoHash {
             bomb_events: "bomb_events".to_string(),
             buy_events: "buy_events".to_string(),
             controller_dump: "controller_dump".to_string(),
+            round_scoreboard: "round_scoreboard".to_string(),
             match_info: "match_info".to_string(),
             player_count: "player_count".to_string(),
             frame_count: "frame_count".to_string(),
@@ -355,6 +356,7 @@ fn sample_match() -> Match {
         buy_events: Vec::new(),
         stats: vec![cs2analyzer::PlayerStats::empty(0)],
         controller_dump: Vec::new(),
+        round_scoreboard: Vec::new(),
         match_info: cs2analyzer::MatchInfo::default(),
     }
 }

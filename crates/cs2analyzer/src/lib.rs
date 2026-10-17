@@ -9,6 +9,7 @@ mod match_info;
 mod observer;
 mod props;
 mod radar;
+mod scoreboard;
 mod types;
 
 #[cfg(feature = "match-stats")]
@@ -16,6 +17,10 @@ pub use analysis::{compute_stats, compute_stats_until};
 pub use constants::*;
 pub use error::ParseError;
 pub use radar::{calibration, MapCalibration, VerticalSection, MAPS};
+pub use scoreboard::{
+    controller_is_bot, controller_is_hltv, counted_scoreboard_round, scoreboard_players,
+    ScoreboardController,
+};
 pub use types::*;
 
 use observer::Collector;
@@ -94,6 +99,26 @@ pub fn full_parse_passes() -> u64 {
 #[doc(hidden)]
 pub fn reset_full_parse_passes() {
     FULL_PARSE_PASSES.store(0, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Controllers at `ctx`, including action-tracking counters.
+///
+/// Integration tests compare each round's [`RoundScoreboard`] to this read
+/// at that round's close. Production capture uses the same function.
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn read_scoreboard_controllers(ctx: &Context) -> Vec<ScoreboardController> {
+    observer::read_scoreboard_controllers(ctx)
+}
+
+/// Per-tick bot links for the real-demo observer. Does not read match stats.
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub fn note_scoreboard_presence(
+    ctx: &Context,
+    bot_rows: &mut std::collections::BTreeSet<(u32, u64)>,
+) {
+    observer::note_scoreboard_presence(ctx, bot_rows);
 }
 
 /// Parse a demo and return a read-only observer that ran after [`Collector`].

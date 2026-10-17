@@ -28,8 +28,10 @@ use std::path::Path;
 use std::time::Instant;
 
 use cs2analyzer::{
-    full_parse_passes, parse_demo_with_test_observer, reset_full_parse_passes, BombKind,
-    GrenadeKind, GrenadeThrow, Match, ParseOptions, Round, CONVAR_DEFAULTS, OVERTIME_START_MONEY,
+    counted_scoreboard_round, full_parse_passes, is_bot_steam_id, note_scoreboard_presence,
+    parse_demo_with_test_observer, read_scoreboard_controllers, reset_full_parse_passes,
+    scoreboard_players, BombKind, GrenadeKind, GrenadeThrow, Match, ParseOptions, Round,
+    RoundScoreboardPlayer, ScoreboardController, CONVAR_DEFAULTS, OVERTIME_START_MONEY,
     SMOKE_DURATION_SECONDS,
 };
 use source2_demo::prelude::*;
@@ -61,6 +63,7 @@ const CHECK_SMOKE: &str = "smoke-end";
 const CHECK_DEMO_END: &str = "demo-end-smoke";
 const CHECK_HASHES: &str = "hashes";
 const CHECK_UTF8: &str = "lossy-utf8";
+const CHECK_ROUND_SCOREBOARD: &str = "round-scoreboard";
 const CHECK_MATCH_INFO: &str = "match-info";
 const CHECK_EVENT_FALLBACKS: &str = "event-fallbacks";
 const CHECK_PARSE_PASSES: &str = "parse-passes";
@@ -91,6 +94,9 @@ struct DemoExpect {
     rss_limit_kib: Option<u64>,
     /// `None` is a static SKIP for `lossy-utf8`.
     lossy_utf8: Option<&'static [LossyUtf8]>,
+    /// Bot controller entities must not be scoreboard rows.
+    /// Mirage 22–20 (assets-v2) and Inferno FACEIT fruju-vs-rooster.
+    no_bot_rows: bool,
 }
 
 struct SmokeCensus {
@@ -141,6 +147,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(160, 146, 14, 13, 1, 25)),
         rss_limit_kib: Some(800_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem",
@@ -150,6 +157,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(52, 44, 8, 8, 0, 10)),
         rss_limit_kib: Some(800_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem",
@@ -159,6 +167,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(124, 116, 8, 8, 0, 20)),
         rss_limit_kib: Some(650_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "legacy-vs-spirit-m2-ancient.dem",
@@ -168,6 +177,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(149, 145, 4, 4, 0, 8)),
         rss_limit_kib: Some(1_200_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "premier-d2.dem",
@@ -177,6 +187,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(45, 38, 7, 6, 1, 13)),
         rss_limit_kib: Some(850_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "spirit-vs-dendele-m1-ancient.dem",
@@ -186,6 +197,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(139, 133, 6, 6, 0, 8)),
         rss_limit_kib: Some(700_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "spirit-vs-furia-m1-ancient.dem",
@@ -195,6 +207,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(160, 152, 8, 8, 0, 20)),
         rss_limit_kib: Some(700_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "spirit-vs-mouz-m3-ancient.dem",
@@ -204,6 +217,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(149, 143, 6, 6, 0, 11)),
         rss_limit_kib: Some(700_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "spirit-vs-mouz-m4-nuke.dem",
@@ -213,6 +227,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         smoke: Some(v1_smoke(176, 168, 8, 8, 0, 15)),
         rss_limit_kib: Some(1_250_000),
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     // Mirage FACEIT (20–22, knife, OT). #118: non-UTF-8 game-event strings.
     // Smoke census from demoinfocs-golang v5.2.0. The demo-end cloud detonates
@@ -232,6 +247,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         }),
         rss_limit_kib: None,
         lossy_utf8: Some(MIRAGE_LOSSY_UTF8),
+        no_bot_rows: true,
     },
     DemoExpect {
         name: "bushido-wildcats-vs-illyrians-m1-anubis.dem",
@@ -248,6 +264,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         }),
         rss_limit_kib: None,
         lossy_utf8: None,
+        no_bot_rows: false,
     },
     DemoExpect {
         name: "fruju-vs-rooster-m1-inferno.dem",
@@ -264,6 +281,7 @@ const DEMO_EXPECTATIONS: &[DemoExpect] = &[
         }),
         rss_limit_kib: None,
         lossy_utf8: None,
+        no_bot_rows: true,
     },
 ];
 
@@ -674,6 +692,7 @@ fn demo_check_catalog() -> Vec<String> {
     names.push(CHECK_DEMO_END.to_string());
     names.push(CHECK_HASHES.to_string());
     names.push(CHECK_UTF8.to_string());
+    names.push(CHECK_ROUND_SCOREBOARD.to_string());
     names.push(CHECK_MATCH_INFO.to_string());
     names.push(CHECK_EVENT_FALLBACKS.to_string());
     names
@@ -699,6 +718,7 @@ fn check_applies(demo: &str, check: &str) -> bool {
         | CHECK_PLAYBACK_GAP
         | CHECK_MOLOTOV
         | CHECK_HASHES
+        | CHECK_ROUND_SCOREBOARD
         | CHECK_MATCH_INFO
         | CHECK_EVENT_FALLBACKS => true,
         CHECK_SMOKE | CHECK_DEMO_END => row.smoke.is_some(),
@@ -1246,6 +1266,9 @@ fn run_demo_checks(
             check_lossy_utf8(check, name, parsed, smoke);
         });
     }
+    report.run(name, CHECK_ROUND_SCOREBOARD, |check| {
+        check_round_scoreboard(check, name, parsed, smoke);
+    });
     report.run(name, CHECK_MATCH_INFO, |check| {
         check_match_info(check, name, parsed);
     });
@@ -1280,6 +1303,277 @@ fn check_output_hash(
         name: name.to_string(),
         sections: computed.sections,
     });
+}
+
+fn check_round_scoreboard(check: &mut AssertSink, name: &str, parsed: &Match, smoke: &SmokeEvents) {
+    let Some(expected) = lookup_demo(name) else {
+        check.fail(format!("no scoreboard expectation for {name}"));
+        return;
+    };
+    let begin = smoke.begin_new_match.last().copied();
+    let counted: Vec<u32> = parsed
+        .rounds
+        .iter()
+        .filter(|round| counted_scoreboard_round(round, begin))
+        .map(|round| round.number)
+        .collect();
+    let got: Vec<u32> = parsed
+        .round_scoreboard
+        .iter()
+        .map(|round| round.round)
+        .collect();
+    if got != counted {
+        check.fail(format!(
+            "{name} scoreboard rounds {got:?}, counted rounds {counted:?} (begin_new_match={begin:?})"
+        ));
+    }
+    let Some(last) = parsed.round_scoreboard.last() else {
+        check.fail(format!("{name} scoreboard is empty"));
+        return;
+    };
+    if last.round != *counted.last().unwrap_or(&0) {
+        check.fail(format!(
+            "{name} last scoreboard round is {}, counted last is {:?}",
+            last.round,
+            counted.last()
+        ));
+    }
+    let roster = parsed.players.len();
+    let mut seen: BTreeMap<(u64, u32), &RoundScoreboardPlayer> = BTreeMap::new();
+    let mut row_counts = Vec::with_capacity(parsed.round_scoreboard.len());
+    for round in &parsed.round_scoreboard {
+        row_counts.push(round.players.len());
+        if round.players.len() > roster {
+            check.fail(format!(
+                "{name} round {} has {} scoreboard rows, roster has {roster} players on teams",
+                round.round,
+                round.players.len()
+            ));
+        }
+        let mut keys = BTreeSet::new();
+        for player in &round.players {
+            if !scoreboard_row_on_roster(parsed, player) {
+                check.fail(format!(
+                    "{name} round {} row {} slot={} steam={} was never on T/CT",
+                    round.round, player.name, player.slot, player.steam_id
+                ));
+            }
+            let key = scoreboard_row_key(player);
+            keys.insert(key);
+            if let Some(previous) = seen.get(&key) {
+                if scoreboard_counters_dropped(previous, player) {
+                    check.fail(format!(
+                        "{name} round {} {} counters dropped (was k={} d={} a={} dmg={}, now k={} d={} a={} dmg={})",
+                        round.round,
+                        player.name,
+                        previous.kills,
+                        previous.deaths,
+                        previous.assists,
+                        previous.damage,
+                        player.kills,
+                        player.deaths,
+                        player.assists,
+                        player.damage
+                    ));
+                }
+            }
+            seen.insert(key, player);
+        }
+        for (key, previous) in &seen {
+            if keys.contains(key) {
+                continue;
+            }
+            check.fail(format!(
+                "{name} round {} dropped {} after they had a scoreboard row",
+                round.round, previous.name
+            ));
+        }
+    }
+    let mut last_on_team: BTreeMap<(u64, u32), RoundScoreboardPlayer> = BTreeMap::new();
+    for round in &parsed.round_scoreboard {
+        let Some(index) = parsed
+            .rounds
+            .iter()
+            .position(|candidate| candidate.number == round.round)
+        else {
+            check.fail(format!(
+                "{name} scoreboard round {} is not in rounds",
+                round.round
+            ));
+            continue;
+        };
+        let parsed_round = &parsed.rounds[index];
+        let next_start = parsed
+            .rounds
+            .get(index + 1)
+            .map(|next| next.start_tick)
+            .unwrap_or(u32::MAX);
+        let Some(controllers) =
+            controllers_at_round_end(&smoke.scoreboard_closes, parsed_round, next_start)
+        else {
+            check.fail(format!(
+                "{name} round {} has no controller snapshot at close",
+                round.round
+            ));
+            continue;
+        };
+        let live = scoreboard_players(controllers);
+        for player in &round.players {
+            let key = scoreboard_row_key(player);
+            if let Some(now) = live.iter().find(|row| scoreboard_row_key(row) == key) {
+                if !scoreboard_counters_match(player, now) {
+                    check.fail(format!(
+                        "{name} round {} {} is on T/CT but counters != controller\n  snapshot: {}\n  controller: {}",
+                        round.round,
+                        player.name,
+                        format_scoreboard_players(std::slice::from_ref(player)),
+                        format_scoreboard_players(std::slice::from_ref(now))
+                    ));
+                }
+            } else if let Some(previous) = last_on_team.get(&key) {
+                if !scoreboard_counters_match(player, previous) {
+                    check.fail(format!(
+                        "{name} round {} {} carried counters != last on-team close\n  snapshot: {}\n  last on team: {}",
+                        round.round,
+                        player.name,
+                        format_scoreboard_players(std::slice::from_ref(player)),
+                        format_scoreboard_players(std::slice::from_ref(previous))
+                    ));
+                }
+            } else {
+                check.fail(format!(
+                    "{name} round {} {} was never on T/CT at a round close",
+                    round.round, player.name
+                ));
+            }
+        }
+        for player in live {
+            last_on_team.insert(scoreboard_row_key(&player), player);
+        }
+    }
+    let kills: i32 = last.players.iter().map(|player| player.kills).sum();
+    let damage: i32 = last.players.iter().map(|player| player.damage).sum();
+    if kills <= 0 || damage <= 0 {
+        check.fail(format!(
+            "{name} last round action-tracking totals are kills={kills} damage={damage} (property path missed)"
+        ));
+    }
+    if expected.no_bot_rows {
+        let mut bots = Vec::new();
+        for round in &parsed.round_scoreboard {
+            for player in &round.players {
+                if scoreboard_row_is_bot(player, &smoke.bot_rows) {
+                    bots.push(format!(
+                        "R{} slot={} steam={} name={}",
+                        round.round, player.slot, player.steam_id, player.name
+                    ));
+                }
+            }
+        }
+        if !bots.is_empty() {
+            check.fail(format!(
+                "{name} bot controllers are separate scoreboard rows: {}",
+                bots.join("; ")
+            ));
+        }
+    }
+    check.set_detail(format!(
+        "rounds={} rows={row_counts:?} roster={roster} last_players={} kills={kills} damage={damage} bots_hidden={}",
+        got.len(),
+        last.players.len(),
+        expected.no_bot_rows
+    ));
+}
+
+fn scoreboard_row_key(player: &RoundScoreboardPlayer) -> (u64, u32) {
+    if player.steam_id == 0 {
+        (0, player.slot)
+    } else {
+        (player.steam_id, 0)
+    }
+}
+
+fn scoreboard_row_on_roster(parsed: &Match, player: &RoundScoreboardPlayer) -> bool {
+    if player.steam_id == 0 {
+        return parsed.players.iter().any(|roster| roster.is_bot);
+    }
+    parsed
+        .players
+        .iter()
+        .any(|roster| !roster.is_bot && roster.steam_id == player.steam_id)
+}
+
+fn scoreboard_counters_match(left: &RoundScoreboardPlayer, right: &RoundScoreboardPlayer) -> bool {
+    left.kills == right.kills
+        && left.deaths == right.deaths
+        && left.assists == right.assists
+        && left.damage == right.damage
+        && left.headshot_kills == right.headshot_kills
+        && left.utility_damage == right.utility_damage
+        && left.enemies_flashed == right.enemies_flashed
+}
+
+fn controllers_at_round_end<'a>(
+    snaps: &'a [(u32, Vec<ScoreboardController>)],
+    round: &Round,
+    next_start: u32,
+) -> Option<&'a [ScoreboardController]> {
+    if let Some((_, rows)) = snaps
+        .iter()
+        .rev()
+        .find(|(tick, _)| *tick >= round.end_tick && *tick < next_start)
+    {
+        return Some(rows.as_slice());
+    }
+    snaps
+        .iter()
+        .rev()
+        .find(|(tick, _)| *tick >= round.start_tick && *tick <= round.end_tick)
+        .map(|(_, rows)| rows.as_slice())
+}
+
+fn scoreboard_counters_dropped(
+    previous: &RoundScoreboardPlayer,
+    current: &RoundScoreboardPlayer,
+) -> bool {
+    current.kills < previous.kills
+        || current.deaths < previous.deaths
+        || current.assists < previous.assists
+        || current.damage < previous.damage
+        || current.headshot_kills < previous.headshot_kills
+        || current.utility_damage < previous.utility_damage
+        || current.enemies_flashed < previous.enemies_flashed
+}
+
+fn format_scoreboard_players(players: &[RoundScoreboardPlayer]) -> String {
+    if players.is_empty() {
+        return "(none)".to_string();
+    }
+    players
+        .iter()
+        .map(|player| {
+            format!(
+                "{} slot={} steam={} k={} d={} a={} dmg={} hs={} util={} flash={}",
+                player.name,
+                player.slot,
+                player.steam_id,
+                player.kills,
+                player.deaths,
+                player.assists,
+                player.damage,
+                player.headshot_kills,
+                player.utility_damage,
+                player.enemies_flashed
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+fn scoreboard_row_is_bot(player: &RoundScoreboardPlayer, bot_rows: &BTreeSet<(u32, u64)>) -> bool {
+    player.steam_id == 0
+        || is_bot_steam_id(player.steam_id)
+        || bot_rows.contains(&(player.slot, player.steam_id))
 }
 
 fn check_round_counts(check: &mut AssertSink, name: &str, parsed: &Match, parse_ms: u128) {
@@ -2184,6 +2478,19 @@ struct SmokeEvents {
     round_opens: Vec<u32>,
     /// Game-event strings that contained invalid UTF-8 (`U+FFFD` after lossy decode).
     lossy: Vec<LossyEventString>,
+    /// `begin_new_match` ticks, including warmup. The last one matches the parser.
+    begin_new_match: Vec<u32>,
+    /// Controller reads at the ticks the parser closes a round, plus demo stop.
+    scoreboard_closes: Vec<(u32, Vec<ScoreboardController>)>,
+    /// Previous `m_iRoundWinStatus`, read on tick start like the parser.
+    prev_win_status: i32,
+    /// Tick of a `round_officially_ended` seen this parse. The close is read
+    /// on tick end so the entity state matches the parser.
+    official_end_tick: Option<u32>,
+    /// Tick whose win-status edge was seen on tick start. Closed on tick end.
+    synth_close_tick: Option<u32>,
+    /// `(slot, steam id)` of controllers classified as bots at any tick.
+    bot_rows: BTreeSet<(u32, u64)>,
     /// Whole-file counts, including warmup. The parser still skips warmup events.
     round_start: u32,
     bullet_impact: u32,
@@ -2217,6 +2524,19 @@ fn event_f32(ge: &GameEvent<'_>, key: &str) -> f32 {
     0.0
 }
 
+fn gamerules_i32(ctx: &Context, name: &str) -> Option<i32> {
+    let proxy = ctx.entities().get_by_class_name("CCSGameRulesProxy").ok()?;
+    match proxy.get_property(name) {
+        Ok(FieldValue::Signed32(value)) => Some(*value),
+        Ok(FieldValue::Signed16(value)) => Some(i32::from(*value)),
+        Ok(FieldValue::Signed8(value)) => Some(i32::from(*value)),
+        Ok(FieldValue::Unsigned32(value)) => Some(*value as i32),
+        Ok(FieldValue::Unsigned16(value)) => Some(i32::from(*value)),
+        Ok(FieldValue::Unsigned8(value)) => Some(i32::from(*value)),
+        _ => None,
+    }
+}
+
 fn warmup_period(ctx: &Context) -> bool {
     let Ok(proxy) = ctx.entities().get_by_class_name("CCSGameRulesProxy") else {
         return false;
@@ -2235,6 +2555,12 @@ impl SmokeEvents {
     fn on_game_event(&mut self, ctx: &Context, ge: &GameEvent) -> ObserverResult {
         // Same skip as the parser (`ParseOptions::skip_warmup`). Warmup ticks
         // are earlier than live play, but a flagged gap must not open a window.
+        if ge.name() == "begin_new_match" {
+            let tick = ctx.tick();
+            if self.begin_new_match.last().is_none_or(|seen| *seen != tick) {
+                self.begin_new_match.push(tick);
+            }
+        }
         match ge.name() {
             "round_start" => self.round_start += 1,
             "bullet_impact" => self.bullet_impact += 1,
@@ -2263,6 +2589,9 @@ impl SmokeEvents {
         if warmup_period(ctx) {
             return Ok(());
         }
+        if ge.name() == "round_officially_ended" {
+            self.official_end_tick = Some(ctx.tick());
+        }
         match ge.name() {
             "smokegrenade_detonate" => self.detonates.push(SmokeDetonate {
                 entity: event_i32(ge, "entityid"),
@@ -2280,6 +2609,22 @@ impl SmokeEvents {
         Ok(())
     }
 
+    /// Same win-status edge as the parser: `on_tick_start` still sees the
+    /// previous tick's rules, and the scoreboard is read on tick end.
+    #[on_tick_start]
+    fn on_tick_start(&mut self, ctx: &Context) -> ObserverResult {
+        let tick = ctx.tick();
+        if tick == u32::MAX || warmup_period(ctx) {
+            return Ok(());
+        }
+        let win = gamerules_i32(ctx, "m_pGameRules.m_iRoundWinStatus").unwrap_or(0);
+        if win != 0 && self.prev_win_status == 0 {
+            self.synth_close_tick = Some(tick);
+        }
+        self.prev_win_status = win;
+        Ok(())
+    }
+
     /// Same edge as the parser: a change in `m_nRoundStartCount`, not the first
     /// time the prop is visible, and not a fired `round_start` (assets-v1 does
     /// not fire that event).
@@ -2288,6 +2633,12 @@ impl SmokeEvents {
         let tick = ctx.tick();
         if tick == u32::MAX {
             return Ok(());
+        }
+        note_scoreboard_presence(ctx, &mut self.bot_rows);
+        if !warmup_period(ctx)
+            && (self.synth_close_tick == Some(tick) || self.official_end_tick == Some(tick))
+        {
+            self.push_scoreboard_close(ctx, tick);
         }
         let Ok(proxy) = ctx.entities().get_by_class_name("CCSGameRulesProxy") else {
             return Ok(());
@@ -2309,6 +2660,39 @@ impl SmokeEvents {
             self.round_opens.push(tick);
         }
         Ok(())
+    }
+
+    /// Same entity state the parser reads in `Collector::on_stop`.
+    #[on_stop]
+    fn on_stop(&mut self, ctx: &Context) -> ObserverResult {
+        let tick = ctx.tick();
+        if tick == u32::MAX {
+            return Ok(());
+        }
+        self.push_scoreboard_close(ctx, tick);
+        if let Some((_, controllers)) = self.scoreboard_closes.last() {
+            for controller in controllers {
+                if controller.is_bot {
+                    self.bot_rows.insert((controller.slot, controller.steam_id));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn push_scoreboard_close(&mut self, ctx: &Context, tick: u32) {
+        if tick == u32::MAX {
+            return;
+        }
+        if self
+            .scoreboard_closes
+            .last()
+            .is_some_and(|(seen, _)| *seen == tick)
+        {
+            return;
+        }
+        self.scoreboard_closes
+            .push((tick, read_scoreboard_controllers(ctx)));
     }
 }
 
@@ -2463,18 +2847,18 @@ fn missing_demo_fails_every_named_check() {
 #[test]
 fn each_demo_has_an_expected_check_count() {
     let cases = [
-        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 9, true),
-        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 9, true),
-        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 8, true),
-        ("legacy-vs-spirit-m2-ancient.dem", 8, true),
-        ("premier-d2.dem", 8, true),
-        ("spirit-vs-dendele-m1-ancient.dem", 8, true),
-        ("spirit-vs-furia-m1-ancient.dem", 10, true),
-        ("spirit-vs-mouz-m3-ancient.dem", 9, true),
-        ("spirit-vs-mouz-m4-nuke.dem", 9, true),
-        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 9, false),
-        ("bushido-wildcats-vs-illyrians-m1-anubis.dem", 8, false),
-        ("fruju-vs-rooster-m1-inferno.dem", 8, false),
+        ("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem", 10, true),
+        ("1-898c8041-ac25-4ab8-8a2b-c384318aac1c-1-1.dem", 10, true),
+        ("1-b3ea81e1-103d-4877-83d1-e5bbf1bcb7eb-1-1.dem", 9, true),
+        ("legacy-vs-spirit-m2-ancient.dem", 9, true),
+        ("premier-d2.dem", 9, true),
+        ("spirit-vs-dendele-m1-ancient.dem", 9, true),
+        ("spirit-vs-furia-m1-ancient.dem", 11, true),
+        ("spirit-vs-mouz-m3-ancient.dem", 10, true),
+        ("spirit-vs-mouz-m4-nuke.dem", 10, true),
+        ("1-b5045d4d-daaf-4ab6-82de-3c345a0e6930-1-1.dem", 10, false),
+        ("bushido-wildcats-vs-illyrians-m1-anubis.dem", 9, false),
+        ("fruju-vs-rooster-m1-inferno.dem", 9, false),
     ];
     assert_eq!(cases.len(), DEMO_EXPECTATIONS.len());
     let rss = usize::from(cfg!(target_os = "linux"));
@@ -2512,17 +2896,17 @@ fn each_demo_has_an_expected_check_count() {
     if cfg!(target_os = "linux") {
         assert_eq!(
             expected_check_count("premier-d2.dem"),
-            9,
+            10,
             "premier-d2 has no open fire; rss applies on linux"
         );
         assert_eq!(
             expected_check_count("spirit-vs-furia-m1-ancient.dem"),
-            11,
+            12,
             "furia has two open fires"
         );
         assert_eq!(
             expected_check_count("1-0eb2df7f-68ad-4bae-b7c2-f123b8445559-1-1.dem"),
-            10
+            11
         );
     }
     let faceit = DEMO_END_SMOKES
@@ -2561,6 +2945,22 @@ fn each_demo_has_an_expected_check_count() {
     assert!(check_applies(mirage, CHECK_SMOKE));
     assert!(check_applies(mirage, CHECK_DEMO_END));
     assert!(check_applies(mirage, CHECK_UTF8));
+    assert!(check_applies(mirage, CHECK_ROUND_SCOREBOARD));
+    assert!(
+        lookup_demo(mirage).is_some_and(|row| row.no_bot_rows),
+        "mirage 22-20 must reject separate bot scoreboard rows"
+    );
+    assert!(
+        lookup_demo("fruju-vs-rooster-m1-inferno.dem").is_some_and(|row| row.no_bot_rows),
+        "inferno FACEIT fruju-vs-rooster must reject separate bot scoreboard rows"
+    );
+    assert_eq!(
+        DEMO_EXPECTATIONS
+            .iter()
+            .filter(|row| row.no_bot_rows)
+            .count(),
+        2
+    );
     assert!(
         !MIRAGE_LOSSY_UTF8.is_empty(),
         "mirage lossy strings must be listed"
@@ -3061,7 +3461,7 @@ fn per_demo_hash_file_round_trip_errors_do_not_panic() {
         r#"{
             "header":"h","players":"p","rounds":"r","grenades":"g",
             "shots":"s","kills":"k","hurts":"hu","blinds":"b","bomb_events":"be",
-            "buy_events":"bu","controller_dump":"c","match_info":"mi","player_count":"pc","frame_count":"f",
+            "buy_events":"bu","controller_dump":"c","round_scoreboard":"rs","match_info":"mi","player_count":"pc","frame_count":"f",
             "ticks":"t","x":"x","y":"y","z":"z","yaw":"ya","health":"he","armor":"a",
             "flags":"fl","money":"m","equip":"eq","gear":"ge","primary":"pr",
             "secondary":"se","active":"ac","clip":"cl","reserve":"re"

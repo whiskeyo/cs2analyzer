@@ -35,6 +35,7 @@ export class ParsedMatch {
     playersJson(): string;
     primary(): Uint8Array;
     reserve(): Uint16Array;
+    roundScoreboardJson(): string;
     roundsJson(): string;
     secondary(): Uint8Array;
     shotsJson(): string;
@@ -80,6 +81,7 @@ export interface InitOutput {
     readonly parsedmatch_playersJson: (a: number, b: number) => void;
     readonly parsedmatch_primary: (a: number) => number;
     readonly parsedmatch_reserve: (a: number) => number;
+    readonly parsedmatch_roundScoreboardJson: (a: number, b: number) => void;
     readonly parsedmatch_roundsJson: (a: number, b: number) => void;
     readonly parsedmatch_secondary: (a: number) => number;
     readonly parsedmatch_shotsJson: (a: number, b: number) => void;

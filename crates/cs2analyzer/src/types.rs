@@ -20,10 +20,46 @@ pub struct Match {
     /// Last controller slot + freeze-end fill candidates (`steam == 0` / bot).
     /// Sampled at `round_freeze_end` only — never on the tick hot path.
     pub controller_dump: Vec<ControllerDump>,
+    /// Cumulative action-tracking counters at each counted round's end.
+    ///
+    /// Omitted from JSON written before this field existed. New parses always
+    /// include it (possibly empty).
+    #[serde(default)]
+    pub round_scoreboard: Vec<RoundScoreboard>,
     /// Convars, end-of-match gamerules, half scores, and demo-file header.
     /// Missing on a match saved before this field existed.
     #[serde(default)]
     pub match_info: MatchInfo,
+}
+
+/// One counted round's controller scoreboard (`Match.rounds` numbering).
+///
+/// Knife rounds and rounds that ended before the last `begin_new_match` are
+/// absent. Demos with no `begin_new_match` start at the first counted round.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoundScoreboard {
+    /// Same `Round.number` as the rounds output.
+    pub round: u32,
+    pub players: Vec<RoundScoreboardPlayer>,
+}
+
+/// `m_pActionTrackingServices.m_matchStats` on one controller at round end.
+///
+/// Values are the server's cumulative totals, not a per-round delta.
+/// `steam_id` is raw `m_steamID` (0 for a genuine bot). `slot` is the
+/// controller entity index.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoundScoreboardPlayer {
+    pub steam_id: u64,
+    pub slot: u32,
+    pub name: String,
+    pub kills: i32,
+    pub deaths: i32,
+    pub assists: i32,
+    pub damage: i32,
+    pub headshot_kills: i32,
+    pub utility_damage: i32,
+    pub enemies_flashed: i32,
 }
 
 /// Per-controller parse diagnostic. Not used by radar/stats.
