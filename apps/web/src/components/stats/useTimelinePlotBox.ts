@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState, type RefObject } from "react";
-import { readDevicePixelRatio, watchDevicePixelRatio } from "@/lib/stats/timelineChart";
+import { useDevicePixelRatio } from "./useDevicePixelRatio";
 
 export interface TimelinePlotBox {
   width: number;
@@ -39,12 +39,13 @@ export function useTimelinePlotBox(
   overlayRef: RefObject<SVGSVGElement | null>,
   plotFraction: number,
 ): { plotWidthPx: number; box: TimelinePlotBox } {
+  const dpr = useDevicePixelRatio();
   const [plotWidthPx, setPlotWidthPx] = useState(0);
   const [box, setBox] = useState(EMPTY_BOX);
   useLayoutEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const apply = (rect: Pick<DOMRect, "width" | "height" | "left" | "top">, dpr: number) => {
+    const apply = (rect: Pick<DOMRect, "width" | "height" | "left" | "top">) => {
       setPlotWidthPx(rect.width > 0 ? rect.width * plotFraction : 0);
       setBox((prev) =>
         sameBox(prev, rect, dpr)
@@ -53,33 +54,28 @@ export function useTimelinePlotBox(
       );
     };
     const read = (content?: DOMRectReadOnly) => {
-      const dpr = readDevicePixelRatio();
       const overlay = overlayRef.current?.getBoundingClientRect();
       if (overlay && overlay.width > 0 && overlay.height > 0) {
-        apply(overlay, dpr);
+        apply(overlay);
         return;
       }
       const border = host.getBoundingClientRect();
       if (border.width > 0 && border.height > 0) {
-        apply(border, dpr);
+        apply(border);
         return;
       }
       if (content && content.width > 0 && content.height > 0) {
-        apply(new DOMRect(0, 0, content.width, content.height), dpr);
+        apply(new DOMRect(0, 0, content.width, content.height));
       }
     };
     read();
-    const stopResolution = watchDevicePixelRatio(() => read());
-    if (typeof ResizeObserver === "undefined") return stopResolution;
+    if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver((entries) => {
       read(entries[0]?.contentRect);
     });
     observer.observe(host);
-    return () => {
-      observer.disconnect();
-      stopResolution();
-    };
-    // Re-run after the overlay mounts so the snap uses its painted origin.
-  }, [hostRef, overlayRef, plotFraction, box.width, box.height]);
-  return { plotWidthPx, box };
+    return () => observer.disconnect();
+    // `dpr` remeasures the snap on zoom. Width and height remeasure after the overlay mounts.
+  }, [hostRef, overlayRef, plotFraction, box.width, box.height, dpr]);
+  return { plotWidthPx, box: { ...box, dpr } };
 }
