@@ -18,11 +18,15 @@ import {
   strokeDeviceColumn,
   smoothLinePath,
   smoothLineSegments,
+  AXIS_LABEL_PX,
+  AXIS_TOP_GAP_PX,
+  AXIS_TOP_PAD_PX,
   ROUND_LABEL_BAND_PX,
   ROUND_LABEL_GAP_PX,
   ROUND_LABEL_TURNED_PX,
   ROUND_LABEL_SLOT_PX,
   TIMELINE_LAYOUT,
+  axisTopPadPx,
   roundLabelBand,
   timelineLayoutForHeight,
   roundLabelOrientation,
@@ -126,6 +130,39 @@ describe("timelineChart", () => {
       expect(gap).toBeLessThan(6);
     }
     expect(roundLabelGapPx(1.5)).not.toBe(roundLabelGapPx(1));
+  });
+
+  it("keeps a short pad above the top tick so the label is not clipped", () => {
+    const heights = [220, 480, 812.5, 1400];
+    for (const cssHeight of heights) {
+      const layout = timelineLayoutForHeight(cssHeight);
+      const top = (layout.padTop / layout.height) * cssHeight;
+      const legacy = (TIMELINE_LAYOUT.padTop / TIMELINE_LAYOUT.height) * cssHeight;
+      expect(top).toBeCloseTo(AXIS_TOP_PAD_PX, 6);
+      expect(top - AXIS_LABEL_PX / 2).toBeCloseTo(AXIS_TOP_GAP_PX, 6);
+      expect(top).toBeLessThan(legacy);
+      expect(layout.padTop).toBeLessThan(TIMELINE_LAYOUT.padTop);
+      const band = (layout.padBottom / layout.height) * cssHeight;
+      expect(band).toBeCloseTo(ROUND_LABEL_BAND_PX, 6);
+    }
+    for (const dpr of [1, 1.25, 1.5, 2]) {
+      const pad = axisTopPadPx(dpr);
+      expect(pad * dpr).toBeCloseTo(Math.round(pad * dpr), 8);
+      expect(pad).toBeGreaterThanOrEqual(AXIS_LABEL_PX / 2);
+      const layout = timelineLayoutForHeight(
+        812.5,
+        TIMELINE_LAYOUT,
+        roundLabelBand("horizontal", dpr),
+        pad,
+      );
+      expect((layout.padTop / layout.height) * 812.5).toBeCloseTo(pad, 6);
+    }
+    expect(axisTopPadPx(0)).toBe(axisTopPadPx(1));
+    const short = timelineLayoutForHeight(12, TIMELINE_LAYOUT, 20, AXIS_TOP_PAD_PX);
+    expect(short.padTop).toBeGreaterThan(0);
+    expect(short.padBottom).toBeGreaterThan(0);
+    expect(short.padTop + short.padBottom).toBeLessThan(TIMELINE_LAYOUT.height);
+    expect(short.height - short.padTop - short.padBottom).toBeGreaterThanOrEqual(1);
   });
 
   it("reserves a taller band for turned labels and keeps the same gap", () => {
