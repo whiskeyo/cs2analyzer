@@ -629,7 +629,9 @@ pub struct ConvarTables {
 }
 
 /// Cash read off players. `overtime_start_money` is null when the match has
-/// no overtime or the real players do not share one amount. No platform field.
+/// no overtime, any overtime opening is missing its freeze-end sample, or the
+/// real players do not share one amount. One missing sample nulls the whole
+/// value: null is better than a number from incomplete data. No platform field.
 ///
 /// Resolve overtime start money as `convars.demo.mp_overtime_startmoney`, then
 /// this value, then `convars.defaults.mp_overtime_startmoney`.

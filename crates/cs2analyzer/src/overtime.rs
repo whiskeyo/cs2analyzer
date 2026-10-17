@@ -6,6 +6,9 @@
 //! `observed.overtime_start_money`. Anything else is null, including a match
 //! that never reaches overtime.
 //!
+//! A missing buy-time sample for any overtime opening nulls the whole value.
+//! Null is better than a number computed from an incomplete set of openings.
+//!
 //! Overtime `k` (0-based) opens on competitive round
 //! `mp_maxrounds + k * mp_overtime_maxrounds + 1`. The demo string is used
 //! when the server sent that convar; otherwise the value comes from
@@ -113,9 +116,10 @@ pub(crate) fn is_overtime_opening_round(number: u32, rules: OvertimeRules) -> bo
     (number - first).is_multiple_of(rules.overtime_max_rounds)
 }
 
-/// `None` is JSON null: no overtime, a missing buy-time sample, or amounts
-/// that are not all equal. Bots, spectators, and disconnected controllers
-/// are ignored.
+/// `None` is JSON null: no overtime, any overtime opening missing its
+/// freeze-end sample, or amounts that are not all equal. One missing sample
+/// nulls every opening. Bots, spectators, and disconnected controllers are
+/// ignored.
 pub(crate) fn observed_overtime_start_money(
     rounds: &[CashRound],
     samples: &[BuytimeCashSample],
@@ -141,6 +145,8 @@ pub(crate) fn observed_overtime_start_money(
             .skip(index + 1)
             .map(|next| next.start_tick)
             .find(|start| *start > round.start_tick);
+        // Any opening without a freeze-end sample nulls the whole value.
+        // A number from the openings that did sample would hide incomplete data.
         let sample = last_sample_in_window(samples, round.start_tick, window_end)?;
         let mut humans = 0u32;
         for player in &sample.players {
@@ -331,6 +337,20 @@ mod tests {
         let samples = vec![at(25, 10_000), at(31, 12_500)];
         assert_eq!(
             observed_overtime_start_money(&rounds, &samples, None, mr12()),
+            None
+        );
+    }
+
+    #[test]
+    fn a_missing_sample_on_any_overtime_start_is_null() {
+        let rounds = competitive(36);
+        // Openers are 25 and 31. Sampling only one of them must not keep that amount.
+        assert_eq!(
+            observed_overtime_start_money(&rounds, &[at(25, 10_000)], None, mr12()),
+            None
+        );
+        assert_eq!(
+            observed_overtime_start_money(&rounds, &[at(31, 10_000)], None, mr12()),
             None
         );
     }
