@@ -3,6 +3,7 @@ name = "cs2analyzer-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "Parse a Counter-Strike 2 demo on the command line and dump JSON."
 
 [[bin]]

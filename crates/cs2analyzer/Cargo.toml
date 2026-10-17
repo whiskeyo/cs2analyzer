@@ -3,6 +3,7 @@ name = "cs2analyzer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "Parse Counter-Strike 2 demo files into compact replay snapshots and per-player stats."
 
 [dependencies]

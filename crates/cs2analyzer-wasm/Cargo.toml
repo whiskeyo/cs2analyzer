@@ -3,6 +3,7 @@ name = "cs2analyzer-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "WASM bindings for cs2analyzer."
 
 [lib]

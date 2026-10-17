@@ -11,6 +11,9 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/whiskeyo/cs2analyzer"
+# `u32::is_multiple_of` (overtime openers) stabilized in 1.87.
+# source2-demo 0.5.10 declares 1.85, which is below this.
+rust-version = "1.87"
 
 [workspace.dependencies]
 cs2analyzer = { path = "crates/cs2analyzer", default-features = true }
