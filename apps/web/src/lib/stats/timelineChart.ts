@@ -15,7 +15,9 @@ export const TIMELINE_LAYOUT = {
   padBottom: 28,
 } as const;
 
-export type TimelineLayout = typeof TIMELINE_LAYOUT;
+export type TimelineLayout = {
+  [Key in keyof typeof TIMELINE_LAYOUT]: number;
+};
 
 export interface PlotRect {
   x: number;
@@ -72,8 +74,158 @@ export function valueToY(value: number, max: number, plot: PlotRect): number {
   return plot.y + plot.height * (1 - t);
 }
 
+/** A hairline is never thinner than one device pixel. */
+const MIN_DEVICE_PIXEL_STROKE = 1;
+
+function finiteDevicePixelRatio(dpr: number): number {
+  return dpr > 0 && Number.isFinite(dpr) ? dpr : 1;
+}
+
+/** `window.devicePixelRatio`, or 1 when the browser has not reported one. */
+export function readDevicePixelRatio(): number {
+  if (typeof window === "undefined") return 1;
+  return finiteDevicePixelRatio(window.devicePixelRatio);
+}
+
+/**
+ * Device pixels a grid, seam, or hover stroke covers. Floor keeps 1.25 and 1.5
+ * at one device pixel and 2 at two. The same width on both axes: `crispEdges`
+ * otherwise rounds a fractional device-pixel stroke differently for horizontal
+ * and vertical rules.
+ */
+export function devicePixelStroke(dpr: number): number {
+  return Math.max(MIN_DEVICE_PIXEL_STROKE, Math.floor(finiteDevicePixelRatio(dpr)));
+}
+
+/** CSS `stroke-width` that covers exactly `devicePixelStroke(dpr)` device pixels. */
+export function axisStrokeWidth(dpr: number): number {
+  return devicePixelStroke(dpr) / finiteDevicePixelRatio(dpr);
+}
+
+/**
+ * Local CSS position so `overlayOriginCss + local` is a device-pixel center
+ * (odd stroke) or a device-pixel boundary (even stroke).
+ *
+ * The overlay's `getBoundingClientRect()` origin is what the rasterizer adds.
+ * Snapping in local SVG units and then shifting the element does not: the used
+ * CSS `left` is not that device-pixel boundary, and one rule falls on a pixel
+ * edge where `crispEdges` draws nothing.
+ */
+export function snapOverlayAxis(localCss: number, overlayOriginCss: number, dpr: number): number {
+  const ratio = finiteDevicePixelRatio(dpr);
+  if (!Number.isFinite(localCss)) return 0;
+  const origin = Number.isFinite(overlayOriginCss) ? overlayOriginCss : 0;
+  const screenDevice = (origin + localCss) * ratio;
+  const centered = devicePixelStroke(ratio) % 2 === 1;
+  const snapped = centered ? Math.round(screenDevice - 0.5) + 0.5 : Math.round(screenDevice);
+  return snapped / ratio - origin;
+}
+
+/** Snap a CSS position when the overlay origin is already on a device pixel. */
+export function snapDevicePixel(px: number, dpr: number): number {
+  return snapOverlayAxis(px, 0, dpr);
+}
+
+/**
+ * Map a viewBox coordinate into an overlay whose viewBox is the element's CSS
+ * pixel size (one user unit = one CSS pixel, no stretch), then snap it so the
+ * stroke lands on whole device pixels of the screen. `originCss` is the
+ * overlay edge (`getBoundingClientRect().left` or `.top`).
+ */
+export function axisPixel(
+  user: number,
+  viewSpan: number,
+  cssSpan: number,
+  dpr: number = 1,
+  originCss: number = 0,
+): number {
+  if (!(cssSpan > 0) || !(viewSpan > 0)) return user;
+  return snapOverlayAxis((user / viewSpan) * cssSpan, originCss, dpr);
+}
+
+/** First device pixel covered by a stroke centered at `screenCss`. */
+export function strokeDeviceColumn(screenCss: number, dpr: number): number {
+  const ratio = finiteDevicePixelRatio(dpr);
+  const start = screenCss * ratio - devicePixelStroke(ratio) / 2;
+  return Math.floor(start + 1e-9);
+}
+
+/**
+ * Call `onChange` when zoom or a monitor change moves `devicePixelRatio`.
+ * The media query only matches the current ratio, so each change re-registers.
+ */
+export function watchDevicePixelRatio(onChange: () => void): () => void {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return () => undefined;
+  }
+  let query: MediaQueryList | undefined;
+  let listener: (() => void) | undefined;
+  const listen = () => {
+    if (query && listener) query.removeEventListener("change", listener);
+    query = window.matchMedia(`(resolution: ${readDevicePixelRatio()}dppx)`);
+    listener = () => {
+      if (query && listener) query.removeEventListener("change", listener);
+      onChange();
+      listen();
+    };
+    query.addEventListener("change", listener);
+  };
+  listen();
+  return () => {
+    if (query && listener) query.removeEventListener("change", listener);
+  };
+}
+
 /** CSS pixels. Labels sit outside the stretched viewBox, so this size does not follow the chart width. */
 export const AXIS_LABEL_PX = 10;
+
+/** CSS pixels between the 0 baseline and the top of a round label, before device alignment. */
+export const ROUND_LABEL_GAP_PX = 5;
+
+/** CSS pixels kept under the baseline at DPR 1: the gap plus one line of round labels. */
+export const ROUND_LABEL_BAND_PX = ROUND_LABEL_GAP_PX + AXIS_LABEL_PX;
+
+/**
+ * Gap under the baseline in CSS px, rounded to a whole device pixel.
+ * The same DPR always yields the same gap; width and sidebar do not enter.
+ */
+export function roundLabelGapPx(dpr: number = 1): number {
+  const ratio = finiteDevicePixelRatio(dpr);
+  return Math.round(ROUND_LABEL_GAP_PX * ratio) / ratio;
+}
+
+/**
+ * Inline size of a turned round label at `AXIS_LABEL_PX` ("R42" in the UI font).
+ * The bottom band uses this so the turned row still clears the plot.
+ */
+export const ROUND_LABEL_TURNED_PX = 18;
+
+/** CSS pixels reserved under the baseline for the current label orientation. */
+export function roundLabelBand(orientation: RoundLabelOrientation, dpr: number = 1): number {
+  const gap = roundLabelGapPx(dpr);
+  if (orientation === "vertical") return gap + ROUND_LABEL_TURNED_PX;
+  return gap + AXIS_LABEL_PX;
+}
+
+/** `top` in CSS px: the snapped baseline, then `roundLabelGapPx` device-aligned pixels. */
+export function roundLabelTopPx(baselineCss: number, dpr: number = 1): number {
+  return baselineCss + roundLabelGapPx(dpr);
+}
+
+/**
+ * Shrink the viewBox padding under the baseline so the band stays `bandPx`
+ * CSS pixels at any chart height. Width and device pixel ratio do not enter.
+ */
+export function timelineLayoutForHeight(
+  cssHeight: number,
+  layout: TimelineLayout = TIMELINE_LAYOUT,
+  bandPx: number = ROUND_LABEL_BAND_PX,
+): TimelineLayout {
+  if (!(cssHeight > 0)) return layout;
+  const band = Math.min(Math.max(bandPx, 0), cssHeight);
+  const padBottom = Math.min(layout.height - layout.padTop - 1, (band / cssHeight) * layout.height);
+  return { ...layout, padBottom };
+}
 
 /** Room a horizontal "R42" needs. A tighter column turns the label upright instead of shrinking it. */
 export const ROUND_LABEL_SLOT_PX = 28;

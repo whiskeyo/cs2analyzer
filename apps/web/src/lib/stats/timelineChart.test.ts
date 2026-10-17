@@ -6,10 +6,23 @@ import {
   percentAxis,
   plotRect,
   roundX,
+  axisPixel,
+  axisStrokeWidth,
+  devicePixelStroke,
+  roundLabelGapPx,
+  roundLabelTopPx,
+  snapDevicePixel,
+  snapOverlayAxis,
+  strokeDeviceColumn,
   smoothLinePath,
   smoothLineSegments,
+  ROUND_LABEL_BAND_PX,
+  ROUND_LABEL_GAP_PX,
+  ROUND_LABEL_TURNED_PX,
   ROUND_LABEL_SLOT_PX,
   TIMELINE_LAYOUT,
+  roundLabelBand,
+  timelineLayoutForHeight,
   roundLabelOrientation,
   valueToY,
   type TimelineRoundRoster,
@@ -18,6 +31,67 @@ import type { Side } from "@/lib/replay/replayTypes";
 
 describe("timelineChart", () => {
   const plot = plotRect();
+
+  it("covers a whole number of device pixels, the same width on both axes", () => {
+    const devicePixels = [
+      { dpr: 1, devicePx: 1 },
+      { dpr: 1.25, devicePx: 1 },
+      { dpr: 1.5, devicePx: 1 },
+      { dpr: 2, devicePx: 2 },
+    ];
+    for (const { dpr, devicePx } of devicePixels) {
+      expect(devicePixelStroke(dpr)).toBe(devicePx);
+      const horizontal = axisStrokeWidth(dpr);
+      const vertical = axisStrokeWidth(dpr);
+      expect(horizontal).toBe(vertical);
+      expect(horizontal * dpr).toBeCloseTo(devicePx, 8);
+      const odd = devicePx % 2 === 1;
+      for (const px of [0, 0.4, 10.2, 22, 94.37]) {
+        const center = snapDevicePixel(px, dpr) * dpr;
+        const fraction = center - Math.floor(center);
+        expect(fraction).toBeCloseTo(odd ? 0.5 : 0, 6);
+        const half = devicePx / 2;
+        expect(center - half).toBeCloseTo(Math.round(center - half), 6);
+        expect(center + half).toBeCloseTo(Math.round(center + half), 6);
+      }
+    }
+    expect(snapDevicePixel(10.2, 1)).toBe(10.5);
+    expect(snapDevicePixel(10.2, 1.25)).toBe(snapOverlayAxis(10.2, 0, 1.25));
+    expect(snapDevicePixel(10.2, 1.5)).toBe(snapOverlayAxis(10.2, 0, 1.5));
+    expect(snapDevicePixel(10.2, 2)).toBe(Math.round(10.2 * 2) / 2);
+    expect(snapDevicePixel(10.2, 1)).not.toBe(snapDevicePixel(10.2, 1.25));
+    expect(snapDevicePixel(10.2, 0)).toBe(snapDevicePixel(10.2, 1));
+    expect(axisStrokeWidth(0)).toBe(axisStrokeWidth(1));
+    expect(axisPixel(22, 280, 0, 2)).toBe(22);
+    expect(axisPixel(22, 280, 938, 2)).toBe(snapDevicePixel((22 / 280) * 938, 2));
+  });
+
+  it("gives every round its own device column when the overlay origin is fractional", () => {
+    const dpr = 1.5;
+    const rounds = 42;
+    const cases = [
+      { origin: 14.260416984558105, cssWidth: 1891.479248046875 },
+      { origin: 0.4, cssWidth: 1700.3 },
+      { origin: 10.3, cssWidth: 2051.48 },
+      { origin: 99.9, cssWidth: 1600.1 },
+    ];
+    for (const { origin, cssWidth } of cases) {
+      const columns = Array.from({ length: rounds }, (_, index) => {
+        const user = roundX(index, rounds, plot);
+        const localCss = (user / TIMELINE_LAYOUT.width) * cssWidth;
+        const naive = (origin + snapDevicePixel(localCss, dpr)) * dpr;
+        expect(naive - Math.floor(naive)).not.toBeCloseTo(0.5, 2);
+        const local = snapOverlayAxis(localCss, origin, dpr);
+        const screen = origin + local;
+        const device = screen * dpr;
+        expect(device - Math.floor(device)).toBeCloseTo(0.5, 8);
+        expect(axisPixel(user, TIMELINE_LAYOUT.width, cssWidth, dpr, origin)).toBe(local);
+        return strokeDeviceColumn(screen, dpr);
+      });
+      expect(columns).toHaveLength(rounds);
+      expect(new Set(columns).size).toBe(rounds);
+    }
+  });
 
   it("rounds the axis up onto a readable grid", () => {
     const adr = axisScale(117);
@@ -29,6 +103,54 @@ describe("timelineChart", () => {
     expect(percent.max).toBe(100);
     expect(percent.ticks).toContain(100);
     expect(percentAxis(140).max).toBeGreaterThanOrEqual(140);
+  });
+
+  it("keeps a device-aligned gap under the baseline at every chart height", () => {
+    const heights = [220, 480, 812.5, 1400];
+    for (const cssHeight of heights) {
+      const layout = timelineLayoutForHeight(cssHeight);
+      const band = (layout.padBottom / layout.height) * cssHeight;
+      expect(band).toBeCloseTo(ROUND_LABEL_BAND_PX, 6);
+      expect(layout.padBottom).toBeLessThan(TIMELINE_LAYOUT.padBottom);
+      const baseline = layout.height - layout.padBottom;
+      const baselineCss = snapOverlayAxis((baseline / layout.height) * cssHeight, 0, 1);
+      expect(roundLabelTopPx(baselineCss, 1) - baselineCss).toBe(ROUND_LABEL_GAP_PX);
+    }
+    expect(timelineLayoutForHeight(0)).toBe(TIMELINE_LAYOUT);
+    expect(timelineLayoutForHeight(-1).padBottom).toBe(TIMELINE_LAYOUT.padBottom);
+    for (const dpr of [1, 1.25, 1.5, 2]) {
+      const gap = roundLabelGapPx(dpr);
+      expect(gap * dpr).toBeCloseTo(Math.round(gap * dpr), 8);
+      expect(gap).toBeGreaterThan(4);
+      expect(gap).toBeLessThan(6);
+    }
+    expect(roundLabelGapPx(1.5)).not.toBe(roundLabelGapPx(1));
+  });
+
+  it("reserves a taller band for turned labels and keeps the same gap", () => {
+    const cssHeight = 480;
+    const horizontal = timelineLayoutForHeight(
+      cssHeight,
+      TIMELINE_LAYOUT,
+      roundLabelBand("horizontal"),
+    );
+    const vertical = timelineLayoutForHeight(
+      cssHeight,
+      TIMELINE_LAYOUT,
+      roundLabelBand("vertical"),
+    );
+    const bandPx = (layout: { padBottom: number; height: number }) =>
+      (layout.padBottom / layout.height) * cssHeight;
+    expect(bandPx(horizontal)).toBeCloseTo(ROUND_LABEL_BAND_PX, 6);
+    expect(bandPx(vertical)).toBeCloseTo(ROUND_LABEL_GAP_PX + ROUND_LABEL_TURNED_PX, 6);
+    expect(vertical.padBottom).toBeGreaterThan(horizontal.padBottom);
+    expect(vertical.padBottom).toBeLessThan(TIMELINE_LAYOUT.padBottom);
+    for (const layout of [horizontal, vertical]) {
+      const baseline = layout.height - layout.padBottom;
+      const baselineCss = snapOverlayAxis((baseline / layout.height) * cssHeight, 0, 1);
+      expect(roundLabelTopPx(baselineCss, 1) - baselineCss).toBe(ROUND_LABEL_GAP_PX);
+    }
+    expect(roundLabelBand("horizontal", 1.5)).toBeCloseTo(roundLabelGapPx(1.5) + 10, 8);
   });
 
   it("keeps every round label and turns the row upright when horizontal type would overlap", () => {

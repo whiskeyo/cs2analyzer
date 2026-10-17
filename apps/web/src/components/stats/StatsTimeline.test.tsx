@@ -1,12 +1,22 @@
 /**
  * @vitest-environment jsdom
  */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { playerMarkColors } from "@/lib/players/playerColors";
 import { makeKill, makePlayer, makeReplay, makeRound, makeHurt } from "@/lib/testing/fixtures";
-import { AXIS_LABEL_PX, plotRect, roundX } from "@/lib/stats/timelineChart";
+import { SIDEBAR_DEFAULT_WIDTH } from "@/lib/shared/constants";
+import {
+  AXIS_LABEL_PX,
+  TIMELINE_LAYOUT,
+  axisPixel,
+  plotRect,
+  roundX,
+} from "@/lib/stats/timelineChart";
 import type { TimelineColumn, TimelinePlayerRow, TimelineStatId } from "@/lib/stats/timeline";
 import { StatsTimeline } from "./StatsTimeline";
 import { StatsTimelineChart } from "./StatsTimelineChart";
@@ -76,6 +86,58 @@ function swappedColumn(number: number, side: "CT" | "T"): TimelineColumn {
   };
 }
 
+const MODAL_BODY_PAD_X = 0.85 * 16 * 2;
+
+function chartCssWidth(viewport: number, sidebar: number): number {
+  return viewport - sidebar - MODAL_BODY_PAD_X;
+}
+
+function installPlotResize(initial: { width: number; height: number }) {
+  let size = initial;
+  const listeners: { callback: ResizeObserverCallback; targets: Element[] }[] = [];
+  const notify = (callback: ResizeObserverCallback, targets: readonly Element[]) => {
+    for (const target of targets) {
+      callback(
+        [
+          {
+            target,
+            contentRect: new DOMRect(0, 0, size.width, size.height),
+          } as ResizeObserverEntry,
+        ],
+        {} as ResizeObserver,
+      );
+    }
+  };
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      targets: Element[] = [];
+      observe!: (target: Element) => void;
+      constructor(callback: ResizeObserverCallback) {
+        listeners.push({ callback, targets: this.targets });
+        this.observe = (target: Element) => {
+          this.targets.push(target);
+          notify(callback, [target]);
+        };
+      }
+      disconnect() {
+        this.targets.length = 0;
+      }
+    },
+  );
+  return {
+    resize(next: { width: number; height: number }) {
+      size = next;
+      act(() => {
+        for (const listener of listeners) notify(listener.callback, listener.targets);
+      });
+    },
+    restore() {
+      vi.unstubAllGlobals();
+    },
+  };
+}
+
 describe("StatsTimeline", () => {
   it("charts counted rounds and leaves knife and restarts off the axis", () => {
     render(<StatsTimeline replay={chartReplay()} />);
@@ -139,30 +201,116 @@ describe("StatsTimeline", () => {
   });
 
   it("draws a thin separator on a side swap without moving it", () => {
-    const columns = [swappedColumn(12, "CT"), swappedColumn(13, "T")];
-    render(
-      <StatsTimelineChart
-        columns={columns}
-        stat="adr"
-        colors={["#ffffff", "#000000"]}
-        selected={null}
-        hover={null}
-        onSelect={() => undefined}
-        onHover={() => undefined}
-      />,
-    );
-    expect(document.querySelector(".stats-timeline-plot svg")).toHaveAttribute(
-      "preserveAspectRatio",
-      "none",
-    );
-    const line = document.querySelector(".stats-timeline-break");
-    expect(line).toHaveAttribute("stroke-width", "1");
-    expect(line).toHaveAttribute("stroke-opacity", "0.5");
-    expect(line).toHaveAttribute("vector-effect", "non-scaling-stroke");
-    const plot = plotRect();
-    const mid = (roundX(0, columns.length, plot) + roundX(1, columns.length, plot)) / 2;
-    expect(line).toHaveAttribute("x1", String(mid));
-    expect(line).toHaveAttribute("x2", String(mid));
+    const width = chartCssWidth(1920, SIDEBAR_DEFAULT_WIDTH);
+    const height = 812.5;
+    const plotResize = installPlotResize({ width, height });
+    try {
+      const columns = [swappedColumn(12, "CT"), swappedColumn(13, "T")];
+      render(
+        <StatsTimelineChart
+          columns={columns}
+          stat="adr"
+          colors={["#ffffff", "#000000"]}
+          selected={null}
+          hover={null}
+          onSelect={() => undefined}
+          onHover={() => undefined}
+        />,
+      );
+      expect(document.querySelector(".stats-timeline-series")).toHaveAttribute(
+        "preserveAspectRatio",
+        "none",
+      );
+      expect(document.querySelector(".stats-timeline-axis-svg")).toHaveAttribute(
+        "preserveAspectRatio",
+        "none",
+      );
+      const line = document.querySelector(".stats-timeline-break");
+      expect(line).toHaveAttribute("stroke-width", "1");
+      expect(line).toHaveAttribute("stroke", "#7d8389");
+      expect(line).not.toHaveAttribute("stroke-opacity");
+      expect(line).toHaveAttribute("vector-effect", "non-scaling-stroke");
+      expect(line).toHaveAttribute("shape-rendering", "crispEdges");
+      const plot = plotRect();
+      const mid = (roundX(0, columns.length, plot) + roundX(1, columns.length, plot)) / 2;
+      const snapped = String(axisPixel(mid, TIMELINE_LAYOUT.width, width));
+      expect(line).toHaveAttribute("x1", snapped);
+      expect(line).toHaveAttribute("x2", snapped);
+    } finally {
+      plotResize.restore();
+    }
+  });
+
+  it("draws round rules at one pixel with an opaque color and a lighter seam", () => {
+    const plotResize = installPlotResize({
+      width: chartCssWidth(1920, SIDEBAR_DEFAULT_WIDTH),
+      height: 812.5,
+    });
+    const columns = [swappedColumn(12, "CT"), swappedColumn(13, "T"), swappedColumn(14, "T")];
+    try {
+      render(
+        <StatsTimelineChart
+          columns={columns}
+          stat="kills"
+          colors={["#ffffff", "#000000"]}
+          selected={0}
+          hover={0}
+          onSelect={() => undefined}
+          onHover={() => undefined}
+        />,
+      );
+      const grids = [...document.querySelectorAll(".stats-timeline-grid")];
+      expect(grids.length).toBeGreaterThan(0);
+      const gridStrokes = new Set<string>();
+      for (const line of grids) {
+        expect(line).toHaveAttribute("vector-effect", "non-scaling-stroke");
+        expect(line).toHaveAttribute("shape-rendering", "crispEdges");
+        expect(line).toHaveAttribute("stroke-width", "1");
+        expect(line).not.toHaveAttribute("stroke-opacity");
+        const stroke = line.getAttribute("stroke") ?? "";
+        expect(stroke).toMatch(/^#[0-9a-f]{6}$/);
+        gridStrokes.add(stroke);
+      }
+      expect(gridStrokes).toEqual(new Set(["#23282e"]));
+
+      const seam = document.querySelector(".stats-timeline-break");
+      expect(seam).toHaveAttribute("vector-effect", "non-scaling-stroke");
+      expect(seam).toHaveAttribute("shape-rendering", "crispEdges");
+      expect(seam).toHaveAttribute("stroke-width", "1");
+      expect(seam).not.toHaveAttribute("stroke-opacity");
+      expect(seam?.getAttribute("stroke")).toMatch(/^#[0-9a-f]{6}$/);
+      expect(seam?.getAttribute("stroke")).not.toBe(grids[0]?.getAttribute("stroke"));
+
+      const hover = document.querySelector(".stats-timeline-hover");
+      expect(hover).toHaveAttribute("vector-effect", "non-scaling-stroke");
+      expect(hover).toHaveAttribute("stroke-dasharray", "3 4");
+      expect(hover).not.toHaveAttribute("stroke-opacity");
+
+      expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
+        "stroke-width",
+        "1.6",
+      );
+      expect(document.querySelector(".stats-timeline-line.is-dim")).toHaveAttribute(
+        "stroke-width",
+        "0.9",
+      );
+      expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
+        "vector-effect",
+        "non-scaling-stroke",
+      );
+
+      const css = readFileSync(
+        join(dirname(fileURLToPath(import.meta.url)), "../../index.css"),
+        "utf8",
+      );
+      const paint = css.slice(
+        css.indexOf(".stats-timeline-grid"),
+        css.indexOf(".stats-timeline-axis {"),
+      );
+      expect(paint).not.toMatch(/rgba|hsla|stroke-opacity|stroke:/);
+    } finally {
+      plotResize.restore();
+    }
   });
 
   it("keeps every round label at a fixed size, upright only when horizontal type would overlap", () => {
