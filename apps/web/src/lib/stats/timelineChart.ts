@@ -189,6 +189,21 @@ export const ROUND_LABEL_GAP_PX = 5;
 /** CSS pixels kept under the baseline at DPR 1: the gap plus one line of round labels. */
 export const ROUND_LABEL_BAND_PX = ROUND_LABEL_GAP_PX + AXIS_LABEL_PX;
 
+/** CSS pixels of air above the centered top tick label. */
+export const AXIS_TOP_GAP_PX = 4;
+
+/** Plot edge to the top tick at DPR 1: half the label, then the gap above it. */
+export const AXIS_TOP_PAD_PX = AXIS_LABEL_PX / 2 + AXIS_TOP_GAP_PX;
+
+/**
+ * Top inset in CSS px, rounded to a whole device pixel.
+ * The same DPR always yields the same inset; chart height does not enter.
+ */
+export function axisTopPadPx(dpr: number = 1): number {
+  const ratio = finiteDevicePixelRatio(dpr);
+  return Math.round(AXIS_TOP_PAD_PX * ratio) / ratio;
+}
+
 /**
  * Gap under the baseline in CSS px, rounded to a whole device pixel.
  * The same DPR always yields the same gap; width and sidebar do not enter.
@@ -217,18 +232,29 @@ export function roundLabelTopPx(baselineCss: number, dpr: number = 1): number {
 }
 
 /**
- * Shrink the viewBox padding under the baseline so the band stays `bandPx`
- * CSS pixels at any chart height. Width and device pixel ratio do not enter.
+ * Fit viewBox padding to CSS pixels at any chart height.
+ * The top inset stays `topPadPx` (half a tick label, plus a hair) so the top
+ * tick is not clipped and does not grow into an empty band. The bottom band
+ * stays `bandPx` for the round labels. Width and device pixel ratio do not enter.
  */
 export function timelineLayoutForHeight(
   cssHeight: number,
   layout: TimelineLayout = TIMELINE_LAYOUT,
   bandPx: number = ROUND_LABEL_BAND_PX,
+  topPadPx: number = AXIS_TOP_PAD_PX,
 ): TimelineLayout {
   if (!(cssHeight > 0)) return layout;
-  const band = Math.min(Math.max(bandPx, 0), cssHeight);
-  const padBottom = Math.min(layout.height - layout.padTop - 1, (band / cssHeight) * layout.height);
-  return { ...layout, padBottom };
+  const topPx = Math.min(Math.max(topPadPx, 0), cssHeight);
+  let padTop = (topPx / cssHeight) * layout.height;
+  const band = Math.min(Math.max(bandPx, 0), Math.max(cssHeight - topPx, 0));
+  let padBottom = (band / cssHeight) * layout.height;
+  const limit = layout.height - 1;
+  if (padTop + padBottom > limit) {
+    const scale = limit / (padTop + padBottom);
+    padTop *= scale;
+    padBottom *= scale;
+  }
+  return { ...layout, padTop, padBottom };
 }
 
 /** Room a horizontal "R42" needs. A tighter column turns the label upright instead of shrinking it. */

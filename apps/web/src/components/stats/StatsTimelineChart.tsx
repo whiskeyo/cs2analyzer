@@ -7,6 +7,7 @@ import {
   ROUND_LABEL_SLOT_PX,
   TIMELINE_LAYOUT,
   axisScale,
+  axisTopPadPx,
   economyBreakAfter,
   timelineColumnRosters,
   nearestRoundIndex,
@@ -97,6 +98,7 @@ export function StatsTimelineChart({
     pixelSize.height,
     TIMELINE_LAYOUT,
     roundLabelBand(labelOrientation, pixelSize.dpr),
+    axisTopPadPx(pixelSize.dpr),
   );
   const plot = plotRect(layout);
   const rows = columns[0]?.rows ?? [];
