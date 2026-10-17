@@ -7,6 +7,7 @@ import {
   ROUND_LABEL_SLOT_PX,
   TIMELINE_LAYOUT,
   axisScale,
+  axisTopPadPx,
   economyBreakAfter,
   timelineColumnRosters,
   nearestRoundIndex,
@@ -97,6 +98,7 @@ export function StatsTimelineChart({
     pixelSize.height,
     TIMELINE_LAYOUT,
     roundLabelBand(labelOrientation, pixelSize.dpr),
+    axisTopPadPx(pixelSize.dpr),
   );
   const plot = plotRect(layout);
   const rows = columns[0]?.rows ?? [];
@@ -229,9 +231,12 @@ export function StatsTimelineChart({
   );
 }
 
-/** Crisp stroke in CSS pixels. A viewBox stroke scales up and merges a long match. */
-const LINE_STROKE = 0.9;
-const HIGHLIGHT_STROKE = 1.6;
+/**
+ * Crisp stroke in CSS pixels. `non-scaling-stroke`, so a long match does not
+ * thicken the series. Grid, seams, and the hover guide stay one device pixel.
+ */
+export const LINE_STROKE = 1.1;
+export const HIGHLIGHT_STROKE = 2;
 
 /**
  * Grid, seams, and the hover guide. The viewBox is this SVG's CSS pixel size

@@ -10,9 +10,12 @@ import {
 } from "@/lib/shared/constants";
 import type { TimelineColumn, TimelinePlayerRow, TimelineStatId } from "@/lib/stats/timeline";
 import {
+  TIMELINE_LAYOUT,
   axisStrokeWidth,
+  axisTopPadPx,
   devicePixelStroke,
   roundLabelGapPx,
+  snapOverlayAxis,
   strokeDeviceColumn,
 } from "@/lib/stats/timelineChart";
 import { StatsTimelineChart } from "./StatsTimelineChart";
@@ -168,6 +171,12 @@ describe("StatsTimelineChart pixel grid", () => {
         );
         expect(vertical.length).toBeGreaterThan(0);
         expect(horizontal.length).toBeGreaterThan(0);
+        const tickTop = Math.min(...horizontal.map((line) => Number(line.getAttribute("y1"))));
+        const pad = axisTopPadPx(1);
+        expect(tickTop).toBeCloseTo(snapOverlayAxis(pad, 0, 1), 5);
+        expect(tickTop).toBeLessThan(
+          height * (TIMELINE_LAYOUT.padTop / TIMELINE_LAYOUT.height) * 0.5,
+        );
         for (const line of [
           ...grids,
           ...document.querySelectorAll(".stats-timeline-break, .stats-timeline-hover"),
@@ -182,6 +191,12 @@ describe("StatsTimelineChart pixel grid", () => {
       const top = Number.parseFloat(labelTops[0] ?? "");
       expect(top - Math.floor(top)).not.toBeNaN();
       expect(roundLabelGapPx(1)).toBe(5);
+      const labelTop = Math.min(
+        ...[...document.querySelectorAll(".stats-timeline-axis")].map((label) =>
+          label instanceof HTMLElement ? Number.parseFloat(label.style.top) : Number.NaN,
+        ),
+      );
+      expect(labelTop).toBeCloseTo((axisTopPadPx(1) / height) * 100, 5);
     } finally {
       plotResize.restore();
     }
