@@ -178,8 +178,21 @@ The branches stay. None of the 12 release demos need a behavior change.
   },
   "server_name": "",
   "build_num": 0,
-  "patch_version": 0
+  "patch_version": 0,
+  "observed": { "overtime_start_money": null }
 }
 ```
 
 `rules` in a real parse lists every field in the gamerules table. The CLI section is `match-info`.
+
+## Observed overtime money
+
+`observed.overtime_start_money` is the cash reconstructed from players. It is `null` when the match has no overtime, a freeze-end sample is missing, or the real players do not all hold the same amount. There is no `observed.platform` field. A fresh parse always sends `observed`. An older payload may omit it.
+
+On the first round of each overtime after the last `begin_new_match`, at `round_freeze_end`, every real player's cash is `m_iAccount` plus `m_iCashSpentThisRound` (`m_pInGameMoneyServices` on `CCSPlayerController`). The sample is taken at tick end so those props already include the buy. `buytime_ended` is not used: `mp_buytime` keeps running after the freeze, and a kill in that window changes `m_iAccount` without a matching spend.
+
+Do not read `m_iStartAccount`. It does not reset when overtime begins.
+
+Bots are dropped with the same identity rules as the roster. Rounds at or before the last `begin_new_match` are ignored. Competitive numbers are then counted again from 1, and overtime openers are rounds 25, 31, 37, … (MR12, then every 6 rounds).
+
+The viewer resolves overtime start money as `convars.demo.mp_overtime_startmoney`, then `observed.overtime_start_money`, then `convars.defaults.mp_overtime_startmoney`.

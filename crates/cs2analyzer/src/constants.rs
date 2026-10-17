@@ -127,6 +127,10 @@ const fn parse_decimal_i32(raw: &str) -> i32 {
 /// Overtime side-swap block length.
 pub const OVERTIME_BLOCK_ROUNDS: u32 = 3;
 
+/// One overtime is two MR3 blocks (CT and T).
+/// Keep aligned with `apps/web/src/lib/shared/constants.ts`.
+pub const OVERTIME_PERIOD_ROUNDS: u32 = OVERTIME_BLOCK_ROUNDS * 2;
+
 /// KAST / trade window: teammate kills the attacker.
 pub const TRADE_SECONDS: f32 = 5.0;
 

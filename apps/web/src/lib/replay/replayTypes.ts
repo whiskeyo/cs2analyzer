@@ -388,11 +388,21 @@ export interface GameRulesSnapshot {
 }
 
 /**
+ * Cash read off players. `overtime_start_money` is null when the match has no
+ * overtime or the balances disagree. There is no platform field.
+ */
+export interface ObservedMatch {
+  overtime_start_money: number | null;
+}
+
+/**
  * Extra demo data. Omitted on replays parsed before this field existed.
  *
- * Look up a convar with `convars.demo[name] ?? convars.defaults[name]`.
- * Rust does not infer overtime or round-limit numbers; the viewer computes
- * those from rounds when it needs them.
+ * Resolve overtime start money as `convars.demo.mp_overtime_startmoney`, then
+ * `observed.overtime_start_money`, then `convars.defaults.mp_overtime_startmoney`.
+ * Other convars are still `convars.demo[name] ?? convars.defaults[name]`.
+ * `observed` is optional so a payload from before this object still loads.
+ * A fresh parse always sends it.
  */
 export interface MatchInfo {
   convars: ConvarTables;
@@ -402,6 +412,7 @@ export interface MatchInfo {
   server_name: string;
   build_num: number;
   patch_version: number;
+  observed?: ObservedMatch;
 }
 
 export interface Replay {
