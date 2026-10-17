@@ -19,7 +19,7 @@ import {
 import { makeHurt, makeKill, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
 import type { TimelineColumn, TimelinePlayerRow, TimelineStatId } from "@/lib/stats/timeline";
 import { StatsTimeline } from "./StatsTimeline";
-import { StatsTimelineChart } from "./StatsTimelineChart";
+import { HIGHLIGHT_STROKE, LINE_STROKE, StatsTimelineChart } from "./StatsTimelineChart";
 
 function chartReplay() {
   return makeReplay({
@@ -171,9 +171,11 @@ describe("StatsTimeline", () => {
       "stroke",
       playerMarkColors(chartReplay().players)[0],
     );
+    expect(HIGHLIGHT_STROKE).toBe(2);
+    expect(LINE_STROKE).toBe(1.1);
     expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
       "stroke-width",
-      "1.6",
+      String(HIGHLIGHT_STROKE),
     );
     expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
       "vector-effect",
@@ -181,7 +183,7 @@ describe("StatsTimeline", () => {
     );
     expect(document.querySelector(".stats-timeline-line.is-dim")).toHaveAttribute(
       "stroke-width",
-      "0.9",
+      String(LINE_STROKE),
     );
     expect(document.querySelector("feGaussianBlur")).toBeNull();
     expect(document.querySelector(".stats-timeline-line")).not.toHaveAttribute("filter");
@@ -288,11 +290,11 @@ describe("StatsTimeline", () => {
 
       expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
         "stroke-width",
-        "1.6",
+        String(HIGHLIGHT_STROKE),
       );
       expect(document.querySelector(".stats-timeline-line.is-dim")).toHaveAttribute(
         "stroke-width",
-        "0.9",
+        String(LINE_STROKE),
       );
       expect(document.querySelector(".stats-timeline-line.is-on")).toHaveAttribute(
         "vector-effect",
