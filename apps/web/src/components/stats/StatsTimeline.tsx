@@ -88,6 +88,7 @@ export function StatsTimeline({
             hover={hover}
             onSelect={choose}
             onHover={setHover}
+            matchInfo={replay.match_info}
           />
         </div>
       )}

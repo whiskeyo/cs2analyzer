@@ -8,7 +8,6 @@ import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { playerMarkColors } from "@/lib/players/playerColors";
-import { makeKill, makePlayer, makeReplay, makeRound, makeHurt } from "@/lib/testing/fixtures";
 import { SIDEBAR_DEFAULT_WIDTH } from "@/lib/shared/constants";
 import {
   AXIS_LABEL_PX,
@@ -17,6 +16,7 @@ import {
   plotRect,
   roundX,
 } from "@/lib/stats/timelineChart";
+import { makeHurt, makeKill, makePlayer, makeReplay, makeRound } from "@/lib/testing/fixtures";
 import type { TimelineColumn, TimelinePlayerRow, TimelineStatId } from "@/lib/stats/timeline";
 import { StatsTimeline } from "./StatsTimeline";
 import { StatsTimelineChart } from "./StatsTimelineChart";

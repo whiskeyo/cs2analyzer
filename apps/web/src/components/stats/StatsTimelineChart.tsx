@@ -1,4 +1,5 @@
 import { useMemo, useRef } from "react";
+import type { MatchInfo } from "@/lib/replay/replayTypes";
 import type { TimelineColumn, TimelineStatId } from "@/lib/stats/timeline";
 import { formatTimelineValue, plottedValue, timelineStat } from "@/lib/stats/timeline";
 import {
@@ -7,6 +8,7 @@ import {
   TIMELINE_LAYOUT,
   axisScale,
   economyBreakAfter,
+  timelineColumnRosters,
   nearestRoundIndex,
   percentAxis,
   plotRect,
@@ -32,6 +34,8 @@ interface Props {
   hover: number | null;
   onSelect: (player: number) => void;
   onHover: (index: number | null) => void;
+  /** Parsed convars. Half and overtime lines use `mp_maxrounds` from here. */
+  matchInfo?: MatchInfo;
 }
 
 interface LineSeries {
@@ -78,6 +82,7 @@ export function StatsTimelineChart({
   hover,
   onSelect,
   onHover,
+  matchInfo,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<SVGSVGElement>(null);
@@ -113,16 +118,7 @@ export function StatsTimelineChart({
     pixelSize.top,
   );
   const labelTop = `${roundLabelTopPx(baselineCss, pixelSize.dpr)}px`;
-  const breakAfter = new Set(
-    economyBreakAfter(
-      columns.map((column) => ({
-        number: column.number,
-        players: column.rows
-          .filter((row) => row.present)
-          .map((row) => ({ player: row.player, side: row.side })),
-      })),
-    ),
-  );
+  const breakAfter = new Set(economyBreakAfter(timelineColumnRosters(columns), matchInfo));
   const lines: LineSeries[] = rows.map((row) => {
     const points = columns.map((column, index) => {
       const sample = column.rows.find((candidate) => candidate.player === row.player);
@@ -256,7 +252,13 @@ function AxisOverlay({
   hover,
 }: {
   overlayRef: { current: SVGSVGElement | null };
-  box: { width: number; height: number; left: number; top: number; dpr: number };
+  box: {
+    width: number;
+    height: number;
+    left: number;
+    top: number;
+    dpr: number;
+  };
   layout: { width: number; height: number };
   plot: PlotRect;
   baseline: number;
@@ -301,15 +303,10 @@ function AxisOverlay({
           );
         })}
         {columns.map((column, index) => {
-          const lineX = x(roundX(index, columns.length, plot));
-          const next = columns[index + 1];
-          const split =
-            next && breakAfter.has(column.number)
-              ? x(
-                  (roundX(index, columns.length, plot) + roundX(index + 1, columns.length, plot)) /
-                    2,
-                )
-              : null;
+          const userX = roundX(index, columns.length, plot);
+          const lineX = x(userX);
+          const next = index + 1 < columns.length && breakAfter.has(column.number);
+          const seam = next ? x((userX + roundX(index + 1, columns.length, plot)) / 2) : null;
           return (
             <g key={`round-${index}`}>
               <AxisLine
@@ -321,15 +318,14 @@ function AxisOverlay({
                 x2={lineX}
                 y2={bottom}
               />
-              {split != null ? (
+              {seam != null ? (
                 <AxisLine
-                  key={`break-${index}`}
                   className="stats-timeline-break"
                   stroke={BREAK_STROKE}
                   strokeWidth={strokeWidth}
-                  x1={split}
+                  x1={seam}
                   y1={top}
-                  x2={split}
+                  x2={seam}
                   y2={bottom}
                 />
               ) : null}

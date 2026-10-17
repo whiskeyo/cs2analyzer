@@ -398,9 +398,10 @@ export interface ObservedMatch {
 /**
  * Extra demo data. Omitted on replays parsed before this field existed.
  *
- * Resolve overtime start money as `convars.demo.mp_overtime_startmoney`, then
- * `observed.overtime_start_money`, then `convars.defaults.mp_overtime_startmoney`.
- * Other convars are still `convars.demo[name] ?? convars.defaults[name]`.
+ * Look up a convar with `getConvar` (`demo[name] ?? defaults[name]`).
+ * Rust does not infer overtime or round-limit numbers. The timeline reads
+ * `mp_maxrounds` and `mp_overtime_maxrounds` for period boundaries, and uses
+ * side swaps for the half line inside each period.
  * `observed` is optional so a payload from before this object still loads.
  * A fresh parse always sends it.
  */

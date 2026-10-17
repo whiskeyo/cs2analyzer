@@ -108,6 +108,19 @@ describe("decodeObject matchInfo", () => {
     ).toBe(decoded.teams.ct.m_iScore);
   });
 
+  it("keeps optional observed overtime money and accepts a payload without it", () => {
+    const decoded = decodeObject<MatchInfo>("matchInfo", JSON.stringify(info));
+    expect(decoded.observed).toBeUndefined();
+    const withObserved = { ...info, observed: { overtime_start_money: 10000 } };
+    expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(withObserved)).observed).toEqual({
+      overtime_start_money: 10000,
+    });
+    const withNull = { ...info, observed: { overtime_start_money: null } };
+    expect(decodeObject<MatchInfo>("matchInfo", JSON.stringify(withNull)).observed).toEqual({
+      overtime_start_money: null,
+    });
+  });
+
   it("accepts observed overtime money and rejects a string", () => {
     const withMoney = structuredClone(info);
     withMoney.observed = { overtime_start_money: 10000 };
