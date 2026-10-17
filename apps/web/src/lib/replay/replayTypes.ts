@@ -389,7 +389,9 @@ export interface GameRulesSnapshot {
 
 /**
  * Cash read off players. `overtime_start_money` is null when the match has no
- * overtime or the balances disagree. There is no platform field.
+ * overtime, any overtime opening is missing its freeze-end sample, or the
+ * balances disagree. One missing sample nulls the whole value: null is better
+ * than a number from incomplete data. There is no platform field.
  */
 export interface ObservedMatch {
   overtime_start_money: number | null;
