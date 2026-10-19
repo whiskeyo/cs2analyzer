@@ -102,7 +102,7 @@ pub(crate) fn assemble(c: &mut Collector, playback_ticks: i32, playback_time: f3
         })
         .collect();
     let blinds: Vec<Blind> = c
-        .blinds
+        .active_blind_rows()
         .iter()
         .map(|(tick, victim, dur, attacker)| Blind {
             tick: *tick,
@@ -1318,10 +1318,11 @@ mod tests {
         DEFAULT_TICK_STRIDE, GRENADE_DET_LATE_STRIDES, INFERNO_OWNER_LAG_TICKS,
     };
     use crate::observer::{
-        accept_blind_duration, bind_userid_steam, controller_dump_interesting, controller_identity,
-        controller_steam_playable, fill_inferno_thrower, new_flash_duration,
-        snapshot_controller_dump_now, Collector, FireSpan, GrenadeDet, GrenadeDetSource,
-        PlayerMeta, RawFrame, RawFramePlayer, RawHurt, RawKill,
+        accept_blind_duration, active_blinds, bind_userid_steam, controller_dump_interesting,
+        controller_identity, controller_steam_playable, fill_inferno_thrower, flash_pop_for_pawn,
+        flash_thrower, new_flash_duration, snapshot_controller_dump_now, Collector, FireSpan,
+        FlashPop, GrenadeDet, GrenadeDetSource, PlayerMeta, RawFrame, RawFramePlayer, RawHurt,
+        RawKill,
     };
     use crate::{bot_steam_id, is_bot_steam_id, ControllerDump, ParseOptions, FLAG_ALIVE, FLAG_CT};
 
@@ -2210,6 +2211,47 @@ mod tests {
     }
 
     #[test]
+    fn flash_thrower_prefers_detonate_userid() {
+        assert_eq!(flash_thrower(Some(1), Some(2)), Some(1));
+        assert_eq!(flash_thrower(None, Some(2)), Some(2));
+        assert_eq!(flash_thrower(None, None), None);
+    }
+
+    #[test]
+    fn flash_pop_for_pawn_picks_nearest_in_range() {
+        let pops = [
+            FlashPop {
+                tick: 100,
+                entity: 1,
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                thrower: Some(1),
+            },
+            FlashPop {
+                tick: 110,
+                entity: 2,
+                x: 400.0,
+                y: 0.0,
+                z: 0.0,
+                thrower: Some(2),
+            },
+        ];
+        let near = flash_pop_for_pawn(&pops, 120, 380.0, 0.0, 0.0, 64, 2500.0).unwrap();
+        assert_eq!(near.thrower, Some(2));
+        assert!(flash_pop_for_pawn(&pops, 120, 4000.0, 0.0, 0.0, 64, 2500.0).is_none());
+        assert!(flash_pop_for_pawn(&pops, 200, 380.0, 0.0, 0.0, 64, 2500.0).is_none());
+    }
+
+    #[test]
+    fn active_blinds_keeps_events_when_player_blind_fired() {
+        let event = [(10, Some(1), 1.5, Some(2))];
+        let pawn = [(10, Some(9), 3.0, Some(8))];
+        assert_eq!(active_blinds(true, &event, &pawn), &event);
+        assert_eq!(active_blinds(false, &event, &pawn), &pawn);
+    }
+
+    #[test]
     fn new_flash_duration_only_on_increase() {
         assert_eq!(new_flash_duration(0.0, 2.4), Some(2.4));
         assert_eq!(new_flash_duration(2.4, 2.4), None);
@@ -2230,7 +2272,7 @@ mod tests {
 
     #[test]
     fn accept_blind_duration_rejects_overlay_from_pawn_and_player_blind() {
-        // record_blind is the only writer; pawn sampling and player_blind both
+        // push_blind is the only writer; pawn sampling and player_blind both
         // call it. Revert the overlay check there → 5.0s enters blinds again
         // (ed5b8fa left that hole on the event path).
         assert!(

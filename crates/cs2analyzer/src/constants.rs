@@ -191,6 +191,15 @@ pub const MOLOTOV_BURN_TICKS: u32 = 450;
 pub const HE_DECOY_SECONDS: f32 = 0.5;
 pub const FLASH_POP_SECONDS: f32 = 0.4;
 
+/// Pawn-duration fallback only (`player_blind` absent). A duration jump farther
+/// than this from a recent `flashbang_detonate` is not that pop. On Premier and
+/// FACEIT demos that emit `player_blind`, unmatched pawn jumps sit inside about
+/// 2600 units; event victims past that rarely move the pawn prop at all.
+pub const FLASH_PAWN_RADIUS: f32 = 2500.0;
+/// The duration prop is read on a later tick start than the detonate event.
+/// Keep this short so two pops do not share one jump.
+pub const FLASH_PAWN_LOOKBACK_SECONDS: f32 = 1.0;
+
 /// Full-face CS2 flash. Pawn `m_flFlashDuration` often snaps into this band
 /// even when `player_blind` is a short pop. Keep aligned with the web constants.
 pub const FLASH_FULL_SECONDS: f32 = 5.47;
