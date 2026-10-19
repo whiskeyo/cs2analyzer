@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { BOMB_SECONDS, DEFAULT_TICK_RATE, PLANT_SECONDS } from "@/lib/shared/constants";
 import { FLAG_ALIVE, FLAG_CT, FLAG_DEFUSING, FLAG_PRESENT } from "@/lib/replay/replayTypes";
 import {
@@ -10,7 +11,7 @@ import {
   makeRound,
   makeTicks,
 } from "@/lib/testing/fixtures";
-import { Hud } from "./Hud";
+import { Hud, startingSideForLive } from "./Hud";
 
 const tps = DEFAULT_TICK_RATE;
 
@@ -135,6 +136,30 @@ describe("Hud", () => {
     rerender(<Hud replay={replay} tick={300} />);
     expect(screen.getByText("Astralis 1")).toBeInTheDocument();
     expect(screen.getByText("0 Vitality")).toBeInTheDocument();
+  });
+
+  it("clicks a live team name with the roster starting side", async () => {
+    const onTeamClick = vi.fn();
+    const replay = makeReplay({
+      header: { team_ct: "Astralis", team_t: "Vitality" },
+      rounds: [
+        makeRound({ number: 12, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 200 }),
+        makeRound({
+          number: 13,
+          winner: "CT",
+          start_tick: 201,
+          freeze_end_tick: 265,
+          end_tick: 400,
+        }),
+      ],
+    });
+    render(<Hud replay={replay} tick={300} onTeamClick={onTeamClick} />);
+    // After halftime Vitality is live CT but started as T.
+    expect(startingSideForLive(replay, 300, "CT")).toBe("T");
+    await userEvent.click(screen.getByRole("button", { name: "Vitality" }));
+    expect(onTeamClick).toHaveBeenCalledWith("T");
+    await userEvent.click(screen.getByRole("button", { name: "Astralis" }));
+    expect(onTeamClick).toHaveBeenCalledWith("CT");
   });
 
   it("drops the Defuse badge after an abort and keeps the C4 clock", () => {

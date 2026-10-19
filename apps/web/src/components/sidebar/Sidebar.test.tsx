@@ -74,7 +74,14 @@ function sidebarAppState({
     session: { series: null, replay, fileName: "match.dem", ...session },
     playback: { tick, jump: vi.fn(), activeRound: null },
     review: { notes: [], commitNotes: vi.fn(), floorMode: "auto" },
-    view: { selected, select: onSelect, setFollow: vi.fn() },
+    view: {
+      selected,
+      select: onSelect,
+      setFollow: vi.fn(),
+      reviewTeamSide: null,
+      selectReviewTeam: vi.fn(),
+      reviewTabEpoch: 0,
+    },
     places: null,
     habits: {
       aggregated: false,
@@ -281,7 +288,8 @@ describe("Sidebar", () => {
     render(<Sidebar />);
     await userEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByText(/Alice/)).toBeInTheDocument();
-    expect(screen.getByRole("toolbar", { name: "Review sort" })).toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Review team" })).toBeInTheDocument();
+    expect(screen.getByText(/Won 1 opening/)).toBeInTheDocument();
     expect(screen.queryByRole("toolbar", { name: "Review note kinds" })).not.toBeInTheDocument();
   });
 

@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useResetOnDemoChange } from "@/lib/state/demoReset";
 import { DEFAULT_LAYERS, type DrawTool, type MapLayers } from "@/lib/notes/types";
 import type { DefaultDrawTool } from "@/lib/settings/userSettings";
+import type { Side } from "@/lib/replay/replayTypes";
 
 /**
  * Radar view state that is not persisted with a review: selection, camera
@@ -19,6 +20,8 @@ export function useViewState(
   const toolDefaultRef = useRef<DrawTool>(defaultTool);
   toolDefaultRef.current = defaultTool;
   const [selected, setSelectedState] = useState<number | null>(null);
+  const [reviewTeamSide, setReviewTeamSide] = useState<Side | null>(null);
+  const [reviewTabEpoch, setReviewTabEpoch] = useState(0);
   const [follow, setFollow] = useState(false);
   const [trails, setTrails] = useState(false);
   const [moment, setMoment] = useState(false);
@@ -30,6 +33,7 @@ export function useViewState(
 
   useResetOnDemoChange(demoId, () => {
     setSelectedState(null);
+    setReviewTeamSide(null);
     setFollow(false);
     setLayers({ ...layersDefaultRef.current });
     setTrails(false);
@@ -41,7 +45,16 @@ export function useViewState(
   /** Selecting a player highlights them; tracking is opt-in (Track / F). */
   const select = useCallback((index: number | null) => {
     setSelectedState(index);
+    if (index != null) setReviewTeamSide(null);
     if (index == null) setFollow(false);
+  }, []);
+
+  /** Team review focus: clears the player selection and asks the sidebar to open Review. */
+  const selectReviewTeam = useCallback((side: Side) => {
+    setReviewTeamSide(side);
+    setSelectedState(null);
+    setFollow(false);
+    setReviewTabEpoch((n) => n + 1);
   }, []);
 
   const resetView = useCallback(() => setViewEpoch((n) => n + 1), []);
@@ -51,6 +64,9 @@ export function useViewState(
     selectedRef,
     select,
     setSelected: select,
+    reviewTeamSide,
+    selectReviewTeam,
+    reviewTabEpoch,
     follow,
     setFollow,
     trails,

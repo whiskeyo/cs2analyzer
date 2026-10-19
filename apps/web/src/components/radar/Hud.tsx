@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { currentRound } from "@/lib/replay/sample";
-import { liveSituation, liveTeams, roundHudLabel } from "@/lib/stats/stats";
-import type { Replay } from "@/lib/replay/replayTypes";
+import { liveSituation, liveTeams, roundHudLabel, roundSidesSwapped } from "@/lib/stats/stats";
+import type { Replay, Side } from "@/lib/replay/replayTypes";
 import { prettyMap, winReasonLabel } from "@/lib/weapons/weapons";
 
 interface Props {
@@ -12,27 +12,50 @@ interface Props {
    * so a defuse or explosion keeps the fuse reading for the rest of the round.
    */
   clockLabel?: string;
+  /** Starting-side team for the Review tab (follows the roster across swaps). */
+  onTeamClick?: (startSide: Side) => void;
+}
+
+/** Live CT/T → starting side of that roster at `tick`. */
+export function startingSideForLive(replay: Replay, tick: number, live: Side): Side {
+  const round = currentRound(replay, tick);
+  const swapped = round ? roundSidesSwapped(replay, round) : false;
+  if (!swapped) return live;
+  return live === "CT" ? "T" : "CT";
 }
 
 /** Memoised: every app state change re-renders the viewer, not just a new tick. */
-export const Hud = memo(function Hud({ replay, tick, clockLabel }: Props) {
+export const Hud = memo(function Hud({ replay, tick, clockLabel, onTeamClick }: Props) {
   const sit = liveSituation(replay, tick);
   const teams = liveTeams(replay, tick);
   const round = currentRound(replay, tick);
   const clutchName =
     sit.clutch != null ? (replay.players[sit.clutch.player]?.name ?? "Player") : null;
 
+  function teamButton(live: Side, name: string) {
+    if (!onTeamClick) return name;
+    return (
+      <button
+        type="button"
+        className="hud-team"
+        onClick={() => onTeamClick(startingSideForLive(replay, tick, live))}
+      >
+        {name}
+      </button>
+    );
+  }
+
   return (
     <div className="radar-hud">
       <div className="hud-score">
         <span className="t">
-          {teams.tName} {teams.t}
+          {teamButton("T", teams.tName)} {teams.t}
         </span>
         <span className="alive">
           {sit.tAlive} – {sit.ctAlive}
         </span>
         <span className="ct">
-          {teams.ct} {teams.ctName}
+          {teams.ct} {teamButton("CT", teams.ctName)}
         </span>
       </div>
       <div className="hud-meta">

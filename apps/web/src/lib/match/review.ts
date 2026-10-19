@@ -1,18 +1,30 @@
 import type { Kill, Replay, Round, Side } from "@/lib/replay/replayTypes";
+import { reviewJumpTick } from "./roundEvents";
+import { attachHeadlineDetails } from "./reviewHeadlineMatch";
 import { REVIEW_ITEMS } from "./reviewItems";
 import { deathContext, deathNote, roundContext } from "./reviewItems/context";
 
 export { REVIEW_ITEMS } from "./reviewItems";
+export { notesOutsideHeadlines } from "./reviewHeadlineMatch";
 
 export type ReviewSeverity = "good" | "high" | "mid" | "low";
 
-export type ReviewKind = "opening" | "clutch" | "death" | "multi" | "eco";
+export type ReviewKind = "opening" | "clutch" | "death" | "multi" | "eco" | "advantage" | "util";
+
+/** Clickable line under a team-review headline (jump to `tick`). */
+export interface ReviewHeadlineDetail {
+  tick: number;
+  roundLabel: string;
+  text: string;
+}
 
 export interface ReviewHeadline {
   text: string;
   severity: ReviewSeverity;
   count: number;
   kind: ReviewKind;
+  /** Team review: per-round lines under the summary count. */
+  details?: ReviewHeadlineDetail[];
 }
 
 export interface ReviewNote {
@@ -90,14 +102,39 @@ export function sortReviewNotes<T extends ReviewNote>(
   return copy;
 }
 
-/** Headlines stay good-then-bad. Stored notes stay in tick order. */
-export function finishReview(collectors: ReviewCollector[], notes: ReviewNote[]): PlayerReview {
-  const headlines = collectors.flatMap((collector) => collector.headlines());
+function withReviewLeadIn(replay: Replay, notes: ReviewNote[]): ReviewNote[] {
+  return notes.map((note) => ({ ...note, tick: reviewJumpTick(replay, note.tick) }));
+}
+
+function withHeadlineLeadIn(replay: Replay, headlines: ReviewHeadline[]): ReviewHeadline[] {
+  return headlines.map((headline) => {
+    if (headline.details == null || headline.details.length === 0) return headline;
+    return {
+      ...headline,
+      details: headline.details.map((detail) => ({
+        ...detail,
+        tick: reviewJumpTick(replay, detail.tick),
+      })),
+    };
+  });
+}
+
+/** Headlines stay good-then-bad. Stored notes stay in tick order (jump targets). */
+export function finishReview(
+  replay: Replay,
+  collectors: Array<{ headlines(): ReviewHeadline[] }>,
+  notes: ReviewNote[],
+): PlayerReview {
+  const leadNotes = withReviewLeadIn(replay, notes);
+  const headlines = withHeadlineLeadIn(
+    replay,
+    collectors.flatMap((collector) => collector.headlines()),
+  );
   headlines.sort(
     (a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || b.count - a.count,
   );
-  notes.sort((a, b) => a.tick - b.tick);
-  return { headlines, notes };
+  leadNotes.sort((a, b) => a.tick - b.tick);
+  return { headlines: attachHeadlineDetails(headlines, leadNotes), notes: leadNotes };
 }
 
 /** Openings, clutches, ecos, and death notes for one player through `untilTick`. */
@@ -123,5 +160,5 @@ export function playerReview(replay: Replay, player: number, untilTick: number):
     }
   }
 
-  return finishReview(collectors, notes);
+  return finishReview(replay, collectors, notes);
 }

@@ -3435,6 +3435,46 @@ button.link:hover:not(:disabled) {
 .review-head.good {
   border-left: 3px solid #3dba6a;
 }
+.review-head-title {
+  font-weight: 600;
+}
+.review-head-spoiler > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem;
+}
+.review-head-spoiler > summary::-webkit-details-marker {
+  display: none;
+}
+.review-head-spoiler > summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 0.85em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.review-head-spoiler[open] > summary::before {
+  content: "▾";
+}
+.review-head-hint {
+  font-weight: 500;
+  font-size: 0.72rem;
+}
+.review-head-details {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.review-head-details .review-note {
+  width: 100%;
+  text-align: left;
+}
 .review-notes {
   list-style: none;
   margin: 0;
@@ -4593,6 +4633,20 @@ button.link:hover:not(:disabled) {
 }
 .hud-score .t {
   color: #e0c15a;
+}
+.hud-score .hud-team {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-shadow: inherit;
+}
+.hud-score .hud-team:hover {
+  text-decoration: underline;
 }
 .hud-score .alive {
   color: #c5d0da;
