@@ -14,7 +14,26 @@ import {
   makeReplay,
   makeRound,
 } from "@/lib/testing/fixtures";
-import { finishReview, playerReview, sortReviewNotes } from "./review";
+import { finishReview, playerReview, reviewDetailRoundCount, sortReviewNotes } from "./review";
+
+describe("reviewDetailRoundCount", () => {
+  it("counts a repeated round once on the same list", () => {
+    expect(
+      reviewDetailRoundCount([
+        { roundLabel: "R1" },
+        { roundLabel: "R1" },
+        { roundLabel: "R5" },
+        { roundLabel: "R9" },
+        { roundLabel: "R12" },
+      ]),
+    ).toBe(4);
+  });
+
+  it("counts one row per round as that many rounds", () => {
+    expect(reviewDetailRoundCount([{ roundLabel: "R2" }, { roundLabel: "Knife" }])).toBe(2);
+    expect(reviewDetailRoundCount([])).toBe(0);
+  });
+});
 
 describe("playerReview", () => {
   it("records winning the opening duel", () => {
@@ -195,8 +214,12 @@ describe("playerReview deaths", () => {
       kills: [makeKill(100, 1, 2), makeKill(200, 1, 0, { weapon: "ak47" })],
       hurts: [makeHurt(150, 0, 1, 10)],
     });
+    const lowReview = playerReview(lowTrade, 0, 640);
+    expect(lowReview.notes.some((n) => n.detail.includes("only 10 dmg back"))).toBe(true);
     expect(
-      playerReview(lowTrade, 0, 640).notes.some((n) => n.detail.includes("only 10 dmg back")),
+      lowReview.headlines
+        .find((h) => h.text.includes("gunfight"))
+        ?.details?.some((d) => d.text.includes("only 10 dmg back")),
     ).toBe(true);
   });
 
