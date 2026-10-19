@@ -234,11 +234,11 @@ describe("App", () => {
     expect(screen.queryByText(/Parsed in/)).not.toBeInTheDocument();
     expect(window.location.pathname).toBe("/analyzer");
     expect(hudMeta(container)).toBe("Anubis · R1");
-    expect(screen.getByText("Astralis")).toBeInTheDocument();
+    // HUD team names are buttons; the same name also appears on the scoreboard.
+    expect(screen.getByRole("button", { name: "Astralis" })).toBeInTheDocument();
     expect(container.querySelector(".app-backdrop")).toBeTruthy();
     expect(container.querySelector(".app")).toHaveClass("board");
     expect(container.querySelector(".app")).not.toHaveClass("splash");
-
     // Both rosters reach the scoreboard, grouped by the side they are on.
     const [ct, t] = container.querySelectorAll(".sb-team");
     expect(within(ct as HTMLElement).getByText("Alice")).toBeInTheDocument();

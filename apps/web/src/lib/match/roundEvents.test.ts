@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { clampLeadInSec, eventsForRound, jumpBefore, roundClock } from "./roundEvents";
+import {
+  clampLeadInSec,
+  eventsForRound,
+  jumpBefore,
+  reviewJumpTick,
+  roundClock,
+} from "./roundEvents";
 import type { BombEvent, GrenadeThrow, Round } from "@/lib/replay/replayTypes";
 import {
   makeBombEvent,
@@ -137,6 +143,15 @@ describe("jumpBefore", () => {
 
   it("lands on the event when lead-in is zero", () => {
     expect(jumpBefore(m, r1, 500, 0)).toBe(500);
+  });
+});
+
+describe("reviewJumpTick", () => {
+  const m = makeReplay({ players: roster, rounds: [r1] });
+
+  it("uses the current round freeze floor for default lead-in", () => {
+    expect(reviewJumpTick(m, 64 + 192)).toBe(64 + 96);
+    expect(reviewJumpTick(m, 80)).toBe(64);
   });
 });
 

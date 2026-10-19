@@ -1,11 +1,11 @@
 import {
   playerReview,
   type PlayerReview,
-  type ReviewHeadline,
   type ReviewKind,
   type ReviewNote,
   type ReviewSeverity,
 } from "@/lib/match/review";
+import { headlineMatchKey, noteMatchesHeadline } from "@/lib/match/reviewHeadlineMatch";
 import type { DemoSeries } from "@/lib/parse/session";
 import { playerIndexForKey } from "@/lib/parse/seriesRoster";
 import type { Replay } from "@/lib/replay/replayTypes";
@@ -47,10 +47,6 @@ function matchEndTick(replay: Replay): number {
   return end;
 }
 
-function headlineMergeKey(headline: ReviewHeadline): string {
-  return `${headline.severity}|${headline.text.replace(/\d+/g, "#")}`;
-}
-
 function teamLostSubcount(text: string): number {
   const match = text.match(/\((\d+) in rounds the team lost\)/);
   return match ? Number(match[1]) : 0;
@@ -63,41 +59,6 @@ function formatHeadlineTotal(template: string, total: number, teamLostSub: numbe
     return `${out} (${teamLostSub} in rounds the team lost)`;
   }
   return out;
-}
-
-function noteMatchesHeadline(note: ReviewNote, mergeKey: string): boolean {
-  const key = mergeKey.toLowerCase();
-  const hay = `${note.title} ${note.detail}`.toLowerCase();
-  if (key.includes("opening duel") && key.includes("lost")) {
-    return hay.includes("opening death") || note.title.toLowerCase().includes("opening");
-  }
-  if (key.includes("won") && key.includes("opening")) {
-    return note.title.startsWith("Won the opening");
-  }
-  if (key.includes("traded") && key.includes("opener")) {
-    return note.title.startsWith("Traded the opener");
-  }
-  if (key.includes("clutch") && key.includes("lost")) {
-    return note.title.includes("1v") || hay.includes("lost 1v");
-  }
-  if (key.includes("clutch") && key.includes("won")) {
-    return note.title.startsWith("Won a 1v");
-  }
-  if (key.includes("untraded")) return note.detail.includes("untraded");
-  if (key.includes("flashed")) return note.detail.includes("flashed");
-  if (key.includes("damage back") || key.includes("gunfight")) {
-    return note.detail.includes("damage back");
-  }
-  if (key.includes("multi-kill") || key.includes("fed")) {
-    return note.detail.includes("fed a");
-  }
-  if (key.includes("utility")) return note.detail.includes("died to");
-  if (key.includes("nades")) return note.detail.includes("died holding");
-  if (key.includes("eco round")) return note.title.includes("eco");
-  if (key.includes("4k")) {
-    return note.title.includes("k this round") || note.title === "Ace";
-  }
-  return false;
 }
 
 function roundsForHeadline(notes: SeriesReviewNote[], mergeKey: string): string[] {
@@ -129,7 +90,7 @@ function mergeHeadlines(
 
   for (const slice of slices) {
     for (const headline of slice.review.headlines) {
-      const key = headlineMergeKey(headline);
+      const key = headlineMatchKey(headline);
       const prev = merged.get(key);
       const rounds = roundsForHeadline(slice.notes, key);
       const demoSlice: SeriesReviewDemoSlice = {

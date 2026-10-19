@@ -94,4 +94,32 @@ describe("useViewState", () => {
     expect(result.current.selected).toBeNull();
     expect(result.current.follow).toBe(false);
   });
+
+  it("selectReviewTeam clears the player and bumps the review tab epoch", () => {
+    const { result } = renderHook(() => useViewState("a"));
+    act(() => {
+      result.current.select(2);
+      result.current.setFollow(true);
+    });
+    const epoch = result.current.reviewTabEpoch;
+    act(() => {
+      result.current.selectReviewTeam("T");
+    });
+    expect(result.current.reviewTeamSide).toBe("T");
+    expect(result.current.selected).toBeNull();
+    expect(result.current.follow).toBe(false);
+    expect(result.current.reviewTabEpoch).toBe(epoch + 1);
+  });
+
+  it("selecting a player clears team review focus", () => {
+    const { result } = renderHook(() => useViewState("a"));
+    act(() => {
+      result.current.selectReviewTeam("CT");
+    });
+    act(() => {
+      result.current.select(1);
+    });
+    expect(result.current.selected).toBe(1);
+    expect(result.current.reviewTeamSide).toBeNull();
+  });
 });

@@ -76,9 +76,9 @@ describe("playerReview", () => {
     });
     const review = playerReview(m, 0, 800);
     expect(review.notes.every((n) => n.tick >= 100)).toBe(true);
-    expect(review.notes.some((n) => n.tick === 20)).toBe(false);
-    expect(review.notes.some((n) => n.tick === 200)).toBe(false);
-    expect(review.notes.some((n) => n.tick === 300)).toBe(true);
+    expect(review.notes).toHaveLength(1);
+    // Death at 300 → 1.5s lead-in (freeze 100).
+    expect(review.notes[0]?.tick).toBe(204);
   });
 
   it("stacks death-note bits in REVIEW_ITEMS order", () => {
@@ -88,7 +88,7 @@ describe("playerReview", () => {
       ticks: makeFreezeTicks(3, 2),
       kills: [makeKill(100, 2, 0)],
     });
-    const death = playerReview(m, 0, 640).notes.find((n) => n.tick === 100);
+    const death = playerReview(m, 0, 640).notes.find((n) => n.title.startsWith("Lost the opening"));
     expect(death?.detail.split(" · ").slice(1)).toEqual([
       "opening death",
       "untraded",
@@ -105,7 +105,7 @@ describe("playerReview", () => {
       kills: [makeKill(100, 2, 0)],
       hurts: [makeHurt(100, 2, 0, 34, { hitgroup: HITGROUP_CHEST })],
     });
-    const death = playerReview(m, 0, 640).notes.find((n) => n.tick === 100);
+    const death = playerReview(m, 0, 640).notes.find((n) => n.title.startsWith("Lost the opening"));
     expect(death?.detail.split(" · ").slice(1)).toEqual([
       "opening death",
       "chest",
@@ -286,7 +286,12 @@ describe("playerReview highlights", () => {
 
 describe("finishReview", () => {
   it("builds headlines from collectors instead of a central count table", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT" })],
+    });
     const review = finishReview(
+      replay,
       [
         {
           headlines: () => [
@@ -368,7 +373,12 @@ describe("finishReview", () => {
   });
 
   it("orders headlines good-then-bad and notes by tick", () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [makeRound({ number: 1, winner: "CT", freeze_end_tick: 64, end_tick: 640 })],
+    });
     const review = finishReview(
+      replay,
       [
         {
           headlines: () => [
@@ -385,7 +395,7 @@ describe("finishReview", () => {
       [
         {
           tick: 200,
-          roundLabel: "R2",
+          roundLabel: "R1",
           title: "Won the opening",
           detail: "",
           severity: "good",
@@ -406,7 +416,61 @@ describe("finishReview", () => {
       "Lost 1 opening duel",
       "3 untraded deaths",
     ]);
-    expect(review.notes.map((n) => n.tick)).toEqual([50, 200]);
+    // 50 is before freeze → floor start_tick 0; 200 → 104 with 1.5s lead-in.
+    expect(review.notes.map((n) => n.tick)).toEqual([0, 104]);
+  });
+
+  it("applies 1.5s lead-in to moment notes and keeps round-wide at freeze", () => {
+    const m = makeReplay({
+      players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+      rounds: [
+        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
+      ],
+      kills: [makeKill(200, 0, 1)],
+    });
+    const review = playerReview(m, 0, 640);
+    const opening = review.notes.find((n) => n.title.startsWith("Won the opening"));
+    expect(opening?.tick).toBe(104);
+
+    const roundWide = finishReview(
+      makeReplay({
+        players: [makePlayer(0, "CT", "A"), makePlayer(1, "T", "B")],
+        rounds: [
+          makeRound({
+            number: 2,
+            winner: "CT",
+            start_tick: 64,
+            freeze_end_tick: 128,
+            end_tick: 800,
+          }),
+        ],
+      }),
+      [
+        {
+          headlines: () => [
+            {
+              text: "Won 1 eco/force round",
+              severity: "good",
+              kind: "eco",
+              count: 1,
+              details: [{ tick: 128, roundLabel: "R2", text: "Won on an eco" }],
+            },
+          ],
+        },
+      ],
+      [
+        {
+          tick: 128,
+          roundLabel: "R2",
+          title: "Won eco",
+          detail: "",
+          severity: "good",
+          kind: "eco",
+        },
+      ],
+    );
+    expect(roundWide.notes[0]?.tick).toBe(128);
+    expect(roundWide.headlines[0]?.details?.[0]?.tick).toBe(128);
   });
 
   it("lists notes in tick order instead of good-then-bad", () => {

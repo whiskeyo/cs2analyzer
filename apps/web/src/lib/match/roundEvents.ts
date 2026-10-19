@@ -1,4 +1,4 @@
-import { grenadeRoundLastTick } from "@/lib/replay/sample";
+import { currentRound, grenadeRoundLastTick } from "@/lib/replay/sample";
 import { tickRate } from "@/lib/shared/constants";
 import { LEAD_IN_STORAGE_KEY } from "@/lib/shared/storageKeys";
 import type {
@@ -145,6 +145,20 @@ export function jumpBefore(
   const freeze = round.freeze_end_tick || round.start_tick;
   const floor = eventTick >= freeze ? freeze : round.start_tick;
   return Math.max(floor, eventTick - offset);
+}
+
+/**
+ * Review spoiler / note jump target: `DEFAULT_LEAD_IN_SEC` before the event,
+ * clamped to freeze. Round-wide anchors already at freeze stay there.
+ */
+export function reviewJumpTick(
+  replay: Replay,
+  eventTick: number,
+  leadInSec: number = DEFAULT_LEAD_IN_SEC,
+): number {
+  const round = currentRound(replay, eventTick);
+  if (round == null) return eventTick;
+  return jumpBefore(replay, round, eventTick, leadInSec);
 }
 
 export function roundClock(round: Round, tick: number, tickRate: number): string {

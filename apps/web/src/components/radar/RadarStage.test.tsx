@@ -94,6 +94,9 @@ function radarState(replay = makeReplay()) {
       setLayers,
       resetView: vi.fn(),
       select: vi.fn(),
+      reviewTeamSide: null,
+      selectReviewTeam: vi.fn(),
+      reviewTabEpoch: 0,
       viewEpoch: 0,
     },
     cal: {

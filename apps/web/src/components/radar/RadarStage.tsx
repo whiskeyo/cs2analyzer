@@ -197,7 +197,7 @@ export function RadarStage() {
           radarGray={settings.radarGray}
         />
         <PawnLegend entries={pawnLegend} />
-        {!habitsOnly && <Hud replay={replay} tick={tick} />}
+        {!habitsOnly && <Hud replay={replay} tick={tick} onTeamClick={view.selectReviewTeam} />}
         {view.layers.summary && (
           <NadeLegend filter={review.summaryFilter} onFilter={review.setSummaryFilter} />
         )}

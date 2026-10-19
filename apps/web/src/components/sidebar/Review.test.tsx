@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -10,47 +11,139 @@ import {
   makeFreezeTicks,
 } from "@/lib/testing/fixtures";
 import { HITGROUP_CHEST, HITGROUP_HEAD } from "@/lib/shared/constants";
+import type { Side } from "@/lib/replay/replayTypes";
 import { Review } from "./Review";
 
+function ReviewHarness({
+  replay,
+  tick,
+  selected: initialSelected = null,
+  reviewTeamSide: initialTeam = null,
+  onJump = () => {},
+}: {
+  replay: ReturnType<typeof makeReplay>;
+  tick: number;
+  selected?: number | null;
+  reviewTeamSide?: Side | null;
+  onJump?: (tick: number) => void;
+}) {
+  const [selected, setSelected] = useState(initialSelected);
+  const [reviewTeamSide, setReviewTeamSide] = useState(initialTeam);
+  return (
+    <Review
+      replay={replay}
+      tick={tick}
+      selected={selected}
+      reviewTeamSide={reviewTeamSide}
+      onJump={onJump}
+      onSelect={(index) => {
+        setSelected(index);
+        setReviewTeamSide(null);
+      }}
+      onSelectTeam={(side) => {
+        setReviewTeamSide(side);
+        setSelected(null);
+      }}
+    />
+  );
+}
+
 describe("Review", () => {
-  it("asks for a player when none is selected", () => {
+  it("asks for a player or team when none is selected", () => {
     const replay = makeReplay({
+      header: { team_ct: "MARTYRDOM", team_t: "Rooster" },
       players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
       kills: [makeKill(200, 0, 1)],
     });
-    render(
-      <Review replay={replay} tick={640} selected={null} onJump={() => {}} onSelect={() => {}} />,
-    );
+    render(<ReviewHarness replay={replay} tick={640} />);
     expect(screen.getByText(/Select a player/)).toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Review team" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "MARTYRDOM" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Rooster" }).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Won the opening/)).not.toBeInTheDocument();
   });
 
-  it("shows player-specific review when selected", () => {
+  it("opens team review from the team filters with clickable round details", async () => {
+    const onJump = vi.fn();
+    const ticks = makeFreezeTicks(2, 1, 128);
+    ticks.equip[0] = 1500;
+    ticks.equip[1] = 4000;
     const replay = makeReplay({
+      header: { team_ct: "Team Spirit", team_t: "G2" },
       players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
-      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+      rounds: [
+        makeRound({ number: 2, winner: "CT", start_tick: 64, freeze_end_tick: 128, end_tick: 800 }),
+      ],
       kills: [makeKill(200, 0, 1)],
+      ticks,
     });
-    render(
-      <Review replay={replay} tick={640} selected={0} onJump={() => {}} onSelect={() => {}} />,
+    render(<ReviewHarness replay={replay} tick={800} onJump={onJump} />);
+
+    await userEvent.click(
+      screen.getByRole("toolbar", { name: "Review team" }).querySelector("button")!,
     );
-    expect(screen.getByText(/Alice/)).toBeInTheDocument();
-    expect(screen.getByText(/Won the opening/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Team Spirit" })).toHaveClass("on");
+    const summary = screen.getByText(/Won 1 eco\/force round/);
+    const spoiler = summary.closest("details");
+    expect(spoiler).not.toHaveAttribute("open");
+
+    await userEvent.click(summary);
+    expect(spoiler).toHaveAttribute("open");
+    await userEvent.click(screen.getByRole("button", { name: /R2.*Won on an eco/ }));
+    expect(onJump).toHaveBeenCalledWith(128);
   });
 
-  it("dims notes that have not happened yet", () => {
+  it("shows player-specific review when selected and keeps team filters visible", () => {
+    const replay = makeReplay({
+      header: { team_ct: "Astralis", team_t: "Vitality" },
+      players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
+      rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
+      kills: [makeKill(200, 0, 1)],
+    });
+    render(<ReviewHarness replay={replay} tick={640} selected={0} />);
+    expect(screen.getByText(/Alice/)).toBeInTheDocument();
+    expect(screen.getByText(/Won the opening/)).toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Review team" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Player" })).not.toBeInTheDocument();
+  });
+
+  it("switches to team review from a selected player via the team name", async () => {
+    const ticks = makeFreezeTicks(2, 1, 128);
+    ticks.equip[0] = 1500;
+    ticks.equip[1] = 4000;
+    const replay = makeReplay({
+      header: { team_ct: "Astralis", team_t: "Vitality" },
+      players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
+      rounds: [
+        makeRound({ number: 2, winner: "CT", start_tick: 64, freeze_end_tick: 128, end_tick: 800 }),
+      ],
+      kills: [makeKill(200, 0, 1)],
+      ticks,
+    });
+    render(<ReviewHarness replay={replay} tick={800} selected={0} />);
+    expect(screen.getByText(/Won the opening/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Astralis" }));
+    expect(screen.getByRole("button", { name: "Astralis" })).toHaveClass("on");
+    const summary = screen.getByText(/Won 1 eco\/force round/);
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    expect(screen.queryByText(/Won the opening/)).not.toBeInTheDocument();
+  });
+
+  it("dims player spoiler events that have not happened yet", async () => {
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
       kills: [makeKill(200, 0, 1)],
     });
-    render(<Review replay={replay} tick={80} selected={0} onJump={() => {}} onSelect={() => {}} />);
+    render(<ReviewHarness replay={replay} tick={80} selected={0} />);
+    await userEvent.click(screen.getByText(/Won 1 opening/));
     const rows = screen.getAllByRole("button").filter((el) => el.className.includes("review-note"));
     expect(rows.some((row) => row.className.includes("pending"))).toBe(true);
   });
 
-  it("jumps from a player note", async () => {
+  it("jumps from a player spoiler event", async () => {
     const onJump = vi.fn();
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
@@ -59,15 +152,15 @@ describe("Review", () => {
       ],
       kills: [makeKill(200, 0, 1), makeKill(300, 1, 0)],
     });
-    render(<Review replay={replay} tick={640} selected={0} onJump={onJump} onSelect={() => {}} />);
+    render(<ReviewHarness replay={replay} tick={640} selected={0} onJump={onJump} />);
 
-    const note = screen.getAllByRole("button").find((b) => b.className.includes("review-note"));
-    expect(note).toBeDefined();
-    await userEvent.click(note!);
-    expect(onJump).toHaveBeenCalled();
+    await userEvent.click(screen.getByText(/Won 1 opening/));
+    await userEvent.click(screen.getByRole("button", { name: /R1.*Won the opening/ }));
+    // Kill at 200 → 1.5s (96 ticks) lead-in.
+    expect(onJump).toHaveBeenCalledWith(104);
   });
 
-  it("toggles the note list between round order and severity order", async () => {
+  it("keeps player event details closed until a headline is expanded", async () => {
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
       rounds: [
@@ -82,24 +175,17 @@ describe("Review", () => {
       ],
       kills: [makeKill(100, 0, 1), makeKill(800, 1, 0)],
     });
-    render(
-      <Review replay={replay} tick={1400} selected={0} onJump={() => {}} onSelect={() => {}} />,
+    render(<ReviewHarness replay={replay} tick={1400} selected={0} />);
+    const summary = screen.getByText(/Won 1 opening/);
+    const spoiler = summary.closest("details");
+    expect(spoiler).not.toHaveAttribute("open");
+    expect(screen.queryByRole("toolbar", { name: "Review sort" })).not.toBeInTheDocument();
+
+    await userEvent.click(summary);
+    expect(spoiler).toHaveAttribute("open");
+    expect(screen.getAllByRole("button", { name: /R1.*Won the opening/ }).length).toBeGreaterThan(
+      0,
     );
-    const titles = () =>
-      screen
-        .getAllByRole("button")
-        .filter((el) => el.className.includes("review-note"))
-        .map((el) => el.textContent ?? "");
-
-    expect(screen.getByRole("toolbar", { name: "Review sort" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Round" })).toHaveClass("on");
-    expect(titles()[0]).toMatch(/Won the opening/);
-    expect(titles()[titles().length - 1]).toMatch(/Lost the opening|Died to/);
-
-    await userEvent.click(screen.getByRole("button", { name: "Severity" }));
-    expect(screen.getByRole("button", { name: "Severity" })).toHaveClass("on");
-    expect(titles()[0]).toMatch(/Lost the opening|Died to/);
-    expect(titles()[titles().length - 1]).toMatch(/Won the opening/);
   });
 
   it("shows an empty hint when the selected player has no notes", () => {
@@ -107,9 +193,7 @@ describe("Review", () => {
       players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
       rounds: [makeRound({ number: 1, start_tick: 0, freeze_end_tick: 64, end_tick: 640 })],
     });
-    render(
-      <Review replay={replay} tick={640} selected={0} onJump={() => {}} onSelect={() => {}} />,
-    );
+    render(<ReviewHarness replay={replay} tick={640} selected={0} />);
     expect(screen.getByText(/No player notes in this match/)).toBeInTheDocument();
     expect(screen.queryByRole("toolbar", { name: "Review sort" })).not.toBeInTheDocument();
   });
@@ -122,14 +206,12 @@ describe("Review", () => {
       ],
       kills: [makeKill(200, 0, 1, { headshot: true }), makeKill(300, 0, 1)],
     });
-    render(
-      <Review replay={replay} tick={640} selected={0} onJump={() => {}} onSelect={() => {}} />,
-    );
+    render(<ReviewHarness replay={replay} tick={640} selected={0} />);
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.getByText(/50% HS \(1\/2\)/)).toBeInTheDocument();
   });
 
-  it("includes killing-blow hitgroup on a death note", () => {
+  it("includes killing-blow hitgroup on a death note", async () => {
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
       rounds: [
@@ -141,16 +223,14 @@ describe("Review", () => {
         makeHurt(200, 1, 0, 34, { hitgroup: HITGROUP_CHEST }),
       ],
     });
-    render(
-      <Review replay={replay} tick={640} selected={0} onJump={() => {}} onSelect={() => {}} />,
-    );
-    expect(screen.getByText(/chest · tagged in head/)).toBeInTheDocument();
+    render(<ReviewHarness replay={replay} tick={640} selected={0} />);
     expect(screen.getByText(/Tagged in the head before 1 death/)).toBeInTheDocument();
+    await userEvent.click(screen.getByText(/Lost 1 opening/));
+    expect(screen.getAllByText(/chest · tagged in head/).length).toBeGreaterThan(0);
   });
 
   it("shows a live clutch for the selected player", async () => {
     const onJump = vi.fn();
-    const onSelect = vi.fn();
     const replay = makeReplay({
       players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
       rounds: [
@@ -158,11 +238,10 @@ describe("Review", () => {
       ],
       ticks: makeFreezeTicks(2, 1),
     });
-    render(<Review replay={replay} tick={100} selected={0} onJump={onJump} onSelect={onSelect} />);
+    render(<ReviewHarness replay={replay} tick={100} selected={0} onJump={onJump} />);
     const live = screen.getByRole("button", { name: /Alice 1v1/ });
     expect(live.className).toContain("review-note");
     await userEvent.click(live);
-    expect(onSelect).toHaveBeenCalledWith(0);
     expect(onJump).toHaveBeenCalled();
   });
 });

@@ -78,12 +78,20 @@ export const Sidebar = memo(function Sidebar() {
   }, [showSeriesReview, session.series, playerKey, playerName]);
 
   const [tab, setTab] = useState<Tab>(settings.defaultSidebarTab);
+  const [seenReviewTabEpoch, setSeenReviewTabEpoch] = useState(0);
   const choseTab = useRef(false);
   useEffect(() => {
     if (!choseTab.current) {
       setTab(settings.defaultSidebarTab);
     }
   }, [settings.defaultSidebarTab]);
+  if (view.reviewTabEpoch !== seenReviewTabEpoch) {
+    setSeenReviewTabEpoch(view.reviewTabEpoch);
+    if (view.reviewTabEpoch > 0) {
+      choseTab.current = true;
+      if (tab !== "player") setTab("player");
+    }
+  }
   const activeTab: Tab = seriesMode && DEMO_ONLY_TABS.includes(tab) ? "action" : tab;
   const { width, handleProps } = usePanelResize({
     minWidth: SIDEBAR_MIN_WIDTH,
@@ -145,8 +153,10 @@ export const Sidebar = memo(function Sidebar() {
               replay={replay}
               tick={tick}
               selected={selected}
+              reviewTeamSide={view.reviewTeamSide}
               onJump={onJump}
               onSelect={(i) => onSelect(i)}
+              onSelectTeam={view.selectReviewTeam}
             />
           ))}
         {activeTab === "notes" && (
