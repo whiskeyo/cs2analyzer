@@ -1,3 +1,4 @@
+import { isPistolRound, regulationHalfRosters } from "@/lib/match/pistol";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
 import { liveScoreboardPlayers } from "@/lib/stats/liveScore";
@@ -15,9 +16,9 @@ export type SpendBuy = "eco" | "force" | "full";
 
 /**
  * Buy shown on the economy timeline.
- * Regulation pistols (round 1 and 13) stay pistols.
+ * A regulation pistol (`isPistolRound`) stays a pistol.
  * Anti-eco is a force or full buy against an eco. Overtime uses equipment only:
- * CS2 overtime starts on full money, so the first OT round is not a pistol.
+ * CS2 overtime starts on full money, so an overtime round is not a pistol.
  */
 export type EconomyBuy = "pistol" | SpendBuy | "anti-eco";
 
@@ -137,9 +138,13 @@ export function roundSideBuys(
   const freeze = round.freeze_end_tick || round.start_tick;
   const ctAverage = sideAverageEquipment(replay, freeze, true);
   const tAverage = sideAverageEquipment(replay, freeze, false);
+  const pistol = isPistolRound(round.number, replay.match_info, {
+    tick: freeze,
+    rounds: regulationHalfRosters(replay),
+  });
   return {
-    ct: classifySide(round.number, ctAverage, tAverage),
-    t: classifySide(round.number, tAverage, ctAverage),
+    ct: classifySide(ctAverage, tAverage, pistol),
+    t: classifySide(tAverage, ctAverage, pistol),
   };
 }
 
@@ -153,17 +158,13 @@ export function matchEconomy(replay: Replay): MatchEconomy {
   };
 }
 
-function isRegulationPistol(roundNumber: number): boolean {
-  return roundNumber === 1 || roundNumber === REGULATION_ROUNDS_PER_HALF + 1;
-}
-
 function classifySide(
-  roundNumber: number,
   own: number | null,
   opponent: number | null,
+  pistol: boolean,
 ): EconomyBuy | null {
   if (own == null) return null;
-  if (isRegulationPistol(roundNumber)) return "pistol";
+  if (pistol) return "pistol";
   const spend = spendBuy(own);
   if (spend !== "eco" && opponent != null && spendBuy(opponent) === "eco") return "anti-eco";
   return spend;
@@ -177,12 +178,17 @@ export function roundTeamName(replay: Replay, round: Round, side: Side): string 
 }
 
 function competitiveEconomies(replay: Replay): RoundEconomy[] {
+  const halfRosters = regulationHalfRosters(replay);
   const out: RoundEconomy[] = [];
   for (const round of replay.rounds) {
     if (round.is_knife) continue;
     const freeze = round.freeze_end_tick || round.start_tick;
     const ctAverage = sideAverageEquipment(replay, freeze, true);
     const tAverage = sideAverageEquipment(replay, freeze, false);
+    const pistol = isPistolRound(round.number, replay.match_info, {
+      tick: freeze,
+      rounds: halfRosters,
+    });
     out.push({
       round: round.number,
       jumpTick: freeze,
@@ -190,13 +196,13 @@ function competitiveEconomies(replay: Replay): RoundEconomy[] {
       ct: {
         side: "CT",
         team: roundTeamName(replay, round, "CT"),
-        buy: classifySide(round.number, ctAverage, tAverage),
+        buy: classifySide(ctAverage, tAverage, pistol),
         averageEquipment: ctAverage,
       },
       t: {
         side: "T",
         team: roundTeamName(replay, round, "T"),
-        buy: classifySide(round.number, tAverage, ctAverage),
+        buy: classifySide(tAverage, ctAverage, pistol),
         averageEquipment: tAverage,
       },
     });

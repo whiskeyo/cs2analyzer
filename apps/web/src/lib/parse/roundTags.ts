@@ -1,12 +1,10 @@
+import { isPistolRound, regulationHalfRosters } from "@/lib/match/pistol";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { Replay, Round, Side } from "@/lib/replay/replayTypes";
 import {
   ECO_MAX_EQUIPMENT,
   FIRST_OVERTIME_ROUND,
   FORCE_BUY_MAX_EQUIPMENT,
-  OVERTIME_BLOCK_ROUNDS,
-  REGULATION_ROUNDS,
-  REGULATION_ROUNDS_PER_HALF,
 } from "@/lib/shared/constants";
 
 export type RoundKind = "pistol" | "eco" | "force" | "full";
@@ -68,24 +66,10 @@ function isOvertime(round: Round): boolean {
   return round.number >= FIRST_OVERTIME_ROUND;
 }
 
-function isRegulation(round: Round): boolean {
-  return round.number >= 1 && round.number <= REGULATION_ROUNDS;
-}
-
-/** MR12 pistol round numbers (R1, R13, and the first round of each OT block). */
-export function isPistolRoundNumber(roundNumber: number): boolean {
-  if (roundNumber === 1) return true;
-  if (roundNumber === REGULATION_ROUNDS_PER_HALF + 1) return true;
-  if (roundNumber >= FIRST_OVERTIME_ROUND) {
-    return (roundNumber - FIRST_OVERTIME_ROUND) % OVERTIME_BLOCK_ROUNDS === 0;
-  }
-  return false;
-}
-
 /**
  * Tag every competitive round for series filters. Knife rounds are omitted.
- * Pistol = first regulation round on each focal side (not round number).
- * OT rounds use eco / force / full only.
+ * Pistol rounds are regulation half openers (`isPistolRound`).
+ * Every other round is eco, force, or full from freeze equipment.
  */
 export function tagRounds(
   replay: Replay,
@@ -95,7 +79,7 @@ export function tagRounds(
   if (!demoHasFocalTeam(replay, focalTeamNames)) return [];
 
   const tags: RoundTag[] = [];
-  const pistolSeen: Record<Side, boolean> = { T: false, CT: false };
+  const halfRosters = regulationHalfRosters(replay);
 
   for (const round of replay.rounds) {
     if (round.is_knife) continue;
@@ -105,16 +89,12 @@ export function tagRounds(
 
     const freeze = round.freeze_end_tick || round.start_tick;
     const ot = isOvertime(round);
-
-    let kind: RoundKind;
-    if (ot) {
-      kind = buyKindForSide(replay, freeze, sideForFocal === "CT");
-    } else if (isRegulation(round) && !pistolSeen[sideForFocal]) {
-      kind = "pistol";
-      pistolSeen[sideForFocal] = true;
-    } else {
-      kind = buyKindForSide(replay, freeze, sideForFocal === "CT");
-    }
+    const kind: RoundKind = isPistolRound(round.number, replay.match_info, {
+      tick: freeze,
+      rounds: halfRosters,
+    })
+      ? "pistol"
+      : buyKindForSide(replay, freeze, sideForFocal === "CT");
 
     tags.push({
       demoId,

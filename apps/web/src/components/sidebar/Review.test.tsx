@@ -9,6 +9,7 @@ import {
   makeReplay,
   makeRound,
   makeFreezeTicks,
+  sampleMatchInfo,
 } from "@/lib/testing/fixtures";
 import { HITGROUP_CHEST, HITGROUP_HEAD } from "@/lib/shared/constants";
 import type { Side } from "@/lib/replay/replayTypes";
@@ -289,6 +290,61 @@ describe("Review", () => {
     expect(screen.getByText(/Tagged in the head before 1 death/)).toBeInTheDocument();
     await userEvent.click(screen.getByText(/Lost 1 opening/));
     expect(screen.getAllByText(/chest · tagged in head/).length).toBeGreaterThan(0);
+  });
+
+  it("keeps pistol badges on R1 and R13 and off overtime in a 22-20 match", async () => {
+    const rounds = [
+      { number: 1, winner: "CT" as const },
+      { number: 13, winner: "T" as const },
+      { number: 25, winner: "CT" as const },
+      { number: 28, winner: "T" as const },
+      { number: 31, winner: "CT" as const },
+      { number: 34, winner: "T" as const },
+      { number: 37, winner: "CT" as const },
+      { number: 40, winner: "T" as const },
+      { number: 42, winner: "CT" as const },
+    ].map((spec, index) => {
+      const start = index * 1000;
+      return makeRound({
+        number: spec.number,
+        winner: spec.winner,
+        start_tick: start,
+        freeze_end_tick: start + 64,
+        end_tick: start + 800,
+      });
+    });
+    const replay = makeReplay({
+      header: { team_ct: "Astralis", team_t: "Vitality" },
+      players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
+      rounds,
+      match_info: sampleMatchInfo(),
+    });
+    const end = rounds.reduce((max, round) => Math.max(max, round.end_tick), 0);
+    render(<ReviewHarness replay={replay} tick={end} />);
+
+    await userEvent.click(
+      screen.getByRole("toolbar", { name: "Review team" }).querySelector("button")!,
+    );
+    expect(screen.getByRole("button", { name: "Astralis" })).toHaveClass("on");
+    expect(screen.queryByText(/Lost \d+ pistol/)).not.toBeInTheDocument();
+    const summary = screen.getByText(/Won 2 pistol rounds/);
+    expect(summary.closest("summary")).toHaveTextContent("Won 2 pistol rounds · 2 rounds");
+
+    await userEvent.click(summary);
+    const spoiler = summary.closest("details");
+    expect(spoiler).toHaveAttribute("open");
+    const notes = within(spoiler!).getAllByRole("button", { name: /Won pistol/ });
+    expect(notes.map((note) => note.querySelector(".review-round")?.textContent)).toEqual([
+      "R1",
+      "R13",
+    ]);
+    expect(within(spoiler!).queryByRole("button", { name: /R25/ })).not.toBeInTheDocument();
+    expect(within(spoiler!).queryByRole("button", { name: /R28/ })).not.toBeInTheDocument();
+    expect(within(spoiler!).queryByRole("button", { name: /R31/ })).not.toBeInTheDocument();
+    expect(within(spoiler!).queryByRole("button", { name: /R34/ })).not.toBeInTheDocument();
+    expect(within(spoiler!).queryByRole("button", { name: /R37/ })).not.toBeInTheDocument();
+    expect(within(spoiler!).queryByRole("button", { name: /R40/ })).not.toBeInTheDocument();
+    expect(within(spoiler!).queryByRole("button", { name: /R42/ })).not.toBeInTheDocument();
   });
 
   it("shows a live clutch for the selected player", async () => {
