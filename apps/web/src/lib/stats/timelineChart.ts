@@ -366,6 +366,23 @@ function sideSwaps(rounds: readonly TimelineRoundRoster[]): number[] {
 }
 
 /**
+ * Round after which the first side swap inside regulation happens.
+ * Uses the same present-player comparison as `economyBreakAfter`.
+ * Undefined when nobody who was present on both sides of a boundary changed side
+ * before `maxRounds`.
+ */
+export function regulationSideSwapAfter(
+  rounds: readonly TimelineRoundRoster[],
+  maxRounds: number,
+): number | undefined {
+  if (!Number.isFinite(maxRounds) || maxRounds <= 0) return undefined;
+  for (const swap of sideSwaps(rounds)) {
+    if (swap < maxRounds) return swap;
+  }
+  return undefined;
+}
+
+/**
  * Overtime starts on the same side as the end of regulation. Boundaries step
  * by `mp_overtime_maxrounds`. The halfway swap inside a period is the half
  * line; a period with no swap uses the midpoint.
