@@ -1,7 +1,13 @@
 import { useMemo } from "react";
 import { liveClutch } from "@/lib/match/clutches";
-import { notesOutsideHeadlines, playerReview, type ReviewHeadline } from "@/lib/match/review";
+import {
+  notesOutsideHeadlines,
+  playerReview,
+  reviewDetailRoundCount,
+  type ReviewHeadline,
+} from "@/lib/match/review";
 import { reviewHeadshotLine } from "@/lib/match/reviewHeadshot";
+import { plural } from "@/lib/match/reviewItems/support";
 import { teamReview } from "@/lib/match/teamReview";
 import { computeStats, matchEndTick } from "@/lib/stats/stats";
 import type { Replay, Side } from "@/lib/replay/replayTypes";
@@ -27,12 +33,10 @@ function ReviewHeads({
   headlines,
   pendingAtTick,
   onJump,
-  countLabel,
 }: {
   headlines: ReviewHeadline[];
   pendingAtTick: number;
   onJump: (tick: number) => void;
-  countLabel: string;
 }) {
   if (headlines.length === 0) return null;
   return (
@@ -46,6 +50,7 @@ function ReviewHeads({
             </li>
           );
         }
+        const rounds = reviewDetailRoundCount(details);
         return (
           <li key={h.text} className={`review-head ${h.severity}`}>
             <details className="review-head-spoiler">
@@ -53,7 +58,7 @@ function ReviewHeads({
                 {h.text}
                 <span className="review-head-hint muted">
                   {" "}
-                  · {details.length} {countLabel}
+                  · {rounds} {plural(rounds, "round", "rounds")}
                 </span>
               </summary>
               <ul className="review-head-details">
@@ -196,12 +201,7 @@ export function Review({
             </p>
           ) : review != null ? (
             <>
-              <ReviewHeads
-                headlines={review.headlines}
-                pendingAtTick={tick}
-                onJump={onJump}
-                countLabel={showTeam ? "rounds" : "events"}
-              />
+              <ReviewHeads headlines={review.headlines} pendingAtTick={tick} onJump={onJump} />
               {showPlayer && leftoverNotes.length > 0 && (
                 <ReviewNoteFlow
                   notes={leftoverNotes}
