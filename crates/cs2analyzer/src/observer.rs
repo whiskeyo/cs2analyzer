@@ -346,11 +346,19 @@ impl Collector {
             victim,
             duration,
             attacker.or(self.last_flash_thrower),
+            BlindPath::Event,
         );
     }
 
     fn record_pawn_blind(&mut self, tick: u32, victim: u64, duration: f32, attacker: Option<u64>) {
-        push_blind(&mut self.pawn_blinds, tick, victim, duration, attacker);
+        push_blind(
+            &mut self.pawn_blinds,
+            tick,
+            victim,
+            duration,
+            attacker,
+            BlindPath::Pawn,
+        );
     }
 
     pub(crate) fn active_blind_rows(&self) -> &[(u32, Option<u64>, f32, Option<u64>)] {
@@ -570,10 +578,27 @@ fn controller_in_server(ctrl: &Entity) -> bool {
     crate::player_connected_in_server(prop_i32_opt(ctrl, "m_iConnected"))
 }
 
-/// Overlay-band (~≥4.90s, including labeled 5.0s / ~5.1s) must not enter blinds.
-/// Both `player_blind` and the pawn fallback go through `push_blind`.
-pub(crate) fn accept_blind_duration(duration: f32) -> bool {
-    duration > 0.0 && !crate::flash_overlay_spike(duration)
+/// Which writer is asking [`accept_blind_duration`].
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BlindPath {
+    /// `player_blind`. Durations are real white-time, including a full-face flash.
+    Event,
+    /// Pawn `m_flFlashDuration`, used only when the demo never emits `player_blind`.
+    Pawn,
+}
+
+/// Event path: duration > 0. Pawn path: also drop the overlay band
+/// (`FLASH_FULL_SECONDS` 5.47 - `FLASH_OVERLAY_SLACK_SECONDS` 0.57 = 4.90s).
+/// That band is a pawn snap on short pops. A `player_blind` in the same band
+/// is a real full-face flash (CS2 max is about 5s) and must be kept.
+pub(crate) fn accept_blind_duration(path: BlindPath, duration: f32) -> bool {
+    if duration <= 0.0 {
+        return false;
+    }
+    match path {
+        BlindPath::Event => true,
+        BlindPath::Pawn => !crate::flash_overlay_spike(duration),
+    }
 }
 
 /// Leftover GOTV controllers keep `m_steamID` after a leave. Steam ≠ 0 is not enough.
@@ -1062,8 +1087,9 @@ fn push_blind(
     victim: u64,
     duration: f32,
     attacker: Option<u64>,
+    path: BlindPath,
 ) {
-    if !accept_blind_duration(duration) {
+    if !accept_blind_duration(path, duration) {
         return;
     }
     if blinds

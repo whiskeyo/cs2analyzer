@@ -1320,9 +1320,9 @@ mod tests {
     use crate::observer::{
         accept_blind_duration, active_blinds, bind_userid_steam, controller_dump_interesting,
         controller_identity, controller_steam_playable, fill_inferno_thrower, flash_pop_for_pawn,
-        flash_thrower, new_flash_duration, snapshot_controller_dump_now, Collector, FireSpan,
-        FlashPop, GrenadeDet, GrenadeDetSource, PlayerMeta, RawFrame, RawFramePlayer, RawHurt,
-        RawKill,
+        flash_thrower, new_flash_duration, snapshot_controller_dump_now, BlindPath, Collector,
+        FireSpan, FlashPop, GrenadeDet, GrenadeDetSource, PlayerMeta, RawFrame, RawFramePlayer,
+        RawHurt, RawKill,
     };
     use crate::{bot_steam_id, is_bot_steam_id, ControllerDump, ParseOptions, FLAG_ALIVE, FLAG_CT};
 
@@ -2271,35 +2271,60 @@ mod tests {
     }
 
     #[test]
-    fn accept_blind_duration_rejects_overlay_from_pawn_and_player_blind() {
-        // push_blind is the only writer; pawn sampling and player_blind both
-        // call it. Revert the overlay check there → 5.0s enters blinds again
-        // (ed5b8fa left that hole on the event path).
+    fn accept_blind_duration_keeps_full_face_player_blind_and_rejects_pawn_overlay() {
+        // push_blind is the only writer. The overlay band is a pawn
+        // m_flFlashDuration snap. player_blind in that band is a full-face flash.
         assert!(
-            accept_blind_duration(1.3),
+            accept_blind_duration(BlindPath::Event, 1.3),
             "short player_blind must enter blinds"
         );
         assert!(
-            accept_blind_duration(4.1),
-            "real leftover under the overlay band must enter blinds"
+            accept_blind_duration(BlindPath::Event, 4.1),
+            "player_blind under the overlay band must enter blinds"
         );
         assert!(
-            !accept_blind_duration(4.95),
-            "overlay-band must not enter blinds"
+            accept_blind_duration(BlindPath::Event, 4.95),
+            "full-face player_blind must enter blinds"
         );
         assert!(
-            !accept_blind_duration(5.0),
-            "overlay-band must not enter blinds"
+            accept_blind_duration(BlindPath::Event, 5.0),
+            "full-face player_blind must enter blinds"
         );
         assert!(
-            !accept_blind_duration(5.1),
-            "overlay-band must not enter blinds"
+            accept_blind_duration(BlindPath::Event, 5.1),
+            "full-face player_blind must enter blinds"
         );
         assert!(
-            !accept_blind_duration(crate::FLASH_FULL_SECONDS),
-            "overlay-band must not enter blinds"
+            accept_blind_duration(BlindPath::Event, crate::FLASH_FULL_SECONDS),
+            "full-face player_blind must enter blinds"
         );
-        assert!(!accept_blind_duration(0.0));
+        assert!(!accept_blind_duration(BlindPath::Event, 0.0));
+
+        assert!(
+            accept_blind_duration(BlindPath::Pawn, 1.3),
+            "short pawn sample must enter blinds"
+        );
+        assert!(
+            accept_blind_duration(BlindPath::Pawn, 4.1),
+            "pawn sample under the overlay band must enter blinds"
+        );
+        assert!(
+            !accept_blind_duration(BlindPath::Pawn, 4.95),
+            "pawn overlay snap must not enter blinds"
+        );
+        assert!(
+            !accept_blind_duration(BlindPath::Pawn, 5.0),
+            "pawn overlay snap must not enter blinds"
+        );
+        assert!(
+            !accept_blind_duration(BlindPath::Pawn, 5.1),
+            "pawn overlay snap must not enter blinds"
+        );
+        assert!(
+            !accept_blind_duration(BlindPath::Pawn, crate::FLASH_FULL_SECONDS),
+            "pawn overlay snap must not enter blinds"
+        );
+        assert!(!accept_blind_duration(BlindPath::Pawn, 0.0));
     }
 
     #[test]
