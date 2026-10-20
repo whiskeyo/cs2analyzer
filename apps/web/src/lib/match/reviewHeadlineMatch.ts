@@ -30,7 +30,8 @@ export function noteMatchesHeadline(note: ReviewNote, mergeKey: string): boolean
   if (key.includes("untraded")) return note.detail.includes("untraded");
   if (key.includes("flashed")) return note.detail.includes("flashed");
   if (key.includes("damage back") || key.includes("gunfight")) {
-    return note.detail.includes("damage back");
+    // Low-return copy is either "no damage back" or "only N dmg back".
+    return note.detail.includes("damage back") || note.detail.includes("dmg back");
   }
   if (key.includes("multi-kill") || key.includes("fed")) {
     return note.detail.includes("fed a");
@@ -38,7 +39,8 @@ export function noteMatchesHeadline(note: ReviewNote, mergeKey: string): boolean
   if (key.includes("utility")) return note.detail.includes("died to");
   if (key.includes("nades")) return note.detail.includes("died holding");
   if (key.includes("eco round")) return note.title.includes("eco");
-  if (key.includes("4k")) {
+  // Digit normalization turns "4k+" into "#k+".
+  if (key.includes("#k+") || key.includes("4k")) {
     return note.title.includes("k this round") || note.title === "Ace";
   }
   return false;

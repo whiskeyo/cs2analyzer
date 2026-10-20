@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   makeHurt,
@@ -85,6 +85,7 @@ describe("Review", () => {
     );
     expect(screen.getByRole("button", { name: "Team Spirit" })).toHaveClass("on");
     const summary = screen.getByText(/Won 1 eco\/force round/);
+    expect(summary.closest("summary")).toHaveTextContent("Won 1 eco/force round · 1 round");
     const spoiler = summary.closest("details");
     expect(spoiler).not.toHaveAttribute("open");
 
@@ -186,6 +187,67 @@ describe("Review", () => {
     expect(screen.getAllByRole("button", { name: /R1.*Won the opening/ }).length).toBeGreaterThan(
       0,
     );
+  });
+
+  it("counts a repeated round once on a team spoiler and keeps every event", async () => {
+    const players = [
+      makePlayer(0, "CT", "Alice"),
+      makePlayer(1, "CT", "Support"),
+      makePlayer(2, "T", "Bob"),
+      makePlayer(3, "T", "Cara"),
+    ];
+    const replay = makeReplay({
+      header: { team_ct: "Rooster", team_t: "MARTYRDOM" },
+      players,
+      rounds: [
+        makeRound({ number: 1, winner: "CT", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
+        makeRound({
+          number: 5,
+          winner: "CT",
+          start_tick: 2000,
+          freeze_end_tick: 2064,
+          end_tick: 2600,
+        }),
+      ],
+      kills: [
+        makeKill(200, 0, 2, { assister: 1, assisted_flash: true }),
+        makeKill(400, 0, 3, { assister: 1, assisted_flash: true }),
+        makeKill(2200, 0, 2, { assister: 1, assisted_flash: true }),
+      ],
+    });
+    render(<ReviewHarness replay={replay} tick={2600} reviewTeamSide="CT" />);
+
+    const summary = screen.getByText(/3 flash assists/).closest("summary");
+    expect(summary).toHaveTextContent("3 flash assists · 2 rounds");
+
+    await userEvent.click(summary!);
+    const rows = screen.getAllByRole("button", { name: /Flash assist by Support/ });
+    expect(rows.map((row) => row.textContent?.replace(/\s+/g, " "))).toEqual([
+      expect.stringContaining("R1"),
+      expect.stringContaining("R1"),
+      expect.stringContaining("R5"),
+    ]);
+  });
+
+  it("counts a repeated round once on a player spoiler and keeps every event", async () => {
+    const replay = makeReplay({
+      players: [makePlayer(0, "CT", "Alice"), makePlayer(1, "T", "Bob")],
+      rounds: [
+        makeRound({ number: 1, winner: "T", start_tick: 0, freeze_end_tick: 64, end_tick: 640 }),
+      ],
+      kills: [makeKill(200, 1, 0), makeKill(400, 1, 0)],
+    });
+    render(<ReviewHarness replay={replay} tick={640} selected={0} />);
+
+    const untraded = screen.getByText(/2 untraded deaths/).closest("summary");
+    expect(untraded).toHaveTextContent("2 untraded deaths · 1 round");
+    const gunfights = screen.getByText(/2 gunfights with almost no damage back/).closest("summary");
+    expect(gunfights).toHaveTextContent("2 gunfights with almost no damage back · 1 round");
+
+    await userEvent.click(untraded!);
+    expect(
+      within(untraded!.closest("details")!).getAllByRole("button", { name: /R1/ }),
+    ).toHaveLength(2);
   });
 
   it("shows an empty hint when the selected player has no notes", () => {
