@@ -207,9 +207,11 @@ pub const FLASH_PAWN_RADIUS: f32 = 2500.0;
 pub const FLASH_PAWN_LOOKBACK_SECONDS: f32 = 1.0;
 
 /// Full-face CS2 flash. Pawn `m_flFlashDuration` often snaps into this band
-/// even when `player_blind` is a short pop. Keep aligned with the web constants.
+/// even for a short pop, so the pawn fallback rejects it. `player_blind`
+/// reports real white-time here (CS2 max is about 5s) and keeps it.
+/// Keep aligned with the web constants.
 pub const FLASH_FULL_SECONDS: f32 = 5.47;
-/// Wide enough that `4.95.toFixed(1) === "5.0"` leftover snaps are excluded.
+/// Wide enough that `4.95.toFixed(1) === "5.0"` leftover pawn snaps are excluded.
 pub const FLASH_OVERLAY_SLACK_SECONDS: f32 = 0.57;
 pub const FLASH_OVERLAY_SPIKE_SECONDS: f32 = FLASH_FULL_SECONDS - FLASH_OVERLAY_SLACK_SECONDS;
 
