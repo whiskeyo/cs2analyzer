@@ -191,6 +191,12 @@ pub const MOLOTOV_BURN_TICKS: u32 = 450;
 pub const HE_DECOY_SECONDS: f32 = 0.5;
 pub const FLASH_POP_SECONDS: f32 = 0.4;
 
+/// CS2 game-event player ids (`userid`, `attacker`, `assister`) are this many
+/// below the `CCSPlayerController` entity index. The first controller is index
+/// 1, so its event id is 0. Using the raw id as an entity index returns the
+/// previous controller and drops id 0 (`player_blind` has no `userid_pawn`).
+pub const EVENT_USERID_CONTROLLER_OFFSET: i32 = 1;
+
 /// Pawn-duration fallback only (`player_blind` absent). A duration jump farther
 /// than this from a recent `flashbang_detonate` is not that pop. On Premier and
 /// FACEIT demos that emit `player_blind`, unmatched pawn jumps sit inside about

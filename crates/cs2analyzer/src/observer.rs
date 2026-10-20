@@ -910,27 +910,42 @@ fn bind_controller_userid(c: &mut Collector, ctx: &Context, ctrl: &Entity) -> Op
     id
 }
 
-fn steam_from_userid(c: &Collector, ctx: &Context, uid: i32) -> Option<u64> {
-    if uid <= 0 {
+/// Entity index of the controller named by a game-event player id.
+///
+/// See [`crate::EVENT_USERID_CONTROLLER_OFFSET`]. Negative ids are not controllers.
+pub(crate) fn controller_index_for_event_userid(userid: i32) -> Option<i32> {
+    if userid < 0 {
         return None;
     }
-    if let Some(&steam) = c.userid_to_steam.get(&uid) {
+    userid.checked_add(crate::EVENT_USERID_CONTROLLER_OFFSET)
+}
+
+fn steam_from_userid(c: &Collector, ctx: &Context, uid: i32) -> Option<u64> {
+    let index = controller_index_for_event_userid(uid)?;
+    if let Some(steam) = steam_at_controller_index(c, ctx, index) {
         return Some(steam);
     }
-    if let Ok(ent) = ctx.entities().get_by_index(uid as usize) {
-        if ent.class().name() == "CCSPlayerController" {
-            if let Some(id) = controller_playable_id(c, ctx, ent) {
-                return Some(id);
-            }
-        }
-    }
+    // Packed ids keep the event userid in the low 8 bits and a serial above that.
     let slot = uid & 0xff;
     if slot != uid {
-        if let Some(&steam) = c.userid_to_steam.get(&slot) {
-            return Some(steam);
-        }
+        let slot_index = controller_index_for_event_userid(slot)?;
+        return steam_at_controller_index(c, ctx, slot_index);
     }
     None
+}
+
+fn steam_at_controller_index(c: &Collector, ctx: &Context, index: i32) -> Option<u64> {
+    if index < 0 {
+        return None;
+    }
+    if let Some(&steam) = c.userid_to_steam.get(&index) {
+        return Some(steam);
+    }
+    let ent = ctx.entities().get_by_index(index as usize).ok()?;
+    if ent.class().name() != "CCSPlayerController" {
+        return None;
+    }
+    controller_playable_id(c, ctx, ent)
 }
 
 fn steam_from_event_player(
@@ -1365,9 +1380,11 @@ impl Collector {
         }
 
         if let (Some(uid), Some(ph)) = (ev_i32(ge, "userid"), ev_i32(ge, "userid_pawn")) {
-            if !self.userid_to_steam.contains_key(&uid) {
-                if let Some(s) = steam_from_pawn_handle(self, ctx, ph) {
-                    self.userid_to_steam.insert(uid, s);
+            if let Some(index) = controller_index_for_event_userid(uid) {
+                if !self.userid_to_steam.contains_key(&index) {
+                    if let Some(s) = steam_from_pawn_handle(self, ctx, ph) {
+                        self.userid_to_steam.insert(index, s);
+                    }
                 }
             }
         }
@@ -1618,8 +1635,12 @@ impl Collector {
                 // tracers stay the shot viz; impacts are not stored.
             }
             "player_disconnect" => {
-                if let Some(uid) = ev_i32(ge, "userid") {
-                    bind_userid_steam(&mut self.userid_to_steam, uid, 0);
+                // Same id space as `steam_from_userid`. Removing the raw event
+                // userid clears the previous controller.
+                if let Some(index) =
+                    ev_i32(ge, "userid").and_then(controller_index_for_event_userid)
+                {
+                    bind_userid_steam(&mut self.userid_to_steam, index, 0);
                 }
                 if let Some(steam) = steam_from_game_event(self, ctx, ge) {
                     if !crate::is_bot_steam_id(steam) {
@@ -1662,5 +1683,17 @@ impl Collector {
             _ => {}
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod event_userid_tests {
+    use super::controller_index_for_event_userid;
+
+    #[test]
+    fn event_userid_zero_is_the_first_controller() {
+        assert_eq!(controller_index_for_event_userid(0), Some(1));
+        assert_eq!(controller_index_for_event_userid(9), Some(10));
+        assert_eq!(controller_index_for_event_userid(-1), None);
     }
 }
