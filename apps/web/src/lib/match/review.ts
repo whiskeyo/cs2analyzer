@@ -18,6 +18,18 @@ export interface ReviewHeadlineDetail {
   text: string;
 }
 
+/**
+ * Rounds covered by one spoiler list. Several events in the same round
+ * (two flash assists on R1) still count as that one round.
+ */
+export function reviewDetailRoundCount(
+  details: readonly Pick<ReviewHeadlineDetail, "roundLabel">[],
+): number {
+  const rounds = new Set<string>();
+  for (const detail of details) rounds.add(detail.roundLabel);
+  return rounds.size;
+}
+
 export interface ReviewHeadline {
   text: string;
   severity: ReviewSeverity;

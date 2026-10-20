@@ -82,6 +82,38 @@ describe("reviewHeadlineMatch", () => {
     expect(attachHeadlineDetails(headlines, [])[0]?.details).toHaveLength(1);
   });
 
+  it("lists low-return and multi-kill notes under their headlines", () => {
+    const gunfightKey = headlineMatchKey({
+      text: "2 gunfights with almost no damage back",
+      severity: "mid",
+      count: 2,
+      kind: "death",
+    });
+    expect(
+      noteMatchesHeadline(
+        note({ title: "Died to Bob", detail: "AK-47 · only 10 dmg back" }),
+        gunfightKey,
+      ),
+    ).toBe(true);
+    expect(
+      noteMatchesHeadline(
+        note({ title: "Died to Bob", detail: "AK-47 · no damage back" }),
+        gunfightKey,
+      ),
+    ).toBe(true);
+
+    const multiKey = headlineMatchKey({
+      text: "1 round with 4k+",
+      severity: "good",
+      count: 1,
+      kind: "multi",
+    });
+    expect(noteMatchesHeadline(note({ title: "4k this round", kind: "multi" }), multiKey)).toBe(
+      true,
+    );
+    expect(noteMatchesHeadline(note({ title: "Ace", kind: "multi" }), multiKey)).toBe(true);
+  });
+
   it("lists notes that no headline claims", () => {
     const headlines: ReviewHeadline[] = [
       { text: "Won 1 opening duel", severity: "good", count: 1, kind: "opening" },
