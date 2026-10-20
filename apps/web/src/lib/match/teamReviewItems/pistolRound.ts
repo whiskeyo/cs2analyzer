@@ -1,9 +1,9 @@
-import { isPistolRoundNumber } from "@/lib/parse/roundTags";
+import { isPistolRound, regulationHalfRosters } from "@/lib/match/pistol";
 import type { TeamReviewItem } from "../teamReview";
 import { plural, teamDetail, teamHeadline, teamNote } from "./support";
 import type { ReviewHeadlineDetail } from "./support";
 
-/** Pistol round wins and losses (regulation R1 / R13). */
+/** Pistol round wins and losses (regulation half openers). */
 export const pistolRound: TeamReviewItem = {
   create() {
     let wins = 0;
@@ -12,7 +12,15 @@ export const pistolRound: TeamReviewItem = {
     const lossDetails: ReviewHeadlineDetail[] = [];
     return {
       collectRound(ctx) {
-        if (!ctx.completed || !isPistolRoundNumber(ctx.round.number)) return;
+        if (
+          !ctx.completed ||
+          !isPistolRound(ctx.round.number, ctx.replay.match_info, {
+            tick: ctx.freeze,
+            rounds: regulationHalfRosters(ctx.replay),
+          })
+        ) {
+          return;
+        }
         if (ctx.round.winner == null) return;
         const won = ctx.round.winner === ctx.side;
         if (won) {

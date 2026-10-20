@@ -1,5 +1,5 @@
+import { isPistolRound, regulationHalfRosters } from "@/lib/match/pistol";
 import { ECO_MAX_EQUIPMENT } from "@/lib/shared/constants";
-import { isPistolRoundNumber } from "@/lib/parse/roundTags";
 import { samplePlayers } from "@/lib/replay/sample";
 import type { ReviewItem } from "../review";
 import { countHeadline, goodNote, plural } from "./support";
@@ -11,7 +11,10 @@ export const ecoWin: ReviewItem = {
       collectRound(ctx) {
         const me = samplePlayers(ctx.replay, ctx.freeze).find((p) => p.index === ctx.player);
         if (
-          isPistolRoundNumber(ctx.round.number) ||
+          isPistolRound(ctx.round.number, ctx.replay.match_info, {
+            tick: ctx.freeze,
+            rounds: regulationHalfRosters(ctx.replay),
+          }) ||
           !me ||
           me.equip >= ECO_MAX_EQUIPMENT ||
           !ctx.completed ||

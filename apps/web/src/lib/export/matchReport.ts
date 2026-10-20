@@ -4,7 +4,7 @@ import { notesByRound } from "@/lib/notes/list";
 import type { Bookmark, Drawing, Note, RoundNote } from "@/lib/notes/types";
 import { roundLabel } from "@/lib/match/reviewItems/support";
 import { roundClock } from "@/lib/match/roundEvents";
-import { isPistolRoundNumber } from "@/lib/parse/roundTags";
+import { isPistolRound, regulationHalfRosters } from "@/lib/match/pistol";
 import { playerLabel } from "@/lib/replay/playerLabel";
 import {
   FLAG_CT,
@@ -134,8 +134,15 @@ function teamBuyKind(replay: Replay, tick: number, ct: boolean): string {
 /** Economy tag for a bookmark caption. T-side buy, unless the round is a pistol or knife. */
 export function matchRoundEconomy(replay: Replay, round: Round): string {
   if (round.is_knife) return MATCH_PDF_ECO_KNIFE;
-  if (isPistolRoundNumber(round.number)) return MATCH_PDF_ECO_PISTOL;
   const freeze = round.freeze_end_tick || round.start_tick;
+  if (
+    isPistolRound(round.number, replay.match_info, {
+      tick: freeze,
+      rounds: regulationHalfRosters(replay),
+    })
+  ) {
+    return MATCH_PDF_ECO_PISTOL;
+  }
   return teamBuyKind(replay, freeze, false);
 }
 
