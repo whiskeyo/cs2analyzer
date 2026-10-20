@@ -132,7 +132,7 @@ The branches stay. None of the 12 release demos need a behavior change.
 | `inferno_extinguish` | Never fires | A smoke ends the fire with an earlier `inferno_expire`. |
 | `round_officially_ended` | Missing on tournament GOTV and on the FACEIT Inferno demo | Round end prefers `m_iRoundWinStatus` (`synth_ends` in `round_conclusion`). |
 | `bomb_beginplant` / `bomb_begindefuse` | Missing on those same demos | Pawn `m_bStartedArming` / `m_bIsDefusing` (`FLAG_PLANTING` / `FLAG_DEFUSING`). The HUD timer starts from the flag when the event is absent. |
-| `player_blind` | Missing on those same demos | Pawn `m_flFlashDuration` in `sample_flash_blinds`. FACEIT (except that Inferno) and Premier do fire `player_blind`. |
+| `player_blind` | Missing on those same demos | When the demo emits it, those events are the only blinds. Otherwise pawn `m_flFlashDuration` in `sample_flash_blinds`, attributed to the in-range `flashbang_detonate` (`userid`, not `m_hThrower`). |
 
 `bomb_planted`, `inferno_startburn`, and `inferno_expire` are present on the tournament demos. Every release demo still has a winner on every round, at least one blind, and at least one fire.
 

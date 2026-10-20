@@ -116,8 +116,14 @@ pub(crate) struct Collector {
     pub hurts: Vec<RawHurt>,
     pub shots: Vec<(u32, Option<u64>, f32, f32, f32)>,
     pub kills: Vec<RawKill>,
-    /// `(tick, victim_steam, duration_s, attacker_steam)`.
+    /// `(tick, victim_steam, duration_s, attacker_steam)` from `player_blind`.
     pub blinds: Vec<(u32, Option<u64>, f32, Option<u64>)>,
+    /// Same shape, from pawn `m_flFlashDuration`. Used only when `player_blind` never fires.
+    pawn_blinds: Vec<(u32, Option<u64>, f32, Option<u64>)>,
+    /// True once a `player_blind` victim resolves. Pawn rows are then dropped.
+    saw_player_blind: bool,
+    /// `flashbang_detonate` pops, for the pawn-duration fallback.
+    flash_pops: Vec<FlashPop>,
     pub bomb_events: Vec<BombRec>,
     pub userid_to_steam: HashMap<i32, u64>,
     /// Steams that left (`player_disconnect` or `m_iConnected` out of server).
@@ -243,6 +249,9 @@ impl Collector {
             shots: Vec::new(),
             kills: Vec::new(),
             blinds: Vec::new(),
+            pawn_blinds: Vec::new(),
+            saw_player_blind: false,
+            flash_pops: Vec::new(),
             bomb_events: Vec::new(),
             userid_to_steam: HashMap::new(),
             left_steams: HashSet::new(),
@@ -329,32 +338,38 @@ impl Collector {
         }
     }
 
-    fn record_blind(&mut self, tick: u32, victim: u64, duration: f32, attacker: Option<u64>) {
-        if !accept_blind_duration(duration) {
-            return;
-        }
-        if self
-            .blinds
-            .iter()
-            .rev()
-            .take(32)
-            .any(|(t, v, _, _)| *t == tick && *v == Some(victim))
-        {
-            return;
-        }
-        self.blinds.push((
+    fn record_event_blind(&mut self, tick: u32, victim: u64, duration: f32, attacker: Option<u64>) {
+        self.saw_player_blind = true;
+        push_blind(
+            &mut self.blinds,
             tick,
-            Some(victim),
+            victim,
             duration,
             attacker.or(self.last_flash_thrower),
-        ));
-        let prev = self.flash_duration.get(&victim).copied().unwrap_or(0.0);
-        if duration > prev {
-            self.flash_duration.insert(victim, duration);
-        }
+        );
+    }
+
+    fn record_pawn_blind(&mut self, tick: u32, victim: u64, duration: f32, attacker: Option<u64>) {
+        push_blind(&mut self.pawn_blinds, tick, victim, duration, attacker);
+    }
+
+    pub(crate) fn active_blind_rows(&self) -> &[(u32, Option<u64>, f32, Option<u64>)] {
+        active_blinds(self.saw_player_blind, &self.blinds, &self.pawn_blinds)
+    }
+
+    fn flash_lookback_ticks(&self) -> u32 {
+        let interval = if self.tick_interval > 0.0 {
+            self.tick_interval
+        } else {
+            1.0 / 64.0
+        };
+        (crate::FLASH_PAWN_LOOKBACK_SECONDS / interval)
+            .round()
+            .max(1.0) as u32
     }
 
     fn sample_flash_blinds(&mut self, ctx: &Context, tick: u32) {
+        let lookback = self.flash_lookback_ticks();
         for ctrl in ctx.entities().iter() {
             if ctrl.class().name() != "CCSPlayerController" {
                 continue;
@@ -369,7 +384,21 @@ impl Collector {
             let dur = prop_f32(pawn, "m_flFlashDuration");
             let prev = self.flash_duration.get(&steam).copied().unwrap_or(0.0);
             if let Some(next) = new_flash_duration(prev, dur) {
-                self.record_blind(tick, steam, next, self.last_flash_thrower);
+                let alive = prop_i32(pawn, "m_lifeState") == 0 && prop_i32(pawn, "m_iHealth") > 0;
+                if alive {
+                    let (x, y, z) = entity_xyz(pawn);
+                    if let Some(pop) = flash_pop_for_pawn(
+                        &self.flash_pops,
+                        tick,
+                        x,
+                        y,
+                        z,
+                        lookback,
+                        crate::FLASH_PAWN_RADIUS,
+                    ) {
+                        self.record_pawn_blind(tick, steam, next, pop.thrower);
+                    }
+                }
             }
             self.flash_duration.insert(steam, dur);
         }
@@ -541,8 +570,8 @@ fn controller_in_server(ctrl: &Entity) -> bool {
     crate::player_connected_in_server(prop_i32_opt(ctrl, "m_iConnected"))
 }
 
-/// Pawn `m_flFlashDuration` samples and `player_blind` both call `record_blind`.
-/// Overlay-band (~≥4.90s, including labeled 5.0s / ~5.1s) must not enter `blinds`.
+/// Overlay-band (~≥4.90s, including labeled 5.0s / ~5.1s) must not enter blinds.
+/// Both `player_blind` and the pawn fallback go through `push_blind`.
 pub(crate) fn accept_blind_duration(duration: f32) -> bool {
     duration > 0.0 && !crate::flash_overlay_spike(duration)
 }
@@ -881,27 +910,42 @@ fn bind_controller_userid(c: &mut Collector, ctx: &Context, ctrl: &Entity) -> Op
     id
 }
 
-fn steam_from_userid(c: &Collector, ctx: &Context, uid: i32) -> Option<u64> {
-    if uid <= 0 {
+/// Entity index of the controller named by a game-event player id.
+///
+/// See [`crate::EVENT_USERID_CONTROLLER_OFFSET`]. Negative ids are not controllers.
+pub(crate) fn controller_index_for_event_userid(userid: i32) -> Option<i32> {
+    if userid < 0 {
         return None;
     }
-    if let Some(&steam) = c.userid_to_steam.get(&uid) {
+    userid.checked_add(crate::EVENT_USERID_CONTROLLER_OFFSET)
+}
+
+fn steam_from_userid(c: &Collector, ctx: &Context, uid: i32) -> Option<u64> {
+    let index = controller_index_for_event_userid(uid)?;
+    if let Some(steam) = steam_at_controller_index(c, ctx, index) {
         return Some(steam);
     }
-    if let Ok(ent) = ctx.entities().get_by_index(uid as usize) {
-        if ent.class().name() == "CCSPlayerController" {
-            if let Some(id) = controller_playable_id(c, ctx, ent) {
-                return Some(id);
-            }
-        }
-    }
+    // Packed ids keep the event userid in the low 8 bits and a serial above that.
     let slot = uid & 0xff;
     if slot != uid {
-        if let Some(&steam) = c.userid_to_steam.get(&slot) {
-            return Some(steam);
-        }
+        let slot_index = controller_index_for_event_userid(slot)?;
+        return steam_at_controller_index(c, ctx, slot_index);
     }
     None
+}
+
+fn steam_at_controller_index(c: &Collector, ctx: &Context, index: i32) -> Option<u64> {
+    if index < 0 {
+        return None;
+    }
+    if let Some(&steam) = c.userid_to_steam.get(&index) {
+        return Some(steam);
+    }
+    let ent = ctx.entities().get_by_index(index as usize).ok()?;
+    if ent.class().name() != "CCSPlayerController" {
+        return None;
+    }
+    controller_playable_id(c, ctx, ent)
 }
 
 fn steam_from_event_player(
@@ -947,6 +991,90 @@ pub(crate) fn new_flash_duration(prev: f32, next: f32) -> Option<f32> {
     } else {
         None
     }
+}
+
+/// One `flashbang_detonate`. `thrower` prefers the event userid over `m_hThrower`.
+pub(crate) struct FlashPop {
+    pub tick: u32,
+    pub entity: i32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub thrower: Option<u64>,
+}
+
+/// Event userid when the detonate carries one. `m_hThrower` is a different steam
+/// on the release demos that have both.
+pub(crate) fn flash_thrower(
+    event_thrower: Option<u64>,
+    projectile_thrower: Option<u64>,
+) -> Option<u64> {
+    event_thrower.or(projectile_thrower)
+}
+
+/// Nearest pop in `lookback_ticks` whose 3D distance is within `radius`.
+pub(crate) fn flash_pop_for_pawn<'a>(
+    pops: &'a [FlashPop],
+    tick: u32,
+    x: f32,
+    y: f32,
+    z: f32,
+    lookback_ticks: u32,
+    radius: f32,
+) -> Option<&'a FlashPop> {
+    let mut best: Option<(f32, u32, &'a FlashPop)> = None;
+    for pop in pops {
+        if pop.tick > tick || tick - pop.tick > lookback_ticks {
+            continue;
+        }
+        let dx = x - pop.x;
+        let dy = y - pop.y;
+        let dz = z - pop.z;
+        let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+        if dist > radius {
+            continue;
+        }
+        let take = best.as_ref().is_none_or(|(best_dist, best_tick, _)| {
+            dist < *best_dist || (dist == *best_dist && pop.tick > *best_tick)
+        });
+        if take {
+            best = Some((dist, pop.tick, pop));
+        }
+    }
+    best.map(|(_, _, pop)| pop)
+}
+
+pub(crate) fn active_blinds<'a>(
+    saw_player_blind: bool,
+    event_blinds: &'a [(u32, Option<u64>, f32, Option<u64>)],
+    pawn_blinds: &'a [(u32, Option<u64>, f32, Option<u64>)],
+) -> &'a [(u32, Option<u64>, f32, Option<u64>)] {
+    if saw_player_blind {
+        event_blinds
+    } else {
+        pawn_blinds
+    }
+}
+
+fn push_blind(
+    blinds: &mut Vec<(u32, Option<u64>, f32, Option<u64>)>,
+    tick: u32,
+    victim: u64,
+    duration: f32,
+    attacker: Option<u64>,
+) {
+    if !accept_blind_duration(duration) {
+        return;
+    }
+    if blinds
+        .iter()
+        .rev()
+        .take(32)
+        .any(|(t, v, _, _)| *t == tick && *v == Some(victim))
+    {
+        return;
+    }
+    blinds.push((tick, Some(victim), duration, attacker));
 }
 
 fn team_halves_present(teams: &TeamHalves) -> bool {
@@ -1252,9 +1380,11 @@ impl Collector {
         }
 
         if let (Some(uid), Some(ph)) = (ev_i32(ge, "userid"), ev_i32(ge, "userid_pawn")) {
-            if !self.userid_to_steam.contains_key(&uid) {
-                if let Some(s) = steam_from_pawn_handle(self, ctx, ph) {
-                    self.userid_to_steam.insert(uid, s);
+            if let Some(index) = controller_index_for_event_userid(uid) {
+                if !self.userid_to_steam.contains_key(&index) {
+                    if let Some(s) = steam_from_pawn_handle(self, ctx, ph) {
+                        self.userid_to_steam.insert(index, s);
+                    }
                 }
             }
         }
@@ -1442,9 +1572,21 @@ impl Collector {
                 };
                 let id = ev_i32(ge, "entityid").unwrap_or(0);
                 if kind == GrenadeKind::Flash {
-                    if let Some(thrower) = thrower_from_nade_entity(self, ctx, id) {
-                        self.last_flash_thrower = Some(thrower);
+                    let thrower = flash_thrower(
+                        steam_from_event_player(self, ctx, ge, "userid_pawn", "userid"),
+                        thrower_from_nade_entity(self, ctx, id),
+                    );
+                    if let Some(steam) = thrower {
+                        self.last_flash_thrower = Some(steam);
                     }
+                    self.flash_pops.push(FlashPop {
+                        tick,
+                        entity: id,
+                        x: ev_f32(ge, "x"),
+                        y: ev_f32(ge, "y"),
+                        z: ev_f32(ge, "z"),
+                        thrower,
+                    });
                 }
                 self.grenade_dets.push(GrenadeDet {
                     tick,
@@ -1493,8 +1635,12 @@ impl Collector {
                 // tracers stay the shot viz; impacts are not stored.
             }
             "player_disconnect" => {
-                if let Some(uid) = ev_i32(ge, "userid") {
-                    bind_userid_steam(&mut self.userid_to_steam, uid, 0);
+                // Same id space as `steam_from_userid`. Removing the raw event
+                // userid clears the previous controller.
+                if let Some(index) =
+                    ev_i32(ge, "userid").and_then(controller_index_for_event_userid)
+                {
+                    bind_userid_steam(&mut self.userid_to_steam, index, 0);
                 }
                 if let Some(steam) = steam_from_game_event(self, ctx, ge) {
                     if !crate::is_bot_steam_id(steam) {
@@ -1511,22 +1657,43 @@ impl Collector {
             }
             "player_blind" => {
                 // Tournament GOTV and the FACEIT Inferno demo omit this event.
-                // `sample_flash_blinds` still records pawn `m_flFlashDuration`.
+                // Those demos keep pawn `m_flFlashDuration` via `sample_flash_blinds`.
+                // A demo that does emit `player_blind` keeps only these rows.
                 let dur = ev_f32(ge, "blind_duration");
                 if let Some(victim) =
                     steam_from_event_player(self, ctx, ge, "userid_pawn", "userid")
                 {
+                    let entity = ev_i32(ge, "entityid").unwrap_or(0);
+                    let pop_thrower = self
+                        .flash_pops
+                        .iter()
+                        .rev()
+                        .find(|pop| pop.tick == tick && pop.entity == entity)
+                        .and_then(|pop| pop.thrower);
                     let attacker =
                         steam_from_event_player(self, ctx, ge, "attacker_pawn", "attacker")
+                            .or(pop_thrower)
                             .or(self.last_flash_thrower);
                     if let Some(thrower) = attacker {
                         self.last_flash_thrower = Some(thrower);
                     }
-                    self.record_blind(tick, victim, dur, attacker);
+                    self.record_event_blind(tick, victim, dur, attacker);
                 }
             }
             _ => {}
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod event_userid_tests {
+    use super::controller_index_for_event_userid;
+
+    #[test]
+    fn event_userid_zero_is_the_first_controller() {
+        assert_eq!(controller_index_for_event_userid(0), Some(1));
+        assert_eq!(controller_index_for_event_userid(9), Some(10));
+        assert_eq!(controller_index_for_event_userid(-1), None);
     }
 }
