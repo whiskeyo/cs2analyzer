@@ -173,9 +173,9 @@ export function DropZone({
       {showSavedNotes ? (
         <div className="home-notes">
           <p className="muted">
-            Notes auto-save in this browser. The demo is not stored — drop the same{" "}
-            <code>.dem</code> to restore drawings. Export a JSON backup from Settings so a cache
-            wipe does not eat them.
+            Notes auto-save in this browser. Parsed demos are kept here when there is room, so Open
+            can reload one without the file. Export a JSON backup from Settings so a cache wipe does
+            not eat the drawings.
           </p>
           {saved.length > 0 && (
             <div className="saved-demos">

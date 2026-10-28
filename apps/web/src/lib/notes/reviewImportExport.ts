@@ -1,6 +1,7 @@
 import { parseJson } from "@/lib/validate/json.ts";
 import { downloadBlob } from "@/lib/shared/download";
 import type { LoadedDemo } from "@/lib/parse/session";
+import { fileFromParserCache } from "@/lib/parse/parserCache";
 import { reportQuotaError, storageWriteError } from "@/lib/storage/quota";
 import {
   deleteAllProjects,
@@ -113,10 +114,12 @@ export async function tryOpenLinkedDemo(
 ): Promise<File | null> {
   const handle = await loadDemoFileHandle(project.key);
   if (!handle) {
-    return null;
+    return fileFromParserCache(project.key, project.fileName);
   }
   const file = await readFileFromHandle(handle);
   if (!file) {
+    const cached = await fileFromParserCache(project.key, project.fileName);
+    if (cached) return cached;
     status.setNotice(linkedDemoPermissionNotice(project.fileName));
     return null;
   }

@@ -32,6 +32,12 @@ import { buildSeries, withFocalTeam, type DemoSeries, type LoadedDemo } from "./
 import { formatParseTimings } from "./timings";
 import { parseDump } from "./parseDump";
 import { clearSeriesReviewCache } from "@/lib/notes/seriesReviewCache";
+import {
+  readFreshDemo,
+  rememberParsedDemo,
+  reparseStaleDemos,
+  withParserCache,
+} from "./parserCache";
 
 /** One console line per successful parse. The same breakdown used to be a UI notice. */
 function logParseBreakdown(fileName: string, timings: ParseTimings, detail?: unknown): void {
@@ -82,6 +88,7 @@ export function useDemoSession(opts: {
   const [parseFiles, setParseFiles] = useState<ParseFileProgress[] | null>(null);
   const [switching, setSwitching] = useState(false);
   const poolRef = useRef<ParseWorkerPool | null>(null);
+  const rawPendingRef = useRef<Promise<ParseWorkerPool> | null>(null);
   const parseGenRef = useRef(0);
   const parsingRef = useRef(false);
   /** True while an append parse is in flight so Cancel does not wipe the session. */
@@ -97,10 +104,8 @@ export function useDemoSession(opts: {
   });
   sessionSnapRef.current = { demo, series, parsedDemos, mapGroups };
 
-  const getPool = useCallback((): ParseWorkerPool | Promise<ParseWorkerPool> => {
-    if (poolRef.current) {
-      return poolRef.current;
-    }
+  const ensureRaw = useCallback((): ParseWorkerPool | Promise<ParseWorkerPool> => {
+    if (poolRef.current) return poolRef.current;
     const injected = createWorkerRef.current;
     if (injected) {
       poolRef.current = createParseWorkerPool(injected);
@@ -111,19 +116,36 @@ export function useDemoSession(opts: {
       poolRef.current = createParseWorkerPool(ready);
       return poolRef.current;
     }
-    return ensureParser().then((create) => {
+    rawPendingRef.current ??= ensureParser().then((create) => {
       poolRef.current ??= createParseWorkerPool(create);
       return poolRef.current;
     });
+    return rawPendingRef.current;
   }, []);
+
+  const getPool = useCallback((): ParseWorkerPool | Promise<ParseWorkerPool> => {
+    const raw = ensureRaw();
+    return raw instanceof Promise
+      ? raw.then((pool) => withParserCache(pool))
+      : withParserCache(raw);
+  }, [ensureRaw]);
 
   useEffect(
     () => () => {
       poolRef.current?.reset();
+      rawPendingRef.current = null;
       discardParserWarmup();
       if (progressRafRef.current) cancelAnimationFrame(progressRafRef.current);
     },
     [],
+  );
+
+  useEffect(
+    () =>
+      reparseStaleDemos(ensureRaw, (fileName, timings, replay) => {
+        logParseBreakdown(fileName, timings, parseDump(replay));
+      }),
+    [ensureRaw],
   );
 
   const scheduleProgress = useCallback((current: number, total: number) => {
@@ -190,6 +212,19 @@ export function useDemoSession(opts: {
     statusRef.current.setNotice("Parse cancelled.");
   }, []);
 
+  const abortInFlightParse = useCallback(() => {
+    parseGenRef.current += 1;
+    parsingRef.current = false;
+    keepSessionRef.current = false;
+    poolRef.current?.reset();
+    if (progressRafRef.current) cancelAnimationFrame(progressRafRef.current);
+    progressRafRef.current = 0;
+    setParsing(false);
+    setProgress(null);
+    setParseFiles(null);
+    setSwitching(false);
+  }, []);
+
   const parseDemo = useCallback(
     (file: File) => {
       const named = demoFileNameIssue(file);
@@ -200,59 +235,81 @@ export function useDemoSession(opts: {
       }
 
       const gen = beginParse();
-      statusRef.current.clear();
-      setParsing(true);
-      setProgress({ current: 0, total: 100 });
-      setParseFiles([{ name: file.name, index: 0, state: "parsing", pct: 0 }]);
-      setDemo(null);
-      setSeries(null);
-      setMapGroups([]);
-      setSelectedMapName(null);
-      setParsedDemos([]);
 
-      const fail = (err: unknown) => {
-        if (gen !== parseGenRef.current) return;
-        endParse();
-        statusRef.current.setError(errorMessage(err));
-      };
+      return inspectDemoFile(file).then(
+        async (issue) => {
+          if (gen !== parseGenRef.current) return;
+          if (issue) {
+            endParse();
+            setProgress(null);
+            setParseFiles(null);
+            statusRef.current.clear();
+            statusRef.current.setError(issue);
+            return;
+          }
+          const cached = await readFreshDemo(file);
+          if (gen !== parseGenRef.current) return;
+          if (cached) {
+            endParse();
+            setProgress(null);
+            setParseFiles(null);
+            statusRef.current.clear();
+            finishSingle(cached);
+            return;
+          }
 
-      const run = (pool: ParseWorkerPool) => {
-        void pool
-          .parseFile(file, (current, workerTotal) => {
+          statusRef.current.clear();
+          setParsing(true);
+          setProgress({ current: 0, total: 100 });
+          setParseFiles([{ name: file.name, index: 0, state: "parsing", pct: 0 }]);
+          setDemo(null);
+          setSeries(null);
+          setMapGroups([]);
+          setSelectedMapName(null);
+          setParsedDemos([]);
+
+          const run = (pool: ParseWorkerPool) => {
+            void pool
+              .parseFile(file, (current, workerTotal) => {
+                if (gen !== parseGenRef.current) return;
+                const total = workerTotal > 0 ? workerTotal : 1;
+                const pct = Math.round((100 * current) / total);
+                scheduleProgress(pct, 100);
+                setParseFiles([{ name: file.name, index: 0, state: "parsing", pct }]);
+              })
+              .then((result) => {
+                if (gen !== parseGenRef.current) return;
+                endParse();
+                if (result.cancelled) return;
+                if (result.error || !result.demo || !result.timings) {
+                  statusRef.current.setError(result.error ?? "Parse failed");
+                  return;
+                }
+                logParseBreakdown(file.name, result.timings, parseDump(result.demo.replay));
+                finishSingle(result.demo);
+                void rememberParsedDemo(file, result.demo.replay);
+              });
+          };
+
+          if (gen !== parseGenRef.current) return;
+          try {
+            const raw = ensureRaw();
+            const pool = raw instanceof Promise ? await raw : raw;
             if (gen !== parseGenRef.current) return;
-            const total = workerTotal > 0 ? workerTotal : 1;
-            const pct = Math.round((100 * current) / total);
-            scheduleProgress(pct, 100);
-            setParseFiles([{ name: file.name, index: 0, state: "parsing", pct }]);
-          })
-          .then((result) => {
+            run(pool);
+          } catch (err) {
             if (gen !== parseGenRef.current) return;
             endParse();
-            if (result.cancelled) return;
-            if (result.error || !result.demo || !result.timings) {
-              statusRef.current.setError(result.error ?? "Parse failed");
-              return;
-            }
-            logParseBreakdown(file.name, result.timings, parseDump(result.demo.replay));
-            finishSingle(result.demo);
-          });
-      };
-
-      return inspectDemoFile(file).then((issue) => {
-        if (gen !== parseGenRef.current) return;
-        if (issue) {
-          endParse();
-          statusRef.current.setError(issue);
-          return;
-        }
-        const poolOrPromise = getPool();
-        if (poolOrPromise instanceof Promise) {
-          return poolOrPromise.then(run).catch(fail);
-        }
-        run(poolOrPromise);
-      }, fail);
+            statusRef.current.setError(errorMessage(err));
+          }
+        },
+        (err: unknown) => {
+          statusRef.current.clear();
+          statusRef.current.setError(errorMessage(err));
+        },
+      );
     },
-    [beginParse, endParse, finishSingle, getPool, scheduleProgress],
+    [beginParse, endParse, ensureRaw, finishSingle, scheduleProgress],
   );
 
   const parseDemos = useCallback(
@@ -535,19 +592,6 @@ export function useDemoSession(opts: {
 
   const setFocalTeam = useCallback((name: string) => {
     setSeries((prev) => (prev ? withFocalTeam(prev, name) : prev));
-  }, []);
-
-  const abortInFlightParse = useCallback(() => {
-    parseGenRef.current += 1;
-    parsingRef.current = false;
-    keepSessionRef.current = false;
-    poolRef.current?.reset();
-    if (progressRafRef.current) cancelAnimationFrame(progressRafRef.current);
-    progressRafRef.current = 0;
-    setParsing(false);
-    setProgress(null);
-    setParseFiles(null);
-    setSwitching(false);
   }, []);
 
   /** Install a parsed demo without WASM (tutorial fixtures, tests). */

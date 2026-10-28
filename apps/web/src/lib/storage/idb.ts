@@ -1,13 +1,15 @@
 import { wrapIdbError } from "./quota";
 
 export const DB_NAME = "cs2analyzer";
-export const DB_VERSION = 6;
+/** v7 adds `parsedDemos` (parser output cache). */
+export const DB_VERSION = 7;
 
 export const PROJECT_STORE = "projects";
 export const HANDLE_STORE = "demoHandles";
 export const PLAYBOOK_STORE = "playbooks";
 export const PLAYBOOK_IMAGE_STORE = "playbookImages";
 export const SETTINGS_STORE = "settings";
+export const PARSED_DEMO_STORE = "parsedDemos";
 
 export function idbAvailable(): boolean {
   return typeof indexedDB !== "undefined";
@@ -35,6 +37,10 @@ function ensureStores(db: IDBDatabase): void {
   }
   if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
     db.createObjectStore(SETTINGS_STORE, { keyPath: "id" });
+  }
+  if (!db.objectStoreNames.contains(PARSED_DEMO_STORE)) {
+    const parsed = db.createObjectStore(PARSED_DEMO_STORE, { keyPath: "key" });
+    parsed.createIndex("matchKey", "matchKey", { unique: false });
   }
 }
 

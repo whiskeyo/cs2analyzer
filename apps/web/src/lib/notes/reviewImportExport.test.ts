@@ -1,4 +1,7 @@
+import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { saveParserCache } from "@/lib/parse/parserCache";
+import { DB_NAME } from "@/lib/storage/idb";
 import { IDB_QUOTA_MESSAGE } from "@/lib/storage/quota";
 import { loadedDemo } from "@/lib/parse/session";
 import { makePlayer, makeReplay } from "@/lib/testing/fixtures";
@@ -279,7 +282,72 @@ describe("tryOpenLinkedDemo", () => {
     mocks.readFileFromHandle.mockResolvedValue(file);
     expect(await tryOpenLinkedDemo(project({ fileName: "match.dem" }), status())).toBe(file);
   });
+
+  it("opens stored demo bytes when no file is linked", async () => {
+    await deleteCs2Db();
+    const saved = project();
+    const source = Uint8Array.of(9, 8, 7).buffer;
+    await saveParserCache({
+      key: "cached-demo",
+      fileName: saved.fileName,
+      replay: makeReplay(),
+      matchKey: saved.key,
+      lastModified: 15,
+      source,
+    });
+    mocks.loadDemoFileHandle.mockResolvedValue(null);
+    const file = await tryOpenLinkedDemo(saved, status());
+    expect(file?.name).toBe(saved.fileName);
+    expect(file?.size).toBe(source.byteLength);
+    expect(file?.lastModified).toBe(15);
+  });
+
+  it("opens stored demo bytes when the linked handle cannot be read", async () => {
+    await deleteCs2Db();
+    const saved = project();
+    const s = status();
+    await saveParserCache({
+      key: "cached-demo",
+      fileName: saved.fileName,
+      replay: makeReplay(),
+      matchKey: saved.key,
+      lastModified: 15,
+      source: Uint8Array.of(1, 2, 3, 4).buffer,
+    });
+    mocks.loadDemoFileHandle.mockResolvedValue({ name: saved.fileName });
+    mocks.readFileFromHandle.mockResolvedValue(null);
+    const file = await tryOpenLinkedDemo(saved, s);
+    expect(file?.name).toBe(saved.fileName);
+    expect(s.notice).toBeNull();
+    expect(s.error).toBeNull();
+  });
+
+  it("stays quiet when the saved note has no demo bytes", async () => {
+    await deleteCs2Db();
+    const saved = project();
+    const s = status();
+    await saveParserCache({
+      key: "cached-demo",
+      fileName: saved.fileName,
+      replay: makeReplay(),
+      matchKey: saved.key,
+      lastModified: 15,
+    });
+    mocks.loadDemoFileHandle.mockResolvedValue(null);
+    expect(await tryOpenLinkedDemo(saved, s)).toBeNull();
+    expect(s.notice).toBeNull();
+    expect(s.error).toBeNull();
+  });
 });
+
+function deleteCs2Db(): Promise<void> {
+  const closing = indexedDB.deleteDatabase(DB_NAME);
+  return new Promise((resolve, reject) => {
+    closing.onsuccess = () => resolve();
+    closing.onerror = () => reject(closing.error ?? new Error("deleteDatabase failed"));
+    closing.onblocked = () => resolve();
+  });
+}
 
 describe("linkDemoFile", () => {
   it("notices when the file picker is unavailable", async () => {
