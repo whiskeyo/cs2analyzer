@@ -15,6 +15,7 @@ import {
 } from "./usage";
 import {
   HANDLE_STORE,
+  PARSED_DEMO_STORE,
   PLAYBOOK_IMAGE_STORE,
   PLAYBOOK_STORE,
   PROJECT_STORE,
@@ -58,6 +59,7 @@ describe("category mapping", () => {
     expect(categoryForStore(PLAYBOOK_IMAGE_STORE)).toBe("photos");
     expect(categoryForStore(SETTINGS_STORE)).toBe("settings");
     expect(categoryForStore(HANDLE_STORE)).toBe("other");
+    expect(categoryForStore(PARSED_DEMO_STORE)).toBe("other");
     expect(categoryForStore("futureStore")).toBe("other");
     expect(emptyCs2DatabaseUsage().categories.map((row) => row.id)).toEqual([
       ...STORAGE_CATEGORY_IDS,

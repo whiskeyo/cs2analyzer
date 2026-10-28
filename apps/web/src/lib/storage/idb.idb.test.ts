@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 import {
   DB_NAME,
   HANDLE_STORE,
+  PARSED_DEMO_STORE,
+  PLAYBOOK_IMAGE_STORE,
   PLAYBOOK_STORE,
   PROJECT_STORE,
   SETTINGS_STORE,
@@ -50,6 +52,7 @@ describe("openCs2Db", () => {
       expect(hasStore(db, HANDLE_STORE)).toBe(true);
       expect(hasStore(db, PLAYBOOK_STORE)).toBe(true);
       expect(hasStore(db, SETTINGS_STORE)).toBe(true);
+      expect(hasStore(db, PARSED_DEMO_STORE)).toBe(true);
     } finally {
       db.close();
     }
@@ -71,6 +74,27 @@ describe("openCs2Db", () => {
     }
   });
 
+  it("adds parsed demos when upgrading a v6 database", async () => {
+    await deleteCs2Db();
+    await openAtVersion(6, (db) => {
+      db.createObjectStore(PROJECT_STORE, { keyPath: "key" });
+      db.createObjectStore(HANDLE_STORE, { keyPath: "key" });
+      db.createObjectStore(PLAYBOOK_STORE, { keyPath: "key" });
+      db.createObjectStore(PLAYBOOK_IMAGE_STORE, { keyPath: "id" });
+      db.createObjectStore(SETTINGS_STORE, { keyPath: "id" });
+    });
+    const db = await openCs2Db();
+    try {
+      expect(hasStore(db, SETTINGS_STORE)).toBe(true);
+      expect(hasStore(db, PARSED_DEMO_STORE)).toBe(true);
+      const tx = db.transaction(PARSED_DEMO_STORE, "readonly");
+      const names = [...tx.objectStore(PARSED_DEMO_STORE).indexNames];
+      expect(names).toContain("matchKey");
+    } finally {
+      db.close();
+    }
+  });
+
   it("is available and creates every store", async () => {
     expect(idbAvailable()).toBe(true);
     const db = await openCs2Db();
@@ -79,6 +103,7 @@ describe("openCs2Db", () => {
       expect(hasStore(db, HANDLE_STORE)).toBe(true);
       expect(hasStore(db, PLAYBOOK_STORE)).toBe(true);
       expect(hasStore(db, SETTINGS_STORE)).toBe(true);
+      expect(hasStore(db, PARSED_DEMO_STORE)).toBe(true);
       expect(hasStore(db, "nope")).toBe(false);
     } finally {
       db.close();

@@ -17,11 +17,11 @@ scripts/build-wasm.sh    Rebuild WASM → apps/web/src/parser/
 .demos/                  Local GOTV files (gitignored; never commit)
 ```
 
-Parser pipeline: `observer.rs` (tick walk) → `assemble.rs` (`Match`) → `analysis.rs` (stats). The web UI **recomputes** live stats in `apps/web/src/lib/stats/stats.ts`; WASM does not ship `Match::stats` (a whole-match snapshot the viewer cannot use) — use the CLI for a Rust-side tally. After parser changes, rebuild WASM **and re-drop the demo**. UI-only stats/HUD changes apply without a re-drop.
+Parser pipeline: `observer.rs` (tick walk) → `assemble.rs` (`Match`) → `analysis.rs` (stats). The web UI **recomputes** live stats in `apps/web/src/lib/stats/stats.ts`; WASM does not ship `Match::stats` (a whole-match snapshot the viewer cannot use) — use the CLI for a Rust-side tally. After a parser-output change, rebuild WASM and bump `PARSER_CACHE_SCHEMA` in `apps/web/src/lib/parse/parserCache.ts` (the only copy of that number). A cached demo whose schema is missing or different is re-parsed from the stored `.dem` bytes; without those bytes the stale entry is ignored until the file is dropped again. UI-only stats/HUD changes apply without a re-drop and without a schema bump.
 
 The worker validates every JSON payload in `lib/parse/decode.ts`, so a serde rename in `types.rs` fails with a named error instead of a blank radar. Update the shapes there when a required field changes.
 
-The live site is still in **testing / pre-official release**. Prefer clean required fields and updated `decode.ts` over compatibility shims (`#[serde(default)]`, dual optional shapes, “old notes still work”) just to keep stale WASM/JSON caches parsing. After a breaking parse change: rebuild WASM and **re-drop the demo**.
+The live site is still in **testing / pre-official release**. Prefer clean required fields and updated `decode.ts` over compatibility shims (`#[serde(default)]`, dual optional shapes, “old notes still work”) just to keep stale WASM/JSON caches parsing. After a parser-output change: rebuild WASM and bump `PARSER_CACHE_SCHEMA`.
 
 Do not edit `apps/web/src/parser/` by hand. Keep `wasm-bindgen-cli` at **0.2.127** (same as the `wasm-bindgen` crate). WASM disables the `mimalloc` and `match-stats` features (`default-features = false`). Release builds use the `wasm-release` profile (LTO, `panic = abort`); optional `wasm-opt` pass in `scripts/build-wasm.sh`.
 
@@ -78,6 +78,7 @@ Web `src/` is pages vs pieces vs logic: `pages/` (route screens), `components/` 
 | Playhead, hotkeys, round scrubber | `lib/playback/`, `components/playback/` |
 | Home, Analyzer, FAQ, Rating, Contact | `apps/web/src/pages/` (`/`, `/analyzer`, `/faq`, `/rating`, `/contact`); FAQ copy in `src/content/faq/*.md`; rating MathML in `pages/Rating.tsx` |
 | Parse worker / drop | `lib/parse/`, `components/app/DropZone.tsx` |
+| Cached demo schema (bump when parser output changes) | `apps/web/src/lib/parse/parserCache.ts` (`PARSER_CACHE_SCHEMA`) |
 | Tutorial fixtures | `lib/tutorial/` (`single-demo/`, `multi-demo/`, `playbook/`); CLI `--generate-ts-fixture` / `--generate-ts-series` |
 | Executes, clutches, util, round story | `lib/match/` (site labels from layout JSON in `sites.ts`; empty layout → hide positions), matching tab in `components/sidebar/` |
 | Executes, clutches, util, round story | `lib/match/` (site labels from layout JSON in `sites.ts`; empty layout → hide positions), matching tab in `components/sidebar/` |
@@ -116,7 +117,7 @@ FACEIT-style targets for a 30-round OT game: team score follows sides (e.g. 14�
 1. Read the existing function before extending it. Match naming and structure in the file you touch.
 2. **Every change should be as small as possible.** Do not bundle unrelated edits. One behavior, one fix, or one feature per diff — then stop. **Every functionality needs its own commit** (do not squash “text notes + sidebar + timeline” into one). **Cap a commit at about 1000 lines** (`git diff --stat`). Split by concern (parser vs UI vs stats vs CI). A larger commit is OK only when the change **cannot be smaller** (generated WASM, lockfile + one feature, rustfmt of a huge file, vendored assets).
 3. Mirror stats logic in both Rust and `lib/stats/stats.ts` when the formula changes. Add a unit test on the side you touched (`analysis.rs` tests and/or `apps/web/src/lib/stats/stats.test.ts`).
-4. After WASM rebuild, tell whiskeyo to **re-drop the demo**. UI-only work: verify the affected flow in the browser (behavior, not a single screenshot). No browser tools: say what you could not click through.
+4. After a parser-output change, bump `PARSER_CACHE_SCHEMA` and rebuild WASM. Cached demos re-parse from stored bytes; tell whiskeyo to re-drop only when those bytes were not kept. UI-only work: verify the affected flow in the browser (behavior, not a single screenshot). No browser tools: say what you could not click through.
 5. Do not add README/docs unless asked. Do not edit plan files. Do not commit `.demos/`, `.env`, or secrets. `apps/web/src/parser/` is generated — commit it only together with the parser change that produced it.
 6. Do not commit unless asked. When asked: one commit per functionality, follow repo commit style, HEREDOC message focused on **why**, no `--no-verify`. Push only when asked.
 
