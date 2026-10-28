@@ -1,7 +1,14 @@
-# The job always runs on pull requests and pushes to master. There is no
-# workflow-level paths filter: a required check that never starts sits on
-# "Expected — waiting". Changes are detected inside the job; unrelated PRs
-# skip the download and parse and finish green.
+# The Real demos job always runs on pull requests and pushes to master.
+# There is no workflow-level paths filter: a required check that never starts
+# sits on "Expected — waiting". Changes are detected in Decide; unrelated PRs
+# skip the download and parse and Real demos finishes green.
+#
+# ubuntu-24.04 mixes CPU SKUs under one label. AMD EPYC 7763 parses this suite
+# in about 13 minutes; EPYC 9V45 and Xeon 6973P finish the same commit in about
+# 7 minutes. The 2026-10-22 and 2026-10-26 cron runs were the slow SKU with
+# cargo and demo cache hits, not a schedule-only cache miss. Parse 1 and
+# Parse 2 decline EPYC 7763. Parse 3 runs on whatever runner it gets, so a
+# slow pool still refreshes the demo cache.
 #
 # Two runs a week touch the demo cache so GitHub does not evict it after
 # 7 days without a Rust change. Local `cargo test` still skips these tests
@@ -30,14 +37,17 @@ concurrency:
   group: real-demos-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
-  real-demos:
-    name: Real demos
+  gate:
+    name: Decide
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    permissions:
-      contents: read
-      pull-requests: read
+    timeout-minutes: 10
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
@@ -53,9 +63,11 @@ jobs:
               - 'test-demos/output-hashes/**'
               - 'scripts/run.sh'
               - '.github/workflows/real-demos.yml'
+              - '.github/workflows/real-demos-parse.yml'
       - name: Decide whether to parse demos
-        id: gate
+        id: decide
         run: |
+          set -euo pipefail
           event="${{ github.event_name }}"
           changed="${{ steps.filter.outputs.demos }}"
           if [[ "$event" == "schedule" || "$event" == "workflow_dispatch" || "$changed" == "true" ]]; then
@@ -63,56 +75,88 @@ jobs:
             echo "Parsing release demos (event=$event changed=$changed)"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "No changes under crates/cs2analyzer, Cargo.toml, Cargo.lock, test-demos/manifest.json, test-demos/output-hashes/**, scripts/run.sh, or this workflow. Skipping download and parse."
+            echo "No changes under crates/cs2analyzer, Cargo.toml, Cargo.lock, test-demos/manifest.json, test-demos/output-hashes/**, scripts/run.sh, .github/workflows/real-demos.yml, or .github/workflows/real-demos-parse.yml. Skipping download and parse."
           fi
-      - uses: dtolnay/rust-toolchain@stable
-        if: steps.gate.outputs.run == 'true'
-      # Separate from the debug Rust job so a release target does not replace it.
-      - uses: Swatinem/rust-cache@v2
-        if: steps.gate.outputs.run == 'true'
-        with:
-          prefix-key: real-demos
-      # Exact manifest hash only. No restore-keys, so an older demo set is never restored.
-      # Pull requests only restore. A PR-scoped save of this ~2.9 GB dir evicts
-      # the master entry from GitHub's 10 GB cache limit.
-      - uses: actions/cache/restore@v4
-        id: demos
-        if: steps.gate.outputs.run == 'true'
-        with:
-          path: test-demos/files
-          key: test-demos-${{ hashFiles('test-demos/manifest.json') }}
-      - name: Verify sha256 or download demos
-        if: steps.gate.outputs.run == 'true'
+
+  # The called workflow caps each parse at 45 minutes. `timeout-minutes` is not
+  # valid on a job that uses `uses`.
+  attempt-1:
+    name: Parse 1
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/real-demos-parse.yml
+    with:
+      allow-slow: false
+      save-cache: ${{ github.event_name != 'pull_request' }}
+
+  attempt-2:
+    name: Parse 2
+    needs: [gate, attempt-1]
+    if: >-
+      needs.gate.outputs.run == 'true' &&
+      needs.attempt-1.result == 'success' &&
+      needs.attempt-1.outputs.accepted != 'true'
+    uses: ./.github/workflows/real-demos-parse.yml
+    with:
+      allow-slow: false
+      save-cache: ${{ github.event_name != 'pull_request' }}
+
+  attempt-3:
+    name: Parse 3
+    needs: [gate, attempt-1, attempt-2]
+    if: >-
+      needs.gate.outputs.run == 'true' &&
+      needs.attempt-1.outputs.accepted != 'true' &&
+      needs.attempt-2.result == 'success' &&
+      needs.attempt-2.outputs.accepted != 'true'
+    uses: ./.github/workflows/real-demos-parse.yml
+    with:
+      allow-slow: true
+      save-cache: ${{ github.event_name != 'pull_request' }}
+
+  real-demos:
+    name: Real demos
+    needs: [gate, attempt-1, attempt-2, attempt-3]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Require a finished parse
+        env:
+          GATE_RESULT: ${{ needs.gate.result }}
+          NEEDED: ${{ needs.gate.outputs.run }}
+          A1_RESULT: ${{ needs.attempt-1.result }}
+          A1_OK: ${{ needs.attempt-1.outputs.accepted }}
+          A1_MODEL: ${{ needs.attempt-1.outputs.model }}
+          A2_RESULT: ${{ needs.attempt-2.result }}
+          A2_OK: ${{ needs.attempt-2.outputs.accepted }}
+          A2_MODEL: ${{ needs.attempt-2.outputs.model }}
+          A3_RESULT: ${{ needs.attempt-3.result }}
+          A3_OK: ${{ needs.attempt-3.outputs.accepted }}
+          A3_MODEL: ${{ needs.attempt-3.outputs.model }}
         run: |
-          if [[ "${{ steps.demos.outputs.cache-hit }}" == "true" ]]; then
-            echo "demo cache hit; hashing every file and re-downloading any mismatch"
-          else
-            echo "demo cache miss; downloading"
+          set -euo pipefail
+          echo "decide=${GATE_RESULT-} needed=${NEEDED-}"
+          echo "parse1 result=${A1_RESULT-} accepted=${A1_OK-} model=${A1_MODEL-}"
+          echo "parse2 result=${A2_RESULT-} accepted=${A2_OK-} model=${A2_MODEL-}"
+          echo "parse3 result=${A3_RESULT-} accepted=${A3_OK-} model=${A3_MODEL-}"
+          if [[ "${GATE_RESULT-}" != "success" ]]; then
+            echo "Decide job did not succeed (${GATE_RESULT-})."
+            exit 1
           fi
-          ./scripts/run.sh --fetch-demos
-      - uses: actions/cache/save@v4
-        if: >-
-          steps.gate.outputs.run == 'true' &&
-          steps.demos.outputs.cache-hit != 'true' &&
-          (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-        with:
-          path: test-demos/files
-          key: test-demos-${{ hashFiles('test-demos/manifest.json') }}
-      - name: Runner CPU
-        if: steps.gate.outputs.run == 'true'
-        run: |
-          nproc
-          lscpu
-      # --nocapture prints each demo's release parse_ms. One test thread keeps
-      # the per-demo RSS sample from overlapping another parse. Cargo's
-      # --no-fail-fast (before `--`) still runs the later targets after one
-      # fails. The test harness has no such flag. time -v is informational;
-      # the harness still fails the step when a test fails.
-      - name: Ignored tests (release)
-        if: steps.gate.outputs.run == 'true'
-        run: |
-          if [[ ! -x /usr/bin/time ]]; then
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq time
+          if [[ "${NEEDED-}" != "true" ]]; then
+            echo "No changes under crates/cs2analyzer, Cargo.toml, Cargo.lock, test-demos/manifest.json, test-demos/output-hashes/**, scripts/run.sh, .github/workflows/real-demos.yml, or .github/workflows/real-demos-parse.yml. Skipping download and parse."
+            exit 0
           fi
-          /usr/bin/time -v cargo test --release --no-fail-fast -p cs2analyzer -- --ignored --nocapture --test-threads=1
+          parsed() {
+            local result="$1" accepted="$2" label="$3" model="$4"
+            if [[ "$result" == "success" && "$accepted" == "true" ]]; then
+              echo "Parsed on ${label} (${model:-unknown CPU})."
+              exit 0
+            fi
+          }
+          parsed "${A1_RESULT-}" "${A1_OK-}" "Parse 1" "${A1_MODEL-}"
+          parsed "${A2_RESULT-}" "${A2_OK-}" "Parse 2" "${A2_MODEL-}"
+          parsed "${A3_RESULT-}" "${A3_OK-}" "Parse 3" "${A3_MODEL-}"
+          echo "Real demos did not finish a parse."
+          exit 1
